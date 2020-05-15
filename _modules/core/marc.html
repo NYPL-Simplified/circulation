@@ -518,7 +518,6 @@
     <span class="n">WEB_CLIENT_URL</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;marc_web_client_url&#39;</span>
     <span class="n">INCLUDE_SUMMARY</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;include_summary&#39;</span>
     <span class="n">INCLUDE_SIMPLIFIED_GENRES</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;include_simplified_genres&#39;</span>
-    <span class="n">STORAGE_PROTOCOL</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;storage_protocol&#39;</span>
 
     <span class="n">LIBRARY_SETTINGS</span> <span class="o">=</span> <span class="p">[</span>
         <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">UPDATE_FREQUENCY</span><span class="p">,</span>
@@ -674,7 +673,7 @@
         <span class="c1"># We mirror the content, if it&#39;s not empty. If it&#39;s empty, we create a CachedMARCFile</span>
         <span class="c1"># and Representation, but don&#39;t actually mirror it.</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">mirror</span><span class="p">:</span>
-            <span class="n">storage_protocol</span> <span class="o">=</span> <span class="n">mirror_integration</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">STORAGE_PROTOCOL</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+            <span class="n">storage_protocol</span> <span class="o">=</span> <span class="n">mirror_integration</span><span class="o">.</span><span class="n">protocol</span>
             <span class="n">mirror</span> <span class="o">=</span> <span class="n">MirrorUploader</span><span class="o">.</span><span class="n">implementation</span><span class="p">(</span><span class="n">mirror_integration</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">mirror</span><span class="o">.</span><span class="n">NAME</span> <span class="o">!=</span> <span class="n">storage_protocol</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;Mirror integration does not match configured storage protocol&quot;</span><span class="p">)</span>

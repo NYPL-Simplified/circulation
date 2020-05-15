@@ -3259,12 +3259,12 @@ changes will be overwritten by run_once().</li>
 
 <dl class="attribute">
 <dt id="api.bibliotheca.ErrorParser.hold_limit_reached">
-<code class="descname">hold_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x38fd9f0&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.hold_limit_reached" title="Permalink to this definition">¶</a></dt>
+<code class="descname">hold_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x41da3c0&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.hold_limit_reached" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="api.bibliotheca.ErrorParser.loan_limit_reached">
-<code class="descname">loan_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x36ae520&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.loan_limit_reached" title="Permalink to this definition">¶</a></dt>
+<code class="descname">loan_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x41da0f0&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.loan_limit_reached" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -3279,7 +3279,7 @@ changes will be overwritten by run_once().</li>
 
 <dl class="attribute">
 <dt id="api.bibliotheca.ErrorParser.wrong_status">
-<code class="descname">wrong_status</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x36ae9e0&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.wrong_status" title="Permalink to this definition">¶</a></dt>
+<code class="descname">wrong_status</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x41d9da0&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.wrong_status" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -8486,7 +8486,7 @@ the patron belongs to the library associated with thie BasicAuthenticationProvid
 
 <dl class="attribute">
 <dt id="api.millenium_patron.MockMilleniumPatronAPI.the_future">
-<code class="descname">the_future</code><em class="property"> = datetime.datetime(2020, 5, 23, 21, 36, 19, 2435)</em><a class="headerlink" href="#api.millenium_patron.MockMilleniumPatronAPI.the_future" title="Permalink to this definition">¶</a></dt>
+<code class="descname">the_future</code><em class="property"> = datetime.datetime(2020, 5, 25, 21, 30, 17, 146639)</em><a class="headerlink" href="#api.millenium_patron.MockMilleniumPatronAPI.the_future" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -12226,9 +12226,17 @@ Create Work, Edition, LicensePool objects in our database.</p>
 
 <dl class="method">
 <dt id="api.rbdigital.RBDigitalAPI.populate_delta">
-<code class="descname">populate_delta</code><span class="sig-paren">(</span><em>months=1</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/rbdigital.html#RBDigitalAPI.populate_delta"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.rbdigital.RBDigitalAPI.populate_delta" title="Permalink to this definition">¶</a></dt>
+<code class="descname">populate_delta</code><span class="sig-paren">(</span><em>months=1</em>, <em>today=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/rbdigital.html#RBDigitalAPI.populate_delta"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.rbdigital.RBDigitalAPI.populate_delta" title="Permalink to this definition">¶</a></dt>
 <dd><p>Call get_delta for the last month to get all of the library’s book info changes
 from RBDigital.  Update Work, Edition, LicensePool objects in our database.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>today</strong> – A date to use instead of the current date, for use in tests.</td>
+</tr>
+</tbody>
+</table>
 </dd></dl>
 
 <dl class="method">

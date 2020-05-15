@@ -113,6 +113,7 @@
 
     <span class="c1"># Special constants for cache durations.</span>
     <span class="n">CACHE_FOREVER</span> <span class="o">=</span> <span class="nb">object</span><span class="p">()</span>
+    <span class="n">IGNORE_CACHE</span> <span class="o">=</span> <span class="nb">object</span><span class="p">()</span>
 
     <span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">&quot;CachedFeed&quot;</span><span class="p">)</span>
 
@@ -157,7 +158,7 @@
 
         <span class="c1"># Calculate the maximum cache age, converting from timedelta</span>
         <span class="c1"># to seconds if necessary.</span>
-        <span class="n">max_age</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">max_cache_age</span><span class="p">(</span><span class="n">worklist</span><span class="p">,</span> <span class="n">keys</span><span class="o">.</span><span class="n">feed_type</span><span class="p">,</span> <span class="n">max_age</span><span class="p">)</span>
+        <span class="n">max_age</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">max_cache_age</span><span class="p">(</span><span class="n">worklist</span><span class="p">,</span> <span class="n">keys</span><span class="o">.</span><span class="n">feed_type</span><span class="p">,</span> <span class="n">facets</span><span class="p">,</span> <span class="n">max_age</span><span class="p">)</span>
 
         <span class="c1"># These arguments will probably be passed into get_one, and</span>
         <span class="c1"># will be passed into get_one_or_create in the event of a cache</span>
@@ -178,8 +179,8 @@
             <span class="n">facets</span><span class="o">=</span><span class="n">keys</span><span class="o">.</span><span class="n">facets_key</span><span class="p">,</span>
             <span class="n">pagination</span><span class="o">=</span><span class="n">keys</span><span class="o">.</span><span class="n">pagination_key</span>
         <span class="p">)</span>
-
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">max_age</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span> <span class="ow">and</span> <span class="n">max_age</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">feed_data</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">max_age</span> <span class="ow">is</span> <span class="bp">cls</span><span class="o">.</span><span class="n">IGNORE_CACHE</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">max_age</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span> <span class="ow">and</span> <span class="n">max_age</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">):</span>
             <span class="c1"># Don&#39;t even bother checking for a CachedFeed: we&#39;re</span>
             <span class="c1"># just going to replace it.</span>
             <span class="n">feed_obj</span> <span class="o">=</span> <span class="kc">None</span>
@@ -193,23 +194,29 @@
             <span class="n">feed_data</span> <span class="o">=</span> <span class="n">unicode</span><span class="p">(</span><span class="n">refresher_method</span><span class="p">())</span>
             <span class="n">generation_time</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
 
-            <span class="c1"># Since it can take a while to generate a feed, and we know</span>
-            <span class="c1"># that the feed in the database is stale, it&#39;s possible that</span>
-            <span class="c1"># another thread _also_ noticed that feed was stale, and</span>
-            <span class="c1"># generated a similar feed while we were working.</span>
-            <span class="c1">#</span>
-            <span class="c1"># To avoid a database error, fetch the feed _again_ from the</span>
-            <span class="c1"># database rather than assuming we have the up-to-date</span>
-            <span class="c1"># object.</span>
-            <span class="n">feed_obj</span><span class="p">,</span> <span class="n">is_new</span> <span class="o">=</span> <span class="n">get_one_or_create</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="bp">cls</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">feed_obj</span><span class="o">.</span><span class="n">timestamp</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">feed_obj</span><span class="o">.</span><span class="n">timestamp</span> <span class="o">&lt;</span> <span class="n">generation_time</span><span class="p">:</span>
-                <span class="c1"># Either there was no contention for this object, or there</span>
-                <span class="c1"># was contention but our feed is more up-to-date than</span>
-                <span class="c1"># the other thread(s). Our feed takes priority.</span>
-                <span class="n">feed_obj</span><span class="o">.</span><span class="n">content</span> <span class="o">=</span> <span class="n">feed_data</span>
-                <span class="n">feed_obj</span><span class="o">.</span><span class="n">timestamp</span> <span class="o">=</span> <span class="n">generation_time</span>
+            <span class="k">if</span> <span class="n">max_age</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">cls</span><span class="o">.</span><span class="n">IGNORE_CACHE</span><span class="p">:</span>
+                <span class="c1"># Having gone through all the trouble of generating</span>
+                <span class="c1"># the feed, we want to cache it in the database.</span>
 
-        <span class="k">if</span> <span class="n">raw</span><span class="p">:</span>
+                <span class="c1"># Since it can take a while to generate a feed, and we know</span>
+                <span class="c1"># that the feed in the database is stale, it&#39;s possible that</span>
+                <span class="c1"># another thread _also_ noticed that feed was stale, and</span>
+                <span class="c1"># generated a similar feed while we were working.</span>
+                <span class="c1">#</span>
+                <span class="c1"># To avoid a database error, fetch the feed _again_ from the</span>
+                <span class="c1"># database rather than assuming we have the up-to-date</span>
+                <span class="c1"># object.</span>
+                <span class="n">feed_obj</span><span class="p">,</span> <span class="n">is_new</span> <span class="o">=</span> <span class="n">get_one_or_create</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="bp">cls</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">feed_obj</span><span class="o">.</span><span class="n">timestamp</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">feed_obj</span><span class="o">.</span><span class="n">timestamp</span> <span class="o">&lt;</span> <span class="n">generation_time</span><span class="p">:</span>
+                    <span class="c1"># Either there was no contention for this object, or there</span>
+                    <span class="c1"># was contention but our feed is more up-to-date than</span>
+                    <span class="c1"># the other thread(s). Our feed takes priority.</span>
+                    <span class="n">feed_obj</span><span class="o">.</span><span class="n">content</span> <span class="o">=</span> <span class="n">feed_data</span>
+                    <span class="n">feed_obj</span><span class="o">.</span><span class="n">timestamp</span> <span class="o">=</span> <span class="n">generation_time</span>
+        <span class="k">elif</span> <span class="n">feed_obj</span><span class="p">:</span>
+            <span class="n">feed_data</span> <span class="o">=</span> <span class="n">feed_obj</span><span class="o">.</span><span class="n">content</span>
+
+        <span class="k">if</span> <span class="n">raw</span> <span class="ow">and</span> <span class="n">feed_obj</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">feed_obj</span>
 
         <span class="c1"># We have the information necessary to create a useful</span>
@@ -218,8 +225,15 @@
         <span class="c1"># Set some defaults in case the caller didn&#39;t pass them in.</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">max_age</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
             <span class="n">response_kwargs</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s1">&#39;max_age&#39;</span><span class="p">,</span> <span class="n">max_age</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">max_age</span> <span class="o">==</span> <span class="bp">cls</span><span class="o">.</span><span class="n">IGNORE_CACHE</span><span class="p">:</span>
+            <span class="c1"># If we were asked to ignore our internal cache, we should</span>
+            <span class="c1"># also tell the client not to store this document in _its_</span>
+            <span class="c1"># internal cache.</span>
+            <span class="n">response_kwargs</span><span class="p">[</span><span class="s1">&#39;max_age&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+
         <span class="k">return</span> <span class="n">OPDSFeedResponse</span><span class="p">(</span>
-            <span class="n">response</span><span class="o">=</span><span class="n">feed_obj</span><span class="o">.</span><span class="n">content</span><span class="p">,</span>
+            <span class="n">response</span><span class="o">=</span><span class="n">feed_data</span><span class="p">,</span>
             <span class="o">**</span><span class="n">response_kwargs</span>
         <span class="p">)</span></div>
 
@@ -240,25 +254,30 @@
         <span class="k">return</span> <span class="nb">type</span></div>
 
 <div class="viewcode-block" id="CachedFeed.max_cache_age"><a class="viewcode-back" href="../../../core.model.html#core.monitor.CachedFeed.max_cache_age">[docs]</a>    <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">max_cache_age</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">worklist</span><span class="p">,</span> <span class="nb">type</span><span class="p">,</span> <span class="n">override</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">max_cache_age</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">worklist</span><span class="p">,</span> <span class="nb">type</span><span class="p">,</span> <span class="n">facets</span><span class="p">,</span> <span class="n">override</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Determine the number of seconds that a cached feed</span>
 <span class="sd">        of a given type can remain fresh.</span>
 
-<span class="sd">        :param worklist: A WorkList.</span>
+<span class="sd">        Order of precedence: `override`, `facets`, `worklist`.</span>
+
+<span class="sd">        :param worklist: A WorkList which may have an opinion on this</span>
+<span class="sd">           topic.</span>
 <span class="sd">        :param type: The type of feed being generated.</span>
-<span class="sd">        :param override: A specific value passed in by the user. This</span>
+<span class="sd">        :param facets: A faceting object that may have an opinion on this</span>
+<span class="sd">           topic.</span>
+<span class="sd">        :param override: A specific value passed in by the caller. This</span>
 <span class="sd">            may either be a number of seconds or a timedelta.</span>
 
-<span class="sd">        :return: A number of seconds, or CACHE_FOREVER.</span>
+<span class="sd">        :return: A number of seconds, or CACHE_FOREVER or IGNORE_CACHE</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">value</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="k">if</span> <span class="n">override</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">value</span> <span class="o">=</span> <span class="n">override</span>
-        <span class="k">elif</span> <span class="n">worklist</span><span class="p">:</span>
+        <span class="n">value</span> <span class="o">=</span> <span class="n">override</span>
+        <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">facets</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="n">facets</span><span class="o">.</span><span class="n">max_cache_age</span>
+        <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">worklist</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">value</span> <span class="o">=</span> <span class="n">worklist</span><span class="o">.</span><span class="n">max_cache_age</span><span class="p">(</span><span class="nb">type</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="n">value</span> <span class="o">==</span> <span class="bp">cls</span><span class="o">.</span><span class="n">CACHE_FOREVER</span><span class="p">:</span>
-            <span class="c1"># This feed should be cached forever.</span>
+        <span class="k">if</span> <span class="n">value</span> <span class="ow">in</span> <span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">CACHE_FOREVER</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">IGNORE_CACHE</span><span class="p">):</span>
+            <span class="c1"># Special caching rules apply.</span>
             <span class="k">return</span> <span class="n">value</span>
 
         <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -276,13 +295,16 @@
 <span class="sd">        :param feed_obj: A CachedFeed. This may be None, which is why</span>
 <span class="sd">            this is a class method.</span>
 
-<span class="sd">        :param max_age: Either a number of seconds, or the constant</span>
-<span class="sd">            CACHE_FOREVER.</span>
+<span class="sd">        :param max_age: Either a number of seconds, or one of the constants</span>
+<span class="sd">            CACHE_FOREVER or IGNORE_CACHE.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">should_refresh</span> <span class="o">=</span> <span class="kc">False</span>
         <span class="k">if</span> <span class="n">feed_obj</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="c1"># If we didn&#39;t find a CachedFeed (maybe because we didn&#39;t</span>
             <span class="c1"># bother looking), we must always refresh.</span>
+            <span class="n">should_refresh</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">elif</span> <span class="n">max_age</span> <span class="o">==</span> <span class="bp">cls</span><span class="o">.</span><span class="n">IGNORE_CACHE</span><span class="p">:</span>
+            <span class="c1"># If we are ignoring the cache, we must always refresh.</span>
             <span class="n">should_refresh</span> <span class="o">=</span> <span class="kc">True</span>
         <span class="k">elif</span> <span class="n">max_age</span> <span class="o">==</span> <span class="bp">cls</span><span class="o">.</span><span class="n">CACHE_FOREVER</span><span class="p">:</span>
             <span class="c1"># If we found *anything*, and the cache time is CACHE_FOREVER,</span>

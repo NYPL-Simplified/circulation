@@ -3408,6 +3408,11 @@ if the library does not have that facet configured.</p>
 <dd></dd></dl>
 
 <dl class="attribute">
+<dt id="core.facets.FacetConstants.MAX_CACHE_AGE_NAME">
+<code class="descname">MAX_CACHE_AGE_NAME</code><em class="property"> = 'max_age'</em><a class="headerlink" href="#core.facets.FacetConstants.MAX_CACHE_AGE_NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
 <dt id="core.facets.FacetConstants.ORDER_ADDED_TO_COLLECTION">
 <code class="descname">ORDER_ADDED_TO_COLLECTION</code><em class="property"> = 'added'</em><a class="headerlink" href="#core.facets.FacetConstants.ORDER_ADDED_TO_COLLECTION" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -3489,6 +3494,20 @@ if the library does not have that facet configured.</p>
 <dd></dd></dl>
 
 <dl class="attribute">
+<dt id="core.lane.BaseFacets.cached">
+<code class="descname">cached</code><a class="headerlink" href="#core.lane.BaseFacets.cached" title="Permalink to this definition">¶</a></dt>
+<dd><p>This faceting object’s opinion on whether feeds should be cached.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">A boolean, or None for ‘no opinion’.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="attribute">
 <dt id="core.lane.BaseFacets.facet_groups">
 <code class="descname">facet_groups</code><a class="headerlink" href="#core.lane.BaseFacets.facet_groups" title="Permalink to this definition">¶</a></dt>
 <dd><p>Yield a list of 4-tuples
@@ -3507,6 +3526,11 @@ specific facet settings, and to distinguish between CachedFeed
 objects that represent the same feed with different facet
 settings.</p>
 </dd></dl>
+
+<dl class="attribute">
+<dt id="core.lane.BaseFacets.max_cache_age">
+<code class="descname">max_cache_age</code><em class="property"> = None</em><a class="headerlink" href="#core.lane.BaseFacets.max_cache_age" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
 
 <dl class="method">
 <dt id="core.lane.BaseFacets.modify_database_query">
@@ -3795,7 +3819,7 @@ which must be handled separately.</p>
 <dt id="core.lane.Facets.items">
 <code class="descname">items</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/lane.html#Facets.items"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.lane.Facets.items" title="Permalink to this definition">¶</a></dt>
 <dd><p>Yields a 2-tuple for every active facet setting.</p>
-<p>In this class that just means the entrypoint.</p>
+<p>In this class that just means the entrypoint and any max_cache_age.</p>
 </dd></dl>
 
 <dl class="method">
@@ -3827,7 +3851,7 @@ different availabilty statuses is kept in Filter.build().</p>
 
 <dl class="class">
 <dt id="core.lane.FacetsWithEntryPoint">
-<em class="property">class </em><code class="descclassname">core.lane.</code><code class="descname">FacetsWithEntryPoint</code><span class="sig-paren">(</span><em>entrypoint=None</em>, <em>entrypoint_is_default=False</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/lane.html#FacetsWithEntryPoint"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.lane.FacetsWithEntryPoint" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="descclassname">core.lane.</code><code class="descname">FacetsWithEntryPoint</code><span class="sig-paren">(</span><em>entrypoint=None</em>, <em>entrypoint_is_default=False</em>, <em>max_cache_age=None</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/lane.html#FacetsWithEntryPoint"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.lane.FacetsWithEntryPoint" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="#core.lane.BaseFacets" title="core.lane.BaseFacets"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.lane.BaseFacets</span></code></a></p>
 <p>Basic Facets class that knows how to filter a query based on a
 selected EntryPoint.</p>
@@ -3871,7 +3895,7 @@ a problem with the input from the request.</p>
 <dt id="core.lane.FacetsWithEntryPoint.items">
 <code class="descname">items</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/lane.html#FacetsWithEntryPoint.items"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.lane.FacetsWithEntryPoint.items" title="Permalink to this definition">¶</a></dt>
 <dd><p>Yields a 2-tuple for every active facet setting.</p>
-<p>In this class that just means the entrypoint.</p>
+<p>In this class that just means the entrypoint and any max_cache_age.</p>
 </dd></dl>
 
 <dl class="classmethod">
@@ -3897,6 +3921,23 @@ enabled EntryPoint will be used.</li>
 </tr>
 <tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">A 2-tuple (EntryPoint class, is_default).</p>
 </td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="classmethod">
+<dt id="core.lane.FacetsWithEntryPoint.load_max_cache_age">
+<em class="property">classmethod </em><code class="descname">load_max_cache_age</code><span class="sig-paren">(</span><em>value</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/lane.html#FacetsWithEntryPoint.load_max_cache_age"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.lane.FacetsWithEntryPoint.load_max_cache_age" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convert a value for the MAX_CACHE_AGE_NAME parameter to a value
+that CachedFeed will understand.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>value</strong> – A string.</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">For now, either CachedFeed.IGNORE_CACHE or None.</td>
 </tr>
 </tbody>
 </table>
@@ -5075,7 +5116,7 @@ it is formatted using formatException() and appended to the message.</p>
 
 <dl class="attribute">
 <dt id="core.log.JSONFormatter.hostname">
-<code class="descname">hostname</code><em class="property"> = 'travis-job-5c7b06d2-03e8-4a00-a912-eed54071755d'</em><a class="headerlink" href="#core.log.JSONFormatter.hostname" title="Permalink to this definition">¶</a></dt>
+<code class="descname">hostname</code><em class="property"> = 'travis-job-a09fd135-5d49-4c5b-a68b-5a011b059811'</em><a class="headerlink" href="#core.log.JSONFormatter.hostname" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -5547,11 +5588,6 @@ Work, the client has expressed interest in this one.</td>
 <dl class="attribute">
 <dt id="core.marc.MARCExporter.SETTING">
 <code class="descname">SETTING</code><em class="property"> = {'description': l'Storage protocol to use for uploading generated MARC files. The service must already be configured under 'Storage Services'.', 'key': 'mirror_integration_id', 'label': l'MARC Mirror', 'options': [{'key': u'NO_MIRROR', 'label': l'None - Do not mirror MARC files'}], 'type': 'select'}</em><a class="headerlink" href="#core.marc.MARCExporter.SETTING" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="core.marc.MARCExporter.STORAGE_PROTOCOL">
-<code class="descname">STORAGE_PROTOCOL</code><em class="property"> = u'storage_protocol'</em><a class="headerlink" href="#core.marc.MARCExporter.STORAGE_PROTOCOL" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -9484,7 +9520,7 @@ boto3 client.</p>
 
 <dl class="attribute">
 <dt id="core.s3.S3Uploader.SETTINGS">
-<code class="descname">SETTINGS</code><em class="property"> = [{'key': u'username', 'label': l'Access Key'}, {'description': l'If the &lt;em&gt;Access Key&lt;/em&gt; and &lt;em&gt;Secret Key&lt;/em&gt; are not given here credentials will be used as outlined in the &lt;a href='https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html#configuring-credentials'&gt;Boto3 documenation&lt;/a&gt;. If &lt;em&gt;Access Key&lt;/em&gt; is given, &lt;em&gt;Secrent Key&lt;/em&gt; must also be given.', 'key': u'password', 'label': l'Secret Key'}, {'description': l'All book cover images encountered will be mirrored to this S3 bucket. Large images will be scaled down, and the scaled-down copies will also be uploaded to this bucket. &lt;p&gt;The bucket must already exist&amp;mdash;it will not be created automatically.&lt;/p&gt;', 'key': u'book_covers_bucket', 'label': l'Book Covers Bucket'}, {'description': l'All open-access books encountered will be uploaded to this S3 bucket. &lt;p&gt;The bucket must already exist&amp;mdash;it will not be created automatically.&lt;/p&gt;', 'key': u'open_access_content_bucket', 'label': l'Open Access Content Bucket'}, {'description': l'All generated MARC files will be uploaded to this S3 bucket. &lt;p&gt;The bucket must already exist&amp;mdash;it will not be created automatically.&lt;/p&gt;', 'key': u'marc_bucket', 'label': l'MARC File Bucket'}, {'description': l'A file mirrored to S3 is available at &lt;code&gt;http://s3.amazonaws.com/{bucket}/{filename}&lt;/code&gt;. If you've set up your DNS so that http:///[bucket]/ or https://[bucket]/ points to the appropriate S3 bucket, you can configure this S3 integration to shorten the URLs. &lt;p&gt;If you haven't set up your S3 buckets, don't change this from the default -- you'll get URLs that don't work.&lt;/p&gt;', 'default': u'identity', 'label': l'URL format', 'key': u'bucket_name_transform', 'type': 'select', 'options': [{'key': u'identity', 'label': l'S3 Default: https://s3.amazonaws.com/{bucket}/{file}'}, {'key': u'https', 'label': l'HTTPS: https://{bucket}/{file}'}, {'key': u'http', 'label': l'HTTP: http://{bucket}/{file}'}]}]</em><a class="headerlink" href="#core.s3.S3Uploader.SETTINGS" title="Permalink to this definition">¶</a></dt>
+<code class="descname">SETTINGS</code><em class="property"> = [{'key': u'username', 'label': l'Access Key'}, {'description': l'If the &lt;em&gt;Access Key&lt;/em&gt; and &lt;em&gt;Secret Key&lt;/em&gt; are not given here credentials will be used as outlined in the &lt;a href='https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html#configuring-credentials'&gt;Boto3 documenation&lt;/a&gt;. If &lt;em&gt;Access Key&lt;/em&gt; is given, &lt;em&gt;Secrent Key&lt;/em&gt; must also be given.', 'key': u'password', 'label': l'Secret Key'}, {'description': l'All book cover images encountered will be mirrored to this S3 bucket. Large images will be scaled down, and the scaled-down copies will also be uploaded to this bucket. &lt;p&gt;The bucket must already exist&amp;mdash;it will not be created automatically.&lt;/p&gt;', 'key': u'book_covers_bucket', 'label': l'Book Covers Bucket'}, {'description': l'All open-access books encountered will be uploaded to this S3 bucket. &lt;p&gt;The bucket must already exist&amp;mdash;it will not be created automatically.&lt;/p&gt;', 'key': u'open_access_content_bucket', 'label': l'Open Access Content Bucket'}, {'description': l'All generated MARC files will be uploaded to this S3 bucket. &lt;p&gt;The bucket must already exist&amp;mdash;it will not be created automatically.&lt;/p&gt;', 'key': u'marc_bucket', 'label': l'MARC File Bucket'}, {'description': l'A file mirrored to S3 is available at &lt;code&gt;http://s3.amazonaws.com/{bucket}/{filename}&lt;/code&gt;. If you've set up your DNS so that http://[bucket]/ or https://[bucket]/ points to the appropriate S3 bucket, you can configure this S3 integration to shorten the URLs. &lt;p&gt;If you haven't set up your S3 buckets, don't change this from the default -- you'll get URLs that don't work.&lt;/p&gt;', 'default': u'identity', 'label': l'URL format', 'key': u'bucket_name_transform', 'type': 'select', 'options': [{'key': u'identity', 'label': l'S3 Default: https://s3.amazonaws.com/{bucket}/{file}'}, {'key': u'https', 'label': l'HTTPS: https://{bucket}/{file}'}, {'key': u'http', 'label': l'HTTP: http://{bucket}/{file}'}]}]</em><a class="headerlink" href="#core.s3.S3Uploader.SETTINGS" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">

@@ -1172,9 +1172,22 @@
     <span class="p">}</span>
 
 <div class="viewcode-block" id="EventParser.process_all"><a class="viewcode-back" href="../../api.html#api.bibliotheca.EventParser.process_all">[docs]</a>    <span class="k">def</span> <span class="nf">process_all</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">string</span><span class="p">):</span>
+        <span class="n">has_events</span> <span class="o">=</span> <span class="kc">False</span>
         <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">super</span><span class="p">(</span><span class="n">EventParser</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">process_all</span><span class="p">(</span>
                 <span class="n">string</span><span class="p">,</span> <span class="s2">&quot;//CloudLibraryEvent&quot;</span><span class="p">):</span>
-            <span class="k">yield</span> <span class="n">i</span></div>
+            <span class="k">yield</span> <span class="n">i</span>
+            <span class="n">has_events</span> <span class="o">=</span> <span class="kc">True</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">has_events</span><span class="p">:</span>
+            <span class="c1"># An empty list of events may mean nothing happened, or it</span>
+            <span class="c1"># may indicate an unreported server-side error. To be</span>
+            <span class="c1"># safe, we&#39;ll treat this as a server-initiated error</span>
+            <span class="c1"># condition. If this is just a slow day, normal behavior</span>
+            <span class="c1"># will resume as soon as something happens.</span>
+            <span class="k">raise</span> <span class="n">RemoteInitiatedServerError</span><span class="p">(</span>
+                <span class="s2">&quot;No events returned from server. This may not be an error, but treating it as one to be safe.&quot;</span><span class="p">,</span>
+                <span class="n">BibliothecaAPI</span><span class="o">.</span><span class="n">SERVICE_NAME</span>
+            <span class="p">)</span></div>
 
 <div class="viewcode-block" id="EventParser.process_one"><a class="viewcode-back" href="../../api.html#api.bibliotheca.EventParser.process_one">[docs]</a>    <span class="k">def</span> <span class="nf">process_one</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tag</span><span class="p">,</span> <span class="n">namespaces</span><span class="p">):</span>
         <span class="n">isbn</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">text_of_subtag</span><span class="p">(</span><span class="n">tag</span><span class="p">,</span> <span class="s2">&quot;ISBN&quot;</span><span class="p">)</span>

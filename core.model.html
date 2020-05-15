@@ -292,6 +292,11 @@
 <dd></dd></dl>
 
 <dl class="attribute">
+<dt id="core.model.cachedfeed.CachedFeed.IGNORE_CACHE">
+<code class="descname">IGNORE_CACHE</code><em class="property"> = &lt;object object&gt;</em><a class="headerlink" href="#core.model.cachedfeed.CachedFeed.IGNORE_CACHE" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
 <dt id="core.model.cachedfeed.CachedFeed.NAVIGATION_TYPE">
 <code class="descname">NAVIGATION_TYPE</code><em class="property"> = u'navigation'</em><a class="headerlink" href="#core.model.cachedfeed.CachedFeed.NAVIGATION_TYPE" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -406,22 +411,26 @@ non-test situations the default is better.</li>
 
 <dl class="classmethod">
 <dt id="core.model.cachedfeed.CachedFeed.max_cache_age">
-<em class="property">classmethod </em><code class="descname">max_cache_age</code><span class="sig-paren">(</span><em>worklist</em>, <em>type</em>, <em>override=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/model/cachedfeed.html#CachedFeed.max_cache_age"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.cachedfeed.CachedFeed.max_cache_age" title="Permalink to this definition">¶</a></dt>
+<em class="property">classmethod </em><code class="descname">max_cache_age</code><span class="sig-paren">(</span><em>worklist</em>, <em>type</em>, <em>facets</em>, <em>override=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/model/cachedfeed.html#CachedFeed.max_cache_age"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.cachedfeed.CachedFeed.max_cache_age" title="Permalink to this definition">¶</a></dt>
 <dd><p>Determine the number of seconds that a cached feed
 of a given type can remain fresh.</p>
+<p>Order of precedence: <cite>override</cite>, <cite>facets</cite>, <cite>worklist</cite>.</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
-<li><strong>worklist</strong> – A WorkList.</li>
+<li><strong>worklist</strong> – A WorkList which may have an opinion on this
+topic.</li>
 <li><strong>type</strong> – The type of feed being generated.</li>
-<li><strong>override</strong> – A specific value passed in by the user. This
+<li><strong>facets</strong> – A faceting object that may have an opinion on this
+topic.</li>
+<li><strong>override</strong> – A specific value passed in by the caller. This
 may either be a number of seconds or a timedelta.</li>
 </ul>
 </td>
 </tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">A number of seconds, or CACHE_FOREVER.</p>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">A number of seconds, or CACHE_FOREVER or IGNORE_CACHE</p>
 </td>
 </tr>
 </tbody>
