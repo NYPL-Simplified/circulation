@@ -178,6 +178,12 @@ class CirculationManager(object):
         self.setup_one_time_controllers()
         self.load_settings()
 
+    def load_facets_from_request(self):
+        facets = core_load_facets_from_request
+        if facets.max_cache_age is not None:
+        app.manager.admin_sign_in_controller.authenticated_admin_from_request()
+
+
     def reload_settings_if_changed(self):
         """If the site configuration has been updated, reload the
         CirculationManager's configuration from the database.
