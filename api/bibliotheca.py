@@ -1137,9 +1137,22 @@ class EventParser(BibliothecaParser):
     }
 
     def process_all(self, string):
+        has_events = False
         for i in super(EventParser, self).process_all(
                 string, "//CloudLibraryEvent"):
             yield i
+            has_events = True
+
+        if not has_events:
+            # An empty list of events may mean nothing happened, or it
+            # may indicate an unreported server-side error. To be
+            # safe, we'll treat this as a server-initiated error
+            # condition. If this is just a slow day, normal behavior
+            # will resume as soon as something happens.
+            raise RemoteInitiatedServerError(
+                "No events returned from server. This may not be an error, but treating it as one to be safe.",
+                BibliothecaAPI.SERVICE_NAME
+            )
 
     def process_one(self, tag, namespaces):
         isbn = self.text_of_subtag(tag, "ISBN")
