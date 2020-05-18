@@ -155,6 +155,7 @@ from novelist import (
 from base_controller import BaseCirculationManagerController
 from testing import MockCirculationAPI, MockSharedCollectionAPI
 from core.analytics import Analytics
+from core.lane import BaseFacets
 from core.marc import MARCExporter
 
 class CirculationManager(object):
@@ -186,7 +187,7 @@ class CirculationManager(object):
         caching rules unless you're an authenticated administrator.
         """
         facets = load_facets_from_request(*args, **kwargs)
-        if facets and facets.max_cache_age is not None:
+        if isinstance(facets, BaseFacets) and getattr(facets, 'max_cache_age', None) is not None:
             # A faceting object was loaded, and it tried to do something nonstandard
             # with caching.
 

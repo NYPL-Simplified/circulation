@@ -173,6 +173,7 @@ import random
 import json
 import urllib
 from core.analytics import Analytics
+from core.lane import BaseFacets
 from core.util.authentication_for_opds import AuthenticationForOPDSDocument
 from api.registry import Registration
 
@@ -744,7 +745,7 @@ class TestCirculationManager(CirculationControllerTest):
 
         # But if a faceting object is passed in as _facets, it's checked
         # to see if it wants to disable caching.
-        class MockFacets(object):
+        class MockFacets(BaseFacets):
             max_cache_age = None
         kwargs_with_facets = dict(kwargs)
         kwargs_with_facets.update(_facets=MockFacets)
