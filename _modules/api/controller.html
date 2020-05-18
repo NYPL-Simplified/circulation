@@ -92,6 +92,7 @@
     <span class="n">production_session</span><span class="p">,</span>
     <span class="n">Admin</span><span class="p">,</span>
     <span class="n">Annotation</span><span class="p">,</span>
+    <span class="n">CachedFeed</span><span class="p">,</span>
     <span class="n">CachedMARCFile</span><span class="p">,</span>
     <span class="n">CirculationEvent</span><span class="p">,</span>
     <span class="n">Collection</span><span class="p">,</span>
@@ -189,6 +190,7 @@
 <span class="kn">from</span> <span class="nn">base_controller</span> <span class="kn">import</span> <span class="n">BaseCirculationManagerController</span>
 <span class="kn">from</span> <span class="nn">testing</span> <span class="kn">import</span> <span class="n">MockCirculationAPI</span><span class="p">,</span> <span class="n">MockSharedCollectionAPI</span>
 <span class="kn">from</span> <span class="nn">core.analytics</span> <span class="kn">import</span> <span class="n">Analytics</span>
+<span class="kn">from</span> <span class="nn">core.lane</span> <span class="kn">import</span> <span class="n">BaseFacets</span>
 <span class="kn">from</span> <span class="nn">core.marc</span> <span class="kn">import</span> <span class="n">MARCExporter</span>
 
 <div class="viewcode-block" id="CirculationManager"><a class="viewcode-back" href="../../api.html#api.controller.CirculationManager">[docs]</a><span class="k">class</span> <span class="nc">CirculationManager</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
@@ -211,6 +213,37 @@
         <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">setup_one_time_controllers</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">load_settings</span><span class="p">()</span>
+
+<div class="viewcode-block" id="CirculationManager.load_facets_from_request"><a class="viewcode-back" href="../../api.html#api.controller.CirculationManager.load_facets_from_request">[docs]</a>    <span class="k">def</span> <span class="nf">load_facets_from_request</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Load a faceting object from the incoming request, but also apply an authentication</span>
+<span class="sd">        restriction.</span>
+
+<span class="sd">        Specifically, in this application you can&#39;t use nonstandard</span>
+<span class="sd">        caching rules unless you&#39;re an authenticated administrator.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">facets</span> <span class="o">=</span> <span class="n">load_facets_from_request</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">facets</span><span class="p">,</span> <span class="n">BaseFacets</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">facets</span><span class="p">,</span> <span class="s1">&#39;max_cache_age&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># A faceting object was loaded, and it tried to do something nonstandard</span>
+            <span class="c1"># with caching.</span>
+
+            <span class="c1"># Try to get the AdminSignInController, which is</span>
+            <span class="c1"># associated with the CirculationManager object by the</span>
+            <span class="c1"># admin interface in admin/controller.</span>
+            <span class="c1">#</span>
+            <span class="c1"># If the admin interface wasn&#39;t initialized for whatever</span>
+            <span class="c1"># reason, we&#39;ll default to assuming the user is not an</span>
+            <span class="c1"># authenticated admin.</span>
+            <span class="n">authenticated</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="n">controller</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;admin_sign_in_controller&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">controller</span><span class="p">:</span>
+                <span class="n">admin</span> <span class="o">=</span> <span class="n">controller</span><span class="o">.</span><span class="n">authenticated_admin_from_request</span><span class="p">()</span>
+                <span class="c1"># If authenticated_admin_from_request returns anything other than an admin (probably</span>
+                <span class="c1"># a ProblemDetail), the user is not an authenticated admin.</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">admin</span><span class="p">,</span> <span class="n">Admin</span><span class="p">):</span>
+                    <span class="n">authenticated</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">authenticated</span><span class="p">:</span>
+                <span class="n">facets</span><span class="o">.</span><span class="n">max_cache_age</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="n">facets</span></div>
 
 <div class="viewcode-block" id="CirculationManager.reload_settings_if_changed"><a class="viewcode-back" href="../../api.html#api.controller.CirculationManager.reload_settings_if_changed">[docs]</a>    <span class="k">def</span> <span class="nf">reload_settings_if_changed</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;If the site configuration has been updated, reload the</span>
@@ -328,9 +361,38 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_external_search</span></div>
 
 <div class="viewcode-block" id="CirculationManager.cdn_url_for"><a class="viewcode-back" href="../../api.html#api.controller.CirculationManager.cdn_url_for">[docs]</a>    <span class="k">def</span> <span class="nf">cdn_url_for</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">view</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-        <span class="k">return</span> <span class="n">cdn_url_for</span><span class="p">(</span><span class="n">view</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+        <span class="sd">&quot;&quot;&quot;Generate a URL for a view that (probably) passes through a CDN.</span>
+
+<span class="sd">        :param view: Name of the view.</span>
+<span class="sd">        :param _facets: The faceting object used to generate the document that&#39;s calling</span>
+<span class="sd">           this method. This may change which function is actually used to generate the</span>
+<span class="sd">           URL; in particular, it may disable a CDN that would otherwise be used. This is</span>
+<span class="sd">           called _facets just in case there&#39;s ever a view that takes &#39;facets&#39; as a real</span>
+<span class="sd">           keyword argument.</span>
+<span class="sd">        :param args: Positional arguments to the view function.</span>
+<span class="sd">        :param kwargs: Keyword arguments to the view function.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">url_for</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cdn_url_for</span>
+        <span class="n">facets</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;_facets&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">facets</span> <span class="ow">and</span> <span class="n">facets</span><span class="o">.</span><span class="n">max_cache_age</span> <span class="ow">is</span> <span class="n">CachedFeed</span><span class="o">.</span><span class="n">IGNORE_CACHE</span><span class="p">:</span>
+            <span class="c1"># The faceting object in play has disabled cache</span>
+            <span class="c1"># checking. A CDN is also a cache, so we should disable</span>
+            <span class="c1"># CDN URLs in the feed to make it more likely that the</span>
+            <span class="c1"># client continues to see up-to-the-minute feeds as they</span>
+            <span class="c1"># click around.</span>
+            <span class="n">url_for</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">url_for</span>
+        <span class="k">return</span> <span class="n">url_for</span><span class="p">(</span><span class="n">view</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_cdn_url_for</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Call the cdn_url_for function.</span>
+
+<span class="sd">        Defined solely to be overridden in tests.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">cdn_url_for</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
 
 <div class="viewcode-block" id="CirculationManager.url_for"><a class="viewcode-back" href="../../api.html#api.controller.CirculationManager.url_for">[docs]</a>    <span class="k">def</span> <span class="nf">url_for</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">view</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Call the url_for function, ensuring that Flask generates an absolute URL.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;_external&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
         <span class="k">return</span> <span class="n">url_for</span><span class="p">(</span><span class="n">view</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
 
@@ -759,7 +821,7 @@
         <span class="n">facet_class_kwargs</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span>
             <span class="n">minimum_featured_quality</span><span class="o">=</span><span class="n">library</span><span class="o">.</span><span class="n">minimum_featured_quality</span><span class="p">,</span>
         <span class="p">)</span>
-        <span class="n">facets</span> <span class="o">=</span> <span class="n">load_facets_from_request</span><span class="p">(</span>
+        <span class="n">facets</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">load_facets_from_request</span><span class="p">(</span>
             <span class="n">worklist</span><span class="o">=</span><span class="n">lane</span><span class="p">,</span> <span class="n">base_class</span><span class="o">=</span><span class="n">FeaturedFacets</span><span class="p">,</span>
             <span class="n">base_class_constructor_kwargs</span><span class="o">=</span><span class="n">facet_class_kwargs</span>
         <span class="p">)</span>
@@ -772,7 +834,7 @@
 
         <span class="n">url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cdn_url_for</span><span class="p">(</span>
             <span class="s2">&quot;acquisition_groups&quot;</span><span class="p">,</span> <span class="n">lane_identifier</span><span class="o">=</span><span class="n">lane_identifier</span><span class="p">,</span>
-            <span class="n">library_short_name</span><span class="o">=</span><span class="n">library</span><span class="o">.</span><span class="n">short_name</span><span class="p">,</span>
+            <span class="n">library_short_name</span><span class="o">=</span><span class="n">library</span><span class="o">.</span><span class="n">short_name</span><span class="p">,</span> <span class="n">_facets</span><span class="o">=</span><span class="n">facets</span>
         <span class="p">)</span>
 
         <span class="n">annotator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">annotator</span><span class="p">(</span><span class="n">lane</span><span class="p">,</span> <span class="n">facets</span><span class="p">)</span>
@@ -792,7 +854,7 @@
         <span class="n">lane</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">load_lane</span><span class="p">(</span><span class="n">lane_identifier</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">lane</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
             <span class="k">return</span> <span class="n">lane</span>
-        <span class="n">facets</span> <span class="o">=</span> <span class="n">load_facets_from_request</span><span class="p">(</span><span class="n">worklist</span><span class="o">=</span><span class="n">lane</span><span class="p">)</span>
+        <span class="n">facets</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">load_facets_from_request</span><span class="p">(</span><span class="n">worklist</span><span class="o">=</span><span class="n">lane</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">facets</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
             <span class="k">return</span> <span class="n">facets</span>
         <span class="n">pagination</span> <span class="o">=</span> <span class="n">load_pagination_from_request</span><span class="p">(</span><span class="n">SortKeyPagination</span><span class="p">)</span>
@@ -805,7 +867,7 @@
         <span class="n">library_short_name</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">library</span><span class="o">.</span><span class="n">short_name</span>
         <span class="n">url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cdn_url_for</span><span class="p">(</span>
             <span class="s2">&quot;feed&quot;</span><span class="p">,</span> <span class="n">lane_identifier</span><span class="o">=</span><span class="n">lane_identifier</span><span class="p">,</span>
-            <span class="n">library_short_name</span><span class="o">=</span><span class="n">library_short_name</span><span class="p">,</span>
+            <span class="n">library_short_name</span><span class="o">=</span><span class="n">library_short_name</span><span class="p">,</span> <span class="n">_facets</span><span class="o">=</span><span class="n">facets</span>
         <span class="p">)</span>
 
         <span class="n">annotator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">annotator</span><span class="p">(</span><span class="n">lane</span><span class="p">,</span> <span class="n">facets</span><span class="o">=</span><span class="n">facets</span><span class="p">)</span>
@@ -832,7 +894,7 @@
         <span class="n">facet_class_kwargs</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span>
             <span class="n">minimum_featured_quality</span><span class="o">=</span><span class="n">library</span><span class="o">.</span><span class="n">minimum_featured_quality</span><span class="p">,</span>
         <span class="p">)</span>
-        <span class="n">facets</span> <span class="o">=</span> <span class="n">load_facets_from_request</span><span class="p">(</span>
+        <span class="n">facets</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">load_facets_from_request</span><span class="p">(</span>
             <span class="n">worklist</span><span class="o">=</span><span class="n">lane</span><span class="p">,</span> <span class="n">base_class</span><span class="o">=</span><span class="n">NavigationFacets</span><span class="p">,</span>
             <span class="n">base_class_constructor_kwargs</span><span class="o">=</span><span class="n">facet_class_kwargs</span>
         <span class="p">)</span>
@@ -944,7 +1006,7 @@
             <span class="c1"># There is only one enabled EntryPoint,</span>
             <span class="c1"># and no need for a special default.</span>
             <span class="n">default_entrypoint</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="k">return</span> <span class="n">load_facets_from_request</span><span class="p">(</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">load_facets_from_request</span><span class="p">(</span>
             <span class="n">worklist</span><span class="o">=</span><span class="n">lane</span><span class="p">,</span> <span class="n">base_class</span><span class="o">=</span><span class="n">SearchFacets</span><span class="p">,</span>
             <span class="n">default_entrypoint</span><span class="o">=</span><span class="n">default_entrypoint</span><span class="p">,</span>
         <span class="p">)</span>
@@ -1674,7 +1736,7 @@
         <span class="n">lane</span> <span class="o">=</span> <span class="n">ContributorLane</span><span class="p">(</span>
             <span class="n">library</span><span class="p">,</span> <span class="n">contributor</span><span class="p">,</span> <span class="n">languages</span><span class="o">=</span><span class="n">languages</span><span class="p">,</span> <span class="n">audiences</span><span class="o">=</span><span class="n">audiences</span>
         <span class="p">)</span>
-        <span class="n">facets</span> <span class="o">=</span> <span class="n">load_facets_from_request</span><span class="p">(</span>
+        <span class="n">facets</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">load_facets_from_request</span><span class="p">(</span>
             <span class="n">worklist</span><span class="o">=</span><span class="n">lane</span><span class="p">,</span> <span class="n">base_class</span><span class="o">=</span><span class="n">ContributorFacets</span>
         <span class="p">)</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">facets</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
@@ -1744,7 +1806,7 @@
             <span class="c1"># No related books were found.</span>
             <span class="k">return</span> <span class="n">NO_SUCH_LANE</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">message</span><span class="p">)</span>
 
-        <span class="n">facets</span> <span class="o">=</span> <span class="n">load_facets_from_request</span><span class="p">(</span>
+        <span class="n">facets</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">load_facets_from_request</span><span class="p">(</span>
             <span class="n">worklist</span><span class="o">=</span><span class="n">lane</span><span class="p">,</span> <span class="n">base_class</span><span class="o">=</span><span class="n">FeaturedFacets</span><span class="p">,</span>
             <span class="n">base_class_constructor_kwargs</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span>
                 <span class="n">minimum_featured_quality</span><span class="o">=</span><span class="n">library</span><span class="o">.</span><span class="n">minimum_featured_quality</span>
@@ -1788,7 +1850,7 @@
             <span class="c1"># NoveList isn&#39;t configured.</span>
             <span class="k">return</span> <span class="n">NO_SUCH_LANE</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;Recommendations not available&quot;</span><span class="p">))</span>
 
-        <span class="n">facets</span> <span class="o">=</span> <span class="n">load_facets_from_request</span><span class="p">(</span><span class="n">worklist</span><span class="o">=</span><span class="n">lane</span><span class="p">)</span>
+        <span class="n">facets</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">load_facets_from_request</span><span class="p">(</span><span class="n">worklist</span><span class="o">=</span><span class="n">lane</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">facets</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
             <span class="k">return</span> <span class="n">facets</span>
 
@@ -1852,7 +1914,7 @@
             <span class="n">audiences</span><span class="o">=</span><span class="n">audiences</span>
         <span class="p">)</span>
 
-        <span class="n">facets</span> <span class="o">=</span> <span class="n">load_facets_from_request</span><span class="p">(</span>
+        <span class="n">facets</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">load_facets_from_request</span><span class="p">(</span>
             <span class="n">worklist</span><span class="o">=</span><span class="n">lane</span><span class="p">,</span> <span class="n">base_class</span><span class="o">=</span><span class="n">SeriesFacets</span>
         <span class="p">)</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">facets</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>

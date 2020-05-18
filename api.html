@@ -3259,12 +3259,12 @@ changes will be overwritten by run_once().</li>
 
 <dl class="attribute">
 <dt id="api.bibliotheca.ErrorParser.hold_limit_reached">
-<code class="descname">hold_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x41da3c0&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.hold_limit_reached" title="Permalink to this definition">¶</a></dt>
+<code class="descname">hold_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x4a13060&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.hold_limit_reached" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="api.bibliotheca.ErrorParser.loan_limit_reached">
-<code class="descname">loan_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x41da0f0&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.loan_limit_reached" title="Permalink to this definition">¶</a></dt>
+<code class="descname">loan_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x4843c20&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.loan_limit_reached" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -3279,7 +3279,7 @@ changes will be overwritten by run_once().</li>
 
 <dl class="attribute">
 <dt id="api.bibliotheca.ErrorParser.wrong_status">
-<code class="descname">wrong_status</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x41d9da0&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.wrong_status" title="Permalink to this definition">¶</a></dt>
+<code class="descname">wrong_status</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x48440e0&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.wrong_status" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -5129,7 +5129,26 @@ OPDS document in the cache, then return the cached version.</p>
 <dl class="method">
 <dt id="api.controller.CirculationManager.cdn_url_for">
 <code class="descname">cdn_url_for</code><span class="sig-paren">(</span><em>view</em>, <em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/controller.html#CirculationManager.cdn_url_for"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.controller.CirculationManager.cdn_url_for" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
+<dd><p>Generate a URL for a view that (probably) passes through a CDN.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>view</strong> – Name of the view.</li>
+<li><strong>_facets</strong> – The faceting object used to generate the document that’s calling
+this method. This may change which function is actually used to generate the
+URL; in particular, it may disable a CDN that would otherwise be used. This is
+called _facets just in case there’s ever a view that takes ‘facets’ as a real
+keyword argument.</li>
+<li><strong>args</strong> – Positional arguments to the view function.</li>
+<li><strong>kwargs</strong> – Keyword arguments to the view function.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
 
 <dl class="attribute">
 <dt id="api.controller.CirculationManager.external_search">
@@ -5138,6 +5157,15 @@ OPDS document in the cache, then return the cached version.</p>
 <p>This is created lazily so that a failure to connect only
 affects feeds that depend on the search engine, not the whole
 circulation manager.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="api.controller.CirculationManager.load_facets_from_request">
+<code class="descname">load_facets_from_request</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/controller.html#CirculationManager.load_facets_from_request"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.controller.CirculationManager.load_facets_from_request" title="Permalink to this definition">¶</a></dt>
+<dd><p>Load a faceting object from the incoming request, but also apply an authentication
+restriction.</p>
+<p>Specifically, in this application you can’t use nonstandard
+caching rules unless you’re an authenticated administrator.</p>
 </dd></dl>
 
 <dl class="method">
@@ -5233,7 +5261,8 @@ site configuration changes.</p>
 <dl class="method">
 <dt id="api.controller.CirculationManager.url_for">
 <code class="descname">url_for</code><span class="sig-paren">(</span><em>view</em>, <em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/controller.html#CirculationManager.url_for"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.controller.CirculationManager.url_for" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
+<dd><p>Call the url_for function, ensuring that Flask generates an absolute URL.</p>
+</dd></dl>
 
 </dd></dl>
 
@@ -8486,7 +8515,7 @@ the patron belongs to the library associated with thie BasicAuthenticationProvid
 
 <dl class="attribute">
 <dt id="api.millenium_patron.MockMilleniumPatronAPI.the_future">
-<code class="descname">the_future</code><em class="property"> = datetime.datetime(2020, 5, 25, 21, 30, 17, 146639)</em><a class="headerlink" href="#api.millenium_patron.MockMilleniumPatronAPI.the_future" title="Permalink to this definition">¶</a></dt>
+<code class="descname">the_future</code><em class="property"> = datetime.datetime(2020, 5, 28, 16, 52, 48, 622454)</em><a class="headerlink" href="#api.millenium_patron.MockMilleniumPatronAPI.the_future" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
