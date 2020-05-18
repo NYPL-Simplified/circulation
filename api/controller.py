@@ -201,7 +201,7 @@ class CirculationManager(object):
             authenticated = False
             controller = getattr(self, 'admin_sign_in_controller', None)
             if controller:
-                admin = self.admin_sign_in_controller.authenticated_admin_from_request()
+                admin = controller.authenticated_admin_from_request()
                 # If authenticated_admin_from_request returns anything other than an admin (probably
                 # a ProblemDetail), the user is not an authenticated admin.
                 if isinstance(admin, Admin):
