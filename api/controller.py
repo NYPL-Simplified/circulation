@@ -57,6 +57,7 @@ from core.model import (
     production_session,
     Admin,
     Annotation,
+    CachedFeed,
     CachedMARCFile,
     CirculationEvent,
     Collection,
@@ -154,6 +155,7 @@ from novelist import (
 from base_controller import BaseCirculationManagerController
 from testing import MockCirculationAPI, MockSharedCollectionAPI
 from core.analytics import Analytics
+from core.lane import BaseFacets
 from core.marc import MARCExporter
 
 class CirculationManager(object):
@@ -176,6 +178,37 @@ class CirculationManager(object):
         )
         self.setup_one_time_controllers()
         self.load_settings()
+
+    def load_facets_from_request(self, *args, **kwargs):
+        """Load a faceting object from the incoming request, but also apply an authentication
+        restriction.
+
+        Specifically, in this application you can't use nonstandard
+        caching rules unless you're an authenticated administrator.
+        """
+        facets = load_facets_from_request(*args, **kwargs)
+        if isinstance(facets, BaseFacets) and getattr(facets, 'max_cache_age', None) is not None:
+            # A faceting object was loaded, and it tried to do something nonstandard
+            # with caching.
+
+            # Try to get the AdminSignInController, which is
+            # associated with the CirculationManager object by the
+            # admin interface in admin/controller.
+            #
+            # If the admin interface wasn't initialized for whatever
+            # reason, we'll default to assuming the user is not an
+            # authenticated admin.
+            authenticated = False
+            controller = getattr(self, 'admin_sign_in_controller', None)
+            if controller:
+                admin = controller.authenticated_admin_from_request()
+                # If authenticated_admin_from_request returns anything other than an admin (probably
+                # a ProblemDetail), the user is not an authenticated admin.
+                if isinstance(admin, Admin):
+                    authenticated = True
+            if not authenticated:
+                facets.max_cache_age = None
+        return facets
 
     def reload_settings_if_changed(self):
         """If the site configuration has been updated, reload the
@@ -293,9 +326,38 @@ class CirculationManager(object):
         return self._external_search
 
     def cdn_url_for(self, view, *args, **kwargs):
-        return cdn_url_for(view, *args, **kwargs)
+        """Generate a URL for a view that (probably) passes through a CDN.
+
+        :param view: Name of the view.
+        :param _facets: The faceting object used to generate the document that's calling
+           this method. This may change which function is actually used to generate the
+           URL; in particular, it may disable a CDN that would otherwise be used. This is
+           called _facets just in case there's ever a view that takes 'facets' as a real
+           keyword argument.
+        :param args: Positional arguments to the view function.
+        :param kwargs: Keyword arguments to the view function.
+        """
+        url_for = self._cdn_url_for
+        facets = kwargs.pop('_facets', None)
+        if facets and facets.max_cache_age is CachedFeed.IGNORE_CACHE:
+            # The faceting object in play has disabled cache
+            # checking. A CDN is also a cache, so we should disable
+            # CDN URLs in the feed to make it more likely that the
+            # client continues to see up-to-the-minute feeds as they
+            # click around.
+            url_for = self.url_for
+        return url_for(view, *args, **kwargs)
+
+    def _cdn_url_for(self, *args, **kwargs):
+        """Call the cdn_url_for function.
+
+        Defined solely to be overridden in tests.
+        """
+        return cdn_url_for(*args, **kwargs)
 
     def url_for(self, view, *args, **kwargs):
+        """Call the url_for function, ensuring that Flask generates an absolute URL.
+        """
         kwargs['_external'] = True
         return url_for(view, *args, **kwargs)
 
@@ -724,7 +786,7 @@ class OPDSFeedController(CirculationManagerController):
         facet_class_kwargs = dict(
             minimum_featured_quality=library.minimum_featured_quality,
         )
-        facets = load_facets_from_request(
+        facets = self.manager.load_facets_from_request(
             worklist=lane, base_class=FeaturedFacets,
             base_class_constructor_kwargs=facet_class_kwargs
         )
@@ -737,7 +799,7 @@ class OPDSFeedController(CirculationManagerController):
 
         url = self.cdn_url_for(
             "acquisition_groups", lane_identifier=lane_identifier,
-            library_short_name=library.short_name,
+            library_short_name=library.short_name, _facets=facets
         )
 
         annotator = self.manager.annotator(lane, facets)
@@ -757,7 +819,7 @@ class OPDSFeedController(CirculationManagerController):
         lane = self.load_lane(lane_identifier)
         if isinstance(lane, ProblemDetail):
             return lane
-        facets = load_facets_from_request(worklist=lane)
+        facets = self.manager.load_facets_from_request(worklist=lane)
         if isinstance(facets, ProblemDetail):
             return facets
         pagination = load_pagination_from_request(SortKeyPagination)
@@ -770,7 +832,7 @@ class OPDSFeedController(CirculationManagerController):
         library_short_name = flask.request.library.short_name
         url = self.cdn_url_for(
             "feed", lane_identifier=lane_identifier,
-            library_short_name=library_short_name,
+            library_short_name=library_short_name, _facets=facets
         )
 
         annotator = self.manager.annotator(lane, facets=facets)
@@ -797,7 +859,7 @@ class OPDSFeedController(CirculationManagerController):
         facet_class_kwargs = dict(
             minimum_featured_quality=library.minimum_featured_quality,
         )
-        facets = load_facets_from_request(
+        facets = self.manager.load_facets_from_request(
             worklist=lane, base_class=NavigationFacets,
             base_class_constructor_kwargs=facet_class_kwargs
         )
@@ -909,7 +971,7 @@ class OPDSFeedController(CirculationManagerController):
             # There is only one enabled EntryPoint,
             # and no need for a special default.
             default_entrypoint = None
-        return load_facets_from_request(
+        return self.manager.load_facets_from_request(
             worklist=lane, base_class=SearchFacets,
             default_entrypoint=default_entrypoint,
         )
@@ -1639,7 +1701,7 @@ class WorkController(CirculationManagerController):
         lane = ContributorLane(
             library, contributor, languages=languages, audiences=audiences
         )
-        facets = load_facets_from_request(
+        facets = self.manager.load_facets_from_request(
             worklist=lane, base_class=ContributorFacets
         )
         if isinstance(facets, ProblemDetail):
@@ -1709,7 +1771,7 @@ class WorkController(CirculationManagerController):
             # No related books were found.
             return NO_SUCH_LANE.detailed(e.message)
 
-        facets = load_facets_from_request(
+        facets = self.manager.load_facets_from_request(
             worklist=lane, base_class=FeaturedFacets,
             base_class_constructor_kwargs=dict(
                 minimum_featured_quality=library.minimum_featured_quality
@@ -1753,7 +1815,7 @@ class WorkController(CirculationManagerController):
             # NoveList isn't configured.
             return NO_SUCH_LANE.detailed(_("Recommendations not available"))
 
-        facets = load_facets_from_request(worklist=lane)
+        facets = self.manager.load_facets_from_request(worklist=lane)
         if isinstance(facets, ProblemDetail):
             return facets
 
@@ -1817,7 +1879,7 @@ class WorkController(CirculationManagerController):
             audiences=audiences
         )
 
-        facets = load_facets_from_request(
+        facets = self.manager.load_facets_from_request(
             worklist=lane, base_class=SeriesFacets
         )
         if isinstance(facets, ProblemDetail):
