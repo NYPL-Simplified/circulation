@@ -62,7 +62,7 @@ class AnnouncementListValidator(Validator):
 
         validated['id'] = announcement.get('id', unicode(uuid.uuid4()))
 
-        for required_field in ('start', 'content'):
+        for required_field in ('content',):
             if not required_field in announcement:
                 return INVALID_INPUT.detailed(
                     _("Missing required field: %(field)s", field=required_field)
@@ -92,7 +92,7 @@ class AnnouncementListValidator(Validator):
         finish = self.validate_date(
             'finish',
             announcement.get('finish', default_finish),
-            minimum=day_after_start
+            minimum=day_after_start,
         )
         if isinstance(finish, ProblemDetail):
             return finish
@@ -113,14 +113,14 @@ class AnnouncementListValidator(Validator):
         """
         if len(value) < minimum:
             return INVALID_INPUT.detailed(
-                _('Value too short (minimum length is %(size)d characters): %(value)s',
-                  size=minimum, value=value)
+                _('Value too short (%(length)d versus %(limit)d characters): %(value)s',
+                  length=len(value), limit=minimum, value=value)
             )
 
         if len(value) > maximum:
             return INVALID_INPUT.detailed(
-                _('Value too long (maximum length is %(size)d characters): %(value)s',
-                  size=maximum, value=value)
+                _('Value too long (%(length)d versus %(limit)d characters): %(value)s',
+                  length=len(value), limit=maximum, value=value)
             )
         return value
 
