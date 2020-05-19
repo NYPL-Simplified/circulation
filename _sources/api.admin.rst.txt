@@ -19,6 +19,14 @@ api.admin.admin\_authentication\_provider module
     :undoc-members:
     :show-inheritance:
 
+api.admin.announcement\_list\_validator module
+----------------------------------------------
+
+.. automodule:: api.admin.announcement_list_validator
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 api.admin.exceptions module
 ---------------------------
 

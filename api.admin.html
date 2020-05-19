@@ -91,6 +91,75 @@
 </dd></dl>
 
 </div>
+<div class="section" id="module-api.admin.announcement_list_validator">
+<span id="api-admin-announcement-list-validator-module"></span><h2>api.admin.announcement_list_validator module<a class="headerlink" href="#module-api.admin.announcement_list_validator" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="api.admin.announcement_list_validator.AnnouncementListValidator">
+<em class="property">class </em><code class="descclassname">api.admin.announcement_list_validator.</code><code class="descname">AnnouncementListValidator</code><span class="sig-paren">(</span><em>maximum_announcements=3</em>, <em>minimum_announcement_length=15</em>, <em>maximum_announcement_length=350</em>, <em>default_duration_days=60</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/announcement_list_validator.html#AnnouncementListValidator"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.announcement_list_validator.AnnouncementListValidator" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#api.admin.validator.Validator" title="api.admin.validator.Validator"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.admin.validator.Validator</span></code></a></p>
+<dl class="attribute">
+<dt id="api.admin.announcement_list_validator.AnnouncementListValidator.DATE_FORMAT">
+<code class="descname">DATE_FORMAT</code><em class="property"> = '%Y-%m-%d'</em><a class="headerlink" href="#api.admin.announcement_list_validator.AnnouncementListValidator.DATE_FORMAT" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="api.admin.announcement_list_validator.AnnouncementListValidator.validate_announcement">
+<code class="descname">validate_announcement</code><span class="sig-paren">(</span><em>announcement</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/announcement_list_validator.html#AnnouncementListValidator.validate_announcement"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.announcement_list_validator.AnnouncementListValidator.validate_announcement" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="api.admin.announcement_list_validator.AnnouncementListValidator.validate_announcements">
+<code class="descname">validate_announcements</code><span class="sig-paren">(</span><em>announcements</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/announcement_list_validator.html#AnnouncementListValidator.validate_announcements"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.announcement_list_validator.AnnouncementListValidator.validate_announcements" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="classmethod">
+<dt id="api.admin.announcement_list_validator.AnnouncementListValidator.validate_date">
+<em class="property">classmethod </em><code class="descname">validate_date</code><span class="sig-paren">(</span><em>field</em>, <em>value</em>, <em>minimum=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/announcement_list_validator.html#AnnouncementListValidator.validate_date"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.announcement_list_validator.AnnouncementListValidator.validate_date" title="Permalink to this definition">¶</a></dt>
+<dd><p>Validate a date value.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>field</strong> – Name of the field, used in error details.</li>
+<li><strong>value</strong> – Proposed value for the field.</li>
+<li><strong>minimum</strong> – The proposed value must not be earlier than
+this value.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">A ProblemDetail if validation fails; otherwise a datetime.date.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="classmethod">
+<dt id="api.admin.announcement_list_validator.AnnouncementListValidator.validate_length">
+<em class="property">classmethod </em><code class="descname">validate_length</code><span class="sig-paren">(</span><em>value</em>, <em>minimum</em>, <em>maximum</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/announcement_list_validator.html#AnnouncementListValidator.validate_length"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.announcement_list_validator.AnnouncementListValidator.validate_length" title="Permalink to this definition">¶</a></dt>
+<dd><p>Validate the length of a string value.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>value</strong> – Proposed value for a field.</li>
+<li><strong>minimum</strong> – Minimum length.</li>
+<li><strong>maximum</strong> – Maximum length.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">A ProblemDetail if the validation fails; otherwise <cite>value</cite>.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+</div>
 <div class="section" id="module-api.admin.exceptions">
 <span id="api-admin-exceptions-module"></span><h2>api.admin.exceptions module<a class="headerlink" href="#module-api.admin.exceptions" title="Permalink to this headline">¶</a></h2>
 <dl class="exception">
