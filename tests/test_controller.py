@@ -81,6 +81,7 @@ from core.entrypoint import (
 )
 from core.local_analytics_provider import LocalAnalyticsProvider
 from core.model import (
+    Admin,
     Annotation,
     CachedMARCFile,
     Collection,
@@ -172,6 +173,7 @@ import random
 import json
 import urllib
 from core.analytics import Analytics
+from core.lane import BaseFacets
 from core.util.authentication_for_opds import AuthenticationForOPDSDocument
 from api.registry import Registration
 
@@ -655,6 +657,118 @@ class TestCirculationManager(CirculationControllerTest):
             annotator = self.manager.annotator(worklist, facets)
             assert isinstance(annotator, CirculationManagerAnnotator)
             eq_(worklist, annotator.lane)
+
+    def test_load_facets_from_request(self):
+        # Test our customization to the core load_facets_from_request
+        # function.
+        #
+        # Specifically, only an authenticated admin can ask to disable
+        # caching.
+        class MockAdminSignInController(object):
+            # Pretend to be able to find (or not) an Admin authenticated
+            # to make the current request.
+            admin = None
+
+            def authenticated_admin_from_request(self):
+                return self.admin
+        admin = Admin()
+        controller = MockAdminSignInController()
+
+        self.manager.admin_sign_in_controller = controller
+
+        with self.request_context_with_library("/"):
+            # If you don't specify a max cache age, nothing happens,
+            # whether or not you're an admin.
+            for value in INVALID_CREDENTIALS, admin:
+                controller.admin = value
+                facets = self.manager.load_facets_from_request()
+                eq_(None, facets.max_cache_age)
+
+        with self.request_context_with_library("/?max_age=0"):
+            # Not an admin, max cache age requested.
+            controller.admin = INVALID_CREDENTIALS
+            facets = self.manager.load_facets_from_request()
+            eq_(None, facets.max_cache_age)
+
+            # Admin, max age requested. This is the only case where
+            # nonstandard caching rules make it through
+            # load_facets_from_request().
+            controller.admin = admin
+            facets = self.manager.load_facets_from_request()
+            eq_(CachedFeed.IGNORE_CACHE, facets.max_cache_age)
+
+        # Since the admin sign-in controller is part of the admin
+        # package and not the API proper, test a situation where, for
+        # whatever reason, that controller was never initialized.
+        del self.manager.admin_sign_in_controller
+
+        # Now what controller.admin says doesn't matter, because the
+        # controller's not associated with the CirculationManager.
+        # But everything still basically works; you just can't
+        # disable the cache.
+        with self.request_context_with_library("/?max_age=0"):
+            for value in (INVALID_CREDENTIALS, admin):
+                controller.admin = value
+                facets = self.manager.load_facets_from_request()
+                eq_(None, facets.max_cache_age)
+
+    def test_cdn_url_for(self):
+        # Test the various rules for generating a URL for a view while
+        # passing it through a CDN (or not).
+
+        # The CDN configuration itself is handled inside the
+        # cdn_url_for function imported from core.app_server. So
+        # mainly we just need to check when a CirculationManager calls
+        # that function (via self._cdn_url_for), versus when it
+        # decides to bail on the CDN and call self.url_for instead.
+        class Mock(CirculationManager):
+            _cdn_url_for_calls = []
+            url_for_calls = []
+
+            def _cdn_url_for(self, view, *args, **kwargs):
+                self._cdn_url_for_calls.append((view, args, kwargs))
+                return "http://cdn/"
+
+            def url_for(self, view, *args, **kwargs):
+                self.url_for_calls.append((view, args, kwargs))
+                return "http://url/"
+
+        manager = Mock(self._db, testing=True)
+
+        # Normally, cdn_url_for calls _cdn_url_for to generate a URL.
+        args = ("arg1", "arg2")
+        kwargs = dict(key="value")
+        url = manager.cdn_url_for("view", *args, **kwargs)
+        eq_("http://cdn/", url)
+        eq_(("view", args, kwargs), manager._cdn_url_for_calls.pop())
+        eq_([], manager._cdn_url_for_calls)
+
+        # But if a faceting object is passed in as _facets, it's checked
+        # to see if it wants to disable caching.
+        class MockFacets(BaseFacets):
+            max_cache_age = None
+        kwargs_with_facets = dict(kwargs)
+        kwargs_with_facets.update(_facets=MockFacets)
+        url = manager.cdn_url_for("view", *args, **kwargs_with_facets)
+
+        # Here, the faceting object has no opinion on the matter, so
+        # _cdn_url_for is called again.
+        eq_("http://cdn/", url)
+        eq_(("view", args, kwargs), manager._cdn_url_for_calls.pop())
+        eq_([], manager._cdn_url_for_calls)
+
+        # Here, the faceting object does have an opinion: the document
+        # being generated should not be stored in a cache. This
+        # implies that the documents it links to should _also_ not be
+        # stored in a cache.
+        MockFacets.max_cache_age = CachedFeed.IGNORE_CACHE
+        url = manager.cdn_url_for("view", *args, **kwargs_with_facets)
+
+        # And so, url_for is called instead of _cdn_url_for.
+        eq_("http://url/", url)
+        eq_([], manager._cdn_url_for_calls)
+        eq_(("view", args, kwargs), manager.url_for_calls.pop())
+        eq_([], manager.url_for_calls)
 
 
 class TestBaseController(CirculationControllerTest):
@@ -3121,6 +3235,7 @@ class TestOPDSFeedController(CirculationControllerTest):
             expect_url = self.controller.cdn_url_for(
                 "feed", lane_identifier=lane_id,
                 library_short_name=self._default_library.short_name,
+                _facets=load_facets_from_request()
             )
 
         assert isinstance(response, Response)
@@ -3227,6 +3342,7 @@ class TestOPDSFeedController(CirculationControllerTest):
             expect_url = self.manager.opds_feeds.cdn_url_for(
                 "acquisition_groups", lane_identifier=None,
                 library_short_name=library.short_name,
+                _facets=load_facets_from_request()
             )
 
         kwargs = self.groups_called_with
@@ -3264,6 +3380,7 @@ class TestOPDSFeedController(CirculationControllerTest):
             expect_url = self.manager.opds_feeds.cdn_url_for(
                 "feed", lane_identifier=self.english_adult_fiction.id,
                 library_short_name=library.short_name,
+                _facets=load_facets_from_request()
             )
 
         eq_(self.english_adult_fiction, self.page_called_with.pop('worklist'))
