@@ -255,7 +255,8 @@ class TestLibrarySettings(SettingsControllerTest):
                 (Configuration.LOGO, TestFileUpload(image_data)),
             ])
             validator = MockValidator()
-            response = self.manager.admin_library_settings_controller.process_post(validator)
+            validators = dict(geographic=validator)
+            response = self.manager.admin_library_settings_controller.process_post(validators)
             eq_(response.status_code, 201)
 
         library = get_one(self._db, Library, short_name="nypl")

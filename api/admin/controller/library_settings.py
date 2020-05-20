@@ -27,6 +27,7 @@ from PIL import Image
 from api.admin.exceptions import *
 from api.admin.problem_details import *
 from api.admin.geographic_validator import GeographicValidator
+from api.admin.announcement_list_validator import AnnouncementListValidator
 from core.util.problem_detail import ProblemDetail
 from core.util import LanguageCodes
 from nose.tools import set_trace
@@ -53,7 +54,8 @@ class LibrarySettingsController(SettingsController):
                     value = ConfigurationSetting.for_library(setting.get("key"), library).json_value
                     if value and setting.get("format") == "geographic":
                         value = self.get_extra_geographic_information(value)
-
+                    if value and setting.get("format") == "announcements":
+                        value = AnnouncementListValidator().validate_announcements(value)
                 else:
                     value = self.current_value(setting, library)
 
@@ -68,12 +70,15 @@ class LibrarySettingsController(SettingsController):
             )]
         return dict(libraries=libraries, settings=Configuration.LIBRARY_SETTINGS)
 
-    def process_post(self, validator=None):
+    def process_post(self, validators_by_type=None):
         self.require_system_admin()
 
         library = None
         is_new = False
-        validator = validator or GeographicValidator()
+        if validators_by_type is None:
+            validators_by_type = dict()
+            validators_by_type['geographic'] = GeographicValidator()
+            validators_by_type['announcements'] = AnnouncementListValidator()
 
         library_uuid = flask.request.form.get("uuid")
         library = self.get_library_from_uuid(library_uuid)
@@ -100,7 +105,7 @@ class LibrarySettingsController(SettingsController):
         if short_name:
             library.short_name = short_name
 
-        configuration_settings = self.library_configuration_settings(library, validator)
+        configuration_settings = self.library_configuration_settings(library, validators_by_type)
         if isinstance(configuration_settings, ProblemDetail):
             return configuration_settings
 
@@ -216,13 +221,20 @@ class LibrarySettingsController(SettingsController):
 
         return value
 
-    def library_configuration_settings(self, library, validator):
+    def library_configuration_settings(self, library, validators_by_format):
         for setting in Configuration.LIBRARY_SETTINGS:
             if setting.get("format") == "geographic":
+                validator = validators_by_format['geographic']
                 locations = validator.validate_geographic_areas(self.list_setting(setting), self._db)
                 if isinstance(locations, ProblemDetail):
                     return locations
                 value = locations or self.current_value(setting, library)
+            elif setting.get('format') == "announcements":
+                validator = validators_by_format['announcements']
+                value = validator.validate(self.list_setting(setting))
+                if isinstance(value, ProblemDetail):
+                    return value
+                value = value or self.current_value(setting, library)
             elif setting.get("type") == "list":
                 value = self.list_setting(setting) or self.current_value(setting, library)
                 if setting.get("format") == "language-code":
