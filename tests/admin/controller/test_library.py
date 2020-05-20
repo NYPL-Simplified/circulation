@@ -26,6 +26,7 @@ from core.model import (
     Library,
 )
 from core.testing import MockRequestsResponse
+from core.util.problem_detail import ProblemDetail
 from api.admin.controller.library_settings import LibrarySettingsController
 from api.admin.geographic_validator import GeographicValidator
 from test_controller import SettingsControllerTest
@@ -370,3 +371,103 @@ class TestLibrarySettings(SettingsControllerTest):
 
         library = get_one(self._db, Library, uuid=library.uuid)
         eq_(None, library)
+
+    def test_library_configuration_settings(self):
+        # Verify that library_configuration_settings validates and updates every
+        # setting for a library.
+        settings = [
+            dict(key="setting1", format="format1"),
+            dict(key="setting2", format="format2"),
+        ]
+
+        # format1 has a custom validation class; format2 does not.
+        validator1 = object()
+        validators = dict(format1=validator1)
+        
+        class MockController(LibrarySettingsController):
+            succeed = True
+            _validate_setting_calls = []
+
+            def _validate_setting(self, library, setting, validator):
+                self._validate_setting_calls.append((library, setting, validator))
+                if self.succeed:
+                    return "validated %s" % setting['key']
+                else:
+                    return INVALID_INPUT.detailed("invalid!")
+
+        # Run library_configuration_settings in a situation where all validations succeed.
+        controller = MockController(self.manager)
+        library = self._default_library
+        result = controller.library_configuration_settings(library, validators, settings)
+
+        # No problem detail was returned -- the 'request' can continue.
+        eq_(None, result)
+
+        # _validate_setting was called twice...
+        [c1, c2] = controller._validate_setting_calls
+
+        # ...once for each item in `settings`. One of the settings was
+        # of a type with a known validator, so the validator was
+        # passed in.
+        eq_((library, settings[0], validator1), c1)
+        eq_((library, settings[1], None), c2)
+
+        # Each validated value was written to the database.
+        for x in settings:
+            setting = library.setting(x['key'])
+            eq_("validated %s" % x['key'], setting.value)
+            setting.value = None
+
+        # Try again in a situation where there are validation failures.
+        controller.succeed = False
+        controller._validate_setting_calls = []
+        result = controller.library_configuration_settings(
+            self._default_library, validators, settings
+        )
+
+        # _validate_setting was only called once.
+        eq_([(library, settings[0], validator1)],
+            controller._validate_setting_calls)
+
+        # When it returned a ProblemDetail, that ProblemDetail
+        # was propagated outwards.
+        assert isinstance(result, ProblemDetail)
+        eq_("invalid!", result.detail)
+
+        # No new values were written to the database.
+        for x in settings:
+            eq_(None, library.setting(x['key']).value)
+
+    def test__validate_setting(self):
+        # Verify the rules for validating different kinds of settings.
+        
+        class MockController(LibrarySettingsController):
+
+            def __init__(self, manager):
+                super(MockController, self).__init__(manager)
+                self.reset()
+
+            def reset(self):
+                self.list_setting_calls = []
+                self.current_value_calls = []
+            
+            def list_setting(self, setting):
+                pass
+
+            def current_value(self, setting, library):
+                pass
+
+            
+
+        # A list of geographic places
+        
+        # A list of announcements
+
+        # A list of language codes
+
+        # Some other kind of list
+
+        # An image
+
+        # Anything else
+        
