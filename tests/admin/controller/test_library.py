@@ -440,34 +440,126 @@ class TestLibrarySettings(SettingsControllerTest):
 
     def test__validate_setting(self):
         # Verify the rules for validating different kinds of settings.
-        
+
+        library = self._default_library        
         class MockController(LibrarySettingsController):
 
-            def __init__(self, manager):
-                super(MockController, self).__init__(manager)
-                self.reset()
-
-            def reset(self):
-                self.list_setting_calls = []
-                self.current_value_calls = []
-            
+            # Mock the functions that pull various values out of the
+            # 'current request' or the 'database' so we don't need an
+            # actual current request or actual database settings.
+            def scalar_setting(self, setting):
+                return self.scalar_form_values.get(setting['key'])
+           
             def list_setting(self, setting):
-                pass
+                return json.dumps(self.list_form_values.get(setting['key']))
 
-            def current_value(self, setting, library):
-                pass
+            def image_setting(self, setting):
+                return self.image_form_values.get(setting['key'])
 
-            
+            def current_value(self, setting, _library):
+                # While we're here, make sure the right Library
+                # object was passed in.
+                eq_(_library, library)
+                return self.current_values.get(setting['key'])
+
+            # Now set up mock data in the 'form submission' and
+            # the 'database'.
+
+            # Simulate list values in a form submission.
+            list_form_values = dict(
+                geographic_setting=["geographic values"],
+                announcement_list=["some announcements"],
+                language_codes=["English", "fr"],
+                list_value=["a list"],
+            )
+
+            # Simulate scalar values in a form submission.
+            scalar_form_values = dict(
+                string_value="some scalar data"
+            )
+
+            # Simulate uploaded images in a form submission.
+            image_form_values = dict(
+                image_setting="some image data"
+            )
+
+            # Simulate values present in the database but not present
+            # in the form submission.
+            current_values = dict(
+                value_not_present_in_request = "a database value",
+                previously_uploaded_image = "an old image",
+            )
+
+        controller = MockController(self.manager)
+        m = controller._validate_setting
+
+        # First try some simple cases: scalar values.
+
+        # The incoming request has a value for this setting.
+        eq_("some scalar data", m(library, dict(key="string_value")))
+
+        # But not for this setting -- we have to go to the database instead.
+        eq_("a database value", m(library, dict(key="value_not_present_in_request")))
+
+        # And not for this setting -- we have to go to the database instead.
+        eq_("a default value",
+            m(library, dict(key="some_other_value", default="a default value"))
+        )
+
+        # An uploaded image is (from the perspective of this method) also simple.
+
+        # Here, a new image was uploaded.
+        eq_("some image data", m(library, dict(key="image_setting", type="image")))
+
+        # Here, no image was uploaded so we use the currently stored value.
+        eq_("an old image", m(library, dict(key="previously_uploaded_image", type="image")))
+
+        # There are some lists which are more complex, but a normal list is
+        # simple.
+        eq_(json.dumps(["a list"]), m(library, dict(key="list_value", type="list")))
+
+        # Now let's look at the more complex lists.
+
+        # A list of language codes.
+        eq_(
+            json.dumps(["eng", "fre"]),
+            m(library, dict(key="language_codes", format="language-code", type="list"))
+        )
 
         # A list of geographic places
-        
-        # A list of announcements
+        class MockGeographicValidator(object):
+            value = "validated value"
+            def validate_geographic_areas(self, value, _db):
+                self.called_with = (value, _db)
+                return self.value
+        validator = MockGeographicValidator()
 
-        # A list of language codes
+        # The validator was consulted and its response was used as the
+        # value.
+        eq_(
+            'validated value',
+            m(library, dict(key="geographic_setting", format="geographic"), validator)
+        )
+        eq_((json.dumps(["geographic values"]), self._db), validator.called_with)
 
-        # Some other kind of list
+        # Just to be explicit, let's also test the case where the 'response' sent from the
+        # validator is a ProblemDetail.
+        validator.value = INVALID_INPUT
+        eq_(
+            INVALID_INPUT,
+            m(library, dict(key="geographic_setting", format="geographic"), validator)
+        )
 
-        # An image
+        # A list of announcements.
+        class MockAnnouncementValidator(object):
+            value = "validated value"
+            def validate(self, value):
+                self.called_with = value
+                return self.value
+        validator = MockAnnouncementValidator()
 
-        # Anything else
-        
+        eq_(
+            'validated value',
+            m(library, dict(key="announcement_list", format="announcements"), validator)
+        )
+        eq_(json.dumps(["some announcements"]), validator.called_with)

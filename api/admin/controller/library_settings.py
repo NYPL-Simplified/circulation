@@ -248,41 +248,53 @@ class LibrarySettingsController(SettingsController):
             # Validation succeeded -- set the new value.
             ConfigurationSetting.for_library(setting['key'], library).value = validated_value
 
-    def _validate_setting(self, library, setting, validator):
+    def _validate_setting(self, library, setting, validator=None):
         """Validate the incoming value for a single library setting.
 
         :param library: A Library
         :param setting: Configuration data for one of the library's settings.
-        :param validator: A validation object for data of this type. (Currently there is no standard
-           interface for validators.)
+        :param validator: A validation object for data of this type.
         """
+        # TODO: there are some opportunities for improvement here:
+        # * There's no standard interface for validators.
+        # * We can handle settings that are lists of certain types (language codes,
+        #   geographic areas), but not settings that are a single value of that type
+        #   (_one_ language code or geographic area). Sometimes there's even an implication
+        #   that a certain data type ('geographic') _must_ mean a list.
         format = setting.get('format')
         type = setting.get('type')
+
+        # In some cases, if there is no incoming value we can use a
+        # default value or the current value.
+        #
+        # When the configuration item is a list, we can't do this
+        # because an empty list may be a valid value.
+        current_value = self.current_value(setting, library)
+        default_value = setting.get('default') or current_value
+
         if format == "geographic":
-            locations = validator.validate_geographic_areas(self.list_setting(setting), self._db)
-            if isinstance(locations, ProblemDetail):
-                return locations
-            value = locations or self.current_value(setting, library)
+            value = self.list_setting(setting)
+            value = validator.validate_geographic_areas(value, self._db)
         elif format == "announcements":
-            value = validator.validate(self.list_setting(setting))
-            if isinstance(value, ProblemDetail):
-                return value
-            value = value or self.current_value(setting, library)
+            value = self.list_setting(setting)
+            value = validator.validate(value)
         elif type == "list":
-            value = self.list_setting(setting) or self.current_value(setting, library)
+            value = self.list_setting(setting)
             if format == "language-code":
                 value = json.dumps([LanguageCodes.string_to_alpha_3(language) for language in json.loads(value)])
-        elif type == "image":
-            value = self.image_setting(setting) or self.current_value(setting, library)
         else:
-            default = setting.get('default')
-            value = flask.request.form.get(setting['key'], default)
+            if type == "image":
+                value = self.image_setting(setting) or default_value
+            else:
+                value = self.scalar_setting(setting) or default_value
         return value
 
-    def current_value(self, setting, library):
-        return ConfigurationSetting.for_library(setting['key'], library).value
+    def scalar_setting(self, setting):
+        """Retrieve the single value of the given setting from the current HTTP request."""
+        return flask.request.form.get(setting['key'])
 
     def list_setting(self, setting):
+        """Retrieve the list of values for the given setting from the current HTTP request."""
         if setting.get('options'):
             # Restrict to the values in 'options'.
             value = []
@@ -295,10 +307,10 @@ class LibrarySettingsController(SettingsController):
             inputs = flask.request.form.getlist(setting.get("key"))
             for i in inputs:
                 value.extend(i) if isinstance(i, list) else value.append(i)
-
         return json.dumps(filter(None, value))
 
     def image_setting(self, setting):
+        """Retrieve an uploaded image for the given setting from the current HTTP request."""
         image_file = flask.request.files.get(setting.get("key"))
         if image_file:
             image = Image.open(image_file)
@@ -309,3 +321,7 @@ class LibrarySettingsController(SettingsController):
             image.save(buffer, format="PNG")
             b64 = base64.b64encode(buffer.getvalue())
             return "data:image/png;base64,%s" % b64
+
+    def current_value(self, setting, library):
+        """Retrieve the current value of the given setting from the database."""
+        return ConfigurationSetting.for_library(setting['key'], library).value
