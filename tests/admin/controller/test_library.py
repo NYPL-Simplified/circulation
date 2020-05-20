@@ -383,7 +383,7 @@ class TestLibrarySettings(SettingsControllerTest):
         # format1 has a custom validation class; format2 does not.
         validator1 = object()
         validators = dict(format1=validator1)
-        
+
         class MockController(LibrarySettingsController):
             succeed = True
             _validate_setting_calls = []
@@ -439,9 +439,10 @@ class TestLibrarySettings(SettingsControllerTest):
             eq_(None, library.setting(x['key']).value)
 
     def test__validate_setting(self):
-        # Verify the rules for validating different kinds of settings.
+        # Verify the rules for validating different kinds of settings,
+        # one simulted setting at a time.
 
-        library = self._default_library        
+        library = self._default_library
         class MockController(LibrarySettingsController):
 
             # Mock the functions that pull various values out of the
@@ -449,7 +450,7 @@ class TestLibrarySettings(SettingsControllerTest):
             # actual current request or actual database settings.
             def scalar_setting(self, setting):
                 return self.scalar_form_values.get(setting['key'])
-           
+
             def list_setting(self, setting):
                 return json.dumps(self.list_form_values.get(setting['key']))
 
@@ -462,7 +463,7 @@ class TestLibrarySettings(SettingsControllerTest):
                 eq_(_library, library)
                 return self.current_values.get(setting['key'])
 
-            # Now set up mock data in the 'form submission' and
+            # Now insert mock data into the 'form submission' and
             # the 'database'.
 
             # Simulate list values in a form submission.
@@ -475,7 +476,7 @@ class TestLibrarySettings(SettingsControllerTest):
 
             # Simulate scalar values in a form submission.
             scalar_form_values = dict(
-                string_value="some scalar data"
+                string_value="a scalar value"
             )
 
             # Simulate uploaded images in a form submission.
@@ -490,32 +491,32 @@ class TestLibrarySettings(SettingsControllerTest):
                 previously_uploaded_image = "an old image",
             )
 
+        # First test some simple cases: scalar values.
         controller = MockController(self.manager)
         m = controller._validate_setting
 
-        # First try some simple cases: scalar values.
-
         # The incoming request has a value for this setting.
-        eq_("some scalar data", m(library, dict(key="string_value")))
+        eq_("a scalar value", m(library, dict(key="string_value")))
 
-        # But not for this setting -- we have to go to the database instead.
+        # But not for this setting: we end up going to the database
+        # instead.
         eq_("a database value", m(library, dict(key="value_not_present_in_request")))
 
-        # And not for this setting -- we have to go to the database instead.
-        eq_("a default value",
-            m(library, dict(key="some_other_value", default="a default value"))
-        )
+        # And not for this setting either: there is no database value,
+        # so we have to use the default associated with the setting configuration.
+        eq_("a default value", m(library, dict(key="some_other_value",
+                                               default="a default value")) )
 
         # An uploaded image is (from the perspective of this method) also simple.
 
         # Here, a new image was uploaded.
         eq_("some image data", m(library, dict(key="image_setting", type="image")))
 
-        # Here, no image was uploaded so we use the currently stored value.
+        # Here, no image was uploaded so we use the currently stored database value.
         eq_("an old image", m(library, dict(key="previously_uploaded_image", type="image")))
 
         # There are some lists which are more complex, but a normal list is
-        # simple.
+        # simple: the return value is the JSON-encoded list.
         eq_(json.dumps(["a list"]), m(library, dict(key="list_value", type="list")))
 
         # Now let's look at the more complex lists.

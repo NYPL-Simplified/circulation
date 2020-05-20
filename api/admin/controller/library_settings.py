@@ -261,6 +261,9 @@ class LibrarySettingsController(SettingsController):
         #   geographic areas), but not settings that are a single value of that type
         #   (_one_ language code or geographic area). Sometimes there's even an implication
         #   that a certain data type ('geographic') _must_ mean a list.
+        # * A list value is returned as a JSON-encoded string. It
+        #   would be better to keep that as a list for longer in case
+        #   controller code needs to look at it.
         format = setting.get('format')
         type = setting.get('type')
 
