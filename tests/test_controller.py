@@ -1690,6 +1690,24 @@ class TestLoanController(CirculationControllerTest):
             hold = get_one(self._db, Hold, license_pool=pool)
             assert hold != None
 
+    def test_borrow_nolicenses(self):
+        edition, pool = self._edition(
+            with_open_access_download=False,
+            data_source_name=DataSource.GUTENBERG,
+            identifier_type=Identifier.GUTENBERG_ID,
+            with_license_pool=True,
+        )
+
+        with self.request_context_with_library(
+                "/", headers=dict(Authorization=self.valid_auth)):
+            self.manager.loans.authenticated_patron_from_request()
+            self.manager.d_circulation.queue_checkout(pool, NoLicenses())
+
+            response = self.manager.loans.borrow(
+                pool.identifier.type, pool.identifier.identifier)
+            eq_(404, response.status_code)
+            eq_(NOT_FOUND_ON_REMOTE, response)
+
     def test_borrow_creates_local_hold_if_remote_hold_exists(self):
         """We try to check out a book, but turns out we already have it
         on hold.
