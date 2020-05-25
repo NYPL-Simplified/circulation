@@ -1590,6 +1590,17 @@ class TestSharedODLAPI(DatabaseTest, BaseODLTest):
         eq_([self.pool.identifier.links[0].resource.url],
              self.api.requests)
 
+    def test_checkout_no_licenses(self):
+        self.api.queue_response(
+            NO_LICENSES.response[1],
+            headers=NO_LICENSES.response[2],
+            content=NO_LICENSES.response[0],
+        )
+        assert_raises(NoLicenses, self.api.checkout, self.patron, "pin",
+                      self.pool, Representation.EPUB_MEDIA_TYPE)
+        eq_([self.pool.identifier.links[0].resource.url],
+             self.api.requests)
+
     def test_checkout_from_hold_not_available(self):
         hold, ignore = self.pool.on_hold_to(self.patron)
         hold_info_response = self.get_data("shared_collection_hold_info_reserved.opds")

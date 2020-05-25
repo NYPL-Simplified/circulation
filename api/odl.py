@@ -11,6 +11,7 @@ import flask
 from flask import Response
 import feedparser
 from lxml import etree
+from problem_details import NO_LICENSES
 from StringIO import StringIO
 import re
 from uritemplate import URITemplate
@@ -1107,11 +1108,14 @@ class SharedODLAPI(BaseCirculationAPI):
                 raise CannotLoan()
             checkout_url = borrow_links[0].resource.url
         try:
-            response = self._get(checkout_url, allowed_response_codes=["2xx", "3xx", "403"])
+            response = self._get(checkout_url, allowed_response_codes=["2xx", "3xx", "403", "404"])
         except RemoteIntegrationException, e:
             raise CannotLoan()
         if response.status_code == 403:
             raise NoAvailableCopies()
+        elif response.status_code == 404:
+            if hasattr(response, 'json') and response.json().get('type', '') == NO_LICENSES.uri:
+                raise NoLicenses()
         feed = feedparser.parse(unicode(response.content))
         entries = feed.get("entries")
         if len(entries) < 1:
