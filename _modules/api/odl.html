@@ -46,6 +46,7 @@
 <span class="kn">from</span> <span class="nn">flask</span> <span class="kn">import</span> <span class="n">Response</span>
 <span class="kn">import</span> <span class="nn">feedparser</span>
 <span class="kn">from</span> <span class="nn">lxml</span> <span class="kn">import</span> <span class="n">etree</span>
+<span class="kn">from</span> <span class="nn">problem_details</span> <span class="kn">import</span> <span class="n">NO_LICENSES</span>
 <span class="kn">from</span> <span class="nn">StringIO</span> <span class="kn">import</span> <span class="n">StringIO</span>
 <span class="kn">import</span> <span class="nn">re</span>
 <span class="kn">from</span> <span class="nn">uritemplate</span> <span class="kn">import</span> <span class="n">URITemplate</span>
@@ -379,7 +380,8 @@
     <span class="k">def</span> <span class="nf">_checkout</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron_or_client</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">,</span> <span class="n">hold</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="n">patron_or_client</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="n">licensepool</span><span class="o">.</span><span class="n">licenses_owned</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">unexpired_licenses</span> <span class="o">=</span> <span class="p">(</span><span class="n">l</span> <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="n">licensepool</span><span class="o">.</span><span class="n">licenses</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">l</span><span class="o">.</span><span class="n">is_expired</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">any</span><span class="p">(</span><span class="n">unexpired_licenses</span><span class="p">):</span>
             <span class="k">raise</span> <span class="n">NoLicenses</span><span class="p">()</span>
 
         <span class="c1"># Make sure pool info is updated.</span>
@@ -1141,11 +1143,14 @@
                 <span class="k">raise</span> <span class="n">CannotLoan</span><span class="p">()</span>
             <span class="n">checkout_url</span> <span class="o">=</span> <span class="n">borrow_links</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">resource</span><span class="o">.</span><span class="n">url</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get</span><span class="p">(</span><span class="n">checkout_url</span><span class="p">,</span> <span class="n">allowed_response_codes</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;2xx&quot;</span><span class="p">,</span> <span class="s2">&quot;3xx&quot;</span><span class="p">,</span> <span class="s2">&quot;403&quot;</span><span class="p">])</span>
+            <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get</span><span class="p">(</span><span class="n">checkout_url</span><span class="p">,</span> <span class="n">allowed_response_codes</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;2xx&quot;</span><span class="p">,</span> <span class="s2">&quot;3xx&quot;</span><span class="p">,</span> <span class="s2">&quot;403&quot;</span><span class="p">,</span> <span class="s2">&quot;404&quot;</span><span class="p">])</span>
         <span class="k">except</span> <span class="n">RemoteIntegrationException</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">CannotLoan</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">403</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">NoAvailableCopies</span><span class="p">()</span>
+        <span class="k">elif</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">404</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">response</span><span class="p">,</span> <span class="s1">&#39;json&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">()</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;type&#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">)</span> <span class="o">==</span> <span class="n">NO_LICENSES</span><span class="o">.</span><span class="n">uri</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">NoLicenses</span><span class="p">()</span>
         <span class="n">feed</span> <span class="o">=</span> <span class="n">feedparser</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">content</span><span class="p">))</span>
         <span class="n">entries</span> <span class="o">=</span> <span class="n">feed</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;entries&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">entries</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
