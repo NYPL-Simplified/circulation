@@ -279,7 +279,7 @@ class LibrarySettingsController(SettingsController):
             value = self.list_setting(setting)
             value = validator.validate_geographic_areas(value, self._db)
         elif format == "announcements":
-            value = self.list_setting(setting)
+            value = self.list_setting(setting, json_objects=True)
             value = validator.validate(value)
         elif type == "list":
             value = self.list_setting(setting)
@@ -296,8 +296,15 @@ class LibrarySettingsController(SettingsController):
         """Retrieve the single value of the given setting from the current HTTP request."""
         return flask.request.form.get(setting['key'])
 
-    def list_setting(self, setting):
-        """Retrieve the list of values for the given setting from the current HTTP request."""
+    def list_setting(self, setting, json_objects=False):
+        """Retrieve the list of values for the given setting from the current HTTP request.
+
+        :param json_objects: If this is True, the incoming settings are JSON-encoded objects and not
+           regular strings.
+
+        :return: A JSON-encoded string encoding the list of values set for the given setting in the
+           current request.
+        """
         if setting.get('options'):
             # Restrict to the values in 'options'.
             value = []
@@ -309,7 +316,11 @@ class LibrarySettingsController(SettingsController):
             value = []
             inputs = flask.request.form.getlist(setting.get("key"))
             for i in inputs:
-                value.extend(i) if isinstance(i, list) else value.append(i)
+                if not isinstance(i, list):
+                    i = [i]
+                if json_objects:
+                    i = [json.loads(s) for x in i]
+                value.extend(i)
         return json.dumps(filter(None, value))
 
     def image_setting(self, setting):

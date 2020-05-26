@@ -440,7 +440,7 @@ class TestLibrarySettings(SettingsControllerTest):
 
     def test__validate_setting(self):
         # Verify the rules for validating different kinds of settings,
-        # one simulted setting at a time.
+        # one simulated setting at a time.
 
         library = self._default_library
         class MockController(LibrarySettingsController):
@@ -451,8 +451,11 @@ class TestLibrarySettings(SettingsControllerTest):
             def scalar_setting(self, setting):
                 return self.scalar_form_values.get(setting['key'])
 
-            def list_setting(self, setting):
-                return json.dumps(self.list_form_values.get(setting['key']))
+            def list_setting(self, setting, json_objects=False):
+                value = self.list_form_values.get(setting['key'])
+                if json_objects:
+                    value = [json.loads(x) for x in value]
+                return json.dumps(value)
 
             def image_setting(self, setting):
                 return self.image_form_values.get(setting['key'])
@@ -466,10 +469,15 @@ class TestLibrarySettings(SettingsControllerTest):
             # Now insert mock data into the 'form submission' and
             # the 'database'.
 
-            # Simulate list values in a form submission.
+            # Simulate list values in a form submission. The geographic values
+            # go in as normal strings; the announcements go in as strings that are
+            # JSON-encoded data structures.
+            announcement_list = [{"content" : "announcement1"}, {"content": "announcement2"}]
             list_form_values = dict(
                 geographic_setting=["geographic values"],
-                announcement_list=["some announcements"],
+                announcement_list=[
+                    json.dumps(x) for x in announcement_list
+                ],
                 language_codes=["English", "fr"],
                 list_value=["a list"],
             )
@@ -563,4 +571,4 @@ class TestLibrarySettings(SettingsControllerTest):
             'validated value',
             m(library, dict(key="announcement_list", format="announcements"), validator)
         )
-        eq_(json.dumps(["some announcements"]), validator.called_with)
+        eq_(json.dumps(controller.announcement_list), validator.called_with)
