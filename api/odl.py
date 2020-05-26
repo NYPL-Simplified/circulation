@@ -345,8 +345,8 @@ class ODLAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
     def _checkout(self, patron_or_client, licensepool, hold=None):
         _db = Session.object_session(patron_or_client)
 
-        unexpired_licenses_owned = len([license for license in licensepool.licenses if not license.is_expired])
-        if unexpired_licenses_owned < 1:
+        unexpired_licenses = (l for l in licensepool.licenses if not l.is_expired)
+        if not any(unexpired_licenses):
             raise NoLicenses()
 
         # Make sure pool info is updated.
