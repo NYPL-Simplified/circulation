@@ -30,6 +30,14 @@ api.annotations module
     :undoc-members:
     :show-inheritance:
 
+api.announcements module
+------------------------
+
+.. automodule:: api.announcements
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 api.app module
 --------------
 

@@ -46,6 +46,7 @@
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">defaultdict</span>
 
+<span class="kn">from</span> <span class="nn">expiringdict</span> <span class="kn">import</span> <span class="n">ExpiringDict</span>
 <span class="kn">from</span> <span class="nn">lxml</span> <span class="kn">import</span> <span class="n">etree</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="kn">import</span> <span class="n">eagerload</span>
 
@@ -334,7 +335,9 @@
 
         <span class="bp">self</span><span class="o">.</span><span class="n">patron_web_domains</span> <span class="o">=</span> <span class="n">patron_web_domains</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">setup_configuration_dependent_controllers</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">authentication_for_opds_documents</span> <span class="o">=</span> <span class="p">{}</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">authentication_for_opds_documents</span> <span class="o">=</span> <span class="n">ExpiringDict</span><span class="p">(</span>
+            <span class="n">max_len</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">max_age_seconds</span><span class="o">=</span><span class="mi">3600</span>
+        <span class="p">)</span></div>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">external_search</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>

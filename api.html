@@ -724,6 +724,64 @@ file if available, and falls back to the network.</p>
 </dd></dl>
 
 </div>
+<div class="section" id="module-api.announcements">
+<span id="api-announcements-module"></span><h2>api.announcements module<a class="headerlink" href="#module-api.announcements" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="api.announcements.Announcement">
+<em class="property">class </em><code class="descclassname">api.announcements.</code><code class="descname">Announcement</code><span class="sig-paren">(</span><em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/announcements.html#Announcement"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.announcements.Announcement" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Data model class for a single library-wide announcement.</p>
+<dl class="attribute">
+<dt id="api.announcements.Announcement.for_authentication_document">
+<code class="descname">for_authentication_document</code><a class="headerlink" href="#api.announcements.Announcement.for_authentication_document" title="Permalink to this definition">¶</a></dt>
+<dd><p>The publishable representation of this announcement,
+for use in an authentication document.</p>
+<p>Basically just the ID and the content.</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="api.announcements.Announcement.is_active">
+<code class="descname">is_active</code><a class="headerlink" href="#api.announcements.Announcement.is_active" title="Permalink to this definition">¶</a></dt>
+<dd><p>Should this announcement be displayed now?</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="api.announcements.Announcements">
+<em class="property">class </em><code class="descclassname">api.announcements.</code><code class="descname">Announcements</code><span class="sig-paren">(</span><em>announcements</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/announcements.html#Announcements"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.announcements.Announcements" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Data model class for a library’s announcements.</p>
+<p>This entire list is stored as a single
+ConfigurationSetting, which is why this isn’t in core/model.</p>
+<dl class="attribute">
+<dt id="api.announcements.Announcements.SETTING_NAME">
+<code class="descname">SETTING_NAME</code><em class="property"> = 'announcements'</em><a class="headerlink" href="#api.announcements.Announcements.SETTING_NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.announcements.Announcements.active">
+<code class="descname">active</code><a class="headerlink" href="#api.announcements.Announcements.active" title="Permalink to this definition">¶</a></dt>
+<dd><p>Yield only the active announcements.</p>
+</dd></dl>
+
+<dl class="classmethod">
+<dt id="api.announcements.Announcements.for_library">
+<em class="property">classmethod </em><code class="descname">for_library</code><span class="sig-paren">(</span><em>library</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/announcements.html#Announcements.for_library"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.announcements.Announcements.for_library" title="Permalink to this definition">¶</a></dt>
+<dd><p>Load an Announcements object for the given Library.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>library</strong> – A Library</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+</div>
 <div class="section" id="module-api.app">
 <span id="api-app-module"></span><h2>api.app module<a class="headerlink" href="#module-api.app" title="Permalink to this headline">¶</a></h2>
 <dl class="function">
@@ -3260,12 +3318,12 @@ changes will be overwritten by run_once().</li>
 
 <dl class="attribute">
 <dt id="api.bibliotheca.ErrorParser.hold_limit_reached">
-<code class="descname">hold_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x4bc61e0&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.hold_limit_reached" title="Permalink to this definition">¶</a></dt>
+<code class="descname">hold_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x3ee5380&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.hold_limit_reached" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="api.bibliotheca.ErrorParser.loan_limit_reached">
-<code class="descname">loan_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x4ba8400&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.loan_limit_reached" title="Permalink to this definition">¶</a></dt>
+<code class="descname">loan_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x41c1df0&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.loan_limit_reached" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -3280,7 +3338,7 @@ changes will be overwritten by run_once().</li>
 
 <dl class="attribute">
 <dt id="api.bibliotheca.ErrorParser.wrong_status">
-<code class="descname">wrong_status</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x4bc5e90&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.wrong_status" title="Permalink to this definition">¶</a></dt>
+<code class="descname">wrong_status</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x42b9a20&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.wrong_status" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -8516,7 +8574,7 @@ the patron belongs to the library associated with thie BasicAuthenticationProvid
 
 <dl class="attribute">
 <dt id="api.millenium_patron.MockMilleniumPatronAPI.the_future">
-<code class="descname">the_future</code><em class="property"> = datetime.datetime(2020, 6, 5, 19, 11, 15, 964515)</em><a class="headerlink" href="#api.millenium_patron.MockMilleniumPatronAPI.the_future" title="Permalink to this definition">¶</a></dt>
+<code class="descname">the_future</code><em class="property"> = datetime.datetime(2020, 6, 7, 20, 49, 55, 613963)</em><a class="headerlink" href="#api.millenium_patron.MockMilleniumPatronAPI.the_future" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">

@@ -116,7 +116,7 @@
         <span class="n">today</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">date</span><span class="o">.</span><span class="n">today</span><span class="p">()</span>
 
         <span class="n">start</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">validate_date</span><span class="p">(</span>
-            <span class="s1">&#39;start&#39;</span><span class="p">,</span> <span class="n">announcement</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;start&#39;</span><span class="p">,</span> <span class="n">today</span><span class="p">),</span> <span class="n">minimum</span><span class="o">=</span><span class="n">today</span>
+            <span class="s1">&#39;start&#39;</span><span class="p">,</span> <span class="n">announcement</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;start&#39;</span><span class="p">,</span> <span class="n">today</span><span class="p">)</span>
         <span class="p">)</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
             <span class="k">return</span> <span class="n">start</span>

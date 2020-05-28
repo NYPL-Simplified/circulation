@@ -1,0 +1,186 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>api.announcements &#8212; Library Simplified Circulation Manager  documentation</title>
+    <link rel="stylesheet" href="../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for api.announcements</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">datetime</span>
+
+<span class="kn">from</span> <span class="nn">core.util.problem_detail</span> <span class="kn">import</span> <span class="n">ProblemDetail</span>
+
+<span class="kn">from</span> <span class="nn">admin.announcement_list_validator</span> <span class="kn">import</span> <span class="n">AnnouncementListValidator</span>
+
+<div class="viewcode-block" id="Announcements"><a class="viewcode-back" href="../../api.html#api.announcements.Announcements">[docs]</a><span class="k">class</span> <span class="nc">Announcements</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Data model class for a library&#39;s announcements.</span>
+
+<span class="sd">    This entire list is stored as a single</span>
+<span class="sd">    ConfigurationSetting, which is why this isn&#39;t in core/model.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">SETTING_NAME</span> <span class="o">=</span> <span class="s2">&quot;announcements&quot;</span>
+
+<div class="viewcode-block" id="Announcements.for_library"><a class="viewcode-back" href="../../api.html#api.announcements.Announcements.for_library">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">for_library</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">library</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Load an Announcements object for the given Library.</span>
+
+<span class="sd">        :param library: A Library</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">announcements</span> <span class="o">=</span> <span class="n">library</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">SETTING_NAME</span><span class="p">)</span><span class="o">.</span><span class="n">json_value</span> <span class="ow">or</span> <span class="p">[]</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">announcements</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">announcements</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Instantiate an Announcements object from a (potentially serialised)</span>
+<span class="sd">        list.</span>
+
+<span class="sd">        :param announcements: A value for the ANNOUNCEMENTS ConfigurationSetting,</span>
+<span class="sd">            either serialized or un-.</span>
+<span class="sd">        :return: A list of Announcement objects. The list will be empty if</span>
+<span class="sd">            there are validation errors in `announcements`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">validator</span> <span class="o">=</span> <span class="n">AnnouncementListValidator</span><span class="p">()</span>
+        <span class="n">validated</span> <span class="o">=</span> <span class="n">validator</span><span class="o">.</span><span class="n">validate_announcements</span><span class="p">(</span><span class="n">announcements</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">validated</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
+            <span class="c1"># There&#39;s a problem with the way the announcements were</span>
+            <span class="c1"># serialized to the database. Treat this as an empty list.</span>
+            <span class="n">validated</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">announcements</span> <span class="o">=</span> <span class="p">[</span><span class="n">Announcement</span><span class="p">(</span><span class="o">**</span><span class="n">data</span><span class="p">)</span> <span class="k">for</span> <span class="n">data</span> <span class="ow">in</span> <span class="n">validated</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">active</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Yield only the active announcements.&quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">announcements</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">a</span><span class="o">.</span><span class="n">is_active</span><span class="p">:</span>
+                <span class="k">yield</span> <span class="n">a</span></div>
+
+
+<div class="viewcode-block" id="Announcement"><a class="viewcode-back" href="../../api.html#api.announcements.Announcement">[docs]</a><span class="k">class</span> <span class="nc">Announcement</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Data model class for a single library-wide announcement.&quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Instantiate an Announcement from a dictionary of data.</span>
+
+<span class="sd">        It&#39;s assumed that the data is present and valid.</span>
+
+<span class="sd">        :param id: Globally unique ID for the Announcement.</span>
+<span class="sd">        :param content: Textual content of the announcement.</span>
+<span class="sd">        :param start: The date (relative to the time zone of the server)</span>
+<span class="sd">            on which the announcement should start being published.</span>
+<span class="sd">        :param finish: The date (relative to the time zone of the server)</span>
+<span class="sd">            on which the announcement should stop being published.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">id</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;id&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">content</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;content&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">start</span> <span class="o">=</span> <span class="n">AnnouncementListValidator</span><span class="o">.</span><span class="n">validate_date</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;start&#39;</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">finish</span> <span class="o">=</span> <span class="n">AnnouncementListValidator</span><span class="o">.</span><span class="n">validate_date</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;finish&#39;</span><span class="p">))</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">is_active</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Should this announcement be displayed now?&quot;&quot;&quot;</span>
+        <span class="n">today</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">date</span><span class="o">.</span><span class="n">today</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">start</span> <span class="o">&lt;=</span> <span class="n">today</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">finish</span> <span class="o">&gt;=</span> <span class="n">today</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">for_authentication_document</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;The publishable representation of this announcement,</span>
+<span class="sd">        for use in an authentication document.</span>
+
+<span class="sd">        Basically just the ID and the content.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">content</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">content</span><span class="p">)</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">Library Simplified Circulation Manager</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../modules.html">circulation</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>
