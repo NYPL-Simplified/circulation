@@ -27,7 +27,7 @@ class Announcements(object):
 
         :param announcements: A value for the ANNOUNCEMENTS ConfigurationSetting,
             either serialized or un-.
-        :return: A list of Announcement objects. The list will be empty if 
+        :return: A list of Announcement objects. The list will be empty if
             there are validation errors in `announcements`.
         """
         validator = AnnouncementListValidator()
