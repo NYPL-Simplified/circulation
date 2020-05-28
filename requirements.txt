@@ -52,6 +52,7 @@ pycryptodome
 wcag-contrast-ratio
 uritemplate
 html-sanitizer
+expiringdict
 
 # A NYPL-specific requirement
 newrelic
