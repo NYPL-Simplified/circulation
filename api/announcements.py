@@ -71,4 +71,12 @@ class Announcement(object):
         """Should this announcement be displayed now?"""
         today = datetime.date.today()
         return self.start <= today and self.finish >= today
-        
+
+    @property
+    def for_authentication_document(self):
+        """The publishable representation of this announcement,
+        for use in an authentication document.
+
+        Basically just the ID and the content.
+        """
+        return dict(id=self.id, content=self.content)

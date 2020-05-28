@@ -79,6 +79,8 @@ class TestAnnouncements(DatabaseTest):
         eq_(3, len(announcements.announcements))
         eq_(["active"], [x.id for x in announcements.active])
 
+    # Throw in a few minor tests of Announcement while we're here.
+
     def test_is_active(self):
         # Test the rules about when an Announcement is 'active'
         eq_(True, Announcement(**self.active).is_active)
@@ -89,3 +91,13 @@ class TestAnnouncements(DatabaseTest):
         expires_today = dict(self.active)
         expires_today['finish'] = self.today
         eq_(True, Announcement(**self.active).is_active)
+
+    def test_for_authentication_document(self):
+        # Demonstrate the publishable form of an Announcement.
+        #
+        # 'start' and 'finish' will be ignored, as will the extra value
+        # that has no meaning within Announcement.
+        announcement = Announcement(extra="extra value", **self.active)
+        eq_(dict(id="active", content="A sample announcement."),
+            announcement.for_authentication_document
+        )
