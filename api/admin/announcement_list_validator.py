@@ -81,7 +81,7 @@ class AnnouncementListValidator(Validator):
         today = datetime.date.today()
 
         start = self.validate_date(
-            'start', announcement.get('start', today), minimum=today
+            'start', announcement.get('start', today)
         )
         if isinstance(start, ProblemDetail):
             return start
