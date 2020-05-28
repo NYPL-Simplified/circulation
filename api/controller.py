@@ -11,6 +11,7 @@ from time import mktime
 import os
 from collections import defaultdict
 
+from expiringdict import ExpiringDict
 from lxml import etree
 from sqlalchemy.orm import eagerload
 
@@ -299,7 +300,9 @@ class CirculationManager(object):
 
         self.patron_web_domains = patron_web_domains
         self.setup_configuration_dependent_controllers()
-        self.authentication_for_opds_documents = {}
+        self.authentication_for_opds_documents = ExpiringDict(
+            max_len=1000, max_age_seconds=3600
+        )
 
     @property
     def external_search(self):

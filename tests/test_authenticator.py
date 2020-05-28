@@ -42,6 +42,7 @@ from core.util.authentication_for_opds import (
 from core.util.http import IntegrationException
 from core.mock_analytics_provider import MockAnalyticsProvider
 
+from api.announcements import Announcements
 from api.millenium_patron import MilleniumPatronAPI
 from api.firstbook import FirstBookAuthenticationAPI
 from api.clever import CleverAuthenticationAPI
@@ -1221,6 +1222,33 @@ class TestLibraryAuthenticator(AuthenticatorTest):
         base_url = ConfigurationSetting.sitewide(self._db, Configuration.BASE_URL_KEY)
         base_url.value = u'http://circulation-manager/'
 
+        # Configure three announcements: two active and one
+        # inactive.
+        format = '%Y-%m-%d'
+        today = datetime.date.today()
+        tomorrow = (today + datetime.timedelta(days=1)).strftime(format)
+        yesterday = (today - datetime.timedelta(days=1)).strftime(format)
+        two_days_ago = (today - datetime.timedelta(days=2)).strftime(format)
+        today = today.strftime(format)
+        announcements = [
+            dict(
+                id='a1', content='this is announcement 1',
+                start=yesterday, finish=today,
+            ),
+            dict(
+                id='a2', content='this is announcement 2',
+                start=two_days_ago, finish=yesterday,
+            ),
+            dict(
+                id='a3', content='this is announcement 3',
+                start=yesterday, finish=today,
+            ),
+        ]
+        announcement_setting = ConfigurationSetting.for_library(
+            Announcements.SETTING_NAME, library
+        )
+        announcement_setting.value = json.dumps(announcements)
+
         with self.app.test_request_context("/"):
             url = authenticator.authentication_document_url(library)
             assert url.endswith(
@@ -1229,8 +1257,8 @@ class TestLibraryAuthenticator(AuthenticatorTest):
 
             doc = json.loads(authenticator.create_authentication_document())
             # The main thing we need to test is that the
-            # sub-documents are assembled properly and placed in the
-            # right position.
+            # authentication sub-documents are assembled properly and
+            # placed in the right position.
             flows = doc['authentication']
             oauth_doc, basic_doc = sorted(flows, key=lambda x: x['type'])
 
@@ -1323,6 +1351,17 @@ class TestLibraryAuthenticator(AuthenticatorTest):
                 alternate
             )
 
+            # Active announcements are published; inactive announcements are not.
+            a1, a3 = doc['announcements']
+            eq_(
+                dict(id='a1', content='this is announcement 1'),
+                a1
+            )
+            eq_(
+                dict(id='a3', content='this is announcement 3'),
+                a3
+            )
+
             # Features that are enabled for this library are communicated
             # through the 'features' item.
             features = doc['features']
@@ -1344,6 +1383,12 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             doc = json.loads(authenticator.create_authentication_document())
             for key in ('focus_area', 'service_area'):
                 assert key not in doc
+
+            # If there are no announcements, the list of announcements is present
+            # but empty.
+            announcement_setting.value = None
+            doc = json.loads(authenticator.create_authentication_document())
+            eq_([], doc['announcements'])
 
             # The annotator's annotate_authentication_document method
             # was called and successfully modified the authentication
