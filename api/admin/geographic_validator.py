@@ -148,3 +148,6 @@ class GeographicValidator(Validator):
                     return True
 
         return result
+
+    def format(self, value):
+        return value

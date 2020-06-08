@@ -153,3 +153,9 @@ class AnnouncementListValidator(Validator):
                 )
             )
         return value
+
+    def format(self, value):
+        """Format the output of validate_announcements for storage in ConfigurationSetting.value"""
+        from ..announcements import Announcements
+        return json.dumps([x.json_ready for x in Announcements(value).announcements])
+

@@ -5,43 +5,14 @@ from nose.tools import (
 import datetime
 import json
 
-from . import DatabaseTest
+from api.testing import AnnouncementTest
 from api.announcements import (
     Announcements,
     Announcement
 )
 
-class TestAnnouncements(DatabaseTest):
+class TestAnnouncements(AnnouncementTest):
     """Test the Announcements object."""
-
-    # Create raw data to be used in tests.
-    format = '%Y-%m-%d'
-    today = datetime.date.today()
-    yesterday = (today - datetime.timedelta(days=1)).strftime(format)
-    tomorrow = (today + datetime.timedelta(days=1)).strftime(format)
-    a_week_ago = (today - datetime.timedelta(days=7)).strftime(format)
-    in_a_week = (today + datetime.timedelta(days=7)).strftime(format)
-    today = today.strftime(format)
-
-    # This announcement is active.
-    active = dict(
-        id="active",
-        start=today,
-        finish=tomorrow,
-        content="A sample announcement."
-    )
-
-    # This announcement expired yesterday.
-    expired = dict(active)
-    expired['id'] = 'expired'
-    expired['start'] = a_week_ago
-    expired['finish'] = yesterday
-
-    # This announcement should be displayed starting tomorrow.
-    forthcoming = dict(active)
-    forthcoming['id'] = 'forthcoming'
-    forthcoming['start'] = tomorrow
-    forthcoming['finish'] = in_a_week
 
     def test_for_library(self):
         """Verify that we can create an Announcements object for a library."""

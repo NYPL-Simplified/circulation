@@ -246,7 +246,9 @@ class LibrarySettingsController(SettingsController):
                 return validated_value
 
             # Validation succeeded -- set the new value.
-            ConfigurationSetting.for_library(setting['key'], library).value = validated_value
+            ConfigurationSetting.for_library(setting['key'], library).value = self._format_setting(
+                validated_value, validator
+            )
 
     def _validate_setting(self, library, setting, validator=None):
         """Validate the incoming value for a single library setting.
@@ -280,7 +282,7 @@ class LibrarySettingsController(SettingsController):
             value = validator.validate_geographic_areas(value, self._db)
         elif format == "announcements":
             value = self.list_setting(setting, json_objects=True)
-            value = validator.validate(value)
+            value = validator.validate_announcements(value)
         elif type == "list":
             value = self.list_setting(setting)
             if format == "language-code":
@@ -319,7 +321,7 @@ class LibrarySettingsController(SettingsController):
                 if not isinstance(i, list):
                     i = [i]
                 if json_objects:
-                    i = [json.loads(s) for x in i]
+                    i = [json.loads(x) for x in i]
                 value.extend(i)
         return json.dumps(filter(None, value))
 
@@ -339,3 +341,10 @@ class LibrarySettingsController(SettingsController):
     def current_value(self, setting, library):
         """Retrieve the current value of the given setting from the database."""
         return ConfigurationSetting.for_library(setting['key'], library).value
+
+    def _format_setting(self, setting, validator=None):
+        """Convert a validated value to a string that can be stored in ConfigurationSetting.value
+        """
+        if not validator:
+            return setting
+        return validator.format(setting)
