@@ -11,8 +11,9 @@ from api.announcements import (
     Announcements,
     Announcement
 )
+from . import DatabaseTest
 
-class TestAnnouncements(AnnouncementTest):
+class TestAnnouncements(AnnouncementTest, DatabaseTest):
     """Test the Announcements object."""
 
     def test_for_library(self):

@@ -441,8 +441,8 @@ class TestLibrarySettings(SettingsControllerTest, AnnouncementTest):
 
         # format1 has a custom validation class; format2 does not.
         class MockValidator(object):
-            def format(self, value):
-                self.format_called_with = value
+            def format_as_string(self, value):
+                self.format_as_string_called_with = value
                 return value + ", formatted for storage"
         validator1 = MockValidator()
         validators = dict(format1=validator1)
@@ -477,7 +477,7 @@ class TestLibrarySettings(SettingsControllerTest, AnnouncementTest):
 
         # The 'validated' value from the MockValidator was then formatted
         # for storage using the format() method.
-        eq_("validated %s" % settings[0]['key'], validator1.format_called_with)
+        eq_("validated %s" % settings[0]['key'], validator1.format_as_string_called_with)
 
         # Each (validated and formatted) value was written to the
         # database.
