@@ -1,16 +1,33 @@
-from nose.tools import set_trace
-from api.announcements import Announcements
+import datetime
+import importlib
+import json
+import logging
+import re
+import urllib
+from abc import ABCMeta
+
+import flask
+import jwt
+from flask import (
+    redirect,
+    url_for)
+from flask_babel import lazy_gettext as _
+from money import Money
+from sqlalchemy.ext.hybrid import hybrid_property
+from sqlalchemy.orm.exc import NoResultFound
+from sqlalchemy.sql.expression import or_
+from werkzeug.datastructures import Headers
+
+from api.adobe_vendor_id import AuthdataUtility
 from api.annotations import AnnotationWriter
+from api.custom_patron_catalog import CustomPatronCatalog
 from api.opds import LibraryAnnotator
+from api.saml.configuration import SAMLConfiguration
 from config import (
     Configuration,
     CannotLoadConfiguration,
     IntegrationException,
 )
-from core.selftest import (
-    HasSelfTests,
-)
-from core.opds import OPDSFeed
 from core.model import (
     get_one,
     get_one_or_create,
@@ -24,43 +41,22 @@ from core.model import (
     PatronProfileStorage,
     Session,
 )
-from core.util.problem_detail import (
-    ProblemDetail,
-    json as pd_json,
+from core.opds import OPDSFeed
+from core.selftest import (
+    HasSelfTests,
 )
+from core.user_profile import ProfileController
 from core.util.authentication_for_opds import (
     AuthenticationForOPDSDocument,
     OPDSAuthenticationFlow,
 )
 from core.util.http import RemoteIntegrationException
-from core.user_profile import ProfileController
-from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy.orm.exc import NoResultFound
-from sqlalchemy.sql.expression import or_
+from core.util.problem_detail import (
+    ProblemDetail,
+    json as pd_json,
+)
 from problem_details import *
 from util.patron import PatronUtility
-from api.custom_patron_catalog import CustomPatronCatalog
-from api.adobe_vendor_id import AuthdataUtility
-
-import datetime
-import logging
-from money import Money
-import os
-import re
-import urlparse
-import urllib
-import uuid
-import json
-import jwt
-import flask
-from flask import (
-    Response,
-    redirect,
-    url_for,
-)
-from werkzeug.datastructures import Headers
-from flask_babel import lazy_gettext as _
-import importlib
 
 
 class CannotCreateLocalPatron(Exception):
@@ -227,6 +223,34 @@ class PatronData(object):
         # cached_neighborhood as neighborhood.
         self.neighborhood = neighborhood or cached_neighborhood
         self.cached_neighborhood = cached_neighborhood
+
+    def __eq__(self, other):
+        """
+        Compares two PatronData objects
+
+        :param other: PatronData object
+        :type other: PatronData
+
+        :return: Boolean value indicating whether two items are equal
+        :rtype: bool
+        """
+
+        if not isinstance(other, PatronData):
+            return False
+
+        return \
+            self.permanent_id == other.permanent_id and \
+            self.username == other.username and \
+            self.authorization_expires == other.authorization_expires and \
+            self.external_type == other.external_type and \
+            self.fines == other.fines and \
+            self.block_reason == other.block_reason and \
+            self.library_identifier == other.library_identifier and \
+            self.complete == other.complete and \
+            self.personal_name == other.personal_name and \
+            self.email_address == other.email_address and \
+            self.neighborhood == other.neighborhood and \
+            self.cached_neighborhood == other.cached_neighborhood
 
     def __repr__(self):
         return "<PatronData permanent_id=%r authorization_identifier=%r username=%r>" % (
@@ -541,6 +565,11 @@ class Authenticator(object):
             "oauth_provider_lookup", *args, **kwargs
         )
 
+    def saml_provider_lookup(self, *args, **kwargs):
+        return self.invoke_authenticator_method(
+            "saml_provider_lookup", *args, **kwargs
+        )
+
     def decode_bearer_token(self, *args, **kwargs):
         return self.invoke_authenticator_method(
             "decode_bearer_token", *args, **kwargs
@@ -597,6 +626,14 @@ class LibraryAuthenticator(object):
             authenticator.bearer_token_signing_secret = OAuthAuthenticationProvider.bearer_token_signing_secret(
                 _db
             )
+        if authenticator.saml_providers_by_name:
+            # NOTE: this will immediately commit the database session,
+            # which may not be what you want during a test. To avoid
+            # this, you can create the bearer token signing secret as
+            # a regular site-wide ConfigurationSetting.
+            authenticator.bearer_token_signing_secret = BaseSAMLAuthenticationProvider.bearer_token_signing_secret(
+                _db
+            )
         authenticator.assert_ready_for_oauth()
         return authenticator
 
@@ -632,6 +669,7 @@ class LibraryAuthenticator(object):
 
         self.basic_auth_provider = basic_auth_provider
         self.oauth_providers_by_name = dict()
+        self.saml_providers_by_name = dict()
         self.bearer_token_signing_secret = bearer_token_signing_secret
         self.initialization_exceptions = dict()
 
@@ -649,7 +687,7 @@ class LibraryAuthenticator(object):
     @property
     def supports_patron_authentication(self):
         """Does this library have any way of authenticating patrons at all?"""
-        if self.basic_auth_provider or self.oauth_providers_by_name:
+        if self.basic_auth_provider or self.oauth_providers_by_name or self.saml_providers_by_name:
             return True
         return False
 
@@ -730,6 +768,8 @@ class LibraryAuthenticator(object):
             # the ability to run one.
         elif issubclass(provider_class, OAuthAuthenticationProvider):
             self.register_oauth_provider(provider)
+        elif issubclass(provider_class, BaseSAMLAuthenticationProvider):
+            self.register_saml_provider(provider)
         else:
             raise CannotLoadConfiguration(
                 "Authentication provider %s is neither a BasicAuthenticationProvider nor an OAuthAuthenticationProvider. I can create it, but not sure where to put it." % provider_class
@@ -755,12 +795,26 @@ class LibraryAuthenticator(object):
             )
         self.oauth_providers_by_name[provider.NAME] = provider
 
+    def register_saml_provider(self, provider):
+        already_registered = self.saml_providers_by_name.get(
+            provider.NAME
+        )
+        if already_registered and already_registered != provider:
+            raise CannotLoadConfiguration(
+                'Two different SAML providers claim the name "%s"' % (
+                    provider.NAME
+                )
+            )
+        self.saml_providers_by_name[provider.NAME] = provider
+
     @property
     def providers(self):
         """An iterator over all registered AuthenticationProviders."""
         if self.basic_auth_provider:
             yield self.basic_auth_provider
         for provider in self.oauth_providers_by_name.values():
+            yield provider
+        for provider in self.saml_providers_by_name.values():
             yield provider
 
     def authenticated_patron(self, _db, header):
@@ -799,6 +853,27 @@ class LibraryAuthenticator(object):
                 return provider
 
             # Ask the OAuthAuthenticationProvider to turn its token
+            # into a Patron.
+            return provider.authenticated_patron(_db, provider_token)
+        elif (self.saml_providers_by_name
+              and isinstance(header, basestring)
+              and 'bearer' in header.lower()):
+
+            # The patron wants to use an
+            # SAMLAuthenticationProvider. Figure out which one.
+            try:
+                provider_name, provider_token = self.decode_bearer_token_from_header(
+                    header
+                )
+            except jwt.exceptions.InvalidTokenError, e:
+                return INVALID_SAML_BEARER_TOKEN
+            provider = self.saml_provider_lookup(provider_name)
+            if isinstance(provider, ProblemDetail):
+                # There was a problem turning the provider name into
+                # a registered SAMLAuthenticationProvider.
+                return provider
+
+            # Ask the SAMLAuthenticationProvider to turn its token
             # into a Patron.
             return provider.authenticated_patron(_db, provider_token)
 
@@ -844,6 +919,27 @@ class LibraryAuthenticator(object):
                 _(" The known providers are: %s") % possibilities
             )
         return self.oauth_providers_by_name[provider_name]
+
+    def saml_provider_lookup(self, provider_name):
+        """Look up the SAMLAuthenticationProvider with the given name. If that
+        doesn't work, return an appropriate ProblemDetail.
+        """
+        if not self.saml_providers_by_name:
+            # We don't support OAuth at all.
+            return UNKNOWN_SAML_PROVIDER.detailed(
+                _("No OAuth providers are configured.")
+            )
+
+        if (not provider_name
+            or not provider_name in self.saml_providers_by_name):
+            # The patron neglected to specify a provider, or specified
+            # one we don't support.
+            possibilities = ", ".join(self.saml_providers_by_name.keys())
+            return UNKNOWN_SAML_PROVIDER.detailed(
+                UNKNOWN_SAML_PROVIDER.detail +
+                _(" The known providers are: %s") % possibilities
+            )
+        return self.saml_providers_by_name[provider_name]
 
     def create_bearer_token(self, provider_name, provider_token):
         """Create a JSON web token with the given provider name and access
@@ -1023,14 +1119,6 @@ class LibraryAuthenticator(object):
         bucket.append(Configuration.RESERVATIONS_FEATURE)
         doc['features'] = dict(enabled=enabled, disabled=disabled)
 
-        # Add any active announcements for the library.
-        announcements = [
-            x.for_authentication_document
-            for x in Announcements.for_library(library).active
-        ]
-        doc['announcements'] = announcements
-
-        # Finally, give the active annotator a chance to modify the document.
         if self.authentication_document_annotator:
             doc = self.authentication_document_annotator.annotate_authentication_document(
                 library, doc, url_for
@@ -2495,3 +2583,95 @@ class OAuthController(object):
         )
         params = dict(error=problem_detail_json)
         return redirect_uri + "#" + urllib.urlencode(params)
+
+
+class BaseSAMLAuthenticationProvider(AuthenticationProvider, HasSelfTests):
+    """
+    Base class for SAML authentication providers
+    """
+
+    __metaclass__ = ABCMeta
+
+    NAME = 'SAML 2.0'
+
+    DESCRIPTION = _('SAML 2.0 authentication provider')
+
+    DISPLAY_NAME = NAME
+
+    FLOW_TYPE = 'http://opds-spec.org/auth/saml'
+
+    TOKEN_TYPE = "SAML 2.0 token"
+    TOKEN_DATA_SOURCE_NAME = 'SAML 2.0'
+
+    # After successfully authenticating using SAML protocol patrons receive Bearer tokens used
+    # for confirming their authentication state. This configuration setting defines how long these tokens can be valid
+    SAML_TOKEN_EXPIRATION_DAYS = 'token_expiration_days'
+
+    # This is the default value for that configuration setting.
+    DEFAULT_TOKEN_EXPIRATION_DAYS = 42
+
+    SETTINGS = [
+       {
+           'key': SAMLConfiguration.SP_XML_METADATA,
+           'label': _('Service Provider\'s XML metadata'),
+           'type': 'textarea',
+           'description': _('SAML metadata of the Circulation Manager\'s Service Provider in an XML format '
+                            '(must contain exactly one SPSSODescriptor'),
+           'category': 'SP',
+           'required': True
+       },
+       {
+           'key': SAMLConfiguration.SP_PRIVATE_KEY,
+           'label': _('Service Provider\'s private key'),
+           'type': 'textarea',
+           'description': _('Private key used for encrypting SAML requests'),
+           'category': 'SP',
+           'required': False
+       },
+       {
+           'key': SAMLConfiguration.STRICT,
+           'label': _('Service Provider\'s strict mode'),
+           'type': 'number',
+           'description': _(
+               'If strict is True, then the Python Toolkit will reject unsigned or unencrypted messages '
+               'if it expects them to be signed or encrypted. Also it will reject the messages '
+               'if the SAML standard is not strictly followed. Destination, NameId, Conditions ... '
+               'are validated too.'),
+           'category': 'SP',
+           'required': False
+       },
+       {
+           'key': SAMLConfiguration.DEBUG,
+           'label': _('Service Provider\'s debug mode'),
+           'type': 'number',
+           'description': _('Enable debug mode (outputs errors)'),
+           'category': 'SP',
+           'required': False
+       },
+       {
+           'key': SAMLConfiguration.IDP_XML_METADATA,
+           'label': _('Identity Provider\'s XML metadata'),
+           'type': 'textarea',
+           'description': _('SAML metadata of Identity Providers in an XML format '
+                            '(may contain multiple IDPSSODescriptor)'),
+           'category': 'IDP',
+           'required': True
+       },
+       {
+           "key": SAML_TOKEN_EXPIRATION_DAYS,
+           "type": "number",
+           "label": _("Days until a Bearer token expires")
+       },
+    ] + AuthenticationProvider.SETTINGS
+
+    # Name of the site-wide ConfigurationSetting containing the secret
+    # used to sign bearer tokens.
+    BEARER_TOKEN_SIGNING_SECRET = Configuration.BEARER_TOKEN_SIGNING_SECRET
+
+    @classmethod
+    def bearer_token_signing_secret(cls, _db):
+        """Find or generate the site-wide bearer token signing secret."""
+        return ConfigurationSetting.sitewide_secret(
+            _db, cls.BEARER_TOKEN_SIGNING_SECRET
+        )
+

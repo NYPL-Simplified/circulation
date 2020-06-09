@@ -543,6 +543,19 @@ def oauth_authenticate():
 def oauth_callback():
     return app.manager.oauth_controller.oauth_authentication_callback(app.manager._db, flask.request.args)
 
+# Route that redirects to the authentication URL for a SAML provider
+@library_route('/saml_authenticate')
+@has_library
+@returns_problem_detail
+def saml_authenticate():
+    return app.manager.saml_controller.saml_authentication_redirect(flask.request.args, app.manager._db)
+
+# Redirect URI for SAML providers
+@returns_problem_detail
+@app.route("/saml_callback", methods=['POST'])
+def saml_callback():
+    return app.manager.saml_controller.saml_authentication_callback(request, app.manager._db)
+
 # Loan notifications for ODL distributors, eg. Feedbooks
 @library_route('/odl_notify/<loan_id>', methods=['GET', 'POST'])
 @has_library

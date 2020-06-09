@@ -237,6 +237,20 @@ INVALID_OAUTH_BEARER_TOKEN = pd(
     detail=_("The provided OAuth bearer token couldn't be verified."),
 )
 
+UNKNOWN_SAML_PROVIDER = pd(
+    "http://librarysimplified.org/terms/problem/unknown-saml-provider",
+    status_code=400,
+    title=_("Unknown SAML provider."),
+    detail=_("The specified SAML provider name isn't one of the known providers."),
+)
+
+INVALID_SAML_BEARER_TOKEN = pd(
+    "http://librarysimplified.org/terms/problem/credentials-invalid",
+    status_code=400,
+    title=_("Invalid SAML bearer token."),
+    detail=_("The provided SAML bearer token couldn't be verified."),
+)
+
 UNSUPPORTED_AUTHENTICATION_MECHANISM = pd(
     "http://librarysimplified.org/terms/problem/unsupported-authentication-mechanism",
     status_code=400,
