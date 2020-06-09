@@ -6,6 +6,7 @@ import datetime
 import json
 
 from api.testing import AnnouncementTest
+from api.admin.announcement_list_validator import AnnouncementListValidator
 from api.announcements import (
     Announcements,
     Announcement
@@ -71,4 +72,20 @@ class TestAnnouncements(AnnouncementTest):
         announcement = Announcement(extra="extra value", **self.active)
         eq_(dict(id="active", content="A sample announcement."),
             announcement.for_authentication_document
+        )
+
+    def test_json_ready(self):
+        # Demonstrate the form of an Announcement used to store in the database.
+        #
+        # 'start' and 'finish' will be converted into strings the extra value
+        # that has no meaning within Announcement will be ignored.
+        announcement = Announcement(extra="extra value", **self.active)
+        eq_(
+            dict(
+                id="active",
+                content="A sample announcement.",
+                start=announcement.start.strftime(AnnouncementListValidator.DATE_FORMAT),
+                finish=announcement.finish.strftime(AnnouncementListValidator.DATE_FORMAT),
+            ),
+            announcement.json_ready
         )
