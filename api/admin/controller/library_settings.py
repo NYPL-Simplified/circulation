@@ -342,10 +342,11 @@ class LibrarySettingsController(SettingsController):
         """Retrieve the current value of the given setting from the database."""
         return ConfigurationSetting.for_library(setting['key'], library).value
 
-    def _format_validated_value(self, value, validator=None):
+    @classmethod
+    def _format_validated_value(cls, value, validator=None):
         """Convert a validated value to a string that can be stored in ConfigurationSetting.value
         """
         if not validator:
             # Assume the value is already a string.
-            return setting
-        return validator.format_as_string(setting)
+            return value
+        return validator.format_as_string(value)

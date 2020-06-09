@@ -641,3 +641,23 @@ class TestLibrarySettings(SettingsControllerTest, AnnouncementTest):
             m(library, dict(key="announcement_list", format="announcements"), validator)
         )
         eq_(json.dumps(controller.announcement_list), validator.called_with)
+
+    def test__format_validated_value(self):
+        
+        m = LibrarySettingsController._format_validated_value
+
+        # When there is no validator, the incoming value is used as the formatted value,
+        # unchanged.
+        value = object()
+        eq_(value, m(value, validator=None))
+
+        # When there is a validator, its format_as_string method is
+        # called, and its return value is used as the formatted value.
+        class MockValidator(object):
+            def format_as_string(self, value):
+                self.called_with = value
+                return "formatted value"
+
+        validator = MockValidator()
+        eq_("formatted value", m(value, validator=validator))
+        eq_(value, validator.called_with)
