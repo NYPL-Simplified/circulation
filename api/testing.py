@@ -119,7 +119,7 @@ class MonitorTest(DatabaseTest):
         return self.monitor.timestamp().to_data()
 
 
-class AnnouncementTest(DatabaseTest):
+class AnnouncementTest(object):
     """A test that needs to create announcements."""
 
     # Create raw data to be used in tests.
