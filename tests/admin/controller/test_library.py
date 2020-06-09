@@ -440,7 +440,11 @@ class TestLibrarySettings(SettingsControllerTest, AnnouncementTest):
         ]
 
         # format1 has a custom validation class; format2 does not.
-        validator1 = object()
+        class MockValidator(object):
+            def format(self, value):
+                self.format_called_with = value
+                return value + ", formatted for storage"
+        validator1 = MockValidator()
         validators = dict(format1=validator1)
 
         class MockController(LibrarySettingsController):
@@ -471,13 +475,19 @@ class TestLibrarySettings(SettingsControllerTest, AnnouncementTest):
         eq_((library, settings[0], validator1), c1)
         eq_((library, settings[1], None), c2)
 
-        # Each validated value was written to the database.
-        for x in settings:
-            setting = library.setting(x['key'])
-            eq_("validated %s" % x['key'], setting.value)
-            setting.value = None
+        # The 'validated' value from the MockValidator was then formatted
+        # for storage using the format() method.
+        eq_("validated %s" % settings[0]['key'], validator1.format_called_with)
+
+        # Each (validated and formatted) value was written to the
+        # database.
+        setting1, setting2 = [library.setting(x['key']) for x in settings]
+        eq_("validated %s, formatted for storage" % setting1.key, setting1.value)
+        eq_("validated %s" % setting2.key, setting2.value)
 
         # Try again in a situation where there are validation failures.
+        setting1.value = None
+        setting2.value = None
         controller.succeed = False
         controller._validate_setting_calls = []
         result = controller.library_configuration_settings(
@@ -621,7 +631,7 @@ class TestLibrarySettings(SettingsControllerTest, AnnouncementTest):
         # A list of announcements.
         class MockAnnouncementValidator(object):
             value = "validated value"
-            def validate(self, value):
+            def validate_announcements(self, value):
                 self.called_with = value
                 return self.value
         validator = MockAnnouncementValidator()
