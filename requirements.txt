@@ -67,3 +67,4 @@ python-saml
 isodate
 defusedxml
 xmlsec
+parameterized
