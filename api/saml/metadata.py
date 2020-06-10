@@ -5,13 +5,10 @@ from onelogin.saml2.constants import OneLogin_Saml2_Constants
 
 
 class LocalizableMetadataItem(object):
-    """
-    Represents md:localizedNameType
-    """
+    """Represents md:localizedNameType"""
 
     def __init__(self, value, language=None):
-        """
-        Initializes a new instance of LocalizableMetadataItem class
+        """Initializes a new instance of LocalizableMetadataItem class
 
         :param value: String containing the actual value
         :type value: string
@@ -19,13 +16,11 @@ class LocalizableMetadataItem(object):
         :param language: String containing language of the actual value
         :type language: Optional[string]
         """
-
         self._value = value
         self._language = language
 
     def __eq__(self, other):
-        """
-        Compares two LocalizableMetadataItem objects
+        """Compares two LocalizableMetadataItem objects
 
         :param other: LocalizableMetadataItem object
         :type other: LocalizableMetadataItem
@@ -33,7 +28,6 @@ class LocalizableMetadataItem(object):
         :return: Boolean value indicating whether two items are equal
         :rtype: bool
         """
-
         if not isinstance(other, LocalizableMetadataItem):
             return False
 
@@ -43,13 +37,11 @@ class LocalizableMetadataItem(object):
 
     @property
     def value(self):
-        """
-        Returns the actual value
+        """Returns the actual value
 
         :return: Actual value
         :rtype: string
         """
-
         return self._value
 
     @property
@@ -60,14 +52,11 @@ class LocalizableMetadataItem(object):
         :return: Language of the value
         :rtype: string
         """
-
         return self._language
 
 
 class UIInfo(object):
-    """
-    Represents mdui:UIInfoType and contains values that can be shown in the UI to describe IdPs/SPs
-    """
+    """Represents mdui:UIInfoType and contains values that can be shown in the UI to describe IdPs/SPs"""
 
     def __init__(
             self,
@@ -76,8 +65,7 @@ class UIInfo(object):
             information_urls=None,
             privacy_statement_urls=None,
             logo_urls=None):
-        """
-        Initializes a new instance of UIInfo class
+        """Initializes a new instance of UIInfo class
 
         :param display_names: (Optional) List of localized display names
         :type display_names: Optional[List[LocalizableMetadataItem]]
@@ -94,7 +82,6 @@ class UIInfo(object):
         :param logo_urls: (Optional) List of localized logo URLs
         :type logo_urls: Optional[List[LocalizableMetadataItem]]
         """
-
         if display_names:
             for display_name in display_names:
                 if not isinstance(display_name, LocalizableMetadataItem):
@@ -127,8 +114,7 @@ class UIInfo(object):
         self._logo_urls = logo_urls
 
     def __eq__(self, other):
-        """
-        Compares two UIInfo objects
+        """Compares two UIInfo objects
 
         :param other: UIInfo object
         :type other: UIInfo
@@ -136,7 +122,6 @@ class UIInfo(object):
         :return: Boolean value indicating whether two items are equal
         :rtype: bool
         """
-
         if not isinstance(other, UIInfo):
             return False
 
@@ -149,64 +134,52 @@ class UIInfo(object):
 
     @property
     def display_names(self):
-        """
-        Returns a list of localizable display names
+        """Returns a list of localizable display names
 
         :return: List of localizable display names
         :rtype: List[LocalizableMetadataItem]
         """
-
         return self._display_names
 
     @property
     def descriptions(self):
-        """
-        Returns a list of localizable descriptions
+        """Returns a list of localizable descriptions
 
         :return: List of localizable descriptions
         :rtype: List[LocalizableMetadataItem]
         """
-
         return self._descriptions
 
     @property
     def information_urls(self):
-        """
-        Returns a list of localizable information URLs
+        """Returns a list of localizable information URLs
 
         :return: List of localizable information URLs
         :rtype: List[LocalizableMetadataItem]
         """
-
         return self._information_urls
 
     @property
     def privacy_statement_urls(self):
-        """
-        Returns a list of localizable privacy statement URLs
+        """Returns a list of localizable privacy statement URLs
 
         :return: List of localizable privacy statement URLs
         :rtype: List[LocalizableMetadataItem]
         """
-
         return self._privacy_statement_urls
 
     @property
     def logo_urls(self):
-        """
-        Returns a list of localizable logo URLs
+        """Returns a list of localizable logo URLs
 
         :return: List of localizable logo URLs
         :rtype: List[LocalizableMetadataItem]
         """
-
         return self._logo_urls
 
 
 class Binding(Enum):
-    """
-    Enumeration of SAML bindings
-    """
+    """Enumeration of SAML bindings"""
 
     HTTP_POST = OneLogin_Saml2_Constants.BINDING_HTTP_POST
     HTTP_REDIRECT = OneLogin_Saml2_Constants.BINDING_HTTP_REDIRECT
@@ -216,9 +189,7 @@ class Binding(Enum):
 
 
 class NameIDFormat(Enum):
-    """
-    Enumeration of SAML name ID formats
-    """
+    """Enumeration of SAML name ID formats"""
 
     EMAIL_ADDRESS = 'urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress'
     X509_SUBJECT_NAME = 'urn:oasis:names:tc:SAML:1.1:nameid-format:X509SubjectName'
@@ -232,13 +203,10 @@ class NameIDFormat(Enum):
 
 
 class Service(object):
-    """
-    Represents a service: IdP's SingleSignOnService, SingleLogOutService, SP's AssertionConsumerService
-    """
+    """Represents a service: IdP's SingleSignOnService, SingleLogOutService, SP's AssertionConsumerService"""
 
     def __init__(self, url, binding):
-        """
-        Initializes a new instance of Service class
+        """Initializes a new instance of Service class
 
         :param url: Service's URL
         :type url: string
@@ -246,7 +214,6 @@ class Service(object):
         :param binding: Service's binding
         :type binding: Binding
         """
-
         if not isinstance(url, str):
             raise ValueError('url must be a string')
         if not isinstance(binding, Binding):
@@ -256,8 +223,7 @@ class Service(object):
         self._binding = binding
 
     def __eq__(self, other):
-        """
-        Compares two Service objects
+        """Compares two Service objects
 
         :param other: Service object
         :type other: Service
@@ -265,7 +231,6 @@ class Service(object):
         :return: Boolean value indicating whether two items are equal
         :rtype: bool
         """
-
         if not isinstance(other, Service):
             return False
 
@@ -275,35 +240,28 @@ class Service(object):
 
     @property
     def url(self):
-        """
-        Returns the service's URL
+        """Returns the service's URL
 
         :return: Service's URL
         :rtype: string
         """
-
         return self._url
 
     @property
     def binding(self):
-        """
-        Returns the service's binding
+        """Returns the service's binding
 
         :return: Service's binding
         :rtype: Binding
         """
-
         return self._binding
 
 
 class ProviderMetadata(object):
-    """
-    Base class for IdentityProvider and ServiceProvider classes
-    """
+    """Base class for IdentityProvider and ServiceProvider classes"""
 
     def __init__(self, entity_id, ui_info, name_id_format=NameIDFormat.UNSPECIFIED):
-        """
-        Initializes a new instance of ProviderMetadata class
+        """Initializes a new instance of ProviderMetadata class
 
         :param entity_id: Provider's entityID
         :type entity_id: string
@@ -314,7 +272,6 @@ class ProviderMetadata(object):
         :param name_id_format: String defining the name identifier formats supported by the identity provider
         :type name_id_format: string
         """
-
         if not isinstance(ui_info, UIInfo):
             raise ValueError('ui_info must have type UIInfo')
 
@@ -326,8 +283,7 @@ class ProviderMetadata(object):
         self._name_id_format = name_id_format
 
     def __eq__(self, other):
-        """
-        Compares two ProviderMetadata objects
+        """Compares two ProviderMetadata objects
 
         :param other: ProviderMetadata object
         :type other: ProviderMetadata
@@ -335,7 +291,6 @@ class ProviderMetadata(object):
         :return: Boolean value indicating whether two items are equal
         :rtype: bool
         """
-
         if not isinstance(other, ProviderMetadata):
             return False
 
@@ -346,41 +301,33 @@ class ProviderMetadata(object):
 
     @property
     def entity_id(self):
-        """
-        Returns the provider's entityID
+        """Returns the provider's entityID
 
         :return: Provider's entityID
         :rtype: string
         """
-
         return self._entity_id
 
     @property
     def ui_info(self):
-        """
-        Returns the provider's UIInfo object
+        """Returns the provider's UIInfo object
         :return: Provider's UIInfo object
         :rtype: UIInfo
         """
-
         return self._ui_info
 
     @property
     def name_id_format(self):
-        """
-        Returns the name ID format
+        """Returns the name ID format
 
         :return: Name ID format
         :rtype: string
         """
-
         return self._name_id_format
 
 
 class IdentityProviderMetadata(ProviderMetadata):
-    """
-    Represents IdP metadata
-    """
+    """Represents IdP metadata"""
 
     def __init__(
             self,
@@ -392,8 +339,7 @@ class IdentityProviderMetadata(ProviderMetadata):
             want_authn_requests_signed=False,
             signing_certificates=None,
             encryption_certificates=None):
-        """
-        Initializes a new instance of IdentityProviderMetadata
+        """Initializes a new instance of IdentityProviderMetadata
 
         :param entity_id: String containing this IdP's entityID
         :type entity_id: string
@@ -411,7 +357,7 @@ class IdentityProviderMetadata(ProviderMetadata):
         :type slo_service: Optional[Service]
 
         :param want_authn_requests_signed: (Optional) Boolean value intended to indicate to service providers
-        whether or not they can expect an unsigned <AuthnRequest> message to be accepted by the identity provider
+            whether or not they can expect an unsigned <AuthnRequest> message to be accepted by the identity provider
         :type want_authn_requests_signed: Optional[bool]
 
         :param signing_certificates: (Optional) Certificate in X.509 format used for signing <AuthnResponse> messages
@@ -419,9 +365,7 @@ class IdentityProviderMetadata(ProviderMetadata):
 
         :param encryption_certificates: (Optional) Certificate in X.509 format used for encrypting <AuthnResponse>
         :type encryption_certificates: Optional[List[string]]
-        messages
         """
-
         super(IdentityProviderMetadata, self).__init__(entity_id, ui_info, name_id_format)
 
         if not isinstance(sso_service, Service):
@@ -437,8 +381,7 @@ class IdentityProviderMetadata(ProviderMetadata):
         self._encryption_certificates = encryption_certificates if encryption_certificates else []
 
     def __eq__(self, other):
-        """
-        Compares two IdentityProviderMetadata objects
+        """Compares two IdentityProviderMetadata objects
 
         :param other: IdentityProviderMetadata object
         :type other: IdentityProviderMetadata
@@ -446,7 +389,6 @@ class IdentityProviderMetadata(ProviderMetadata):
         :return: Boolean value indicating whether two items are equal
         :rtype: bool
         """
-
         if not super(IdentityProviderMetadata, self).__eq__(other):
             return False
 
@@ -462,48 +404,40 @@ class IdentityProviderMetadata(ProviderMetadata):
 
     @property
     def sso_service(self):
-        """
-        Returns Single Sign-On service's metadata
+        """Returns Single Sign-On service's metadata
 
         :return: Single Sign-On service's metadata
         :rtype: Service
         """
-
         return self._sso_service
 
     @property
     def slo_service(self):
-        """
-        Returns Single Log-Out service's metadata
+        """Returns Single Log-Out service's metadata
 
         :return: Single Log-Out service's metadata
         :rtype: Service
         """
-
         return self._slo_service
 
     @property
     def want_authn_requests_signed(self):
-        """
-        Returns the boolean value indicating to service providers
+        """Returns the boolean value indicating to service providers
         whether or not they can expect an unsigned <AuthnRequest> message to be accepted by the identity provider
 
         :return: Boolean value indicating to service providers
-        whether or not they can expect an unsigned <AuthnRequest> message to be accepted by the identity provider
+            whether or not they can expect an unsigned <AuthnRequest> message to be accepted by the identity provider
         :rtype: bool
         """
-
         return self._want_authn_requests_signed
 
     @property
     def signing_certificates(self):
-        """
-        Returns a list of signing certificates
+        """Returns a list of signing certificates
 
         :return: List of signing certificates
         :rtype: List[string]
         """
-
         return self._signing_certificates
 
     @property
@@ -514,14 +448,11 @@ class IdentityProviderMetadata(ProviderMetadata):
         :return: List of encryption certificates
         :rtype: List[string]
         """
-
         return self._encryption_certificates
 
 
 class ServiceProviderMetadata(ProviderMetadata):
-    """
-    Represents SP metadata
-    """
+    """Represents SP metadata"""
 
     def __init__(
             self,
@@ -533,8 +464,7 @@ class ServiceProviderMetadata(ProviderMetadata):
             want_assertions_signed=False,
             certificate=None,
             private_key=None):
-        """
-        Initializes a new instance of ServiceProviderMetadata class
+        """Initializes a new instance of ServiceProviderMetadata class
 
         :param entity_id: String containing this IdP's entityID
         :type entity_id: string
@@ -549,21 +479,20 @@ class ServiceProviderMetadata(ProviderMetadata):
         :type acs_service: Service
 
         :param authn_requests_signed: (Optional) Attribute that indicates whether the <samlp:AuthnRequest> messages
-        sent by this service provider will be signed. If omitted, the value is assumed to be false
+            sent by this service provider will be signed. If omitted, the value is assumed to be false
         :type authn_requests_signed: bool
 
         :param want_assertions_signed: (Optional) Attribute that indicates a requirement for the <saml:Assertion>
-        elements received by this service provider to be signed. If omitted, the value is assumed to be false
+            elements received by this service provider to be signed. If omitted, the value is assumed to be false
         :type want_assertions_signed: bool
 
         :param certificate: (Optional) Certificate in X.509 format containing a public key used
-        for signing SAML requests
+            for signing SAML requests
         :type certificate: string
 
         :param private_key: (Optional) Private key used for encrypting SAML requests
         :type private_key: string
         """
-
         super(ServiceProviderMetadata, self).__init__(entity_id, ui_info, name_id_format)
 
         if not isinstance(acs_service, Service):
@@ -577,8 +506,7 @@ class ServiceProviderMetadata(ProviderMetadata):
         self._private_key = private_key if private_key else ''
 
     def __eq__(self, other):
-        """
-        Compares two ServiceProviderMetadata objects
+        """Compares two ServiceProviderMetadata objects
 
         :param other: ServiceProviderMetadata object
         :type other: ServiceProviderMetadata
@@ -586,7 +514,6 @@ class ServiceProviderMetadata(ProviderMetadata):
         :return: Boolean value indicating whether two items are equal
         :rtype: bool
         """
-
         if not super(ServiceProviderMetadata, self).__eq__(other):
             return False
 
@@ -602,88 +529,74 @@ class ServiceProviderMetadata(ProviderMetadata):
 
     @property
     def acs_service(self):
-        """
-        Returns Assertion Consumer service's metadata
+        """Returns Assertion Consumer service's metadata
 
         :return: Assertion Consumer service's metadata
         :rtype: Service
         """
-
         return self._acs_service
 
     @property
     def authn_requests_signed(self):
-        """
-        Returns the value that indicates whether the <samlp:AuthnRequest> messages
+        """Returns the value that indicates whether the <samlp:AuthnRequest> messages
         sent by this service provider will be signed
 
         :return: Value that indicates whether the <samlp:AuthnRequest> messages
-        sent by this service provider will be signed
+            sent by this service provider will be signed
         :rtype: bool
         """
-
         return self._authn_requests_signed
 
     @property
     def want_assertions_signed(self):
-        """
-        Returns the value that indicates a requirement for the <saml:Assertion>
+        """Returns the value that indicates a requirement for the <saml:Assertion>
         elements received by this service provider to be signed
 
         :return: Value that indicates a requirement for the <saml:Assertion>
-        elements received by this service provider to be signed
+            elements received by this service provider to be signed
         :rtype: bool
         """
-
         return self._want_assertions_signed
 
     @property
     def certificate(self):
-        """
-        Returns the certificate in X.509 format containing the public key used for signing SAML requests
+        """Returns the certificate in X.509 format containing the public key used for signing SAML requests
 
         :return: Certificate in X.509 format containing the public key used for signing SAML requests
         :rtype: string
         """
-
         return self._certificate
 
     @property
     def private_key(self):
-        """
-        Returns the private key used for encrypting SAML requests
+        """Returns the private key used for encrypting SAML requests
 
         :return: Private key used for encrypting SAML requests
         :rtype: string
         """
-
         return self._private_key
 
 
 class NameID(object):
-    """
-    Represents saml2:NameID
-    """
+    """Represents saml2:NameID"""
 
     def __init__(self, name_format, name_qualifier, sp_name_qualifier, name_id):
-        """
-        Initializes a new instance of NameID class
+        """Initializes a new instance of NameID class
 
         :param name_format: Name ID's format
         :type name_format: string
 
         :param name_qualifier: The security or administrative domain that qualifies the name identifier of the subject.
-        This attribute provides a means to federate names from disparate user stores without collision
+            This attribute provides a means to federate names from disparate user stores without collision
         :type name_qualifier: string
 
         :param sp_name_qualifier: Further qualifies a federated name identifier with the name of the service provider
-        or affiliation of providers which has federated the principal's identity
+            or affiliation of providers which has federated the principal's identity
         :type sp_name_qualifier: string
 
         :param name_id: Name ID value
         :type name_id: string
         """
-
         self._name_format = name_format
         self._name_qualifier = name_qualifier
         self._sp_name_qualifier = sp_name_qualifier
@@ -691,57 +604,47 @@ class NameID(object):
 
     @property
     def name_format(self):
-        """
-        Returns name ID's format
+        """Returns name ID's format
 
         :return: Name ID's format
         :rtype: string
         """
-
         return self._name_format
 
     @property
     def name_qualifier(self):
-        """
-        Returns the security or administrative domain that qualifies the name identifier of the subject.
+        """Returns the security or administrative domain that qualifies the name identifier of the subject.
         This attribute provides a means to federate names from disparate user stores without collision
 
         :return: Security or administrative domain that qualifies the name identifier of the subject.
-        This attribute provides a means to federate names from disparate user stores without collision
+            This attribute provides a means to federate names from disparate user stores without collision
         :rtype: string
         """
-
         return self._name_qualifier
 
     @property
     def sp_name_qualifier(self):
-        """
-        Returns the attribute that further qualifies a federated name identifier with the name of the service provider
+        """Returns the attribute that further qualifies a federated name identifier with the name of the service provider
         or affiliation of providers which has federated the principal's identity
 
         :return: Attribute that further qualifies a federated name identifier with the name of the service provider
-        or affiliation of providers which has federated the principal's identity
+            or affiliation of providers which has federated the principal's identity
         :rtype: string
         """
-
         return self._sp_name_qualifier
 
     @property
     def name_id(self):
-        """
-        Returns name ID
+        """Returns name ID
 
         :return: Name ID
         :rtype: string
         """
-
         return self._name_id
 
 
 class SAMLAttributes(Enum):
-    """
-    Enumeration of different attributes supported by different SAML IdPs
-    """
+    """Enumeration of different attributes supported by different SAML IdPs"""
 
     uid = 'urn:oid:0.9.2342.19200300.100.1.1'
 
@@ -758,13 +661,10 @@ class SAMLAttributes(Enum):
 
 
 class Attribute(object):
-    """
-    Represents saml2:Attribute
-    """
+    """Represents saml2:Attribute"""
 
     def __init__(self, name, values, friendly_name=None, name_format=None):
-        """
-        Initializes a new instance of Attribute class
+        """Initializes a new instance of Attribute class
 
         :param name: Attribute's name
         :type name: string
@@ -778,15 +678,13 @@ class Attribute(object):
         :param name_format: Attribute's name format
         :type name_format: string
         """
-
         self._name = name
         self._values = values
         self._friendly_name = friendly_name
         self._name_format = name_format
 
     def __eq__(self, other):
-        """
-        Compares two Attribute objects
+        """Compares two Attribute objects
 
         :param other: Attribute object
         :type other: Attribute
@@ -794,7 +692,6 @@ class Attribute(object):
         :return: Boolean value indicating whether two items are equal
         :rtype: bool
         """
-
         if not isinstance(other, Attribute):
             return False
 
@@ -806,62 +703,50 @@ class Attribute(object):
 
     @property
     def friendly_name(self):
-        """
-        Returns the attribute's friendly name
+        """Returns the attribute's friendly name
 
         :return: Attribute's friendly name
         :rtype: string
         """
-
         return self._friendly_name
 
     @property
     def name(self):
-        """
-        Returns the attribute's name
+        """Returns the attribute's name
 
         :return: Attribute's name
         :rtype: string
         """
-
         return self._name
 
     @property
     def name_format(self):
-        """
-        Returns the attribute's name format
+        """Returns the attribute's name format
 
         :return: Attribute's name format
         :rtype: string
         """
-
         return self._name_format
 
     @property
     def values(self):
-        """
-        Returns a list of the attribute's values
+        """Returns a list of the attribute's values
 
         :return: List of the attribute's values
         :rtype: List
         """
-
         return self._values
 
 
 class AttributeStatement(object):
-    """
-    Represents saml2:AttributeStatement
-    """
+    """Represents saml2:AttributeStatement"""
 
     def __init__(self, attributes):
-        """
-        Initializes a new instance of AttributeStatement class
+        """Initializes a new instance of AttributeStatement class
 
         :param attributes: Attributes in a form of a list of a dictionary
         :type attributes: Union[List[Attribute], Dict[string, List[Any]]]
         """
-
         self._attributes = {}
 
         attribute_names = {attribute.value: attribute for attribute in SAMLAttributes}
@@ -888,24 +773,19 @@ class AttributeStatement(object):
 
     @property
     def attributes(self):
-        """
-        Returns an attributes dictionary
+        """Returns an attributes dictionary
 
         :return: Dictionary containing attributes
         :rtype: Dict[string, Attribute]
         """
-
         return self._attributes
 
 
 class Subject(object):
-    """
-    Contains a name ID and a attribute statement
-    """
+    """Contains a name ID and a attribute statement"""
 
     def __init__(self, name_id, attribute_statement):
-        """
-        Initializes a new instance of Subject class
+        """Initializes a new instance of Subject class
 
         :param name_id: Name ID
         :type name_id: NameID
@@ -913,35 +793,40 @@ class Subject(object):
         :param attribute_statement: Attribute statement
         :type attribute_statement: AttributeStatement
         """
-
         self._name_id = name_id
         self._attribute_statement = attribute_statement
 
     @property
     def name_id(self):
-        """
-        Returns the name ID
+        """Returns the name ID
 
         :return: Name ID
         :rtype: NameID
         """
-
         return self._name_id
 
     @property
     def attribute_statement(self):
-        """
-        Returns the attribute statement
+        """Returns the attribute statement
 
         :return: Attribute statement
         :rtype: AttributeStatement
         """
-
         return self._attribute_statement
 
 
 class SubjectJSONEncoder(JSONEncoder):
+    """Subject's JSON encoder"""
+
     def default(self, subject):
+        """Serializers a Subject object to JSON
+
+        :param subject: Subject object
+        :type subject: api.saml.metadata.Subject
+
+        :return: String containing JSON representation of the Subject object
+        :rtype: string
+        """
         if not isinstance(subject, Subject):
             raise ValueError('subject must have type Subject')
 
@@ -964,12 +849,13 @@ class SubjectJSONEncoder(JSONEncoder):
 
 
 class SubjectUIDExtractor(object):
+    """Implements an algorithm for extracting a subject's unique ID from its attributes"""
+
     def extract(self, subject):
-        """
-        Extracts a unique ID from the subject object
+        """Extracts a unique ID from the subject object
 
         :param subject: Subject object
-        :type subject: Subject
+        :type subject: api.saml.metadata.Subject
 
         :return: Unique ID
         :rtype: string
@@ -1009,9 +895,13 @@ class SubjectUIDExtractor(object):
            IETF RFC 1274 uses the identifier "userid".
 
         4. Name ID
+           The extractor fetches the first name ID it could find as a last resort which may no be correct.
+           It might be better to fetch only persistent name IDs.
 
+        Also, please note that eduPersonTargetedID attribute and name IDs should be phased out and replaced with
+        the pairwise-id attribute from the OASIS SAML 2.0 SubjectID Attributes Profile.
+        However, it's not yet supported by most of the IdPs
         """
-
         unique_id_attributes = [
             SAMLAttributes.eduPersonUniqueId,
             SAMLAttributes.eduPersonTargetedID,

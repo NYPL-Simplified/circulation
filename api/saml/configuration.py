@@ -9,29 +9,22 @@ from flask_babel import lazy_gettext as _
 
 
 class SAMLConfigurationSerializingError(SAMLError):
-    """
-    Raised in the case of any errors during configuration serializing
-    """
+    """Raised in the case of any errors during configuration serializing"""
 
 
 class SAMLConfigurationSerializer(object):
-    """
-    Serializes and deserializes values as library's configuration settings
-    """
+    """Serializes and deserializes values as library's configuration settings"""
 
     def __init__(self, integration):
-        """
-        Initializes a new instance of SAMLConfigurationSerializer class
+        """Initializes a new instance of SAMLConfigurationSerializer class
 
         :param integration: External integration
         :type integration: ExternalIntegration
         """
-
         self._integration = integration
 
     def serialize(self, setting_name, value):
-        """
-        Serializes the value as a pickled library's configuration setting
+        """Serializes the value as a pickled library's configuration setting
 
         :param setting_name: Name of the library's configuration setting
         :type setting_name: string
@@ -39,21 +32,18 @@ class SAMLConfigurationSerializer(object):
         :param value: Value to be serialized
         :type value: Any
         """
-
         ConfigurationSetting.for_externalintegration(
             setting_name,
             self._integration).value = value
 
     def deserialize(self, setting_name):
-        """
-        Deserializes and returns the library's configuration setting
+        """Deserializes and returns the library's configuration setting
 
         :param setting_name: Name of the library's configuration setting
         :type setting_name: string
 
         :return: Any
         """
-
         value = ConfigurationSetting.for_externalintegration(
             setting_name,
             self._integration).value
@@ -62,23 +52,18 @@ class SAMLConfigurationSerializer(object):
 
 
 class SAMLMetadataSerializer(SAMLConfigurationSerializer):
-    """
-    Serializes and deserializes values as pickled library's configuration settings
-    """
+    """Serializes and deserializes values as pickled library's configuration settings"""
 
     def __init__(self, integration):
-        """
-        Initializes a new instance of SAMLMetadataSerializer class
+        """Initializes a new instance of SAMLMetadataSerializer class
 
         :param integration: External integration
         :type integration: ExternalIntegration
         """
-
         super(SAMLMetadataSerializer, self).__init__(integration)
 
     def serialize(self, setting_name, value):
-        """
-        Serializes the value as a pickled library's configuration setting
+        """Serializes the value as a pickled library's configuration setting
 
         :param setting_name: Name of the library's configuration setting
         :type setting_name: string
@@ -86,7 +71,6 @@ class SAMLMetadataSerializer(SAMLConfigurationSerializer):
         :param value: Value to be serialized (should be picklable)
         :type value: Any
         """
-
         if not value:
             raise ValueError('Value must be non-empty')
 
@@ -94,15 +78,13 @@ class SAMLMetadataSerializer(SAMLConfigurationSerializer):
         super(SAMLMetadataSerializer, self).serialize(setting_name, serialized_value)
 
     def deserialize(self, setting_name):
-        """
-        Deserializes and returns the library's configuration setting
+        """Deserializes and returns the library's configuration setting
 
         :param setting_name: Name of the library's configuration setting
         :type setting_name: string
 
         :return: Any
         """
-
         serialized_value = super(SAMLMetadataSerializer, self).deserialize(setting_name)
 
         if not serialized_value:
@@ -114,15 +96,11 @@ class SAMLMetadataSerializer(SAMLConfigurationSerializer):
 
 
 class SAMLConfigurationError(SAMLError):
-    """
-    Raised in the case of any configuration errors
-    """
+    """Raised in the case of any configuration errors"""
 
 
 class SAMLConfiguration(object):
-    """
-    Contains SP and IdP settings
-    """
+    """Contains SP and IdP settings"""
 
     DEBUG = 'debug'
     STRICT = 'strict'
@@ -135,8 +113,7 @@ class SAMLConfiguration(object):
     IDP_METADATA = 'idp_metadata'
 
     def __init__(self, configuration_serializer, metadata_serializer):
-        """
-        Initializes a new instance of SAMLConfiguration class
+        """Initializes a new instance of SAMLConfiguration class
 
         :param configuration_serializer: SAML configuration serializer
         :type configuration_serializer: SAMLConfigurationSerializer
@@ -144,7 +121,6 @@ class SAMLConfiguration(object):
         :param metadata_serializer: SAML metadata configuration serializer
         :type metadata_serializer: SAMLMetadataSerializer
         """
-
         self._configuration_serializer = configuration_serializer
         self._metadata_serializer = metadata_serializer
 
@@ -155,39 +131,33 @@ class SAMLConfiguration(object):
         self._service_provider = None
 
     def _load_debug(self):
-        """
-        Return debug mode
+        """Returns a debug mode indicator
 
         :return: Debug mode indicator
         :rtype: bool
         """
-
         debug = bool(self._configuration_serializer.deserialize(self.DEBUG))
 
         return debug
 
     def _load_strict(self):
-        """
-        Return strict mode
+        """Returns a strict mode indicator
 
         :return: Strict mode indicator
         :rtype: bool
         """
-
         strict = bool(self._configuration_serializer.deserialize(self.STRICT))
 
         return strict
 
     def _load_identity_providers(self):
-        """
-        Loads IdP settings from the library's configuration settings
+        """Loads IdP settings from the library's configuration settings
 
         :return: List of IdentityProviderMetadata objects
         :rtype: List[IdentityProviderMetadata]
 
         :raise: ConfigurationError
         """
-
         idp_providers = self._metadata_serializer.deserialize(self.IDP_METADATA)
 
         if not isinstance(idp_providers, list):
@@ -200,15 +170,13 @@ class SAMLConfiguration(object):
         return idp_providers
 
     def _load_service_provider(self):
-        """
-        Loads SP settings from the library's configuration settings
+        """Loads SP settings from the library's configuration settings
 
         :return: ServiceProviderMetadata object
         :rtype: ServiceProviderMetadata
 
         :raise: ConfigurationError
         """
-
         sp_provider = self._metadata_serializer.deserialize(self.SP_METADATA)
 
         if not isinstance(sp_provider, ServiceProviderMetadata):
@@ -218,13 +186,11 @@ class SAMLConfiguration(object):
 
     @property
     def debug(self):
-        """
-        Returns debug mode indicator
+        """Returns a debug mode indicator
 
         :return: Debug mode indicator
         :rtype: bool
         """
-
         if self._debug is None:
             self._debug = self._load_debug()
 
@@ -232,15 +198,13 @@ class SAMLConfiguration(object):
 
     @property
     def identity_providers(self):
-        """
-        Returns identity providers
+        """Returns identity providers
 
         :return: List of IdentityProviderMetadata objects
         :rtype: List[IdentityProviderMetadata]
 
         :raise: ConfigurationError
         """
-
         if self._identity_providers is None:
             self._identity_providers = self._load_identity_providers()
 
@@ -248,15 +212,13 @@ class SAMLConfiguration(object):
 
     @property
     def service_provider(self):
-        """
-        Returns service provider
+        """Returns service provider
 
         :return: ServiceProviderMetadata object
         :rtype: ServiceProviderMetadata
 
         :raise: ConfigurationError
         """
-
         if self._service_provider is None:
             self._service_provider = self._load_service_provider()
 
@@ -264,13 +226,11 @@ class SAMLConfiguration(object):
 
     @property
     def strict(self):
-        """
-        Returns strict mode indicator
+        """Returns strict mode indicator
 
         :return: Strict mode indicator
         :rtype: bool
         """
-
         if self._strict is None:
             self._strict = self._load_strict()
 
@@ -278,25 +238,20 @@ class SAMLConfiguration(object):
 
 
 class SAMLOneLoginConfiguration(object):
-    """
-    Converts metadata objects to the OneLogin's SAML Toolkit format
-    """
+    """Converts metadata objects to the OneLogin's SAML Toolkit format"""
 
     def __init__(self, configuration):
-        """
-        Initializes a new instance of SAMLOneLoginConfiguration class
+        """Initializes a new instance of SAMLOneLoginConfiguration class
 
         :param configuration: Configuration object containing SAML metadata
         :type configuration: SAMLConfiguration
         """
-
         self._configuration = configuration
         self._service_provider = None
         self._identity_providers = {}
 
     def _get_identity_provider_settings(self, identity_provider):
-        """
-        Converts ServiceProviderMetadata object to the OneLogin's SAML Toolkit format
+        """Converts ServiceProviderMetadata object to the OneLogin's SAML Toolkit format
 
         :param identity_provider: IdentityProviderMetadata object
         :type identity_provider: IdentityProviderMetadata
@@ -304,7 +259,6 @@ class SAMLOneLoginConfiguration(object):
         :return: Dictionary containing service provider's settings in the OneLogin's SAML Toolkit format
         :rtype: Dict
         """
-
         onelogin_identity_provider = {
             'idp': {
                 'entityId': identity_provider.entity_id,
@@ -339,8 +293,7 @@ class SAMLOneLoginConfiguration(object):
         return onelogin_identity_provider
 
     def _get_service_provider_settings(self, service_provider):
-        """
-        Converts ServiceProviderMetadata object to the OneLogin's SAML Toolkit format
+        """Converts ServiceProviderMetadata object to the OneLogin's SAML Toolkit format
 
         :param service_provider: ServiceProviderMetadata object
         :type service_provider: ServiceProviderMetadata
@@ -348,7 +301,6 @@ class SAMLOneLoginConfiguration(object):
         :return: Dictionary containing service provider's settings in the OneLogin's SAML Toolkit format
         :rtype: Dict
         """
-
         onelogin_service_provider = {
             'sp': {
                 'entityId': service_provider.entity_id,
@@ -365,13 +317,11 @@ class SAMLOneLoginConfiguration(object):
         return onelogin_service_provider
 
     def get_identity_provider_settings(self, entity_id):
-        """
-        Returns a dictionary containing identity provider's settings in a OneLogin's SAML Toolkit format
+        """Returns a dictionary containing identity provider's settings in a OneLogin's SAML Toolkit format
 
         :return: Dictionary containing identity provider's settings in a OneLogin's SAML Toolkit format
         :rtype: Dict
         """
-
         if entity_id in self._identity_providers:
             return self._identity_providers[entity_id]
 
@@ -389,19 +339,22 @@ class SAMLOneLoginConfiguration(object):
         return identity_provider
 
     def get_service_provider_settings(self):
-        """
-        Returns a dictionary containing service provider's settings in the OneLogin's SAML Toolkit format
+        """Returns a dictionary containing service provider's settings in the OneLogin's SAML Toolkit format
 
         :return: Dictionary containing service provider's settings in the OneLogin's SAML Toolkit format
         :rtype: Dict
         """
-
         if self._service_provider is None:
             self._service_provider = self._get_service_provider_settings(self._configuration.service_provider)
 
         return self._service_provider
 
     def get_settings(self, idp_entity_id):
+        """Returns SP and IdP settings in a OneLogin format
+
+        :param idp_entity_id:
+        :return:
+        """
         onelogin_settings = {
             'debug': self._configuration.debug,
             'strict': self._configuration.strict

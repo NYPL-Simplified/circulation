@@ -21,15 +21,13 @@ SAML_INVALID_SUBJECT = pd(
 
 
 class SAMLAuthenticationProvider(BaseSAMLAuthenticationProvider):
-    """
-    SAML authentication provider implementing Web Browser SSO profile using the following bindings:
+    """SAML authentication provider implementing Web Browser SSO profile using the following bindings:
     - HTTP-Redirect Binding for requests
     - HTTP-POST Binding for responses
     """
 
     def __init__(self, library, integration, analytics=None):
-        """
-        Initializes a new instance of SAMLAuthenticationProvider class
+        """Initializes a new instance of SAMLAuthenticationProvider class
 
         :param library: Patrons authenticated through this provider
             are associated with this Library. Don't store this object!
@@ -43,7 +41,6 @@ class SAMLAuthenticationProvider(BaseSAMLAuthenticationProvider):
             pull normal Python objects out of it.
         :type integration: ExternalIntegration
         """
-
         super(BaseSAMLAuthenticationProvider, self).__init__(
             library, integration, analytics
         )
@@ -55,8 +52,7 @@ class SAMLAuthenticationProvider(BaseSAMLAuthenticationProvider):
         ).int_value or self.DEFAULT_TOKEN_EXPIRATION_DAYS
 
     def _authentication_flow_document(self, db):
-        """
-        Creates a Authentication Flow object for use in an Authentication for OPDS document.
+        """Creates a Authentication Flow object for use in an Authentication for OPDS document.
 
         Example:
         {
@@ -130,7 +126,6 @@ class SAMLAuthenticationProvider(BaseSAMLAuthenticationProvider):
         :return: Authentication Flow object for use in an Authentication for OPDS document
         :rtype: Dict
         """
-
         flow_doc = {
             'type': self.FLOW_TYPE,
             'description': self.NAME,
@@ -158,8 +153,20 @@ class SAMLAuthenticationProvider(BaseSAMLAuthenticationProvider):
         return flow_doc
 
     def _create_token(self, db, patron, token):
-        """Create a Credential object that ties the given patron to the
+        """Creates a Credential object that ties the given patron to the
         given provider token.
+
+        :param db: Database session
+        :type db: sqlalchemy.orm.session.Session
+
+        :param patron: Patron object
+        :type patron: Patron
+
+        :param token: Token containing SAML subject's metadata
+        :type token: Dict
+
+        :return: Credential object
+        :rtype: Credential
         """
         data_source, ignore = self._get_token_data_source(db)
         duration = datetime.timedelta(days=self.token_expiration_days)
@@ -168,8 +175,7 @@ class SAMLAuthenticationProvider(BaseSAMLAuthenticationProvider):
         )
 
     def _create_authenticate_url(self, db, idp_entity_id):
-        """
-        Returns an authentication link used by clients to authenticate patrons
+        """Returns an authentication link used by clients to authenticate patrons
 
         :param db: Database session
         :type db: sqlalchemy.orm.session.Session
@@ -192,13 +198,20 @@ class SAMLAuthenticationProvider(BaseSAMLAuthenticationProvider):
         )
 
     def _get_token_data_source(self, db):
+        """Returns a token data source
+
+        :param db: Database session
+        :type db: sqlalchemy.orm.session.Session
+
+        :return: Token data source
+        :rtype: DataSource
+        """
         return get_one_or_create(
             db, DataSource, name=self.TOKEN_DATA_SOURCE_NAME
         )
 
     def _join_ui_info_items(self, ui_info_items):
-        """
-        Joins all UIInfo items (like, display names, descriptions, etc.) to a single list of dicts
+        """Joins all UIInfo items (like, display names, descriptions, etc.) to a single list of dicts
 
         :param ui_info_items: List of child UIInfo objects
         :type: List[LocalizableMetadataItem]
@@ -206,7 +219,6 @@ class SAMLAuthenticationProvider(BaseSAMLAuthenticationProvider):
         :return: List of dicts containing UI information (display names, descriptions, etc.)
         :rtype: List[Dict]
         """
-
         result = []
 
         if ui_info_items:
@@ -222,18 +234,22 @@ class SAMLAuthenticationProvider(BaseSAMLAuthenticationProvider):
         pass
 
     def authenticated_patron(self, db, token):
-        """Go from an OAuth provider token to an authenticated Patron.
+        """Go from a token to an authenticated Patron.
+
+        :param db: Database session
+        :type db: sqlalchemy.orm.session.Session
 
         :param token: The provider token extracted from the Authorization
             header. This is _not_ the bearer token found in
             the Authorization header; it's the provider-specific token
             embedded in that token.
+        :type token: Dict
 
         :return: A Patron, if one can be authenticated. None, if the
             credentials do not authenticate any particular patron. A
             ProblemDetail if an error occurs.
+        :rtype: Union[Patron, ProblemDetail]
         """
-
         data_source, ignore = self._get_token_data_source(db)
         credential = Credential.lookup_by_token(
             db, data_source, self.TOKEN_TYPE, token
@@ -247,17 +263,15 @@ class SAMLAuthenticationProvider(BaseSAMLAuthenticationProvider):
         return None
 
     def remote_patron_lookup(self, subject):
-        """
-        Creates a PatronData object based on Subject object containing SAML Subject and AttributeStatement
+        """Creates a PatronData object based on Subject object containing SAML Subject and AttributeStatement
 
         :param subject: Subject object containing SAML Subject and AttributeStatement
-        :type subject: Subject
+        :type subject: api.saml.metadata.Subject
 
         :return: PatronData object containing information about the authenticated SAML subject or
-        ProblemDetail object in the case of any errors
+            ProblemDetail object in the case of any errors
         :rtype: Union[PatronData, ProblemDetail]
         """
-
         if not subject:
             return SAML_INVALID_SUBJECT.detailed('Subject is empty')
 
@@ -283,14 +297,13 @@ class SAMLAuthenticationProvider(BaseSAMLAuthenticationProvider):
         return patron_data
 
     def saml_callback(self, db, subject):
-        """
-        Verifies the SAML subject, generates a Bearer token in the case of successful authentication and returns it
+        """Verifies the SAML subject, generates a Bearer token in the case of successful authentication and returns it
 
         :param db: Database session
         :type db: sqlalchemy.orm.session.Session
 
         :param subject: Subject object containing SAML Subject and AttributeStatement
-        :type subject: Subject
+        :type subject: api.saml.metadata.Subject
 
         :return: A ProblemDetail if there's a problem. Otherwise, a
             3-tuple (Credential, Patron, PatronData). The Credential
@@ -301,9 +314,7 @@ class SAMLAuthenticationProvider(BaseSAMLAuthenticationProvider):
             circulation manager's database, but which should be passed on
             to the client.
         :rtype: Union[Tuple[Credential, Patron, PatronData], ProblemDetail]
-
         """
-
         patron_data = self.remote_patron_lookup(subject)
         if isinstance(patron_data, ProblemDetail):
             return patron_data

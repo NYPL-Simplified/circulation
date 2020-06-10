@@ -21,9 +21,7 @@ SAML_INVALID_RESPONSE = pd(
 
 
 class SAMLController(object):
-    """
-    Controller used for handing SAML 2.0 authentication requests
-    """
+    """Controller used for handing SAML 2.0 authentication requests"""
 
     ERROR = 'error'
     REDIRECT_URI = 'redirect_uri'
@@ -35,8 +33,7 @@ class SAMLController(object):
     PATRON_INFO = 'patron_info'
 
     def __init__(self, circulation_manager, authenticator, authentication_manager_factory):
-        """
-        Initializes a new instance of SAMLController class
+        """Initializes a new instance of SAMLController class
 
         :param circulation_manager: Circulation Manager
         :type circulation_manager: CirculationManager
@@ -47,14 +44,12 @@ class SAMLController(object):
         :param authentication_manager_factory: SAML authentication manager factory
         :type authentication_manager_factory: SAMLAuthenticationManagerFactory
         """
-
         self._circulation_manager = circulation_manager
         self._authenticator = authenticator
         self._authentication_manager_factory = authentication_manager_factory
 
     def _get_authentication_manager(self, db, authentication_provider):
-        """
-        Returns an instance of SAML authentication manager
+        """Returns an instance of SAML authentication manager
 
         :param db: Database session
         :type db: sqlalchemy.orm.session.Session
@@ -65,12 +60,10 @@ class SAMLController(object):
         :return: Authentication manager
         :rtype: SAMLAuthenticationManager
         """
-
         return self._authentication_manager_factory.create(authentication_provider.external_integration(db))
 
     def _add_params_to_url(self, url, params):
-        """
-        Adds parameters as a query part of the URL
+        """Adds parameters as a query part of the URL
 
         :param url: URL
         :type url: string
@@ -81,7 +74,6 @@ class SAMLController(object):
         :return: URL with parameters formatted as a query string
         :rtype: string
         """
-
         query = urllib.urlencode(params)
 
         if '?' in url:
@@ -92,8 +84,7 @@ class SAMLController(object):
         return url
 
     def _error_uri(self, redirect_uri, problem_detail):
-        """
-        Encodes the given ProblemDetail into the fragment identifier of the given URI
+        """Encodes the given ProblemDetail into the fragment identifier of the given URI
 
         :param redirect_uri: Redirection URL
         :type redirect_uri: string
@@ -104,7 +95,6 @@ class SAMLController(object):
         :return: Redirection URL
         :rtype: string
         """
-
         problem_detail_json = pd_json(
             problem_detail.uri,
             problem_detail.status_code,
@@ -121,8 +111,7 @@ class SAMLController(object):
         return redirect_uri
 
     def _get_redirect_uri(self, relay_state):
-        """
-        Returns a redirection URL from the relay state
+        """Returns a redirection URL from the relay state
 
         :param relay_state: SAML response's relay state
         :type relay_state: string
@@ -130,7 +119,6 @@ class SAMLController(object):
         :return: Redirection URL
         :rtype: string
         """
-
         relay_state_parse_result = urlparse.urlparse(relay_state)
         relay_state_parameters = urlparse.parse_qs(relay_state_parse_result.query)
 
@@ -152,8 +140,7 @@ class SAMLController(object):
         return redirect_uri
 
     def _redirect_with_error(self, redirect_uri, problem_detail):
-        """
-        Redirects the patron to the given URL, with the given ProblemDetail encoded into the fragment identifier
+        """Redirects the patron to the given URL, with the given ProblemDetail encoded into the fragment identifier
 
         :param redirect_uri: Redirection URL
         :type redirect_uri: string
@@ -164,12 +151,10 @@ class SAMLController(object):
         :return: Redirection response
         :rtype: Response
         """
-
         return redirect(self._error_uri(redirect_uri, problem_detail))
 
     def saml_authentication_redirect(self, params, db):
-        """
-        Redirects an unauthenticated patron to the authentication URL of the
+        """Redirects an unauthenticated patron to the authentication URL of the
         appropriate SAML IdP.
         Over on that other site, the patron will authenticate and be
         redirected back to the circulation manager, ending up in
@@ -184,7 +169,6 @@ class SAMLController(object):
         :return: Redirection response
         :rtype: Response
         """
-
         provider_name = params.get(self.PROVIDER_NAME)
         idp_entity_id = params.get(self.IDP_ENTITY_ID)
         redirect_uri = params.get(self.REDIRECT_URI, request.path)
@@ -207,8 +191,7 @@ class SAMLController(object):
         return redirect(redirect_uri)
 
     def saml_authentication_callback(self, request, db):
-        """
-        "Creates a Patron object and a bearer token for a patron who has just
+        """Creates a Patron object and a bearer token for a patron who has just
         authenticated with one of our SAML IdPs
 
         :param request: Flask request
@@ -220,7 +203,6 @@ class SAMLController(object):
         :return: Redirection response or a ProblemDetail if the response is not correct
         :rtype: Union[Response, ProblemDetail]
         """
-
         if self.RELAY_STATE not in request.form:
             return SAML_INVALID_RESPONSE.detailed('{0} is empty'.format(self.RELAY_STATE))
 

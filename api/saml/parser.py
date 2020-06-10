@@ -12,21 +12,14 @@ from api.saml.metadata import IdentityProviderMetadata, LocalizableMetadataItem,
 
 
 class SAMLMetadataParsingError(SAMLError):
-    """
-    Raised in the case of any errors occurred during parsing of SAML metadata
-    """
+    """Raised in the case of any errors occurred during parsing of SAML metadata"""
 
 
 class SAMLMetadataParser(object):
-    """
-    Parses SAML metadata
-    """
+    """Parses SAML metadata"""
 
     def __init__(self):
-        """
-        Initializes a new instance of MetadataParser class
-        """
-
+        """Initializes a new instance of MetadataParser class"""
         self._logger = logging.getLogger(__name__)
 
         # Add missing namespaces to be able to parse mdui:UIInfoType
@@ -39,8 +32,7 @@ class SAMLMetadataParser(object):
         OneLogin_Saml2_Constants.NSMAP[OneLogin_Saml2_Constants.NS_PREFIX_ALG] = OneLogin_Saml2_Constants.NS_ALG
 
     def _convert_xml_string_to_dom(self, xml_metadata):
-        """
-        Converts an XML string containing SAML metadata into XML DOM
+        """Converts an XML string containing SAML metadata into XML DOM
 
         :param xml_metadata: XML string containing SAML metadata
         :type xml_metadata: string
@@ -50,7 +42,6 @@ class SAMLMetadataParser(object):
 
         :raise: MetadataParsingError
         """
-
         self._logger.debug('Started converting XML string containing SAML metadata into XML DOM')
 
         try:
@@ -66,8 +57,7 @@ class SAMLMetadataParser(object):
         return metadata_dom
 
     def _parse_certificates(self, certificate_nodes):
-        """
-        Parses XML nodes containing X.509 certificates into a list of strings
+        """Parses XML nodes containing X.509 certificates into a list of strings
 
         :param certificate_nodes: List of XML nodes containing X.509 certificates
         :type certificate_nodes: List[defusedxml.lxml.RestrictedElement]
@@ -77,7 +67,6 @@ class SAMLMetadataParser(object):
 
         :raise: MetadataParsingError
         """
-
         certificates = []
 
         try:
@@ -89,8 +78,7 @@ class SAMLMetadataParser(object):
         return certificates
 
     def _parse_providers(self, entity_descriptor_node, provider_nodes, parse_function):
-        """
-        Parses a list of IDPSSODescriptor/SPSSODescriptor nodes and translates them
+        """Parses a list of IDPSSODescriptor/SPSSODescriptor nodes and translates them
         into IdentityProviderMetadata/ServiceProviderMetadata object
 
         :param entity_descriptor_node: Parent EntityDescriptor node
@@ -108,7 +96,6 @@ class SAMLMetadataParser(object):
 
         :raise: MetadataParsingError
         """
-
         providers = []
 
         for provider_node in provider_nodes:
@@ -121,8 +108,7 @@ class SAMLMetadataParser(object):
         return providers
 
     def _parse_ui_info_item(self, provider_descriptor_node, xpath, required=False):
-        """
-        Parses IDPSSODescriptor/SPSSODescriptor's mdui:UIInfo child elements (for example, mdui:DisplayName)
+        """Parses IDPSSODescriptor/SPSSODescriptor's mdui:UIInfo child elements (for example, mdui:DisplayName)
 
         :param provider_descriptor_node: Parent IDPSSODescriptor/SPSSODescriptor XML node
         :type provider_descriptor_node: defusedxml.lxml.RestrictedElement
@@ -138,7 +124,6 @@ class SAMLMetadataParser(object):
 
         :raise: MetadataParsingError
         """
-
         ui_info_item_nodes = OneLogin_Saml2_Utils.query(provider_descriptor_node, xpath)
 
         if not ui_info_item_nodes and required:
@@ -162,8 +147,7 @@ class SAMLMetadataParser(object):
         return ui_info_items
 
     def _parse_ui_info(self, provider_node):
-        """
-        Parses IDPSSODescriptor/SPSSODescriptor's mdui:UIInfo and translates it into UIInfo object
+        """Parses IDPSSODescriptor/SPSSODescriptor's mdui:UIInfo and translates it into UIInfo object
 
         :param provider_node: Parent IDPSSODescriptor/SPSSODescriptor node
         :type provider_node: defusedxml.lxml.RestrictedElement
@@ -173,7 +157,6 @@ class SAMLMetadataParser(object):
 
         :raise: MetadataParsingError
         """
-
         display_names = self._parse_ui_info_item(
             provider_node, './md:Extensions/mdui:UIInfo/mdui:DisplayName')
         descriptions = self._parse_ui_info_item(
@@ -202,8 +185,7 @@ class SAMLMetadataParser(object):
             ui_info,
             required_sso_binding=Binding.HTTP_REDIRECT,
             required_slo_binding=Binding.HTTP_REDIRECT):
-        """
-        Parses IDPSSODescriptor node and translates it into an IdentityProviderMetadata object
+        """Parses IDPSSODescriptor node and translates it into an IdentityProviderMetadata object
 
         :param provider_node: IDPSSODescriptor node containing IdP metadata
         :param provider_node: defusedxml.lxml.RestrictedElement
@@ -225,7 +207,6 @@ class SAMLMetadataParser(object):
 
         :raise: MetadataParsingError
         """
-
         want_authn_requests_signed = provider_node.get('WantAuthnRequestsSigned', False)
 
         name_id_format = NameIDFormat.UNSPECIFIED.value
@@ -282,8 +263,7 @@ class SAMLMetadataParser(object):
             entity_id,
             ui_info,
             required_acs_binding=Binding.HTTP_POST):
-        """
-        Parses SPSSODescriptor node and translates it into a ServiceProvider object
+        """Parses SPSSODescriptor node and translates it into a ServiceProvider object
 
         :param provider_node: SPSSODescriptor node containing SP metadata
         :param provider_node: defusedxml.lxml.RestrictedElement
@@ -302,7 +282,6 @@ class SAMLMetadataParser(object):
 
         :raise: MetadataParsingError
         """
-
         authn_requests_signed = provider_node.get('AuthnRequestsSigned', False)
         want_assertions_signed = provider_node.get('WantAssertionsSigned', False)
 
@@ -339,8 +318,7 @@ class SAMLMetadataParser(object):
         return sp
 
     def parse(self, xml_metadata):
-        """
-        Parses an XML string containing SAML metadata and translates it into a list of
+        """Parses an XML string containing SAML metadata and translates it into a list of
         IdentityProviderMetadata/ServiceProviderMetadata objects
 
         :param xml_metadata: XML string containing SAML metadata
@@ -351,7 +329,6 @@ class SAMLMetadataParser(object):
 
         :raise: MetadataParsingError
         """
-
         self._logger.info('Started parsing an XML string containing SAML metadata')
 
         metadata_dom = self._convert_xml_string_to_dom(xml_metadata)

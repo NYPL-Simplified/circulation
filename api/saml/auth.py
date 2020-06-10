@@ -27,18 +27,14 @@ SAML_AUTHENTICATION_ERROR = pd(
 
 
 class SAMLAuthenticationManager(object):
-    """
-    Implements SAML authentication process
-    """
+    """Implements SAML authentication process"""
 
     def __init__(self, configuration):
-        """
-        Initializes a new instance of SAMLAuthenticationManager
+        """Initializes a new instance of SAMLAuthenticationManager
 
         :param configuration: OneLoginConfiguration object
         :type configuration: SAMLOneLoginConfiguration
         """
-
         self._logger = logging.getLogger(__name__)
 
         self._configuration = configuration
@@ -46,8 +42,7 @@ class SAMLAuthenticationManager(object):
 
     @staticmethod
     def _get_request_data():
-        """
-        Maps Flask request to what the SAML toolkit expects
+        """Maps Flask request to what the SAML toolkit expects
 
         :return: Dictionary containing information about the request in the format SAML toolkit expects
         """
@@ -66,8 +61,7 @@ class SAMLAuthenticationManager(object):
         }
 
     def _create_auth_object(self, idp_entity_id):
-        """
-        Creates and initializes an OneLogin_Saml2_Auth object
+        """Creates and initializes an OneLogin_Saml2_Auth object
 
         :param idp_entity_id: IdP's entityID
         :type idp_entity_id: string
@@ -75,7 +69,6 @@ class SAMLAuthenticationManager(object):
         :return: OneLogin_Saml2_Auth object
         :rtype: OneLogin_Saml2_Auth
         """
-
         request_data = self._get_request_data()
         settings = self._configuration.get_settings(idp_entity_id)
         auth = OneLogin_Saml2_Auth(request_data, old_settings=settings)
@@ -83,8 +76,7 @@ class SAMLAuthenticationManager(object):
         return auth
 
     def _get_auth_object(self, idp_entity_id):
-        """
-        Returns a cached OneLogin_Saml2_Auth object
+        """Returns a cached OneLogin_Saml2_Auth object
 
         :param idp_entity_id: IdP's entityID
         :type idp_entity_id: string
@@ -92,15 +84,13 @@ class SAMLAuthenticationManager(object):
         :return: Cached OneLogin_Saml2_Auth object
         :rtype: OneLogin_Saml2_Auth
         """
-
         if idp_entity_id not in self._auth_objects:
             self._auth_objects[idp_entity_id] = self._create_auth_object(idp_entity_id)
 
         return self._auth_objects[idp_entity_id]
 
     def start_authentication(self, idp_entity_id, return_to_url):
-        """
-        Starts the SAML authentication workflow by sending a AuthnRequest to the IdP
+        """Starts the SAML authentication workflow by sending a AuthnRequest to the IdP
 
         :param idp_entity_id: IdP's entityID
         :type idp_entity_id: string
@@ -111,21 +101,20 @@ class SAMLAuthenticationManager(object):
         :return: Redirection URL
         :rtype: string
         """
-
         auth = self._get_auth_object(idp_entity_id)
 
         return auth.login(return_to_url)
 
     def finish_authentication(self, idp_entity_id):
-        """
-        Finishes the SAML authentication workflow by validating AuthnResponse and extracting a SAML assertion from it
+        """Finishes the SAML authentication workflow by validating AuthnResponse and extracting a SAML assertion from it
 
         :param idp_entity_id: IdP's entityID
         :type idp_entity_id: string
 
-        :return:
+        :return: Subject object containing name ID and attributes in the case of a successful authentication
+            or ProblemDetail object otherwise
+        :rtype: Union[api.saml.metadata.Subject, ProblemDetail]
         """
-
         request_data = self._get_request_data()
 
         if 'post_data' not in request_data or 'SAMLResponse' not in request_data['post_data']:
@@ -155,9 +144,7 @@ class SAMLAuthenticationManager(object):
 
 
 class SAMLAuthenticationManagerFactory(object):
-    """
-    Responsible for creating SAMLAuthenticationManager instances
-    """
+    """Responsible for creating SAMLAuthenticationManager instances"""
 
     def create(self, integration):
         """
@@ -169,7 +156,6 @@ class SAMLAuthenticationManagerFactory(object):
         :return: SAML authentication manager
         :rtype: SAMLAuthenticationManager
         """
-
         configuration_serializer = SAMLConfigurationSerializer(integration)
         metadata_serializer = SAMLMetadataSerializer(integration)
         configuration = SAMLConfiguration(configuration_serializer, metadata_serializer)

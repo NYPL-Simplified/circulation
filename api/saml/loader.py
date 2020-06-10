@@ -6,30 +6,23 @@ from api.saml.exceptions import SAMLError
 
 
 class SAMLMetadataLoadingError(SAMLError):
-    """
-    Raised in the case of any errors occurred during loading of SAML metadata from a remote source
-    """
+    """Raised in the case of any errors occurred during loading of SAML metadata from a remote source"""
 
 
 class SAMLMetadataLoader(object):
-    """
-    Loads SAML metadata from a remote source (e.g. InCommon Metadata Service)
-    """
+    """Loads SAML metadata from a remote source (e.g. InCommon Metadata Service)"""
 
     # InCommon Metadata Service URL serving only IdP metadata
     # (https://spaces.at.internet2.edu/display/federation/Download+InCommon+metadata)
     IN_COMMON_METADATA_SERVICE_URL = 'http://md.incommon.org/InCommon/InCommon-metadata-idp-only.xml'
 
     def __init__(self):
-        """
-        Initializes a new instance of SAMLMetadataLoader
-        """
+        """Initializes a new instance of SAMLMetadataLoader"""
 
         self._logger = logging.getLogger(__name__)
 
     def load_idp_metadata(self, url=None):
-        """
-        Loads IdP metadata in an XML format from the specified url (by default InCommon IdP Metadata Service)
+        """Loads IdP metadata in an XML format from the specified url (by default InCommon IdP Metadata Service)
 
         :param url: URL of a metadata service (by default InCommon IdP Metadata Service)
         :type url: Optional[string]
@@ -39,7 +32,6 @@ class SAMLMetadataLoader(object):
 
         :raise: MetadataLoadError
         """
-
         url = url if url else self.IN_COMMON_METADATA_SERVICE_URL
 
         self._logger.info('Started loading IdP XML metadata from {0}'.format(url))
