@@ -20,6 +20,7 @@ from werkzeug.datastructures import Headers
 
 from api.adobe_vendor_id import AuthdataUtility
 from api.annotations import AnnotationWriter
+from api.announcements import Announcements
 from api.custom_patron_catalog import CustomPatronCatalog
 from api.opds import LibraryAnnotator
 from api.saml.configuration import SAMLConfiguration
@@ -1118,6 +1119,15 @@ class LibraryAuthenticator(object):
             bucket = disabled
         bucket.append(Configuration.RESERVATIONS_FEATURE)
         doc['features'] = dict(enabled=enabled, disabled=disabled)
+
+        # Add any active announcements for the library.
+        announcements = [
+            x.for_authentication_document
+            for x in Announcements.for_library(library).active
+        ]
+        doc['announcements'] = announcements
+
+        # Finally, give the active annotator a chance to modify the document.
 
         if self.authentication_document_annotator:
             doc = self.authentication_document_annotator.annotate_authentication_document(
