@@ -30,6 +30,12 @@ class TestPatronUtility(DatabaseTest):
         three_seconds_ago = now - datetime.timedelta(seconds=3)
         yesterday = now - datetime.timedelta(days=1)
 
+        # Patron expirations checks are done against localtime, rather than
+        # UTC; so `patron.authorization_expires` needs datetimes relative to
+        # `datetime.datetime.now()`, rather than `...utcnow()`.
+        localtime_now = datetime.datetime.now()
+        localtime_yesterday = localtime_now - datetime.timedelta(days=1)
+
         patron = self._patron()
 
         # Patron has never been synced.
@@ -46,7 +52,7 @@ class TestPatronUtility(DatabaseTest):
 
         # Patron was synced recently but has no borrowing
         # privileges. Timeout is five seconds instead of 12 hours.
-        patron.authorization_expires = yesterday
+        patron.authorization_expires = localtime_yesterday
         patron.last_external_sync = three_seconds_ago
         eq_(False, PatronUtility.needs_external_sync(patron))
 
@@ -57,7 +63,11 @@ class TestPatronUtility(DatabaseTest):
         """Test the methods that encapsulate the determination
         of whether or not a patron can borrow books.
         """
-        now = datetime.datetime.utcnow()
+
+        # Patron expirations checks are done against localtime, rather than
+        # UTC; so `patron.authorization_expires` needs datetimes relative to
+        # `datetime.datetime.now()`, rather than `...utcnow()`.
+        now = datetime.datetime.now()
         one_day_ago = now - datetime.timedelta(days=1)
         patron = self._patron()
 
