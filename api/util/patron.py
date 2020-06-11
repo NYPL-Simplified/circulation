@@ -59,7 +59,6 @@ class PatronUtility(object):
         :raises OutstandingFines: If the patron has too many outstanding fines.
 
         """
-        now = datetime.datetime.utcnow()
         if not cls.authorization_is_active(patron):
             # The patron's card has expired.
             raise AuthorizationExpired()
