@@ -122,9 +122,14 @@ class SAMLController(object):
         relay_state_parse_result = urlparse.urlparse(relay_state)
         relay_state_parameters = urlparse.parse_qs(relay_state_parse_result.query)
 
-        del relay_state_parameters[self.PROVIDER_NAME]
-        del relay_state_parameters[self.IDP_ENTITY_ID]
-        del relay_state_parameters[self.LIBRARY_SHORT_NAME]
+        if self.LIBRARY_SHORT_NAME in relay_state_parameters:
+            del relay_state_parameters[self.LIBRARY_SHORT_NAME]
+
+        if self.PROVIDER_NAME in relay_state_parameters:
+            del relay_state_parameters[self.PROVIDER_NAME]
+
+        if self.IDP_ENTITY_ID in relay_state_parameters:
+            del relay_state_parameters[self.IDP_ENTITY_ID]
 
         redirect_uri = urlparse.urlunparse(
             (
@@ -138,6 +143,24 @@ class SAMLController(object):
         )
 
         return redirect_uri
+
+    def _get_relay_parameter(self, relay_parameters, name):
+        """
+        Returns a parameter containing in the query string of the relay state returned by the IdP
+
+        :param relay_parameters: Dictionary containing a list of parameters
+        :type relay_parameters: Dict
+
+        :param name: Name of the parameter
+        :type name: string
+
+        :return: Parameter's value or ProblemDetail if the parameter is missing
+        :rtype: Union[string, ProblemDetail]
+        """
+        if name not in relay_parameters:
+            return SAML_INVALID_RESPONSE.detailed('Required parameter {0} is missing from RelayState')
+
+        return relay_parameters[name][0]
 
     def _redirect_with_error(self, redirect_uri, problem_detail):
         """Redirects the patron to the given URL, with the given ProblemDetail encoded into the fragment identifier
@@ -178,9 +201,28 @@ class SAMLController(object):
             return self._redirect_with_error(redirect_uri, provider)
 
         authentication_manager = self._get_authentication_manager(db, provider)
+
+        # In general relay state should contain only a redirect URL.
+        # However, we need to pass additional parameters which will be required in saml_authentication_callback.
+        # There is no other way to pass them back to the Circulation Manager from the IdP.
+        # We have to add them to the query part of the relay state and then remove them
+        # before redirecting to the URL containing in the relay state.
+        # The required parameters are:
+        # - library's name
+        # - SAML provider's name
+        # - IdP's entity ID
         relay_state = self._add_params_to_url(
             redirect_uri,
             {
+                # NOTE: we cannot use @has_library decorator and append a library's name
+                # to SAMLController.saml_calback route (e.g. https://cm.org/LIBRARY_NAME/saml_callback).
+                # The URL of the SP's assertion consumer service (SAMLController.saml_calback) should be constant:
+                # SP's metadata is registered in the IdP and cannot change.
+                # If we try to append a library's name to the ACS's URL sent as a part of the SAML request,
+                # the IdP will fail this request because the URL mentioned in the request and
+                # the URL saved in the SP's metadata configured in this IdP will differ.
+                # Library's name is passed as a part of the relay state and
+                # processed in SAMLController.saml_authentication_callback
                 self.LIBRARY_SHORT_NAME: provider.library(db).short_name,
                 self.PROVIDER_NAME: provider_name,
                 self.IDP_ENTITY_ID: idp_entity_id
@@ -209,9 +251,19 @@ class SAMLController(object):
         relay_state = request.form[self.RELAY_STATE]
         relay_state_parse_result = urlparse.urlparse(relay_state)
         relay_state_parameters = urlparse.parse_qs(relay_state_parse_result.query)
-        library_short_name = relay_state_parameters[self.LIBRARY_SHORT_NAME][0]
-        provider_name = relay_state_parameters[self.PROVIDER_NAME][0]
-        idp_entity_id = relay_state_parameters[self.IDP_ENTITY_ID][0]
+
+        library_short_name = self._get_relay_parameter(relay_state_parameters, self.LIBRARY_SHORT_NAME)
+        if isinstance(library_short_name, ProblemDetail):
+            return library_short_name
+
+        provider_name = self._get_relay_parameter(relay_state_parameters, self.PROVIDER_NAME)
+        if isinstance(provider_name, ProblemDetail):
+            return provider_name
+
+        idp_entity_id = self._get_relay_parameter(relay_state_parameters, self.IDP_ENTITY_ID)
+        if isinstance(idp_entity_id, ProblemDetail):
+            return idp_entity_id
+
         redirect_uri = self._get_redirect_uri(relay_state)
 
         library = self._circulation_manager.index_controller.library_for_request(library_short_name)

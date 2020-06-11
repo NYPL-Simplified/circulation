@@ -297,6 +297,9 @@ CORRECT_ONE_IDP_METADATA = \
         <NameIDFormat>{9}</NameIDFormat>
         <NameIDFormat>{10}</NameIDFormat>
         <SingleSignOnService 
+            Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST-SimpleSign" 
+            Location="http://idp.hilbertteam.net/idp/profile/SAML2/POST-SimpleSign/SSO"/>
+        <SingleSignOnService 
             Binding="{11}" 
             Location="{12}"/>
     </IDPSSODescriptor>
@@ -362,6 +365,9 @@ CORRECT_ONE_IDP_METADATA_WITHOUT_NAME_ID_FORMAT = \
             </ds:KeyInfo>
         </KeyDescriptor>
         <SingleSignOnService 
+            Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST-SimpleSign" 
+            Location="http://idp.hilbertteam.net/idp/profile/SAML2/POST-SimpleSign/SSO"/>
+        <SingleSignOnService 
             Binding="{9}" 
             Location="{10}"/>
     </IDPSSODescriptor>
@@ -417,6 +423,9 @@ CORRECT_ONE_IDP_METADATA_WITH_ONE_CERTIFICATE = \
         </KeyDescriptor>
         <NameIDFormat>{8}</NameIDFormat>
         <NameIDFormat>{9}</NameIDFormat>
+        <SingleSignOnService 
+            Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST-SimpleSign" 
+            Location="http://idp.hilbertteam.net/idp/profile/SAML2/POST-SimpleSign/SSO"/>
         <SingleSignOnService 
             Binding="{10}" 
             Location="{11}"/>
@@ -480,6 +489,9 @@ CORRECT_MULTIPLE_IDPS_METADATA = \
       <NameIDFormat>{5}</NameIDFormat>
       <NameIDFormat>{6}</NameIDFormat>
       <SingleSignOnService 
+        Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST-SimpleSign" 
+        Location="http://idp.hilbertteam.net/idp/profile/SAML2/POST-SimpleSign/SSO"/>
+      <SingleSignOnService 
         Binding="{7}" 
         Location="{8}"/>
     </IDPSSODescriptor>
@@ -518,6 +530,9 @@ CORRECT_MULTIPLE_IDPS_METADATA = \
       </KeyDescriptor>
       <NameIDFormat>{14}</NameIDFormat>
       <NameIDFormat>{15}</NameIDFormat>
+      <SingleSignOnService 
+        Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST-SimpleSign" 
+        Location="http://idp.hilbertteam.net/idp/profile/SAML2/POST-SimpleSign/SSO"/>
       <SingleSignOnService 
         Binding="{16}" 
         Location="{17}"/>
@@ -606,8 +621,12 @@ CORRECT_ONE_SP_METADATA = \
     </KeyDescriptor>
     <AssertionConsumerService 
         Binding="{2}" 
-        Location="{3}" 
+        Location="{3}/" 
         index="1"/>
+    <AssertionConsumerService 
+        Binding="{2}" 
+        Location="{3}" 
+        index="0"/>
   </SPSSODescriptor>
 </EntityDescriptor>
 '''.format(

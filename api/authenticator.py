@@ -928,7 +928,7 @@ class LibraryAuthenticator(object):
         if not self.saml_providers_by_name:
             # We don't support OAuth at all.
             return UNKNOWN_SAML_PROVIDER.detailed(
-                _("No OAuth providers are configured.")
+                _("No SAML providers are configured.")
             )
 
         if (not provider_name
@@ -2608,7 +2608,7 @@ class BaseSAMLAuthenticationProvider(AuthenticationProvider, HasSelfTests):
 
     DISPLAY_NAME = NAME
 
-    FLOW_TYPE = 'http://opds-spec.org/auth/saml'
+    FLOW_TYPE = 'http://librarysimplified.org/authtype/SAML-2.0'
 
     TOKEN_TYPE = "SAML 2.0 token"
     TOKEN_DATA_SOURCE_NAME = 'SAML 2.0'

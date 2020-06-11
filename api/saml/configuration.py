@@ -316,25 +316,32 @@ class SAMLOneLoginConfiguration(object):
 
         return onelogin_service_provider
 
-    def get_identity_provider_settings(self, entity_id):
+    def get_identity_provider_settings(self, idp_entity_id):
         """Returns a dictionary containing identity provider's settings in a OneLogin's SAML Toolkit format
+        
+        :param idp_entity_id: IdP's entity ID
+        :type idp_entity_id: string
 
         :return: Dictionary containing identity provider's settings in a OneLogin's SAML Toolkit format
         :rtype: Dict
         """
-        if entity_id in self._identity_providers:
-            return self._identity_providers[entity_id]
+        if idp_entity_id in self._identity_providers:
+            return self._identity_providers[idp_entity_id]
 
-        identity_providers = filter(lambda idp: idp.entity_id == entity_id, self._configuration.identity_providers)
+        identity_providers = [idp for idp in self._configuration.identity_providers if idp.entity_id == idp_entity_id]
 
         if not identity_providers:
             raise SAMLConfigurationError(
-                message=_('There is no identity provider with entityID = {0}'.format(entity_id)))
+                message=_('There is no identity provider with entityID = {0}'.format(idp_entity_id)))
+
+        if len(identity_providers) > 1:
+            raise SAMLConfigurationError(
+                message=_('There are multiple identity providers with entityID = {0}'.format(idp_entity_id)))
 
         identity_provider = identity_providers[0]
         identity_provider = self._get_identity_provider_settings(identity_provider)
 
-        self._identity_providers[entity_id] = identity_provider
+        self._identity_providers[idp_entity_id] = identity_provider
 
         return identity_provider
 
@@ -350,10 +357,13 @@ class SAMLOneLoginConfiguration(object):
         return self._service_provider
 
     def get_settings(self, idp_entity_id):
-        """Returns SP and IdP settings in a OneLogin format
+        """Returns a dictionary containing SP's and IdP's settings in the OneLogin's SAML Toolkit format
 
-        :param idp_entity_id:
-        :return:
+        :param idp_entity_id: IdP's entity ID
+        :type idp_entity_id: string
+
+        :return: Dictionary containing SP's and IdP's settings in the OneLogin's SAML Toolkit format
+        :rtype: Dict
         """
         onelogin_settings = {
             'debug': self._configuration.debug,

@@ -551,6 +551,14 @@ def saml_authenticate():
     return app.manager.saml_controller.saml_authentication_redirect(flask.request.args, app.manager._db)
 
 # Redirect URI for SAML providers
+# NOTE: we cannot use @has_library decorator and append a library's name to saml_calback route
+# (e.g. https://cm.org/LIBRARY_NAME/saml_callback).
+# The URL of the SP's assertion consumer service (saml_callback) should be constant:
+# SP's metadata is registered in the IdP and cannot change.
+# If we try to append a library's name to the ACS's URL sent as a part of the SAML request,
+# the IdP will fail this request because the URL mentioned in the request and
+# the URL saved in the SP's metadata configured in this IdP will differ.
+# Library's name is passed as a part of the relay state and processed in SAMLController.saml_authentication_callback
 @returns_problem_detail
 @app.route("/saml_callback", methods=['POST'])
 def saml_callback():

@@ -178,6 +178,26 @@ class SAMLMetadataParser(object):
 
         return ui_info
 
+    def _parse_name_id_format(self, provider_node):
+        """Parses a name ID format
+
+        NOTE: OneLogin's python-saml library used for implementing SAML authentication support only one name ID format.
+        If there are multiple name ID formats specified in the XML metadata, we select the first one.
+
+        :param provider_node: Parent IDPSSODescriptor/SPSSODescriptor node
+        :type provider_node: defusedxml.lxml.RestrictedElement
+
+        :return: Name ID format
+        :rtype: string
+        """
+        name_id_format = NameIDFormat.UNSPECIFIED.value
+        name_id_format_nodes = OneLogin_Saml2_Utils.query(provider_node, './ md:NameIDFormat')
+        if len(name_id_format_nodes) > 0:
+            # OneLogin's python-saml supports only one name ID format so we select the first one
+            name_id_format = OneLogin_Saml2_Utils.element_text(name_id_format_nodes[0])
+
+        return name_id_format
+
     def _parse_idp_metadata(
             self,
             provider_node,
@@ -209,10 +229,7 @@ class SAMLMetadataParser(object):
         """
         want_authn_requests_signed = provider_node.get('WantAuthnRequestsSigned', False)
 
-        name_id_format = NameIDFormat.UNSPECIFIED.value
-        name_id_format_nodes = OneLogin_Saml2_Utils.query(provider_node, './ md:NameIDFormat')
-        if len(name_id_format_nodes) > 0:
-            name_id_format = OneLogin_Saml2_Utils.element_text(name_id_format_nodes[0])
+        name_id_format = self._parse_name_id_format(provider_node)
 
         sso_service = None
         sso_nodes = OneLogin_Saml2_Utils.query(
@@ -220,7 +237,8 @@ class SAMLMetadataParser(object):
             "./md:SingleSignOnService[@Binding='%s']" % required_sso_binding.value
         )
         if len(sso_nodes) > 0:
-            sso_url = sso_nodes[0].get('Location', None)
+            sso_node = self._select_default_or_first_indexed_element(sso_nodes)
+            sso_url = sso_node.get('Location', None)
             sso_service = Service(sso_url, required_sso_binding)
         else:
             raise SAMLMetadataParsingError(
@@ -232,7 +250,8 @@ class SAMLMetadataParser(object):
             "./md:SingleLogoutService[@Binding='%s']" % required_slo_binding.value
         )
         if len(slo_nodes) > 0:
-            slo_url = slo_nodes[0].get('Location', None)
+            slo_node = self._select_default_or_first_indexed_element(slo_nodes)
+            slo_url = slo_node.get('Location', None)
             slo_service = Service(slo_url, required_slo_binding)
 
         signing_certificate_nodes = OneLogin_Saml2_Utils.query(
@@ -285,10 +304,7 @@ class SAMLMetadataParser(object):
         authn_requests_signed = provider_node.get('AuthnRequestsSigned', False)
         want_assertions_signed = provider_node.get('WantAssertionsSigned', False)
 
-        name_id_format = NameIDFormat.UNSPECIFIED.value
-        name_id_format_nodes = OneLogin_Saml2_Utils.query(provider_node, './ md:NameIDFormat')
-        if len(name_id_format_nodes) > 0:
-            name_id_format = OneLogin_Saml2_Utils.element_text(name_id_format_nodes[0])
+        name_id_format = self._parse_name_id_format(provider_node)
 
         acs_service = None
         acs_service_nodes = OneLogin_Saml2_Utils.query(
@@ -296,7 +312,8 @@ class SAMLMetadataParser(object):
             "./md:AssertionConsumerService[@Binding='%s']" % required_acs_binding.value
         )
         if len(acs_service_nodes) > 0:
-            acs_url = acs_service_nodes[0].get('Location', None)
+            acs_service_node = self._select_default_or_first_indexed_element(acs_service_nodes)
+            acs_url = acs_service_node.get('Location', None)
             acs_service = Service(acs_url, required_acs_binding)
         else:
             raise SAMLMetadataParsingError(_('Missing {0} AssertionConsumerService'.format(required_acs_binding.value)))
@@ -316,6 +333,53 @@ class SAMLMetadataParser(object):
             certificates)
 
         return sp
+
+    def _select_default_element(self, nodes):
+        """Selects a node with attribute "isDefault=true"
+
+        :param nodes: List of XML nodes
+        :type nodes: List[defusedxml.lxml.RestrictedElement]
+
+        :return: "Default" node or None if there is no one
+        :rtype: Optional[defusedxml.lxml.RestrictedElement]
+        """
+        default_nodes = [node for node in nodes if node.get('isDefault', False)]
+
+        default_node = self._select_first_indexed_element(default_nodes)
+
+        return default_node
+
+    def _select_first_indexed_element(self, nodes):
+        """Sorts a list of XML nodes by "index" attribute and selects the first node
+
+        :param nodes: List of XML nodes
+        :type nodes: List[defusedxml.lxml.RestrictedElement]
+
+        :return: Node with the smallest index or None if there is no one
+        :rtype: Optional[defusedxml.lxml.RestrictedElement]
+        """
+        if not nodes:
+            return None
+
+        nodes = sorted(nodes, key=lambda node: node.get('index', 0))
+
+        return nodes[0]
+
+    def _select_default_or_first_indexed_element(self, nodes):
+        """Selects a node with attribute "isDefault=true" or a node with the smallest "index" attribute
+
+        :param nodes: List of XML nodes
+        :type nodes: List[defusedxml.lxml.RestrictedElement]
+
+        :return: "Default" node or the node with the smallest "index" attribute or None if there is no one
+        :rtype: Optional[defusedxml.lxml.RestrictedElement]
+        """
+        default_node = self._select_default_element(nodes)
+
+        if default_node:
+            return default_node
+
+        return self._select_first_indexed_element(nodes)
 
     def parse(self, xml_metadata):
         """Parses an XML string containing SAML metadata and translates it into a list of
