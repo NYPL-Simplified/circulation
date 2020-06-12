@@ -94,7 +94,6 @@
 <span class="sd">        :raises OutstandingFines: If the patron has too many outstanding fines.</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">now</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">cls</span><span class="o">.</span><span class="n">authorization_is_active</span><span class="p">(</span><span class="n">patron</span><span class="p">):</span>
             <span class="c1"># The patron&#39;s card has expired.</span>
             <span class="k">raise</span> <span class="n">AuthorizationExpired</span><span class="p">()</span>
