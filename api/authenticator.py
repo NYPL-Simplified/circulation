@@ -2199,7 +2199,29 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
         return flow_doc
 
 
-class OAuthAuthenticationProvider(AuthenticationProvider):
+class BearerTokenSigner(object):
+    """Mixin class used for storing a secret used for signing Bearer tokens"""
+
+    # Name of the site-wide ConfigurationSetting containing the secret
+    # used to sign bearer tokens.
+    BEARER_TOKEN_SIGNING_SECRET = Configuration.BEARER_TOKEN_SIGNING_SECRET
+
+    @classmethod
+    def bearer_token_signing_secret(cls, db):
+        """Find or generate the site-wide bearer token signing secret.
+
+        :param db: Database session
+        :type db: sqlalchemy.orm.session.Session
+
+        :return: ConfigurationSetting object containing the signing secret
+        :rtype: ConfigurationSetting
+        """
+        return ConfigurationSetting.sitewide_secret(
+            db, cls.BEARER_TOKEN_SIGNING_SECRET
+        )
+
+
+class OAuthAuthenticationProvider(AuthenticationProvider, BearerTokenSigner):
 
     # NOTE: Each subclass must define URI as per
     # AuthenticationProvider superclass. This is the URI used to
@@ -2254,17 +2276,6 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
     SETTINGS = [
         { "key": OAUTH_TOKEN_EXPIRATION_DAYS, "type": "number", "label": _("Days until OAuth token expires") },
     ] + AuthenticationProvider.SETTINGS
-
-    # Name of the site-wide ConfigurationSetting containing the secret
-    # used to sign bearer tokens.
-    BEARER_TOKEN_SIGNING_SECRET = Configuration.BEARER_TOKEN_SIGNING_SECRET
-
-    @classmethod
-    def bearer_token_signing_secret(cls, _db):
-        """Find or generate the site-wide bearer token signing secret."""
-        return ConfigurationSetting.sitewide_secret(
-            _db, cls.BEARER_TOKEN_SIGNING_SECRET
-        )
 
     def __init__(self, library, integration, analytics=None):
         """Initialize this OAuthAuthenticationProvider.
@@ -2359,7 +2370,6 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
             # we want them to send the patron to this URL.
             oauth_callback_url=OAuthController.oauth_authentication_callback_url(library_short_name)
         )
-
 
     def oauth_callback(self, _db, code):
         """Verify the incoming parameters with the OAuth provider. Exchange
@@ -2595,7 +2605,7 @@ class OAuthController(object):
         return redirect_uri + "#" + urllib.urlencode(params)
 
 
-class BaseSAMLAuthenticationProvider(AuthenticationProvider, HasSelfTests):
+class BaseSAMLAuthenticationProvider(AuthenticationProvider, BearerTokenSigner):
     """
     Base class for SAML authentication providers
     """
@@ -2673,15 +2683,3 @@ class BaseSAMLAuthenticationProvider(AuthenticationProvider, HasSelfTests):
            "label": _("Days until a Bearer token expires")
        },
     ] + AuthenticationProvider.SETTINGS
-
-    # Name of the site-wide ConfigurationSetting containing the secret
-    # used to sign bearer tokens.
-    BEARER_TOKEN_SIGNING_SECRET = Configuration.BEARER_TOKEN_SIGNING_SECRET
-
-    @classmethod
-    def bearer_token_signing_secret(cls, _db):
-        """Find or generate the site-wide bearer token signing secret."""
-        return ConfigurationSetting.sitewide_secret(
-            _db, cls.BEARER_TOKEN_SIGNING_SECRET
-        )
-
