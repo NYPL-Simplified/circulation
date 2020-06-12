@@ -38,8 +38,8 @@ feedparser
 # nltk is a textblob dependency, and this is the last release that supports Python 2
 nltk==3.4.5
 
-# rsa is an oauth2client dependency. Version 4.1 silently drops Python 2 support.
-rsa<4.1
+# rsa is an oauth2client dependency. This is the last version to support Python 2.
+rsa==4.3
 
 # TODO: This is only used for summary evaluation, which I think should
 # only happen in the metadata wrangler, so it should be possible to move
