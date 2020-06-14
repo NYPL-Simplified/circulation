@@ -619,27 +619,22 @@ class LibraryAuthenticator(object):
                 )
                 authenticator.initialization_exceptions[integration.id] = e
 
-        if authenticator.oauth_providers_by_name:
+        if authenticator.oauth_providers_by_name or authenticator.saml_providers_by_name:
             # NOTE: this will immediately commit the database session,
             # which may not be what you want during a test. To avoid
             # this, you can create the bearer token signing secret as
             # a regular site-wide ConfigurationSetting.
-            authenticator.bearer_token_signing_secret = OAuthAuthenticationProvider.bearer_token_signing_secret(
+            authenticator.bearer_token_signing_secret = BearerTokenSigner.bearer_token_signing_secret(
                 _db
             )
-        if authenticator.saml_providers_by_name:
-            # NOTE: this will immediately commit the database session,
-            # which may not be what you want during a test. To avoid
-            # this, you can create the bearer token signing secret as
-            # a regular site-wide ConfigurationSetting.
-            authenticator.bearer_token_signing_secret = BaseSAMLAuthenticationProvider.bearer_token_signing_secret(
-                _db
-            )
-        authenticator.assert_ready_for_oauth()
+
+        authenticator.assert_ready_for_token_signing()
+
         return authenticator
 
     def __init__(self, _db, library, basic_auth_provider=None,
                  oauth_providers=None,
+                 saml_providers=None,
                  bearer_token_signing_secret=None,
                  authentication_document_annotator=None,
     ):
@@ -656,6 +651,9 @@ class LibraryAuthenticator(object):
 
         :param oauth_providers: A list of AuthenticationProviders that handle
         OAuth requests.
+
+        :param saml_providers: A list of AuthenticationProviders that handle
+        SAML requests.
 
         :param bearer_token_signing_secret: The secret to use when
         signing JWTs for use as bearer tokens.
@@ -683,7 +681,12 @@ class LibraryAuthenticator(object):
         if oauth_providers:
             for provider in oauth_providers:
                 self.oauth_providers_by_name[provider.NAME] = provider
-        self.assert_ready_for_oauth()
+
+        if saml_providers:
+            for provider in saml_providers:
+                self.saml_providers_by_name[provider.NAME] = provider
+
+        self.assert_ready_for_token_signing()
 
     @property
     def supports_patron_authentication(self):
@@ -715,13 +718,18 @@ class LibraryAuthenticator(object):
     def library(self):
         return Library.by_id(self._db, self.library_id)
 
-    def assert_ready_for_oauth(self):
+    def assert_ready_for_token_signing(self):
         """If this LibraryAuthenticator has OAuth providers, ensure that it
         also has a secret it can use to sign bearer tokens.
         """
         if self.oauth_providers_by_name and not self.bearer_token_signing_secret:
             raise CannotLoadConfiguration(
-                "OAuth providers are configured, but secret for signing bearer tokens is not."
+                _("OAuth providers are configured, but secret for signing bearer tokens is not.")
+            )
+
+        if self.saml_providers_by_name and not self.bearer_token_signing_secret:
+            raise CannotLoadConfiguration(
+                _("SAML providers are configured, but secret for signing bearer tokens is not.")
             )
 
     def register_provider(self, integration, analytics=None):
