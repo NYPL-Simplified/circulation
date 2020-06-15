@@ -219,6 +219,9 @@ class SAMLAuthenticationProvider(BaseSAMLAuthenticationProvider):
         :return: Token data source
         :rtype: DataSource
         """
+        # FIXME: This code will probably not work in a situation where a library has multiple SAML
+        #  authentication mechanisms for its patrons.
+        #  It'll look up a Credential from this data source but it won't be able to tell which IdP it came from.
         return get_one_or_create(
             db, DataSource, name=self.TOKEN_DATA_SOURCE_NAME
         )
