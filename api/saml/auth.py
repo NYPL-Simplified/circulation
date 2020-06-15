@@ -144,7 +144,12 @@ class SAMLAuthenticationManager(object):
             )
             attributes = auth.get_attributes()
             attribute_statement = AttributeStatement(attributes)
-            subject = Subject(name_id, attribute_statement)
+            valid_till = auth.get_session_expiration()
+
+            if not valid_till:
+                valid_till = auth.get_last_assertion_not_on_or_after()
+
+            subject = Subject(name_id, attribute_statement, valid_till)
 
             return subject
         else:

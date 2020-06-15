@@ -1,10 +1,10 @@
 # FIXME: Required to get rid of the circular import error
-from mock import patch, create_autospec, PropertyMock, MagicMock
-
 import api.app
-
+import datetime
 import json
 
+from freezegun import freeze_time
+from mock import patch, create_autospec, PropertyMock, MagicMock
 from nose.tools import eq_
 from parameterized import parameterized
 
@@ -13,7 +13,6 @@ from api.saml.auth import SAMLAuthenticationManager, SAMLAuthenticationManagerFa
 from api.saml.configuration import SAMLConfiguration, SAMLOneLoginConfiguration
 from api.saml.metadata import ServiceProviderMetadata, NameIDFormat, UIInfo, Service, IdentityProviderMetadata, \
     LocalizableMetadataItem, Subject, AttributeStatement, SAMLAttributes, SubjectJSONEncoder
-
 from api.saml.provider import SAMLAuthenticationProvider, SAML_INVALID_SUBJECT
 from core.model import ExternalIntegration
 from core.util.problem_detail import ProblemDetail
@@ -70,7 +69,7 @@ class SAMLAuthenticationProviderTest(ControllerTest):
             'links': [
                 {
                     'rel': 'authenticate',
-                    'href': 'http://localhost/default/saml_authenticate?idp_entity_id=http%3A%2F%2Fidp1.hilbertteam.net%2Fidp%2Fshibboleth&provider=SAML+2.0',
+                    'href': 'http://localhost/default/saml_authenticate?idp_entity_id=http%3A%2F%2Fidp1.hilbertteam.net%2Fidp%2Fshibboleth&provider=SAML+2.0+Web+SSO',
                     'display_names': [],
                     'descriptions': [],
                     'information_urls': [],
@@ -79,7 +78,7 @@ class SAMLAuthenticationProviderTest(ControllerTest):
                 },
                 {
                     'rel': 'authenticate',
-                    'href': 'http://localhost/default/saml_authenticate?idp_entity_id=http%3A%2F%2Fidp2.hilbertteam.net%2Fidp%2Fshibboleth&provider=SAML+2.0',
+                    'href': 'http://localhost/default/saml_authenticate?idp_entity_id=http%3A%2F%2Fidp2.hilbertteam.net%2Fidp%2Fshibboleth&provider=SAML+2.0+Web+SSO',
                     'display_names': [
                         {
                             'value': 'Test Shibboleth IdP',
@@ -194,8 +193,25 @@ class SAMLAuthenticationProviderTest(ControllerTest):
                 external_type='A',
                 complete=True
             )
+        ),
+        (
+            'subject_has_unique_id_and_non_default_expiration_timeout',
+            Subject(
+                None,
+                AttributeStatement({
+                    SAMLAttributes.eduPersonUniqueId.name: ['12345']
+                }),
+                valid_till=datetime.timedelta(days=1)
+            ),
+            PatronData(
+                permanent_id='12345',
+                authorization_identifier='12345',
+                external_type='A',
+                complete=True
+            )
         )
     ])
+    @freeze_time("2020-01-01 00:00:00")
     def test_saml_callback(self, name, subject, expected_result):
         # Arrange
         provider = SAMLAuthenticationProvider(self._library, self._integration)
@@ -213,3 +229,4 @@ class SAMLAuthenticationProviderTest(ControllerTest):
             eq_(credential.credential, expected_credential)
             eq_(patron.external_identifier, expected_result.permanent_id)
             eq_(patron_data, expected_result)
+            eq_(credential.expires, datetime.datetime.utcnow() + subject.valid_till)

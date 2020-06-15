@@ -2631,13 +2631,6 @@ class BaseSAMLAuthenticationProvider(AuthenticationProvider, BearerTokenSigner):
     TOKEN_TYPE = "SAML 2.0 token"
     TOKEN_DATA_SOURCE_NAME = 'SAML 2.0'
 
-    # After successfully authenticating using SAML protocol patrons receive Bearer tokens used
-    # for confirming their authentication state. This configuration setting defines how long these tokens can be valid
-    SAML_TOKEN_EXPIRATION_DAYS = 'token_expiration_days'
-
-    # This is the default value for that configuration setting.
-    DEFAULT_TOKEN_EXPIRATION_DAYS = 42
-
     SETTINGS = [
        {
            'key': SAMLConfiguration.SP_XML_METADATA,
@@ -2684,10 +2677,5 @@ class BaseSAMLAuthenticationProvider(AuthenticationProvider, BearerTokenSigner):
                             '(may contain multiple IDPSSODescriptor)'),
            'category': 'IDP',
            'required': True
-       },
-       {
-           "key": SAML_TOKEN_EXPIRATION_DAYS,
-           "type": "number",
-           "label": _("Days until a Bearer token expires")
-       },
+       }
     ] + AuthenticationProvider.SETTINGS

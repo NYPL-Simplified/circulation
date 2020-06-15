@@ -1,3 +1,4 @@
+import datetime
 from json import JSONEncoder
 
 from enum import Enum
@@ -784,7 +785,7 @@ class AttributeStatement(object):
 class Subject(object):
     """Contains a name ID and a attribute statement"""
 
-    def __init__(self, name_id, attribute_statement):
+    def __init__(self, name_id, attribute_statement, valid_till=None):
         """Initializes a new instance of Subject class
 
         :param name_id: Name ID
@@ -792,9 +793,25 @@ class Subject(object):
 
         :param attribute_statement: Attribute statement
         :type attribute_statement: AttributeStatement
+
+        :param valid_till: Time till which the subject is valid
+            The default value is 30 minutes
+            Please refer to the Shibboleth IdP documentation for more details:
+            - https://wiki.shibboleth.net/confluence/display/IDP30/SessionConfiguration
+        :type valid_till: Optional[Union[datetime.datetime, datetime.timedelta]]
         """
         self._name_id = name_id
         self._attribute_statement = attribute_statement
+        self._valid_till = valid_till
+
+        if valid_till is None:
+            self._valid_till = datetime.timedelta(minutes=30)
+        elif isinstance(valid_till, datetime.datetime):
+            self._valid_till = valid_till - datetime.datetime.utcnow()
+        elif isinstance(valid_till, datetime.timedelta):
+            self._valid_till = valid_till
+        else:
+            raise ValueError('valid_till is not valid')
 
     @property
     def name_id(self):
@@ -813,6 +830,17 @@ class Subject(object):
         :rtype: AttributeStatement
         """
         return self._attribute_statement
+
+    @property
+    def valid_till(self):
+        """Returns the time till which the subject is valid.
+        The default value is 30 minutes. Please refer to the Shibboleth IdP documentation for more details:
+        - https://wiki.shibboleth.net/confluence/display/IDP30/SessionConfiguration
+
+        :return: Time till which the subject is valid
+        :rtype: datetime.timedelta
+        """
+        return self._valid_till
 
 
 class SubjectJSONEncoder(JSONEncoder):

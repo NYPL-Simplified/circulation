@@ -69,3 +69,4 @@ isodate
 defusedxml
 xmlsec
 parameterized
+freezegun

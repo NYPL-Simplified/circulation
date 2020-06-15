@@ -55,10 +55,6 @@ class SAMLAuthenticationProvider(BaseSAMLAuthenticationProvider):
         self._logger = logging.getLogger(__name__)
         self._authentication_manager = None
 
-        self.token_expiration_days = integration.setting(
-            self.SAML_TOKEN_EXPIRATION_DAYS
-        ).int_value or self.DEFAULT_TOKEN_EXPIRATION_DAYS
-
     def _authentication_flow_document(self, db):
         """Creates a Authentication Flow object for use in an Authentication for OPDS document.
 
@@ -158,7 +154,7 @@ class SAMLAuthenticationProvider(BaseSAMLAuthenticationProvider):
 
         return flow_doc
 
-    def _create_token(self, db, patron, token):
+    def _create_token(self, db, patron, token, valid_till):
         """Creates a Credential object that ties the given patron to the
         given provider token.
 
@@ -171,13 +167,15 @@ class SAMLAuthenticationProvider(BaseSAMLAuthenticationProvider):
         :param token: Token containing SAML subject's metadata
         :type token: Dict
 
+        :param valid_till: The time till which the SAML subject is valid
+        :type valid_till: datetime.timedelta
+
         :return: Credential object
         :rtype: Credential
         """
         data_source, ignore = self._get_token_data_source(db)
-        duration = datetime.timedelta(days=self.token_expiration_days)
         return Credential.temporary_token_create(
-            db, data_source, self.TOKEN_TYPE, patron, duration, token
+            db, data_source, self.TOKEN_TYPE, patron, valid_till, token
         )
 
     def _create_authenticate_url(self, db, idp_entity_id):
@@ -364,7 +362,7 @@ class SAMLAuthenticationProvider(BaseSAMLAuthenticationProvider):
 
         # Create a credential for the Patron
         token = json.dumps(subject, cls=SubjectJSONEncoder)
-        credential, is_new = self._create_token(db, patron, token)
+        credential, is_new = self._create_token(db, patron, token, subject.valid_till)
 
         return credential, patron, patron_data
 
