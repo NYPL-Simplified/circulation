@@ -36,8 +36,10 @@ IDENTITY_PROVIDERS = [
 class SAMLConfigurationTest(object):
     def test_service_provider_returns_correct_value(self):
         # Arrange
+        service_provider_metadata = ''
         expected_result = SERVICE_PROVIDER
         configuration_storage = create_autospec(spec=SAMLConfigurationStorage)
+        configuration_storage.load = MagicMock(return_value=service_provider_metadata)
         metadata_parser = create_autospec(spec=SAMLMetadataParser)
         metadata_parser.parse = MagicMock(return_value=expected_result)
         configuration = SAMLConfiguration(configuration_storage, metadata_parser)
@@ -47,12 +49,15 @@ class SAMLConfigurationTest(object):
 
         # Assert
         eq_(result, expected_result)
-        metadata_parser.parse.assert_called_once_with(SAMLConfiguration.SP_XML_METADATA)
+        configuration_storage.load.assert_called_once_with(SAMLConfiguration.SP_XML_METADATA)
+        metadata_parser.parse.assert_called_once_with(service_provider_metadata)
 
     def test_identity_providers_returns_correct_value(self):
         # Arrange
+        identity_providers_metadata = ''
         expected_result = IDENTITY_PROVIDERS
         configuration_storage = create_autospec(spec=SAMLConfigurationStorage)
+        configuration_storage.load = MagicMock(return_value=identity_providers_metadata)
         metadata_parser = create_autospec(spec=SAMLMetadataParser)
         metadata_parser.parse = MagicMock(return_value=expected_result)
         configuration = SAMLConfiguration(configuration_storage, metadata_parser)
@@ -62,7 +67,8 @@ class SAMLConfigurationTest(object):
 
         # Assert
         eq_(result, expected_result)
-        metadata_parser.parse.assert_called_once_with(SAMLConfiguration.IDP_XML_METADATA)
+        configuration_storage.load.assert_called_once_with(SAMLConfiguration.IDP_XML_METADATA)
+        metadata_parser.parse.assert_called_once_with(identity_providers_metadata)
 
 
 class SAMLOneLoginConfigurationTest(object):

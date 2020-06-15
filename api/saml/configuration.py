@@ -110,7 +110,8 @@ class SAMLConfiguration(object):
 
         :raise: SAMLParsingError
         """
-        idp_providers = self._metadata_parser.parse(self.IDP_XML_METADATA)
+        idp_providers_metadata = self._configuration_storage.load(self.IDP_XML_METADATA)
+        idp_providers = self._metadata_parser.parse(idp_providers_metadata)
 
         return idp_providers
 
@@ -122,7 +123,8 @@ class SAMLConfiguration(object):
 
         :raise: SAMLParsingError
         """
-        sp_provider = self._metadata_parser.parse(self.SP_XML_METADATA)
+        sp_provider_metadata = self._configuration_storage.load(self.SP_XML_METADATA)
+        sp_provider = self._metadata_parser.parse(sp_provider_metadata)
 
         return sp_provider
 
