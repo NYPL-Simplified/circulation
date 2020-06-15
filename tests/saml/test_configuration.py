@@ -1,14 +1,14 @@
 # FIXME: Required to get rid of the circular import error
 import api.app
 
-from mock import MagicMock, PropertyMock, create_autospec
+import sqlalchemy
+from mock import MagicMock, create_autospec
 from nose.tools import eq_
 
 from api.saml.configuration import SAMLConfiguration, SAMLOneLoginConfiguration, SAMLConfigurationStorage
 from api.saml.metadata import ServiceProviderMetadata, UIInfo, Service, NameIDFormat, IdentityProviderMetadata
 from api.saml.parser import SAMLMetadataParser
 from tests.saml import fixtures
-
 
 SERVICE_PROVIDER = ServiceProviderMetadata(
     fixtures.SP_ENTITY_ID,
@@ -41,15 +41,16 @@ class SAMLConfigurationTest(object):
         configuration_storage = create_autospec(spec=SAMLConfigurationStorage)
         configuration_storage.load = MagicMock(return_value=service_provider_metadata)
         metadata_parser = create_autospec(spec=SAMLMetadataParser)
-        metadata_parser.parse = MagicMock(return_value=expected_result)
+        metadata_parser.parse = MagicMock(return_value=[SERVICE_PROVIDER])
         configuration = SAMLConfiguration(configuration_storage, metadata_parser)
+        db = create_autospec(spec=sqlalchemy.orm.session.Session)
 
         # Act
-        result = configuration.service_provider
+        result = configuration.get_service_provider(db)
 
         # Assert
         eq_(result, expected_result)
-        configuration_storage.load.assert_called_once_with(SAMLConfiguration.SP_XML_METADATA)
+        configuration_storage.load.assert_called_once_with(db, SAMLConfiguration.SP_XML_METADATA)
         metadata_parser.parse.assert_called_once_with(service_provider_metadata)
 
     def test_identity_providers_returns_correct_value(self):
@@ -61,13 +62,14 @@ class SAMLConfigurationTest(object):
         metadata_parser = create_autospec(spec=SAMLMetadataParser)
         metadata_parser.parse = MagicMock(return_value=expected_result)
         configuration = SAMLConfiguration(configuration_storage, metadata_parser)
+        db = create_autospec(spec=sqlalchemy.orm.session.Session)
 
         # Act
-        result = configuration.identity_providers
+        result = configuration.get_identity_providers(db)
 
         # Assert
         eq_(result, expected_result)
-        configuration_storage.load.assert_called_once_with(SAMLConfiguration.IDP_XML_METADATA)
+        configuration_storage.load.assert_called_once_with(db, SAMLConfiguration.IDP_XML_METADATA)
         metadata_parser.parse.assert_called_once_with(identity_providers_metadata)
 
 
@@ -75,7 +77,7 @@ class SAMLOneLoginConfigurationTest(object):
     def test_get_identity_provider_settings_returns_correct_result(self):
         # Arrange
         configuration = create_autospec(spec=SAMLConfiguration)
-        type(configuration).identity_providers = PropertyMock(return_value=IDENTITY_PROVIDERS)
+        configuration.get_identity_providers = MagicMock(return_value=IDENTITY_PROVIDERS)
         onelogin_configuration = SAMLOneLoginConfiguration(configuration)
         expected_result = {
             'idp': {
@@ -89,17 +91,19 @@ class SAMLOneLoginConfigurationTest(object):
                 'authnRequestsSigned': IDENTITY_PROVIDERS[0].want_authn_requests_signed
             }
         }
+        db = create_autospec(spec=sqlalchemy.orm.session.Session)
 
         # Act
-        result = onelogin_configuration.get_identity_provider_settings(IDENTITY_PROVIDERS[0].entity_id)
+        result = onelogin_configuration.get_identity_provider_settings(db, IDENTITY_PROVIDERS[0].entity_id)
 
         # Assert
         eq_(result, expected_result)
+        configuration.get_identity_providers.assert_called_once_with(db)
 
     def test_get_service_provider_settings_returns_correct_result(self):
         # Arrange
         configuration = create_autospec(spec=SAMLConfiguration)
-        type(configuration).service_provider = PropertyMock(return_value=SERVICE_PROVIDER)
+        configuration.get_service_provider = MagicMock(return_value=SERVICE_PROVIDER)
         onelogin_configuration = SAMLOneLoginConfiguration(configuration)
         expected_result = {
             'sp': {
@@ -116,22 +120,24 @@ class SAMLOneLoginConfigurationTest(object):
                 'authnRequestsSigned': SERVICE_PROVIDER.authn_requests_signed
             }
         }
+        db = create_autospec(spec=sqlalchemy.orm.session.Session)
 
         # Act
-        result = onelogin_configuration.get_service_provider_settings()
+        result = onelogin_configuration.get_service_provider_settings(db)
 
         # Assert
         eq_(result, expected_result)
+        configuration.get_service_provider.assert_called_once_with(db)
 
     def test_get_settings_returns_correct_result(self):
         # Arrange
         configuration = create_autospec(spec=SAMLConfiguration)
         debug = False
         strict = False
-        type(configuration).debug = PropertyMock(return_value=False)
-        type(configuration).strict = PropertyMock(return_value=False)
-        type(configuration).service_provider = PropertyMock(return_value=SERVICE_PROVIDER)
-        type(configuration).identity_providers = PropertyMock(return_value=IDENTITY_PROVIDERS)
+        configuration.get_debug = MagicMock(return_value=False)
+        configuration.get_strict = MagicMock(return_value=False)
+        configuration.get_service_provider = MagicMock(return_value=SERVICE_PROVIDER)
+        configuration.get_identity_providers = MagicMock(return_value=IDENTITY_PROVIDERS)
         onelogin_configuration = SAMLOneLoginConfiguration(configuration)
         expected_result = {
             'debug': debug,
@@ -183,9 +189,14 @@ class SAMLOneLoginConfigurationTest(object):
                 'signatureAlgorithm': 'http://www.w3.org/2000/09/xmldsig#rsa-sha1'
             }
         }
+        db = create_autospec(spec=sqlalchemy.orm.session.Session)
 
         # Act
-        result = onelogin_configuration.get_settings(IDENTITY_PROVIDERS[0].entity_id)
+        result = onelogin_configuration.get_settings(db, IDENTITY_PROVIDERS[0].entity_id)
 
         # Assert
         eq_(result, expected_result)
+        configuration.get_debug.assert_called_with(db)
+        configuration.get_strict.assert_called_with(db)
+        configuration.get_service_provider.assert_called_with(db)
+        configuration.get_identity_providers.assert_called_with(db)

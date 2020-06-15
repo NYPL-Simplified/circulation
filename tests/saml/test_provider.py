@@ -4,7 +4,7 @@ import datetime
 import json
 
 from freezegun import freeze_time
-from mock import patch, create_autospec, PropertyMock, MagicMock
+from mock import patch, create_autospec, MagicMock
 from nose.tools import eq_
 from parameterized import parameterized
 
@@ -107,10 +107,10 @@ class SAMLWebSSOAuthenticationProviderTest(ControllerTest):
         }
         provider = SAMLWebSSOAuthenticationProvider(self._library, self._integration)
         configuration = create_autospec(spec=SAMLConfiguration)
-        type(configuration).debug = PropertyMock(return_value=False)
-        type(configuration).strict = PropertyMock(return_value=False)
-        type(configuration).service_provider = PropertyMock(return_value=SERVICE_PROVIDER)
-        type(configuration).identity_providers = PropertyMock(return_value=IDENTITY_PROVIDERS)
+        configuration.get_debug = MagicMock(return_value=False)
+        configuration.get_strict = MagicMock(return_value=False)
+        configuration.get_service_provider = MagicMock(return_value=SERVICE_PROVIDER)
+        configuration.get_identity_providers = MagicMock(return_value=IDENTITY_PROVIDERS)
         onelogin_configuration = SAMLOneLoginConfiguration(configuration)
         authentication_manager = SAMLAuthenticationManager(onelogin_configuration)
 

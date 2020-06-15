@@ -1,9 +1,29 @@
+from abc import ABCMeta, abstractmethod
+
 from flask_babel import lazy_gettext as _
 from onelogin.saml2.settings import OneLogin_Saml2_Settings
 
 from api.saml.exceptions import SAMLError
 from api.saml.metadata import ServiceProviderMetadata, IdentityProviderMetadata
 from core.model import ConfigurationSetting
+
+
+class ExternalIntegrationOwner(object):
+    """Interface allowing to get access to an external integration"""
+
+    __metaclass__ = ABCMeta
+
+    @abstractmethod
+    def external_integration(self, db):
+        """Returns an external integration owned by this object
+
+        :param db: Database session
+        :type db: sqlalchemy.orm.session.Session
+
+        :return: External integration owned by this object
+        :rtype: core.model.configuration.ExternalIntegration
+        """
+        raise NotImplementedError()
 
 
 class SAMLConfigurationStorageError(SAMLError):
@@ -13,16 +33,19 @@ class SAMLConfigurationStorageError(SAMLError):
 class SAMLConfigurationStorage(object):
     """Serializes and deserializes values as library's configuration settings"""
 
-    def __init__(self, integration):
+    def __init__(self, integration_owner):
         """Initializes a new instance of SAMLConfigurationStorage class
 
-        :param integration: External integration
-        :type integration: ExternalIntegration
+        :param integration_owner: External integration owner
+        :type integration_owner: ExternalIntegrationOwner
         """
-        self._integration = integration
+        self._integration_owner = integration_owner
 
-    def save(self, setting_name, value):
+    def save(self, db, setting_name, value):
         """Save the value as as a new configuration setting
+
+        :param db: Database session
+        :type db: sqlalchemy.orm.session.Session
 
         :param setting_name: Name of the library's configuration setting
         :type setting_name: string
@@ -30,21 +53,26 @@ class SAMLConfigurationStorage(object):
         :param value: Value to be saved
         :type value: Any
         """
+        integration = self._integration_owner.external_integration(db)
         ConfigurationSetting.for_externalintegration(
             setting_name,
-            self._integration).value = value
+            integration).value = value
 
-    def load(self, setting_name):
+    def load(self, db, setting_name):
         """Loads and returns the library's configuration setting
+
+        :param db: Database session
+        :type db: sqlalchemy.orm.session.Session
 
         :param setting_name: Name of the library's configuration setting
         :type setting_name: string
 
         :return: Any
         """
+        integration = self._integration_owner.external_integration(db)
         value = ConfigurationSetting.for_externalintegration(
             setting_name,
-            self._integration).value
+            integration).value
 
         return value
 
@@ -82,67 +110,91 @@ class SAMLConfiguration(object):
         self._identity_providers = None
         self._service_provider = None
 
-    def _load_debug(self):
+    def _load_debug(self, db):
         """Returns a debug mode indicator
+
+        :param db: Database session
+        :type db: sqlalchemy.orm.session.Session
 
         :return: Debug mode indicator
         :rtype: bool
         """
-        debug = bool(self._configuration_storage.load(self.DEBUG))
+        debug = bool(self._configuration_storage.load(db, self.DEBUG))
 
         return debug
 
-    def _load_strict(self):
+    def _load_strict(self, db):
         """Returns a strict mode indicator
+
+        :param db: Database session
+        :type db: sqlalchemy.orm.session.Session
 
         :return: Strict mode indicator
         :rtype: bool
         """
-        strict = bool(self._configuration_storage.load(self.STRICT))
+        strict = bool(self._configuration_storage.load(db, self.STRICT))
 
         return strict
 
-    def _load_identity_providers(self):
+    def _load_identity_providers(self, db):
         """Loads IdP settings from the library's configuration settings
+
+        :param db: Database session
+        :type db: sqlalchemy.orm.session.Session
 
         :return: List of IdentityProviderMetadata objects
         :rtype: List[IdentityProviderMetadata]
 
         :raise: SAMLParsingError
         """
-        idp_providers_metadata = self._configuration_storage.load(self.IDP_XML_METADATA)
+        idp_providers_metadata = self._configuration_storage.load(db, self.IDP_XML_METADATA)
         idp_providers = self._metadata_parser.parse(idp_providers_metadata)
 
         return idp_providers
 
-    def _load_service_provider(self):
+    def _load_service_provider(self, db):
         """Loads SP settings from the library's configuration settings
+
+        :param db: Database session
+        :type db: sqlalchemy.orm.session.Session
 
         :return: ServiceProviderMetadata object
         :rtype: ServiceProviderMetadata
 
         :raise: SAMLParsingError
         """
-        sp_provider_metadata = self._configuration_storage.load(self.SP_XML_METADATA)
-        sp_provider = self._metadata_parser.parse(sp_provider_metadata)
+        sp_provider_metadata = self._configuration_storage.load(db, self.SP_XML_METADATA)
+        parsing_result = self._metadata_parser.parse(sp_provider_metadata)
+
+        if not isinstance(parsing_result, list) or len(parsing_result) != 1:
+            raise SAMLConfigurationError(_('SAML SP configuration is not correct'))
+
+        sp_provider = parsing_result[0]
+
+        if not isinstance(sp_provider, ServiceProviderMetadata):
+            raise SAMLConfigurationError(_('SAML SP configuration is not correct'))
 
         return sp_provider
 
-    @property
-    def debug(self):
+    def get_debug(self, db):
         """Returns a debug mode indicator
+
+        :param db: Database session
+        :type db: sqlalchemy.orm.session.Session
 
         :return: Debug mode indicator
         :rtype: bool
         """
         if self._debug is None:
-            self._debug = self._load_debug()
+            self._debug = self._load_debug(db)
 
         return self._debug
 
-    @property
-    def identity_providers(self):
+    def get_identity_providers(self, db):
         """Returns identity providers
+
+        :param db: Database session
+        :type db: sqlalchemy.orm.session.Session
 
         :return: List of IdentityProviderMetadata objects
         :rtype: List[IdentityProviderMetadata]
@@ -150,13 +202,15 @@ class SAMLConfiguration(object):
         :raise: ConfigurationError
         """
         if self._identity_providers is None:
-            self._identity_providers = self._load_identity_providers()
+            self._identity_providers = self._load_identity_providers(db)
 
         return self._identity_providers
 
-    @property
-    def service_provider(self):
+    def get_service_provider(self, db):
         """Returns service provider
+
+        :param db: Database session
+        :type db: sqlalchemy.orm.session.Session
 
         :return: ServiceProviderMetadata object
         :rtype: ServiceProviderMetadata
@@ -164,19 +218,21 @@ class SAMLConfiguration(object):
         :raise: ConfigurationError
         """
         if self._service_provider is None:
-            self._service_provider = self._load_service_provider()
+            self._service_provider = self._load_service_provider(db)
 
         return self._service_provider
 
-    @property
-    def strict(self):
+    def get_strict(self, db):
         """Returns strict mode indicator
+
+        :param db: Database session
+        :type db: sqlalchemy.orm.session.Session
 
         :return: Strict mode indicator
         :rtype: bool
         """
         if self._strict is None:
-            self._strict = self._load_strict()
+            self._strict = self._load_strict(db)
 
         return self._strict
 
@@ -294,8 +350,11 @@ class SAMLOneLoginConfiguration(object):
         """
         return self._configuration
 
-    def get_identity_provider_settings(self, idp_entity_id):
+    def get_identity_provider_settings(self, db, idp_entity_id):
         """Returns a dictionary containing identity provider's settings in a OneLogin's SAML Toolkit format
+
+        :param db: Database session
+        :type db: sqlalchemy.orm.session.Session
         
         :param idp_entity_id: IdP's entity ID
         :type idp_entity_id: string
@@ -306,7 +365,8 @@ class SAMLOneLoginConfiguration(object):
         if idp_entity_id in self._identity_providers:
             return self._identity_providers[idp_entity_id]
 
-        identity_providers = [idp for idp in self._configuration.identity_providers if idp.entity_id == idp_entity_id]
+        identity_providers = [idp for idp in self._configuration.get_identity_providers(db)
+                              if idp.entity_id == idp_entity_id]
 
         if not identity_providers:
             raise SAMLConfigurationError(
@@ -323,19 +383,25 @@ class SAMLOneLoginConfiguration(object):
 
         return identity_provider
 
-    def get_service_provider_settings(self):
+    def get_service_provider_settings(self, db):
         """Returns a dictionary containing service provider's settings in the OneLogin's SAML Toolkit format
+
+        :param db: Database session
+        :type db: sqlalchemy.orm.session.Session
 
         :return: Dictionary containing service provider's settings in the OneLogin's SAML Toolkit format
         :rtype: Dict
         """
         if self._service_provider is None:
-            self._service_provider = self._get_service_provider_settings(self._configuration.service_provider)
+            self._service_provider = self._get_service_provider_settings(self._configuration.get_service_provider(db))
 
         return self._service_provider
 
-    def get_settings(self, idp_entity_id):
+    def get_settings(self, db, idp_entity_id):
         """Returns a dictionary containing SP's and IdP's settings in the OneLogin's SAML Toolkit format
+
+        :param db: Database session
+        :type db: sqlalchemy.orm.session.Session
 
         :param idp_entity_id: IdP's entity ID
         :type idp_entity_id: string
@@ -344,11 +410,11 @@ class SAMLOneLoginConfiguration(object):
         :rtype: Dict
         """
         onelogin_settings = {
-            self.DEBUG: self._configuration.debug,
-            self.STRICT: self._configuration.strict
+            self.DEBUG: self._configuration.get_debug(db),
+            self.STRICT: self._configuration.get_strict(db)
         }
-        identity_provider_settings = self.get_identity_provider_settings(idp_entity_id)
-        service_provider_settings = self.get_service_provider_settings()
+        identity_provider_settings = self.get_identity_provider_settings(db, idp_entity_id)
+        service_provider_settings = self.get_service_provider_settings(db)
 
         onelogin_settings.update(identity_provider_settings)
         onelogin_settings.update(service_provider_settings)
@@ -361,8 +427,8 @@ class SAMLOneLoginConfiguration(object):
         settings = OneLogin_Saml2_Settings(onelogin_settings)
 
         return {
-            self.DEBUG: self._configuration.debug,
-            self.STRICT: self._configuration.strict,
+            self.DEBUG: self._configuration.get_debug(db),
+            self.STRICT: self._configuration.get_strict(db),
             self.IDP: settings.get_idp_data(),
             self.SP: settings.get_sp_data(),
             self.SECURITY: settings.get_security_data()

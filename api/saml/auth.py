@@ -39,7 +39,6 @@ class SAMLAuthenticationManager(object):
         self._logger = logging.getLogger(__name__)
 
         self._configuration = configuration
-        self._auth_objects = {}
 
     @staticmethod
     def _get_request_data():
@@ -61,8 +60,11 @@ class SAMLAuthenticationManager(object):
             'post_data': request.form.copy(),
         }
 
-    def _create_auth_object(self, idp_entity_id):
+    def _create_auth_object(self, db, idp_entity_id):
         """Creates and initializes an OneLogin_Saml2_Auth object
+
+        :param db: Database session
+        :type db: sqlalchemy.orm.session.Session
 
         :param idp_entity_id: IdP's entityID
         :type idp_entity_id: string
@@ -71,24 +73,26 @@ class SAMLAuthenticationManager(object):
         :rtype: OneLogin_Saml2_Auth
         """
         request_data = self._get_request_data()
-        settings = self._configuration.get_settings(idp_entity_id)
+        settings = self._configuration.get_settings(db, idp_entity_id)
         auth = OneLogin_Saml2_Auth(request_data, old_settings=settings)
 
         return auth
 
-    def _get_auth_object(self, idp_entity_id):
+    def _get_auth_object(self, db, idp_entity_id):
         """Returns a cached OneLogin_Saml2_Auth object
+
+        :param db: Database session
+        :type db: sqlalchemy.orm.session.Session
 
         :param idp_entity_id: IdP's entityID
         :type idp_entity_id: string
 
-        :return: Cached OneLogin_Saml2_Auth object
+        :return: OneLogin_Saml2_Auth object
         :rtype: OneLogin_Saml2_Auth
         """
-        if idp_entity_id not in self._auth_objects:
-            self._auth_objects[idp_entity_id] = self._create_auth_object(idp_entity_id)
+        auth_object = self._create_auth_object(db, idp_entity_id)
 
-        return self._auth_objects[idp_entity_id]
+        return auth_object
 
     @property
     def configuration(self):
@@ -99,8 +103,11 @@ class SAMLAuthenticationManager(object):
         """
         return self._configuration
 
-    def start_authentication(self, idp_entity_id, return_to_url):
+    def start_authentication(self, db, idp_entity_id, return_to_url):
         """Starts the SAML authentication workflow by sending a AuthnRequest to the IdP
+
+        :param db: Database session
+        :type db: sqlalchemy.orm.session.Session
 
         :param idp_entity_id: IdP's entityID
         :type idp_entity_id: string
@@ -111,12 +118,15 @@ class SAMLAuthenticationManager(object):
         :return: Redirection URL
         :rtype: string
         """
-        auth = self._get_auth_object(idp_entity_id)
+        auth = self._get_auth_object(db, idp_entity_id)
 
         return auth.login(return_to_url)
 
-    def finish_authentication(self, idp_entity_id):
+    def finish_authentication(self, db, idp_entity_id):
         """Finishes the SAML authentication workflow by validating AuthnResponse and extracting a SAML assertion from it
+
+        :param db: Database session
+        :type db: sqlalchemy.orm.session.Session
 
         :param idp_entity_id: IdP's entityID
         :type idp_entity_id: string
@@ -130,7 +140,7 @@ class SAMLAuthenticationManager(object):
         if 'post_data' not in request_data or 'SAMLResponse' not in request_data['post_data']:
             return SAML_INCORRECT_RESPONSE.detailed('There is no SAMLResponse in the body of the response')
 
-        auth = self._get_auth_object(idp_entity_id)
+        auth = self._get_auth_object(db, idp_entity_id)
         auth.process_response()
 
         authenticated = auth.is_authenticated()
@@ -161,17 +171,17 @@ class SAMLAuthenticationManager(object):
 class SAMLAuthenticationManagerFactory(object):
     """Responsible for creating SAMLAuthenticationManager instances"""
 
-    def create(self, integration):
+    def create(self, integration_owner):
         """
         Creates a new instance of SAMLAuthenticationManager class
 
-        :param integration: External integration
-        :type integration: ExternalIntegration
+        :param integration_owner: External integration owner
+        :type integration_owner: api.saml.configuration.ExternalIntegrationOwner
 
         :return: SAML authentication manager
         :rtype: SAMLAuthenticationManager
         """
-        configuration_storage = SAMLConfigurationStorage(integration)
+        configuration_storage = SAMLConfigurationStorage(integration_owner)
         configuration = SAMLConfiguration(configuration_storage, SAMLMetadataParser())
         onelogin_configuration = SAMLOneLoginConfiguration(configuration)
         authentication_manager = SAMLAuthenticationManager(onelogin_configuration)

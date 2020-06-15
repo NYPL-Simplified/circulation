@@ -8,6 +8,7 @@ from flask_babel import lazy_gettext as _
 from api.authenticator import BaseSAMLAuthenticationProvider, PatronData
 from api.problem_details import *
 from api.saml.auth import SAMLAuthenticationManagerFactory
+from api.saml.configuration import ExternalIntegrationOwner
 from api.saml.metadata import Subject, SubjectUIDExtractor, SubjectJSONEncoder
 from core.model import Credential, get_one_or_create, DataSource
 from core.util.problem_detail import ProblemDetail
@@ -20,7 +21,7 @@ SAML_INVALID_SUBJECT = pd(
 )
 
 
-class SAMLWebSSOAuthenticationProvider(BaseSAMLAuthenticationProvider):
+class SAMLWebSSOAuthenticationProvider(BaseSAMLAuthenticationProvider, ExternalIntegrationOwner):
     """SAML authentication provider implementing Web Browser SSO profile using the following bindings:
     - HTTP-Redirect Binding for requests
     - HTTP-POST Binding for responses
@@ -137,7 +138,7 @@ class SAMLWebSSOAuthenticationProvider(BaseSAMLAuthenticationProvider):
 
         configuration = self.get_authentication_manager(db).configuration
 
-        for identity_provider in configuration.configuration.identity_providers:
+        for identity_provider in configuration.configuration.get_identity_providers(db):
             link = {
                 'rel': 'authenticate',
                 'href': self._create_authenticate_url(db, identity_provider.entity_id),
@@ -210,7 +211,7 @@ class SAMLWebSSOAuthenticationProvider(BaseSAMLAuthenticationProvider):
         :rtype: SAMLAuthenticationManager
         """
         authentication_manager_factory = SAMLAuthenticationManagerFactory()
-        authentication_manager = authentication_manager_factory.create(self.external_integration(db))
+        authentication_manager = authentication_manager_factory.create(self)
 
         return authentication_manager
 

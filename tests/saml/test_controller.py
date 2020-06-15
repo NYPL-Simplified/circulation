@@ -4,7 +4,7 @@ import api.app
 import urllib
 from base64 import b64encode
 
-from mock import create_autospec, PropertyMock, MagicMock, patch
+from mock import create_autospec, MagicMock, patch
 from nose.tools import eq_
 
 from flask import request
@@ -48,10 +48,10 @@ IDENTITY_PROVIDERS = [
 class SAMLControllerTest(ControllerTest):
     def test_saml_authentication_redirect(self):
         configuration = create_autospec(spec=SAMLConfiguration)
-        type(configuration).debug = PropertyMock(return_value=False)
-        type(configuration).strict = PropertyMock(return_value=False)
-        type(configuration).service_provider = PropertyMock(return_value=SERVICE_PROVIDER)
-        type(configuration).identity_providers = PropertyMock(return_value=IDENTITY_PROVIDERS)
+        configuration.get_debug = MagicMock(return_value=False)
+        configuration.get_strict = MagicMock(return_value=False)
+        configuration.get_service_provider = MagicMock(return_value=SERVICE_PROVIDER)
+        configuration.get_identity_providers = MagicMock(return_value=IDENTITY_PROVIDERS)
         onelogin_configuration = SAMLOneLoginConfiguration(configuration)
         authentication_manager = SAMLAuthenticationManager(onelogin_configuration)
 
@@ -85,10 +85,10 @@ class SAMLControllerTest(ControllerTest):
 
     def test_saml_authentication_callback(self):
         configuration = create_autospec(spec=SAMLConfiguration)
-        type(configuration).debug = PropertyMock(return_value=False)
-        type(configuration).strict = PropertyMock(return_value=False)
-        type(configuration).service_provider = PropertyMock(return_value=SERVICE_PROVIDER)
-        type(configuration).identity_providers = PropertyMock(return_value=IDENTITY_PROVIDERS)
+        configuration.get_debug = MagicMock(return_value=False)
+        configuration.get_strict = MagicMock(return_value=False)
+        configuration.get_service_provider = MagicMock(return_value=SERVICE_PROVIDER)
+        configuration.get_identity_providers = MagicMock(return_value=IDENTITY_PROVIDERS)
         onelogin_configuration = SAMLOneLoginConfiguration(configuration)
         authentication_manager = SAMLAuthenticationManager(onelogin_configuration)
 

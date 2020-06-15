@@ -7,12 +7,12 @@ from xml.dom.minidom import Document
 from parameterized import parameterized
 
 from defusedxml.lxml import fromstring
-from mock import create_autospec, PropertyMock
+from mock import create_autospec, MagicMock
 from nose.tools import eq_
 from onelogin.saml2.utils import OneLogin_Saml2_Utils
 
 from api.saml.auth import SAMLAuthenticationManager, SAMLAuthenticationManagerFactory
-from api.saml.configuration import SAMLOneLoginConfiguration, SAMLConfiguration
+from api.saml.configuration import SAMLOneLoginConfiguration, SAMLConfiguration, ExternalIntegrationOwner
 from api.saml.metadata import ServiceProviderMetadata, UIInfo, NameIDFormat, Service, IdentityProviderMetadata, Subject
 from tests.saml import fixtures
 from tests.saml.database_test import DatabaseTest
@@ -87,15 +87,15 @@ class SAMLAuthenticationManagerTest(ControllerTest):
     ])
     def test_start_authentication(self, name, service_provider, identity_providers):
         configuration = create_autospec(spec=SAMLConfiguration)
-        type(configuration).debug = PropertyMock(return_value=False)
-        type(configuration).strict = PropertyMock(return_value=False)
-        type(configuration).service_provider = PropertyMock(return_value=service_provider)
-        type(configuration).identity_providers = PropertyMock(return_value=identity_providers)
+        configuration.get_debug = MagicMock(return_value=False)
+        configuration.get_strict = MagicMock(return_value=False)
+        configuration.get_service_provider = MagicMock(return_value=service_provider)
+        configuration.get_identity_providers = MagicMock(return_value=identity_providers)
         onelogin_configuration = SAMLOneLoginConfiguration(configuration)
         authentication_manager = SAMLAuthenticationManager(onelogin_configuration)
 
         with self.app.test_request_context('/'):
-            result = authentication_manager.start_authentication(fixtures.IDP_1_ENTITY_ID, '')
+            result = authentication_manager.start_authentication(self._db, fixtures.IDP_1_ENTITY_ID, '')
 
             query_items = urlparse.parse_qs(urlparse.urlsplit(result).query)
             saml_request = query_items['SAMLRequest'][0]
@@ -131,10 +131,10 @@ class SAMLAuthenticationManagerTest(ControllerTest):
 
     def test_finish_authentication(self):
         configuration = create_autospec(spec=SAMLConfiguration)
-        type(configuration).debug = PropertyMock(return_value=False)
-        type(configuration).strict = PropertyMock(return_value=False)
-        type(configuration).service_provider = PropertyMock(return_value=SERVICE_PROVIDER_WITH_UNSIGNED_REQUESTS)
-        type(configuration).identity_providers = PropertyMock(return_value=IDENTITY_PROVIDERS)
+        configuration.get_debug = MagicMock(return_value=False)
+        configuration.get_strict = MagicMock(return_value=False)
+        configuration.get_service_provider = MagicMock(return_value=SERVICE_PROVIDER_WITH_UNSIGNED_REQUESTS)
+        configuration.get_identity_providers = MagicMock(return_value=IDENTITY_PROVIDERS)
         onelogin_configuration = SAMLOneLoginConfiguration(configuration)
         authentication_manager = SAMLAuthenticationManager(onelogin_configuration)
 
@@ -142,7 +142,7 @@ class SAMLAuthenticationManagerTest(ControllerTest):
         with self.app.test_request_context('/', data={
             'SAMLResponse': saml_response
         }):
-            result = authentication_manager.finish_authentication(fixtures.IDP_1_ENTITY_ID)
+            result = authentication_manager.finish_authentication(self._db, fixtures.IDP_1_ENTITY_ID)
 
             assert isinstance(result, Subject)
 
@@ -151,9 +151,11 @@ class SAMLAuthenticationManagerFactoryTest(DatabaseTest):
     def test_create(self):
         # Arrange
         factory = SAMLAuthenticationManagerFactory()
+        integration_owner = create_autospec(spec=ExternalIntegrationOwner)
+        integration_owner.external_integration = MagicMock(return_value=self._integration)
 
         # Act
-        result = factory.create(self._integration)
+        result = factory.create(integration_owner)
 
         # Assert
         assert isinstance(result, SAMLAuthenticationManager)

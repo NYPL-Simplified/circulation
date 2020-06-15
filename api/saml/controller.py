@@ -224,7 +224,7 @@ class SAMLController(object):
                 self.IDP_ENTITY_ID: idp_entity_id
             }
         )
-        redirect_uri = authentication_manager.start_authentication(idp_entity_id, relay_state)
+        redirect_uri = authentication_manager.start_authentication(db, idp_entity_id, relay_state)
 
         return redirect(redirect_uri)
 
@@ -270,7 +270,7 @@ class SAMLController(object):
         if isinstance(provider, ProblemDetail):
             return self._redirect_with_error(redirect_uri, provider)
 
-        subject = self._get_authentication_manager(db, provider).finish_authentication(idp_entity_id)
+        subject = self._get_authentication_manager(db, provider).finish_authentication(db, idp_entity_id)
         if isinstance(subject, ProblemDetail):
             return self._redirect_with_error(redirect_uri, subject)
 
