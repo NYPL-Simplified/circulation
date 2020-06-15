@@ -4,7 +4,7 @@ import api.app
 from mock import MagicMock, PropertyMock, create_autospec
 from nose.tools import eq_
 
-from api.saml.configuration import SAMLConfiguration, SAMLOneLoginConfiguration, SAMLConfigurationSerializer
+from api.saml.configuration import SAMLConfiguration, SAMLOneLoginConfiguration, SAMLConfigurationStorage
 from api.saml.metadata import ServiceProviderMetadata, UIInfo, Service, NameIDFormat, IdentityProviderMetadata
 from api.saml.parser import SAMLMetadataParser
 from tests.saml import fixtures
@@ -37,10 +37,10 @@ class SAMLConfigurationTest(object):
     def test_service_provider_returns_correct_value(self):
         # Arrange
         expected_result = SERVICE_PROVIDER
-        configuration_serializer = create_autospec(spec=SAMLConfigurationSerializer)
+        configuration_storage = create_autospec(spec=SAMLConfigurationStorage)
         metadata_parser = create_autospec(spec=SAMLMetadataParser)
         metadata_parser.parse = MagicMock(return_value=expected_result)
-        configuration = SAMLConfiguration(configuration_serializer, metadata_parser)
+        configuration = SAMLConfiguration(configuration_storage, metadata_parser)
 
         # Act
         result = configuration.service_provider
@@ -52,10 +52,10 @@ class SAMLConfigurationTest(object):
     def test_identity_providers_returns_correct_value(self):
         # Arrange
         expected_result = IDENTITY_PROVIDERS
-        configuration_serializer = create_autospec(spec=SAMLConfigurationSerializer)
+        configuration_storage = create_autospec(spec=SAMLConfigurationStorage)
         metadata_parser = create_autospec(spec=SAMLMetadataParser)
         metadata_parser.parse = MagicMock(return_value=expected_result)
-        configuration = SAMLConfiguration(configuration_serializer, metadata_parser)
+        configuration = SAMLConfiguration(configuration_storage, metadata_parser)
 
         # Act
         result = configuration.identity_providers

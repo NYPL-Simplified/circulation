@@ -5,7 +5,7 @@ from flask import request
 from flask_babel import lazy_gettext as _
 from onelogin.saml2.auth import OneLogin_Saml2_Auth
 
-from api.saml.configuration import SAMLConfigurationSerializer, SAMLConfiguration, \
+from api.saml.configuration import SAMLConfigurationStorage, SAMLConfiguration, \
     SAMLOneLoginConfiguration
 from api.saml.metadata import NameID, AttributeStatement, Subject
 from api.saml.parser import SAMLMetadataParser
@@ -171,8 +171,8 @@ class SAMLAuthenticationManagerFactory(object):
         :return: SAML authentication manager
         :rtype: SAMLAuthenticationManager
         """
-        configuration_serializer = SAMLConfigurationSerializer(integration)
-        configuration = SAMLConfiguration(configuration_serializer, SAMLMetadataParser())
+        configuration_storage = SAMLConfigurationStorage(integration)
+        configuration = SAMLConfiguration(configuration_storage, SAMLMetadataParser())
         onelogin_configuration = SAMLOneLoginConfiguration(configuration)
         authentication_manager = SAMLAuthenticationManager(onelogin_configuration)
 

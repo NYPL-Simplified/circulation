@@ -6,36 +6,36 @@ from api.saml.metadata import ServiceProviderMetadata, IdentityProviderMetadata
 from core.model import ConfigurationSetting
 
 
-class SAMLConfigurationSerializingError(SAMLError):
-    """Raised in the case of any errors during configuration serializing"""
+class SAMLConfigurationStorageError(SAMLError):
+    """Raised in the case of any errors during saving/loading configuration values"""
 
 
-class SAMLConfigurationSerializer(object):
+class SAMLConfigurationStorage(object):
     """Serializes and deserializes values as library's configuration settings"""
 
     def __init__(self, integration):
-        """Initializes a new instance of SAMLConfigurationSerializer class
+        """Initializes a new instance of SAMLConfigurationStorage class
 
         :param integration: External integration
         :type integration: ExternalIntegration
         """
         self._integration = integration
 
-    def serialize(self, setting_name, value):
-        """Serializes the value as a pickled library's configuration setting
+    def save(self, setting_name, value):
+        """Save the value as as a new configuration setting
 
         :param setting_name: Name of the library's configuration setting
         :type setting_name: string
 
-        :param value: Value to be serialized
+        :param value: Value to be saved
         :type value: Any
         """
         ConfigurationSetting.for_externalintegration(
             setting_name,
             self._integration).value = value
 
-    def deserialize(self, setting_name):
-        """Deserializes and returns the library's configuration setting
+    def load(self, setting_name):
+        """Loads and returns the library's configuration setting
 
         :param setting_name: Name of the library's configuration setting
         :type setting_name: string
@@ -64,16 +64,16 @@ class SAMLConfiguration(object):
 
     IDP_XML_METADATA = 'idp_xml_metadata'
 
-    def __init__(self, configuration_serializer, metadata_parser):
+    def __init__(self, configuration_storage, metadata_parser):
         """Initializes a new instance of SAMLConfiguration class
 
-        :param configuration_serializer: SAML configuration serializer
-        :type configuration_serializer: SAMLConfigurationSerializer
+        :param configuration_storage: SAML configuration serializer
+        :type configuration_storage: SAMLConfigurationStorage
 
         :param metadata_parser: SAML metadata parser
         :type metadata_parser: SAMLMetadataParser
         """
-        self._configuration_serializer = configuration_serializer
+        self._configuration_storage = configuration_storage
         self._metadata_parser = metadata_parser
 
         self._debug = None
@@ -88,7 +88,7 @@ class SAMLConfiguration(object):
         :return: Debug mode indicator
         :rtype: bool
         """
-        debug = bool(self._configuration_serializer.deserialize(self.DEBUG))
+        debug = bool(self._configuration_storage.load(self.DEBUG))
 
         return debug
 
@@ -98,7 +98,7 @@ class SAMLConfiguration(object):
         :return: Strict mode indicator
         :rtype: bool
         """
-        strict = bool(self._configuration_serializer.deserialize(self.STRICT))
+        strict = bool(self._configuration_storage.load(self.STRICT))
 
         return strict
 
