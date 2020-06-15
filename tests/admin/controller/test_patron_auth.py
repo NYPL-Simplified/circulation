@@ -17,7 +17,7 @@ from api.clever import CleverAuthenticationAPI
 from api.firstbook import FirstBookAuthenticationAPI
 from api.millenium_patron import MilleniumPatronAPI
 from api.problem_details import *
-from api.saml.provider import SAMLAuthenticationProvider
+from api.saml.provider import SAMLWebSSOAuthenticationProvider
 from api.simple_authentication import SimpleAuthenticationProvider
 from api.sip import SIP2AuthenticationProvider
 from core.model import (
@@ -208,7 +208,7 @@ class TestPatronAuth(SettingsControllerTest):
     def test_patron_auth_services_get_with_saml_auth_service(self):
         auth_service, ignore = create(
             self._db, ExternalIntegration,
-            protocol=SAMLAuthenticationProvider.__module__,
+            protocol=SAMLWebSSOAuthenticationProvider.__module__,
             goal=ExternalIntegration.PATRON_AUTH_GOAL
         )
         auth_service.libraries += [self._default_library]
@@ -218,7 +218,7 @@ class TestPatronAuth(SettingsControllerTest):
             [service] = response.get("patron_auth_services")
 
             eq_(auth_service.id, service.get("id"))
-            eq_(SAMLAuthenticationProvider.__module__, service.get("protocol"))
+            eq_(SAMLWebSSOAuthenticationProvider.__module__, service.get("protocol"))
             [library] = service.get("libraries")
             eq_(self._default_library.short_name, library.get("short_name"))
 

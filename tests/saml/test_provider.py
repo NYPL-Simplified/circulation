@@ -13,7 +13,7 @@ from api.saml.auth import SAMLAuthenticationManager, SAMLAuthenticationManagerFa
 from api.saml.configuration import SAMLConfiguration, SAMLOneLoginConfiguration
 from api.saml.metadata import ServiceProviderMetadata, NameIDFormat, UIInfo, Service, IdentityProviderMetadata, \
     LocalizableMetadataItem, Subject, AttributeStatement, SAMLAttributes, SubjectJSONEncoder
-from api.saml.provider import SAMLAuthenticationProvider, SAML_INVALID_SUBJECT
+from api.saml.provider import SAMLWebSSOAuthenticationProvider, SAML_INVALID_SUBJECT
 from core.model import ExternalIntegration
 from core.util.problem_detail import ProblemDetail
 from tests.saml import fixtures
@@ -51,21 +51,21 @@ IDENTITY_PROVIDERS = [
 ]
 
 
-class SAMLAuthenticationProviderTest(ControllerTest):
+class SAMLWebSSOAuthenticationProviderTest(ControllerTest):
     def setup(self, _db=None, set_up_circulation_manager=True):
-        super(SAMLAuthenticationProviderTest, self).setup(_db, set_up_circulation_manager)
+        super(SAMLWebSSOAuthenticationProviderTest, self).setup(_db, set_up_circulation_manager)
 
         self._library = self.make_default_library(self._db)
         self._integration = self._external_integration(
-            protocol=SAMLAuthenticationProvider.NAME,
+            protocol=SAMLWebSSOAuthenticationProvider.NAME,
             goal=ExternalIntegration.PATRON_AUTH_GOAL
         )
 
     def test_authentication_document(self):
         # Arrange
         expected_result = {
-            'type': SAMLAuthenticationProvider.FLOW_TYPE,
-            'description': SAMLAuthenticationProvider.NAME,
+            'type': SAMLWebSSOAuthenticationProvider.FLOW_TYPE,
+            'description': SAMLWebSSOAuthenticationProvider.NAME,
             'links': [
                 {
                     'rel': 'authenticate',
@@ -105,7 +105,7 @@ class SAMLAuthenticationProviderTest(ControllerTest):
                 }
             ]
         }
-        provider = SAMLAuthenticationProvider(self._library, self._integration)
+        provider = SAMLWebSSOAuthenticationProvider(self._library, self._integration)
         configuration = create_autospec(spec=SAMLConfiguration)
         type(configuration).debug = PropertyMock(return_value=False)
         type(configuration).strict = PropertyMock(return_value=False)
@@ -160,7 +160,7 @@ class SAMLAuthenticationProviderTest(ControllerTest):
     ])
     def test_remote_patron_lookup(self, name, subject, expected_result):
         # Arrange
-        provider = SAMLAuthenticationProvider(self._library, self._integration)
+        provider = SAMLWebSSOAuthenticationProvider(self._library, self._integration)
 
         # Act
         result = provider.remote_patron_lookup(subject)
@@ -214,7 +214,7 @@ class SAMLAuthenticationProviderTest(ControllerTest):
     @freeze_time("2020-01-01 00:00:00")
     def test_saml_callback(self, name, subject, expected_result):
         # Arrange
-        provider = SAMLAuthenticationProvider(self._library, self._integration)
+        provider = SAMLWebSSOAuthenticationProvider(self._library, self._integration)
         expected_credential = json.dumps(subject, cls=SubjectJSONEncoder)
 
         # Act

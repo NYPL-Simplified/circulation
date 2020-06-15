@@ -13,7 +13,7 @@ from api.firstbook2 import FirstBookAuthenticationAPI
 from api.kansas_patron import KansasAuthenticationAPI
 from api.millenium_patron import MilleniumPatronAPI
 from api.saml.parser import SAMLMetadataParser
-from api.saml.provider import SAMLAuthenticationProvider
+from api.saml.provider import SAMLWebSSOAuthenticationProvider
 from api.saml.validator import SAMLSettingsValidator
 from api.simple_authentication import SimpleAuthenticationProvider
 from api.sip import SIP2AuthenticationProvider
@@ -35,7 +35,7 @@ class PatronAuthServicesController(SettingsController):
                               OldFirstBookAuthenticationAPI,
                               CleverAuthenticationAPI,
                               KansasAuthenticationAPI,
-                              SAMLAuthenticationProvider
+                              SAMLWebSSOAuthenticationProvider
                               ]
         self.protocols = self._get_integration_protocols(self.provider_apis)
 

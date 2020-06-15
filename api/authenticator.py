@@ -2636,8 +2636,10 @@ class BaseSAMLAuthenticationProvider(AuthenticationProvider, BearerTokenSigner):
            'key': SAMLConfiguration.SP_XML_METADATA,
            'label': _('Service Provider\'s XML metadata'),
            'type': 'textarea',
-           'description': _('SAML metadata of the Circulation Manager\'s Service Provider in an XML format '
-                            '(must contain exactly one SPSSODescriptor'),
+           'description': _('SAML metadata of the Circulation Manager\'s Service Provider in an XML format. '
+                            'MUST contain exactly one SPSSODescriptor tag with at least one '
+                            'AssertionConsumerService tag with Binding attribute set to '
+                            'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST'),
            'category': 'SP',
            'required': True
        },
@@ -2673,8 +2675,10 @@ class BaseSAMLAuthenticationProvider(AuthenticationProvider, BearerTokenSigner):
            'key': SAMLConfiguration.IDP_XML_METADATA,
            'label': _('Identity Provider\'s XML metadata'),
            'type': 'textarea',
-           'description': _('SAML metadata of Identity Providers in an XML format '
-                            '(may contain multiple IDPSSODescriptor)'),
+           'description': _('SAML metadata of Identity Providers in an XML format. '
+                            'MAY contain multiple IDPSSODescriptor tags but each of them MUST contain '
+                            'at least one SingleSignOnService tag with Binding attribute set to '
+                            'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect'),
            'category': 'IDP',
            'required': True
        }

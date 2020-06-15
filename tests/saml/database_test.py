@@ -1,4 +1,4 @@
-from api.saml.provider import SAMLAuthenticationProvider
+from api.saml.provider import SAMLWebSSOAuthenticationProvider
 from core.model import ExternalIntegration
 from core.testing import DatabaseTest as BaseDatabaseTest
 
@@ -14,7 +14,7 @@ class DatabaseTest(BaseDatabaseTest):
 
         self._library = self.make_default_library(self._db)
         self._integration = self._external_integration(
-            protocol=SAMLAuthenticationProvider.NAME,
+            protocol=SAMLWebSSOAuthenticationProvider.NAME,
             goal=ExternalIntegration.PATRON_AUTH_GOAL
         )
-        self._authentication_provider = SAMLAuthenticationProvider(self._library, self._integration)
+        self._authentication_provider = SAMLWebSSOAuthenticationProvider(self._library, self._integration)

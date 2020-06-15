@@ -14,7 +14,7 @@ from api.saml.auth import SAMLAuthenticationManager, SAMLAuthenticationManagerFa
 from api.saml.configuration import SAMLConfiguration, SAMLOneLoginConfiguration
 from api.saml.controller import SAMLController
 from api.saml.metadata import ServiceProviderMetadata, UIInfo, NameIDFormat, Service, IdentityProviderMetadata
-from api.saml.provider import SAMLAuthenticationProvider
+from api.saml.provider import SAMLWebSSOAuthenticationProvider
 from tests.saml import fixtures
 from tests.saml.controller_test import ControllerTest
 from tests.saml.test_auth import SAML_RESPONSE
@@ -62,7 +62,7 @@ class SAMLControllerTest(ControllerTest):
                 as authentication_manager_factory_constructor:
             authentication_manager_factory_constructor.return_value = authentication_manager_factory
 
-            provider = SAMLAuthenticationProvider(self._library, self._integration)
+            provider = SAMLWebSSOAuthenticationProvider(self._library, self._integration)
             authenticator = Authenticator(self._db)
 
             authenticator.library_authenticators['default'].register_saml_provider(provider)
@@ -70,7 +70,7 @@ class SAMLControllerTest(ControllerTest):
             controller = SAMLController(self.app.manager, authenticator)
 
             query = urllib.urlencode({
-                'provider': SAMLAuthenticationProvider.NAME,
+                'provider': SAMLWebSSOAuthenticationProvider.NAME,
                 'idp_entity_id': IDENTITY_PROVIDERS[0].entity_id
             })
 
@@ -99,7 +99,7 @@ class SAMLControllerTest(ControllerTest):
                 as authentication_manager_factory_constructor:
             authentication_manager_factory_constructor.return_value = authentication_manager_factory
 
-            provider = SAMLAuthenticationProvider(self._library, self._integration)
+            provider = SAMLWebSSOAuthenticationProvider(self._library, self._integration)
             authenticator = Authenticator(self._db)
 
             authenticator.library_authenticators['default'].register_saml_provider(provider)
@@ -108,7 +108,7 @@ class SAMLControllerTest(ControllerTest):
 
             query = urllib.urlencode({
                 SAMLController.LIBRARY_SHORT_NAME: self._library.short_name,
-                SAMLController.PROVIDER_NAME: SAMLAuthenticationProvider.NAME,
+                SAMLController.PROVIDER_NAME: SAMLWebSSOAuthenticationProvider.NAME,
                 SAMLController.IDP_ENTITY_ID: IDENTITY_PROVIDERS[0].entity_id
             })
 

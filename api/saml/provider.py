@@ -20,7 +20,7 @@ SAML_INVALID_SUBJECT = pd(
 )
 
 
-class SAMLAuthenticationProvider(BaseSAMLAuthenticationProvider):
+class SAMLWebSSOAuthenticationProvider(BaseSAMLAuthenticationProvider):
     """SAML authentication provider implementing Web Browser SSO profile using the following bindings:
     - HTTP-Redirect Binding for requests
     - HTTP-POST Binding for responses
@@ -29,9 +29,8 @@ class SAMLAuthenticationProvider(BaseSAMLAuthenticationProvider):
     NAME = 'SAML 2.0 Web SSO'
 
     DESCRIPTION = _(
-        '''SAML 2.0 authentication provider implementing Web SSO profile using the following bindings:
-             - HTTP-Redirect Binding for requests
-             - HTTP-POST Binding for responses''')
+        '''SAML 2.0 authentication provider implementing the Web SSO profile using the following bindings:
+         HTTP-Redirect for requests and HTTP-POST for responses''')
 
     def __init__(self, library, integration, analytics=None):
         """Initializes a new instance of SAMLAuthenticationProvider class
@@ -367,4 +366,4 @@ class SAMLAuthenticationProvider(BaseSAMLAuthenticationProvider):
         return credential, patron, patron_data
 
 
-AuthenticationProvider = SAMLAuthenticationProvider
+AuthenticationProvider = SAMLWebSSOAuthenticationProvider

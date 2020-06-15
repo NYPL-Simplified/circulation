@@ -9,7 +9,7 @@ from api.admin.problem_details import INCOMPLETE_CONFIGURATION
 
 from api.saml import configuration
 from api.saml.parser import SAMLMetadataParser
-from api.saml.provider import SAMLAuthenticationProvider
+from api.saml.provider import SAMLWebSSOAuthenticationProvider
 from api.saml.validator import SAMLSettingsValidator, INCORRECT_METADATA
 from tests.saml import fixtures
 from tests.saml.database_test import DatabaseTest
@@ -65,7 +65,7 @@ class SAMLSettingsValidatorTest(DatabaseTest):
             submitted_form_data.add(configuration.SAMLConfiguration.IDP_XML_METADATA, idp_xml_metadata)
 
         submitted_form = {'form': submitted_form_data}
-        settings = SAMLAuthenticationProvider.SETTINGS
+        settings = SAMLWebSSOAuthenticationProvider.SETTINGS
         metadata_parser = SAMLMetadataParser()
         validator = SAMLSettingsValidator(metadata_parser)
 
