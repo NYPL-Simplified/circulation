@@ -127,6 +127,63 @@ def package_teardown():
     if 'TESTING' in os.environ:
         del os.environ['TESTING']
 
+
+class LogCaptureHandler(logging.Handler):
+    """A `logging.Handler` context manager that captures the messages
+    of emitted log records in the context of the specified `logger`.
+    """
+    # TODO: These could be extracted from logging._levelNames in Python2
+    #  or from logging._levelToName in Python 3
+    _level_names = ['CRITICAL', 'ERROR', 'WARNING', 'INFO', 'DEBUG', 'NOTSET']
+
+    @staticmethod
+    def _normalize_level(level):
+        return level.lower()
+
+    LEVEL_NAMES = [_normalize_level.__func__(level) for level in _level_names]
+
+    def __init__(self, logger, *args, **kwargs):
+        """Constructor.
+
+        :param logger: `logger` to which this handler will be added.
+        :param args: positional arguments to `logging.Handler.__init__`.
+        :param kwargs: keyword arguments to `logging.Handler.__init__`.
+        """
+        self.logger = logger
+        self._records = {}
+        logging.Handler.__init__(self, *args, **kwargs)
+
+    def __enter__(self):
+        self.reset()
+        self.logger.addHandler(self)
+        return self
+
+    def __exit__(self, exc_type, exc_value, exc_traceback):
+        self.logger.removeHandler(self)
+
+    def emit(self, record):
+        level = self._normalize_level(record.levelname)
+        if level not in self.LEVEL_NAMES:
+            message = "Unexpected log level: '%s'." % record.levelname
+            raise ValueError(message)
+        self._records[level].append(record.getMessage())
+
+    def reset(self):
+        """Empty the message accumulators.
+        """
+        self._records = {level: [] for level in self.LEVEL_NAMES}
+
+    def __getitem__(self, item):
+        if item in self.LEVEL_NAMES:
+            return self._records[item]
+        else:
+            message = "'%s' object has no attribute '%s'" % (self.__class__.__name__, item)
+            raise AttributeError(message)
+
+    def __getattr__(self, item):
+        return self.__getitem__(item)
+
+
 class DatabaseTest(object):
 
     engine = None
