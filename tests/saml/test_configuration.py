@@ -3,12 +3,11 @@ import api.app
 
 from mock import MagicMock, PropertyMock, create_autospec
 from nose.tools import eq_
-from parameterized import parameterized
 
-from api.saml.configuration import SAMLConfiguration, SAMLOneLoginConfiguration, SAMLMetadataSerializer, SAMLConfigurationSerializer
+from api.saml.configuration import SAMLConfiguration, SAMLOneLoginConfiguration, SAMLConfigurationSerializer
 from api.saml.metadata import ServiceProviderMetadata, UIInfo, Service, NameIDFormat, IdentityProviderMetadata
+from api.saml.parser import SAMLMetadataParser
 from tests.saml import fixtures
-from tests.saml.database_test import DatabaseTest
 
 
 SERVICE_PROVIDER = ServiceProviderMetadata(
@@ -34,59 +33,42 @@ IDENTITY_PROVIDERS = [
 ]
 
 
-class SAMLMetadataSerializerTest(DatabaseTest):
-    @parameterized.expand([
-        ('service_provider', 'sp_metadata', SERVICE_PROVIDER),
-        ('list_of_identity_providers', 'idp_metadata', IDENTITY_PROVIDERS)
-    ])
-    def test_deserialize_can_deserialize(self, name, setting_name, expected_result):
-        # Arrange
-        configuration_serializer = SAMLMetadataSerializer(self._integration)
-
-        # Act
-        configuration_serializer.serialize(setting_name, expected_result)
-        result = configuration_serializer.deserialize(setting_name)
-
-        # Assert
-        eq_(result, expected_result)
-
-
 class SAMLConfigurationTest(object):
     def test_service_provider_returns_correct_value(self):
         # Arrange
         expected_result = SERVICE_PROVIDER
         configuration_serializer = create_autospec(spec=SAMLConfigurationSerializer)
-        metadata_serializer = create_autospec(spec=SAMLMetadataSerializer)
-        metadata_serializer.deserialize = MagicMock(return_value=expected_result)
-        configuration = SAMLConfiguration(configuration_serializer, metadata_serializer)
+        metadata_parser = create_autospec(spec=SAMLMetadataParser)
+        metadata_parser.parse = MagicMock(return_value=expected_result)
+        configuration = SAMLConfiguration(configuration_serializer, metadata_parser)
 
         # Act
         result = configuration.service_provider
 
         # Assert
         eq_(result, expected_result)
-        metadata_serializer.deserialize.assert_called_once_with(SAMLConfiguration.SP_METADATA)
+        metadata_parser.parse.assert_called_once_with(SAMLConfiguration.SP_XML_METADATA)
 
     def test_identity_providers_returns_correct_value(self):
         # Arrange
         expected_result = IDENTITY_PROVIDERS
         configuration_serializer = create_autospec(spec=SAMLConfigurationSerializer)
-        metadata_serializer = create_autospec(spec=SAMLMetadataSerializer)
-        metadata_serializer.deserialize = MagicMock(return_value=expected_result)
-        configuration = SAMLConfiguration(configuration_serializer, metadata_serializer)
+        metadata_parser = create_autospec(spec=SAMLMetadataParser)
+        metadata_parser.parse = MagicMock(return_value=expected_result)
+        configuration = SAMLConfiguration(configuration_serializer, metadata_parser)
 
         # Act
         result = configuration.identity_providers
 
         # Assert
         eq_(result, expected_result)
-        metadata_serializer.deserialize.assert_called_once_with(SAMLConfiguration.IDP_METADATA)
+        metadata_parser.parse.assert_called_once_with(SAMLConfiguration.IDP_XML_METADATA)
 
 
 class SAMLOneLoginConfigurationTest(object):
     def test_get_identity_provider_settings_returns_correct_result(self):
         # Arrange
-        configuration = MagicMock()
+        configuration = create_autospec(spec=SAMLConfiguration)
         type(configuration).identity_providers = PropertyMock(return_value=IDENTITY_PROVIDERS)
         onelogin_configuration = SAMLOneLoginConfiguration(configuration)
         expected_result = {
@@ -110,7 +92,7 @@ class SAMLOneLoginConfigurationTest(object):
 
     def test_get_service_provider_settings_returns_correct_result(self):
         # Arrange
-        configuration = MagicMock()
+        configuration = create_autospec(spec=SAMLConfiguration)
         type(configuration).service_provider = PropertyMock(return_value=SERVICE_PROVIDER)
         onelogin_configuration = SAMLOneLoginConfiguration(configuration)
         expected_result = {
@@ -123,6 +105,9 @@ class SAMLOneLoginConfigurationTest(object):
                 'NameIDFormat': SERVICE_PROVIDER.name_id_format,
                 'x509cert': SERVICE_PROVIDER.certificate,
                 'privateKey': ''
+            },
+            'security': {
+                'authnRequestsSigned': SERVICE_PROVIDER.authn_requests_signed
             }
         }
 
@@ -134,7 +119,7 @@ class SAMLOneLoginConfigurationTest(object):
 
     def test_get_settings_returns_correct_result(self):
         # Arrange
-        configuration = MagicMock()
+        configuration = create_autospec(spec=SAMLConfiguration)
         debug = False
         strict = False
         type(configuration).debug = PropertyMock(return_value=False)
@@ -142,30 +127,6 @@ class SAMLOneLoginConfigurationTest(object):
         type(configuration).service_provider = PropertyMock(return_value=SERVICE_PROVIDER)
         type(configuration).identity_providers = PropertyMock(return_value=IDENTITY_PROVIDERS)
         onelogin_configuration = SAMLOneLoginConfiguration(configuration)
-        expected_idp_data = {
-            'entityId': IDENTITY_PROVIDERS[0].entity_id,
-            'singleSignOnService': {
-                'url': IDENTITY_PROVIDERS[0].sso_service.url,
-                'binding': IDENTITY_PROVIDERS[0].sso_service.binding.value
-            },
-            'x509cert': '',
-            'certFingerprint': '',
-            'certFingerprintAlgorithm': 'sha1'
-        }
-        expected_sp_data = {
-            'entityId': SERVICE_PROVIDER.entity_id,
-            'assertionConsumerService': {
-                'url': SERVICE_PROVIDER.acs_service.url,
-                'binding': SERVICE_PROVIDER.acs_service.binding.value
-            },
-            'attributeConsumingService': {},
-            'singleLogoutService': {
-                'binding': 'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect'
-            },
-            'NameIDFormat': SERVICE_PROVIDER.name_id_format,
-            'x509cert': SERVICE_PROVIDER.certificate,
-            'privateKey': ''
-        }
         expected_result = {
             'debug': debug,
             'strict': strict,
@@ -197,7 +158,8 @@ class SAMLOneLoginConfigurationTest(object):
                 'failOnAuthnContextMismatch': False,
                 'requestedAuthnContextComparison': 'exact',
                 'wantNameIdEncrypted': False,
-                'authnRequestsSigned': False,
+                'authnRequestsSigned':
+                    SERVICE_PROVIDER.authn_requests_signed or IDENTITY_PROVIDERS[0].want_authn_requests_signed,
                 'logoutResponseSigned': False,
                 'wantMessagesSigned': False,
                 'metadataCacheDuration': None,

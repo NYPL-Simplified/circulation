@@ -5,9 +5,10 @@ from flask import request
 from flask_babel import lazy_gettext as _
 from onelogin.saml2.auth import OneLogin_Saml2_Auth
 
-from api.saml.configuration import SAMLConfigurationSerializer, SAMLMetadataSerializer, SAMLConfiguration, \
+from api.saml.configuration import SAMLConfigurationSerializer, SAMLConfiguration, \
     SAMLOneLoginConfiguration
 from api.saml.metadata import NameID, AttributeStatement, Subject
+from api.saml.parser import SAMLMetadataParser
 from core.problem_details import *
 
 SAML_INCORRECT_RESPONSE = pd(
@@ -89,6 +90,15 @@ class SAMLAuthenticationManager(object):
 
         return self._auth_objects[idp_entity_id]
 
+    @property
+    def configuration(self):
+        """Returns manager's configuration
+
+        :return: Manager's configuration
+        :rtype: SAMLOneLoginConfiguration
+        """
+        return self._configuration
+
     def start_authentication(self, idp_entity_id, return_to_url):
         """Starts the SAML authentication workflow by sending a AuthnRequest to the IdP
 
@@ -157,8 +167,7 @@ class SAMLAuthenticationManagerFactory(object):
         :rtype: SAMLAuthenticationManager
         """
         configuration_serializer = SAMLConfigurationSerializer(integration)
-        metadata_serializer = SAMLMetadataSerializer(integration)
-        configuration = SAMLConfiguration(configuration_serializer, metadata_serializer)
+        configuration = SAMLConfiguration(configuration_serializer, SAMLMetadataParser())
         onelogin_configuration = SAMLOneLoginConfiguration(configuration)
         authentication_manager = SAMLAuthenticationManager(onelogin_configuration)
 

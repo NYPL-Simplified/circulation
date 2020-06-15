@@ -1,11 +1,9 @@
-import pickle
-
+from flask_babel import lazy_gettext as _
 from onelogin.saml2.settings import OneLogin_Saml2_Settings
 
 from api.saml.exceptions import SAMLError
 from api.saml.metadata import ServiceProviderMetadata, IdentityProviderMetadata
 from core.model import ConfigurationSetting
-from flask_babel import lazy_gettext as _
 
 
 class SAMLConfigurationSerializingError(SAMLError):
@@ -51,50 +49,6 @@ class SAMLConfigurationSerializer(object):
         return value
 
 
-class SAMLMetadataSerializer(SAMLConfigurationSerializer):
-    """Serializes and deserializes values as pickled library's configuration settings"""
-
-    def __init__(self, integration):
-        """Initializes a new instance of SAMLMetadataSerializer class
-
-        :param integration: External integration
-        :type integration: ExternalIntegration
-        """
-        super(SAMLMetadataSerializer, self).__init__(integration)
-
-    def serialize(self, setting_name, value):
-        """Serializes the value as a pickled library's configuration setting
-
-        :param setting_name: Name of the library's configuration setting
-        :type setting_name: string
-
-        :param value: Value to be serialized (should be picklable)
-        :type value: Any
-        """
-        if not value:
-            raise ValueError('Value must be non-empty')
-
-        serialized_value = pickle.dumps(value)
-        super(SAMLMetadataSerializer, self).serialize(setting_name, serialized_value)
-
-    def deserialize(self, setting_name):
-        """Deserializes and returns the library's configuration setting
-
-        :param setting_name: Name of the library's configuration setting
-        :type setting_name: string
-
-        :return: Any
-        """
-        serialized_value = super(SAMLMetadataSerializer, self).deserialize(setting_name)
-
-        if not serialized_value:
-            raise SAMLConfigurationSerializingError(message=_('Serialized value is empty'))
-
-        deserialized_value = pickle.loads(serialized_value)
-
-        return deserialized_value
-
-
 class SAMLConfigurationError(SAMLError):
     """Raised in the case of any configuration errors"""
 
@@ -105,24 +59,22 @@ class SAMLConfiguration(object):
     DEBUG = 'debug'
     STRICT = 'strict'
 
-    SP_METADATA = 'sp_metadata'
     SP_XML_METADATA = 'sp_xml_metadata'
     SP_PRIVATE_KEY = 'sp_private_key'
 
     IDP_XML_METADATA = 'idp_xml_metadata'
-    IDP_METADATA = 'idp_metadata'
 
-    def __init__(self, configuration_serializer, metadata_serializer):
+    def __init__(self, configuration_serializer, metadata_parser):
         """Initializes a new instance of SAMLConfiguration class
 
         :param configuration_serializer: SAML configuration serializer
         :type configuration_serializer: SAMLConfigurationSerializer
 
-        :param metadata_serializer: SAML metadata configuration serializer
-        :type metadata_serializer: SAMLMetadataSerializer
+        :param metadata_parser: SAML metadata parser
+        :type metadata_parser: SAMLMetadataParser
         """
         self._configuration_serializer = configuration_serializer
-        self._metadata_serializer = metadata_serializer
+        self._metadata_parser = metadata_parser
 
         self._debug = None
         self._strict = None
@@ -156,16 +108,9 @@ class SAMLConfiguration(object):
         :return: List of IdentityProviderMetadata objects
         :rtype: List[IdentityProviderMetadata]
 
-        :raise: ConfigurationError
+        :raise: SAMLParsingError
         """
-        idp_providers = self._metadata_serializer.deserialize(self.IDP_METADATA)
-
-        if not isinstance(idp_providers, list):
-            raise SAMLConfigurationError(message=_('Configuration settings is missing identity provider\'s metadata'))
-
-        for idp_provider in idp_providers:
-            if not isinstance(idp_provider, IdentityProviderMetadata):
-                raise SAMLConfigurationError(message=_('Identity provider\'s metadata is not correct'))
+        idp_providers = self._metadata_parser.parse(self.IDP_XML_METADATA)
 
         return idp_providers
 
@@ -175,12 +120,9 @@ class SAMLConfiguration(object):
         :return: ServiceProviderMetadata object
         :rtype: ServiceProviderMetadata
 
-        :raise: ConfigurationError
+        :raise: SAMLParsingError
         """
-        sp_provider = self._metadata_serializer.deserialize(self.SP_METADATA)
-
-        if not isinstance(sp_provider, ServiceProviderMetadata):
-            raise SAMLConfigurationError(message=_('Configuration settings is missing service provider\'s metadata'))
+        sp_provider = self._metadata_parser.parse(self.SP_XML_METADATA)
 
         return sp_provider
 
@@ -311,10 +253,22 @@ class SAMLOneLoginConfiguration(object):
                 'NameIDFormat': service_provider.name_id_format,
                 'x509cert': service_provider.certificate if service_provider.certificate else '',
                 'privateKey': service_provider.private_key if service_provider.private_key else ''
+            },
+            'security': {
+                'authnRequestsSigned': service_provider.authn_requests_signed
             }
         }
 
         return onelogin_service_provider
+
+    @property
+    def configuration(self):
+        """Returns original configuration
+
+        :return: Original configuration
+        :rtype: SAMLConfiguration
+        """
+        return self._configuration
 
     def get_identity_provider_settings(self, idp_entity_id):
         """Returns a dictionary containing identity provider's settings in a OneLogin's SAML Toolkit format
@@ -372,8 +326,11 @@ class SAMLOneLoginConfiguration(object):
         identity_provider_settings = self.get_identity_provider_settings(idp_entity_id)
         service_provider_settings = self.get_service_provider_settings()
 
-        onelogin_settings.update(service_provider_settings)
         onelogin_settings.update(identity_provider_settings)
+        onelogin_settings.update(service_provider_settings)
+        onelogin_settings['security']['authnRequestsSigned'] = \
+            service_provider_settings['security']['authnRequestsSigned'] or \
+            service_provider_settings['security']['authnRequestsSigned']
 
         settings = OneLogin_Saml2_Settings(onelogin_settings)
 

@@ -23,24 +23,16 @@ GENERIC_ERROR = pd(
 
 
 class SAMLSettingsValidator(Validator):
-    """Validates SAMLAuthenticationProvider's settings submitted by a user
+    """Validates SAMLAuthenticationProvider's settings submitted by a user"""
 
-    NOTE: This validator has a side effect. It creates new settings dynamically:
-          - saml.configuration.Configuration.SP_METADATA
-          - saml.configuration.Configuration.IDP_METADATA
-    """
-
-    def __init__(self, metadata_parser, metadata_serializer):
+    def __init__(self, metadata_parser):
         """Initializes a new instance of SAMLAuthenticationProviderSettingsValidator class
 
         :param metadata_parser: SAML metadata parser
         :type metadata_parser: MetadataParser
-
-        :param metadata_serializer: Metadata serializer
-        :type metadata_serializer: MetadataSerializer
         """
+
         self._metadata_parser = metadata_parser
-        self._metadata_serializer = metadata_serializer
 
     def _get_setting_value(self, settings, content, setting_name):
         """Selects a setting's value from the form submitted by a user
@@ -161,17 +153,6 @@ class SAMLSettingsValidator(Validator):
 
         return idp_providers
 
-    def _save_providers(self, providers, setting_name):
-        """Saves providers as new setting
-
-        :param providers: List of providers
-        :type providers: Union[ServiceProviderMetadata, List[IdentityProviderMetadata]]
-
-        :param setting_name: New setting name
-        :type setting_name: string
-        """
-        self._metadata_serializer.serialize(setting_name, providers)
-
     def validate(self, settings, content):
         """Validates provider's setting values submitted by the user
 
@@ -194,13 +175,9 @@ class SAMLSettingsValidator(Validator):
         if isinstance(sp_providers, ProblemDetail):
             return sp_providers
 
-        self._save_providers(sp_providers, configuration.SAMLConfiguration.SP_METADATA)
-
         idp_providers = self._process_idp_providers(settings, content, configuration.SAMLConfiguration.IDP_XML_METADATA)
 
         if isinstance(idp_providers, ProblemDetail):
             return idp_providers
-
-        self._save_providers(idp_providers, configuration.SAMLConfiguration.IDP_METADATA)
 
         return None

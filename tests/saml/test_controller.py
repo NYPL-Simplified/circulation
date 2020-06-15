@@ -4,12 +4,12 @@ import api.app
 import urllib
 from base64 import b64encode
 
-from mock import create_autospec, PropertyMock, MagicMock
+from mock import create_autospec, PropertyMock, MagicMock, patch
 from nose.tools import eq_
 
 from flask import request
 
-from api.authenticator import Authenticator, LibraryAuthenticator, BaseSAMLAuthenticationProvider
+from api.authenticator import Authenticator
 from api.saml.auth import SAMLAuthenticationManager, SAMLAuthenticationManagerFactory
 from api.saml.configuration import SAMLConfiguration, SAMLOneLoginConfiguration
 from api.saml.controller import SAMLController
@@ -58,26 +58,30 @@ class SAMLControllerTest(ControllerTest):
         authentication_manager_factory = create_autospec(spec=SAMLAuthenticationManagerFactory)
         authentication_manager_factory.create = MagicMock(return_value=authentication_manager)
 
-        provider = SAMLAuthenticationProvider(self._library, self._integration)
-        authenticator = Authenticator(self._db)
+        with patch('api.saml.provider.SAMLAuthenticationManagerFactory', autospec=True) \
+                as authentication_manager_factory_constructor:
+            authentication_manager_factory_constructor.return_value = authentication_manager_factory
 
-        authenticator.library_authenticators['default'].register_saml_provider(provider)
+            provider = SAMLAuthenticationProvider(self._library, self._integration)
+            authenticator = Authenticator(self._db)
 
-        controller = SAMLController(self.app.manager, authenticator, authentication_manager_factory)
+            authenticator.library_authenticators['default'].register_saml_provider(provider)
 
-        query = urllib.urlencode({
-            'provider': SAMLAuthenticationProvider.NAME,
-            'idp_entity_id': IDENTITY_PROVIDERS[0].entity_id
-        })
+            controller = SAMLController(self.app.manager, authenticator)
 
-        with self.app.test_request_context('/saml_authenticate?' + query):
-            request.library = self._default_library
-            result = controller.saml_authentication_redirect(request.args, self._db)
+            query = urllib.urlencode({
+                'provider': SAMLAuthenticationProvider.NAME,
+                'idp_entity_id': IDENTITY_PROVIDERS[0].entity_id
+            })
 
-            print(result)
+            with self.app.test_request_context('/saml_authenticate?' + query):
+                request.library = self._default_library
+                result = controller.saml_authentication_redirect(request.args, self._db)
 
-            eq_(result.status_code, 302)
-            location_header = result.headers.get('Location')
+                print(result)
+
+                eq_(result.status_code, 302)
+                location_header = result.headers.get('Location')
 
     def test_saml_authentication_callback(self):
         configuration = create_autospec(spec=SAMLConfiguration)
@@ -91,25 +95,29 @@ class SAMLControllerTest(ControllerTest):
         authentication_manager_factory = create_autospec(spec=SAMLAuthenticationManagerFactory)
         authentication_manager_factory.create = MagicMock(return_value=authentication_manager)
 
-        provider = SAMLAuthenticationProvider(self._library, self._integration)
-        authenticator = Authenticator(self._db)
+        with patch('api.saml.provider.SAMLAuthenticationManagerFactory', autospec=True) \
+                as authentication_manager_factory_constructor:
+            authentication_manager_factory_constructor.return_value = authentication_manager_factory
 
-        authenticator.library_authenticators['default'].register_saml_provider(provider)
+            provider = SAMLAuthenticationProvider(self._library, self._integration)
+            authenticator = Authenticator(self._db)
 
-        controller = SAMLController(self.app.manager, authenticator, authentication_manager_factory)
+            authenticator.library_authenticators['default'].register_saml_provider(provider)
 
-        query = urllib.urlencode({
-            SAMLController.LIBRARY_SHORT_NAME: self._library.short_name,
-            SAMLController.PROVIDER_NAME: SAMLAuthenticationProvider.NAME,
-            SAMLController.IDP_ENTITY_ID: IDENTITY_PROVIDERS[0].entity_id
-        })
+            controller = SAMLController(self.app.manager, authenticator)
 
-        authenticator.bearer_token_signing_secret = 'test'
-        authenticator.library_authenticators['default'].bearer_token_signing_secret = 'test'
+            query = urllib.urlencode({
+                SAMLController.LIBRARY_SHORT_NAME: self._library.short_name,
+                SAMLController.PROVIDER_NAME: SAMLAuthenticationProvider.NAME,
+                SAMLController.IDP_ENTITY_ID: IDENTITY_PROVIDERS[0].entity_id
+            })
 
-        saml_response = b64encode(SAML_RESPONSE)
-        with self.app.test_request_context('/', data={
-            'SAMLResponse': saml_response,
-            SAMLController.RELAY_STATE: 'http://localhost?' + query
-        }):
-            controller.saml_authentication_callback(request, self._db)
+            authenticator.bearer_token_signing_secret = 'test'
+            authenticator.library_authenticators['default'].bearer_token_signing_secret = 'test'
+
+            saml_response = b64encode(SAML_RESPONSE)
+            with self.app.test_request_context('/', data={
+                'SAMLResponse': saml_response,
+                SAMLController.RELAY_STATE: 'http://localhost?' + query
+            }):
+                controller.saml_authentication_callback(request, self._db)

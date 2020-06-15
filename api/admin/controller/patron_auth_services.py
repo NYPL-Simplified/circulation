@@ -12,7 +12,6 @@ from api.firstbook import FirstBookAuthenticationAPI as OldFirstBookAuthenticati
 from api.firstbook2 import FirstBookAuthenticationAPI
 from api.kansas_patron import KansasAuthenticationAPI
 from api.millenium_patron import MilleniumPatronAPI
-from api.saml.configuration import SAMLMetadataSerializer
 from api.saml.parser import SAMLMetadataParser
 from api.saml.provider import SAMLAuthenticationProvider
 from api.saml.validator import SAMLSettingsValidator
@@ -65,8 +64,7 @@ class PatronAuthServicesController(SettingsController):
 
         if protocol == 'api.saml.provider':
             saml_settings_validator = SAMLSettingsValidator(
-                SAMLMetadataParser(),
-                SAMLMetadataSerializer(integration)
+                SAMLMetadataParser()
             )
 
             return saml_settings_validator

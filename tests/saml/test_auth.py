@@ -4,6 +4,7 @@ import api.app
 import urlparse
 from base64 import b64encode
 from xml.dom.minidom import Document
+from parameterized import parameterized
 
 from defusedxml.lxml import fromstring
 from mock import create_autospec, PropertyMock
@@ -17,11 +18,22 @@ from tests.saml import fixtures
 from tests.saml.database_test import DatabaseTest
 from tests.test_controller import ControllerTest
 
-SERVICE_PROVIDER = ServiceProviderMetadata(
+SERVICE_PROVIDER_WITH_UNSIGNED_REQUESTS = ServiceProviderMetadata(
     fixtures.SP_ENTITY_ID,
     UIInfo(),
     NameIDFormat.UNSPECIFIED.value,
     Service(fixtures.SP_ACS_URL, fixtures.SP_ACS_BINDING)
+)
+
+SERVICE_PROVIDER_WITH_SIGNED_REQUESTS = ServiceProviderMetadata(
+    fixtures.SP_ENTITY_ID,
+    UIInfo(),
+    NameIDFormat.UNSPECIFIED.value,
+    Service(fixtures.SP_ACS_URL, fixtures.SP_ACS_BINDING),
+    True,
+    True,
+    fixtures.SIGNING_CERTIFICATE,
+    fixtures.PRIVATE_KEY
 )
 
 IDENTITY_PROVIDERS = [
@@ -69,12 +81,16 @@ GcniFvvia/F82fbPXBPajb9nXNyn3ZwlLsooeC06oIj8FlyHoR8=</ds:X509Certificate></ds:X5
 
 
 class SAMLAuthenticationManagerTest(ControllerTest):
-    def test_start_authentication(self):
+    @parameterized.expand([
+        ('with_unsigned_authentication_request', SERVICE_PROVIDER_WITH_UNSIGNED_REQUESTS, IDENTITY_PROVIDERS),
+        ('with_signed_authentication_request', SERVICE_PROVIDER_WITH_SIGNED_REQUESTS, IDENTITY_PROVIDERS)
+    ])
+    def test_start_authentication(self, name, service_provider, identity_providers):
         configuration = create_autospec(spec=SAMLConfiguration)
         type(configuration).debug = PropertyMock(return_value=False)
         type(configuration).strict = PropertyMock(return_value=False)
-        type(configuration).service_provider = PropertyMock(return_value=SERVICE_PROVIDER)
-        type(configuration).identity_providers = PropertyMock(return_value=IDENTITY_PROVIDERS)
+        type(configuration).service_provider = PropertyMock(return_value=service_provider)
+        type(configuration).identity_providers = PropertyMock(return_value=identity_providers)
         onelogin_configuration = SAMLOneLoginConfiguration(configuration)
         authentication_manager = SAMLAuthenticationManager(onelogin_configuration)
 
@@ -95,10 +111,10 @@ class SAMLAuthenticationManagerTest(ControllerTest):
             saml_request_dom = fromstring(decoded_saml_request)
 
             acs_url = saml_request_dom.get('AssertionConsumerServiceURL')
-            eq_(acs_url, SERVICE_PROVIDER.acs_service.url)
+            eq_(acs_url, SERVICE_PROVIDER_WITH_UNSIGNED_REQUESTS.acs_service.url)
 
             acs_binding = saml_request_dom.get('ProtocolBinding')
-            eq_(acs_binding, SERVICE_PROVIDER.acs_service.binding.value)
+            eq_(acs_binding, SERVICE_PROVIDER_WITH_UNSIGNED_REQUESTS.acs_service.binding.value)
 
             sso_url = saml_request_dom.get('Destination')
             eq_(sso_url, IDENTITY_PROVIDERS[0].sso_service.url)
@@ -111,13 +127,13 @@ class SAMLAuthenticationManagerTest(ControllerTest):
             name_id_policy_node = name_id_policy_nodes[0]
             name_id_format = name_id_policy_node.get('Format')
 
-            eq_(name_id_format, SERVICE_PROVIDER.name_id_format)
+            eq_(name_id_format, SERVICE_PROVIDER_WITH_UNSIGNED_REQUESTS.name_id_format)
 
     def test_finish_authentication(self):
         configuration = create_autospec(spec=SAMLConfiguration)
         type(configuration).debug = PropertyMock(return_value=False)
         type(configuration).strict = PropertyMock(return_value=False)
-        type(configuration).service_provider = PropertyMock(return_value=SERVICE_PROVIDER)
+        type(configuration).service_provider = PropertyMock(return_value=SERVICE_PROVIDER_WITH_UNSIGNED_REQUESTS)
         type(configuration).identity_providers = PropertyMock(return_value=IDENTITY_PROVIDERS)
         onelogin_configuration = SAMLOneLoginConfiguration(configuration)
         authentication_manager = SAMLAuthenticationManager(onelogin_configuration)

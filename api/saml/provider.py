@@ -7,7 +7,7 @@ from flask_babel import lazy_gettext as _
 
 from api.authenticator import BaseSAMLAuthenticationProvider, PatronData
 from api.problem_details import *
-from api.saml.configuration import SAMLConfiguration, SAMLConfigurationSerializer, SAMLMetadataSerializer
+from api.saml.auth import SAMLAuthenticationManagerFactory
 from api.saml.metadata import Subject, SubjectUIDExtractor, SubjectJSONEncoder
 from core.model import Credential, get_one_or_create, DataSource
 from core.util.problem_detail import ProblemDetail
@@ -46,6 +46,7 @@ class SAMLAuthenticationProvider(BaseSAMLAuthenticationProvider):
         )
 
         self._logger = logging.getLogger(__name__)
+        self._authentication_manager = None
 
         self.token_expiration_days = integration.setting(
             self.SAML_TOKEN_EXPIRATION_DAYS
@@ -132,11 +133,9 @@ class SAMLAuthenticationProvider(BaseSAMLAuthenticationProvider):
             'links': []
         }
 
-        configuration_serializer = SAMLConfigurationSerializer(self.external_integration(db))
-        metadata_serializer = SAMLMetadataSerializer(self.external_integration(db))
-        configuration = SAMLConfiguration(configuration_serializer, metadata_serializer)
+        configuration = self.get_authentication_manager(db).configuration
 
-        for identity_provider in configuration.identity_providers:
+        for identity_provider in configuration.configuration.identity_providers:
             link = {
                 'rel': 'authenticate',
                 'href': self._create_authenticate_url(db, identity_provider.entity_id),
@@ -197,6 +196,20 @@ class SAMLAuthenticationProvider(BaseSAMLAuthenticationProvider):
             idp_entity_id=idp_entity_id
         )
 
+    def _create_authentication_manager(self, db):
+        """Creates a new SAML authentication manager
+
+        :param db: Database session
+        :type db: sqlalchemy.orm.session.Session
+
+        :return: SAML authentication manager
+        :rtype: SAMLAuthenticationManager
+        """
+        authentication_manager_factory = SAMLAuthenticationManagerFactory()
+        authentication_manager = authentication_manager_factory.create(self.external_integration(db))
+
+        return authentication_manager
+
     def _get_token_data_source(self, db):
         """Returns a token data source
 
@@ -230,6 +243,9 @@ class SAMLAuthenticationProvider(BaseSAMLAuthenticationProvider):
 
         return result
 
+    def _run_self_tests(self, _db):
+        pass
+
     def authenticate(self, db, header):
         pass
 
@@ -258,9 +274,23 @@ class SAMLAuthenticationProvider(BaseSAMLAuthenticationProvider):
             return credential.patron
 
         # This token wasn't in our database, or was expired. The
-        # patron will have to log in through the OAuth provider again
+        # patron will have to log in through the SAML provider again
         # to get a new token.
         return None
+
+    def get_authentication_manager(self, db):
+        """Returns SAML authentication manager used by this provider
+
+        :param db: Database session
+        :type db: sqlalchemy.orm.session.Session
+
+        :return: SAML authentication manager used by this provider
+        :rtype: SAMLAuthenticationManager
+        """
+        if self._authentication_manager is None:
+            self._authentication_manager = self._create_authentication_manager(db)
+
+        return self._authentication_manager
 
     def remote_patron_lookup(self, subject):
         """Creates a PatronData object based on Subject object containing SAML Subject and AttributeStatement
@@ -327,9 +357,6 @@ class SAMLAuthenticationProvider(BaseSAMLAuthenticationProvider):
         credential, is_new = self._create_token(db, patron, token)
 
         return credential, patron, patron_data
-
-    def _run_self_tests(self, _db):
-        pass
 
 
 AuthenticationProvider = SAMLAuthenticationProvider

@@ -1,4 +1,6 @@
 # FIXME: Required to get rid of the circular import error
+from mock import patch, create_autospec, PropertyMock, MagicMock
+
 import api.app
 
 import json
@@ -7,7 +9,8 @@ from nose.tools import eq_
 from parameterized import parameterized
 
 from api.authenticator import PatronData
-from api.saml.configuration import SAMLMetadataSerializer, SAMLConfiguration
+from api.saml.auth import SAMLAuthenticationManager, SAMLAuthenticationManagerFactory
+from api.saml.configuration import SAMLConfiguration, SAMLOneLoginConfiguration
 from api.saml.metadata import ServiceProviderMetadata, NameIDFormat, UIInfo, Service, IdentityProviderMetadata, \
     LocalizableMetadataItem, Subject, AttributeStatement, SAMLAttributes, SubjectJSONEncoder
 
@@ -104,17 +107,27 @@ class SAMLAuthenticationProviderTest(ControllerTest):
             ]
         }
         provider = SAMLAuthenticationProvider(self._library, self._integration)
-        metadata_serializer = SAMLMetadataSerializer(self._integration)
+        configuration = create_autospec(spec=SAMLConfiguration)
+        type(configuration).debug = PropertyMock(return_value=False)
+        type(configuration).strict = PropertyMock(return_value=False)
+        type(configuration).service_provider = PropertyMock(return_value=SERVICE_PROVIDER)
+        type(configuration).identity_providers = PropertyMock(return_value=IDENTITY_PROVIDERS)
+        onelogin_configuration = SAMLOneLoginConfiguration(configuration)
+        authentication_manager = SAMLAuthenticationManager(onelogin_configuration)
 
-        metadata_serializer.serialize(SAMLConfiguration.SP_METADATA, SERVICE_PROVIDER)
-        metadata_serializer.serialize(SAMLConfiguration.IDP_METADATA, IDENTITY_PROVIDERS)
+        authentication_manager_factory = create_autospec(spec=SAMLAuthenticationManagerFactory)
+        authentication_manager_factory.create = MagicMock(return_value=authentication_manager)
 
-        # Act
-        with self.app.test_request_context('/'):
-            result = provider.authentication_flow_document(self._db)
+        with patch('api.saml.provider.SAMLAuthenticationManagerFactory') \
+                as authentication_manager_factory_constructor:
+            authentication_manager_factory_constructor.return_value = authentication_manager_factory
 
-        # Assert
-        eq_(result, expected_result)
+            # Act
+            with self.app.test_request_context('/'):
+                result = provider.authentication_flow_document(self._db)
+
+            # Assert
+            eq_(result, expected_result)
 
     @parameterized.expand([
         (

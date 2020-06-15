@@ -428,7 +428,7 @@ class CirculationManager(object):
         configuration changes.
         """
         self.oauth_controller = OAuthController(self.auth)
-        self.saml_controller = SAMLController(self, self.auth, SAMLAuthenticationManagerFactory())
+        self.saml_controller = SAMLController(self, self.auth)
 
     def setup_adobe_vendor_id(self, _db, library):
         """If this Library has an Adobe Vendor ID integration,

@@ -32,7 +32,7 @@ class SAMLController(object):
     ACCESS_TOKEN = 'access_token'
     PATRON_INFO = 'patron_info'
 
-    def __init__(self, circulation_manager, authenticator, authentication_manager_factory):
+    def __init__(self, circulation_manager, authenticator):
         """Initializes a new instance of SAMLController class
 
         :param circulation_manager: Circulation Manager
@@ -40,13 +40,9 @@ class SAMLController(object):
 
         :param authenticator: Authenticator object used to route requests to the appropriate LibraryAuthenticator
         :type authenticator: Authenticator
-
-        :param authentication_manager_factory: SAML authentication manager factory
-        :type authentication_manager_factory: SAMLAuthenticationManagerFactory
         """
         self._circulation_manager = circulation_manager
         self._authenticator = authenticator
-        self._authentication_manager_factory = authentication_manager_factory
 
     def _get_authentication_manager(self, db, authentication_provider):
         """Returns an instance of SAML authentication manager
@@ -60,7 +56,7 @@ class SAMLController(object):
         :return: Authentication manager
         :rtype: SAMLAuthenticationManager
         """
-        return self._authentication_manager_factory.create(authentication_provider.external_integration(db))
+        return authentication_provider.get_authentication_manager(db)
 
     def _add_params_to_url(self, url, params):
         """Adds parameters as a query part of the URL
