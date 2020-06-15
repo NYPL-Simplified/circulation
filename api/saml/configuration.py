@@ -182,6 +182,28 @@ class SAMLConfiguration(object):
 class SAMLOneLoginConfiguration(object):
     """Converts metadata objects to the OneLogin's SAML Toolkit format"""
 
+    DEBUG = 'debug'
+    STRICT = 'strict'
+
+    ENTITY_ID = 'entityId'
+    URL = 'url'
+    BINDING = 'binding'
+    X509_CERT = 'x509cert'
+    X509_CERT_MULTI = 'x509certMulti'
+    SIGNING = 'signing'
+    ENCRYPTION = 'encryption'
+
+    IDP = 'idp'
+    SINGLE_SIGN_ON_SERVICE = 'singleSignOnService'
+
+    SP = 'sp'
+    ASSERTION_CONSUMER_SERVICE = 'assertionConsumerService'
+    NAME_ID_FORMAT = 'NameIDFormat'
+    PRIVATE_KEY = 'privateKey'
+
+    SECURITY = 'security'
+    AUTHN_REQUESTS_SIGNED = 'authnRequestsSigned'
+
     def __init__(self, configuration):
         """Initializes a new instance of SAMLOneLoginConfiguration class
 
@@ -202,34 +224,34 @@ class SAMLOneLoginConfiguration(object):
         :rtype: Dict
         """
         onelogin_identity_provider = {
-            'idp': {
-                'entityId': identity_provider.entity_id,
-                'singleSignOnService': {
-                    'url': identity_provider.sso_service.url,
-                    'binding': identity_provider.sso_service.binding.value
+            self.IDP: {
+                self.ENTITY_ID: identity_provider.entity_id,
+                self.SINGLE_SIGN_ON_SERVICE: {
+                    self.URL: identity_provider.sso_service.url,
+                    self.BINDING: identity_provider.sso_service.binding.value
                 },
             },
-            'security': {
-                'authnRequestsSigned': identity_provider.want_authn_requests_signed
+            self.SECURITY: {
+                self.AUTHN_REQUESTS_SIGNED: identity_provider.want_authn_requests_signed
             }
         }
 
         if len(identity_provider.signing_certificates) == 1 and \
                 len(identity_provider.encryption_certificates) == 1 and \
                 identity_provider.signing_certificates[0] == identity_provider.encryption_certificates[0]:
-            onelogin_identity_provider['idp']['x509cert'] = identity_provider.signing_certificates[0]
+            onelogin_identity_provider[self.IDP][self.X509_CERT] = identity_provider.signing_certificates[0]
         else:
             if len(identity_provider.signing_certificates) > 0:
-                if 'x509certMulti' not in onelogin_identity_provider['idp']:
-                    onelogin_identity_provider['idp']['x509certMulti'] = {}
+                if self.X509_CERT_MULTI not in onelogin_identity_provider[self.IDP]:
+                    onelogin_identity_provider[self.IDP][self.X509_CERT_MULTI] = {}
 
-                onelogin_identity_provider['idp']['x509certMulti']['signing'] = \
+                onelogin_identity_provider[self.IDP][self.X509_CERT_MULTI][self.SIGNING] = \
                     identity_provider.signing_certificates
             if len(identity_provider.encryption_certificates) > 0:
-                if 'x509certMulti' not in onelogin_identity_provider['idp']:
-                    onelogin_identity_provider['idp']['x509certMulti'] = {}
+                if self.X509_CERT_MULTI not in onelogin_identity_provider[self.IDP]:
+                    onelogin_identity_provider[self.IDP][self.X509_CERT_MULTI] = {}
 
-                onelogin_identity_provider['idp']['x509certMulti']['encryption'] = \
+                onelogin_identity_provider[self.IDP][self.X509_CERT_MULTI][self.ENCRYPTION] = \
                     identity_provider.encryption_certificates
 
         return onelogin_identity_provider
@@ -244,18 +266,18 @@ class SAMLOneLoginConfiguration(object):
         :rtype: Dict
         """
         onelogin_service_provider = {
-            'sp': {
-                'entityId': service_provider.entity_id,
-                'assertionConsumerService': {
-                    'url': service_provider.acs_service.url,
-                    'binding': service_provider.acs_service.binding.value
+            self.SP: {
+                self.ENTITY_ID: service_provider.entity_id,
+                self.ASSERTION_CONSUMER_SERVICE: {
+                    self.URL: service_provider.acs_service.url,
+                    self.BINDING: service_provider.acs_service.binding.value
                 },
-                'NameIDFormat': service_provider.name_id_format,
-                'x509cert': service_provider.certificate if service_provider.certificate else '',
-                'privateKey': service_provider.private_key if service_provider.private_key else ''
+                self.NAME_ID_FORMAT: service_provider.name_id_format,
+                self.X509_CERT: service_provider.certificate if service_provider.certificate else '',
+                self.PRIVATE_KEY: service_provider.private_key if service_provider.private_key else ''
             },
-            'security': {
-                'authnRequestsSigned': service_provider.authn_requests_signed
+            self.SECURITY: {
+                self.AUTHN_REQUESTS_SIGNED: service_provider.authn_requests_signed
             }
         }
 
@@ -320,24 +342,26 @@ class SAMLOneLoginConfiguration(object):
         :rtype: Dict
         """
         onelogin_settings = {
-            'debug': self._configuration.debug,
-            'strict': self._configuration.strict
+            self.DEBUG: self._configuration.debug,
+            self.STRICT: self._configuration.strict
         }
         identity_provider_settings = self.get_identity_provider_settings(idp_entity_id)
         service_provider_settings = self.get_service_provider_settings()
 
         onelogin_settings.update(identity_provider_settings)
         onelogin_settings.update(service_provider_settings)
-        onelogin_settings['security']['authnRequestsSigned'] = \
-            service_provider_settings['security']['authnRequestsSigned'] or \
-            service_provider_settings['security']['authnRequestsSigned']
+
+        # We need to use disjunction separately because dict.update just overwrites values
+        onelogin_settings[self.SECURITY][self.AUTHN_REQUESTS_SIGNED] = \
+            service_provider_settings[self.SECURITY][self.AUTHN_REQUESTS_SIGNED] or \
+            service_provider_settings[self.SECURITY][self.AUTHN_REQUESTS_SIGNED]
 
         settings = OneLogin_Saml2_Settings(onelogin_settings)
 
         return {
-            'debug': self._configuration.debug,
-            'strict': self._configuration.strict,
-            'idp': settings.get_idp_data(),
-            'sp': settings.get_sp_data(),
-            'security': settings.get_security_data()
+            self.DEBUG: self._configuration.debug,
+            self.STRICT: self._configuration.strict,
+            self.IDP: settings.get_idp_data(),
+            self.SP: settings.get_sp_data(),
+            self.SECURITY: settings.get_security_data()
         }
