@@ -396,6 +396,9 @@ class Facets(FacetsWithEntryPoint):
     Despite the generic name, this is only used in 'page' type OPDS
     feeds that list all the works in some WorkList.
     """
+
+    ORDER_BY_RELEVANCE = "relevance"
+
     @classmethod
     def default(cls, library, collection=None, availability=None, order=None,
                 entrypoint=None):
@@ -647,7 +650,10 @@ class Facets(FacetsWithEntryPoint):
 
         filter.availability = self.availability
         filter.subcollection = self.collection
-        if self.order:
+
+        # No order and relevance order both signify the default and,
+        # thus, either should leave `filter.order` unset.
+        if self.order and self.order != self.ORDER_BY_RELEVANCE:
             order = self.SORT_ORDER_TO_ELASTICSEARCH_FIELD_NAME.get(self.order)
             if order:
                 filter.order = order
@@ -889,8 +895,6 @@ class SearchFacets(Facets):
     # top billing just because they're first alphabetically. This is
     # the default cutoff point, determined empirically.
     DEFAULT_MIN_SCORE = 500
-
-    ORDER_BY_RELEVANCE = "relevance"
 
     def __init__(self, **kwargs):
         languages = kwargs.pop('languages', None)

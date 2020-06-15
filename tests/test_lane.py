@@ -1,5 +1,6 @@
 import datetime
 import json
+import logging
 import random
 from nose.tools import (
     eq_,
@@ -70,7 +71,7 @@ from ..model import (
     WorkGenre,
 )
 from ..problem_details import INVALID_INPUT
-from ..testing import EndToEndSearchTest
+from ..testing import EndToEndSearchTest, LogCaptureHandler
 from ..util.opds_writer import OPDSFeed
 
 class TestFacetsWithEntryPoint(DatabaseTest):
@@ -1399,6 +1400,43 @@ class TestSearchFacets(DatabaseTest):
         filter = Filter(languages=None)
         facets.modify_search_filter(filter)
         eq_(None, filter.languages)
+
+    def test_modify_search_filter_accepts_relevance_order(self):
+
+        # By default, ElasticSearch orders by relevance, so if order
+        # is specified as "relevance", filter should not have an
+        # `order` property.
+        with LogCaptureHandler(logging.root) as logs:
+            facets = SearchFacets()
+            filter = Filter()
+            facets.modify_search_filter(filter)
+            eq_(None, filter.order)
+            eq_(0, len(logs.error))
+
+        with LogCaptureHandler(logging.root) as logs:
+            facets = SearchFacets(order="relevance")
+            filter = Filter()
+            facets.modify_search_filter(filter)
+            eq_(None, filter.order)
+            eq_(0, len(logs.error))
+
+        with LogCaptureHandler(logging.root) as logs:
+            supported_order = "author"
+            facets = SearchFacets(order=supported_order)
+            filter = Filter()
+            facets.modify_search_filter(filter)
+            assert filter.order is not None
+            assert len(filter.order) > 0
+            eq_(0, len(logs.error))
+
+        with LogCaptureHandler(logging.root) as logs:
+            unsupported_order = "some_order_we_do_not_support"
+            facets = SearchFacets(order=unsupported_order)
+            filter = Filter()
+            facets.modify_search_filter(filter)
+            eq_(None, filter.order)
+            assert "Unrecognized sort order: %s" % unsupported_order in logs.error
+
 
 class TestPagination(DatabaseTest):
 
