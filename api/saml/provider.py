@@ -26,6 +26,13 @@ class SAMLAuthenticationProvider(BaseSAMLAuthenticationProvider):
     - HTTP-POST Binding for responses
     """
 
+    NAME = 'SAML 2.0 Web SSO'
+
+    DESCRIPTION = _(
+        '''SAML 2.0 authentication provider implementing Web SSO profile using the following bindings:
+             - HTTP-Redirect Binding for requests
+             - HTTP-POST Binding for responses''')
+
     def __init__(self, library, integration, analytics=None):
         """Initializes a new instance of SAMLAuthenticationProvider class
 
