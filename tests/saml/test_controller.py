@@ -1,21 +1,21 @@
+import json
 import urllib
-from base64 import b64encode
+import urlparse
 
 from flask import request
-from mock import create_autospec, MagicMock, patch, PropertyMock
+from mock import create_autospec, MagicMock, PropertyMock
 from nose.tools import eq_
 from parameterized import parameterized
 
-from api.authenticator import Authenticator
-from api.saml.auth import SAMLAuthenticationManager, SAMLAuthenticationManagerFactory
-from api.saml.configuration import SAMLConfiguration, SAMLOneLoginConfiguration
-from api.saml.controller import SAMLController, SAML_INVALID_REQUEST
+from api.authenticator import Authenticator, PatronData
+from api.saml.auth import SAMLAuthenticationManager, SAML_INCORRECT_RESPONSE
+from api.saml.controller import SAMLController, SAML_INVALID_REQUEST, SAML_INVALID_RESPONSE
 from api.saml.metadata import ServiceProviderMetadata, UIInfo, NameIDFormat, Service, IdentityProviderMetadata
-from api.saml.provider import SAMLWebSSOAuthenticationProvider
+from api.saml.provider import SAMLWebSSOAuthenticationProvider, SAML_INVALID_SUBJECT
+from core.model import Credential, Patron
 from core.util.problem_detail import ProblemDetail
 from tests.saml import fixtures
 from tests.saml.controller_test import ControllerTest
-from tests.saml.test_auth import SAML_RESPONSE
 
 SERVICE_PROVIDER = ServiceProviderMetadata(
     fixtures.SP_ENTITY_ID,
@@ -43,6 +43,13 @@ IDENTITY_PROVIDERS = [
 ]
 
 
+def create_patron_data_mock():
+    patron_data_mock = create_autospec(spec=PatronData)
+    type(patron_data_mock).to_response_parameters = PropertyMock(return_value='')
+
+    return patron_data_mock
+
+
 class SAMLControllerTest(ControllerTest):
     @parameterized.expand([
         (
@@ -50,7 +57,7 @@ class SAMLControllerTest(ControllerTest):
             None,
             None,
             None,
-            SAML_INVALID_REQUEST.detailed('Required parameter provider is missing'),
+            SAML_INVALID_REQUEST.detailed('Required parameter {0} is missing'.format(SAMLController.PROVIDER_NAME)),
             None
         ),
         (
@@ -58,7 +65,7 @@ class SAMLControllerTest(ControllerTest):
             SAMLWebSSOAuthenticationProvider.NAME,
             None,
             None,
-            SAML_INVALID_REQUEST.detailed('Required parameter idp_entity_id is missing'),
+            SAML_INVALID_REQUEST.detailed('Required parameter {0} is missing'.format(SAMLController.IDP_ENTITY_ID)),
             None
         ),
         (
@@ -66,7 +73,7 @@ class SAMLControllerTest(ControllerTest):
             SAMLWebSSOAuthenticationProvider.NAME,
             IDENTITY_PROVIDERS[0].entity_id,
             None,
-            SAML_INVALID_REQUEST.detailed('Required parameter redirect_uri is missing'),
+            SAML_INVALID_REQUEST.detailed('Required parameter {0} is missing'.format(SAMLController.REDIRECT_URI)),
             'http://localhost?' + urllib.urlencode({
                 SAMLController.LIBRARY_SHORT_NAME: 'default',
                 SAMLController.PROVIDER_NAME: SAMLWebSSOAuthenticationProvider.NAME,
@@ -118,7 +125,7 @@ class SAMLControllerTest(ControllerTest):
 
         query = urllib.urlencode(params)
 
-        with self.app.test_request_context('/saml_authenticate?' + query):
+        with self.app.test_request_context('http://circulationmanager.org/saml_authenticate?' + query):
             request.library = self._default_library
 
             # Act
@@ -135,41 +142,158 @@ class SAMLControllerTest(ControllerTest):
                 authentication_manager.start_authentication.assert_called_once_with(
                     self._db, idp_entity_id, expected_relay_state)
 
-    def test_saml_authentication_callback(self):
-        configuration = create_autospec(spec=SAMLConfiguration)
-        configuration.get_debug = MagicMock(return_value=False)
-        configuration.get_strict = MagicMock(return_value=False)
-        configuration.get_service_provider = MagicMock(return_value=SERVICE_PROVIDER)
-        configuration.get_identity_providers = MagicMock(return_value=IDENTITY_PROVIDERS)
-        onelogin_configuration = SAMLOneLoginConfiguration(configuration)
-        authentication_manager = SAMLAuthenticationManager(onelogin_configuration)
+    @parameterized.expand([
+        (
+            'with_missing_relay_state',
+            None,
+            None,
+            None,
+            None,
+            None,
+            SAML_INVALID_RESPONSE.detailed(
+                'Required parameter {0} is missing from the response body'.format(SAMLController.RELAY_STATE))
+        ),
+        (
+            'with_incorrect_relay_state',
+            {
+                SAMLController.RELAY_STATE: '<>'
+            },
+            None,
+            None,
+            None,
+            None,
+            SAML_INVALID_RESPONSE.detailed(
+                'Required parameter {0} is missing from RelayState'.format(SAMLController.LIBRARY_SHORT_NAME))
+        ),
+        (
+            'with_missing_provider_name',
+            {
+                SAMLController.RELAY_STATE: 'http://localhost?' + urllib.urlencode({
+                    SAMLController.LIBRARY_SHORT_NAME: 'default'
+                })
+            },
+            None,
+            None,
+            None,
+            None,
+            SAML_INVALID_RESPONSE.detailed(
+                'Required parameter {0} is missing from RelayState'.format(SAMLController.PROVIDER_NAME))
+        ),
+        (
+            'with_missing_idp_entity_id',
+            {
+                SAMLController.RELAY_STATE: 'http://localhost?' + urllib.urlencode({
+                    SAMLController.LIBRARY_SHORT_NAME: 'default',
+                    SAMLController.PROVIDER_NAME: SAMLWebSSOAuthenticationProvider.NAME
+                })
+            },
+            None,
+            None,
+            None,
+            None,
+            SAML_INVALID_RESPONSE.detailed(
+                'Required parameter {0} is missing from RelayState'.format(SAMLController.IDP_ENTITY_ID))
+        ),
+        (
+            'when_finish_authentication_fails',
+            {
+                SAMLController.RELAY_STATE: 'http://localhost?' + urllib.urlencode({
+                    SAMLController.LIBRARY_SHORT_NAME: 'default',
+                    SAMLController.PROVIDER_NAME: SAMLWebSSOAuthenticationProvider.NAME,
+                    SAMLController.IDP_ENTITY_ID: IDENTITY_PROVIDERS[0].entity_id
+                })
+            },
+            SAML_INCORRECT_RESPONSE.detailed('Authentication failed'),
+            None,
+            None,
+            None,
+            None
+        ),
+        (
+            'when_saml_callback_fails',
+            {
+                SAMLController.RELAY_STATE: 'http://localhost?' + urllib.urlencode({
+                    SAMLController.LIBRARY_SHORT_NAME: 'default',
+                    SAMLController.PROVIDER_NAME: SAMLWebSSOAuthenticationProvider.NAME,
+                    SAMLController.IDP_ENTITY_ID: IDENTITY_PROVIDERS[0].entity_id
+                })
+            },
+            None,
+            SAML_INVALID_SUBJECT.detailed('Authentication failed'),
+            None,
+            None,
+            None
+        ),
+        (
+            'when_saml_callback_returns_correct_patron',
+            {
+                SAMLController.RELAY_STATE: 'http://localhost?' + urllib.urlencode({
+                    SAMLController.LIBRARY_SHORT_NAME: 'default',
+                    SAMLController.PROVIDER_NAME: SAMLWebSSOAuthenticationProvider.NAME,
+                    SAMLController.IDP_ENTITY_ID: IDENTITY_PROVIDERS[0].entity_id
+                })
+            },
+            None,
+            (create_autospec(spec=Credential), create_autospec(spec=Patron), create_patron_data_mock()),
+            'ABCDEFG',
+            'http://localhost?access_token=ABCDEFG&patron_info=%22%22',
+            None
+        )
+    ])
+    def test_saml_authentication_callback(
+            self,
+            name,
+            data,
+            finish_authentication_result,
+            saml_callback_result,
+            bearer_token,
+            expected_authentication_redirect_uri,
+            expected_problem):
+        # Arrange
+        authentication_manager = create_autospec(spec=SAMLAuthenticationManager)
+        authentication_manager.finish_authentication = MagicMock(return_value=finish_authentication_result)
+        provider = create_autospec(spec=SAMLWebSSOAuthenticationProvider)
+        type(provider).NAME = PropertyMock(return_value=SAMLWebSSOAuthenticationProvider.NAME)
+        provider.get_authentication_manager = MagicMock(return_value=authentication_manager)
+        provider.library = MagicMock(return_value=self._default_library)
+        provider.saml_callback = MagicMock(return_value=saml_callback_result)
+        authenticator = Authenticator(self._db)
 
-        authentication_manager_factory = create_autospec(spec=SAMLAuthenticationManagerFactory)
-        authentication_manager_factory.create = MagicMock(return_value=authentication_manager)
+        authenticator.library_authenticators['default'].register_saml_provider(provider)
+        authenticator.bearer_token_signing_secret = 'test'
+        authenticator.library_authenticators['default'].bearer_token_signing_secret = 'test'
+        authenticator.create_bearer_token = MagicMock(return_value=bearer_token)
 
-        with patch('api.saml.provider.SAMLAuthenticationManagerFactory', autospec=True) \
-                as authentication_manager_factory_constructor:
-            authentication_manager_factory_constructor.return_value = authentication_manager_factory
+        controller = SAMLController(self.app.manager, authenticator)
 
-            provider = SAMLWebSSOAuthenticationProvider(self._default_library, self._integration)
-            authenticator = Authenticator(self._db)
+        with self.app.test_request_context('http://circulationmanager.org/saml_callback', data=data):
+            # Act
+            result = controller.saml_authentication_callback(request, self._db)
 
-            authenticator.library_authenticators['default'].register_saml_provider(provider)
+            # Assert
+            if isinstance(finish_authentication_result, ProblemDetail) or \
+                    isinstance(saml_callback_result, ProblemDetail):
+                eq_(result.status_code, 302)
 
-            controller = SAMLController(self.app.manager, authenticator)
+                query_items = urlparse.parse_qs(urlparse.urlsplit(result.location).query)
 
-            query = urllib.urlencode({
-                SAMLController.LIBRARY_SHORT_NAME: self._default_library.short_name,
-                SAMLController.PROVIDER_NAME: SAMLWebSSOAuthenticationProvider.NAME,
-                SAMLController.IDP_ENTITY_ID: IDENTITY_PROVIDERS[0].entity_id
-            })
+                assert SAMLController.ERROR in query_items
 
-            authenticator.bearer_token_signing_secret = 'test'
-            authenticator.library_authenticators['default'].bearer_token_signing_secret = 'test'
+                error = query_items[SAMLController.ERROR][0]
+                error = json.loads(error)
 
-            saml_response = b64encode(SAML_RESPONSE)
-            with self.app.test_request_context('/', data={
-                'SAMLResponse': saml_response,
-                SAMLController.RELAY_STATE: 'http://localhost?' + query
-            }):
-                controller.saml_authentication_callback(request, self._db)
+                problem = finish_authentication_result if finish_authentication_result else saml_callback_result
+                eq_(error['type'], problem.uri),
+                eq_(error['status'], problem.status_code)
+                eq_(error['title'], problem.title)
+                eq_(error['detail'], problem.detail)
+            elif expected_problem:
+                assert isinstance(result, ProblemDetail)
+                eq_(result.response, expected_problem.response)
+            else:
+                eq_(result.status_code, 302)
+                eq_(result.headers.get('Location'), expected_authentication_redirect_uri)
+
+                authentication_manager.finish_authentication.assert_called_once_with(
+                    self._db, IDENTITY_PROVIDERS[0].entity_id)
+                provider.saml_callback.assert_called_once_with(self._db, finish_authentication_result)

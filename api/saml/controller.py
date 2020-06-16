@@ -2,7 +2,7 @@ import json
 import urllib
 import urlparse
 
-from flask import request, redirect
+from flask import redirect
 from flask_babel import lazy_gettext as _
 
 from api.problem_details import *
@@ -179,7 +179,7 @@ class SAMLController(object):
         :rtype: Union[string, ProblemDetail]
         """
         if name not in relay_parameters:
-            return SAML_INVALID_RESPONSE.detailed('Required parameter {0} is missing from RelayState')
+            return SAML_INVALID_RESPONSE.detailed('Required parameter {0} is missing from RelayState'.format(name))
 
         return relay_parameters[name][0]
 
@@ -275,7 +275,8 @@ class SAMLController(object):
         :rtype: Union[Response, ProblemDetail]
         """
         if self.RELAY_STATE not in request.form:
-            return SAML_INVALID_RESPONSE.detailed('{0} is empty'.format(self.RELAY_STATE))
+            return SAML_INVALID_RESPONSE.detailed(
+                'Required parameter {0} is missing from the response body'.format(self.RELAY_STATE))
 
         relay_state = request.form[self.RELAY_STATE]
         relay_state_parse_result = urlparse.urlparse(relay_state)
