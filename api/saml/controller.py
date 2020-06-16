@@ -12,6 +12,13 @@ from core.util.problem_detail import (
     json as pd_json,
 )
 
+SAML_INVALID_REQUEST = pd(
+    'http://librarysimplified.org/terms/problem/saml/invalid-saml-request',
+    status_code=401,
+    title=_('SAML invalid request.'),
+    detail=_('SAML invalid request.')
+)
+
 SAML_INVALID_RESPONSE = pd(
     'http://librarysimplified.org/terms/problem/saml/invalid-saml-response',
     status_code=401,
@@ -140,9 +147,27 @@ class SAMLController(object):
 
         return redirect_uri
 
-    def _get_relay_parameter(self, relay_parameters, name):
+    def _get_request_parameter(self, params, name, default_value=None):
+        """Returns a parameter containing in the incoming request
+
+        :param params: Request's parameters
+        :type params: Dict
+
+        :param default_value: Optional default value
+        :type params: Optional[Any]
+
+        :return: Parameter's value or ProblemDetail instance if the parameter is missing
+        :rtype: Union[string, ProblemDetail]
         """
-        Returns a parameter containing in the query string of the relay state returned by the IdP
+        parameter = params.get(name, default_value)
+
+        if not parameter:
+            return SAML_INVALID_REQUEST.detailed('Required parameter {0} is missing'.format(name))
+
+        return parameter
+
+    def _get_relay_state_parameter(self, relay_parameters, name):
+        """Returns a parameter containing in the query string of the relay state returned by the IdP
 
         :param relay_parameters: Dictionary containing a list of parameters
         :type relay_parameters: Dict
@@ -188,9 +213,17 @@ class SAMLController(object):
         :return: Redirection response
         :rtype: Response
         """
-        provider_name = params.get(self.PROVIDER_NAME)
-        idp_entity_id = params.get(self.IDP_ENTITY_ID)
-        redirect_uri = params.get(self.REDIRECT_URI, request.path)
+        provider_name = self._get_request_parameter(params, self.PROVIDER_NAME)
+        if isinstance(provider_name, ProblemDetail):
+            return provider_name
+
+        idp_entity_id = self._get_request_parameter(params, self.IDP_ENTITY_ID)
+        if isinstance(idp_entity_id, ProblemDetail):
+            return idp_entity_id
+
+        redirect_uri = self._get_request_parameter(params, self.REDIRECT_URI)
+        if isinstance(redirect_uri, ProblemDetail):
+            return redirect_uri
 
         provider = self._authenticator.saml_provider_lookup(provider_name)
         if isinstance(provider, ProblemDetail):
@@ -248,15 +281,15 @@ class SAMLController(object):
         relay_state_parse_result = urlparse.urlparse(relay_state)
         relay_state_parameters = urlparse.parse_qs(relay_state_parse_result.query)
 
-        library_short_name = self._get_relay_parameter(relay_state_parameters, self.LIBRARY_SHORT_NAME)
+        library_short_name = self._get_relay_state_parameter(relay_state_parameters, self.LIBRARY_SHORT_NAME)
         if isinstance(library_short_name, ProblemDetail):
             return library_short_name
 
-        provider_name = self._get_relay_parameter(relay_state_parameters, self.PROVIDER_NAME)
+        provider_name = self._get_relay_state_parameter(relay_state_parameters, self.PROVIDER_NAME)
         if isinstance(provider_name, ProblemDetail):
             return provider_name
 
-        idp_entity_id = self._get_relay_parameter(relay_state_parameters, self.IDP_ENTITY_ID)
+        idp_entity_id = self._get_relay_state_parameter(relay_state_parameters, self.IDP_ENTITY_ID)
         if isinstance(idp_entity_id, ProblemDetail):
             return idp_entity_id
 
