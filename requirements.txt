@@ -28,7 +28,6 @@ uszipcode
 pypostalcode
 watchtower # for cloudwatch logging
 sphinx # for code documentation
-rsa==4.3
 
 # Ensure that we support SNI-based SSL
 ndg-httpsclient
