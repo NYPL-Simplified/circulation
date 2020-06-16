@@ -80,8 +80,10 @@ class SAMLMetadataParserTest(object):
         assert isinstance(result, list)
         eq_(len(result), 1)
 
+        [result] = result
+
         eq_(
-            result[0],
+            result,
             IdentityProviderMetadata(
                 entity_id=fixtures.IDP_1_ENTITY_ID,
                 ui_info=UIInfo(
@@ -270,8 +272,10 @@ class SAMLMetadataParserTest(object):
         assert isinstance(result, list)
         eq_(len(result), 1)
 
+        [result] = result
+
         eq_(
-            result[0],
+            result,
             ServiceProviderMetadata(
                 entity_id=fixtures.SP_ENTITY_ID,
                 ui_info=UIInfo(),

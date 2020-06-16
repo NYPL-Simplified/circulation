@@ -11,6 +11,7 @@ from api.saml import configuration
 from api.saml.parser import SAMLMetadataParser
 from api.saml.provider import SAMLWebSSOAuthenticationProvider
 from api.saml.validator import SAMLSettingsValidator, INCORRECT_METADATA
+from core.util.problem_detail import ProblemDetail
 from tests.saml import fixtures
 from tests.saml.database_test import DatabaseTest
 
@@ -73,4 +74,7 @@ class SAMLSettingsValidatorTest(DatabaseTest):
         result = validator.validate(settings, submitted_form)
 
         # Assert
-        eq_(result, expected_validation_result)
+        if isinstance(result, ProblemDetail):
+            eq_(result.response, expected_validation_result.response)
+        else:
+            eq_(result, expected_validation_result)

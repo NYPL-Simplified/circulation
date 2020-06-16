@@ -166,7 +166,10 @@ class SAMLWebSSOAuthenticationProviderTest(ControllerTest):
         result = provider.remote_patron_lookup(subject)
 
         # Assert
-        eq_(result, expected_result)
+        if isinstance(result, ProblemDetail):
+            eq_(result.response, expected_result.response)
+        else:
+            eq_(result, expected_result)
 
     @parameterized.expand([
         (
@@ -222,7 +225,7 @@ class SAMLWebSSOAuthenticationProviderTest(ControllerTest):
 
         # Assert
         if isinstance(result, ProblemDetail):
-            eq_(result, expected_result)
+            eq_(result.response, expected_result.response)
         else:
             credential, patron, patron_data = result
 
