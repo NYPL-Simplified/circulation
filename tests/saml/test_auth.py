@@ -1,15 +1,12 @@
-# FIXME: Required to get rid of the circular import error
-import api.app
-
 import urlparse
 from base64 import b64encode
 from xml.dom.minidom import Document
-from parameterized import parameterized
 
 from defusedxml.lxml import fromstring
 from mock import create_autospec, MagicMock
 from nose.tools import eq_
 from onelogin.saml2.utils import OneLogin_Saml2_Utils
+from parameterized import parameterized
 
 from api.saml.auth import SAMLAuthenticationManager, SAMLAuthenticationManagerFactory
 from api.saml.configuration import SAMLOneLoginConfiguration, SAMLConfiguration, ExternalIntegrationOwner

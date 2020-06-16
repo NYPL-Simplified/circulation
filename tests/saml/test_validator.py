@@ -1,12 +1,8 @@
-# FIXME: Required to get rid of the circular import error
-import api.app
-
 from nose.tools import eq_
 from parameterized import parameterized
 from werkzeug.datastructures import MultiDict
 
 from api.admin.problem_details import INCOMPLETE_CONFIGURATION
-
 from api.saml import configuration
 from api.saml.parser import SAMLMetadataParser
 from api.saml.provider import SAMLWebSSOAuthenticationProvider

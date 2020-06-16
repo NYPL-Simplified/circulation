@@ -1,5 +1,3 @@
-# FIXME: Required to get rid of the circular import error
-import api.app
 import datetime
 import json
 

@@ -1,6 +1,3 @@
-# FIXME: Required to get rid of the circular import error
-import api.app
-
 import sqlalchemy
 from mock import MagicMock, create_autospec
 from nose.tools import eq_
