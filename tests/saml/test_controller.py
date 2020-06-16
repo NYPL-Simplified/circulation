@@ -62,7 +62,7 @@ class SAMLControllerTest(ControllerTest):
                 as authentication_manager_factory_constructor:
             authentication_manager_factory_constructor.return_value = authentication_manager_factory
 
-            provider = SAMLWebSSOAuthenticationProvider(self._library, self._integration)
+            provider = SAMLWebSSOAuthenticationProvider(self._default_library, self._integration)
             authenticator = Authenticator(self._db)
 
             authenticator.library_authenticators['default'].register_saml_provider(provider)
@@ -99,7 +99,7 @@ class SAMLControllerTest(ControllerTest):
                 as authentication_manager_factory_constructor:
             authentication_manager_factory_constructor.return_value = authentication_manager_factory
 
-            provider = SAMLWebSSOAuthenticationProvider(self._library, self._integration)
+            provider = SAMLWebSSOAuthenticationProvider(self._default_library, self._integration)
             authenticator = Authenticator(self._db)
 
             authenticator.library_authenticators['default'].register_saml_provider(provider)
@@ -107,7 +107,7 @@ class SAMLControllerTest(ControllerTest):
             controller = SAMLController(self.app.manager, authenticator)
 
             query = urllib.urlencode({
-                SAMLController.LIBRARY_SHORT_NAME: self._library.short_name,
+                SAMLController.LIBRARY_SHORT_NAME: self._default_library.short_name,
                 SAMLController.PROVIDER_NAME: SAMLWebSSOAuthenticationProvider.NAME,
                 SAMLController.IDP_ENTITY_ID: IDENTITY_PROVIDERS[0].entity_id
             })
