@@ -147,12 +147,17 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasCollectionSelfTests):
     findaway_drm = DeliveryMechanism.FINDAWAY_DRM
     no_drm = DeliveryMechanism.NO_DRM
 
+    # The name Axis 360 gives for the web interface.
+    AXISNOW = "AxisNow"
+
     delivery_mechanism_to_internal_format = {
         (epub, no_drm): 'ePub',
         (epub, adobe_drm): 'ePub',
         (pdf, no_drm): 'PDF',
         (pdf, adobe_drm): 'PDF',
         (None, findaway_drm): 'Acoustik',
+        (Representation.UNZIPPED_EPUB_MEDIA_TYPE, 
+         DeliveryMechanism.AXISNOW_DRM): AXISNOW
     }
 
     def __init__(self, _db, collection):
@@ -334,7 +339,7 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasCollectionSelfTests):
         response = self.request(url, data=args, method="POST")
         return response
 
-    def fulfill(self, patron, pin, licensepool, **kwargs):
+    def fulfill(self, patron, pin, licensepool, internal_format, **kwargs):
         """Fulfill a patron's request for a specific book.
 
         :param kwargs: A container for arguments to fulfill()
@@ -345,7 +350,6 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasCollectionSelfTests):
         identifier = licensepool.identifier
         # This should include only one 'activity'.
         activities = self.patron_activity(patron, pin, licensepool.identifier)
-
         for loan in activities:
             if not isinstance(loan, LoanInfo):
                 continue
@@ -357,7 +361,12 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasCollectionSelfTests):
             fulfillment = loan.fulfillment_info
             if not fulfillment or not isinstance(fulfillment, FulfillmentInfo):
                 raise CannotFulfill()
+
+            # We have a FulfillmentInfo that might be able to impersonate one
+            # of a couple different formats. Let it know which one the user wants.
+            fulfillment.configure_for_internal_format(internal_format)
             return fulfillment
+
         # If we made it to this point, the patron does not have this
         # book checked out.
         raise NoActiveLoan()
@@ -411,9 +420,13 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasCollectionSelfTests):
             title_ids = None
         availability = self.availability(
             patron_id=patron.authorization_identifier,
-            title_ids=title_ids)
-        return list(AvailabilityResponseParser(self).process_all(
-            availability.content))
+            title_ids=title_ids,
+        )
+        return list(
+            AvailabilityResponseParser(self).process_all(
+                availability.content,
+            )
+        )
 
     def update_availability(self, licensepool):
         """Update the availability information for a single LicensePool.
@@ -795,7 +808,7 @@ class BibliographicParser(Axis360Parser):
     DELIVERY_DATA_FOR_AXIS_FORMAT = {
         "Blio" : None,   # Unknown ebook format
         "Acoustik" : (None, DeliveryMechanism.FINDAWAY_DRM), # Audiobooks
-        "AxisNow": None, # Proprietary web viewer
+        "AxisNow" : None, # Handled specially, for ebooks only.
         "ePub" : (Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.ADOBE_DRM),
         "PDF" : (Representation.PDF_MEDIA_TYPE, DeliveryMechanism.ADOBE_DRM),
     }
@@ -1042,11 +1055,18 @@ class BibliographicParser(Axis360Parser):
         # hear about it below.
         medium = Edition.BOOK_MEDIUM
 
+        # If AxisNow is mentioned as a format, and this turns out to be a book,
+        # we'll be adding an extra delivery mechanism.
+        axisnow_seen = False
+
         for format_tag in self._xpath(
-                element, 'axis:availability/axis:availableFormats/axis:formatName',
-                ns
+            element, 'axis:availability/axis:availableFormats/axis:formatName',
+            ns
         ):
             informal_name = format_tag.text
+            if informal_name == Axis360API.AXISNOW:
+                axisnow_seen = True
+                continue
             seen_formats.append(informal_name)
             if informal_name not in self.DELIVERY_DATA_FOR_AXIS_FORMAT:
                 self.log.warn("Unrecognized Axis format name for %s: %s" % (
@@ -1059,10 +1079,24 @@ class BibliographicParser(Axis360Parser):
                 formats.append(
                     FormatData(content_type=content_type, drm_scheme=drm_scheme)
                 )
+
                 if drm_scheme == DeliveryMechanism.FINDAWAY_DRM:
                     medium = Edition.AUDIO_MEDIUM
                 else:
                     medium = Edition.BOOK_MEDIUM
+
+        if medium == Edition.BOOK_MEDIUM and axisnow_seen:
+            # This is an ebook available through AxisNow. Add
+            # an appropriate FormatData.
+            #
+            # Audiobooks are also available through AxisNow, but we
+            # currently ignore that fact.
+            formats.append(
+                FormatData(
+                    content_type=Representation.UNZIPPED_EPUB_MEDIA_TYPE,
+                    drm_scheme=DeliveryMechanism.AXISNOW_DRM
+                )
+            )
 
         if not formats:
             self.log.error(
@@ -1247,20 +1281,12 @@ class CheckoutResponseParser(ResponseParser):
             expiration_date = datetime.strptime(
                 expiration_date, self.FULL_DATE_FORMAT)
 
-        # WTH??? Why is identifier None? Is this ever used?
-        fulfillment = FulfillmentInfo(
-            collection=self.collection, data_source_name=DataSource.AXIS_360,
-            identifier_type=self.id_type,
-            identifier=None, content_link=fulfillment_url,
-            content_type=None, content=None, content_expires=None
-        )
         loan_start = datetime.utcnow()
         loan = LoanInfo(
             collection=self.collection, data_source_name=DataSource.AXIS_360,
             identifier_type=self.id_type, identifier=None,
             start_date=loan_start,
             end_date=expiration_date,
-            fulfillment_info=fulfillment
         )
         return loan
 
@@ -1358,8 +1384,10 @@ class AvailabilityResponseParser(ResponseParser):
             download_url = self.text_of_optional_subtag(
                 availability, 'axis:downloadUrl', ns)
             transaction_id = self.text_of_optional_subtag(
-                availability, 'axis:transactionID', ns)
-            # Arguments common to FulfillmentInfo and
+                availability, 'axis:transactionID', ns) or ""
+            isbn = self.text_of_optional_subtag(
+                availability, 'axis:isbn', ns) or ""
+            # Arguments common to EbookFulfillmentInfo and
             # AudiobookFulfillmentInfo.
             kwargs = dict(
                 data_source_name=DataSource.AXIS_360,
@@ -1367,13 +1395,17 @@ class AvailabilityResponseParser(ResponseParser):
                 identifier=axis_identifier
             )
             if download_url:
-                # This is an ebook.
-                fulfillment = FulfillmentInfo(
+                # This is an ebook. We don't know whether the
+                # user wants to read it in ACS or AxisNow format,
+                # so create an object capable of producing both.
+                fulfillment = EbookFulfillmentInfo(
                     collection=self.collection,
                     content_link=download_url,
                     content_type=DeliveryMechanism.ADOBE_DRM,
                     content=None,
                     content_expires=None,
+                    isbn=isbn,
+                    book_vault_id=transaction_id,
                     **kwargs
                 )
             elif transaction_id:
@@ -1569,6 +1601,67 @@ class AudiobookMetadataParser(JSONResponseParser):
         part_number = int(part.get('fndpart', 0))
         sequence = int(part.get('fndsequence', 0))
         return SpineItem(title, duration, part_number, sequence)
+
+
+class EbookFulfillmentInfo(FulfillmentInfo):
+    """A FulfillmentInfo that can be used to fulfill either an
+    ACS-encrypted EPUB or an AxisNow-encrypted unzipped EPUB.
+    """
+
+    # These URL templates are used to build AxisNow manifest
+    # documents.
+    CONTAINER_TEMPLATE = "https://node.axisnow.com/content/stream/%(isbn)s/META-INF/container.xml"
+    ENCRYPTION_TEMPLATE = "https://node.axisnow.com/content/stream/%(isbn)s/META-INF/encryption.xml"
+    LICENSE_TEMPLATE_TEMPLATE = "https://node.axisnow.com/license/%(book_vault_id)s/{deviceId}/{clientIp}/%(isbn)s/{modulus}/{exponent}"
+
+    def __init__(self, **kwargs):
+
+        # Store extra Axis-specific information 
+        self.book_vault_id = kwargs.pop('book_vault_id')
+        self.isbn = kwargs.pop('isbn')
+
+        super(EbookFulfillmentInfo, self).__init__(**kwargs)
+
+        # Store content_link and content_type in case we wipe them out with
+        # configure_for_internal_format and need them later.
+        self._content_link = self.content_link
+        self._content_type = self.content_type
+
+    def configure_for_internal_format(self, internal_format):
+        """Modify this FulfillmentInfo for one internal format or another."""
+        if internal_format == 'AxisNow':
+            # Send an AxisNow manifest document.
+            self.content_type = MediaTypes.AXISNOW_MANIFEST_MEDIA_TYPE
+            self.content = self.axisnow_manifest_document
+            self.content_link = None
+        else:
+            # Restore the content type and link that were originally
+            # present.
+            self.content_type = self._content_type
+            self.content_link = self._content_link
+            self.content = None
+
+    @property
+    def axisnow_manifest_document(self):
+        """Construct an AxisNow manifest document for this loan.
+
+        :return: A string containing a manifest document.
+        """
+        data = dict(
+            isbn=self.isbn,
+            book_vault_id=self.book_vault_id
+        )
+        container_url = self.CONTAINER_TEMPLATE % data
+        encryption_url = self.ENCRYPTION_TEMPLATE % data
+        license_template = self.LICENSE_TEMPLATE_TEMPLATE % data
+        manifest = dict(
+            links = [
+                dict(rel="container", href=container_url),
+                dict(rel="encryption", href=encryption_url),
+                dict(rel="license", href=license_template, template=True),
+            ]
+        )
+        return json.dumps(manifest)
 
 
 class AudiobookFulfillmentInfo(APIAwareFulfillmentInfo):

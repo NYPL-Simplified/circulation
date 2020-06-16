@@ -1083,9 +1083,10 @@ class TestCheckoutResponseParser(TestResponseParser):
         eq_(datetime.datetime(2015, 8, 11, 18, 57, 42),
             parsed.end_date)
 
-        assert isinstance(parsed.fulfillment_info, FulfillmentInfo)
-        eq_("http://axis360api.baker-taylor.com/Services/VendorAPI/GetAxisDownload/v2?blahblah",
-            parsed.fulfillment_info.content_link)
+        # There is no FulfillmentInfo associated with the LoanInfo,
+        # because we don't need it (checkout and fulfillment are
+        # separate steps).
+        eq_(parsed.fulfillment_info, None)
 
     def test_parse_already_checked_out(self):
         data = self.sample_data("already_checked_out.xml")
