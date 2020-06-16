@@ -10,6 +10,8 @@ from api.problem_details import *
 from api.saml.auth import SAMLAuthenticationManagerFactory
 from api.saml.configuration import ExternalIntegrationOwner
 from api.saml.metadata import Subject, SubjectUIDExtractor, SubjectJSONEncoder
+from api.saml.parser import SAMLMetadataParser
+from api.saml.validator import SAMLSettingsValidator
 from core.model import Credential, get_one_or_create, DataSource
 from core.util.problem_detail import ProblemDetail
 
@@ -367,4 +369,9 @@ class SAMLWebSSOAuthenticationProvider(BaseSAMLAuthenticationProvider, ExternalI
         return credential, patron, patron_data
 
 
+def validator_factory():
+    return SAMLSettingsValidator(SAMLMetadataParser())
+
+
 AuthenticationProvider = SAMLWebSSOAuthenticationProvider
+Validator = validator_factory

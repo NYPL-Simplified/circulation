@@ -1,11 +1,13 @@
-from api.problem_details import *
+import importlib
+import logging
+import re
+
+from flask_babel import lazy_gettext as _
+
 from api.admin.exceptions import *
 from core.model import Representation
-from core.util.problem_detail import ProblemDetail
 from core.util import LanguageCodes
-from nose.tools import set_trace
-from flask_babel import lazy_gettext as _
-import re
+
 
 class Validator(object):
 
@@ -163,3 +165,36 @@ class Validator(object):
         elif len(value) == 1:
             return value[0]
         return filter(lambda x: x != None and x != "", value)
+
+
+class ValidatorFactory(object):
+    """Creates Validator instances for particular authentication protocols"""
+
+    def __init__(self):
+        """Initializes a new instance of ValidatorFactory class"""
+        self._logger = logging.getLogger(__name__)
+
+    def create(self, protocol):
+        """
+        Returns a configured validator for a specific protocol
+
+        :param protocol: Patron authentication protocol
+        :type protocol: string
+
+        :return: Validator object (if there is any for the specific protocol)
+        :rtype: Optional[Validator]
+        """
+        module_name = protocol
+
+        try:
+            provider_module = importlib.import_module(module_name)
+            validator_class = getattr(provider_module, 'Validator', None)
+
+            if validator_class:
+                validator = validator_class()
+
+                return validator
+        except:
+            self._logger.warning(_('Could not load a validator defined in {0} module'.format(module_name)))
+
+        return None

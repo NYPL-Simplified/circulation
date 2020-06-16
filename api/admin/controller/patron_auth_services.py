@@ -6,15 +6,14 @@ from flask_babel import lazy_gettext as _
 
 from api.admin.controller import SettingsController
 from api.admin.problem_details import *
+from api.admin.validator import ValidatorFactory
 from api.authenticator import AuthenticationProvider
 from api.clever import CleverAuthenticationAPI
 from api.firstbook import FirstBookAuthenticationAPI as OldFirstBookAuthenticationAPI
 from api.firstbook2 import FirstBookAuthenticationAPI
 from api.kansas_patron import KansasAuthenticationAPI
 from api.millenium_patron import MilleniumPatronAPI
-from api.saml.parser import SAMLMetadataParser
 from api.saml.provider import SAMLWebSSOAuthenticationProvider
-from api.saml.validator import SAMLSettingsValidator
 from api.simple_authentication import SimpleAuthenticationProvider
 from api.sip import SIP2AuthenticationProvider
 from core.model import (
@@ -47,29 +46,7 @@ class PatronAuthServicesController(SettingsController):
                                 KansasAuthenticationAPI.__module__,
                                ]
         self.type = _("patron authentication service")
-
-    def _get_validator(self, protocol, integration):
-        """
-        Returns a configured validator for a specific protocol
-
-        :param protocol: Patron authentication protocol
-        :type protocol: string
-
-        :param integration: Integration
-        :type integration: ExternalIntegration
-
-        :return: Validator object (if there is any for the specific protocol)
-        :rtype: Optional[Validator]
-        """
-
-        if protocol == 'api.saml.provider':
-            saml_settings_validator = SAMLSettingsValidator(
-                SAMLMetadataParser()
-            )
-
-            return saml_settings_validator
-
-        return None
+        self._validator_factory = ValidatorFactory()
 
     def process_patron_auth_services(self):
         self.require_system_admin()
@@ -113,8 +90,7 @@ class PatronAuthServicesController(SettingsController):
             if isinstance(auth_service, ProblemDetail):
                 return auth_service
 
-        validator = self._get_validator(protocol, auth_service)
-
+        validator = self._validator_factory.create(protocol)
         format_error = self.validate_formats(validator=validator)
         if format_error:
             self._db.rollback()
