@@ -1461,27 +1461,12 @@ class TestEbookFulfillmentInfo(Axis360Test):
         )
 
     def test_axisnow_manifest_document(self):
+        # An AxisNow manifest document includes only an ISBN and a book vault ID.
         manifest_document = self.info.axisnow_manifest_document
         parsed = json.loads(manifest_document)
-
-        links = sorted(
-            parsed.pop("links"), key=lambda x: x['rel']
-        )
+        eq_("an-isbn", parsed.pop('isbn'))
+        eq_("a-book-vault-id", parsed.pop('book_vault_id'))
         eq_({}, parsed)
-
-        eq_(["container", "encryption", "license"], [x['rel'] for x in links])
-        container, encryption, license = links
-
-        container, encryption, license = [x['href'] for x in links]
-        eq_("https://node.axisnow.com/content/stream/an-isbn/META-INF/container.xml", container)
-        eq_("https://node.axisnow.com/content/stream/an-isbn/META-INF/encryption.xml", encryption)
-
-        # The license 'link' is a URI Template, not a URL.
-        eq_(
-            "https://node.axisnow.com/license/a-book-vault-id/{deviceId}/{clientIp}/an-isbn/{modulus}/{exponent}",
-            license
-        )
-        eq_(True, links[-1]['templated'])
 
     def test_configure_for_internal_format(self):
 

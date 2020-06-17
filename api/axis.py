@@ -1643,19 +1643,9 @@ class EbookFulfillmentInfo(FulfillmentInfo):
 
         :return: A string containing a manifest document.
         """
-        data = dict(
+        manifest = dict(
             isbn=self.isbn,
             book_vault_id=self.book_vault_id
-        )
-        container_url = self.CONTAINER_TEMPLATE % data
-        encryption_url = self.ENCRYPTION_TEMPLATE % data
-        license_template = self.LICENSE_TEMPLATE_TEMPLATE % data
-        manifest = dict(
-            links = [
-                dict(rel="container", href=container_url),
-                dict(rel="encryption", href=encryption_url),
-                dict(rel="license", href=license_template, templated=True),
-            ]
         )
         return json.dumps(manifest)
 
