@@ -1,11 +1,13 @@
-from api.problem_details import *
+import importlib
+import logging
+import re
+
+from flask_babel import lazy_gettext as _
+
 from api.admin.exceptions import *
 from core.model import Representation
-from core.util.problem_detail import ProblemDetail
 from core.util import LanguageCodes
-from nose.tools import set_trace
-from flask_babel import lazy_gettext as _
-import re
+
 
 class Validator(object):
 
@@ -163,3 +165,62 @@ class Validator(object):
         elif len(value) == 1:
             return value[0]
         return filter(lambda x: x != None and x != "", value)
+
+
+class PatronAuthenticationValidatorFactory(object):
+    """Creates Validator instances for particular authentication protocols"""
+
+    VALIDATOR_CLASS_NAME = 'Validator'
+    VALIDATOR_FACTORY = 'validator_factory'
+
+    def __init__(self):
+        """Initializes a new instance of ValidatorFactory class"""
+        self._logger = logging.getLogger(__name__)
+
+    def _try_to_create(self, provider_module, validator_factory_name):
+        """Tries to create a new Validator instance using a specific factory
+
+        :param provider_module: Module where the factory is defined
+        :type provider_module: Module
+
+        :param validator_factory_name: Name of the factory which will be used to create a new validator instance
+        :type validator_factory_name: string
+
+        :return: New validator instance or None
+        :rtype: Optional[Validator]
+        """
+        validator_factory = getattr(provider_module, validator_factory_name, None)
+
+        if validator_factory:
+            validator = validator_factory()
+
+            return validator
+
+        return None
+
+    def create(self, protocol):
+        """
+        Returns a configured validator for a specific protocol
+
+        :param protocol: Patron authentication protocol
+        :type protocol: string
+
+        :return: Validator object (if there is any for the specific protocol)
+        :rtype: Optional[Validator]
+        """
+        module_name = protocol
+
+        try:
+            provider_module = importlib.import_module(module_name)
+
+            validator = self._try_to_create(provider_module, self.VALIDATOR_CLASS_NAME)
+            if validator:
+                return validator
+
+            validator = self._try_to_create(provider_module, self.VALIDATOR_FACTORY)
+            if validator:
+                return validator
+        except:
+            self._logger.warning(_('Could not load a validator defined in {0} module'.format(module_name)))
+
+        return None

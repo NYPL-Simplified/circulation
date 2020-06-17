@@ -5,6 +5,8 @@ addons:
   apt:
     packages:
       - postgresql-contrib-9.6
+      - libxmlsec1-dev
+      - libxml2-dev
 
 services:
   - postgresql

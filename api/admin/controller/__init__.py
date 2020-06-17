@@ -1817,6 +1817,7 @@ class SettingsController(AdminCirculationManagerController):
         if error:
             return error
 
+
 class SitewideRegistrationController(SettingsController):
     """A controller for managing a circulation manager's registrations
     with external services.

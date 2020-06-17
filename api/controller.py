@@ -24,6 +24,8 @@ from flask import (
 )
 from flask_babel import lazy_gettext as _
 
+from api.saml.auth import SAMLAuthenticationManagerFactory
+from api.saml.controller import SAMLController
 from core.app_server import (
     cdn_url_for,
     url_for,
@@ -426,6 +428,7 @@ class CirculationManager(object):
         configuration changes.
         """
         self.oauth_controller = OAuthController(self.auth)
+        self.saml_controller = SAMLController(self, self.auth)
 
     def setup_adobe_vendor_id(self, _db, library):
         """If this Library has an Adobe Vendor ID integration,
