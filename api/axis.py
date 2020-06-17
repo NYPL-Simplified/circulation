@@ -1654,7 +1654,7 @@ class EbookFulfillmentInfo(FulfillmentInfo):
             links = [
                 dict(rel="container", href=container_url),
                 dict(rel="encryption", href=encryption_url),
-                dict(rel="license", href=license_template, template=True),
+                dict(rel="license", href=license_template, templated=True),
             ]
         )
         return json.dumps(manifest)

@@ -1430,6 +1430,84 @@ class TestAudiobookMetadataParser(Axis360Test):
         eq_(0, item.duration)
         eq_(Representation.MP3_MEDIA_TYPE, item.media_type)
 
+
+class TestEbookFulfillmentInfo(Axis360Test):
+    """An EbookFulfillmentInfo contains all information necessary to
+    fulfill an ebook in any supported format -- but it only exposes
+    one format at a time.
+    """
+
+    def setup(self):
+        super(TestEbookFulfillmentInfo, self).setup()
+
+        # For formats other than AxisNow
+        self.content_link = "http://content/"
+        self.content_type = "content/type"
+
+        # For the AxisNow format we need two extra pieces of
+        # information -- the book vault ID and the ISBN. Both of these
+        # pieces come directly from Axis 360.
+        self.book_vault_id = "a-book-vault-id"
+        self.isbn = "an-isbn"
+
+        self.identifier = self._identifier()
+
+        self.info = EbookFulfillmentInfo(
+            collection=self._default_collection, data_source_name=DataSource.AXIS_360,
+            identifier_type=self.identifier.type, identifier=self.identifier.identifier,
+            content_link=self.content_link, content_type=self.content_type,
+            content="some content", content_expires=object(),
+            book_vault_id=self.book_vault_id, isbn=self.isbn
+        )
+
+    def test_axisnow_manifest_document(self):
+        manifest_document = self.info.axisnow_manifest_document
+        parsed = json.loads(manifest_document)
+
+        links = sorted(
+            parsed.pop("links"), key=lambda x: x['rel']
+        )
+        eq_({}, parsed)
+
+        eq_(["container", "encryption", "license"], [x['rel'] for x in links])
+        container, encryption, license = links
+
+        container, encryption, license = [x['href'] for x in links]
+        eq_("https://node.axisnow.com/content/stream/an-isbn/META-INF/container.xml", container)
+        eq_("https://node.axisnow.com/content/stream/an-isbn/META-INF/encryption.xml", encryption)
+
+        # The license 'link' is a URI Template, not a URL.
+        eq_(
+            "https://node.axisnow.com/license/a-book-vault-id/{deviceId}/{clientIp}/an-isbn/{modulus}/{exponent}",
+            license
+        )
+        eq_(True, links[-1]['templated'])
+
+    def test_configure_for_internal_format(self):
+
+        # By default, we're configured to send the content link.
+        eq_(self.content_link, self.info.content_link)
+        eq_(self.content_type, self.info.content_type)
+
+        # info.content is redundant and will soon be destroyed.
+        eq_("some content", self.info.content)
+
+        # Configure for the "AxisNow" format, and we stop sending the link
+        # and start sending an AxisNow manifest document.
+        self.info.configure_for_internal_format(Axis360API.AXISNOW)
+        eq_(MediaTypes.AXISNOW_MANIFEST_MEDIA_TYPE, self.info.content_type)
+        eq_(self.info.axisnow_manifest_document, self.info.content)
+        eq_(None, self.info.content_link)
+
+        # Reconfigure to send out the content link again. We get the
+        # old behavior back, except that info.content (which was
+        # redundant) has been cleared out.
+        self.info.configure_for_internal_format("ePub")
+        eq_(self.content_link, self.info.content_link)
+        eq_(self.content_type, self.info.content_type)
+        eq_(None, self.info.content)
+
+
 class TestAudiobookFulfillmentInfo(Axis360Test):
     def test_fetch(self):
 
