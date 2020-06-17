@@ -1548,6 +1548,11 @@ class TestAudiobookFulfillmentInfo(Axis360Test):
             datetime.datetime(2018, 9, 29, 18, 34), fulfillment.content_expires
         )
 
+        # While we're here, verify that configure_for_internal_format is implemented.
+        # (It's a no-op.)
+        fulfillment.configure_for_internal_format("some other format")
+
+
 class TestAxis360BibliographicCoverageProvider(Axis360Test):
     """Test the code that looks up bibliographic information from Axis 360."""
 
