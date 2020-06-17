@@ -6,7 +6,7 @@ from flask_babel import lazy_gettext as _
 
 from api.admin.controller import SettingsController
 from api.admin.problem_details import *
-from api.admin.validator import ValidatorFactory
+from api.admin.validator import PatronAuthenticationValidatorFactory
 from api.authenticator import AuthenticationProvider
 from api.clever import CleverAuthenticationAPI
 from api.firstbook import FirstBookAuthenticationAPI as OldFirstBookAuthenticationAPI
@@ -46,7 +46,7 @@ class PatronAuthServicesController(SettingsController):
                                 KansasAuthenticationAPI.__module__,
                                ]
         self.type = _("patron authentication service")
-        self._validator_factory = ValidatorFactory()
+        self._validator_factory = PatronAuthenticationValidatorFactory()
 
     def process_patron_auth_services(self):
         self.require_system_admin()

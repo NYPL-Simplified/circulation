@@ -3,6 +3,7 @@ from parameterized import parameterized
 from werkzeug.datastructures import MultiDict
 
 from api.admin.problem_details import INCOMPLETE_CONFIGURATION
+from api.admin.validator import PatronAuthenticationValidatorFactory
 from api.saml import configuration
 from api.saml.parser import SAMLMetadataParser
 from api.saml.provider import SAMLWebSSOAuthenticationProvider
@@ -74,3 +75,18 @@ class SAMLSettingsValidatorTest(DatabaseTest):
             eq_(result.response, expected_validation_result.response)
         else:
             eq_(result, expected_validation_result)
+
+
+class SAMLSettingsValidatorFactoryTest(object):
+    @parameterized.expand([
+        ('validator_using_factory_method', 'api.saml.provider')
+    ])
+    def test_create_can_create(self, name, protocol):
+        # Arrange
+        factory = PatronAuthenticationValidatorFactory()
+
+        # Act
+        result = factory.create(protocol)
+
+        # Assert
+        assert isinstance(result, SAMLSettingsValidator)

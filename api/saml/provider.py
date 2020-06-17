@@ -374,4 +374,3 @@ def validator_factory():
 
 
 AuthenticationProvider = SAMLWebSSOAuthenticationProvider
-Validator = validator_factory
