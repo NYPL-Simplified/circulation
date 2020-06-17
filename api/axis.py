@@ -1604,12 +1604,6 @@ class EbookFulfillmentInfo(FulfillmentInfo):
     ACS-encrypted EPUB or an AxisNow-encrypted unzipped EPUB.
     """
 
-    # These URL templates are used to build AxisNow manifest
-    # documents.
-    CONTAINER_TEMPLATE = "https://node.axisnow.com/content/stream/%(isbn)s/META-INF/container.xml"
-    ENCRYPTION_TEMPLATE = "https://node.axisnow.com/content/stream/%(isbn)s/META-INF/encryption.xml"
-    LICENSE_TEMPLATE_TEMPLATE = "https://node.axisnow.com/license/%(book_vault_id)s/{deviceId}/{clientIp}/%(isbn)s/{modulus}/{exponent}"
-
     def __init__(self, **kwargs):
 
         # Store extra Axis-specific information 
