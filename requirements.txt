@@ -64,3 +64,11 @@ newrelic
 nameparser
 fuzzywuzzy
 python-Levenshtein
+
+# For SAML authentication
+python-saml
+isodate
+defusedxml
+xmlsec
+parameterized
+freezegun

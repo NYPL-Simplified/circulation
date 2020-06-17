@@ -1,17 +1,18 @@
-from nose.tools import (
-    set_trace,
-    eq_,
-    assert_raises
-)
-import json
-from api.admin.validator import Validator
-from api.config import Configuration
-from api.shared_collection import BaseSharedCollectionAPI
 from StringIO import StringIO
+
+from nose.tools import (
+    eq_
+)
+from parameterized import parameterized
 from werkzeug.datastructures import MultiDict
 
-class TestValidator():
+from api.admin.validator import Validator, PatronAuthenticationValidatorFactory
+from api.config import Configuration
+from api.shared_collection import BaseSharedCollectionAPI
+from tests.admin.fixtures.dummy_validator import DummyAuthenticationProviderValidator
 
+
+class TestValidator(object):
     def test_validate_email(self):
         valid = "valid_format@email.com"
         invalid = "invalid_format"
@@ -218,3 +219,19 @@ class TestValidator():
         # You can make specific URLs go through even if they
         # wouldn't normally pass.
         eq_(True, m("Not a URL", ["Not a URL", "Also not a URL"]))
+
+
+class PatronAuthenticationValidatorFactoryTest(object):
+    @parameterized.expand([
+        ('validator_using_class_name', 'tests.admin.fixtures.dummy_validator'),
+        ('validator_using_factory_method', 'tests.admin.fixtures.dummy_validator_factory')
+    ])
+    def test_create_can_create(self, name, protocol):
+        # Arrange
+        factory = PatronAuthenticationValidatorFactory()
+
+        # Act
+        result = factory.create(protocol)
+
+        # Assert
+        assert isinstance(result, DummyAuthenticationProviderValidator)
