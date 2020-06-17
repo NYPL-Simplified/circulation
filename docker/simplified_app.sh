@@ -18,7 +18,9 @@ apt-get update && $minimal_apt_get_install python-dev \
   libjpeg-dev \
   nodejs \
   npm \
-  libpq-dev
+  libpq-dev \
+  libxmlsec1-dev \
+  libxml2-dev
 
 ln /usr/bin/nodejs /usr/bin/node
 
