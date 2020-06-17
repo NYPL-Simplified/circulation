@@ -420,13 +420,9 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasCollectionSelfTests):
             title_ids = None
         availability = self.availability(
             patron_id=patron.authorization_identifier,
-            title_ids=title_ids,
-        )
-        return list(
-            AvailabilityResponseParser(self).process_all(
-                availability.content,
-            )
-        )
+            title_ids=title_ids)
+        return list(AvailabilityResponseParser(self).process_all(
+            availability.content))
 
     def update_availability(self, licensepool):
         """Update the availability information for a single LicensePool.
@@ -1681,3 +1677,9 @@ class AudiobookFulfillmentInfo(APIAwareFulfillmentInfo):
         self._content = unicode(manifest)
         self._content_type = DeliveryMechanism.FINDAWAY_DRM
         self._content_expires = expires
+
+    def configure_for_internal_format(self, internal_format):
+        """AudiobookFulfillmentInfo does not need to be reconfigured
+        to support different formats.
+        """
+        return

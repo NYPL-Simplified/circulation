@@ -390,10 +390,10 @@ class TestAxis360API(Axis360Test):
         patron = self._patron()
         patron.authorization_identifier = "a barcode"
 
-        def fulfill():
+        def fulfill(internal_format="not AxisNow"):
             return self.api.fulfill(
                 patron, "pin", licensepool=pool,
-                internal_format='not AxisNow'
+                internal_format=internal_format
             )
 
         # If Axis 360 says a patron does not have a title checked out,
@@ -417,10 +417,7 @@ class TestAxis360API(Axis360Test):
         # containing an AxisNow manifest document.
         data = self.sample_data("availability_with_loan_and_hold.xml")
         self.api.queue_response(200, content=data)
-        fulfillment = self.api.fulfill(
-            patron, "pin", licensepool=pool,
-            internal_format="AxisNow"
-        )
+        fulfillment = fulfill("AxisNow")
         assert isinstance(fulfillment, EbookFulfillmentInfo)
         eq_(MediaTypes.AXISNOW_MANIFEST_MEDIA_TYPE, fulfillment.content_type)
         eq_(fulfillment.axisnow_manifest_document, fulfillment.content)
@@ -433,6 +430,17 @@ class TestAxis360API(Axis360Test):
         self.api.queue_response(200, content=data)
         assert_raises(CannotFulfill, fulfill)
 
+        # If we ask to fulfill an audiobook, we get an AudiobookFulfillmentInfo.
+        #
+        # Change our test LicensePool's identifier to match the data we're about
+        # to load into the API.
+        pool.identifier, ignore = Identifier.for_foreign_id(
+            self._db, Identifier.AXIS_360_ID, "0012244222"
+        )
+        data = self.sample_data("availability_with_audiobook_fulfillment.xml")
+        self.api.queue_response(200, content=data)
+        fulfillment = fulfill()
+        assert isinstance(fulfillment, AudiobookFulfillmentInfo)
 
     def test_patron_activity(self):
         """Test the method that locates all current activity
