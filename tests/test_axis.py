@@ -966,16 +966,17 @@ class TestParsers(Axis360Test):
         eq_("http://some-other-server/image.jpg", cover.thumbnail.href)
         eq_(MediaTypes.JPEG_MEDIA_TYPE, cover.thumbnail.media_type)
 
-        '''
-        TODO:  Perhaps want to test formats separately.
-        [format] = bib1.formats
-        eq_(Representation.EPUB_MEDIA_TYPE, format.content_type)
-        eq_(DeliveryMechanism.ADOBE_DRM, format.drm_scheme)
+        # The first book is available in two formats -- "ePub" and "AxisNow"
+        [adobe, axisnow] = bib1.circulation.formats
+        eq_(Representation.EPUB_MEDIA_TYPE, adobe.content_type)
+        eq_(DeliveryMechanism.ADOBE_DRM, adobe.drm_scheme)
+
+        eq_(MediaTypes.UNZIPPED_EPUB_MEDIA_TYPE, axisnow.content_type)
+        eq_(DeliveryMechanism.AXISNOW_DRM, axisnow.drm_scheme)
 
         # The second book is only available in 'Blio' format, which
         # we can't use.
-        eq_([], bib2.formats)
-        '''
+        eq_([], bib2.circulation.formats)
 
     def test_bibliographic_parser_audiobook(self):
         # TODO - we need a real example to test from. The example we were
@@ -986,6 +987,17 @@ class TestParsers(Axis360Test):
         [[bib, av]] = BibliographicParser(False, True).process_all(data)
         eq_("Back Spin", bib.title)
         eq_(Edition.AUDIO_MEDIUM, bib.medium)
+
+        # The audiobook has one DeliveryMechanism, in which the Findaway licensing document
+        # acts as both the content type and the DRM scheme.
+        [findaway] = bib.circulation.formats
+        eq_(None, findaway.content_type)
+        eq_(DeliveryMechanism.FINDAWAY_DRM, findaway.drm_scheme)
+
+        # Although the audiobook is also available in the "AxisNow"
+        # format, no second delivery mechanism was created for it, the
+        # way it would have been for an ebook.
+        assert '<formatName>AxisNow</formatName>' in data
 
     def test_bibliographic_parser_unsupported_format(self):
         data = self.sample_data("availability_with_audiobook_fulfillment.xml")
