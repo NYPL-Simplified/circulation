@@ -52,6 +52,7 @@ from api.authenticator import BasicAuthenticationProvider
 
 from api.axis import (
     AudiobookFulfillmentInfo,
+    AudiobookFulfillmentInfoResponseParser,
     AudiobookMetadataParser,
     AvailabilityResponseParser,
     Axis360API,
@@ -60,7 +61,7 @@ from api.axis import (
     AxisCollectionReaper,
     BibliographicParser,
     CheckoutResponseParser,
-    AudiobookFulfillmentInfoResponseParser,
+    EbookFulfillmentInfo,
     HoldReleaseResponseParser,
     HoldResponseParser,
     JSONResponseParser,
@@ -392,7 +393,7 @@ class TestAxis360API(Axis360Test):
         def fulfill():
             return self.api.fulfill(
                 patron, "pin", licensepool=pool,
-                internal_format='irrelevant'
+                internal_format='not AxisNow'
             )
 
         # If Axis 360 says a patron does not have a title checked out,
@@ -401,13 +402,29 @@ class TestAxis360API(Axis360Test):
         self.api.queue_response(200, content=data)
         assert_raises(NoActiveLoan, fulfill)
 
-        # If the title is checked out and Axis provides fulfillment information,
-        # that information becomes a FulfillmentInfo object.
+        # If the title is checked out and Axis provides fulfillment
+        # information, that information becomes an
+        # EbookFulfillmentInfo object with a content link.
         data = self.sample_data("availability_with_loan_and_hold.xml")
         self.api.queue_response(200, content=data)
         fulfillment = fulfill()
         assert isinstance(fulfillment, FulfillmentInfo)
+        eq_(DeliveryMechanism.ADOBE_DRM, fulfillment.content_type)
         eq_("http://fulfillment/", fulfillment.content_link)
+        eq_(None, fulfillment.content)
+
+        # If we ask for AxisNow format, we get an EbookFulfillmentInfo
+        # containing an AxisNow manifest document.
+        data = self.sample_data("availability_with_loan_and_hold.xml")
+        self.api.queue_response(200, content=data)
+        fulfillment = self.api.fulfill(
+            patron, "pin", licensepool=pool,
+            internal_format="AxisNow"
+        )
+        assert isinstance(fulfillment, EbookFulfillmentInfo)
+        eq_(MediaTypes.AXISNOW_MANIFEST_MEDIA_TYPE, fulfillment.content_type)
+        eq_(fulfillment.axisnow_manifest_document, fulfillment.content)
+        eq_(None, fulfillment.content_link)
 
         # If the title is checked out but Axis provides no fulfillment
         # info, the exception is CannotFulfill.
