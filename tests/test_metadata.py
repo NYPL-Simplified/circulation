@@ -1640,7 +1640,7 @@ class TestTimestampData(DatabaseTest):
 
         # The timestamp values are set to sensible defaults.
         eq_(d.start, d.finish)
-        assert (datetime.datetime.now() - d.start).total_seconds() < 2
+        assert (datetime.datetime.utcnow() - d.start).total_seconds() < 2
 
         # Other fields are still at None.
         for i in d.achievements, d.counter, d.exception:
