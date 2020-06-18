@@ -145,11 +145,13 @@ class TestS3Uploader(S3UploaderTest):
         region_name = client_class.call_args.kwargs['region_name']
         aws_access_key_id = client_class.call_args.kwargs['aws_access_key_id']
         aws_secret_access_key = client_class.call_args.kwargs['aws_secret_access_key']
+        config = client_class.call_args.kwargs['config']
 
         eq_(service_name, ('s3',))
         eq_(region_name, S3Uploader.S3_DEFAULT_REGION)
         eq_(aws_access_key_id, None)
         eq_(aws_secret_access_key, None)
+        eq_(config.s3['addressing_style'], S3Uploader.S3_DEFAULT_ADDRESSING_STYLE)
 
     def test_custom_client_class(self):
         """You can specify a client class to use instead of boto3.client."""
