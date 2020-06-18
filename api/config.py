@@ -185,7 +185,7 @@ class Configuration(CoreConfiguration):
             "key": PATRON_WEB_CLIENT_URL,
             "label": _("URL of the web catalog for patrons"),
             "required": True,
-            "format": "url",
+            "format": "string",
             "allowed": ["*"],
             "description": _("You can set this to '*' in development, but you must use a real URL in production in order to prevent unauthorized CORS requests.")
         },
