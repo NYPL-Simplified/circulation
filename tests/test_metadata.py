@@ -383,11 +383,11 @@ class TestMetadataImporter(DatabaseTest):
         assert thumbnail.content != l2.content
 
         # Both images have been 'mirrored' to Amazon S3.
-        assert image.mirror_url.startswith('https://s3.amazonaws.com/test.cover.bucket/')
+        assert image.mirror_url.startswith('https://test-cover-bucket.s3.amazonaws.com/')
         assert image.mirror_url.endswith('cover.jpg')
 
         # The thumbnail image has been converted to PNG.
-        assert thumbnail.mirror_url.startswith('https://s3.amazonaws.com/test.cover.bucket/scaled/300/')
+        assert thumbnail.mirror_url.startswith('https://test-cover-bucket.s3.amazonaws.com/scaled/300/')
         assert thumbnail.mirror_url.endswith('cover.png')
 
     def test_mirror_thumbnail_only(self):
@@ -410,7 +410,7 @@ class TestMetadataImporter(DatabaseTest):
         [thumbnail] = mirrors[mirror_type].uploaded
 
         # The image has been 'mirrored' to Amazon S3.
-        assert thumbnail.mirror_url.startswith('https://s3.amazonaws.com/test.cover.bucket/')
+        assert thumbnail.mirror_url.startswith('https://test-cover-bucket.s3.amazonaws.com/')
         assert thumbnail.mirror_url.endswith('thumb.png')
 
     def test_mirror_open_access_link_fetch_failure(self):

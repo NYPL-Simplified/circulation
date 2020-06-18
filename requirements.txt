@@ -6,11 +6,13 @@ psycopg2
 requests>=2.18.4
 sqlalchemy>=1.2.0
 nose
+parameterized
 lxml
 flask
 isbnlib
 rdflib
 pyspellchecker
+enum34
 
 elasticsearch>6.0.0,<7.0.0
 elasticsearch-dsl>6.0.0,<7.0.0

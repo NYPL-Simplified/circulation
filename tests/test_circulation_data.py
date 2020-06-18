@@ -672,7 +672,7 @@ class TestMetaToModelUtility(DatabaseTest):
 
 
         # It's been 'mirrored' to the appropriate S3 bucket.
-        assert book.mirror_url.startswith('https://s3.amazonaws.com/test.content.bucket/')
+        assert book.mirror_url.startswith('https://test-content-bucket.s3.amazonaws.com/')
         expect = '/%s/%s.epub' % (
             edition.primary_identifier.identifier,
             edition.title
@@ -682,7 +682,7 @@ class TestMetaToModelUtility(DatabaseTest):
         # make sure the mirrored link is safely on edition
         sorted_edition_links = sorted(pool.identifier.links, key=lambda x: x.rel)
         unmirrored_representation, mirrored_representation = [edlink.resource.representation for edlink in sorted_edition_links]
-        assert mirrored_representation.mirror_url.startswith('https://s3.amazonaws.com/test.content.bucket/')
+        assert mirrored_representation.mirror_url.startswith('https://test-content-bucket.s3.amazonaws.com/')
 
         # make sure the unmirrored link is safely on edition
         eq_('http://example.com/2', unmirrored_representation.url)

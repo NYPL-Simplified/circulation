@@ -19,8 +19,8 @@ def cdnify(url, cdns=None):
         return url
     scheme, netloc, path, query, fragment = urlparse.urlsplit(url)
 
-    if netloc == 's3.amazonaws.com':
-        # This is a URL like "http://s3.amazonaws.com/bucket/foo".
+    if 'amazonaws.com' in netloc:
+        # This is a URL like "http://bucket.s3.region.amazonaws.com/foo".
         # It's equivalent to "http://bucket/foo".
         # i.e. treat the bucket name as the netloc.
         #
