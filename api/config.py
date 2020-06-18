@@ -187,7 +187,7 @@ class Configuration(CoreConfiguration):
             "required": True,
             "format": "string",
             "allowed": ["*"],
-            "description": _("You can set this to '*' in development, but you must use a real URL in production in order to prevent unauthorized CORS requests.")
+            "description": _("You can set this to '*' in development, but you must a real case-sensitive URL or regular expression in production in order to prevent unauthorized CORS requests.")
         },
         {
             "key": STATIC_FILE_CACHE_TIME,
