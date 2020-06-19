@@ -218,11 +218,11 @@
         <span class="p">},</span>
         <span class="p">{</span>
             <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">PATRON_WEB_CLIENT_URL</span><span class="p">,</span>
-            <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;URL of the web catalog for patrons&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Hostnames for web application access&quot;</span><span class="p">),</span>
             <span class="s2">&quot;required&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
-            <span class="s2">&quot;format&quot;</span><span class="p">:</span> <span class="s2">&quot;url&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;format&quot;</span><span class="p">:</span> <span class="s2">&quot;string&quot;</span><span class="p">,</span>
             <span class="s2">&quot;allowed&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;*&quot;</span><span class="p">],</span>
-            <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;You can set this to &#39;*&#39; in development, but you must use a real URL in production in order to prevent unauthorized CORS requests.&quot;</span><span class="p">)</span>
+            <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Only web applications from these hosts can access this circulation manager. This can be a single hostname (&#39;catalog.library.org&#39;), or a regular expression that matches many hostnames (&#39;.*\.libraryvendor\.com&#39;). You can also set this to &#39;*&#39; to allow access from any host, but you must not do this in a production environment -- only during development.&quot;</span><span class="p">)</span>
         <span class="p">},</span>
         <span class="p">{</span>
             <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">STATIC_FILE_CACHE_TIME</span><span class="p">,</span>

@@ -1,0 +1,480 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>api.saml.provider &#8212; Library Simplified Circulation Manager  documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for api.saml.provider</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">datetime</span>
+<span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+
+<span class="kn">from</span> <span class="nn">flask</span> <span class="kn">import</span> <span class="n">url_for</span>
+<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
+
+<span class="kn">from</span> <span class="nn">api.authenticator</span> <span class="kn">import</span> <span class="n">BaseSAMLAuthenticationProvider</span><span class="p">,</span> <span class="n">PatronData</span>
+<span class="kn">from</span> <span class="nn">api.problem_details</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">api.saml.auth</span> <span class="kn">import</span> <span class="n">SAMLAuthenticationManagerFactory</span>
+<span class="kn">from</span> <span class="nn">api.saml.configuration</span> <span class="kn">import</span> <span class="n">ExternalIntegrationOwner</span>
+<span class="kn">from</span> <span class="nn">api.saml.metadata</span> <span class="kn">import</span> <span class="n">Subject</span><span class="p">,</span> <span class="n">SubjectUIDExtractor</span><span class="p">,</span> <span class="n">SubjectJSONEncoder</span>
+<span class="kn">from</span> <span class="nn">api.saml.parser</span> <span class="kn">import</span> <span class="n">SAMLMetadataParser</span>
+<span class="kn">from</span> <span class="nn">api.saml.validator</span> <span class="kn">import</span> <span class="n">SAMLSettingsValidator</span>
+<span class="kn">from</span> <span class="nn">core.model</span> <span class="kn">import</span> <span class="n">Credential</span><span class="p">,</span> <span class="n">get_one_or_create</span><span class="p">,</span> <span class="n">DataSource</span>
+<span class="kn">from</span> <span class="nn">core.util.problem_detail</span> <span class="kn">import</span> <span class="n">ProblemDetail</span>
+
+<span class="n">SAML_INVALID_SUBJECT</span> <span class="o">=</span> <span class="n">pd</span><span class="p">(</span>
+    <span class="s1">&#39;http://librarysimplified.org/terms/problem/saml/invalid-subject&#39;</span><span class="p">,</span>
+    <span class="n">status_code</span><span class="o">=</span><span class="mi">401</span><span class="p">,</span>
+    <span class="n">title</span><span class="o">=</span><span class="n">_</span><span class="p">(</span><span class="s1">&#39;SAML invalid subject.&#39;</span><span class="p">),</span>
+    <span class="n">detail</span><span class="o">=</span><span class="n">_</span><span class="p">(</span><span class="s1">&#39;SAML invalid subject.&#39;</span><span class="p">)</span>
+<span class="p">)</span>
+
+
+<div class="viewcode-block" id="SAMLWebSSOAuthenticationProvider"><a class="viewcode-back" href="../../../api.saml.html#api.saml.provider.SAMLWebSSOAuthenticationProvider">[docs]</a><span class="k">class</span> <span class="nc">SAMLWebSSOAuthenticationProvider</span><span class="p">(</span><span class="n">BaseSAMLAuthenticationProvider</span><span class="p">,</span> <span class="n">ExternalIntegrationOwner</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;SAML authentication provider implementing Web Browser SSO profile using the following bindings:</span>
+<span class="sd">    - HTTP-Redirect Binding for requests</span>
+<span class="sd">    - HTTP-POST Binding for responses</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">NAME</span> <span class="o">=</span> <span class="s1">&#39;SAML 2.0 Web SSO&#39;</span>
+
+    <span class="n">DESCRIPTION</span> <span class="o">=</span> <span class="n">_</span><span class="p">(</span>
+        <span class="sd">&#39;&#39;&#39;SAML 2.0 authentication provider implementing the Web SSO profile using the following bindings:</span>
+<span class="sd">         HTTP-Redirect for requests and HTTP-POST for responses&#39;&#39;&#39;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">integration</span><span class="p">,</span> <span class="n">analytics</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Initializes a new instance of SAMLAuthenticationProvider class</span>
+
+<span class="sd">        :param library: Patrons authenticated through this provider</span>
+<span class="sd">            are associated with this Library. Don&#39;t store this object!</span>
+<span class="sd">            It&#39;s associated with a scoped database session. Just pull</span>
+<span class="sd">            normal Python objects out of it.</span>
+<span class="sd">        :type library: Library</span>
+
+<span class="sd">        :param integration: The ExternalIntegration that</span>
+<span class="sd">            configures this AuthenticationProvider. Don&#39;t store this</span>
+<span class="sd">            object! It&#39;s associated with a scoped database session. Just</span>
+<span class="sd">            pull normal Python objects out of it.</span>
+<span class="sd">        :type integration: ExternalIntegration</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">BaseSAMLAuthenticationProvider</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">library</span><span class="p">,</span> <span class="n">integration</span><span class="p">,</span> <span class="n">analytics</span>
+        <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_authentication_manager</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">def</span> <span class="nf">_authentication_flow_document</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">db</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Creates a Authentication Flow object for use in an Authentication for OPDS document.</span>
+
+<span class="sd">        Example:</span>
+<span class="sd">        {</span>
+<span class="sd">            &quot;type&quot;: &quot;http://opds-spec.org/auth/saml&quot;</span>
+<span class="sd">            &quot;description&quot;: &quot;SAML 2.0 authentication provider&quot;,</span>
+<span class="sd">            &quot;links&quot;: [</span>
+<span class="sd">                {</span>
+<span class="sd">                    &quot;rel&quot; : &quot;authenticate&quot;</span>
+<span class="sd">                    &quot;href&quot;: &quot;https://circulation.library.org/saml_authenticate?provider=SAML+2.0?idp_entity_id=https%3A%2F%2Fidp.saml.net%2Fidp%2Fshibboleth&quot;,</span>
+<span class="sd">                    &quot;display_names&quot;: [</span>
+<span class="sd">                        {</span>
+<span class="sd">                            &quot;language&quot;: &quot;en&quot;,</span>
+<span class="sd">                            &quot;value&quot;: &quot;Test Shibboleth IdP Provider&quot;</span>
+<span class="sd">                        },</span>
+<span class="sd">                        {</span>
+<span class="sd">                            &quot;language&quot;: &quot;es&quot;,</span>
+<span class="sd">                            &quot;value&quot;: &quot;Prueba de proveedor de IdP Shibboleth&quot;</span>
+<span class="sd">                        }</span>
+<span class="sd">                    ],</span>
+<span class="sd">                    &quot;descriptions&quot;: [</span>
+<span class="sd">                        {</span>
+<span class="sd">                            &quot;language&quot;: &quot;en&quot;,</span>
+<span class="sd">                            &quot;value&quot;: &quot;Test Shibboleth IdP Provider&quot;</span>
+<span class="sd">                        },</span>
+<span class="sd">                        {</span>
+<span class="sd">                            &quot;language&quot;: &quot;es&quot;,</span>
+<span class="sd">                            &quot;value&quot;: &quot;Prueba de proveedor de IdP Shibboleth&quot;</span>
+<span class="sd">                        }</span>
+<span class="sd">                    ],</span>
+<span class="sd">                    &quot;information_urls&quot;: [</span>
+<span class="sd">                        {</span>
+<span class="sd">                            &quot;language&quot;: &quot;en&quot;,</span>
+<span class="sd">                            &quot;value&quot;: &quot;https://idp.saml.net/info/en&quot;</span>
+<span class="sd">                        },</span>
+<span class="sd">                        {</span>
+<span class="sd">                            &quot;language&quot;: &quot;es&quot;,</span>
+<span class="sd">                            &quot;value&quot;: &quot;https://idp.saml.net/info/es&quot;</span>
+<span class="sd">                        }</span>
+<span class="sd">                    ],</span>
+<span class="sd">                    &quot;privacy_statement_urls&quot;: [</span>
+<span class="sd">                        {</span>
+<span class="sd">                            &quot;language&quot;: &quot;en&quot;,</span>
+<span class="sd">                            &quot;value&quot;: &quot;https://idp.saml.net/privacy/en&quot;</span>
+<span class="sd">                        },</span>
+<span class="sd">                        {</span>
+<span class="sd">                            &quot;language&quot;: &quot;es&quot;,</span>
+<span class="sd">                            &quot;value&quot;: &quot;https://idp.saml.net/privacy/es&quot;</span>
+<span class="sd">                        }</span>
+<span class="sd">                    ],</span>
+<span class="sd">                    &quot;logo_urls&quot;: [</span>
+<span class="sd">                        {</span>
+<span class="sd">                            &quot;language&quot;: &quot;en&quot;,</span>
+<span class="sd">                            &quot;height&quot;: 16,</span>
+<span class="sd">                            &quot;width&quot;: 16,</span>
+<span class="sd">                            &quot;value&quot;: &quot;data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABGdBTUEAALGPC/xhBQAAACBjSFJNAAB6JgAAgIQAAPoAAACA6AAAdTAAAOpgAAA6mAAAF3CculE8AAAACXBIWXMAABYlAAAWJQFJUiTwAAABWWlUWHRYTUw6Y29tLmFkb2JlLnhtcAAAAAAAPHg6eG1wbWV0YSB4bWxuczp4PSJhZG9iZTpuczptZXRhLyIgeDp4bXB0az0iWE1QIENvcmUgNS40LjAiPgogICA8cmRmOlJERiB4bWxuczpyZGY9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkvMDIvMjItcmRmLXN5bnRheC1ucyMiPgogICAgICA8cmRmOkRlc2NyaXB0aW9uIHJkZjphYm91dD0iIgogICAgICAgICAgICB4bWxuczp0aWZmPSJodHRwOi8vbnMuYWRvYmUuY29tL3RpZmYvMS4wLyI+CiAgICAgICAgIDx0aWZmOk9yaWVudGF0aW9uPjE8L3RpZmY6T3JpZW50YXRpb24+CiAgICAgIDwvcmRmOkRlc2NyaXB0aW9uPgogICA8L3JkZjpSREY+CjwveDp4bXBtZXRhPgpMwidZAAADA0lEQVQ4EV2TzW9VRRjGfzPn3N7b76KAClFCuRFiEbxtgYSFIjEqNGGhscGF0AIr/gnqyrhlB4G0pWoMdeNH3BgVTEgJvfTShBaMRahaLR/ho7eU3ttzzvicqWycxZw5M+/zzDPP+76GD84GDHfHtJ1tILfwBo56LIskNGLYgHN/YM1vYJq0jrHO4hKDMQvEptaQjsKpdQThW0TuF670Klhjx2dNRNW8gLsUPEWx5xu//3TaOriW8YMzhtf6WwjN+xRv9UNfQseJZlzmXZyNsMlfWDsvVZuE20Biv2XswDXyx7M0N+7jcu9wKLm7cTVf/wfO4LLvELjzjPbMPr1M3wk6Bz7ERq9TOFNPPlfixuPF9DwEWyX3pELn4HZMUiWyv2MrIR1D7SRVvTma4dGLZdzsr5ggxERNAu8U9mFKYEGGVGwXDTfHiN0zmPgllsLN+u4hCNZBzRGabr+tyLsybwdjh36SuTsJZLQnsHqrCf5hbv0rereR43LYVuT4TRL3QETfyfk1LBmpMC+nIA3js6WFFLgWRg+c194S9tkRZeJHGpMRGfQFtckVikeuUjx0QrGrBLvNrp/1DDOtC+ZSplAvWM+2z1uJq81QrlMa76UHGoYLh8secO7NSJnaIoU/UL6VF+aOLvYmS0F8UeD9StkKqKxcxrq0Ppxfp+DO/v0qmr9pzRV1exvG1VH60xOEBGZSzFmxPi/MRoGu03EyJHc6x2KUhexRVeUspYMjlHTaMfic0jzq006ftdRP3yNJahnrUSFxkfaBT+V8F1XzKuS6RXpHZye9mvZTeelqoRJM+n+OeamwbaCNhbppJrrnKQxtVT20yt4ZgTfxpO5LauZewAYFnx1kXhzPUzo8nvaRCkkko2bCM+a/z1LaO07n0CIufk/SL5Etd2Ezai57lcsfTVE4vUZkm3388KQTgZFZqZKPDVN7K2w5sxqi7UrjJ8sy/zc32/vMuYbl3b5EWUhHaroaKW3pjNtDpv4rv522uj/sS+sljTWc61UFWue7VRv/Ajz9JzIyIjhZAAAAAElFTkSuQmCC&quot;</span>
+<span class="sd">                        },</span>
+<span class="sd">                        {</span>
+<span class="sd">                            &quot;language&quot;: &quot;es&quot;,</span>
+<span class="sd">                            &quot;height&quot;: 16,</span>
+<span class="sd">                            &quot;width&quot;: 16,</span>
+<span class="sd">                            &quot;value&quot;: &quot;https://idp.saml.net/logo.png&quot;</span>
+<span class="sd">                        }</span>
+<span class="sd">                    ],</span>
+<span class="sd">                }</span>
+<span class="sd">            ]</span>
+<span class="sd">        }</span>
+
+<span class="sd">        :param db: Database session</span>
+<span class="sd">        :type db: sqlalchemy.orm.session.Session</span>
+
+<span class="sd">        :return: Authentication Flow object for use in an Authentication for OPDS document</span>
+<span class="sd">        :rtype: Dict</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">flow_doc</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">FLOW_TYPE</span><span class="p">,</span>
+            <span class="s1">&#39;description&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">NAME</span><span class="p">,</span>
+            <span class="s1">&#39;links&#39;</span><span class="p">:</span> <span class="p">[]</span>
+        <span class="p">}</span>
+
+        <span class="n">configuration</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_authentication_manager</span><span class="p">(</span><span class="n">db</span><span class="p">)</span><span class="o">.</span><span class="n">configuration</span>
+
+        <span class="k">for</span> <span class="n">identity_provider</span> <span class="ow">in</span> <span class="n">configuration</span><span class="o">.</span><span class="n">configuration</span><span class="o">.</span><span class="n">get_identity_providers</span><span class="p">(</span><span class="n">db</span><span class="p">):</span>
+            <span class="n">link</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="s1">&#39;rel&#39;</span><span class="p">:</span> <span class="s1">&#39;authenticate&#39;</span><span class="p">,</span>
+                <span class="s1">&#39;href&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_authenticate_url</span><span class="p">(</span><span class="n">db</span><span class="p">,</span> <span class="n">identity_provider</span><span class="o">.</span><span class="n">entity_id</span><span class="p">),</span>
+                <span class="s1">&#39;display_names&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_join_ui_info_items</span><span class="p">(</span><span class="n">identity_provider</span><span class="o">.</span><span class="n">ui_info</span><span class="o">.</span><span class="n">display_names</span><span class="p">),</span>
+                <span class="s1">&#39;descriptions&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_join_ui_info_items</span><span class="p">(</span><span class="n">identity_provider</span><span class="o">.</span><span class="n">ui_info</span><span class="o">.</span><span class="n">descriptions</span><span class="p">),</span>
+                <span class="s1">&#39;information_urls&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_join_ui_info_items</span><span class="p">(</span><span class="n">identity_provider</span><span class="o">.</span><span class="n">ui_info</span><span class="o">.</span><span class="n">information_urls</span><span class="p">),</span>
+                <span class="s1">&#39;privacy_statement_urls&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_join_ui_info_items</span><span class="p">(</span>
+                    <span class="n">identity_provider</span><span class="o">.</span><span class="n">ui_info</span><span class="o">.</span><span class="n">privacy_statement_urls</span><span class="p">),</span>
+                <span class="s1">&#39;logo_urls&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_join_ui_info_items</span><span class="p">(</span><span class="n">identity_provider</span><span class="o">.</span><span class="n">ui_info</span><span class="o">.</span><span class="n">logo_urls</span><span class="p">)</span>
+            <span class="p">}</span>
+
+            <span class="n">flow_doc</span><span class="p">[</span><span class="s1">&#39;links&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">link</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">flow_doc</span>
+
+    <span class="k">def</span> <span class="nf">_create_token</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">db</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">token</span><span class="p">,</span> <span class="n">valid_till</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Creates a Credential object that ties the given patron to the</span>
+<span class="sd">        given provider token.</span>
+
+<span class="sd">        :param db: Database session</span>
+<span class="sd">        :type db: sqlalchemy.orm.session.Session</span>
+
+<span class="sd">        :param patron: Patron object</span>
+<span class="sd">        :type patron: Patron</span>
+
+<span class="sd">        :param token: Token containing SAML subject&#39;s metadata</span>
+<span class="sd">        :type token: Dict</span>
+
+<span class="sd">        :param valid_till: The time till which the SAML subject is valid</span>
+<span class="sd">        :type valid_till: datetime.timedelta</span>
+
+<span class="sd">        :return: Credential object</span>
+<span class="sd">        :rtype: Credential</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">data_source</span><span class="p">,</span> <span class="n">ignore</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_token_data_source</span><span class="p">(</span><span class="n">db</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">Credential</span><span class="o">.</span><span class="n">temporary_token_create</span><span class="p">(</span>
+            <span class="n">db</span><span class="p">,</span> <span class="n">data_source</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">TOKEN_TYPE</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">valid_till</span><span class="p">,</span> <span class="n">token</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_create_authenticate_url</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">db</span><span class="p">,</span> <span class="n">idp_entity_id</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns an authentication link used by clients to authenticate patrons</span>
+
+<span class="sd">        :param db: Database session</span>
+<span class="sd">        :type db: sqlalchemy.orm.session.Session</span>
+
+<span class="sd">        :param idp_entity_id: Entity ID of the IdP which will be used for authentication</span>
+<span class="sd">        :type idp_entity_id: string</span>
+
+<span class="sd">        :return: URL for authentication using the chosen IdP</span>
+<span class="sd">        :rtype: string</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">library</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">library</span><span class="p">(</span><span class="n">db</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">url_for</span><span class="p">(</span>
+            <span class="s1">&#39;saml_authenticate&#39;</span><span class="p">,</span>
+            <span class="n">_external</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">library_short_name</span><span class="o">=</span><span class="n">library</span><span class="o">.</span><span class="n">short_name</span><span class="p">,</span>
+            <span class="n">provider</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">NAME</span><span class="p">,</span>
+            <span class="n">idp_entity_id</span><span class="o">=</span><span class="n">idp_entity_id</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_create_authentication_manager</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">db</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Creates a new SAML authentication manager</span>
+
+<span class="sd">        :param db: Database session</span>
+<span class="sd">        :type db: sqlalchemy.orm.session.Session</span>
+
+<span class="sd">        :return: SAML authentication manager</span>
+<span class="sd">        :rtype: SAMLAuthenticationManager</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">authentication_manager_factory</span> <span class="o">=</span> <span class="n">SAMLAuthenticationManagerFactory</span><span class="p">()</span>
+        <span class="n">authentication_manager</span> <span class="o">=</span> <span class="n">authentication_manager_factory</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">authentication_manager</span>
+
+    <span class="k">def</span> <span class="nf">_get_token_data_source</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">db</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns a token data source</span>
+
+<span class="sd">        :param db: Database session</span>
+<span class="sd">        :type db: sqlalchemy.orm.session.Session</span>
+
+<span class="sd">        :return: Token data source</span>
+<span class="sd">        :rtype: DataSource</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># FIXME: This code will probably not work in a situation where a library has multiple SAML</span>
+        <span class="c1">#  authentication mechanisms for its patrons.</span>
+        <span class="c1">#  It&#39;ll look up a Credential from this data source but it won&#39;t be able to tell which IdP it came from.</span>
+        <span class="k">return</span> <span class="n">get_one_or_create</span><span class="p">(</span>
+            <span class="n">db</span><span class="p">,</span> <span class="n">DataSource</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">TOKEN_DATA_SOURCE_NAME</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_join_ui_info_items</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ui_info_items</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Joins all UIInfo items (like, display names, descriptions, etc.) to a single list of dicts</span>
+
+<span class="sd">        :param ui_info_items: List of child UIInfo objects</span>
+<span class="sd">        :type: List[LocalizableMetadataItem]</span>
+
+<span class="sd">        :return: List of dicts containing UI information (display names, descriptions, etc.)</span>
+<span class="sd">        :rtype: List[Dict]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">if</span> <span class="n">ui_info_items</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">ui_info_item</span> <span class="ow">in</span> <span class="n">ui_info_items</span><span class="p">:</span>
+                <span class="n">result</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
+                    <span class="s1">&#39;value&#39;</span><span class="p">:</span> <span class="n">ui_info_item</span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
+                    <span class="s1">&#39;language&#39;</span><span class="p">:</span> <span class="n">ui_info_item</span><span class="o">.</span><span class="n">language</span>
+                <span class="p">})</span>
+
+        <span class="k">return</span> <span class="n">result</span>
+
+    <span class="k">def</span> <span class="nf">_run_self_tests</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">):</span>
+        <span class="k">pass</span>
+
+<div class="viewcode-block" id="SAMLWebSSOAuthenticationProvider.authenticate"><a class="viewcode-back" href="../../../api.saml.html#api.saml.provider.SAMLWebSSOAuthenticationProvider.authenticate">[docs]</a>    <span class="k">def</span> <span class="nf">authenticate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">db</span><span class="p">,</span> <span class="n">header</span><span class="p">):</span>
+        <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="SAMLWebSSOAuthenticationProvider.authenticated_patron"><a class="viewcode-back" href="../../../api.saml.html#api.saml.provider.SAMLWebSSOAuthenticationProvider.authenticated_patron">[docs]</a>    <span class="k">def</span> <span class="nf">authenticated_patron</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">db</span><span class="p">,</span> <span class="n">token</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Go from a token to an authenticated Patron.</span>
+
+<span class="sd">        :param db: Database session</span>
+<span class="sd">        :type db: sqlalchemy.orm.session.Session</span>
+
+<span class="sd">        :param token: The provider token extracted from the Authorization</span>
+<span class="sd">            header. This is _not_ the bearer token found in</span>
+<span class="sd">            the Authorization header; it&#39;s the provider-specific token</span>
+<span class="sd">            embedded in that token.</span>
+<span class="sd">        :type token: Dict</span>
+
+<span class="sd">        :return: A Patron, if one can be authenticated. None, if the</span>
+<span class="sd">            credentials do not authenticate any particular patron. A</span>
+<span class="sd">            ProblemDetail if an error occurs.</span>
+<span class="sd">        :rtype: Union[Patron, ProblemDetail]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">data_source</span><span class="p">,</span> <span class="n">ignore</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_token_data_source</span><span class="p">(</span><span class="n">db</span><span class="p">)</span>
+        <span class="n">credential</span> <span class="o">=</span> <span class="n">Credential</span><span class="o">.</span><span class="n">lookup_by_token</span><span class="p">(</span>
+            <span class="n">db</span><span class="p">,</span> <span class="n">data_source</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">TOKEN_TYPE</span><span class="p">,</span> <span class="n">token</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">credential</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">credential</span><span class="o">.</span><span class="n">patron</span>
+
+        <span class="c1"># This token wasn&#39;t in our database, or was expired. The</span>
+        <span class="c1"># patron will have to log in through the SAML provider again</span>
+        <span class="c1"># to get a new token.</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
+
+<div class="viewcode-block" id="SAMLWebSSOAuthenticationProvider.get_authentication_manager"><a class="viewcode-back" href="../../../api.saml.html#api.saml.provider.SAMLWebSSOAuthenticationProvider.get_authentication_manager">[docs]</a>    <span class="k">def</span> <span class="nf">get_authentication_manager</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">db</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns SAML authentication manager used by this provider</span>
+
+<span class="sd">        :param db: Database session</span>
+<span class="sd">        :type db: sqlalchemy.orm.session.Session</span>
+
+<span class="sd">        :return: SAML authentication manager used by this provider</span>
+<span class="sd">        :rtype: SAMLAuthenticationManager</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_authentication_manager</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_authentication_manager</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_authentication_manager</span><span class="p">(</span><span class="n">db</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_authentication_manager</span></div>
+
+<div class="viewcode-block" id="SAMLWebSSOAuthenticationProvider.remote_patron_lookup"><a class="viewcode-back" href="../../../api.saml.html#api.saml.provider.SAMLWebSSOAuthenticationProvider.remote_patron_lookup">[docs]</a>    <span class="k">def</span> <span class="nf">remote_patron_lookup</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subject</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Creates a PatronData object based on Subject object containing SAML Subject and AttributeStatement</span>
+
+<span class="sd">        :param subject: Subject object containing SAML Subject and AttributeStatement</span>
+<span class="sd">        :type subject: api.saml.metadata.Subject</span>
+
+<span class="sd">        :return: PatronData object containing information about the authenticated SAML subject or</span>
+<span class="sd">            ProblemDetail object in the case of any errors</span>
+<span class="sd">        :rtype: Union[PatronData, ProblemDetail]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">subject</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">SAML_INVALID_SUBJECT</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="s1">&#39;Subject is empty&#39;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">subject</span><span class="p">,</span> <span class="n">PatronData</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">subject</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">subject</span><span class="p">,</span> <span class="n">Subject</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">SAML_INVALID_SUBJECT</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="s1">&#39;Incorrect subject type&#39;</span><span class="p">)</span>
+
+        <span class="n">extractor</span> <span class="o">=</span> <span class="n">SubjectUIDExtractor</span><span class="p">()</span>
+        <span class="n">uid</span> <span class="o">=</span> <span class="n">extractor</span><span class="o">.</span><span class="n">extract</span><span class="p">(</span><span class="n">subject</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">uid</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">SAML_INVALID_SUBJECT</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="s1">&#39;Subject does not have a unique ID&#39;</span><span class="p">)</span>
+
+        <span class="n">patron_data</span> <span class="o">=</span> <span class="n">PatronData</span><span class="p">(</span>
+            <span class="n">permanent_id</span><span class="o">=</span><span class="n">uid</span><span class="p">,</span>
+            <span class="n">authorization_identifier</span><span class="o">=</span><span class="n">uid</span><span class="p">,</span>
+            <span class="n">external_type</span><span class="o">=</span><span class="s1">&#39;A&#39;</span><span class="p">,</span>
+            <span class="n">complete</span><span class="o">=</span><span class="kc">True</span>
+        <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">patron_data</span></div>
+
+<div class="viewcode-block" id="SAMLWebSSOAuthenticationProvider.saml_callback"><a class="viewcode-back" href="../../../api.saml.html#api.saml.provider.SAMLWebSSOAuthenticationProvider.saml_callback">[docs]</a>    <span class="k">def</span> <span class="nf">saml_callback</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">db</span><span class="p">,</span> <span class="n">subject</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Verifies the SAML subject, generates a Bearer token in the case of successful authentication and returns it</span>
+
+<span class="sd">        :param db: Database session</span>
+<span class="sd">        :type db: sqlalchemy.orm.session.Session</span>
+
+<span class="sd">        :param subject: Subject object containing SAML Subject and AttributeStatement</span>
+<span class="sd">        :type subject: api.saml.metadata.Subject</span>
+
+<span class="sd">        :return: A ProblemDetail if there&#39;s a problem. Otherwise, a</span>
+<span class="sd">            3-tuple (Credential, Patron, PatronData). The Credential</span>
+<span class="sd">            contains the access token provided by the SAML provider. The</span>
+<span class="sd">            Patron object represents the authenticated Patron, and the</span>
+<span class="sd">            PatronData object includes information about the patron</span>
+<span class="sd">            obtained from the OAuth provider which cannot be stored in the</span>
+<span class="sd">            circulation manager&#39;s database, but which should be passed on</span>
+<span class="sd">            to the client.</span>
+<span class="sd">        :rtype: Union[Tuple[Credential, Patron, PatronData], ProblemDetail]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">patron_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">remote_patron_lookup</span><span class="p">(</span><span class="n">subject</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">patron_data</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">patron_data</span>
+
+        <span class="c1"># Convert the PatronData into a Patron object</span>
+        <span class="n">patron</span><span class="p">,</span> <span class="n">is_new</span> <span class="o">=</span> <span class="n">patron_data</span><span class="o">.</span><span class="n">get_or_create_patron</span><span class="p">(</span><span class="n">db</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">library_id</span><span class="p">)</span>
+
+        <span class="c1"># Create a credential for the Patron</span>
+        <span class="n">token</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">subject</span><span class="p">,</span> <span class="bp">cls</span><span class="o">=</span><span class="n">SubjectJSONEncoder</span><span class="p">)</span>
+        <span class="n">credential</span><span class="p">,</span> <span class="n">is_new</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_token</span><span class="p">(</span><span class="n">db</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">token</span><span class="p">,</span> <span class="n">subject</span><span class="o">.</span><span class="n">valid_till</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">credential</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">patron_data</span></div></div>
+
+
+<div class="viewcode-block" id="validator_factory"><a class="viewcode-back" href="../../../api.saml.html#api.saml.provider.validator_factory">[docs]</a><span class="k">def</span> <span class="nf">validator_factory</span><span class="p">():</span>
+    <span class="k">return</span> <span class="n">SAMLSettingsValidator</span><span class="p">(</span><span class="n">SAMLMetadataParser</span><span class="p">())</span></div>
+
+
+<span class="n">AuthenticationProvider</span> <span class="o">=</span> <span class="n">SAMLWebSSOAuthenticationProvider</span>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">Library Simplified Circulation Manager</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../modules.html">circulation</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

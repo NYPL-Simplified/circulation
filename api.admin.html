@@ -905,6 +905,41 @@ start and end times.</p>
 <div class="section" id="module-api.admin.validator">
 <span id="api-admin-validator-module"></span><h2>api.admin.validator module<a class="headerlink" href="#module-api.admin.validator" title="Permalink to this headline">¶</a></h2>
 <dl class="class">
+<dt id="api.admin.validator.PatronAuthenticationValidatorFactory">
+<em class="property">class </em><code class="descclassname">api.admin.validator.</code><code class="descname">PatronAuthenticationValidatorFactory</code><a class="reference internal" href="_modules/api/admin/validator.html#PatronAuthenticationValidatorFactory"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.validator.PatronAuthenticationValidatorFactory" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Creates Validator instances for particular authentication protocols</p>
+<dl class="attribute">
+<dt id="api.admin.validator.PatronAuthenticationValidatorFactory.VALIDATOR_CLASS_NAME">
+<code class="descname">VALIDATOR_CLASS_NAME</code><em class="property"> = 'Validator'</em><a class="headerlink" href="#api.admin.validator.PatronAuthenticationValidatorFactory.VALIDATOR_CLASS_NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.admin.validator.PatronAuthenticationValidatorFactory.VALIDATOR_FACTORY">
+<code class="descname">VALIDATOR_FACTORY</code><em class="property"> = 'validator_factory'</em><a class="headerlink" href="#api.admin.validator.PatronAuthenticationValidatorFactory.VALIDATOR_FACTORY" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="api.admin.validator.PatronAuthenticationValidatorFactory.create">
+<code class="descname">create</code><span class="sig-paren">(</span><em>protocol</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/validator.html#PatronAuthenticationValidatorFactory.create"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.validator.PatronAuthenticationValidatorFactory.create" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a configured validator for a specific protocol</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>protocol</strong> (<em>string</em>) – Patron authentication protocol</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">Validator object (if there is any for the specific protocol)</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body">Optional[<a class="reference internal" href="#api.admin.validator.Validator" title="api.admin.validator.Validator">Validator</a>]</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
 <dt id="api.admin.validator.Validator">
 <em class="property">class </em><code class="descclassname">api.admin.validator.</code><code class="descname">Validator</code><a class="reference internal" href="_modules/api/admin/validator.html#Validator"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.validator.Validator" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>

@@ -90,6 +90,20 @@
 <li class="toctree-l2"><a class="reference internal" href="api.clever.html#module-api.clever">Module contents</a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="api.saml.html">api.saml package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api.saml.html#submodules">Submodules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.saml.html#module-api.saml.auth">api.saml.auth module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.saml.html#module-api.saml.configuration">api.saml.configuration module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.saml.html#module-api.saml.controller">api.saml.controller module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.saml.html#module-api.saml.exceptions">api.saml.exceptions module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.saml.html#module-api.saml.loader">api.saml.loader module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.saml.html#module-api.saml.metadata">api.saml.metadata module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.saml.html#module-api.saml.parser">api.saml.parser module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.saml.html#module-api.saml.provider">api.saml.provider module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.saml.html#module-api.saml.validator">api.saml.validator module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.saml.html#module-api.saml">Module contents</a></li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="api.sip.html">api.sip package</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="api.sip.html#submodules">Submodules</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api.sip.html#module-api.sip.client">api.sip.client module</a></li>
@@ -1056,6 +1070,53 @@ what external_type_regular_expression says.</p>
 <code class="descname">populate_authenticators</code><span class="sig-paren">(</span><em>_db</em>, <em>analytics</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/authenticator.html#Authenticator.populate_authenticators"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.authenticator.Authenticator.populate_authenticators" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
+<dl class="method">
+<dt id="api.authenticator.Authenticator.saml_provider_lookup">
+<code class="descname">saml_provider_lookup</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/authenticator.html#Authenticator.saml_provider_lookup"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.authenticator.Authenticator.saml_provider_lookup" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="api.authenticator.BaseSAMLAuthenticationProvider">
+<em class="property">class </em><code class="descclassname">api.authenticator.</code><code class="descname">BaseSAMLAuthenticationProvider</code><span class="sig-paren">(</span><em>library</em>, <em>integration</em>, <em>analytics=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/authenticator.html#BaseSAMLAuthenticationProvider"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.authenticator.BaseSAMLAuthenticationProvider" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#api.authenticator.AuthenticationProvider" title="api.authenticator.AuthenticationProvider"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.authenticator.AuthenticationProvider</span></code></a>, <a class="reference internal" href="#api.authenticator.BearerTokenSigner" title="api.authenticator.BearerTokenSigner"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.authenticator.BearerTokenSigner</span></code></a></p>
+<p>Base class for SAML authentication providers</p>
+<dl class="attribute">
+<dt id="api.authenticator.BaseSAMLAuthenticationProvider.DESCRIPTION">
+<code class="descname">DESCRIPTION</code><em class="property"> = l'SAML 2.0 authentication provider'</em><a class="headerlink" href="#api.authenticator.BaseSAMLAuthenticationProvider.DESCRIPTION" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.authenticator.BaseSAMLAuthenticationProvider.DISPLAY_NAME">
+<code class="descname">DISPLAY_NAME</code><em class="property"> = 'SAML 2.0'</em><a class="headerlink" href="#api.authenticator.BaseSAMLAuthenticationProvider.DISPLAY_NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.authenticator.BaseSAMLAuthenticationProvider.FLOW_TYPE">
+<code class="descname">FLOW_TYPE</code><em class="property"> = 'http://librarysimplified.org/authtype/SAML-2.0'</em><a class="headerlink" href="#api.authenticator.BaseSAMLAuthenticationProvider.FLOW_TYPE" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.authenticator.BaseSAMLAuthenticationProvider.NAME">
+<code class="descname">NAME</code><em class="property"> = 'SAML 2.0'</em><a class="headerlink" href="#api.authenticator.BaseSAMLAuthenticationProvider.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.authenticator.BaseSAMLAuthenticationProvider.SETTINGS">
+<code class="descname">SETTINGS</code><em class="property"> = [{'category': 'SP', 'description': l'SAML metadata of the Circulation Manager's Service Provider in an XML format. MUST contain exactly one SPSSODescriptor tag with at least one AssertionConsumerService tag with Binding attribute set to urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST', 'required': True, 'label': l'Service Provider's XML metadata', 'key': 'sp_xml_metadata', 'type': 'textarea'}, {'category': 'SP', 'description': l'Private key used for encrypting SAML requests', 'required': False, 'label': l'Service Provider's private key', 'key': 'sp_private_key', 'type': 'textarea'}, {'category': 'SP', 'description': l'If strict is True, then the Python Toolkit will reject unsigned or unencrypted messages if it expects them to be signed or encrypted. Also it will reject the messages if the SAML standard is not strictly followed. Destination, NameId, Conditions ... are validated too.', 'required': False, 'label': l'Service Provider's strict mode', 'key': 'strict', 'type': 'number'}, {'category': 'SP', 'description': l'Enable debug mode (outputs errors)', 'required': False, 'label': l'Service Provider's debug mode', 'key': 'debug', 'type': 'number'}, {'category': 'IDP', 'description': l'SAML metadata of Identity Providers in an XML format. MAY contain multiple IDPSSODescriptor tags but each of them MUST contain at least one SingleSignOnService tag with Binding attribute set to urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect', 'required': True, 'label': l'Identity Provider's XML metadata', 'key': 'idp_xml_metadata', 'type': 'textarea'}]</em><a class="headerlink" href="#api.authenticator.BaseSAMLAuthenticationProvider.SETTINGS" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.authenticator.BaseSAMLAuthenticationProvider.TOKEN_DATA_SOURCE_NAME">
+<code class="descname">TOKEN_DATA_SOURCE_NAME</code><em class="property"> = 'SAML 2.0'</em><a class="headerlink" href="#api.authenticator.BaseSAMLAuthenticationProvider.TOKEN_DATA_SOURCE_NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.authenticator.BaseSAMLAuthenticationProvider.TOKEN_TYPE">
+<code class="descname">TOKEN_TYPE</code><em class="property"> = 'SAML 2.0 token'</em><a class="headerlink" href="#api.authenticator.BaseSAMLAuthenticationProvider.TOKEN_TYPE" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
 </dd></dl>
 
 <dl class="class">
@@ -1350,6 +1411,36 @@ raising CannotLoadConfiguration if none is configured.</p>
 
 </dd></dl>
 
+<dl class="class">
+<dt id="api.authenticator.BearerTokenSigner">
+<em class="property">class </em><code class="descclassname">api.authenticator.</code><code class="descname">BearerTokenSigner</code><a class="reference internal" href="_modules/api/authenticator.html#BearerTokenSigner"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.authenticator.BearerTokenSigner" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Mixin class used for storing a secret used for signing Bearer tokens</p>
+<dl class="attribute">
+<dt id="api.authenticator.BearerTokenSigner.BEARER_TOKEN_SIGNING_SECRET">
+<code class="descname">BEARER_TOKEN_SIGNING_SECRET</code><em class="property"> = 'bearer_token_signing_secret'</em><a class="headerlink" href="#api.authenticator.BearerTokenSigner.BEARER_TOKEN_SIGNING_SECRET" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="classmethod">
+<dt id="api.authenticator.BearerTokenSigner.bearer_token_signing_secret">
+<em class="property">classmethod </em><code class="descname">bearer_token_signing_secret</code><span class="sig-paren">(</span><em>db</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/authenticator.html#BearerTokenSigner.bearer_token_signing_secret"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.authenticator.BearerTokenSigner.bearer_token_signing_secret" title="Permalink to this definition">¶</a></dt>
+<dd><p>Find or generate the site-wide bearer token signing secret.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>db</strong> (<em>sqlalchemy.orm.session.Session</em>) – Database session</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">ConfigurationSetting object containing the signing secret</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference internal" href="core.model.html#core.model.configuration.ConfigurationSetting" title="core.model.configuration.ConfigurationSetting">ConfigurationSetting</a></td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
 <dl class="exception">
 <dt id="api.authenticator.CannotCreateLocalPatron">
 <em class="property">exception </em><code class="descclassname">api.authenticator.</code><code class="descname">CannotCreateLocalPatron</code><a class="reference internal" href="_modules/api/authenticator.html#CannotCreateLocalPatron"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.authenticator.CannotCreateLocalPatron" title="Permalink to this definition">¶</a></dt>
@@ -1373,13 +1464,13 @@ not put it into our database schema.</p>
 
 <dl class="class">
 <dt id="api.authenticator.LibraryAuthenticator">
-<em class="property">class </em><code class="descclassname">api.authenticator.</code><code class="descname">LibraryAuthenticator</code><span class="sig-paren">(</span><em>_db</em>, <em>library</em>, <em>basic_auth_provider=None</em>, <em>oauth_providers=None</em>, <em>bearer_token_signing_secret=None</em>, <em>authentication_document_annotator=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/authenticator.html#LibraryAuthenticator"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.authenticator.LibraryAuthenticator" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="descclassname">api.authenticator.</code><code class="descname">LibraryAuthenticator</code><span class="sig-paren">(</span><em>_db</em>, <em>library</em>, <em>basic_auth_provider=None</em>, <em>oauth_providers=None</em>, <em>saml_providers=None</em>, <em>bearer_token_signing_secret=None</em>, <em>authentication_document_annotator=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/authenticator.html#LibraryAuthenticator"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.authenticator.LibraryAuthenticator" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>Use the registered AuthenticationProviders to turn incoming
 credentials into Patron objects.</p>
 <dl class="method">
-<dt id="api.authenticator.LibraryAuthenticator.assert_ready_for_oauth">
-<code class="descname">assert_ready_for_oauth</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/authenticator.html#LibraryAuthenticator.assert_ready_for_oauth"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.authenticator.LibraryAuthenticator.assert_ready_for_oauth" title="Permalink to this definition">¶</a></dt>
+<dt id="api.authenticator.LibraryAuthenticator.assert_ready_for_token_signing">
+<code class="descname">assert_ready_for_token_signing</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/authenticator.html#LibraryAuthenticator.assert_ready_for_token_signing"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.authenticator.LibraryAuthenticator.assert_ready_for_token_signing" title="Permalink to this definition">¶</a></dt>
 <dd><p>If this LibraryAuthenticator has OAuth providers, ensure that it
 also has a secret it can use to sign bearer tokens.</p>
 </dd></dl>
@@ -1548,6 +1639,18 @@ a way of authenticating patrons.</td>
 </table>
 </dd></dl>
 
+<dl class="method">
+<dt id="api.authenticator.LibraryAuthenticator.register_saml_provider">
+<code class="descname">register_saml_provider</code><span class="sig-paren">(</span><em>provider</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/authenticator.html#LibraryAuthenticator.register_saml_provider"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.authenticator.LibraryAuthenticator.register_saml_provider" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="api.authenticator.LibraryAuthenticator.saml_provider_lookup">
+<code class="descname">saml_provider_lookup</code><span class="sig-paren">(</span><em>provider_name</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/authenticator.html#LibraryAuthenticator.saml_provider_lookup"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.authenticator.LibraryAuthenticator.saml_provider_lookup" title="Permalink to this definition">¶</a></dt>
+<dd><p>Look up the SAMLAuthenticationProvider with the given name. If that
+doesn’t work, return an appropriate ProblemDetail.</p>
+</dd></dl>
+
 <dl class="attribute">
 <dt id="api.authenticator.LibraryAuthenticator.supports_patron_authentication">
 <code class="descname">supports_patron_authentication</code><a class="headerlink" href="#api.authenticator.LibraryAuthenticator.supports_patron_authentication" title="Permalink to this definition">¶</a></dt>
@@ -1559,12 +1662,7 @@ a way of authenticating patrons.</td>
 <dl class="class">
 <dt id="api.authenticator.OAuthAuthenticationProvider">
 <em class="property">class </em><code class="descclassname">api.authenticator.</code><code class="descname">OAuthAuthenticationProvider</code><span class="sig-paren">(</span><em>library</em>, <em>integration</em>, <em>analytics=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/authenticator.html#OAuthAuthenticationProvider"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.authenticator.OAuthAuthenticationProvider" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="#api.authenticator.AuthenticationProvider" title="api.authenticator.AuthenticationProvider"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.authenticator.AuthenticationProvider</span></code></a></p>
-<dl class="attribute">
-<dt id="api.authenticator.OAuthAuthenticationProvider.BEARER_TOKEN_SIGNING_SECRET">
-<code class="descname">BEARER_TOKEN_SIGNING_SECRET</code><em class="property"> = 'bearer_token_signing_secret'</em><a class="headerlink" href="#api.authenticator.OAuthAuthenticationProvider.BEARER_TOKEN_SIGNING_SECRET" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
+<dd><p>Bases: <a class="reference internal" href="#api.authenticator.AuthenticationProvider" title="api.authenticator.AuthenticationProvider"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.authenticator.AuthenticationProvider</span></code></a>, <a class="reference internal" href="#api.authenticator.BearerTokenSigner" title="api.authenticator.BearerTokenSigner"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.authenticator.BearerTokenSigner</span></code></a></p>
 <dl class="attribute">
 <dt id="api.authenticator.OAuthAuthenticationProvider.DEFAULT_TOKEN_EXPIRATION_DAYS">
 <code class="descname">DEFAULT_TOKEN_EXPIRATION_DAYS</code><em class="property"> = 42</em><a class="headerlink" href="#api.authenticator.OAuthAuthenticationProvider.DEFAULT_TOKEN_EXPIRATION_DAYS" title="Permalink to this definition">¶</a></dt>
@@ -1604,12 +1702,6 @@ ProblemDetail if an error occurs.</td>
 </tr>
 </tbody>
 </table>
-</dd></dl>
-
-<dl class="classmethod">
-<dt id="api.authenticator.OAuthAuthenticationProvider.bearer_token_signing_secret">
-<em class="property">classmethod </em><code class="descname">bearer_token_signing_secret</code><span class="sig-paren">(</span><em>_db</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/authenticator.html#OAuthAuthenticationProvider.bearer_token_signing_secret"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.authenticator.OAuthAuthenticationProvider.bearer_token_signing_secret" title="Permalink to this definition">¶</a></dt>
-<dd><p>Find or generate the site-wide bearer token signing secret.</p>
 </dd></dl>
 
 <dl class="method">
@@ -3318,12 +3410,12 @@ changes will be overwritten by run_once().</li>
 
 <dl class="attribute">
 <dt id="api.bibliotheca.ErrorParser.hold_limit_reached">
-<code class="descname">hold_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x51f3d70&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.hold_limit_reached" title="Permalink to this definition">¶</a></dt>
+<code class="descname">hold_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x4fb97f0&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.hold_limit_reached" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="api.bibliotheca.ErrorParser.loan_limit_reached">
-<code class="descname">loan_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x53819f0&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.loan_limit_reached" title="Permalink to this definition">¶</a></dt>
+<code class="descname">loan_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x4fb9520&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.loan_limit_reached" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -3338,7 +3430,7 @@ changes will be overwritten by run_once().</li>
 
 <dl class="attribute">
 <dt id="api.bibliotheca.ErrorParser.wrong_status">
-<code class="descname">wrong_status</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x53f07f0&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.wrong_status" title="Permalink to this definition">¶</a></dt>
+<code class="descname">wrong_status</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x4fb91d0&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.wrong_status" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -4921,7 +5013,7 @@ policy.</p>
 
 <dl class="attribute">
 <dt id="api.config.Configuration.SITEWIDE_SETTINGS">
-<code class="descname">SITEWIDE_SETTINGS</code><em class="property"> = [{'format': 'url', 'required': True, 'key': u'base_url', 'label': l'Base url of the application'}, {'default': 'INFO', 'type': 'select', 'options': [{'key': 'DEBUG', 'label': l'Debug'}, {'key': 'INFO', 'label': l'Info'}, {'key': 'WARN', 'label': l'Warn'}, {'key': 'ERROR', 'label': l'Error'}], 'key': 'log_level', 'label': l'Log Level'}, {'default': 'simplified', 'required': True, 'description': l'Log messages originating from this application will be tagged with this name. If you run multiple instances, giving each one a different application name will help you determine which instance is having problems.', 'key': 'log_app', 'label': l'Application name'}, {'description': l'Database logs are extremely verbose, so unless you're diagnosing a database-related problem, it's a good idea to set a higher log level for database messages.', 'default': 'WARN', 'label': l'Database Log Level', 'key': 'database_log_level', 'type': 'select', 'options': [{'key': 'DEBUG', 'label': l'Debug'}, {'key': 'INFO', 'label': l'Info'}, {'key': 'WARN', 'label': l'Warn'}, {'key': 'ERROR', 'label': l'Error'}]}, {'default': None, 'required': True, 'description': l'Audiobooks from these data sources will be hidden from the collection, even if they would otherwise show up as available.', 'key': 'excluded_audio_data_sources', 'label': l'Excluded audiobook sources'}, {'required': True, 'key': 'bearer_token_signing_secret', 'label': l'Internal signing secret for OAuth bearer tokens'}, {'required': True, 'key': u'secret_key', 'label': l'Internal secret key for admin interface cookies'}, {'description': l'You can set this to '*' in development, but you must use a real URL in production in order to prevent unauthorized CORS requests.', 'format': 'url', 'required': True, 'label': l'URL of the web catalog for patrons', 'key': u'Patron Web Client', 'allowed': ['*']}, {'required': True, 'type': 'number', 'key': u'static_file_cache_time', 'label': l'Cache time for static images and JS and CSS files (in seconds)'}, {'default': 'https://librarysimplified.org/simplyetermsofservice2/', 'required': False, 'description': l'If your inclusion in the SimplyE mobile app is governed by terms other than the default, put the URL to those terms in this link so that librarians will have access to them. This URL will be used for all libraries on this circulation manager.', 'key': 'tos_href', 'label': l'Custom Terms of Service link'}, {'default': &quot;Terms of Service for presenting e-reading materials through NYPL's SimplyE mobile app&quot;, 'required': False, 'description': l'Custom text for the Terms of Service link in the footer of these administrative interface pages. This is primarily useful if you're not connecting this circulation manager to the SimplyE mobile app. This text will be used for all libraries on this circulation manager.', 'key': 'tos_text', 'label': l'Custom Terms of Service link text'}]</em><a class="headerlink" href="#api.config.Configuration.SITEWIDE_SETTINGS" title="Permalink to this definition">¶</a></dt>
+<code class="descname">SITEWIDE_SETTINGS</code><em class="property"> = [{'format': 'url', 'required': True, 'key': u'base_url', 'label': l'Base url of the application'}, {'default': 'INFO', 'type': 'select', 'options': [{'key': 'DEBUG', 'label': l'Debug'}, {'key': 'INFO', 'label': l'Info'}, {'key': 'WARN', 'label': l'Warn'}, {'key': 'ERROR', 'label': l'Error'}], 'key': 'log_level', 'label': l'Log Level'}, {'default': 'simplified', 'required': True, 'description': l'Log messages originating from this application will be tagged with this name. If you run multiple instances, giving each one a different application name will help you determine which instance is having problems.', 'key': 'log_app', 'label': l'Application name'}, {'description': l'Database logs are extremely verbose, so unless you're diagnosing a database-related problem, it's a good idea to set a higher log level for database messages.', 'default': 'WARN', 'label': l'Database Log Level', 'key': 'database_log_level', 'type': 'select', 'options': [{'key': 'DEBUG', 'label': l'Debug'}, {'key': 'INFO', 'label': l'Info'}, {'key': 'WARN', 'label': l'Warn'}, {'key': 'ERROR', 'label': l'Error'}]}, {'default': None, 'required': True, 'description': l'Audiobooks from these data sources will be hidden from the collection, even if they would otherwise show up as available.', 'key': 'excluded_audio_data_sources', 'label': l'Excluded audiobook sources'}, {'required': True, 'key': 'bearer_token_signing_secret', 'label': l'Internal signing secret for OAuth bearer tokens'}, {'required': True, 'key': u'secret_key', 'label': l'Internal secret key for admin interface cookies'}, {'description': l'Only web applications from these hosts can access this circulation manager. This can be a single hostname ('catalog.library.org'), or a regular expression that matches many hostnames ('.*\.libraryvendor\.com'). You can also set this to '*' to allow access from any host, but you must not do this in a production environment -- only during development.', 'format': 'string', 'required': True, 'label': l'Hostnames for web application access', 'key': u'Patron Web Client', 'allowed': ['*']}, {'required': True, 'type': 'number', 'key': u'static_file_cache_time', 'label': l'Cache time for static images and JS and CSS files (in seconds)'}, {'default': 'https://librarysimplified.org/simplyetermsofservice2/', 'required': False, 'description': l'If your inclusion in the SimplyE mobile app is governed by terms other than the default, put the URL to those terms in this link so that librarians will have access to them. This URL will be used for all libraries on this circulation manager.', 'key': 'tos_href', 'label': l'Custom Terms of Service link'}, {'default': &quot;Terms of Service for presenting e-reading materials through NYPL's SimplyE mobile app&quot;, 'required': False, 'description': l'Custom text for the Terms of Service link in the footer of these administrative interface pages. This is primarily useful if you're not connecting this circulation manager to the SimplyE mobile app. This text will be used for all libraries on this circulation manager.', 'key': 'tos_text', 'label': l'Custom Terms of Service link text'}]</em><a class="headerlink" href="#api.config.Configuration.SITEWIDE_SETTINGS" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -8574,7 +8666,7 @@ the patron belongs to the library associated with thie BasicAuthenticationProvid
 
 <dl class="attribute">
 <dt id="api.millenium_patron.MockMilleniumPatronAPI.the_future">
-<code class="descname">the_future</code><em class="property"> = datetime.datetime(2020, 6, 22, 20, 12, 26, 424635)</em><a class="headerlink" href="#api.millenium_patron.MockMilleniumPatronAPI.the_future" title="Permalink to this definition">¶</a></dt>
+<code class="descname">the_future</code><em class="property"> = datetime.datetime(2020, 6, 29, 13, 17, 37, 346197)</em><a class="headerlink" href="#api.millenium_patron.MockMilleniumPatronAPI.the_future" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -13180,6 +13272,16 @@ must have a library_short_name argument.</p>
 <dl class="function">
 <dt id="api.routes.revoke_loan_or_hold">
 <code class="descclassname">api.routes.</code><code class="descname">revoke_loan_or_hold</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#revoke_loan_or_hold"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.revoke_loan_or_hold" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.routes.saml_authenticate">
+<code class="descclassname">api.routes.</code><code class="descname">saml_authenticate</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#saml_authenticate"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.saml_authenticate" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.routes.saml_callback">
+<code class="descclassname">api.routes.</code><code class="descname">saml_callback</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#saml_callback"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.saml_callback" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">

@@ -1,0 +1,293 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>api.saml.auth &#8212; Library Simplified Circulation Manager  documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for api.saml.auth</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">from</span> <span class="nn">urlparse</span> <span class="kn">import</span> <span class="n">urlparse</span>
+
+<span class="kn">from</span> <span class="nn">flask</span> <span class="kn">import</span> <span class="n">request</span>
+<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
+<span class="kn">from</span> <span class="nn">onelogin.saml2.auth</span> <span class="kn">import</span> <span class="n">OneLogin_Saml2_Auth</span>
+
+<span class="kn">from</span> <span class="nn">api.saml.configuration</span> <span class="kn">import</span> <span class="n">SAMLConfigurationStorage</span><span class="p">,</span> <span class="n">SAMLConfiguration</span><span class="p">,</span> \
+    <span class="n">SAMLOneLoginConfiguration</span>
+<span class="kn">from</span> <span class="nn">api.saml.metadata</span> <span class="kn">import</span> <span class="n">NameID</span><span class="p">,</span> <span class="n">AttributeStatement</span><span class="p">,</span> <span class="n">Subject</span>
+<span class="kn">from</span> <span class="nn">api.saml.parser</span> <span class="kn">import</span> <span class="n">SAMLMetadataParser</span>
+<span class="kn">from</span> <span class="nn">core.problem_details</span> <span class="kn">import</span> <span class="o">*</span>
+
+<span class="n">SAML_INCORRECT_RESPONSE</span> <span class="o">=</span> <span class="n">pd</span><span class="p">(</span>
+    <span class="s1">&#39;http://librarysimplified.org/terms/problem/saml/incorrect-response&#39;</span><span class="p">,</span>
+    <span class="n">status_code</span><span class="o">=</span><span class="mi">400</span><span class="p">,</span>
+    <span class="n">title</span><span class="o">=</span><span class="n">_</span><span class="p">(</span><span class="s1">&#39;SAML incorrect response.&#39;</span><span class="p">),</span>
+    <span class="n">detail</span><span class="o">=</span><span class="n">_</span><span class="p">(</span><span class="s1">&#39;SAML incorrect response.&#39;</span><span class="p">)</span>
+<span class="p">)</span>
+
+
+<span class="n">SAML_AUTHENTICATION_ERROR</span> <span class="o">=</span> <span class="n">pd</span><span class="p">(</span>
+    <span class="s1">&#39;http://librarysimplified.org/terms/problem/saml/authentication-error&#39;</span><span class="p">,</span>
+    <span class="n">status_code</span><span class="o">=</span><span class="mi">401</span><span class="p">,</span>
+    <span class="n">title</span><span class="o">=</span><span class="n">_</span><span class="p">(</span><span class="s1">&#39;SAML authentication error.&#39;</span><span class="p">),</span>
+    <span class="n">detail</span><span class="o">=</span><span class="n">_</span><span class="p">(</span><span class="s1">&#39;SAML authentication error.&#39;</span><span class="p">)</span>
+<span class="p">)</span>
+
+
+<div class="viewcode-block" id="SAMLAuthenticationManager"><a class="viewcode-back" href="../../../api.saml.html#api.saml.auth.SAMLAuthenticationManager">[docs]</a><span class="k">class</span> <span class="nc">SAMLAuthenticationManager</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Implements SAML authentication process&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">configuration</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Initializes a new instance of SAMLAuthenticationManager</span>
+
+<span class="sd">        :param configuration: OneLoginConfiguration object</span>
+<span class="sd">        :type configuration: SAMLOneLoginConfiguration</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_configuration</span> <span class="o">=</span> <span class="n">configuration</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_get_request_data</span><span class="p">():</span>
+        <span class="sd">&quot;&quot;&quot;Maps Flask request to what the SAML toolkit expects</span>
+
+<span class="sd">        :return: Dictionary containing information about the request in the format SAML toolkit expects</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># If server is behind proxys or balancers use the HTTP_X_FORWARDED fields</span>
+        <span class="n">url_data</span> <span class="o">=</span> <span class="n">urlparse</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">url</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s1">&#39;https&#39;</span><span class="p">:</span> <span class="s1">&#39;on&#39;</span> <span class="k">if</span> <span class="n">request</span><span class="o">.</span><span class="n">scheme</span> <span class="o">==</span> <span class="s1">&#39;https&#39;</span> <span class="k">else</span> <span class="s1">&#39;off&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;http_host&#39;</span><span class="p">:</span> <span class="n">request</span><span class="o">.</span><span class="n">host</span><span class="p">,</span>
+            <span class="s1">&#39;server_port&#39;</span><span class="p">:</span> <span class="n">url_data</span><span class="o">.</span><span class="n">port</span><span class="p">,</span>
+            <span class="s1">&#39;script_name&#39;</span><span class="p">:</span> <span class="n">request</span><span class="o">.</span><span class="n">path</span><span class="p">,</span>
+            <span class="s1">&#39;get_data&#39;</span><span class="p">:</span> <span class="n">request</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span>
+            <span class="c1"># Uncomment if using ADFS as IdP, https://github.com/onelogin/python-saml/pull/144</span>
+            <span class="c1"># &#39;lowercase_urlencoding&#39;: True,</span>
+            <span class="s1">&#39;post_data&#39;</span><span class="p">:</span> <span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span>
+        <span class="p">}</span>
+
+    <span class="k">def</span> <span class="nf">_create_auth_object</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">db</span><span class="p">,</span> <span class="n">idp_entity_id</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Creates and initializes an OneLogin_Saml2_Auth object</span>
+
+<span class="sd">        :param db: Database session</span>
+<span class="sd">        :type db: sqlalchemy.orm.session.Session</span>
+
+<span class="sd">        :param idp_entity_id: IdP&#39;s entityID</span>
+<span class="sd">        :type idp_entity_id: string</span>
+
+<span class="sd">        :return: OneLogin_Saml2_Auth object</span>
+<span class="sd">        :rtype: OneLogin_Saml2_Auth</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">request_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_request_data</span><span class="p">()</span>
+        <span class="n">settings</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_configuration</span><span class="o">.</span><span class="n">get_settings</span><span class="p">(</span><span class="n">db</span><span class="p">,</span> <span class="n">idp_entity_id</span><span class="p">)</span>
+        <span class="n">auth</span> <span class="o">=</span> <span class="n">OneLogin_Saml2_Auth</span><span class="p">(</span><span class="n">request_data</span><span class="p">,</span> <span class="n">old_settings</span><span class="o">=</span><span class="n">settings</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">auth</span>
+
+    <span class="k">def</span> <span class="nf">_get_auth_object</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">db</span><span class="p">,</span> <span class="n">idp_entity_id</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns a cached OneLogin_Saml2_Auth object</span>
+
+<span class="sd">        :param db: Database session</span>
+<span class="sd">        :type db: sqlalchemy.orm.session.Session</span>
+
+<span class="sd">        :param idp_entity_id: IdP&#39;s entityID</span>
+<span class="sd">        :type idp_entity_id: string</span>
+
+<span class="sd">        :return: OneLogin_Saml2_Auth object</span>
+<span class="sd">        :rtype: OneLogin_Saml2_Auth</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">auth_object</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_auth_object</span><span class="p">(</span><span class="n">db</span><span class="p">,</span> <span class="n">idp_entity_id</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">auth_object</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">configuration</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns manager&#39;s configuration</span>
+
+<span class="sd">        :return: Manager&#39;s configuration</span>
+<span class="sd">        :rtype: SAMLOneLoginConfiguration</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_configuration</span>
+
+<div class="viewcode-block" id="SAMLAuthenticationManager.start_authentication"><a class="viewcode-back" href="../../../api.saml.html#api.saml.auth.SAMLAuthenticationManager.start_authentication">[docs]</a>    <span class="k">def</span> <span class="nf">start_authentication</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">db</span><span class="p">,</span> <span class="n">idp_entity_id</span><span class="p">,</span> <span class="n">return_to_url</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Starts the SAML authentication workflow by sending a AuthnRequest to the IdP</span>
+
+<span class="sd">        :param db: Database session</span>
+<span class="sd">        :type db: sqlalchemy.orm.session.Session</span>
+
+<span class="sd">        :param idp_entity_id: IdP&#39;s entityID</span>
+<span class="sd">        :type idp_entity_id: string</span>
+
+<span class="sd">        :param return_to_url: URL which will the user agent will be redirected to after authentication</span>
+<span class="sd">        :type return_to_url: string</span>
+
+<span class="sd">        :return: Redirection URL</span>
+<span class="sd">        :rtype: string</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">auth</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_auth_object</span><span class="p">(</span><span class="n">db</span><span class="p">,</span> <span class="n">idp_entity_id</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">auth</span><span class="o">.</span><span class="n">login</span><span class="p">(</span><span class="n">return_to_url</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="SAMLAuthenticationManager.finish_authentication"><a class="viewcode-back" href="../../../api.saml.html#api.saml.auth.SAMLAuthenticationManager.finish_authentication">[docs]</a>    <span class="k">def</span> <span class="nf">finish_authentication</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">db</span><span class="p">,</span> <span class="n">idp_entity_id</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Finishes the SAML authentication workflow by validating AuthnResponse and extracting a SAML assertion from it</span>
+
+<span class="sd">        :param db: Database session</span>
+<span class="sd">        :type db: sqlalchemy.orm.session.Session</span>
+
+<span class="sd">        :param idp_entity_id: IdP&#39;s entityID</span>
+<span class="sd">        :type idp_entity_id: string</span>
+
+<span class="sd">        :return: Subject object containing name ID and attributes in the case of a successful authentication</span>
+<span class="sd">            or ProblemDetail object otherwise</span>
+<span class="sd">        :rtype: Union[api.saml.metadata.Subject, ProblemDetail]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">request_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_request_data</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="s1">&#39;post_data&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">request_data</span> <span class="ow">or</span> <span class="s1">&#39;SAMLResponse&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">request_data</span><span class="p">[</span><span class="s1">&#39;post_data&#39;</span><span class="p">]:</span>
+            <span class="k">return</span> <span class="n">SAML_INCORRECT_RESPONSE</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="s1">&#39;There is no SAMLResponse in the body of the response&#39;</span><span class="p">)</span>
+
+        <span class="n">auth</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_auth_object</span><span class="p">(</span><span class="n">db</span><span class="p">,</span> <span class="n">idp_entity_id</span><span class="p">)</span>
+        <span class="n">auth</span><span class="o">.</span><span class="n">process_response</span><span class="p">()</span>
+
+        <span class="n">authenticated</span> <span class="o">=</span> <span class="n">auth</span><span class="o">.</span><span class="n">is_authenticated</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">authenticated</span><span class="p">:</span>
+            <span class="n">name_id</span> <span class="o">=</span> <span class="n">NameID</span><span class="p">(</span>
+                <span class="n">auth</span><span class="o">.</span><span class="n">get_nameid_format</span><span class="p">(),</span>
+                <span class="n">auth</span><span class="o">.</span><span class="n">get_nameid_nq</span><span class="p">(),</span>
+                <span class="n">auth</span><span class="o">.</span><span class="n">get_nameid_spnq</span><span class="p">(),</span>
+                <span class="n">auth</span><span class="o">.</span><span class="n">get_nameid</span><span class="p">()</span>
+            <span class="p">)</span>
+            <span class="n">attributes</span> <span class="o">=</span> <span class="n">auth</span><span class="o">.</span><span class="n">get_attributes</span><span class="p">()</span>
+            <span class="n">attribute_statement</span> <span class="o">=</span> <span class="n">AttributeStatement</span><span class="p">(</span><span class="n">attributes</span><span class="p">)</span>
+            <span class="n">valid_till</span> <span class="o">=</span> <span class="n">auth</span><span class="o">.</span><span class="n">get_session_expiration</span><span class="p">()</span>
+
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">valid_till</span><span class="p">:</span>
+                <span class="n">valid_till</span> <span class="o">=</span> <span class="n">auth</span><span class="o">.</span><span class="n">get_last_assertion_not_on_or_after</span><span class="p">()</span>
+
+            <span class="n">subject</span> <span class="o">=</span> <span class="n">Subject</span><span class="p">(</span><span class="n">name_id</span><span class="p">,</span> <span class="n">attribute_statement</span><span class="p">,</span> <span class="n">valid_till</span><span class="p">)</span>
+
+            <span class="k">return</span> <span class="n">subject</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="n">auth</span><span class="o">.</span><span class="n">get_last_error_reason</span><span class="p">())</span>
+
+            <span class="k">return</span> <span class="n">SAML_AUTHENTICATION_ERROR</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="n">auth</span><span class="o">.</span><span class="n">get_last_error_reason</span><span class="p">())</span></div></div>
+
+
+<div class="viewcode-block" id="SAMLAuthenticationManagerFactory"><a class="viewcode-back" href="../../../api.saml.html#api.saml.auth.SAMLAuthenticationManagerFactory">[docs]</a><span class="k">class</span> <span class="nc">SAMLAuthenticationManagerFactory</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Responsible for creating SAMLAuthenticationManager instances&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="SAMLAuthenticationManagerFactory.create"><a class="viewcode-back" href="../../../api.saml.html#api.saml.auth.SAMLAuthenticationManagerFactory.create">[docs]</a>    <span class="k">def</span> <span class="nf">create</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">integration_owner</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Creates a new instance of SAMLAuthenticationManager class</span>
+
+<span class="sd">        :param integration_owner: External integration owner</span>
+<span class="sd">        :type integration_owner: api.saml.configuration.ExternalIntegrationOwner</span>
+
+<span class="sd">        :return: SAML authentication manager</span>
+<span class="sd">        :rtype: SAMLAuthenticationManager</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">configuration_storage</span> <span class="o">=</span> <span class="n">SAMLConfigurationStorage</span><span class="p">(</span><span class="n">integration_owner</span><span class="p">)</span>
+        <span class="n">configuration</span> <span class="o">=</span> <span class="n">SAMLConfiguration</span><span class="p">(</span><span class="n">configuration_storage</span><span class="p">,</span> <span class="n">SAMLMetadataParser</span><span class="p">())</span>
+        <span class="n">onelogin_configuration</span> <span class="o">=</span> <span class="n">SAMLOneLoginConfiguration</span><span class="p">(</span><span class="n">configuration</span><span class="p">)</span>
+        <span class="n">authentication_manager</span> <span class="o">=</span> <span class="n">SAMLAuthenticationManager</span><span class="p">(</span><span class="n">onelogin_configuration</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">authentication_manager</span></div></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">Library Simplified Circulation Manager</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../modules.html">circulation</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

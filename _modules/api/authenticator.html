@@ -33,19 +33,37 @@
           <div class="body" role="main">
             
   <h1>Source code for api.authenticator</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
-<span class="kn">from</span> <span class="nn">api.announcements</span> <span class="kn">import</span> <span class="n">Announcements</span>
+<span></span><span class="kn">import</span> <span class="nn">datetime</span>
+<span class="kn">import</span> <span class="nn">importlib</span>
+<span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">re</span>
+<span class="kn">import</span> <span class="nn">urllib</span>
+<span class="kn">from</span> <span class="nn">abc</span> <span class="kn">import</span> <span class="n">ABCMeta</span>
+
+<span class="kn">import</span> <span class="nn">flask</span>
+<span class="kn">import</span> <span class="nn">jwt</span>
+<span class="kn">from</span> <span class="nn">flask</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">redirect</span><span class="p">,</span>
+    <span class="n">url_for</span><span class="p">)</span>
+<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
+<span class="kn">from</span> <span class="nn">money</span> <span class="kn">import</span> <span class="n">Money</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.ext.hybrid</span> <span class="kn">import</span> <span class="n">hybrid_property</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm.exc</span> <span class="kn">import</span> <span class="n">NoResultFound</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.sql.expression</span> <span class="kn">import</span> <span class="n">or_</span>
+<span class="kn">from</span> <span class="nn">werkzeug.datastructures</span> <span class="kn">import</span> <span class="n">Headers</span>
+
+<span class="kn">from</span> <span class="nn">api.adobe_vendor_id</span> <span class="kn">import</span> <span class="n">AuthdataUtility</span>
 <span class="kn">from</span> <span class="nn">api.annotations</span> <span class="kn">import</span> <span class="n">AnnotationWriter</span>
+<span class="kn">from</span> <span class="nn">api.announcements</span> <span class="kn">import</span> <span class="n">Announcements</span>
+<span class="kn">from</span> <span class="nn">api.custom_patron_catalog</span> <span class="kn">import</span> <span class="n">CustomPatronCatalog</span>
 <span class="kn">from</span> <span class="nn">api.opds</span> <span class="kn">import</span> <span class="n">LibraryAnnotator</span>
+<span class="kn">from</span> <span class="nn">api.saml.configuration</span> <span class="kn">import</span> <span class="n">SAMLConfiguration</span>
 <span class="kn">from</span> <span class="nn">config</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Configuration</span><span class="p">,</span>
     <span class="n">CannotLoadConfiguration</span><span class="p">,</span>
     <span class="n">IntegrationException</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">core.selftest</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">HasSelfTests</span><span class="p">,</span>
-<span class="p">)</span>
-<span class="kn">from</span> <span class="nn">core.opds</span> <span class="kn">import</span> <span class="n">OPDSFeed</span>
 <span class="kn">from</span> <span class="nn">core.model</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">get_one</span><span class="p">,</span>
     <span class="n">get_one_or_create</span><span class="p">,</span>
@@ -59,43 +77,22 @@
     <span class="n">PatronProfileStorage</span><span class="p">,</span>
     <span class="n">Session</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">core.util.problem_detail</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">ProblemDetail</span><span class="p">,</span>
-    <span class="n">json</span> <span class="k">as</span> <span class="n">pd_json</span><span class="p">,</span>
+<span class="kn">from</span> <span class="nn">core.opds</span> <span class="kn">import</span> <span class="n">OPDSFeed</span>
+<span class="kn">from</span> <span class="nn">core.selftest</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">HasSelfTests</span><span class="p">,</span>
 <span class="p">)</span>
+<span class="kn">from</span> <span class="nn">core.user_profile</span> <span class="kn">import</span> <span class="n">ProfileController</span>
 <span class="kn">from</span> <span class="nn">core.util.authentication_for_opds</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">AuthenticationForOPDSDocument</span><span class="p">,</span>
     <span class="n">OPDSAuthenticationFlow</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">core.util.http</span> <span class="kn">import</span> <span class="n">RemoteIntegrationException</span>
-<span class="kn">from</span> <span class="nn">core.user_profile</span> <span class="kn">import</span> <span class="n">ProfileController</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.ext.hybrid</span> <span class="kn">import</span> <span class="n">hybrid_property</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.orm.exc</span> <span class="kn">import</span> <span class="n">NoResultFound</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.sql.expression</span> <span class="kn">import</span> <span class="n">or_</span>
+<span class="kn">from</span> <span class="nn">core.util.problem_detail</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">ProblemDetail</span><span class="p">,</span>
+    <span class="n">json</span> <span class="k">as</span> <span class="n">pd_json</span><span class="p">,</span>
+<span class="p">)</span>
 <span class="kn">from</span> <span class="nn">problem_details</span> <span class="kn">import</span> <span class="o">*</span>
 <span class="kn">from</span> <span class="nn">util.patron</span> <span class="kn">import</span> <span class="n">PatronUtility</span>
-<span class="kn">from</span> <span class="nn">api.custom_patron_catalog</span> <span class="kn">import</span> <span class="n">CustomPatronCatalog</span>
-<span class="kn">from</span> <span class="nn">api.adobe_vendor_id</span> <span class="kn">import</span> <span class="n">AuthdataUtility</span>
-
-<span class="kn">import</span> <span class="nn">datetime</span>
-<span class="kn">import</span> <span class="nn">logging</span>
-<span class="kn">from</span> <span class="nn">money</span> <span class="kn">import</span> <span class="n">Money</span>
-<span class="kn">import</span> <span class="nn">os</span>
-<span class="kn">import</span> <span class="nn">re</span>
-<span class="kn">import</span> <span class="nn">urlparse</span>
-<span class="kn">import</span> <span class="nn">urllib</span>
-<span class="kn">import</span> <span class="nn">uuid</span>
-<span class="kn">import</span> <span class="nn">json</span>
-<span class="kn">import</span> <span class="nn">jwt</span>
-<span class="kn">import</span> <span class="nn">flask</span>
-<span class="kn">from</span> <span class="nn">flask</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">Response</span><span class="p">,</span>
-    <span class="n">redirect</span><span class="p">,</span>
-    <span class="n">url_for</span><span class="p">,</span>
-<span class="p">)</span>
-<span class="kn">from</span> <span class="nn">werkzeug.datastructures</span> <span class="kn">import</span> <span class="n">Headers</span>
-<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
-<span class="kn">import</span> <span class="nn">importlib</span>
 
 
 <div class="viewcode-block" id="CannotCreateLocalPatron"><a class="viewcode-back" href="../../api.html#api.authenticator.CannotCreateLocalPatron">[docs]</a><span class="k">class</span> <span class="nc">CannotCreateLocalPatron</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
@@ -262,6 +259,34 @@
         <span class="c1"># cached_neighborhood as neighborhood.</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">neighborhood</span> <span class="o">=</span> <span class="n">neighborhood</span> <span class="ow">or</span> <span class="n">cached_neighborhood</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">cached_neighborhood</span> <span class="o">=</span> <span class="n">cached_neighborhood</span>
+
+    <span class="k">def</span> <span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Compares two PatronData objects</span>
+
+<span class="sd">        :param other: PatronData object</span>
+<span class="sd">        :type other: PatronData</span>
+
+<span class="sd">        :return: Boolean value indicating whether two items are equal</span>
+<span class="sd">        :rtype: bool</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">PatronData</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="k">return</span> \
+            <span class="bp">self</span><span class="o">.</span><span class="n">permanent_id</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">permanent_id</span> <span class="ow">and</span> \
+            <span class="bp">self</span><span class="o">.</span><span class="n">username</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">username</span> <span class="ow">and</span> \
+            <span class="bp">self</span><span class="o">.</span><span class="n">authorization_expires</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">authorization_expires</span> <span class="ow">and</span> \
+            <span class="bp">self</span><span class="o">.</span><span class="n">external_type</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">external_type</span> <span class="ow">and</span> \
+            <span class="bp">self</span><span class="o">.</span><span class="n">fines</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">fines</span> <span class="ow">and</span> \
+            <span class="bp">self</span><span class="o">.</span><span class="n">block_reason</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">block_reason</span> <span class="ow">and</span> \
+            <span class="bp">self</span><span class="o">.</span><span class="n">library_identifier</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">library_identifier</span> <span class="ow">and</span> \
+            <span class="bp">self</span><span class="o">.</span><span class="n">complete</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">complete</span> <span class="ow">and</span> \
+            <span class="bp">self</span><span class="o">.</span><span class="n">personal_name</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">personal_name</span> <span class="ow">and</span> \
+            <span class="bp">self</span><span class="o">.</span><span class="n">email_address</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">email_address</span> <span class="ow">and</span> \
+            <span class="bp">self</span><span class="o">.</span><span class="n">neighborhood</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">neighborhood</span> <span class="ow">and</span> \
+            <span class="bp">self</span><span class="o">.</span><span class="n">cached_neighborhood</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">cached_neighborhood</span>
 
     <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="s2">&quot;&lt;PatronData permanent_id=</span><span class="si">%r</span><span class="s2"> authorization_identifier=</span><span class="si">%r</span><span class="s2"> username=</span><span class="si">%r</span><span class="s2">&gt;&quot;</span> <span class="o">%</span> <span class="p">(</span>
@@ -576,6 +601,11 @@
             <span class="s2">&quot;oauth_provider_lookup&quot;</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
         <span class="p">)</span></div>
 
+<div class="viewcode-block" id="Authenticator.saml_provider_lookup"><a class="viewcode-back" href="../../api.html#api.authenticator.Authenticator.saml_provider_lookup">[docs]</a>    <span class="k">def</span> <span class="nf">saml_provider_lookup</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">invoke_authenticator_method</span><span class="p">(</span>
+            <span class="s2">&quot;saml_provider_lookup&quot;</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
+        <span class="p">)</span></div>
+
 <div class="viewcode-block" id="Authenticator.decode_bearer_token"><a class="viewcode-back" href="../../api.html#api.authenticator.Authenticator.decode_bearer_token">[docs]</a>    <span class="k">def</span> <span class="nf">decode_bearer_token</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">invoke_authenticator_method</span><span class="p">(</span>
             <span class="s2">&quot;decode_bearer_token&quot;</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
@@ -624,19 +654,22 @@
                 <span class="p">)</span>
                 <span class="n">authenticator</span><span class="o">.</span><span class="n">initialization_exceptions</span><span class="p">[</span><span class="n">integration</span><span class="o">.</span><span class="n">id</span><span class="p">]</span> <span class="o">=</span> <span class="n">e</span>
 
-        <span class="k">if</span> <span class="n">authenticator</span><span class="o">.</span><span class="n">oauth_providers_by_name</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">authenticator</span><span class="o">.</span><span class="n">oauth_providers_by_name</span> <span class="ow">or</span> <span class="n">authenticator</span><span class="o">.</span><span class="n">saml_providers_by_name</span><span class="p">:</span>
             <span class="c1"># NOTE: this will immediately commit the database session,</span>
             <span class="c1"># which may not be what you want during a test. To avoid</span>
             <span class="c1"># this, you can create the bearer token signing secret as</span>
             <span class="c1"># a regular site-wide ConfigurationSetting.</span>
-            <span class="n">authenticator</span><span class="o">.</span><span class="n">bearer_token_signing_secret</span> <span class="o">=</span> <span class="n">OAuthAuthenticationProvider</span><span class="o">.</span><span class="n">bearer_token_signing_secret</span><span class="p">(</span>
+            <span class="n">authenticator</span><span class="o">.</span><span class="n">bearer_token_signing_secret</span> <span class="o">=</span> <span class="n">BearerTokenSigner</span><span class="o">.</span><span class="n">bearer_token_signing_secret</span><span class="p">(</span>
                 <span class="n">_db</span>
             <span class="p">)</span>
-        <span class="n">authenticator</span><span class="o">.</span><span class="n">assert_ready_for_oauth</span><span class="p">()</span>
+
+        <span class="n">authenticator</span><span class="o">.</span><span class="n">assert_ready_for_token_signing</span><span class="p">()</span>
+
         <span class="k">return</span> <span class="n">authenticator</span></div>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">basic_auth_provider</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                  <span class="n">oauth_providers</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                 <span class="n">saml_providers</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                  <span class="n">bearer_token_signing_secret</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                  <span class="n">authentication_document_annotator</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="p">):</span>
@@ -654,6 +687,9 @@
 <span class="sd">        :param oauth_providers: A list of AuthenticationProviders that handle</span>
 <span class="sd">        OAuth requests.</span>
 
+<span class="sd">        :param saml_providers: A list of AuthenticationProviders that handle</span>
+<span class="sd">        SAML requests.</span>
+
 <span class="sd">        :param bearer_token_signing_secret: The secret to use when</span>
 <span class="sd">        signing JWTs for use as bearer tokens.</span>
 
@@ -667,6 +703,7 @@
 
         <span class="bp">self</span><span class="o">.</span><span class="n">basic_auth_provider</span> <span class="o">=</span> <span class="n">basic_auth_provider</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">oauth_providers_by_name</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">saml_providers_by_name</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">bearer_token_signing_secret</span> <span class="o">=</span> <span class="n">bearer_token_signing_secret</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">initialization_exceptions</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
 
@@ -679,12 +716,17 @@
         <span class="k">if</span> <span class="n">oauth_providers</span><span class="p">:</span>
             <span class="k">for</span> <span class="n">provider</span> <span class="ow">in</span> <span class="n">oauth_providers</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">oauth_providers_by_name</span><span class="p">[</span><span class="n">provider</span><span class="o">.</span><span class="n">NAME</span><span class="p">]</span> <span class="o">=</span> <span class="n">provider</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">assert_ready_for_oauth</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">saml_providers</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">provider</span> <span class="ow">in</span> <span class="n">saml_providers</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">saml_providers_by_name</span><span class="p">[</span><span class="n">provider</span><span class="o">.</span><span class="n">NAME</span><span class="p">]</span> <span class="o">=</span> <span class="n">provider</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">assert_ready_for_token_signing</span><span class="p">()</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">supports_patron_authentication</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Does this library have any way of authenticating patrons at all?&quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">basic_auth_provider</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">oauth_providers_by_name</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">basic_auth_provider</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">oauth_providers_by_name</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">saml_providers_by_name</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">True</span>
         <span class="k">return</span> <span class="kc">False</span>
 
@@ -711,13 +753,18 @@
     <span class="k">def</span> <span class="nf">library</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">Library</span><span class="o">.</span><span class="n">by_id</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">library_id</span><span class="p">)</span>
 
-<div class="viewcode-block" id="LibraryAuthenticator.assert_ready_for_oauth"><a class="viewcode-back" href="../../api.html#api.authenticator.LibraryAuthenticator.assert_ready_for_oauth">[docs]</a>    <span class="k">def</span> <span class="nf">assert_ready_for_oauth</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="LibraryAuthenticator.assert_ready_for_token_signing"><a class="viewcode-back" href="../../api.html#api.authenticator.LibraryAuthenticator.assert_ready_for_token_signing">[docs]</a>    <span class="k">def</span> <span class="nf">assert_ready_for_token_signing</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;If this LibraryAuthenticator has OAuth providers, ensure that it</span>
 <span class="sd">        also has a secret it can use to sign bearer tokens.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">oauth_providers_by_name</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">bearer_token_signing_secret</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">CannotLoadConfiguration</span><span class="p">(</span>
-                <span class="s2">&quot;OAuth providers are configured, but secret for signing bearer tokens is not.&quot;</span>
+                <span class="n">_</span><span class="p">(</span><span class="s2">&quot;OAuth providers are configured, but secret for signing bearer tokens is not.&quot;</span><span class="p">)</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">saml_providers_by_name</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">bearer_token_signing_secret</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">CannotLoadConfiguration</span><span class="p">(</span>
+                <span class="n">_</span><span class="p">(</span><span class="s2">&quot;SAML providers are configured, but secret for signing bearer tokens is not.&quot;</span><span class="p">)</span>
             <span class="p">)</span></div>
 
 <div class="viewcode-block" id="LibraryAuthenticator.register_provider"><a class="viewcode-back" href="../../api.html#api.authenticator.LibraryAuthenticator.register_provider">[docs]</a>    <span class="k">def</span> <span class="nf">register_provider</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">integration</span><span class="p">,</span> <span class="n">analytics</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
@@ -765,6 +812,8 @@
             <span class="c1"># the ability to run one.</span>
         <span class="k">elif</span> <span class="nb">issubclass</span><span class="p">(</span><span class="n">provider_class</span><span class="p">,</span> <span class="n">OAuthAuthenticationProvider</span><span class="p">):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">register_oauth_provider</span><span class="p">(</span><span class="n">provider</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">issubclass</span><span class="p">(</span><span class="n">provider_class</span><span class="p">,</span> <span class="n">BaseSAMLAuthenticationProvider</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">register_saml_provider</span><span class="p">(</span><span class="n">provider</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">CannotLoadConfiguration</span><span class="p">(</span>
                 <span class="s2">&quot;Authentication provider </span><span class="si">%s</span><span class="s2"> is neither a BasicAuthenticationProvider nor an OAuthAuthenticationProvider. I can create it, but not sure where to put it.&quot;</span> <span class="o">%</span> <span class="n">provider_class</span>
@@ -790,12 +839,26 @@
             <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">oauth_providers_by_name</span><span class="p">[</span><span class="n">provider</span><span class="o">.</span><span class="n">NAME</span><span class="p">]</span> <span class="o">=</span> <span class="n">provider</span></div>
 
+<div class="viewcode-block" id="LibraryAuthenticator.register_saml_provider"><a class="viewcode-back" href="../../api.html#api.authenticator.LibraryAuthenticator.register_saml_provider">[docs]</a>    <span class="k">def</span> <span class="nf">register_saml_provider</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">provider</span><span class="p">):</span>
+        <span class="n">already_registered</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">saml_providers_by_name</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+            <span class="n">provider</span><span class="o">.</span><span class="n">NAME</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">already_registered</span> <span class="ow">and</span> <span class="n">already_registered</span> <span class="o">!=</span> <span class="n">provider</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">CannotLoadConfiguration</span><span class="p">(</span>
+                <span class="s1">&#39;Two different SAML providers claim the name &quot;</span><span class="si">%s</span><span class="s1">&quot;&#39;</span> <span class="o">%</span> <span class="p">(</span>
+                    <span class="n">provider</span><span class="o">.</span><span class="n">NAME</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">saml_providers_by_name</span><span class="p">[</span><span class="n">provider</span><span class="o">.</span><span class="n">NAME</span><span class="p">]</span> <span class="o">=</span> <span class="n">provider</span></div>
+
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">providers</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;An iterator over all registered AuthenticationProviders.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">basic_auth_provider</span><span class="p">:</span>
             <span class="k">yield</span> <span class="bp">self</span><span class="o">.</span><span class="n">basic_auth_provider</span>
         <span class="k">for</span> <span class="n">provider</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">oauth_providers_by_name</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+            <span class="k">yield</span> <span class="n">provider</span>
+        <span class="k">for</span> <span class="n">provider</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">saml_providers_by_name</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
             <span class="k">yield</span> <span class="n">provider</span>
 
 <div class="viewcode-block" id="LibraryAuthenticator.authenticated_patron"><a class="viewcode-back" href="../../api.html#api.authenticator.LibraryAuthenticator.authenticated_patron">[docs]</a>    <span class="k">def</span> <span class="nf">authenticated_patron</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">header</span><span class="p">):</span>
@@ -834,6 +897,27 @@
                 <span class="k">return</span> <span class="n">provider</span>
 
             <span class="c1"># Ask the OAuthAuthenticationProvider to turn its token</span>
+            <span class="c1"># into a Patron.</span>
+            <span class="k">return</span> <span class="n">provider</span><span class="o">.</span><span class="n">authenticated_patron</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">provider_token</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">saml_providers_by_name</span>
+              <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">header</span><span class="p">,</span> <span class="n">basestring</span><span class="p">)</span>
+              <span class="ow">and</span> <span class="s1">&#39;bearer&#39;</span> <span class="ow">in</span> <span class="n">header</span><span class="o">.</span><span class="n">lower</span><span class="p">()):</span>
+
+            <span class="c1"># The patron wants to use an</span>
+            <span class="c1"># SAMLAuthenticationProvider. Figure out which one.</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">provider_name</span><span class="p">,</span> <span class="n">provider_token</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">decode_bearer_token_from_header</span><span class="p">(</span>
+                    <span class="n">header</span>
+                <span class="p">)</span>
+            <span class="k">except</span> <span class="n">jwt</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">InvalidTokenError</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">INVALID_SAML_BEARER_TOKEN</span>
+            <span class="n">provider</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">saml_provider_lookup</span><span class="p">(</span><span class="n">provider_name</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">provider</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
+                <span class="c1"># There was a problem turning the provider name into</span>
+                <span class="c1"># a registered SAMLAuthenticationProvider.</span>
+                <span class="k">return</span> <span class="n">provider</span>
+
+            <span class="c1"># Ask the SAMLAuthenticationProvider to turn its token</span>
             <span class="c1"># into a Patron.</span>
             <span class="k">return</span> <span class="n">provider</span><span class="o">.</span><span class="n">authenticated_patron</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">provider_token</span><span class="p">)</span>
 
@@ -879,6 +963,27 @@
                 <span class="n">_</span><span class="p">(</span><span class="s2">&quot; The known providers are: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">)</span> <span class="o">%</span> <span class="n">possibilities</span>
             <span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">oauth_providers_by_name</span><span class="p">[</span><span class="n">provider_name</span><span class="p">]</span></div>
+
+<div class="viewcode-block" id="LibraryAuthenticator.saml_provider_lookup"><a class="viewcode-back" href="../../api.html#api.authenticator.LibraryAuthenticator.saml_provider_lookup">[docs]</a>    <span class="k">def</span> <span class="nf">saml_provider_lookup</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">provider_name</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Look up the SAMLAuthenticationProvider with the given name. If that</span>
+<span class="sd">        doesn&#39;t work, return an appropriate ProblemDetail.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">saml_providers_by_name</span><span class="p">:</span>
+            <span class="c1"># We don&#39;t support OAuth at all.</span>
+            <span class="k">return</span> <span class="n">UNKNOWN_SAML_PROVIDER</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span>
+                <span class="n">_</span><span class="p">(</span><span class="s2">&quot;No SAML providers are configured.&quot;</span><span class="p">)</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="n">provider_name</span>
+            <span class="ow">or</span> <span class="ow">not</span> <span class="n">provider_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">saml_providers_by_name</span><span class="p">):</span>
+            <span class="c1"># The patron neglected to specify a provider, or specified</span>
+            <span class="c1"># one we don&#39;t support.</span>
+            <span class="n">possibilities</span> <span class="o">=</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">saml_providers_by_name</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+            <span class="k">return</span> <span class="n">UNKNOWN_SAML_PROVIDER</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span>
+                <span class="n">UNKNOWN_SAML_PROVIDER</span><span class="o">.</span><span class="n">detail</span> <span class="o">+</span>
+                <span class="n">_</span><span class="p">(</span><span class="s2">&quot; The known providers are: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">)</span> <span class="o">%</span> <span class="n">possibilities</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">saml_providers_by_name</span><span class="p">[</span><span class="n">provider_name</span><span class="p">]</span></div>
 
 <div class="viewcode-block" id="LibraryAuthenticator.create_bearer_token"><a class="viewcode-back" href="../../api.html#api.authenticator.LibraryAuthenticator.create_bearer_token">[docs]</a>    <span class="k">def</span> <span class="nf">create_bearer_token</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">provider_name</span><span class="p">,</span> <span class="n">provider_token</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Create a JSON web token with the given provider name and access</span>
@@ -1066,6 +1171,7 @@
         <span class="n">doc</span><span class="p">[</span><span class="s1">&#39;announcements&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">announcements</span>
 
         <span class="c1"># Finally, give the active annotator a chance to modify the document.</span>
+
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">authentication_document_annotator</span><span class="p">:</span>
             <span class="n">doc</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">authentication_document_annotator</span><span class="o">.</span><span class="n">annotate_authentication_document</span><span class="p">(</span>
                 <span class="n">library</span><span class="p">,</span> <span class="n">doc</span><span class="p">,</span> <span class="n">url_for</span>
@@ -2136,7 +2242,29 @@
         <span class="k">return</span> <span class="n">flow_doc</span></div>
 
 
-<div class="viewcode-block" id="OAuthAuthenticationProvider"><a class="viewcode-back" href="../../api.html#api.authenticator.OAuthAuthenticationProvider">[docs]</a><span class="k">class</span> <span class="nc">OAuthAuthenticationProvider</span><span class="p">(</span><span class="n">AuthenticationProvider</span><span class="p">):</span>
+<div class="viewcode-block" id="BearerTokenSigner"><a class="viewcode-back" href="../../api.html#api.authenticator.BearerTokenSigner">[docs]</a><span class="k">class</span> <span class="nc">BearerTokenSigner</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Mixin class used for storing a secret used for signing Bearer tokens&quot;&quot;&quot;</span>
+
+    <span class="c1"># Name of the site-wide ConfigurationSetting containing the secret</span>
+    <span class="c1"># used to sign bearer tokens.</span>
+    <span class="n">BEARER_TOKEN_SIGNING_SECRET</span> <span class="o">=</span> <span class="n">Configuration</span><span class="o">.</span><span class="n">BEARER_TOKEN_SIGNING_SECRET</span>
+
+<div class="viewcode-block" id="BearerTokenSigner.bearer_token_signing_secret"><a class="viewcode-back" href="../../api.html#api.authenticator.BearerTokenSigner.bearer_token_signing_secret">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">bearer_token_signing_secret</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">db</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Find or generate the site-wide bearer token signing secret.</span>
+
+<span class="sd">        :param db: Database session</span>
+<span class="sd">        :type db: sqlalchemy.orm.session.Session</span>
+
+<span class="sd">        :return: ConfigurationSetting object containing the signing secret</span>
+<span class="sd">        :rtype: ConfigurationSetting</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">sitewide_secret</span><span class="p">(</span>
+            <span class="n">db</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">BEARER_TOKEN_SIGNING_SECRET</span>
+        <span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="OAuthAuthenticationProvider"><a class="viewcode-back" href="../../api.html#api.authenticator.OAuthAuthenticationProvider">[docs]</a><span class="k">class</span> <span class="nc">OAuthAuthenticationProvider</span><span class="p">(</span><span class="n">AuthenticationProvider</span><span class="p">,</span> <span class="n">BearerTokenSigner</span><span class="p">):</span>
 
     <span class="c1"># NOTE: Each subclass must define URI as per</span>
     <span class="c1"># AuthenticationProvider superclass. This is the URI used to</span>
@@ -2191,17 +2319,6 @@
     <span class="n">SETTINGS</span> <span class="o">=</span> <span class="p">[</span>
         <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">OAUTH_TOKEN_EXPIRATION_DAYS</span><span class="p">,</span> <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;number&quot;</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Days until OAuth token expires&quot;</span><span class="p">)</span> <span class="p">},</span>
     <span class="p">]</span> <span class="o">+</span> <span class="n">AuthenticationProvider</span><span class="o">.</span><span class="n">SETTINGS</span>
-
-    <span class="c1"># Name of the site-wide ConfigurationSetting containing the secret</span>
-    <span class="c1"># used to sign bearer tokens.</span>
-    <span class="n">BEARER_TOKEN_SIGNING_SECRET</span> <span class="o">=</span> <span class="n">Configuration</span><span class="o">.</span><span class="n">BEARER_TOKEN_SIGNING_SECRET</span>
-
-<div class="viewcode-block" id="OAuthAuthenticationProvider.bearer_token_signing_secret"><a class="viewcode-back" href="../../api.html#api.authenticator.OAuthAuthenticationProvider.bearer_token_signing_secret">[docs]</a>    <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">bearer_token_signing_secret</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Find or generate the site-wide bearer token signing secret.&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">sitewide_secret</span><span class="p">(</span>
-            <span class="n">_db</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">BEARER_TOKEN_SIGNING_SECRET</span>
-        <span class="p">)</span></div>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">integration</span><span class="p">,</span> <span class="n">analytics</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Initialize this OAuthAuthenticationProvider.</span>
@@ -2296,7 +2413,6 @@
             <span class="c1"># we want them to send the patron to this URL.</span>
             <span class="n">oauth_callback_url</span><span class="o">=</span><span class="n">OAuthController</span><span class="o">.</span><span class="n">oauth_authentication_callback_url</span><span class="p">(</span><span class="n">library_short_name</span><span class="p">)</span>
         <span class="p">)</span></div>
-
 
 <div class="viewcode-block" id="OAuthAuthenticationProvider.oauth_callback"><a class="viewcode-back" href="../../api.html#api.authenticator.OAuthAuthenticationProvider.oauth_callback">[docs]</a>    <span class="k">def</span> <span class="nf">oauth_callback</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">code</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Verify the incoming parameters with the OAuth provider. Exchange</span>
@@ -2530,6 +2646,78 @@
         <span class="p">)</span>
         <span class="n">params</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">error</span><span class="o">=</span><span class="n">problem_detail_json</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">redirect_uri</span> <span class="o">+</span> <span class="s2">&quot;#&quot;</span> <span class="o">+</span> <span class="n">urllib</span><span class="o">.</span><span class="n">urlencode</span><span class="p">(</span><span class="n">params</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="BaseSAMLAuthenticationProvider"><a class="viewcode-back" href="../../api.html#api.authenticator.BaseSAMLAuthenticationProvider">[docs]</a><span class="k">class</span> <span class="nc">BaseSAMLAuthenticationProvider</span><span class="p">(</span><span class="n">AuthenticationProvider</span><span class="p">,</span> <span class="n">BearerTokenSigner</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Base class for SAML authentication providers</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">__metaclass__</span> <span class="o">=</span> <span class="n">ABCMeta</span>
+
+    <span class="n">NAME</span> <span class="o">=</span> <span class="s1">&#39;SAML 2.0&#39;</span>
+
+    <span class="n">DESCRIPTION</span> <span class="o">=</span> <span class="n">_</span><span class="p">(</span><span class="s1">&#39;SAML 2.0 authentication provider&#39;</span><span class="p">)</span>
+
+    <span class="n">DISPLAY_NAME</span> <span class="o">=</span> <span class="n">NAME</span>
+
+    <span class="n">FLOW_TYPE</span> <span class="o">=</span> <span class="s1">&#39;http://librarysimplified.org/authtype/SAML-2.0&#39;</span>
+
+    <span class="n">TOKEN_TYPE</span> <span class="o">=</span> <span class="s2">&quot;SAML 2.0 token&quot;</span>
+    <span class="n">TOKEN_DATA_SOURCE_NAME</span> <span class="o">=</span> <span class="s1">&#39;SAML 2.0&#39;</span>
+
+    <span class="n">SETTINGS</span> <span class="o">=</span> <span class="p">[</span>
+       <span class="p">{</span>
+           <span class="s1">&#39;key&#39;</span><span class="p">:</span> <span class="n">SAMLConfiguration</span><span class="o">.</span><span class="n">SP_XML_METADATA</span><span class="p">,</span>
+           <span class="s1">&#39;label&#39;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s1">&#39;Service Provider</span><span class="se">\&#39;</span><span class="s1">s XML metadata&#39;</span><span class="p">),</span>
+           <span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;textarea&#39;</span><span class="p">,</span>
+           <span class="s1">&#39;description&#39;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s1">&#39;SAML metadata of the Circulation Manager</span><span class="se">\&#39;</span><span class="s1">s Service Provider in an XML format. &#39;</span>
+                            <span class="s1">&#39;MUST contain exactly one SPSSODescriptor tag with at least one &#39;</span>
+                            <span class="s1">&#39;AssertionConsumerService tag with Binding attribute set to &#39;</span>
+                            <span class="s1">&#39;urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST&#39;</span><span class="p">),</span>
+           <span class="s1">&#39;category&#39;</span><span class="p">:</span> <span class="s1">&#39;SP&#39;</span><span class="p">,</span>
+           <span class="s1">&#39;required&#39;</span><span class="p">:</span> <span class="kc">True</span>
+       <span class="p">},</span>
+       <span class="p">{</span>
+           <span class="s1">&#39;key&#39;</span><span class="p">:</span> <span class="n">SAMLConfiguration</span><span class="o">.</span><span class="n">SP_PRIVATE_KEY</span><span class="p">,</span>
+           <span class="s1">&#39;label&#39;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s1">&#39;Service Provider</span><span class="se">\&#39;</span><span class="s1">s private key&#39;</span><span class="p">),</span>
+           <span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;textarea&#39;</span><span class="p">,</span>
+           <span class="s1">&#39;description&#39;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s1">&#39;Private key used for encrypting SAML requests&#39;</span><span class="p">),</span>
+           <span class="s1">&#39;category&#39;</span><span class="p">:</span> <span class="s1">&#39;SP&#39;</span><span class="p">,</span>
+           <span class="s1">&#39;required&#39;</span><span class="p">:</span> <span class="kc">False</span>
+       <span class="p">},</span>
+       <span class="p">{</span>
+           <span class="s1">&#39;key&#39;</span><span class="p">:</span> <span class="n">SAMLConfiguration</span><span class="o">.</span><span class="n">STRICT</span><span class="p">,</span>
+           <span class="s1">&#39;label&#39;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s1">&#39;Service Provider</span><span class="se">\&#39;</span><span class="s1">s strict mode&#39;</span><span class="p">),</span>
+           <span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;number&#39;</span><span class="p">,</span>
+           <span class="s1">&#39;description&#39;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span>
+               <span class="s1">&#39;If strict is True, then the Python Toolkit will reject unsigned or unencrypted messages &#39;</span>
+               <span class="s1">&#39;if it expects them to be signed or encrypted. Also it will reject the messages &#39;</span>
+               <span class="s1">&#39;if the SAML standard is not strictly followed. Destination, NameId, Conditions ... &#39;</span>
+               <span class="s1">&#39;are validated too.&#39;</span><span class="p">),</span>
+           <span class="s1">&#39;category&#39;</span><span class="p">:</span> <span class="s1">&#39;SP&#39;</span><span class="p">,</span>
+           <span class="s1">&#39;required&#39;</span><span class="p">:</span> <span class="kc">False</span>
+       <span class="p">},</span>
+       <span class="p">{</span>
+           <span class="s1">&#39;key&#39;</span><span class="p">:</span> <span class="n">SAMLConfiguration</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">,</span>
+           <span class="s1">&#39;label&#39;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s1">&#39;Service Provider</span><span class="se">\&#39;</span><span class="s1">s debug mode&#39;</span><span class="p">),</span>
+           <span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;number&#39;</span><span class="p">,</span>
+           <span class="s1">&#39;description&#39;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s1">&#39;Enable debug mode (outputs errors)&#39;</span><span class="p">),</span>
+           <span class="s1">&#39;category&#39;</span><span class="p">:</span> <span class="s1">&#39;SP&#39;</span><span class="p">,</span>
+           <span class="s1">&#39;required&#39;</span><span class="p">:</span> <span class="kc">False</span>
+       <span class="p">},</span>
+       <span class="p">{</span>
+           <span class="s1">&#39;key&#39;</span><span class="p">:</span> <span class="n">SAMLConfiguration</span><span class="o">.</span><span class="n">IDP_XML_METADATA</span><span class="p">,</span>
+           <span class="s1">&#39;label&#39;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s1">&#39;Identity Provider</span><span class="se">\&#39;</span><span class="s1">s XML metadata&#39;</span><span class="p">),</span>
+           <span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;textarea&#39;</span><span class="p">,</span>
+           <span class="s1">&#39;description&#39;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s1">&#39;SAML metadata of Identity Providers in an XML format. &#39;</span>
+                            <span class="s1">&#39;MAY contain multiple IDPSSODescriptor tags but each of them MUST contain &#39;</span>
+                            <span class="s1">&#39;at least one SingleSignOnService tag with Binding attribute set to &#39;</span>
+                            <span class="s1">&#39;urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect&#39;</span><span class="p">),</span>
+           <span class="s1">&#39;category&#39;</span><span class="p">:</span> <span class="s1">&#39;IDP&#39;</span><span class="p">,</span>
+           <span class="s1">&#39;required&#39;</span><span class="p">:</span> <span class="kc">True</span>
+       <span class="p">}</span>
+    <span class="p">]</span> <span class="o">+</span> <span class="n">AuthenticationProvider</span><span class="o">.</span><span class="n">SETTINGS</span></div>
 </pre></div>
 
           </div>

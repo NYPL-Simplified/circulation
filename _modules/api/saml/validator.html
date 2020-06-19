@@ -1,0 +1,287 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>api.saml.validator &#8212; Library Simplified Circulation Manager  documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for api.saml.validator</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
+
+<span class="kn">from</span> <span class="nn">api.admin.problem_details</span> <span class="kn">import</span> <span class="n">INCOMPLETE_CONFIGURATION</span>
+<span class="kn">from</span> <span class="nn">api.admin.validator</span> <span class="kn">import</span> <span class="n">Validator</span>
+<span class="kn">from</span> <span class="nn">api.saml</span> <span class="kn">import</span> <span class="n">configuration</span>
+<span class="kn">from</span> <span class="nn">api.saml.parser</span> <span class="kn">import</span> <span class="n">SAMLMetadataParsingError</span>
+<span class="kn">from</span> <span class="nn">core.problem_details</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">core.util.problem_detail</span> <span class="kn">import</span> <span class="n">ProblemDetail</span>
+
+<span class="n">INCORRECT_METADATA</span> <span class="o">=</span> <span class="n">pd</span><span class="p">(</span>
+    <span class="s1">&#39;http://librarysimplified.org/terms/problem/saml/metadata-incorrect-format&#39;</span><span class="p">,</span>
+    <span class="n">status_code</span><span class="o">=</span><span class="mi">400</span><span class="p">,</span>
+    <span class="n">title</span><span class="o">=</span><span class="n">_</span><span class="p">(</span><span class="s1">&#39;SAML metadata has incorrect format.&#39;</span><span class="p">),</span>
+    <span class="n">detail</span><span class="o">=</span><span class="n">_</span><span class="p">(</span><span class="s1">&#39;SAML metadata has incorrect format.&#39;</span><span class="p">)</span>
+<span class="p">)</span>
+
+<span class="n">GENERIC_ERROR</span> <span class="o">=</span> <span class="n">pd</span><span class="p">(</span>
+    <span class="s1">&#39;http://librarysimplified.org/terms/problem/saml/parsing-error&#39;</span><span class="p">,</span>
+    <span class="n">status_code</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span>
+    <span class="n">title</span><span class="o">=</span><span class="n">_</span><span class="p">(</span><span class="s1">&#39;Unexpected error.&#39;</span><span class="p">),</span>
+    <span class="n">detail</span><span class="o">=</span><span class="n">_</span><span class="p">(</span><span class="s1">&#39;An unexpected error occurred during validation of SAML authentication settings.&#39;</span><span class="p">)</span>
+<span class="p">)</span>
+
+
+<div class="viewcode-block" id="SAMLSettingsValidator"><a class="viewcode-back" href="../../../api.saml.html#api.saml.validator.SAMLSettingsValidator">[docs]</a><span class="k">class</span> <span class="nc">SAMLSettingsValidator</span><span class="p">(</span><span class="n">Validator</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Validates SAMLAuthenticationProvider&#39;s settings submitted by a user&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">metadata_parser</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Initializes a new instance of SAMLAuthenticationProviderSettingsValidator class</span>
+
+<span class="sd">        :param metadata_parser: SAML metadata parser</span>
+<span class="sd">        :type metadata_parser: MetadataParser</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_metadata_parser</span> <span class="o">=</span> <span class="n">metadata_parser</span>
+
+    <span class="k">def</span> <span class="nf">_get_setting_value</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">settings</span><span class="p">,</span> <span class="n">content</span><span class="p">,</span> <span class="n">setting_name</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Selects a setting&#39;s value from the form submitted by a user</span>
+
+<span class="sd">        :param settings: Dictionary containing provider&#39;s settings (SAMLAuthenticationProvider.SETTINGS)</span>
+<span class="sd">        :type: Dict</span>
+
+<span class="sd">        :param content: Dictionary containing submitted form&#39;s metadata</span>
+<span class="sd">        :type content: werkzeug.datastructures.MultiDict</span>
+
+<span class="sd">        :param setting_name: Name of the setting</span>
+<span class="sd">        :param setting_name: string</span>
+
+<span class="sd">        :return: Setting&#39;s value set by the user or a ProblemDetail instance in the case of any error</span>
+<span class="sd">        :rtype: Union[string, ProblemDetail]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">submitted_form</span> <span class="o">=</span> <span class="n">content</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;form&#39;</span><span class="p">)</span>
+        <span class="n">setting_values</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_extract_inputs</span><span class="p">(</span><span class="n">settings</span><span class="p">,</span> <span class="n">setting_name</span><span class="p">,</span> <span class="n">submitted_form</span><span class="p">,</span> <span class="s1">&#39;key&#39;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">setting_values</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">setting_values</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">setting_values</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">INCOMPLETE_CONFIGURATION</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="s1">&#39;Required field </span><span class="si">{0}</span><span class="s1"> is missing&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">setting_name</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="n">setting_values</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="nf">_parse_metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">xml_metadata</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Parses SAML XML metadata</span>
+
+<span class="sd">        :param xml_metadata: SAML XML metadata</span>
+<span class="sd">        :type xml_metadata: string</span>
+
+<span class="sd">        :return: List of IdentityProviderMetadata/ServiceProvider instances or a ProblemDetail instance</span>
+<span class="sd">        in the case of any errors</span>
+<span class="sd">        :rtype: Union[List[ProviderMetadata], ProblemDetail]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metadata_parser</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">xml_metadata</span><span class="p">)</span>
+
+            <span class="k">return</span> <span class="n">result</span>
+        <span class="k">except</span> <span class="n">SAMLMetadataParsingError</span> <span class="k">as</span> <span class="n">exception</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">INCORRECT_METADATA</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="n">exception</span><span class="o">.</span><span class="n">message</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exception</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">GENERIC_ERROR</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="n">exception</span><span class="o">.</span><span class="n">message</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_get_providers</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">settings</span><span class="p">,</span> <span class="n">content</span><span class="p">,</span> <span class="n">setting_name</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Fetches provider definition from the SAML metadata submitted by the user</span>
+
+<span class="sd">        :param settings: Dictionary containing provider&#39;s settings (SAMLAuthenticationProvider.SETTINGS)</span>
+<span class="sd">        :type: Dict</span>
+
+<span class="sd">        :param content: Dictionary containing submitted form&#39;s metadata</span>
+<span class="sd">        :type content: werkzeug.datastructures.MultiDict</span>
+
+<span class="sd">        :param setting_name: Name of the setting</span>
+<span class="sd">        :param setting_name: string</span>
+
+<span class="sd">        :return: List of IdentityProviderMetadata/ServiceProvider instances or a ProblemDetail instance</span>
+<span class="sd">        in the case of any errors</span>
+<span class="sd">        :rtype: Union[List[ProviderMetadata], ProblemDetail]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">provider_xml_metadata</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_setting_value</span><span class="p">(</span><span class="n">settings</span><span class="p">,</span> <span class="n">content</span><span class="p">,</span> <span class="n">setting_name</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">provider_xml_metadata</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">provider_xml_metadata</span>
+
+        <span class="n">providers</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_metadata</span><span class="p">(</span><span class="n">provider_xml_metadata</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">providers</span>
+
+    <span class="k">def</span> <span class="nf">_process_sp_providers</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">settings</span><span class="p">,</span> <span class="n">content</span><span class="p">,</span> <span class="n">setting_name</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Fetches SP provider definition from the SAML metadata submitted by the user</span>
+
+<span class="sd">        :param settings: Dictionary containing provider&#39;s settings (SAMLAuthenticationProvider.SETTINGS)</span>
+<span class="sd">        :type: Dict</span>
+
+<span class="sd">        :param content: Dictionary containing submitted form&#39;s metadata</span>
+<span class="sd">        :type content: werkzeug.datastructures.MultiDict</span>
+
+<span class="sd">        :param setting_name: Name of the setting</span>
+<span class="sd">        :param setting_name: string</span>
+
+<span class="sd">        :return: SP provider definition or a ProblemDetail instance in the case of any errors</span>
+<span class="sd">        :rtype: Union[ServiceProviderMetadata, ProblemDetail]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">sp_providers</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_providers</span><span class="p">(</span><span class="n">settings</span><span class="p">,</span> <span class="n">content</span><span class="p">,</span> <span class="n">setting_name</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">sp_providers</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">sp_providers</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">sp_providers</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">INCORRECT_METADATA</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span>
+                <span class="s1">&#39;Service Provider</span><span class="se">\&#39;</span><span class="s1">s XML metadata must contain exactly one declaration of SPSSODescriptor&#39;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">sp_providers</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="nf">_process_idp_providers</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">settings</span><span class="p">,</span> <span class="n">content</span><span class="p">,</span> <span class="n">setting_name</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Fetches IdP provider definitions from the SAML metadata submitted by the user</span>
+
+<span class="sd">        :param settings: Dictionary containing provider&#39;s settings (SAMLAuthenticationProvider.SETTINGS)</span>
+<span class="sd">        :type: Dict</span>
+
+<span class="sd">        :param content: Dictionary containing submitted form&#39;s metadata</span>
+<span class="sd">        :type content: werkzeug.datastructures.MultiDict</span>
+
+<span class="sd">        :param setting_name: Name of the setting</span>
+<span class="sd">        :param setting_name: string</span>
+
+<span class="sd">        :return: List of IdP provider definitions or a ProblemDetail instance in the case of any errors</span>
+<span class="sd">        :rtype: Union[List[IdentityProviderMetadata], ProblemDetail]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">idp_providers</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_providers</span><span class="p">(</span><span class="n">settings</span><span class="p">,</span> <span class="n">content</span><span class="p">,</span> <span class="n">setting_name</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">idp_providers</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">idp_providers</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">idp_providers</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">INCORRECT_METADATA</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span>
+                <span class="s1">&#39;Identity Provider</span><span class="se">\&#39;</span><span class="s1">s XML metadata must contain at least one declaration of IDPSSODescriptor&#39;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">idp_providers</span>
+
+<div class="viewcode-block" id="SAMLSettingsValidator.validate"><a class="viewcode-back" href="../../../api.saml.html#api.saml.validator.SAMLSettingsValidator.validate">[docs]</a>    <span class="k">def</span> <span class="nf">validate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">settings</span><span class="p">,</span> <span class="n">content</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Validates provider&#39;s setting values submitted by the user</span>
+
+<span class="sd">        :param settings: Dictionary containing provider&#39;s settings (SAMLAuthenticationProvider.SETTINGS)</span>
+<span class="sd">        :type settings: Optional[ProblemDetail]</span>
+
+<span class="sd">        :param content: Dictionary containing submitted form&#39;s metadata</span>
+<span class="sd">        :type content: werkzeug.datastructures.MultiDict</span>
+
+<span class="sd">        :return: ProblemDetail in the case of any errors, None if validation succeeded</span>
+<span class="sd">        :rtype: Optional[ProblemDetail]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">validation_result</span> <span class="o">=</span> <span class="nb">super</span><span class="p">(</span><span class="n">SAMLSettingsValidator</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">validate</span><span class="p">(</span><span class="n">settings</span><span class="p">,</span> <span class="n">content</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">validation_result</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">validation_result</span>
+
+        <span class="n">sp_providers</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_process_sp_providers</span><span class="p">(</span><span class="n">settings</span><span class="p">,</span> <span class="n">content</span><span class="p">,</span> <span class="n">configuration</span><span class="o">.</span><span class="n">SAMLConfiguration</span><span class="o">.</span><span class="n">SP_XML_METADATA</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">sp_providers</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">sp_providers</span>
+
+        <span class="n">idp_providers</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_process_idp_providers</span><span class="p">(</span><span class="n">settings</span><span class="p">,</span> <span class="n">content</span><span class="p">,</span> <span class="n">configuration</span><span class="o">.</span><span class="n">SAMLConfiguration</span><span class="o">.</span><span class="n">IDP_XML_METADATA</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">idp_providers</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">idp_providers</span>
+
+        <span class="k">return</span> <span class="kc">None</span></div></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">Library Simplified Circulation Manager</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../modules.html">circulation</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

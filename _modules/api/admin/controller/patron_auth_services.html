@@ -33,40 +33,44 @@
           <div class="body" role="main">
             
   <h1>Source code for api.admin.controller.patron_auth_services</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
+<span></span><span class="kn">import</span> <span class="nn">re</span>
+
 <span class="kn">import</span> <span class="nn">flask</span>
 <span class="kn">from</span> <span class="nn">flask</span> <span class="kn">import</span> <span class="n">Response</span>
 <span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
-<span class="kn">import</span> <span class="nn">re</span>
-<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">SettingsController</span>
+
+<span class="kn">from</span> <span class="nn">api.admin.controller</span> <span class="kn">import</span> <span class="n">SettingsController</span>
+<span class="kn">from</span> <span class="nn">api.admin.problem_details</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">api.admin.validator</span> <span class="kn">import</span> <span class="n">PatronAuthenticationValidatorFactory</span>
 <span class="kn">from</span> <span class="nn">api.authenticator</span> <span class="kn">import</span> <span class="n">AuthenticationProvider</span>
-<span class="kn">from</span> <span class="nn">api.simple_authentication</span> <span class="kn">import</span> <span class="n">SimpleAuthenticationProvider</span>
-<span class="kn">from</span> <span class="nn">api.millenium_patron</span> <span class="kn">import</span> <span class="n">MilleniumPatronAPI</span>
-<span class="kn">from</span> <span class="nn">api.kansas_patron</span> <span class="kn">import</span> <span class="n">KansasAuthenticationAPI</span>
-<span class="kn">from</span> <span class="nn">api.sip</span> <span class="kn">import</span> <span class="n">SIP2AuthenticationProvider</span>
+<span class="kn">from</span> <span class="nn">api.clever</span> <span class="kn">import</span> <span class="n">CleverAuthenticationAPI</span>
 <span class="kn">from</span> <span class="nn">api.firstbook</span> <span class="kn">import</span> <span class="n">FirstBookAuthenticationAPI</span> <span class="k">as</span> <span class="n">OldFirstBookAuthenticationAPI</span>
 <span class="kn">from</span> <span class="nn">api.firstbook2</span> <span class="kn">import</span> <span class="n">FirstBookAuthenticationAPI</span>
-<span class="kn">from</span> <span class="nn">api.clever</span> <span class="kn">import</span> <span class="n">CleverAuthenticationAPI</span>
+<span class="kn">from</span> <span class="nn">api.kansas_patron</span> <span class="kn">import</span> <span class="n">KansasAuthenticationAPI</span>
+<span class="kn">from</span> <span class="nn">api.millenium_patron</span> <span class="kn">import</span> <span class="n">MilleniumPatronAPI</span>
+<span class="kn">from</span> <span class="nn">api.saml.provider</span> <span class="kn">import</span> <span class="n">SAMLWebSSOAuthenticationProvider</span>
+<span class="kn">from</span> <span class="nn">api.simple_authentication</span> <span class="kn">import</span> <span class="n">SimpleAuthenticationProvider</span>
+<span class="kn">from</span> <span class="nn">api.sip</span> <span class="kn">import</span> <span class="n">SIP2AuthenticationProvider</span>
 <span class="kn">from</span> <span class="nn">core.model</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">ConfigurationSetting</span><span class="p">,</span>
     <span class="n">ExternalIntegration</span><span class="p">,</span>
     <span class="n">get_one</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">api.admin.problem_details</span> <span class="kn">import</span> <span class="o">*</span>
 <span class="kn">from</span> <span class="nn">core.util.problem_detail</span> <span class="kn">import</span> <span class="n">ProblemDetail</span>
 
-<div class="viewcode-block" id="PatronAuthServicesController"><a class="viewcode-back" href="../../../../api.admin.controller.html#api.admin.controller.patron_auth_services.PatronAuthServicesController">[docs]</a><span class="k">class</span> <span class="nc">PatronAuthServicesController</span><span class="p">(</span><span class="n">SettingsController</span><span class="p">):</span>
 
+<div class="viewcode-block" id="PatronAuthServicesController"><a class="viewcode-back" href="../../../../api.admin.controller.html#api.admin.controller.patron_auth_services.PatronAuthServicesController">[docs]</a><span class="k">class</span> <span class="nc">PatronAuthServicesController</span><span class="p">(</span><span class="n">SettingsController</span><span class="p">):</span>
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">manager</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">PatronAuthServicesController</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">manager</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">provider_apis</span> <span class="o">=</span> <span class="p">[</span><span class="n">SimpleAuthenticationProvider</span><span class="p">,</span>
-                         <span class="n">MilleniumPatronAPI</span><span class="p">,</span>
-                         <span class="n">SIP2AuthenticationProvider</span><span class="p">,</span>
-                         <span class="n">FirstBookAuthenticationAPI</span><span class="p">,</span>
-                         <span class="n">OldFirstBookAuthenticationAPI</span><span class="p">,</span>
-                         <span class="n">CleverAuthenticationAPI</span><span class="p">,</span>
-                         <span class="n">KansasAuthenticationAPI</span>
-                        <span class="p">]</span>
+                              <span class="n">MilleniumPatronAPI</span><span class="p">,</span>
+                              <span class="n">SIP2AuthenticationProvider</span><span class="p">,</span>
+                              <span class="n">FirstBookAuthenticationAPI</span><span class="p">,</span>
+                              <span class="n">OldFirstBookAuthenticationAPI</span><span class="p">,</span>
+                              <span class="n">CleverAuthenticationAPI</span><span class="p">,</span>
+                              <span class="n">KansasAuthenticationAPI</span><span class="p">,</span>
+                              <span class="n">SAMLWebSSOAuthenticationProvider</span>
+                              <span class="p">]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">protocols</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_integration_protocols</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">provider_apis</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">basic_auth_protocols</span> <span class="o">=</span> <span class="p">[</span><span class="n">SimpleAuthenticationProvider</span><span class="o">.</span><span class="vm">__module__</span><span class="p">,</span>
@@ -77,6 +81,7 @@
                                 <span class="n">KansasAuthenticationAPI</span><span class="o">.</span><span class="vm">__module__</span><span class="p">,</span>
                                <span class="p">]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">type</span> <span class="o">=</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;patron authentication service&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_validator_factory</span> <span class="o">=</span> <span class="n">PatronAuthenticationValidatorFactory</span><span class="p">()</span>
 
 <div class="viewcode-block" id="PatronAuthServicesController.process_patron_auth_services"><a class="viewcode-back" href="../../../../api.admin.controller.html#api.admin.controller.patron_auth_services.PatronAuthServicesController.process_patron_auth_services">[docs]</a>    <span class="k">def</span> <span class="nf">process_patron_auth_services</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">require_system_admin</span><span class="p">()</span>
@@ -120,7 +125,8 @@
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">auth_service</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
                 <span class="k">return</span> <span class="n">auth_service</span>
 
-        <span class="n">format_error</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">validate_formats</span><span class="p">()</span>
+        <span class="n">validator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_validator_factory</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">protocol</span><span class="p">)</span>
+        <span class="n">format_error</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">validate_formats</span><span class="p">(</span><span class="n">validator</span><span class="o">=</span><span class="n">validator</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">format_error</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">rollback</span><span class="p">()</span>
             <span class="k">return</span> <span class="n">format_error</span>

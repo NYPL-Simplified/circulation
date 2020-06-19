@@ -1,0 +1,1051 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>api.saml.metadata &#8212; Library Simplified Circulation Manager  documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for api.saml.metadata</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">datetime</span>
+<span class="kn">from</span> <span class="nn">json</span> <span class="kn">import</span> <span class="n">JSONEncoder</span>
+
+<span class="kn">from</span> <span class="nn">enum</span> <span class="kn">import</span> <span class="n">Enum</span>
+<span class="kn">from</span> <span class="nn">onelogin.saml2.constants</span> <span class="kn">import</span> <span class="n">OneLogin_Saml2_Constants</span>
+
+
+<div class="viewcode-block" id="LocalizableMetadataItem"><a class="viewcode-back" href="../../../api.saml.html#api.saml.metadata.LocalizableMetadataItem">[docs]</a><span class="k">class</span> <span class="nc">LocalizableMetadataItem</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Represents md:localizedNameType&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">language</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Initializes a new instance of LocalizableMetadataItem class</span>
+
+<span class="sd">        :param value: String containing the actual value</span>
+<span class="sd">        :type value: string</span>
+
+<span class="sd">        :param language: String containing language of the actual value</span>
+<span class="sd">        :type language: Optional[string]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_value</span> <span class="o">=</span> <span class="n">value</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_language</span> <span class="o">=</span> <span class="n">language</span>
+
+    <span class="k">def</span> <span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Compares two LocalizableMetadataItem objects</span>
+
+<span class="sd">        :param other: LocalizableMetadataItem object</span>
+<span class="sd">        :type other: LocalizableMetadataItem</span>
+
+<span class="sd">        :return: Boolean value indicating whether two items are equal</span>
+<span class="sd">        :rtype: bool</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">LocalizableMetadataItem</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="k">return</span> \
+            <span class="bp">self</span><span class="o">.</span><span class="n">value</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">value</span> <span class="ow">and</span> \
+            <span class="bp">self</span><span class="o">.</span><span class="n">language</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">language</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">value</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns the actual value</span>
+
+<span class="sd">        :return: Actual value</span>
+<span class="sd">        :rtype: string</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_value</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">language</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns the language of the value</span>
+
+<span class="sd">        :return: Language of the value</span>
+<span class="sd">        :rtype: string</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_language</span></div>
+
+
+<div class="viewcode-block" id="UIInfo"><a class="viewcode-back" href="../../../api.saml.html#api.saml.metadata.UIInfo">[docs]</a><span class="k">class</span> <span class="nc">UIInfo</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Represents mdui:UIInfoType and contains values that can be shown in the UI to describe IdPs/SPs&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">display_names</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">descriptions</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">information_urls</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">privacy_statement_urls</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">logo_urls</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Initializes a new instance of UIInfo class</span>
+
+<span class="sd">        :param display_names: (Optional) List of localized display names</span>
+<span class="sd">        :type display_names: Optional[List[LocalizableMetadataItem]]</span>
+
+<span class="sd">        :param descriptions: (Optional) List of localized descriptions</span>
+<span class="sd">        :type descriptions: Optional[List[LocalizableMetadataItem]]</span>
+
+<span class="sd">        :param information_urls: (Optional) List of localized information URLs</span>
+<span class="sd">        :type information_urls: Optional[List[LocalizableMetadataItem]]</span>
+
+<span class="sd">        :param privacy_statement_urls: (Optional) List of localized privacy statement URLs</span>
+<span class="sd">        :type privacy_statement_urls: Optional[List[LocalizableMetadataItem]]</span>
+
+<span class="sd">        :param logo_urls: (Optional) List of localized logo URLs</span>
+<span class="sd">        :type logo_urls: Optional[List[LocalizableMetadataItem]]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">display_names</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">display_name</span> <span class="ow">in</span> <span class="n">display_names</span><span class="p">:</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">display_name</span><span class="p">,</span> <span class="n">LocalizableMetadataItem</span><span class="p">):</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;display_name must have type LocalizableMetadataItem&#39;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">descriptions</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">description</span> <span class="ow">in</span> <span class="n">descriptions</span><span class="p">:</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">description</span><span class="p">,</span> <span class="n">LocalizableMetadataItem</span><span class="p">):</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;description must have type LocalizableMetadataItem&#39;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">information_urls</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">information_url</span> <span class="ow">in</span> <span class="n">information_urls</span><span class="p">:</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">information_url</span><span class="p">,</span> <span class="n">LocalizableMetadataItem</span><span class="p">):</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;information_url must have type LocalizableMetadataItem&#39;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">privacy_statement_urls</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">privacy_statement_url</span> <span class="ow">in</span> <span class="n">privacy_statement_urls</span><span class="p">:</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">privacy_statement_url</span><span class="p">,</span> <span class="n">LocalizableMetadataItem</span><span class="p">):</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;privacy_statement_url must have type LocalizableMetadataItem&#39;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">logo_urls</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">logo_url</span> <span class="ow">in</span> <span class="n">logo_urls</span><span class="p">:</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">logo_url</span><span class="p">,</span> <span class="n">LocalizableMetadataItem</span><span class="p">):</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;logo_urls must have type LocalizableMetadataItem&#39;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_display_names</span> <span class="o">=</span> <span class="n">display_names</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_descriptions</span> <span class="o">=</span> <span class="n">descriptions</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_information_urls</span> <span class="o">=</span> <span class="n">information_urls</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_privacy_statement_urls</span> <span class="o">=</span> <span class="n">privacy_statement_urls</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_logo_urls</span> <span class="o">=</span> <span class="n">logo_urls</span>
+
+    <span class="k">def</span> <span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Compares two UIInfo objects</span>
+
+<span class="sd">        :param other: UIInfo object</span>
+<span class="sd">        :type other: UIInfo</span>
+
+<span class="sd">        :return: Boolean value indicating whether two items are equal</span>
+<span class="sd">        :rtype: bool</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">UIInfo</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="k">return</span> \
+            <span class="bp">self</span><span class="o">.</span><span class="n">display_names</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">display_names</span> <span class="ow">and</span> \
+            <span class="bp">self</span><span class="o">.</span><span class="n">descriptions</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">descriptions</span> <span class="ow">and</span> \
+            <span class="bp">self</span><span class="o">.</span><span class="n">information_urls</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">information_urls</span> <span class="ow">and</span> \
+            <span class="bp">self</span><span class="o">.</span><span class="n">privacy_statement_urls</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">privacy_statement_urls</span> <span class="ow">and</span> \
+            <span class="bp">self</span><span class="o">.</span><span class="n">logo_urls</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">logo_urls</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">display_names</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns a list of localizable display names</span>
+
+<span class="sd">        :return: List of localizable display names</span>
+<span class="sd">        :rtype: List[LocalizableMetadataItem]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_display_names</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">descriptions</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns a list of localizable descriptions</span>
+
+<span class="sd">        :return: List of localizable descriptions</span>
+<span class="sd">        :rtype: List[LocalizableMetadataItem]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_descriptions</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">information_urls</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns a list of localizable information URLs</span>
+
+<span class="sd">        :return: List of localizable information URLs</span>
+<span class="sd">        :rtype: List[LocalizableMetadataItem]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_information_urls</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">privacy_statement_urls</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns a list of localizable privacy statement URLs</span>
+
+<span class="sd">        :return: List of localizable privacy statement URLs</span>
+<span class="sd">        :rtype: List[LocalizableMetadataItem]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_privacy_statement_urls</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">logo_urls</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns a list of localizable logo URLs</span>
+
+<span class="sd">        :return: List of localizable logo URLs</span>
+<span class="sd">        :rtype: List[LocalizableMetadataItem]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_logo_urls</span></div>
+
+
+<div class="viewcode-block" id="Binding"><a class="viewcode-back" href="../../../api.saml.html#api.saml.metadata.Binding">[docs]</a><span class="k">class</span> <span class="nc">Binding</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Enumeration of SAML bindings&quot;&quot;&quot;</span>
+
+    <span class="n">HTTP_POST</span> <span class="o">=</span> <span class="n">OneLogin_Saml2_Constants</span><span class="o">.</span><span class="n">BINDING_HTTP_POST</span>
+    <span class="n">HTTP_REDIRECT</span> <span class="o">=</span> <span class="n">OneLogin_Saml2_Constants</span><span class="o">.</span><span class="n">BINDING_HTTP_REDIRECT</span>
+    <span class="n">HTTP_ARTIFACT</span> <span class="o">=</span> <span class="n">OneLogin_Saml2_Constants</span><span class="o">.</span><span class="n">BINDING_HTTP_ARTIFACT</span>
+    <span class="n">SOAP</span> <span class="o">=</span> <span class="n">OneLogin_Saml2_Constants</span><span class="o">.</span><span class="n">BINDING_SOAP</span>
+    <span class="n">DEFLATE</span> <span class="o">=</span> <span class="n">OneLogin_Saml2_Constants</span><span class="o">.</span><span class="n">BINDING_DEFLATE</span></div>
+
+
+<div class="viewcode-block" id="NameIDFormat"><a class="viewcode-back" href="../../../api.saml.html#api.saml.metadata.NameIDFormat">[docs]</a><span class="k">class</span> <span class="nc">NameIDFormat</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Enumeration of SAML name ID formats&quot;&quot;&quot;</span>
+
+    <span class="n">EMAIL_ADDRESS</span> <span class="o">=</span> <span class="s1">&#39;urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress&#39;</span>
+    <span class="n">X509_SUBJECT_NAME</span> <span class="o">=</span> <span class="s1">&#39;urn:oasis:names:tc:SAML:1.1:nameid-format:X509SubjectName&#39;</span>
+    <span class="n">WINDOWS_DOMAIN_QUALIFIED_NAME</span> <span class="o">=</span> <span class="s1">&#39;urn:oasis:names:tc:SAML:1.1:nameid-format:WindowsDomainQualifiedName&#39;</span>
+    <span class="n">UNSPECIFIED</span> <span class="o">=</span> <span class="s1">&#39;urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified&#39;</span>
+    <span class="n">KERBEROS</span> <span class="o">=</span> <span class="s1">&#39;urn:oasis:names:tc:SAML:2.0:nameid-format:kerberos&#39;</span>
+    <span class="n">ENTITY</span> <span class="o">=</span> <span class="s1">&#39;urn:oasis:names:tc:SAML:2.0:nameid-format:entity&#39;</span>
+    <span class="n">TRANSIENT</span> <span class="o">=</span> <span class="s1">&#39;urn:oasis:names:tc:SAML:2.0:nameid-format:transient&#39;</span>
+    <span class="n">PERSISTENT</span> <span class="o">=</span> <span class="s1">&#39;urn:oasis:names:tc:SAML:2.0:nameid-format:persistent&#39;</span>
+    <span class="n">ENCRYPTED</span> <span class="o">=</span> <span class="s1">&#39;urn:oasis:names:tc:SAML:2.0:nameid-format:encrypted&#39;</span></div>
+
+
+<div class="viewcode-block" id="Service"><a class="viewcode-back" href="../../../api.saml.html#api.saml.metadata.Service">[docs]</a><span class="k">class</span> <span class="nc">Service</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Represents a service: IdP&#39;s SingleSignOnService, SingleLogOutService, SP&#39;s AssertionConsumerService&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">binding</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Initializes a new instance of Service class</span>
+
+<span class="sd">        :param url: Service&#39;s URL</span>
+<span class="sd">        :type url: string</span>
+
+<span class="sd">        :param binding: Service&#39;s binding</span>
+<span class="sd">        :type binding: Binding</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;url must be a string&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">binding</span><span class="p">,</span> <span class="n">Binding</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;binding must have type Binding&#39;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_url</span> <span class="o">=</span> <span class="n">url</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_binding</span> <span class="o">=</span> <span class="n">binding</span>
+
+    <span class="k">def</span> <span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Compares two Service objects</span>
+
+<span class="sd">        :param other: Service object</span>
+<span class="sd">        :type other: Service</span>
+
+<span class="sd">        :return: Boolean value indicating whether two items are equal</span>
+<span class="sd">        :rtype: bool</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">Service</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="k">return</span> \
+            <span class="bp">self</span><span class="o">.</span><span class="n">url</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">url</span> <span class="ow">and</span> \
+            <span class="bp">self</span><span class="o">.</span><span class="n">binding</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">binding</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">url</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns the service&#39;s URL</span>
+
+<span class="sd">        :return: Service&#39;s URL</span>
+<span class="sd">        :rtype: string</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_url</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">binding</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns the service&#39;s binding</span>
+
+<span class="sd">        :return: Service&#39;s binding</span>
+<span class="sd">        :rtype: Binding</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_binding</span></div>
+
+
+<div class="viewcode-block" id="ProviderMetadata"><a class="viewcode-back" href="../../../api.saml.html#api.saml.metadata.ProviderMetadata">[docs]</a><span class="k">class</span> <span class="nc">ProviderMetadata</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Base class for IdentityProvider and ServiceProvider classes&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">entity_id</span><span class="p">,</span> <span class="n">ui_info</span><span class="p">,</span> <span class="n">name_id_format</span><span class="o">=</span><span class="n">NameIDFormat</span><span class="o">.</span><span class="n">UNSPECIFIED</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Initializes a new instance of ProviderMetadata class</span>
+
+<span class="sd">        :param entity_id: Provider&#39;s entityID</span>
+<span class="sd">        :type entity_id: string</span>
+
+<span class="sd">        :param ui_info: UIInfo object containing &quot;UI&quot; metadata of the provider</span>
+<span class="sd">        :type ui_info: UIInfo</span>
+
+<span class="sd">        :param name_id_format: String defining the name identifier formats supported by the identity provider</span>
+<span class="sd">        :type name_id_format: string</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ui_info</span><span class="p">,</span> <span class="n">UIInfo</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;ui_info must have type UIInfo&#39;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">name_id_format</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;name_id_format must be a string&#39;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_entity_id</span> <span class="o">=</span> <span class="n">entity_id</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_ui_info</span> <span class="o">=</span> <span class="n">ui_info</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_name_id_format</span> <span class="o">=</span> <span class="n">name_id_format</span>
+
+    <span class="k">def</span> <span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Compares two ProviderMetadata objects</span>
+
+<span class="sd">        :param other: ProviderMetadata object</span>
+<span class="sd">        :type other: ProviderMetadata</span>
+
+<span class="sd">        :return: Boolean value indicating whether two items are equal</span>
+<span class="sd">        :rtype: bool</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">ProviderMetadata</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="k">return</span> \
+            <span class="bp">self</span><span class="o">.</span><span class="n">entity_id</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">entity_id</span> <span class="ow">and</span> \
+            <span class="bp">self</span><span class="o">.</span><span class="n">ui_info</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">ui_info</span> <span class="ow">and</span> \
+            <span class="bp">self</span><span class="o">.</span><span class="n">name_id_format</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">name_id_format</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">entity_id</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns the provider&#39;s entityID</span>
+
+<span class="sd">        :return: Provider&#39;s entityID</span>
+<span class="sd">        :rtype: string</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_entity_id</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">ui_info</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns the provider&#39;s UIInfo object</span>
+<span class="sd">        :return: Provider&#39;s UIInfo object</span>
+<span class="sd">        :rtype: UIInfo</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ui_info</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">name_id_format</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns the name ID format</span>
+
+<span class="sd">        :return: Name ID format</span>
+<span class="sd">        :rtype: string</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_name_id_format</span></div>
+
+
+<div class="viewcode-block" id="IdentityProviderMetadata"><a class="viewcode-back" href="../../../api.saml.html#api.saml.metadata.IdentityProviderMetadata">[docs]</a><span class="k">class</span> <span class="nc">IdentityProviderMetadata</span><span class="p">(</span><span class="n">ProviderMetadata</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Represents IdP metadata&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">entity_id</span><span class="p">,</span>
+            <span class="n">ui_info</span><span class="p">,</span>
+            <span class="n">name_id_format</span><span class="p">,</span>
+            <span class="n">sso_service</span><span class="p">,</span>
+            <span class="n">slo_service</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">want_authn_requests_signed</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="n">signing_certificates</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">encryption_certificates</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Initializes a new instance of IdentityProviderMetadata</span>
+
+<span class="sd">        :param entity_id: String containing this IdP&#39;s entityID</span>
+<span class="sd">        :type entity_id: string</span>
+
+<span class="sd">        :param ui_info: UIInfo object containing this IdP&#39;s description which can be shown the UI</span>
+<span class="sd">        :type ui_info: UIInfo</span>
+
+<span class="sd">        :param name_id_format: String defining the name identifier formats supported by the identity provider</span>
+<span class="sd">        :type name_id_format: string</span>
+
+<span class="sd">        :param sso_service: Service object containing information about Single Sign-On (SSO) service</span>
+<span class="sd">        :type sso_service: Service</span>
+
+<span class="sd">        :param slo_service: (Optional) Service object containing information about Single Log-Out (SLO) service</span>
+<span class="sd">        :type slo_service: Optional[Service]</span>
+
+<span class="sd">        :param want_authn_requests_signed: (Optional) Boolean value intended to indicate to service providers</span>
+<span class="sd">            whether or not they can expect an unsigned &lt;AuthnRequest&gt; message to be accepted by the identity provider</span>
+<span class="sd">        :type want_authn_requests_signed: Optional[bool]</span>
+
+<span class="sd">        :param signing_certificates: (Optional) Certificate in X.509 format used for signing &lt;AuthnResponse&gt; messages</span>
+<span class="sd">        :type signing_certificates: Optional[List[string]]</span>
+
+<span class="sd">        :param encryption_certificates: (Optional) Certificate in X.509 format used for encrypting &lt;AuthnResponse&gt;</span>
+<span class="sd">        :type encryption_certificates: Optional[List[string]]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">IdentityProviderMetadata</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">entity_id</span><span class="p">,</span> <span class="n">ui_info</span><span class="p">,</span> <span class="n">name_id_format</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">sso_service</span><span class="p">,</span> <span class="n">Service</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;sso_service must have type Service&#39;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">slo_service</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">slo_service</span><span class="p">,</span> <span class="n">Service</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;slo_service must have type Service&#39;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_sso_service</span> <span class="o">=</span> <span class="n">sso_service</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_slo_service</span> <span class="o">=</span> <span class="n">slo_service</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_want_authn_requests_signed</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">want_authn_requests_signed</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_signing_certificates</span> <span class="o">=</span> <span class="n">signing_certificates</span> <span class="k">if</span> <span class="n">signing_certificates</span> <span class="k">else</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_encryption_certificates</span> <span class="o">=</span> <span class="n">encryption_certificates</span> <span class="k">if</span> <span class="n">encryption_certificates</span> <span class="k">else</span> <span class="p">[]</span>
+
+    <span class="k">def</span> <span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Compares two IdentityProviderMetadata objects</span>
+
+<span class="sd">        :param other: IdentityProviderMetadata object</span>
+<span class="sd">        :type other: IdentityProviderMetadata</span>
+
+<span class="sd">        :return: Boolean value indicating whether two items are equal</span>
+<span class="sd">        :rtype: bool</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">super</span><span class="p">(</span><span class="n">IdentityProviderMetadata</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__eq__</span><span class="p">(</span><span class="n">other</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">IdentityProviderMetadata</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="k">return</span> \
+            <span class="bp">self</span><span class="o">.</span><span class="n">sso_service</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">sso_service</span> <span class="ow">and</span> \
+            <span class="bp">self</span><span class="o">.</span><span class="n">slo_service</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">slo_service</span> <span class="ow">and</span> \
+            <span class="bp">self</span><span class="o">.</span><span class="n">want_authn_requests_signed</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">want_authn_requests_signed</span> <span class="ow">and</span> \
+            <span class="bp">self</span><span class="o">.</span><span class="n">signing_certificates</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">signing_certificates</span> <span class="ow">and</span> \
+            <span class="bp">self</span><span class="o">.</span><span class="n">encryption_certificates</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">encryption_certificates</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">sso_service</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns Single Sign-On service&#39;s metadata</span>
+
+<span class="sd">        :return: Single Sign-On service&#39;s metadata</span>
+<span class="sd">        :rtype: Service</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sso_service</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">slo_service</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns Single Log-Out service&#39;s metadata</span>
+
+<span class="sd">        :return: Single Log-Out service&#39;s metadata</span>
+<span class="sd">        :rtype: Service</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_slo_service</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">want_authn_requests_signed</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns the boolean value indicating to service providers</span>
+<span class="sd">        whether or not they can expect an unsigned &lt;AuthnRequest&gt; message to be accepted by the identity provider</span>
+
+<span class="sd">        :return: Boolean value indicating to service providers</span>
+<span class="sd">            whether or not they can expect an unsigned &lt;AuthnRequest&gt; message to be accepted by the identity provider</span>
+<span class="sd">        :rtype: bool</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_want_authn_requests_signed</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">signing_certificates</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns a list of signing certificates</span>
+
+<span class="sd">        :return: List of signing certificates</span>
+<span class="sd">        :rtype: List[string]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_signing_certificates</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">encryption_certificates</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns a list of encryption certificates</span>
+
+<span class="sd">        :return: List of encryption certificates</span>
+<span class="sd">        :rtype: List[string]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_encryption_certificates</span></div>
+
+
+<div class="viewcode-block" id="ServiceProviderMetadata"><a class="viewcode-back" href="../../../api.saml.html#api.saml.metadata.ServiceProviderMetadata">[docs]</a><span class="k">class</span> <span class="nc">ServiceProviderMetadata</span><span class="p">(</span><span class="n">ProviderMetadata</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Represents SP metadata&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">entity_id</span><span class="p">,</span>
+            <span class="n">ui_info</span><span class="p">,</span>
+            <span class="n">name_id_format</span><span class="p">,</span>
+            <span class="n">acs_service</span><span class="p">,</span>
+            <span class="n">authn_requests_signed</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="n">want_assertions_signed</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="n">certificate</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">private_key</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Initializes a new instance of ServiceProviderMetadata class</span>
+
+<span class="sd">        :param entity_id: String containing this IdP&#39;s entityID</span>
+<span class="sd">        :type entity_id: string</span>
+
+<span class="sd">        :param ui_info: UIInfo object containing this IdP&#39;s description which can be shown the UI</span>
+<span class="sd">        :type ui_info: UIInfo</span>
+
+<span class="sd">        :param name_id_format: String defining the name identifier formats supported by the identity provider</span>
+<span class="sd">        :type name_id_format: string</span>
+
+<span class="sd">        :param acs_service: Service object describing AssertionConsumerService</span>
+<span class="sd">        :type acs_service: Service</span>
+
+<span class="sd">        :param authn_requests_signed: (Optional) Attribute that indicates whether the &lt;samlp:AuthnRequest&gt; messages</span>
+<span class="sd">            sent by this service provider will be signed. If omitted, the value is assumed to be false</span>
+<span class="sd">        :type authn_requests_signed: bool</span>
+
+<span class="sd">        :param want_assertions_signed: (Optional) Attribute that indicates a requirement for the &lt;saml:Assertion&gt;</span>
+<span class="sd">            elements received by this service provider to be signed. If omitted, the value is assumed to be false</span>
+<span class="sd">        :type want_assertions_signed: bool</span>
+
+<span class="sd">        :param certificate: (Optional) Certificate in X.509 format containing a public key used</span>
+<span class="sd">            for signing SAML requests</span>
+<span class="sd">        :type certificate: string</span>
+
+<span class="sd">        :param private_key: (Optional) Private key used for encrypting SAML requests</span>
+<span class="sd">        :type private_key: string</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">ServiceProviderMetadata</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">entity_id</span><span class="p">,</span> <span class="n">ui_info</span><span class="p">,</span> <span class="n">name_id_format</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">acs_service</span><span class="p">,</span> <span class="n">Service</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;acs_service must have type Service&#39;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_name_id_format</span> <span class="o">=</span> <span class="n">name_id_format</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_acs_service</span> <span class="o">=</span> <span class="n">acs_service</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_authn_requests_signed</span> <span class="o">=</span> <span class="n">authn_requests_signed</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_want_assertions_signed</span> <span class="o">=</span> <span class="n">want_assertions_signed</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_certificate</span> <span class="o">=</span> <span class="n">certificate</span> <span class="k">if</span> <span class="n">certificate</span> <span class="k">else</span> <span class="s1">&#39;&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_private_key</span> <span class="o">=</span> <span class="n">private_key</span> <span class="k">if</span> <span class="n">private_key</span> <span class="k">else</span> <span class="s1">&#39;&#39;</span>
+
+    <span class="k">def</span> <span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Compares two ServiceProviderMetadata objects</span>
+
+<span class="sd">        :param other: ServiceProviderMetadata object</span>
+<span class="sd">        :type other: ServiceProviderMetadata</span>
+
+<span class="sd">        :return: Boolean value indicating whether two items are equal</span>
+<span class="sd">        :rtype: bool</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">super</span><span class="p">(</span><span class="n">ServiceProviderMetadata</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__eq__</span><span class="p">(</span><span class="n">other</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">ServiceProviderMetadata</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="k">return</span> \
+            <span class="bp">self</span><span class="o">.</span><span class="n">acs_service</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">acs_service</span> <span class="ow">and</span> \
+            <span class="bp">self</span><span class="o">.</span><span class="n">authn_requests_signed</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">authn_requests_signed</span> <span class="ow">and</span> \
+            <span class="bp">self</span><span class="o">.</span><span class="n">want_assertions_signed</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">want_assertions_signed</span> <span class="ow">and</span> \
+            <span class="bp">self</span><span class="o">.</span><span class="n">certificate</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">certificate</span> <span class="ow">and</span> \
+            <span class="bp">self</span><span class="o">.</span><span class="n">private_key</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">private_key</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">acs_service</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns Assertion Consumer service&#39;s metadata</span>
+
+<span class="sd">        :return: Assertion Consumer service&#39;s metadata</span>
+<span class="sd">        :rtype: Service</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_acs_service</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">authn_requests_signed</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns the value that indicates whether the &lt;samlp:AuthnRequest&gt; messages</span>
+<span class="sd">        sent by this service provider will be signed</span>
+
+<span class="sd">        :return: Value that indicates whether the &lt;samlp:AuthnRequest&gt; messages</span>
+<span class="sd">            sent by this service provider will be signed</span>
+<span class="sd">        :rtype: bool</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_authn_requests_signed</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">want_assertions_signed</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns the value that indicates a requirement for the &lt;saml:Assertion&gt;</span>
+<span class="sd">        elements received by this service provider to be signed</span>
+
+<span class="sd">        :return: Value that indicates a requirement for the &lt;saml:Assertion&gt;</span>
+<span class="sd">            elements received by this service provider to be signed</span>
+<span class="sd">        :rtype: bool</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_want_assertions_signed</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">certificate</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns the certificate in X.509 format containing the public key used for signing SAML requests</span>
+
+<span class="sd">        :return: Certificate in X.509 format containing the public key used for signing SAML requests</span>
+<span class="sd">        :rtype: string</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_certificate</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">private_key</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns the private key used for encrypting SAML requests</span>
+
+<span class="sd">        :return: Private key used for encrypting SAML requests</span>
+<span class="sd">        :rtype: string</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_private_key</span></div>
+
+
+<div class="viewcode-block" id="NameID"><a class="viewcode-back" href="../../../api.saml.html#api.saml.metadata.NameID">[docs]</a><span class="k">class</span> <span class="nc">NameID</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Represents saml2:NameID&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name_format</span><span class="p">,</span> <span class="n">name_qualifier</span><span class="p">,</span> <span class="n">sp_name_qualifier</span><span class="p">,</span> <span class="n">name_id</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Initializes a new instance of NameID class</span>
+
+<span class="sd">        :param name_format: Name ID&#39;s format</span>
+<span class="sd">        :type name_format: string</span>
+
+<span class="sd">        :param name_qualifier: The security or administrative domain that qualifies the name identifier of the subject.</span>
+<span class="sd">            This attribute provides a means to federate names from disparate user stores without collision</span>
+<span class="sd">        :type name_qualifier: string</span>
+
+<span class="sd">        :param sp_name_qualifier: Further qualifies a federated name identifier with the name of the service provider</span>
+<span class="sd">            or affiliation of providers which has federated the principal&#39;s identity</span>
+<span class="sd">        :type sp_name_qualifier: string</span>
+
+<span class="sd">        :param name_id: Name ID value</span>
+<span class="sd">        :type name_id: string</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_name_format</span> <span class="o">=</span> <span class="n">name_format</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_name_qualifier</span> <span class="o">=</span> <span class="n">name_qualifier</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_sp_name_qualifier</span> <span class="o">=</span> <span class="n">sp_name_qualifier</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_name_id</span> <span class="o">=</span> <span class="n">name_id</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">name_format</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns name ID&#39;s format</span>
+
+<span class="sd">        :return: Name ID&#39;s format</span>
+<span class="sd">        :rtype: string</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_name_format</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">name_qualifier</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns the security or administrative domain that qualifies the name identifier of the subject.</span>
+<span class="sd">        This attribute provides a means to federate names from disparate user stores without collision</span>
+
+<span class="sd">        :return: Security or administrative domain that qualifies the name identifier of the subject.</span>
+<span class="sd">            This attribute provides a means to federate names from disparate user stores without collision</span>
+<span class="sd">        :rtype: string</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_name_qualifier</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">sp_name_qualifier</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns the attribute that further qualifies a federated name identifier with the name of the service provider</span>
+<span class="sd">        or affiliation of providers which has federated the principal&#39;s identity</span>
+
+<span class="sd">        :return: Attribute that further qualifies a federated name identifier with the name of the service provider</span>
+<span class="sd">            or affiliation of providers which has federated the principal&#39;s identity</span>
+<span class="sd">        :rtype: string</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sp_name_qualifier</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">name_id</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns name ID</span>
+
+<span class="sd">        :return: Name ID</span>
+<span class="sd">        :rtype: string</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_name_id</span></div>
+
+
+<div class="viewcode-block" id="SAMLAttributes"><a class="viewcode-back" href="../../../api.saml.html#api.saml.metadata.SAMLAttributes">[docs]</a><span class="k">class</span> <span class="nc">SAMLAttributes</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Enumeration of different attributes supported by different SAML IdPs&quot;&quot;&quot;</span>
+
+    <span class="n">uid</span> <span class="o">=</span> <span class="s1">&#39;urn:oid:0.9.2342.19200300.100.1.1&#39;</span>
+
+    <span class="n">givenName</span> <span class="o">=</span> <span class="s1">&#39;urn:oid:2.5.4.42&#39;</span>
+    <span class="n">surname</span> <span class="o">=</span> <span class="s1">&#39;urn:oid:2.5.4.4&#39;</span>
+    <span class="n">mail</span> <span class="o">=</span> <span class="s1">&#39;urn:oid:0.9.2342.19200300.100.1.3&#39;</span>
+
+    <span class="n">eduPersonUniqueId</span> <span class="o">=</span> <span class="s1">&#39;urn:oid:1.3.6.1.4.1.5923.1.1.1.13&#39;</span>
+    <span class="n">eduPersonTargetedID</span> <span class="o">=</span> <span class="s1">&#39;urn:oid:1.3.6.1.4.1.5923.1.1.1.10&#39;</span>
+    <span class="n">eduPersonPrincipalName</span> <span class="o">=</span> <span class="s1">&#39;urn:oid:1.3.6.1.4.1.5923.1.1.1.6&#39;</span>
+    <span class="n">eduPersonAffiliation</span> <span class="o">=</span> <span class="s1">&#39;urn:oid:1.3.6.1.4.1.5923.1.1.1.1&#39;</span>
+    <span class="n">eduPersonScopedAffiliation</span> <span class="o">=</span> <span class="s1">&#39;urn:oid:1.3.6.1.4.1.5923.1.1.1.9&#39;</span>
+    <span class="n">eduPersonOrgUnitDN</span> <span class="o">=</span> <span class="s1">&#39;urn:oid:1.3.6.1.4.1.5923.1.1.1.4&#39;</span></div>
+
+
+<div class="viewcode-block" id="Attribute"><a class="viewcode-back" href="../../../api.saml.html#api.saml.metadata.Attribute">[docs]</a><span class="k">class</span> <span class="nc">Attribute</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Represents saml2:Attribute&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">values</span><span class="p">,</span> <span class="n">friendly_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">name_format</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Initializes a new instance of Attribute class</span>
+
+<span class="sd">        :param name: Attribute&#39;s name</span>
+<span class="sd">        :type name: string</span>
+
+<span class="sd">        :param values: List of values</span>
+<span class="sd">        :type values: List</span>
+
+<span class="sd">        :param friendly_name: Attribute&#39;s friendly name</span>
+<span class="sd">        :type friendly_name: string</span>
+
+<span class="sd">        :param name_format: Attribute&#39;s name format</span>
+<span class="sd">        :type name_format: string</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_name</span> <span class="o">=</span> <span class="n">name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_values</span> <span class="o">=</span> <span class="n">values</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_friendly_name</span> <span class="o">=</span> <span class="n">friendly_name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_name_format</span> <span class="o">=</span> <span class="n">name_format</span>
+
+    <span class="k">def</span> <span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Compares two Attribute objects</span>
+
+<span class="sd">        :param other: Attribute object</span>
+<span class="sd">        :type other: Attribute</span>
+
+<span class="sd">        :return: Boolean value indicating whether two items are equal</span>
+<span class="sd">        :rtype: bool</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">Attribute</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="k">return</span> \
+            <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">name</span> <span class="ow">and</span> \
+            <span class="bp">self</span><span class="o">.</span><span class="n">values</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">values</span> <span class="ow">and</span> \
+            <span class="bp">self</span><span class="o">.</span><span class="n">friendly_name</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">friendly_name</span> <span class="ow">and</span> \
+            <span class="bp">self</span><span class="o">.</span><span class="n">name_format</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">name_format</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">friendly_name</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns the attribute&#39;s friendly name</span>
+
+<span class="sd">        :return: Attribute&#39;s friendly name</span>
+<span class="sd">        :rtype: string</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_friendly_name</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">name</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns the attribute&#39;s name</span>
+
+<span class="sd">        :return: Attribute&#39;s name</span>
+<span class="sd">        :rtype: string</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_name</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">name_format</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns the attribute&#39;s name format</span>
+
+<span class="sd">        :return: Attribute&#39;s name format</span>
+<span class="sd">        :rtype: string</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_name_format</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">values</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns a list of the attribute&#39;s values</span>
+
+<span class="sd">        :return: List of the attribute&#39;s values</span>
+<span class="sd">        :rtype: List</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_values</span></div>
+
+
+<div class="viewcode-block" id="AttributeStatement"><a class="viewcode-back" href="../../../api.saml.html#api.saml.metadata.AttributeStatement">[docs]</a><span class="k">class</span> <span class="nc">AttributeStatement</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Represents saml2:AttributeStatement&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">attributes</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Initializes a new instance of AttributeStatement class</span>
+
+<span class="sd">        :param attributes: Attributes in a form of a list of a dictionary</span>
+<span class="sd">        :type attributes: Union[List[Attribute], Dict[string, List[Any]]]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_attributes</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="n">attribute_names</span> <span class="o">=</span> <span class="p">{</span><span class="n">attribute</span><span class="o">.</span><span class="n">value</span><span class="p">:</span> <span class="n">attribute</span> <span class="k">for</span> <span class="n">attribute</span> <span class="ow">in</span> <span class="n">SAMLAttributes</span><span class="p">}</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">attributes</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">attribute</span> <span class="ow">in</span> <span class="n">attributes</span><span class="p">:</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">attribute</span><span class="p">,</span> <span class="n">Attribute</span><span class="p">):</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;attribute must have type Attribute&#39;</span><span class="p">)</span>
+
+                <span class="k">if</span> <span class="n">attribute</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">attribute_names</span><span class="p">:</span>
+                    <span class="n">predefined_name</span> <span class="o">=</span> <span class="n">attribute_names</span><span class="p">[</span><span class="n">attribute</span><span class="o">.</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">name</span>
+                    <span class="n">attribute</span> <span class="o">=</span> <span class="n">Attribute</span><span class="p">(</span><span class="n">predefined_name</span><span class="p">,</span> <span class="n">attribute</span><span class="o">.</span><span class="n">values</span><span class="p">)</span>
+
+                <span class="bp">self</span><span class="o">.</span><span class="n">_attributes</span><span class="p">[</span><span class="n">attribute</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">attribute</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">attributes</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">attribute_values</span> <span class="ow">in</span> <span class="n">attributes</span><span class="o">.</span><span class="n">iteritems</span><span class="p">():</span>
+
+                <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">attribute_names</span><span class="p">:</span>
+                    <span class="n">name</span> <span class="o">=</span> <span class="n">attribute_names</span><span class="p">[</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">name</span>
+
+                <span class="n">attribute</span> <span class="o">=</span> <span class="n">Attribute</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span> <span class="n">values</span><span class="o">=</span><span class="n">attribute_values</span><span class="p">)</span>
+
+                <span class="bp">self</span><span class="o">.</span><span class="n">_attributes</span><span class="p">[</span><span class="n">attribute</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">attribute</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">attributes</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns an attributes dictionary</span>
+
+<span class="sd">        :return: Dictionary containing attributes</span>
+<span class="sd">        :rtype: Dict[string, Attribute]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_attributes</span></div>
+
+
+<div class="viewcode-block" id="Subject"><a class="viewcode-back" href="../../../api.saml.html#api.saml.metadata.Subject">[docs]</a><span class="k">class</span> <span class="nc">Subject</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Contains a name ID and a attribute statement&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name_id</span><span class="p">,</span> <span class="n">attribute_statement</span><span class="p">,</span> <span class="n">valid_till</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Initializes a new instance of Subject class</span>
+
+<span class="sd">        :param name_id: Name ID</span>
+<span class="sd">        :type name_id: NameID</span>
+
+<span class="sd">        :param attribute_statement: Attribute statement</span>
+<span class="sd">        :type attribute_statement: AttributeStatement</span>
+
+<span class="sd">        :param valid_till: Time till which the subject is valid</span>
+<span class="sd">            The default value is 30 minutes</span>
+<span class="sd">            Please refer to the Shibboleth IdP documentation for more details:</span>
+<span class="sd">            - https://wiki.shibboleth.net/confluence/display/IDP30/SessionConfiguration</span>
+<span class="sd">        :type valid_till: Optional[Union[datetime.datetime, datetime.timedelta]]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_name_id</span> <span class="o">=</span> <span class="n">name_id</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_attribute_statement</span> <span class="o">=</span> <span class="n">attribute_statement</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_valid_till</span> <span class="o">=</span> <span class="n">valid_till</span>
+
+        <span class="k">if</span> <span class="n">valid_till</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_valid_till</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">timedelta</span><span class="p">(</span><span class="n">minutes</span><span class="o">=</span><span class="mi">30</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">valid_till</span><span class="p">,</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_valid_till</span> <span class="o">=</span> <span class="n">valid_till</span> <span class="o">-</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">valid_till</span><span class="p">,</span> <span class="n">datetime</span><span class="o">.</span><span class="n">timedelta</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_valid_till</span> <span class="o">=</span> <span class="n">valid_till</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;valid_till is not valid&#39;</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">name_id</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns the name ID</span>
+
+<span class="sd">        :return: Name ID</span>
+<span class="sd">        :rtype: NameID</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_name_id</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">attribute_statement</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns the attribute statement</span>
+
+<span class="sd">        :return: Attribute statement</span>
+<span class="sd">        :rtype: AttributeStatement</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_attribute_statement</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">valid_till</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns the time till which the subject is valid.</span>
+<span class="sd">        The default value is 30 minutes. Please refer to the Shibboleth IdP documentation for more details:</span>
+<span class="sd">        - https://wiki.shibboleth.net/confluence/display/IDP30/SessionConfiguration</span>
+
+<span class="sd">        :return: Time till which the subject is valid</span>
+<span class="sd">        :rtype: datetime.timedelta</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_valid_till</span></div>
+
+
+<div class="viewcode-block" id="SubjectJSONEncoder"><a class="viewcode-back" href="../../../api.saml.html#api.saml.metadata.SubjectJSONEncoder">[docs]</a><span class="k">class</span> <span class="nc">SubjectJSONEncoder</span><span class="p">(</span><span class="n">JSONEncoder</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Subject&#39;s JSON encoder&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="SubjectJSONEncoder.default"><a class="viewcode-back" href="../../../api.saml.html#api.saml.metadata.SubjectJSONEncoder.default">[docs]</a>    <span class="k">def</span> <span class="nf">default</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subject</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Serializers a Subject object to JSON</span>
+
+<span class="sd">        :param subject: Subject object</span>
+<span class="sd">        :type subject: api.saml.metadata.Subject</span>
+
+<span class="sd">        :return: String containing JSON representation of the Subject object</span>
+<span class="sd">        :rtype: string</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">subject</span><span class="p">,</span> <span class="n">Subject</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;subject must have type Subject&#39;</span><span class="p">)</span>
+
+        <span class="n">result</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="k">if</span> <span class="n">subject</span><span class="o">.</span><span class="n">name_id</span><span class="p">:</span>
+            <span class="n">result</span><span class="p">[</span><span class="s1">&#39;name_id&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="s1">&#39;name_format&#39;</span><span class="p">:</span> <span class="n">subject</span><span class="o">.</span><span class="n">name_id</span><span class="o">.</span><span class="n">name_format</span><span class="p">,</span>
+                <span class="s1">&#39;name_id&#39;</span><span class="p">:</span> <span class="n">subject</span><span class="o">.</span><span class="n">name_id</span><span class="o">.</span><span class="n">name_id</span><span class="p">,</span>
+                <span class="s1">&#39;name_qualifier&#39;</span><span class="p">:</span> <span class="n">subject</span><span class="o">.</span><span class="n">name_id</span><span class="o">.</span><span class="n">name_qualifier</span><span class="p">,</span>
+                <span class="s1">&#39;sp_name_qualifier&#39;</span><span class="p">:</span> <span class="n">subject</span><span class="o">.</span><span class="n">name_id</span><span class="o">.</span><span class="n">sp_name_qualifier</span>
+            <span class="p">}</span>
+
+        <span class="k">if</span> <span class="n">subject</span><span class="o">.</span><span class="n">attribute_statement</span> <span class="ow">and</span> <span class="n">subject</span><span class="o">.</span><span class="n">attribute_statement</span><span class="o">.</span><span class="n">attributes</span><span class="p">:</span>
+            <span class="n">result</span><span class="p">[</span><span class="s1">&#39;attributes&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="n">attribute</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="n">attribute</span><span class="o">.</span><span class="n">values</span> <span class="k">for</span> <span class="n">attribute</span> <span class="ow">in</span> <span class="n">subject</span><span class="o">.</span><span class="n">attribute_statement</span><span class="o">.</span><span class="n">attributes</span><span class="o">.</span><span class="n">itervalues</span><span class="p">()</span>
+            <span class="p">}</span>
+
+        <span class="k">return</span> <span class="n">result</span></div></div>
+
+
+<div class="viewcode-block" id="SubjectUIDExtractor"><a class="viewcode-back" href="../../../api.saml.html#api.saml.metadata.SubjectUIDExtractor">[docs]</a><span class="k">class</span> <span class="nc">SubjectUIDExtractor</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Implements an algorithm for extracting a subject&#39;s unique ID from its attributes&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="SubjectUIDExtractor.extract"><a class="viewcode-back" href="../../../api.saml.html#api.saml.metadata.SubjectUIDExtractor.extract">[docs]</a>    <span class="k">def</span> <span class="nf">extract</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subject</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Extracts a unique ID from the subject object</span>
+
+<span class="sd">        :param subject: Subject object</span>
+<span class="sd">        :type subject: api.saml.metadata.Subject</span>
+
+<span class="sd">        :return: Unique ID</span>
+<span class="sd">        :rtype: string</span>
+
+<span class="sd">        Unfortunately, there is no single standard regarding what attributes can be treated as unique IDs.</span>
+<span class="sd">        Different systems use different attributes and all of them have their pros and cons.</span>
+<span class="sd">        This class implements an algorithm which tries different attributes in the following order</span>
+<span class="sd">        and selects the first of them as the unique ID:</span>
+
+<span class="sd">        1. eduPersonUniqueId</span>
+<span class="sd">           (https://wiki.refeds.org/display/STAN/eduPerson+2020-01#eduPerson2020-01-eduPersonUniqueId)</span>
+
+<span class="sd">           A long-lived, non re-assignable, omnidirectional identifier suitable for use as a principal identifier</span>
+<span class="sd">           by authentication providers or as a unique external key by applications.</span>
+
+<span class="sd">        2. eduPersonTargetedID</span>
+<span class="sd">           (https://wiki.refeds.org/display/STAN/eduPerson+2020-01#eduPerson2020-01-eduPersonTargetedID)</span>
+
+<span class="sd">           A persistent, non-reassigned, opaque identifier for a principal.</span>
+<span class="sd">           eduPersonTargetedID is an abstracted version of the SAML V2.0 Name Identifier format of</span>
+<span class="sd">           &quot;urn:oasis:names:tc:SAML:2.0:nameid-format:persistent&quot;</span>
+<span class="sd">           (see http://www.oasis-open.org/committees/download.php/35711).</span>
+
+<span class="sd">           NOTE: eduPersonTargetedID is DEPRECATED and will be marked as obsolete in a future version</span>
+<span class="sd">           of this specification. Its equivalent definition in SAML 2.0 has been replaced by a new specification</span>
+<span class="sd">           for standard Subject Identifier attributes</span>
+<span class="sd">           [https://docs.oasis-open.org/security/saml-subject-id-attr/v1.0/saml-subject-id-attr-v1.0.html],</span>
+<span class="sd">           one of which (&quot;urn:oasis:names:tc:SAML:attribute:pairwise-id&quot;) is a direct replacement for this identifier</span>
+<span class="sd">           with a simpler syntax and safer comparison rules.</span>
+<span class="sd">           Existing use of this attribute in SAML 1.1 or SAML 2.0 should be phased out</span>
+<span class="sd">           in favor of the new Subject Identifier attributes.&quot;</span>
+
+<span class="sd">        3. uid</span>
+<span class="sd">           http://oid-info.com/get/0.9.2342.19200300.100.1.1</span>
+
+<span class="sd">           See IETF RFC 4519.</span>
+<span class="sd">           IETF RFC 1274 uses the identifier &quot;userid&quot;.</span>
+
+<span class="sd">        4. Name ID</span>
+<span class="sd">           The extractor fetches the first name ID it could find as a last resort which may no be correct.</span>
+<span class="sd">           It might be better to fetch only persistent name IDs.</span>
+
+<span class="sd">        Also, please note that eduPersonTargetedID attribute and name IDs should be phased out and replaced with</span>
+<span class="sd">        the pairwise-id attribute from the OASIS SAML 2.0 SubjectID Attributes Profile.</span>
+<span class="sd">        However, it&#39;s not yet supported by most of the IdPs</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">unique_id_attributes</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">SAMLAttributes</span><span class="o">.</span><span class="n">eduPersonUniqueId</span><span class="p">,</span>
+            <span class="n">SAMLAttributes</span><span class="o">.</span><span class="n">eduPersonTargetedID</span><span class="p">,</span>
+            <span class="n">SAMLAttributes</span><span class="o">.</span><span class="n">uid</span>
+        <span class="p">]</span>
+
+        <span class="k">if</span> <span class="n">subject</span><span class="o">.</span><span class="n">attribute_statement</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">unique_id_attribute</span> <span class="ow">in</span> <span class="n">unique_id_attributes</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">unique_id_attribute</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">subject</span><span class="o">.</span><span class="n">attribute_statement</span><span class="o">.</span><span class="n">attributes</span><span class="p">:</span>
+                    <span class="n">unique_id_attribute</span> <span class="o">=</span> <span class="n">subject</span><span class="o">.</span><span class="n">attribute_statement</span><span class="o">.</span><span class="n">attributes</span><span class="p">[</span><span class="n">unique_id_attribute</span><span class="o">.</span><span class="n">name</span><span class="p">]</span>
+
+                    <span class="k">return</span> <span class="n">unique_id_attribute</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="n">subject</span><span class="o">.</span><span class="n">name_id</span> <span class="ow">and</span> <span class="n">subject</span><span class="o">.</span><span class="n">name_id</span><span class="o">.</span><span class="n">name_id</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">subject</span><span class="o">.</span><span class="n">name_id</span><span class="o">.</span><span class="n">name_id</span></div></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">Library Simplified Circulation Manager</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../modules.html">circulation</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

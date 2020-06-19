@@ -1,0 +1,525 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>api.saml.parser &#8212; Library Simplified Circulation Manager  documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for api.saml.parser</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">logging</span>
+
+<span class="kn">from</span> <span class="nn">defusedxml.lxml</span> <span class="kn">import</span> <span class="n">fromstring</span>
+<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
+<span class="kn">from</span> <span class="nn">lxml.etree</span> <span class="kn">import</span> <span class="n">XMLSyntaxError</span>
+<span class="kn">from</span> <span class="nn">onelogin.saml2.constants</span> <span class="kn">import</span> <span class="n">OneLogin_Saml2_Constants</span>
+<span class="kn">from</span> <span class="nn">onelogin.saml2.utils</span> <span class="kn">import</span> <span class="n">OneLogin_Saml2_Utils</span>
+
+<span class="kn">from</span> <span class="nn">api.saml.exceptions</span> <span class="kn">import</span> <span class="n">SAMLError</span>
+<span class="kn">from</span> <span class="nn">api.saml.metadata</span> <span class="kn">import</span> <span class="n">IdentityProviderMetadata</span><span class="p">,</span> <span class="n">LocalizableMetadataItem</span><span class="p">,</span> <span class="n">UIInfo</span><span class="p">,</span> <span class="n">ServiceProviderMetadata</span><span class="p">,</span> \
+    <span class="n">Binding</span><span class="p">,</span> <span class="n">Service</span><span class="p">,</span> <span class="n">NameIDFormat</span>
+
+
+<div class="viewcode-block" id="SAMLMetadataParsingError"><a class="viewcode-back" href="../../../api.saml.html#api.saml.parser.SAMLMetadataParsingError">[docs]</a><span class="k">class</span> <span class="nc">SAMLMetadataParsingError</span><span class="p">(</span><span class="n">SAMLError</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Raised in the case of any errors occurred during parsing of SAML metadata&quot;&quot;&quot;</span></div>
+
+
+<div class="viewcode-block" id="SAMLMetadataParser"><a class="viewcode-back" href="../../../api.saml.html#api.saml.parser.SAMLMetadataParser">[docs]</a><span class="k">class</span> <span class="nc">SAMLMetadataParser</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Parses SAML metadata&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Initializes a new instance of MetadataParser class&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+        <span class="c1"># Add missing namespaces to be able to parse mdui:UIInfoType</span>
+        <span class="n">OneLogin_Saml2_Constants</span><span class="o">.</span><span class="n">NS_PREFIX_MDUI</span> <span class="o">=</span> <span class="s1">&#39;mdui&#39;</span>
+        <span class="n">OneLogin_Saml2_Constants</span><span class="o">.</span><span class="n">NS_MDUI</span> <span class="o">=</span> <span class="s1">&#39;urn:oasis:names:tc:SAML:metadata:ui&#39;</span>
+        <span class="n">OneLogin_Saml2_Constants</span><span class="o">.</span><span class="n">NSMAP</span><span class="p">[</span><span class="n">OneLogin_Saml2_Constants</span><span class="o">.</span><span class="n">NS_PREFIX_MDUI</span><span class="p">]</span> <span class="o">=</span> <span class="n">OneLogin_Saml2_Constants</span><span class="o">.</span><span class="n">NS_MDUI</span>
+
+        <span class="n">OneLogin_Saml2_Constants</span><span class="o">.</span><span class="n">NS_PREFIX_ALG</span> <span class="o">=</span> <span class="s1">&#39;alg&#39;</span>
+        <span class="n">OneLogin_Saml2_Constants</span><span class="o">.</span><span class="n">NS_ALG</span> <span class="o">=</span> <span class="s1">&#39;urn:oasis:names:tc:SAML:metadata:algsupport&#39;</span>
+        <span class="n">OneLogin_Saml2_Constants</span><span class="o">.</span><span class="n">NSMAP</span><span class="p">[</span><span class="n">OneLogin_Saml2_Constants</span><span class="o">.</span><span class="n">NS_PREFIX_ALG</span><span class="p">]</span> <span class="o">=</span> <span class="n">OneLogin_Saml2_Constants</span><span class="o">.</span><span class="n">NS_ALG</span>
+
+    <span class="k">def</span> <span class="nf">_convert_xml_string_to_dom</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">xml_metadata</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Converts an XML string containing SAML metadata into XML DOM</span>
+
+<span class="sd">        :param xml_metadata: XML string containing SAML metadata</span>
+<span class="sd">        :type xml_metadata: string</span>
+
+<span class="sd">        :return: XML DOM tree containing SAML metadata</span>
+<span class="sd">        :rtype: defusedxml.lxml.RestrictedElement</span>
+
+<span class="sd">        :raise: MetadataParsingError</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s1">&#39;Started converting XML string containing SAML metadata into XML DOM&#39;</span><span class="p">)</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">metadata_dom</span> <span class="o">=</span> <span class="n">fromstring</span><span class="p">(</span><span class="n">xml_metadata</span><span class="p">,</span> <span class="n">forbid_dtd</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="n">XMLSyntaxError</span><span class="p">,)</span> <span class="k">as</span> <span class="n">exception</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span>
+                <span class="s1">&#39;An unhandled exception occurred during converting XML string containing SAML metadata into XML DOM&#39;</span><span class="p">)</span>
+
+            <span class="k">raise</span> <span class="n">SAMLMetadataParsingError</span><span class="p">(</span><span class="n">inner_exception</span><span class="o">=</span><span class="n">exception</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s1">&#39;Finished converting XML string containing SAML metadata into XML DOM&#39;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">metadata_dom</span>
+
+    <span class="k">def</span> <span class="nf">_parse_certificates</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">certificate_nodes</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Parses XML nodes containing X.509 certificates into a list of strings</span>
+
+<span class="sd">        :param certificate_nodes: List of XML nodes containing X.509 certificates</span>
+<span class="sd">        :type certificate_nodes: List[defusedxml.lxml.RestrictedElement]</span>
+
+<span class="sd">        :return: List of string containing X.509 certificates</span>
+<span class="sd">        :rtype: List[string]</span>
+
+<span class="sd">        :raise: MetadataParsingError</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">certificates</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">certificate_node</span> <span class="ow">in</span> <span class="n">certificate_nodes</span><span class="p">:</span>
+                <span class="n">certificates</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">OneLogin_Saml2_Utils</span><span class="o">.</span><span class="n">element_text</span><span class="p">(</span><span class="n">certificate_node</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">()))</span>
+        <span class="k">except</span> <span class="n">XMLSyntaxError</span> <span class="k">as</span> <span class="n">exception</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">SAMLMetadataParsingError</span><span class="p">(</span><span class="n">inner_exception</span><span class="o">=</span><span class="n">exception</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">certificates</span>
+
+    <span class="k">def</span> <span class="nf">_parse_providers</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">entity_descriptor_node</span><span class="p">,</span> <span class="n">provider_nodes</span><span class="p">,</span> <span class="n">parse_function</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Parses a list of IDPSSODescriptor/SPSSODescriptor nodes and translates them</span>
+<span class="sd">        into IdentityProviderMetadata/ServiceProviderMetadata object</span>
+
+<span class="sd">        :param entity_descriptor_node: Parent EntityDescriptor node</span>
+<span class="sd">        :type entity_descriptor_node: defusedxml.lxml.RestrictedElement</span>
+
+<span class="sd">        :param provider_nodes: List of IDPSSODescriptor/SPSSODescriptor nodes</span>
+<span class="sd">        :type provider_nodes: List[defusedxml.lxml.RestrictedElement]</span>
+
+<span class="sd">        :param parse_function: Function used to parse body of IDPSSODescriptor/SPSSODescriptor nodes</span>
+<span class="sd">        and return corresponding IdentityProviderMetadata/ServiceProviderMetadata objects</span>
+<span class="sd">        :type parse_function: Callable[[defusedxml.lxml.RestrictedElement, string, UIInfo], ProviderMetadata]</span>
+
+<span class="sd">        :return: List of IdentityProviderMetadata/ServiceProviderMetadata objects containing SAML metadata from the XML</span>
+<span class="sd">        :rtype: List[ProviderMetadata]</span>
+
+<span class="sd">        :raise: MetadataParsingError</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">providers</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">for</span> <span class="n">provider_node</span> <span class="ow">in</span> <span class="n">provider_nodes</span><span class="p">:</span>
+            <span class="n">entity_id</span> <span class="o">=</span> <span class="n">entity_descriptor_node</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;entityID&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="n">ui_info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_ui_info</span><span class="p">(</span><span class="n">provider_node</span><span class="p">)</span>
+            <span class="n">provider</span> <span class="o">=</span> <span class="n">parse_function</span><span class="p">(</span><span class="n">provider_node</span><span class="p">,</span> <span class="n">entity_id</span><span class="p">,</span> <span class="n">ui_info</span><span class="p">)</span>
+
+            <span class="n">providers</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">provider</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">providers</span>
+
+    <span class="k">def</span> <span class="nf">_parse_ui_info_item</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">provider_descriptor_node</span><span class="p">,</span> <span class="n">xpath</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Parses IDPSSODescriptor/SPSSODescriptor&#39;s mdui:UIInfo child elements (for example, mdui:DisplayName)</span>
+
+<span class="sd">        :param provider_descriptor_node: Parent IDPSSODescriptor/SPSSODescriptor XML node</span>
+<span class="sd">        :type provider_descriptor_node: defusedxml.lxml.RestrictedElement</span>
+
+<span class="sd">        :param xpath: XPath expression for a particular mdui:UIInfo child element (for example, mdui:DisplayName)</span>
+<span class="sd">        :type xpath: string</span>
+
+<span class="sd">        :param required: Boolean value indicating whether particular mdui:UIInfo child element is required or not</span>
+<span class="sd">        :type required: bool</span>
+
+<span class="sd">        :return: List of mdui:UIInfo child elements</span>
+<span class="sd">        :rtype: List[LocalizableMetadataItem]</span>
+
+<span class="sd">        :raise: MetadataParsingError</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">ui_info_item_nodes</span> <span class="o">=</span> <span class="n">OneLogin_Saml2_Utils</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">provider_descriptor_node</span><span class="p">,</span> <span class="n">xpath</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">ui_info_item_nodes</span> <span class="ow">and</span> <span class="n">required</span><span class="p">:</span>
+            <span class="n">last_slash_index</span> <span class="o">=</span> <span class="n">xpath</span><span class="o">.</span><span class="n">rfind</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">)</span>
+            <span class="n">ui_info_item_name</span> <span class="o">=</span> <span class="n">xpath</span><span class="p">[</span><span class="n">last_slash_index</span> <span class="o">+</span> <span class="mi">1</span><span class="p">:]</span>
+
+            <span class="k">raise</span> <span class="n">SAMLMetadataParsingError</span><span class="p">(</span><span class="n">_</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">{0}</span><span class="s1"> tag is missing&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">ui_info_item_name</span><span class="p">)))</span>
+
+        <span class="n">ui_info_items</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="k">if</span> <span class="n">ui_info_item_nodes</span><span class="p">:</span>
+            <span class="n">ui_info_items</span> <span class="o">=</span> <span class="p">[]</span>
+
+            <span class="k">for</span> <span class="n">ui_info_item_node</span> <span class="ow">in</span> <span class="n">ui_info_item_nodes</span><span class="p">:</span>
+                <span class="n">ui_info_item_text</span> <span class="o">=</span> <span class="n">ui_info_item_node</span><span class="o">.</span><span class="n">text</span>
+                <span class="n">ui_info_item_language</span> <span class="o">=</span> <span class="n">ui_info_item_node</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;{http://www.w3.org/XML/1998/namespace}lang&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+                <span class="n">ui_info_item</span> <span class="o">=</span> <span class="n">LocalizableMetadataItem</span><span class="p">(</span><span class="n">ui_info_item_text</span><span class="p">,</span> <span class="n">ui_info_item_language</span><span class="p">)</span>
+
+                <span class="n">ui_info_items</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ui_info_item</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">ui_info_items</span>
+
+    <span class="k">def</span> <span class="nf">_parse_ui_info</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">provider_node</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Parses IDPSSODescriptor/SPSSODescriptor&#39;s mdui:UIInfo and translates it into UIInfo object</span>
+
+<span class="sd">        :param provider_node: Parent IDPSSODescriptor/SPSSODescriptor node</span>
+<span class="sd">        :type provider_node: defusedxml.lxml.RestrictedElement</span>
+
+<span class="sd">        :return: UIInfo object</span>
+<span class="sd">        :rtype: UIInfo</span>
+
+<span class="sd">        :raise: MetadataParsingError</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">display_names</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_ui_info_item</span><span class="p">(</span>
+            <span class="n">provider_node</span><span class="p">,</span> <span class="s1">&#39;./md:Extensions/mdui:UIInfo/mdui:DisplayName&#39;</span><span class="p">)</span>
+        <span class="n">descriptions</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_ui_info_item</span><span class="p">(</span>
+            <span class="n">provider_node</span><span class="p">,</span> <span class="s1">&#39;./md:Extensions/mdui:UIInfo/mdui:Description&#39;</span><span class="p">)</span>
+        <span class="n">information_urls</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_ui_info_item</span><span class="p">(</span>
+            <span class="n">provider_node</span><span class="p">,</span> <span class="s1">&#39;./md:Extensions/mdui:UIInfo/mdui:InformationURL&#39;</span><span class="p">)</span>
+        <span class="n">privacy_statement_urls</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_ui_info_item</span><span class="p">(</span>
+            <span class="n">provider_node</span><span class="p">,</span> <span class="s1">&#39;./md:Extensions/mdui:UIInfo/mdui:PrivacyStatementURL&#39;</span><span class="p">)</span>
+        <span class="n">logos</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_ui_info_item</span><span class="p">(</span>
+            <span class="n">provider_node</span><span class="p">,</span> <span class="s1">&#39;./md:Extensions/mdui:UIInfo/mdui:Logo&#39;</span><span class="p">)</span>
+
+        <span class="n">ui_info</span> <span class="o">=</span> <span class="n">UIInfo</span><span class="p">(</span>
+            <span class="n">display_names</span><span class="p">,</span>
+            <span class="n">descriptions</span><span class="p">,</span>
+            <span class="n">information_urls</span><span class="p">,</span>
+            <span class="n">privacy_statement_urls</span><span class="p">,</span>
+            <span class="n">logos</span>
+        <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">ui_info</span>
+
+    <span class="k">def</span> <span class="nf">_parse_name_id_format</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">provider_node</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Parses a name ID format</span>
+
+<span class="sd">        NOTE: OneLogin&#39;s python-saml library used for implementing SAML authentication support only one name ID format.</span>
+<span class="sd">        If there are multiple name ID formats specified in the XML metadata, we select the first one.</span>
+
+<span class="sd">        :param provider_node: Parent IDPSSODescriptor/SPSSODescriptor node</span>
+<span class="sd">        :type provider_node: defusedxml.lxml.RestrictedElement</span>
+
+<span class="sd">        :return: Name ID format</span>
+<span class="sd">        :rtype: string</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">name_id_format</span> <span class="o">=</span> <span class="n">NameIDFormat</span><span class="o">.</span><span class="n">UNSPECIFIED</span><span class="o">.</span><span class="n">value</span>
+        <span class="n">name_id_format_nodes</span> <span class="o">=</span> <span class="n">OneLogin_Saml2_Utils</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">provider_node</span><span class="p">,</span> <span class="s1">&#39;./ md:NameIDFormat&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">name_id_format_nodes</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="c1"># OneLogin&#39;s python-saml supports only one name ID format so we select the first one</span>
+            <span class="n">name_id_format</span> <span class="o">=</span> <span class="n">OneLogin_Saml2_Utils</span><span class="o">.</span><span class="n">element_text</span><span class="p">(</span><span class="n">name_id_format_nodes</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+
+        <span class="k">return</span> <span class="n">name_id_format</span>
+
+    <span class="k">def</span> <span class="nf">_parse_idp_metadata</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">provider_node</span><span class="p">,</span>
+            <span class="n">entity_id</span><span class="p">,</span>
+            <span class="n">ui_info</span><span class="p">,</span>
+            <span class="n">required_sso_binding</span><span class="o">=</span><span class="n">Binding</span><span class="o">.</span><span class="n">HTTP_REDIRECT</span><span class="p">,</span>
+            <span class="n">required_slo_binding</span><span class="o">=</span><span class="n">Binding</span><span class="o">.</span><span class="n">HTTP_REDIRECT</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Parses IDPSSODescriptor node and translates it into an IdentityProviderMetadata object</span>
+
+<span class="sd">        :param provider_node: IDPSSODescriptor node containing IdP metadata</span>
+<span class="sd">        :param provider_node: defusedxml.lxml.RestrictedElement</span>
+
+<span class="sd">        :param entity_id: String containing IdP&#39;s entityID</span>
+<span class="sd">        :type entity_id: string</span>
+
+<span class="sd">        :param ui_info: UIInfo object containing IdP&#39;s description</span>
+<span class="sd">        :type ui_info: UIInfo</span>
+
+<span class="sd">        :param required_sso_binding: Required binding for Single Sign-On profile (HTTP-Redirect by default)</span>
+<span class="sd">        :type required_sso_binding: Binding</span>
+
+<span class="sd">        :param required_slo_binding: Required binding for Single Sing-Out profile (HTTP-Redirect by default)</span>
+<span class="sd">        :type required_slo_binding: Binding</span>
+
+<span class="sd">        :return: IdentityProviderMetadata containing IdP metadata</span>
+<span class="sd">        :rtype: IdentityProviderMetadata</span>
+
+<span class="sd">        :raise: MetadataParsingError</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">want_authn_requests_signed</span> <span class="o">=</span> <span class="n">provider_node</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;WantAuthnRequestsSigned&#39;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+
+        <span class="n">name_id_format</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_name_id_format</span><span class="p">(</span><span class="n">provider_node</span><span class="p">)</span>
+
+        <span class="n">sso_service</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">sso_nodes</span> <span class="o">=</span> <span class="n">OneLogin_Saml2_Utils</span><span class="o">.</span><span class="n">query</span><span class="p">(</span>
+            <span class="n">provider_node</span><span class="p">,</span>
+            <span class="s2">&quot;./md:SingleSignOnService[@Binding=&#39;</span><span class="si">%s</span><span class="s2">&#39;]&quot;</span> <span class="o">%</span> <span class="n">required_sso_binding</span><span class="o">.</span><span class="n">value</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">sso_nodes</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">sso_node</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_select_default_or_first_indexed_element</span><span class="p">(</span><span class="n">sso_nodes</span><span class="p">)</span>
+            <span class="n">sso_url</span> <span class="o">=</span> <span class="n">sso_node</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;Location&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="n">sso_service</span> <span class="o">=</span> <span class="n">Service</span><span class="p">(</span><span class="n">sso_url</span><span class="p">,</span> <span class="n">required_sso_binding</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">SAMLMetadataParsingError</span><span class="p">(</span>
+                <span class="n">_</span><span class="p">(</span><span class="s1">&#39;Missing </span><span class="si">{0}</span><span class="s1"> SingleSignOnService service declaration&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">required_sso_binding</span><span class="o">.</span><span class="n">value</span><span class="p">)))</span>
+
+        <span class="n">slo_service</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">slo_nodes</span> <span class="o">=</span> <span class="n">OneLogin_Saml2_Utils</span><span class="o">.</span><span class="n">query</span><span class="p">(</span>
+            <span class="n">provider_node</span><span class="p">,</span>
+            <span class="s2">&quot;./md:SingleLogoutService[@Binding=&#39;</span><span class="si">%s</span><span class="s2">&#39;]&quot;</span> <span class="o">%</span> <span class="n">required_slo_binding</span><span class="o">.</span><span class="n">value</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">slo_nodes</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">slo_node</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_select_default_or_first_indexed_element</span><span class="p">(</span><span class="n">slo_nodes</span><span class="p">)</span>
+            <span class="n">slo_url</span> <span class="o">=</span> <span class="n">slo_node</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;Location&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="n">slo_service</span> <span class="o">=</span> <span class="n">Service</span><span class="p">(</span><span class="n">slo_url</span><span class="p">,</span> <span class="n">required_slo_binding</span><span class="p">)</span>
+
+        <span class="n">signing_certificate_nodes</span> <span class="o">=</span> <span class="n">OneLogin_Saml2_Utils</span><span class="o">.</span><span class="n">query</span><span class="p">(</span>
+            <span class="n">provider_node</span><span class="p">,</span>
+            <span class="s1">&#39;./md:KeyDescriptor[not(contains(@use, &quot;encryption&quot;))]/ds:KeyInfo/ds:X509Data/ds:X509Certificate&#39;</span><span class="p">)</span>
+        <span class="n">signing_certificates</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_certificates</span><span class="p">(</span><span class="n">signing_certificate_nodes</span><span class="p">)</span>
+
+        <span class="n">encryption_certificate_nodes</span> <span class="o">=</span> <span class="n">OneLogin_Saml2_Utils</span><span class="o">.</span><span class="n">query</span><span class="p">(</span>
+            <span class="n">provider_node</span><span class="p">,</span>
+            <span class="s1">&#39;./md:KeyDescriptor[not(contains(@use, &quot;signing&quot;))]/ds:KeyInfo/ds:X509Data/ds:X509Certificate&#39;</span><span class="p">)</span>
+        <span class="n">encryption_certificates</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_certificates</span><span class="p">(</span><span class="n">encryption_certificate_nodes</span><span class="p">)</span>
+
+        <span class="n">idp</span> <span class="o">=</span> <span class="n">IdentityProviderMetadata</span><span class="p">(</span>
+            <span class="n">entity_id</span><span class="p">,</span>
+            <span class="n">ui_info</span><span class="p">,</span>
+            <span class="n">name_id_format</span><span class="p">,</span>
+            <span class="n">sso_service</span><span class="p">,</span>
+            <span class="n">slo_service</span><span class="p">,</span>
+            <span class="n">want_authn_requests_signed</span><span class="p">,</span>
+            <span class="n">signing_certificates</span><span class="p">,</span>
+            <span class="n">encryption_certificates</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">idp</span>
+
+    <span class="k">def</span> <span class="nf">_parse_sp_metadata</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">provider_node</span><span class="p">,</span>
+            <span class="n">entity_id</span><span class="p">,</span>
+            <span class="n">ui_info</span><span class="p">,</span>
+            <span class="n">required_acs_binding</span><span class="o">=</span><span class="n">Binding</span><span class="o">.</span><span class="n">HTTP_POST</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Parses SPSSODescriptor node and translates it into a ServiceProvider object</span>
+
+<span class="sd">        :param provider_node: SPSSODescriptor node containing SP metadata</span>
+<span class="sd">        :param provider_node: defusedxml.lxml.RestrictedElement</span>
+
+<span class="sd">        :param entity_id: String containing IdP&#39;s entityID</span>
+<span class="sd">        :type entity_id: string</span>
+
+<span class="sd">        :param ui_info: UIInfo object containing IdP&#39;s description</span>
+<span class="sd">        :type ui_info: UIInfo</span>
+
+<span class="sd">        :param required_acs_binding: Required binding for Assertion Consumer Service (HTTP-Redirect by default)</span>
+<span class="sd">        :type required_acs_binding: Binding</span>
+
+<span class="sd">        :return: ServiceProvider containing SP metadata</span>
+<span class="sd">        :rtype: ServiceProvider</span>
+
+<span class="sd">        :raise: MetadataParsingError</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">authn_requests_signed</span> <span class="o">=</span> <span class="n">provider_node</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;AuthnRequestsSigned&#39;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+        <span class="n">want_assertions_signed</span> <span class="o">=</span> <span class="n">provider_node</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;WantAssertionsSigned&#39;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+
+        <span class="n">name_id_format</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_name_id_format</span><span class="p">(</span><span class="n">provider_node</span><span class="p">)</span>
+
+        <span class="n">acs_service</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">acs_service_nodes</span> <span class="o">=</span> <span class="n">OneLogin_Saml2_Utils</span><span class="o">.</span><span class="n">query</span><span class="p">(</span>
+            <span class="n">provider_node</span><span class="p">,</span>
+            <span class="s2">&quot;./md:AssertionConsumerService[@Binding=&#39;</span><span class="si">%s</span><span class="s2">&#39;]&quot;</span> <span class="o">%</span> <span class="n">required_acs_binding</span><span class="o">.</span><span class="n">value</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">acs_service_nodes</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">acs_service_node</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_select_default_or_first_indexed_element</span><span class="p">(</span><span class="n">acs_service_nodes</span><span class="p">)</span>
+            <span class="n">acs_url</span> <span class="o">=</span> <span class="n">acs_service_node</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;Location&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="n">acs_service</span> <span class="o">=</span> <span class="n">Service</span><span class="p">(</span><span class="n">acs_url</span><span class="p">,</span> <span class="n">required_acs_binding</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">SAMLMetadataParsingError</span><span class="p">(</span><span class="n">_</span><span class="p">(</span><span class="s1">&#39;Missing </span><span class="si">{0}</span><span class="s1"> AssertionConsumerService&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">required_acs_binding</span><span class="o">.</span><span class="n">value</span><span class="p">)))</span>
+
+        <span class="n">certificate_nodes</span> <span class="o">=</span> <span class="n">OneLogin_Saml2_Utils</span><span class="o">.</span><span class="n">query</span><span class="p">(</span>
+            <span class="n">provider_node</span><span class="p">,</span>
+            <span class="s1">&#39;./md:KeyDescriptor/ds:KeyInfo/ds:X509Data/ds:X509Certificate&#39;</span><span class="p">)</span>
+        <span class="n">certificates</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_certificates</span><span class="p">(</span><span class="n">certificate_nodes</span><span class="p">)</span>
+
+        <span class="n">sp</span> <span class="o">=</span> <span class="n">ServiceProviderMetadata</span><span class="p">(</span>
+            <span class="n">entity_id</span><span class="p">,</span>
+            <span class="n">ui_info</span><span class="p">,</span>
+            <span class="n">name_id_format</span><span class="p">,</span>
+            <span class="n">acs_service</span><span class="p">,</span>
+            <span class="n">authn_requests_signed</span><span class="p">,</span>
+            <span class="n">want_assertions_signed</span><span class="p">,</span>
+            <span class="n">certificates</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">sp</span>
+
+    <span class="k">def</span> <span class="nf">_select_default_element</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nodes</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Selects a node with attribute &quot;isDefault=true&quot;</span>
+
+<span class="sd">        :param nodes: List of XML nodes</span>
+<span class="sd">        :type nodes: List[defusedxml.lxml.RestrictedElement]</span>
+
+<span class="sd">        :return: &quot;Default&quot; node or None if there is no one</span>
+<span class="sd">        :rtype: Optional[defusedxml.lxml.RestrictedElement]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">default_nodes</span> <span class="o">=</span> <span class="p">[</span><span class="n">node</span> <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">nodes</span> <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;isDefault&#39;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)]</span>
+
+        <span class="n">default_node</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_select_first_indexed_element</span><span class="p">(</span><span class="n">default_nodes</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">default_node</span>
+
+    <span class="k">def</span> <span class="nf">_select_first_indexed_element</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nodes</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Sorts a list of XML nodes by &quot;index&quot; attribute and selects the first node</span>
+
+<span class="sd">        :param nodes: List of XML nodes</span>
+<span class="sd">        :type nodes: List[defusedxml.lxml.RestrictedElement]</span>
+
+<span class="sd">        :return: Node with the smallest index or None if there is no one</span>
+<span class="sd">        :rtype: Optional[defusedxml.lxml.RestrictedElement]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">nodes</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="n">nodes</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">nodes</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">node</span><span class="p">:</span> <span class="n">node</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;index&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="n">nodes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="nf">_select_default_or_first_indexed_element</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nodes</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Selects a node with attribute &quot;isDefault=true&quot; or a node with the smallest &quot;index&quot; attribute</span>
+
+<span class="sd">        :param nodes: List of XML nodes</span>
+<span class="sd">        :type nodes: List[defusedxml.lxml.RestrictedElement]</span>
+
+<span class="sd">        :return: &quot;Default&quot; node or the node with the smallest &quot;index&quot; attribute or None if there is no one</span>
+<span class="sd">        :rtype: Optional[defusedxml.lxml.RestrictedElement]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">default_node</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_select_default_element</span><span class="p">(</span><span class="n">nodes</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">default_node</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">default_node</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_select_first_indexed_element</span><span class="p">(</span><span class="n">nodes</span><span class="p">)</span>
+
+<div class="viewcode-block" id="SAMLMetadataParser.parse"><a class="viewcode-back" href="../../../api.saml.html#api.saml.parser.SAMLMetadataParser.parse">[docs]</a>    <span class="k">def</span> <span class="nf">parse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">xml_metadata</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Parses an XML string containing SAML metadata and translates it into a list of</span>
+<span class="sd">        IdentityProviderMetadata/ServiceProviderMetadata objects</span>
+
+<span class="sd">        :param xml_metadata: XML string containing SAML metadata</span>
+<span class="sd">        :type xml_metadata: string</span>
+
+<span class="sd">        :return: List of IdentityProviderMetadata/ServiceProviderMetadata objects</span>
+<span class="sd">        :rtype: List[ProviderMetadata]</span>
+
+<span class="sd">        :raise: MetadataParsingError</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Started parsing an XML string containing SAML metadata&#39;</span><span class="p">)</span>
+
+        <span class="n">metadata_dom</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_convert_xml_string_to_dom</span><span class="p">(</span><span class="n">xml_metadata</span><span class="p">)</span>
+        <span class="n">providers</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">entity_descriptor_nodes</span> <span class="o">=</span> <span class="n">OneLogin_Saml2_Utils</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">metadata_dom</span><span class="p">,</span> <span class="s1">&#39;//md:EntityDescriptor&#39;</span><span class="p">)</span>
+
+            <span class="k">for</span> <span class="n">entity_descriptor_node</span> <span class="ow">in</span> <span class="n">entity_descriptor_nodes</span><span class="p">:</span>
+                <span class="n">idp_descriptor_nodes</span> <span class="o">=</span> <span class="n">OneLogin_Saml2_Utils</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">entity_descriptor_node</span><span class="p">,</span> <span class="s1">&#39;./md:IDPSSODescriptor&#39;</span><span class="p">)</span>
+                <span class="n">idps</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_providers</span><span class="p">(</span>
+                    <span class="n">entity_descriptor_node</span><span class="p">,</span> <span class="n">idp_descriptor_nodes</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_idp_metadata</span><span class="p">)</span>
+                <span class="n">providers</span> <span class="o">+=</span> <span class="n">idps</span>
+
+                <span class="n">sp_descriptor_nodes</span> <span class="o">=</span> <span class="n">OneLogin_Saml2_Utils</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">entity_descriptor_node</span><span class="p">,</span> <span class="s1">&#39;./md:SPSSODescriptor&#39;</span><span class="p">)</span>
+                <span class="n">sps</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_providers</span><span class="p">(</span>
+                    <span class="n">entity_descriptor_node</span><span class="p">,</span> <span class="n">sp_descriptor_nodes</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_sp_metadata</span><span class="p">)</span>
+                <span class="n">providers</span> <span class="o">+=</span> <span class="n">sps</span>
+        <span class="k">except</span> <span class="n">XMLSyntaxError</span> <span class="k">as</span> <span class="n">exception</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="s1">&#39;An unexpected error occurred during parsing an XML string containing SAML metadata&#39;</span><span class="p">)</span>
+
+            <span class="k">raise</span> <span class="n">SAMLMetadataParsingError</span><span class="p">(</span><span class="n">inner_exception</span><span class="o">=</span><span class="n">exception</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Finished parsing an XML string containing SAML metadata&#39;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">providers</span></div></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">Library Simplified Circulation Manager</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../modules.html">circulation</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

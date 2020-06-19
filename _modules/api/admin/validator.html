@@ -33,14 +33,16 @@
           <div class="body" role="main">
             
   <h1>Source code for api.admin.validator</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">api.problem_details</span> <span class="kn">import</span> <span class="o">*</span>
+<span></span><span class="kn">import</span> <span class="nn">importlib</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">re</span>
+
+<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
+
 <span class="kn">from</span> <span class="nn">api.admin.exceptions</span> <span class="kn">import</span> <span class="o">*</span>
 <span class="kn">from</span> <span class="nn">core.model</span> <span class="kn">import</span> <span class="n">Representation</span>
-<span class="kn">from</span> <span class="nn">core.util.problem_detail</span> <span class="kn">import</span> <span class="n">ProblemDetail</span>
 <span class="kn">from</span> <span class="nn">core.util</span> <span class="kn">import</span> <span class="n">LanguageCodes</span>
-<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
-<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
-<span class="kn">import</span> <span class="nn">re</span>
+
 
 <div class="viewcode-block" id="Validator"><a class="viewcode-back" href="../../../api.admin.html#api.admin.validator.Validator">[docs]</a><span class="k">class</span> <span class="nc">Validator</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
 
@@ -198,6 +200,65 @@
         <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">value</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
         <span class="k">return</span> <span class="nb">filter</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span> <span class="o">!=</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">x</span> <span class="o">!=</span> <span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="PatronAuthenticationValidatorFactory"><a class="viewcode-back" href="../../../api.admin.html#api.admin.validator.PatronAuthenticationValidatorFactory">[docs]</a><span class="k">class</span> <span class="nc">PatronAuthenticationValidatorFactory</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Creates Validator instances for particular authentication protocols&quot;&quot;&quot;</span>
+
+    <span class="n">VALIDATOR_CLASS_NAME</span> <span class="o">=</span> <span class="s1">&#39;Validator&#39;</span>
+    <span class="n">VALIDATOR_FACTORY</span> <span class="o">=</span> <span class="s1">&#39;validator_factory&#39;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Initializes a new instance of ValidatorFactory class&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_try_to_create</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">provider_module</span><span class="p">,</span> <span class="n">validator_factory_name</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Tries to create a new Validator instance using a specific factory</span>
+
+<span class="sd">        :param provider_module: Module where the factory is defined</span>
+<span class="sd">        :type provider_module: Module</span>
+
+<span class="sd">        :param validator_factory_name: Name of the factory which will be used to create a new validator instance</span>
+<span class="sd">        :type validator_factory_name: string</span>
+
+<span class="sd">        :return: New validator instance or None</span>
+<span class="sd">        :rtype: Optional[Validator]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">validator_factory</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">provider_module</span><span class="p">,</span> <span class="n">validator_factory_name</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">validator_factory</span><span class="p">:</span>
+            <span class="n">validator</span> <span class="o">=</span> <span class="n">validator_factory</span><span class="p">()</span>
+
+            <span class="k">return</span> <span class="n">validator</span>
+
+        <span class="k">return</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="PatronAuthenticationValidatorFactory.create"><a class="viewcode-back" href="../../../api.admin.html#api.admin.validator.PatronAuthenticationValidatorFactory.create">[docs]</a>    <span class="k">def</span> <span class="nf">create</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">protocol</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns a configured validator for a specific protocol</span>
+
+<span class="sd">        :param protocol: Patron authentication protocol</span>
+<span class="sd">        :type protocol: string</span>
+
+<span class="sd">        :return: Validator object (if there is any for the specific protocol)</span>
+<span class="sd">        :rtype: Optional[Validator]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">module_name</span> <span class="o">=</span> <span class="n">protocol</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">provider_module</span> <span class="o">=</span> <span class="n">importlib</span><span class="o">.</span><span class="n">import_module</span><span class="p">(</span><span class="n">module_name</span><span class="p">)</span>
+
+            <span class="n">validator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_try_to_create</span><span class="p">(</span><span class="n">provider_module</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">VALIDATOR_CLASS_NAME</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">validator</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">validator</span>
+
+            <span class="n">validator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_try_to_create</span><span class="p">(</span><span class="n">provider_module</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">VALIDATOR_FACTORY</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">validator</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">validator</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="n">_</span><span class="p">(</span><span class="s1">&#39;Could not load a validator defined in </span><span class="si">{0}</span><span class="s1"> module&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">module_name</span><span class="p">)))</span>
+
+        <span class="k">return</span> <span class="kc">None</span></div></div>
 </pre></div>
 
           </div>

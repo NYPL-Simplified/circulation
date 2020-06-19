@@ -80,6 +80,8 @@
       </ul></li>
       <li><a href="scripts.html#scripts.CacheRepresentationPerLane.ACCEPT_HEADER">ACCEPT_HEADER (scripts.CacheRepresentationPerLane attribute)</a>
 </li>
+      <li><a href="api.saml.html#api.saml.controller.SAMLController.ACCESS_TOKEN">ACCESS_TOKEN (api.saml.controller.SAMLController attribute)</a>
+</li>
       <li><a href="api.html#api.axis.Axis360API.access_token_endpoint">access_token_endpoint (api.axis.Axis360API attribute)</a>
 </li>
       <li><a href="api.admin.html#api.admin.google_oauth_admin_authentication_provider.DummyGoogleClient.Credentials.access_token_expired">access_token_expired (api.admin.google_oauth_admin_authentication_provider.DummyGoogleClient.Credentials attribute)</a>
@@ -113,6 +115,8 @@
       <li><a href="core.util.html#core.util.opds_writer.OPDSFeed.ACQUISITION_REL">ACQUISITION_REL (core.util.opds_writer.OPDSFeed attribute)</a>
 </li>
       <li><a href="core.html#core.opds.AcquisitionFeed">AcquisitionFeed (class in core.opds)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.metadata.ServiceProviderMetadata.acs_service">acs_service (api.saml.metadata.ServiceProviderMetadata attribute)</a>
 </li>
       <li><a href="api.html#api.odilo.OdiloRepresentationExtractor.ACSM">ACSM (api.odilo.OdiloRepresentationExtractor attribute)</a>
 </li>
@@ -760,8 +764,6 @@
 </li>
       <li><a href="api.html#module-api.coverage">api.coverage (module)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.html#module-api.custom_index">api.custom_index (module)</a>
 </li>
       <li><a href="api.html#module-api.custom_patron_catalog">api.custom_patron_catalog (module)</a>
@@ -780,6 +782,8 @@
 </li>
       <li><a href="api.html#module-api.lanes">api.lanes (module)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.html#module-api.local_analytics_exporter">api.local_analytics_exporter (module)</a>
 </li>
       <li><a href="api.html#module-api.marc">api.marc (module)</a>
@@ -813,6 +817,26 @@
       <li><a href="api.html#module-api.registry">api.registry (module)</a>
 </li>
       <li><a href="api.html#module-api.routes">api.routes (module)</a>
+</li>
+      <li><a href="api.saml.html#module-api.saml">api.saml (module)</a>
+</li>
+      <li><a href="api.saml.html#module-api.saml.auth">api.saml.auth (module)</a>
+</li>
+      <li><a href="api.saml.html#module-api.saml.configuration">api.saml.configuration (module)</a>
+</li>
+      <li><a href="api.saml.html#module-api.saml.controller">api.saml.controller (module)</a>
+</li>
+      <li><a href="api.saml.html#module-api.saml.exceptions">api.saml.exceptions (module)</a>
+</li>
+      <li><a href="api.saml.html#module-api.saml.loader">api.saml.loader (module)</a>
+</li>
+      <li><a href="api.saml.html#module-api.saml.metadata">api.saml.metadata (module)</a>
+</li>
+      <li><a href="api.saml.html#module-api.saml.parser">api.saml.parser (module)</a>
+</li>
+      <li><a href="api.saml.html#module-api.saml.provider">api.saml.provider (module)</a>
+</li>
+      <li><a href="api.saml.html#module-api.saml.validator">api.saml.validator (module)</a>
 </li>
       <li><a href="api.html#module-api.selftest">api.selftest (module)</a>
 </li>
@@ -1054,7 +1078,9 @@
 </li>
       <li><a href="core.html#core.opds_import.OPDSImporter.assert_importable_content">assert_importable_content() (core.opds_import.OPDSImporter method)</a>
 </li>
-      <li><a href="api.html#api.authenticator.LibraryAuthenticator.assert_ready_for_oauth">assert_ready_for_oauth() (api.authenticator.LibraryAuthenticator method)</a>
+      <li><a href="api.html#api.authenticator.LibraryAuthenticator.assert_ready_for_token_signing">assert_ready_for_token_signing() (api.authenticator.LibraryAuthenticator method)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.configuration.SAMLOneLoginConfiguration.ASSERTION_CONSUMER_SERVICE">ASSERTION_CONSUMER_SERVICE (api.saml.configuration.SAMLOneLoginConfiguration attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.resource.Resource.Work.assign_appeals">assign_appeals() (core.model.resource.Resource.Work method)</a>
 
@@ -1096,6 +1122,14 @@
         <li><a href="core.model.html#core.model.classification.Subject.ATOS_SCORE">(core.model.classification.Subject attribute)</a>
 </li>
       </ul></li>
+      <li><a href="api.saml.html#api.saml.metadata.Attribute">Attribute (class in api.saml.metadata)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.metadata.Subject.attribute_statement">attribute_statement (api.saml.metadata.Subject attribute)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.metadata.AttributeStatement.attributes">attributes (api.saml.metadata.AttributeStatement attribute)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.metadata.AttributeStatement">AttributeStatement (class in api.saml.metadata)</a>
+</li>
       <li><a href="core.classifier.html#core.classifier.bisac.BISACClassifier.AUDIENCE">AUDIENCE (core.classifier.bisac.BISACClassifier attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.classification.Subject.audience">audience (core.model.classification.Subject attribute)</a>
@@ -1235,6 +1269,8 @@
 </li>
         <li><a href="api.html#api.base_controller.BaseCirculationManagerController.authenticate">(api.base_controller.BaseCirculationManagerController method)</a>
 </li>
+        <li><a href="api.saml.html#api.saml.provider.SAMLWebSSOAuthenticationProvider.authenticate">(api.saml.provider.SAMLWebSSOAuthenticationProvider method)</a>
+</li>
         <li><a href="core.model.html#core.model.admin.Admin.authenticate">(core.model.admin.Admin class method)</a>
 </li>
         <li><a href="core.model.html#core.model.integrationclient.IntegrationClient.authenticate">(core.model.integrationclient.IntegrationClient class method)</a>
@@ -1258,6 +1294,8 @@
         <li><a href="api.html#api.authenticator.OAuthAuthenticationProvider.authenticated_patron">(api.authenticator.OAuthAuthenticationProvider method)</a>
 </li>
         <li><a href="api.html#api.base_controller.BaseCirculationManagerController.authenticated_patron">(api.base_controller.BaseCirculationManagerController method)</a>
+</li>
+        <li><a href="api.saml.html#api.saml.provider.SAMLWebSSOAuthenticationProvider.authenticated_patron">(api.saml.provider.SAMLWebSSOAuthenticationProvider method)</a>
 </li>
       </ul></li>
       <li><a href="api.html#api.base_controller.BaseCirculationManagerController.authenticated_patron_from_request">authenticated_patron_from_request() (api.base_controller.BaseCirculationManagerController method)</a>
@@ -1309,12 +1347,18 @@
 </li>
         <li><a href="api.html#api.millenium_patron.AuthenticationProvider">(in module api.millenium_patron)</a>
 </li>
+        <li><a href="api.saml.html#api.saml.provider.AuthenticationProvider">(in module api.saml.provider)</a>
+</li>
         <li><a href="api.html#api.simple_authentication.AuthenticationProvider">(in module api.simple_authentication)</a>
 </li>
         <li><a href="api.sip.html#api.sip.AuthenticationProvider">(in module api.sip)</a>
 </li>
       </ul></li>
       <li><a href="api.html#api.authenticator.Authenticator">Authenticator (class in api.authenticator)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.configuration.SAMLOneLoginConfiguration.AUTHN_REQUESTS_SIGNED">AUTHN_REQUESTS_SIGNED (api.saml.configuration.SAMLOneLoginConfiguration attribute)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.metadata.ServiceProviderMetadata.authn_requests_signed">authn_requests_signed (api.saml.metadata.ServiceProviderMetadata attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.constants.LinkRelations.AUTHOR">AUTHOR (core.model.constants.LinkRelations attribute)</a>
 </li>
@@ -1524,6 +1568,8 @@
 </li>
       <li><a href="api.html#api.metadata_wrangler.BaseMetadataWranglerCoverageProvider">BaseMetadataWranglerCoverageProvider (class in api.metadata_wrangler)</a>
 </li>
+      <li><a href="api.html#api.authenticator.BaseSAMLAuthenticationProvider">BaseSAMLAuthenticationProvider (class in api.authenticator)</a>
+</li>
       <li><a href="api.html#api.shared_collection.BaseSharedCollectionAPI">BaseSharedCollectionAPI (class in api.shared_collection)</a>
 </li>
       <li><a href="core.html#core.metadata_layer.Metadata.BASIC_EDITION_FIELDS">BASIC_EDITION_FIELDS (core.metadata_layer.Metadata attribute)</a>
@@ -1544,13 +1590,15 @@
 </li>
       <li><a href="core.model.html#core.model.licensing.DeliveryMechanism.BEARER_TOKEN">BEARER_TOKEN (core.model.licensing.DeliveryMechanism attribute)</a>
 </li>
-      <li><a href="api.html#api.authenticator.OAuthAuthenticationProvider.BEARER_TOKEN_SIGNING_SECRET">BEARER_TOKEN_SIGNING_SECRET (api.authenticator.OAuthAuthenticationProvider attribute)</a>
+      <li><a href="api.html#api.authenticator.BearerTokenSigner.BEARER_TOKEN_SIGNING_SECRET">BEARER_TOKEN_SIGNING_SECRET (api.authenticator.BearerTokenSigner attribute)</a>
 
       <ul>
         <li><a href="api.html#api.config.Configuration.BEARER_TOKEN_SIGNING_SECRET">(api.config.Configuration attribute)</a>
 </li>
       </ul></li>
-      <li><a href="api.html#api.authenticator.OAuthAuthenticationProvider.bearer_token_signing_secret">bearer_token_signing_secret() (api.authenticator.OAuthAuthenticationProvider class method)</a>
+      <li><a href="api.html#api.authenticator.BearerTokenSigner.bearer_token_signing_secret">bearer_token_signing_secret() (api.authenticator.BearerTokenSigner class method)</a>
+</li>
+      <li><a href="api.html#api.authenticator.BearerTokenSigner">BearerTokenSigner (class in api.authenticator)</a>
 </li>
       <li><a href="core.model.html#core.model.licensing.LicensePool.best_available_license">best_available_license() (core.model.licensing.LicensePool method)</a>
 </li>
@@ -1616,10 +1664,10 @@
       </ul></li>
       <li><a href="core.model.html#core.model.constants.IdentifierConstants.BIBLIOTHECA_ID">BIBLIOTHECA_ID (core.model.constants.IdentifierConstants attribute)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.html#api.bibliotheca.BibliothecaAPI">BibliothecaAPI (class in api.bibliotheca)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.html#api.bibliotheca.BibliothecaBibliographicCoverageProvider">BibliothecaBibliographicCoverageProvider (class in api.bibliotheca)</a>
 </li>
       <li><a href="api.html#api.bibliotheca.BibliothecaCirculationSweep">BibliothecaCirculationSweep (class in api.bibliotheca)</a>
@@ -1639,6 +1687,12 @@
       <li><a href="core.classifier.html#core.classifier.bic.BICClassifier">BICClassifier (class in core.classifier.bic)</a>
 </li>
       <li><a href="core.util.html#core.util.Bigrams">Bigrams (class in core.util)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.configuration.SAMLOneLoginConfiguration.BINDING">BINDING (api.saml.configuration.SAMLOneLoginConfiguration attribute)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.metadata.Service.binding">binding (api.saml.metadata.Service attribute)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.metadata.Binding">Binding (class in api.saml.metadata)</a>
 </li>
       <li><a href="core.model.html#core.model.contributor.Contributor.biography">biography (core.model.contributor.Contributor attribute)</a>
 </li>
@@ -2071,6 +2125,8 @@
       <li><a href="api.admin.controller.html#api.admin.controller.cdn_services.CDNServicesController">CDNServicesController (class in api.admin.controller.cdn_services)</a>
 </li>
       <li><a href="api.admin.controller.html#api.admin.controller.work_editor.WorkController.CENTER">CENTER (api.admin.controller.work_editor.WorkController attribute)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.metadata.ServiceProviderMetadata.certificate">certificate (api.saml.metadata.ServiceProviderMetadata attribute)</a>
 </li>
       <li><a href="api.admin.controller.html#api.admin.controller.work_editor.WorkController.change_book_cover">change_book_cover() (api.admin.controller.work_editor.WorkController method)</a>
 </li>
@@ -2506,12 +2562,12 @@
 </li>
       <li><a href="core.util.html#core.util.permanent_work_id.WorkIDCalculator.commonAuthorPrefixPattern">commonAuthorPrefixPattern (core.util.permanent_work_id.WorkIDCalculator attribute)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="core.util.html#core.util.permanent_work_id.WorkIDCalculator.commonAuthorSuffixPattern">commonAuthorSuffixPattern (core.util.permanent_work_id.WorkIDCalculator attribute)</a>
 </li>
       <li><a href="core.util.html#core.util.permanent_work_id.WorkIDCalculator.commonSubtitlesPattern">commonSubtitlesPattern (core.util.permanent_work_id.WorkIDCalculator attribute)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="core.model.html#core.model.licensing.DeliveryMechanism.compatible_with">compatible_with() (core.model.licensing.DeliveryMechanism method)</a>
 
       <ul>
@@ -2564,6 +2620,12 @@
 </li>
       <li><a href="core.model.html#core.model.licensing.License.concurrent_checkouts">concurrent_checkouts (core.model.licensing.License attribute)</a>
 </li>
+      <li><a href="api.saml.html#api.saml.auth.SAMLAuthenticationManager.configuration">configuration (api.saml.auth.SAMLAuthenticationManager attribute)</a>
+
+      <ul>
+        <li><a href="api.saml.html#api.saml.configuration.SAMLOneLoginConfiguration.configuration">(api.saml.configuration.SAMLOneLoginConfiguration attribute)</a>
+</li>
+      </ul></li>
       <li><a href="api.html#api.config.Configuration">Configuration (class in api.config)</a>
 
       <ul>
@@ -3016,9 +3078,13 @@
 </li>
       <li><a href="api.html#api.lanes.CrawlableLane">CrawlableLane (class in api.lanes)</a>
 </li>
-      <li><a href="core.html#core.external_search.Mapping.create">create() (core.external_search.Mapping method)</a>
+      <li><a href="api.admin.html#api.admin.validator.PatronAuthenticationValidatorFactory.create">create() (api.admin.validator.PatronAuthenticationValidatorFactory method)</a>
 
       <ul>
+        <li><a href="api.saml.html#api.saml.auth.SAMLAuthenticationManagerFactory.create">(api.saml.auth.SAMLAuthenticationManagerFactory method)</a>
+</li>
+        <li><a href="core.html#core.external_search.Mapping.create">(core.external_search.Mapping method)</a>
+</li>
         <li><a href="core.model.html#core.model.create">(in module core.model)</a>
 </li>
       </ul></li>
@@ -3416,9 +3482,13 @@
       </ul></li>
       <li><a href="core.model.html#core.model.contributor.Contributor.DEATH_DATE">DEATH_DATE (core.model.contributor.Contributor attribute)</a>
 </li>
-      <li><a href="core.html#core.config.Configuration.DEBUG">DEBUG (core.config.Configuration attribute)</a>
+      <li><a href="api.saml.html#api.saml.configuration.SAMLConfiguration.DEBUG">DEBUG (api.saml.configuration.SAMLConfiguration attribute)</a>
 
       <ul>
+        <li><a href="api.saml.html#api.saml.configuration.SAMLOneLoginConfiguration.DEBUG">(api.saml.configuration.SAMLOneLoginConfiguration attribute)</a>
+</li>
+        <li><a href="core.html#core.config.Configuration.DEBUG">(core.config.Configuration attribute)</a>
+</li>
         <li><a href="core.html#core.log.LogConfiguration.DEBUG">(core.log.LogConfiguration attribute)</a>
 </li>
       </ul></li>
@@ -3446,9 +3516,11 @@
 </li>
       <li><a href="core.util.html#core.util.string_helpers.UnicodeAwareBase64.decodestring">decodestring() (core.util.string_helpers.UnicodeAwareBase64 method)</a>
 </li>
-      <li><a href="core.html#core.lane.Facets.default">default() (core.lane.Facets class method)</a>
+      <li><a href="api.saml.html#api.saml.metadata.SubjectJSONEncoder.default">default() (api.saml.metadata.SubjectJSONEncoder method)</a>
 
       <ul>
+        <li><a href="core.html#core.lane.Facets.default">(core.lane.Facets class method)</a>
+</li>
         <li><a href="core.html#core.lane.FeaturedFacets.default">(core.lane.FeaturedFacets class method)</a>
 </li>
         <li><a href="core.html#core.lane.Pagination.default">(core.lane.Pagination class method)</a>
@@ -3746,10 +3818,10 @@
         <li><a href="core.util.html#core.util.web_publication_manifest.Manifest.DEFAULT_TYPE">(core.util.web_publication_manifest.Manifest attribute)</a>
 </li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="core.util.html#core.util.opds_writer.AtomFeed.default_typemap">default_typemap (core.util.opds_writer.AtomFeed attribute)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="core.html#core.marc.MARCExporter.DEFAULT_UPDATE_FREQUENCY">DEFAULT_UPDATE_FREQUENCY (core.marc.MARCExporter attribute)</a>
 </li>
       <li><a href="api.html#api.google_analytics_provider.GoogleAnalyticsProvider.DEFAULT_URL">DEFAULT_URL (api.google_analytics_provider.GoogleAnalyticsProvider attribute)</a>
@@ -3769,6 +3841,8 @@
       <li><a href="core.html#core.external_search.ExternalSearchIndex.DEFAULT_WORKS_INDEX_PREFIX">DEFAULT_WORKS_INDEX_PREFIX (core.external_search.ExternalSearchIndex attribute)</a>
 </li>
       <li><a href="core.html#core.lane.DefaultSortOrderFacets">DefaultSortOrderFacets (class in core.lane)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.metadata.Binding.DEFLATE">DEFLATE (api.saml.metadata.Binding attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.credential.DelegatedPatronIdentifier.delegated_identifier">delegated_identifier (core.model.credential.DelegatedPatronIdentifier attribute)</a>
 </li>
@@ -3861,6 +3935,8 @@
       <ul>
         <li><a href="api.html#api.authenticator.AuthenticationProvider.DESCRIPTION">(api.authenticator.AuthenticationProvider attribute)</a>
 </li>
+        <li><a href="api.html#api.authenticator.BaseSAMLAuthenticationProvider.DESCRIPTION">(api.authenticator.BaseSAMLAuthenticationProvider attribute)</a>
+</li>
         <li><a href="api.clever.html#api.clever.CleverAuthenticationAPI.DESCRIPTION">(api.clever.CleverAuthenticationAPI attribute)</a>
 </li>
         <li><a href="api.html#api.enki.EnkiAPI.DESCRIPTION">(api.enki.EnkiAPI attribute)</a>
@@ -3885,6 +3961,8 @@
 </li>
         <li><a href="api.html#api.overdrive.OverdriveAPI.DESCRIPTION">(api.overdrive.OverdriveAPI attribute)</a>
 </li>
+        <li><a href="api.saml.html#api.saml.provider.SAMLWebSSOAuthenticationProvider.DESCRIPTION">(api.saml.provider.SAMLWebSSOAuthenticationProvider attribute)</a>
+</li>
         <li><a href="api.html#api.simple_authentication.SimpleAuthenticationProvider.DESCRIPTION">(api.simple_authentication.SimpleAuthenticationProvider attribute)</a>
 </li>
       </ul></li>
@@ -3903,6 +3981,8 @@
       <li><a href="core.html#core.opds_import.OPDSImporter.DESCRIPTION">DESCRIPTION (core.opds_import.OPDSImporter attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.configuration.ExternalIntegrationLink.description_type">description_type (core.model.configuration.ExternalIntegrationLink attribute)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.metadata.UIInfo.descriptions">descriptions (api.saml.metadata.UIInfo attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.contributor.Contributor.DESIGNER_ROLE">DESIGNER_ROLE (core.model.contributor.Contributor attribute)</a>
 </li>
@@ -3998,9 +4078,11 @@
 </li>
       <li><a href="api.admin.controller.html#api.admin.controller.discovery_services.DiscoveryServicesController">DiscoveryServicesController (class in api.admin.controller.discovery_services)</a>
 </li>
-      <li><a href="api.html#api.authenticator.BasicAuthenticationProvider.DISPLAY_NAME">DISPLAY_NAME (api.authenticator.BasicAuthenticationProvider attribute)</a>
+      <li><a href="api.html#api.authenticator.BaseSAMLAuthenticationProvider.DISPLAY_NAME">DISPLAY_NAME (api.authenticator.BaseSAMLAuthenticationProvider attribute)</a>
 
       <ul>
+        <li><a href="api.html#api.authenticator.BasicAuthenticationProvider.DISPLAY_NAME">(api.authenticator.BasicAuthenticationProvider attribute)</a>
+</li>
         <li><a href="api.html#api.firstbook.FirstBookAuthenticationAPI.DISPLAY_NAME">(api.firstbook.FirstBookAuthenticationAPI attribute)</a>
 </li>
         <li><a href="api.html#api.firstbook2.FirstBookAuthenticationAPI.DISPLAY_NAME">(api.firstbook2.FirstBookAuthenticationAPI attribute)</a>
@@ -4029,6 +4111,8 @@
       <li><a href="core.html#core.metadata_layer.ContributorData.display_name_to_sort_name_from_existing_contributor">display_name_to_sort_name_from_existing_contributor() (core.metadata_layer.ContributorData class method)</a>
 </li>
       <li><a href="core.html#core.metadata_layer.ContributorData.display_name_to_sort_name_through_canonicalizer">display_name_to_sort_name_through_canonicalizer() (core.metadata_layer.ContributorData method)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.metadata.UIInfo.display_names">display_names (api.saml.metadata.UIInfo attribute)</a>
 </li>
       <li><a href="core.html#core.entrypoint.EntryPoint.DISPLAY_TITLES">DISPLAY_TITLES (core.entrypoint.EntryPoint attribute)</a>
 </li>
@@ -4284,6 +4368,18 @@
 </li>
       <li><a href="core.model.html#core.model.contributor.Contributor.EDITOR_ROLE">EDITOR_ROLE (core.model.contributor.Contributor attribute)</a>
 </li>
+      <li><a href="api.saml.html#api.saml.metadata.SAMLAttributes.eduPersonAffiliation">eduPersonAffiliation (api.saml.metadata.SAMLAttributes attribute)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.metadata.SAMLAttributes.eduPersonOrgUnitDN">eduPersonOrgUnitDN (api.saml.metadata.SAMLAttributes attribute)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.metadata.SAMLAttributes.eduPersonPrincipalName">eduPersonPrincipalName (api.saml.metadata.SAMLAttributes attribute)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.metadata.SAMLAttributes.eduPersonScopedAffiliation">eduPersonScopedAffiliation (api.saml.metadata.SAMLAttributes attribute)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.metadata.SAMLAttributes.eduPersonTargetedID">eduPersonTargetedID (api.saml.metadata.SAMLAttributes attribute)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.metadata.SAMLAttributes.eduPersonUniqueId">eduPersonUniqueId (api.saml.metadata.SAMLAttributes attribute)</a>
+</li>
       <li><a href="core.classifier.html#core.classifier.keyword.Eg">Eg (class in core.classifier.keyword)</a>
 </li>
       <li><a href="core.model.html#core.model.configuration.ExternalIntegration.ELASTICSEARCH">ELASTICSEARCH (core.model.configuration.ExternalIntegration attribute)</a>
@@ -4305,6 +4401,8 @@
       <li><a href="core.model.html#core.model.constants.IdentifierConstants.ELIB_ID">ELIB_ID (core.model.constants.IdentifierConstants attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.admin.Admin.email">email (core.model.admin.Admin attribute)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.metadata.NameIDFormat.EMAIL_ADDRESS">EMAIL_ADDRESS (api.saml.metadata.NameIDFormat attribute)</a>
 </li>
       <li><a href="api.sip.html#api.sip.client.named.email_address">email_address (api.sip.client.named attribute)</a>
 </li>
@@ -4349,6 +4447,12 @@
       <li><a href="api.html#api.adobe_vendor_id.AuthdataUtility.encode_short_client_token">encode_short_client_token() (api.adobe_vendor_id.AuthdataUtility method)</a>
 </li>
       <li><a href="core.util.html#core.util.string_helpers.UnicodeAwareBase64.encodestring">encodestring() (core.util.string_helpers.UnicodeAwareBase64 method)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.metadata.NameIDFormat.ENCRYPTED">ENCRYPTED (api.saml.metadata.NameIDFormat attribute)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.configuration.SAMLOneLoginConfiguration.ENCRYPTION">ENCRYPTION (api.saml.configuration.SAMLOneLoginConfiguration attribute)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.metadata.IdentityProviderMetadata.encryption_certificates">encryption_certificates (api.saml.metadata.IdentityProviderMetadata attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.circulationevent.CirculationEvent.end">end (core.model.circulationevent.CirculationEvent attribute)</a>
 
@@ -4428,6 +4532,12 @@
 </li>
       <li><a href="core.html#core.coverage.IdentifierCoverageProvider.ensure_coverage">ensure_coverage() (core.coverage.IdentifierCoverageProvider method)</a>
 </li>
+      <li><a href="api.saml.html#api.saml.metadata.NameIDFormat.ENTITY">ENTITY (api.saml.metadata.NameIDFormat attribute)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.configuration.SAMLOneLoginConfiguration.ENTITY_ID">ENTITY_ID (api.saml.configuration.SAMLOneLoginConfiguration attribute)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.metadata.ProviderMetadata.entity_id">entity_id (api.saml.metadata.ProviderMetadata attribute)</a>
+</li>
       <li><a href="core.model.html#core.model.customlist.CustomList.entries">entries (core.model.customlist.CustomList attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.customlist.CustomList.entries_for_work">entries_for_work() (core.model.customlist.CustomList method)</a>
@@ -4482,9 +4592,11 @@
 </li>
       <li><a href="core.model.html#core.model.identifier.Identifier.equivalent_to">equivalent_to() (core.model.identifier.Identifier method)</a>
 </li>
-      <li><a href="core.html#core.config.Configuration.ERROR">ERROR (core.config.Configuration attribute)</a>
+      <li><a href="api.saml.html#api.saml.controller.SAMLController.ERROR">ERROR (api.saml.controller.SAMLController attribute)</a>
 
       <ul>
+        <li><a href="core.html#core.config.Configuration.ERROR">(core.config.Configuration attribute)</a>
+</li>
         <li><a href="core.html#core.log.LogConfiguration.ERROR">(core.log.LogConfiguration attribute)</a>
 </li>
       </ul></li>
@@ -4512,6 +4624,8 @@
         <li><a href="api.html#api.overdrive.OverdriveAPI.error_to_exception">(api.overdrive.OverdriveAPI attribute)</a>
 </li>
       </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="core.html#core.app_server.ErrorHandler">ErrorHandler (class in core.app_server)</a>
 </li>
       <li><a href="api.html#api.bibliotheca.ErrorParser">ErrorParser (class in api.bibliotheca)</a>
@@ -4522,8 +4636,6 @@
 </li>
       <li><a href="core.model.html#core.model.library.Library.estimated_holdings_by_language">estimated_holdings_by_language() (core.model.library.Library method)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="core.model.html#core.model.resource.Resource.estimated_quality">estimated_quality (core.model.resource.Resource attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.resource.Resource.ESTIMATED_QUALITY_WEIGHT">ESTIMATED_QUALITY_WEIGHT (core.model.resource.Resource attribute)</a>
@@ -4693,6 +4805,8 @@
 </li>
         <li><a href="api.html#api.rbdigital.RBDigitalAPI.external_integration">(api.rbdigital.RBDigitalAPI method)</a>
 </li>
+        <li><a href="api.saml.html#api.saml.configuration.ExternalIntegrationOwner.external_integration">(api.saml.configuration.ExternalIntegrationOwner method)</a>
+</li>
         <li><a href="core.html#core.opds_import.MetadataWranglerOPDSLookup.external_integration">(core.opds_import.MetadataWranglerOPDSLookup class method)</a>
 </li>
         <li><a href="core.html#core.opds_import.OPDSImportMonitor.external_integration">(core.opds_import.OPDSImportMonitor method)</a>
@@ -4728,6 +4842,8 @@
 </li>
       <li><a href="core.model.html#core.model.configuration.ExternalIntegrationLink">ExternalIntegrationLink (class in core.model.configuration)</a>
 </li>
+      <li><a href="api.saml.html#api.saml.configuration.ExternalIntegrationOwner">ExternalIntegrationOwner (class in api.saml.configuration)</a>
+</li>
       <li><a href="core.html#core.external_search.ExternalSearchIndex">ExternalSearchIndex (class in core.external_search)</a>
 </li>
       <li><a href="core.html#core.testing.ExternalSearchTest">ExternalSearchTest (class in core.testing)</a>
@@ -4740,6 +4856,8 @@
         <li><a href="core.model.html#core.model.edition.Edition.extra">(core.model.edition.Edition attribute)</a>
 </li>
       </ul></li>
+      <li><a href="api.saml.html#api.saml.metadata.SubjectUIDExtractor.extract">extract() (api.saml.metadata.SubjectUIDExtractor method)</a>
+</li>
       <li><a href="core.html#core.scripts.RunCoverageProviderScript.extract_additional_command_line_arguments">extract_additional_command_line_arguments() (core.scripts.RunCoverageProviderScript method)</a>
 </li>
       <li><a href="api.html#api.axis.BibliographicParser.extract_availability">extract_availability() (api.axis.BibliographicParser method)</a>
@@ -5116,10 +5234,12 @@
 </li>
       <li><a href="api.html#api.millenium_patron.MilleniumPatronAPI.FINES_FIELD">FINES_FIELD (api.millenium_patron.MilleniumPatronAPI attribute)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="core.model.html#core.model.coverage.Timestamp.finish">finish (core.model.coverage.Timestamp attribute)</a>
 </li>
+      <li><a href="api.saml.html#api.saml.auth.SAMLAuthenticationManager.finish_authentication">finish_authentication() (api.saml.auth.SAMLAuthenticationManager method)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="core.model.html#core.model.customlist.CustomListEntry.first_appearance">first_appearance (core.model.customlist.CustomListEntry attribute)</a>
 </li>
       <li><a href="core.html#core.lane.Pagination.first_page">first_page (core.lane.Pagination attribute)</a>
@@ -5141,6 +5261,8 @@
       <li><a href="api.html#api.authenticator.AuthenticationProvider.FLOW_TYPE">FLOW_TYPE (api.authenticator.AuthenticationProvider attribute)</a>
 
       <ul>
+        <li><a href="api.html#api.authenticator.BaseSAMLAuthenticationProvider.FLOW_TYPE">(api.authenticator.BaseSAMLAuthenticationProvider attribute)</a>
+</li>
         <li><a href="api.html#api.authenticator.BasicAuthenticationProvider.FLOW_TYPE">(api.authenticator.BasicAuthenticationProvider attribute)</a>
 </li>
         <li><a href="api.html#api.authenticator.OAuthAuthenticationProvider.FLOW_TYPE">(api.authenticator.OAuthAuthenticationProvider attribute)</a>
@@ -5253,6 +5375,8 @@
       <li><a href="core.classifier.html#core.classifier.FreeformAudienceClassifier">FreeformAudienceClassifier (class in core.classifier)</a>
 </li>
       <li><a href="core.util.html#core.util.languages.LanguageCodes.french_names">french_names (core.util.languages.LanguageCodes attribute)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.metadata.Attribute.friendly_name">friendly_name (api.saml.metadata.Attribute attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.identifier.Identifier.from_asin">from_asin() (core.model.identifier.Identifier class method)</a>
 </li>
@@ -5566,6 +5690,8 @@
 </li>
       <li><a href="api.html#api.axis.Axis360API.get_audiobook_metadata">get_audiobook_metadata() (api.axis.Axis360API method)</a>
 </li>
+      <li><a href="api.saml.html#api.saml.provider.SAMLWebSSOAuthenticationProvider.get_authentication_manager">get_authentication_manager() (api.saml.provider.SAMLWebSSOAuthenticationProvider method)</a>
+</li>
       <li><a href="api.html#api.odilo.OdiloAPI.get_availability">get_availability() (api.odilo.OdiloAPI method)</a>
 </li>
       <li><a href="api.html#api.bibliotheca.BibliothecaAPI.get_bibliographic_info_for">get_bibliographic_info_for() (api.bibliotheca.BibliothecaAPI method)</a>
@@ -5595,6 +5721,8 @@
       <li><a href="api.html#api.rbdigital.MockRBDigitalAPI.get_data">get_data() (api.rbdigital.MockRBDigitalAPI method)</a>
 </li>
       <li><a href="core.html#core.testing.DatabaseTest.get_database_connection">get_database_connection() (core.testing.DatabaseTest class method)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.configuration.SAMLConfiguration.get_debug">get_debug() (api.saml.configuration.SAMLConfiguration method)</a>
 </li>
       <li><a href="api.html#api.rbdigital.RBDigitalAPI.get_delta">get_delta() (api.rbdigital.RBDigitalAPI method)</a>
 </li>
@@ -5633,6 +5761,10 @@
 </li>
       </ul></li>
       <li><a href="api.html#api.metadata_wrangler.MWAuxiliaryMetadataMonitor.get_identifiers">get_identifiers() (api.metadata_wrangler.MWAuxiliaryMetadataMonitor method)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.configuration.SAMLOneLoginConfiguration.get_identity_provider_settings">get_identity_provider_settings() (api.saml.configuration.SAMLOneLoginConfiguration method)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.configuration.SAMLConfiguration.get_identity_providers">get_identity_providers() (api.saml.configuration.SAMLConfiguration method)</a>
 </li>
       <li><a href="api.admin.controller.html#api.admin.controller.collection_self_tests.CollectionSelfTestsController.get_info">get_info() (api.admin.controller.collection_self_tests.CollectionSelfTestsController method)</a>
 
@@ -5742,9 +5874,17 @@
 </li>
       <li><a href="api.html#api.novelist.NoveListAPI.get_series_information">get_series_information() (api.novelist.NoveListAPI method)</a>
 </li>
+      <li><a href="api.saml.html#api.saml.configuration.SAMLConfiguration.get_service_provider">get_service_provider() (api.saml.configuration.SAMLConfiguration method)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.configuration.SAMLOneLoginConfiguration.get_service_provider_settings">get_service_provider_settings() (api.saml.configuration.SAMLOneLoginConfiguration method)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.configuration.SAMLOneLoginConfiguration.get_settings">get_settings() (api.saml.configuration.SAMLOneLoginConfiguration method)</a>
+</li>
       <li><a href="api.admin.controller.html#api.admin.controller.SitewideRegistrationController.get_shared_secret">get_shared_secret() (api.admin.controller.SitewideRegistrationController method)</a>
 </li>
       <li><a href="core.html#core.marc.MARCExporter.get_storage_settings">get_storage_settings() (core.marc.MARCExporter class method)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.configuration.SAMLConfiguration.get_strict">get_strict() (api.saml.configuration.SAMLConfiguration method)</a>
 </li>
       <li><a href="api.html#api.odilo.OdiloCirculationMonitor.get_url">get_url() (api.odilo.OdiloCirculationMonitor method)</a>
 </li>
@@ -5753,6 +5893,8 @@
       <li><a href="core.model.html#core.model.resource.Representation.get_would_be_useful">get_would_be_useful() (core.model.resource.Representation class method)</a>
 </li>
       <li><a href="core.model.html#core.model.constants.MediaTypes.GIF_MEDIA_TYPE">GIF_MEDIA_TYPE (core.model.constants.MediaTypes attribute)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.metadata.SAMLAttributes.givenName">givenName (api.saml.metadata.SAMLAttributes attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.collection.Collection.GLOBAL_COLLECTION_DATA_SOURCES">GLOBAL_COLLECTION_DATA_SOURCES (core.model.collection.Collection attribute)</a>
 </li>
@@ -5956,10 +6098,10 @@
 </li>
       <li><a href="api.html#api.config.Configuration.help_uris">help_uris() (api.config.Configuration class method)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.html#api.config.Configuration.HELP_WEB">HELP_WEB (api.config.Configuration attribute)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.html#api.config.Configuration.HIDDEN_CONTENT_TYPES">HIDDEN_CONTENT_TYPES (api.config.Configuration attribute)</a>
 </li>
       <li><a href="api.admin.controller.html#api.admin.controller.LanesController.hide_lane">hide_lane() (api.admin.controller.LanesController method)</a>
@@ -6030,9 +6172,15 @@
 </li>
       <li><a href="core.util.html#core.util.http.HTTP">HTTP (class in core.util.http)</a>
 </li>
+      <li><a href="api.saml.html#api.saml.metadata.Binding.HTTP_ARTIFACT">HTTP_ARTIFACT (api.saml.metadata.Binding attribute)</a>
+</li>
       <li><a href="core.model.html#core.model.resource.Representation.http_get_no_redirect">http_get_no_redirect() (core.model.resource.Representation class method)</a>
 </li>
       <li><a href="core.model.html#core.model.resource.Representation.http_get_no_timeout">http_get_no_timeout() (core.model.resource.Representation class method)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.metadata.Binding.HTTP_POST">HTTP_POST (api.saml.metadata.Binding attribute)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.metadata.Binding.HTTP_REDIRECT">HTTP_REDIRECT (api.saml.metadata.Binding attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.coverage.CoverageRecord.human_readable">human_readable() (core.model.coverage.CoverageRecord method)</a>
 </li>
@@ -6226,9 +6374,17 @@
 </li>
       <li><a href="api.html#api.authenticator.LibraryAuthenticator.identifies_individuals">identifies_individuals (api.authenticator.LibraryAuthenticator attribute)</a>
 </li>
+      <li><a href="api.saml.html#api.saml.metadata.IdentityProviderMetadata">IdentityProviderMetadata (class in api.saml.metadata)</a>
+</li>
       <li><a href="core.model.html#core.model.patron.Annotation.IDLING">IDLING (core.model.patron.Annotation attribute)</a>
 </li>
       <li><a href="api.html#api.monitor.IdlingAnnotationReaper">IdlingAnnotationReaper (class in api.monitor)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.configuration.SAMLOneLoginConfiguration.IDP">IDP (api.saml.configuration.SAMLOneLoginConfiguration attribute)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.controller.SAMLController.IDP_ENTITY_ID">IDP_ENTITY_ID (api.saml.controller.SAMLController attribute)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.configuration.SAMLConfiguration.IDP_XML_METADATA">IDP_XML_METADATA (api.saml.configuration.SAMLConfiguration attribute)</a>
 </li>
       <li><a href="core.util.html#core.util.epub.EpubAccessor.IDPF_NAMESPACE">IDPF_NAMESPACE (core.util.epub.EpubAccessor attribute)</a>
 </li>
@@ -6324,6 +6480,8 @@
       </ul></li>
       <li><a href="api.html#api.feedbooks.FeedbooksOPDSImporter.improve_description">improve_description() (api.feedbooks.FeedbooksOPDSImporter method)</a>
 </li>
+      <li><a href="api.saml.html#api.saml.loader.SAMLMetadataLoader.IN_COMMON_METADATA_SERVICE_URL">IN_COMMON_METADATA_SERVICE_URL (api.saml.loader.SAMLMetadataLoader attribute)</a>
+</li>
       <li><a href="core.model.html#core.model.licensing.RightsStatus.IN_COPYRIGHT">IN_COPYRIGHT (core.model.licensing.RightsStatus attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.identifier.Identifier.inbound_equivalencies">inbound_equivalencies (core.model.identifier.Identifier attribute)</a>
@@ -6368,14 +6526,16 @@
 </li>
       <li><a href="api.sip.html#api.sip.SIP2AuthenticationProvider.info_to_patrondata">info_to_patrondata() (api.sip.SIP2AuthenticationProvider method)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api.saml.html#api.saml.metadata.UIInfo.information_urls">information_urls (api.saml.metadata.UIInfo attribute)</a>
+</li>
       <li><a href="core.html#core.lane.Lane.inherit_parent_restrictions">inherit_parent_restrictions (core.lane.Lane attribute)</a>
 
       <ul>
         <li><a href="core.html#core.lane.WorkList.inherit_parent_restrictions">(core.lane.WorkList attribute)</a>
 </li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="core.html#core.lane.WorkList.inherited_value">inherited_value() (core.lane.WorkList method)</a>
 </li>
       <li><a href="core.html#core.lane.WorkList.inherited_values">inherited_values() (core.lane.WorkList method)</a>
@@ -6407,6 +6567,8 @@
       <li><a href="core.model.html#core.model.SessionManager.initialize_schema">initialize_schema() (core.model.SessionManager class method)</a>
 </li>
       <li><a href="core.util.html#core.util.permanent_work_id.WorkIDCalculator.initialsFix">initialsFix (core.util.permanent_work_id.WorkIDCalculator attribute)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.exceptions.SAMLError.inner_exception">inner_exception (api.saml.exceptions.SAMLError attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.identifier.Equivalency.input">input (core.model.identifier.Equivalency attribute)</a>
 </li>
@@ -6778,6 +6940,8 @@
       </ul></li>
       <li><a href="api.html#api.kansas_patron.KansasAuthenticationAPI">KansasAuthenticationAPI (class in api.kansas_patron)</a>
 </li>
+      <li><a href="api.saml.html#api.saml.metadata.NameIDFormat.KERBEROS">KERBEROS (api.saml.metadata.NameIDFormat attribute)</a>
+</li>
       <li><a href="core.html#core.metadata_layer.SubjectData.key">key (core.metadata_layer.SubjectData attribute)</a>
 
       <ul>
@@ -6788,10 +6952,10 @@
       </ul></li>
       <li><a href="core.html#core.s3.S3Uploader.key_join">key_join() (core.s3.S3Uploader class method)</a>
 </li>
-      <li><a href="api.html#api.authenticator.LibraryAuthenticator.key_pair">key_pair (api.authenticator.LibraryAuthenticator attribute)</a>
-</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api.html#api.authenticator.LibraryAuthenticator.key_pair">key_pair (api.authenticator.LibraryAuthenticator attribute)</a>
+</li>
       <li><a href="api.html#api.config.Configuration.KEY_PAIR">KEY_PAIR (api.config.Configuration attribute)</a>
 </li>
       <li><a href="api.html#api.config.Configuration.key_pair">key_pair() (api.config.Configuration class method)</a>
@@ -6884,9 +7048,11 @@
 </li>
       <li><a href="core.util.html#core.util.accept_language.Lang">Lang (class in core.util.accept_language)</a>
 </li>
-      <li><a href="api.sip.html#api.sip.client.fixed.language">language (api.sip.client.fixed attribute)</a>
+      <li><a href="api.saml.html#api.saml.metadata.LocalizableMetadataItem.language">language (api.saml.metadata.LocalizableMetadataItem attribute)</a>
 
       <ul>
+        <li><a href="api.sip.html#api.sip.client.fixed.language">(api.sip.client.fixed attribute)</a>
+</li>
         <li><a href="core.model.html#core.model.edition.Edition.language">(core.model.edition.Edition attribute)</a>
 </li>
         <li><a href="core.model.html#core.model.resource.Resource.Work.language">(core.model.resource.Resource.Work attribute)</a>
@@ -7158,6 +7324,8 @@
         <li><a href="core.html#core.marc.MARCExporter.LIBRARY_SETTINGS">(core.marc.MARCExporter attribute)</a>
 </li>
       </ul></li>
+      <li><a href="api.saml.html#api.saml.controller.SAMLController.LIBRARY_SHORT_NAME">LIBRARY_SHORT_NAME (api.saml.controller.SAMLController attribute)</a>
+</li>
       <li><a href="core.model.html#core.model.constants.DataSourceConstants.LIBRARY_STAFF">LIBRARY_STAFF (core.model.constants.DataSourceConstants attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.credential.DelegatedPatronIdentifier.library_uri">library_uri (core.model.credential.DelegatedPatronIdentifier attribute)</a>
@@ -7355,6 +7523,8 @@
       <li><a href="api.html#api.config.Configuration.load">load() (api.config.Configuration class method)</a>
 
       <ul>
+        <li><a href="api.saml.html#api.saml.configuration.SAMLConfigurationStorage.load">(api.saml.configuration.SAMLConfigurationStorage method)</a>
+</li>
         <li><a href="core.html#core.config.Configuration.load">(core.config.Configuration class method)</a>
 </li>
         <li><a href="core.html#core.external_search.ExternalSearchIndex.load">(core.external_search.ExternalSearchIndex class method)</a>
@@ -7395,6 +7565,8 @@
 </li>
       </ul></li>
       <li><a href="core.html#core.config.Configuration.load_from_file">load_from_file() (core.config.Configuration class method)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.loader.SAMLMetadataLoader.load_idp_metadata">load_idp_metadata() (api.saml.loader.SAMLMetadataLoader method)</a>
 </li>
       <li><a href="api.html#api.controller.CirculationManagerController.load_lane">load_lane() (api.controller.CirculationManagerController method)</a>
 </li>
@@ -7491,6 +7663,8 @@
       <li><a href="core.html#core.local_analytics_provider.LocalAnalyticsProvider">LocalAnalyticsProvider (class in core.local_analytics_provider)</a>
 </li>
       <li><a href="core.util.html#core.util.accept_language.Lang.locale">locale (core.util.accept_language.Lang attribute)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.metadata.LocalizableMetadataItem">LocalizableMetadataItem (class in api.saml.metadata)</a>
 </li>
       <li><a href="core.html#core.config.Configuration.LOCALIZATION_LANGUAGES">LOCALIZATION_LANGUAGES (core.config.Configuration attribute)</a>
 </li>
@@ -7654,6 +7828,8 @@
 </li>
       <li><a href="api.html#api.config.Configuration.LOGO">LOGO (api.config.Configuration attribute)</a>
 </li>
+      <li><a href="api.saml.html#api.saml.metadata.UIInfo.logo_urls">logo_urls (api.saml.metadata.UIInfo attribute)</a>
+</li>
       <li><a href="api.admin.controller.html#api.admin.controller.collection_self_tests.CollectionSelfTestsController.look_up_by_id">look_up_by_id() (api.admin.controller.collection_self_tests.CollectionSelfTestsController method)</a>
 
       <ul>
@@ -7773,6 +7949,8 @@
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="core.classifier.html#core.classifier.bisac.m">m() (in module core.classifier.bisac)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.metadata.SAMLAttributes.mail">mail (api.saml.metadata.SAMLAttributes attribute)</a>
 </li>
       <li><a href="core.html#core.testing.DatabaseTest.make_default_library">make_default_library() (core.testing.DatabaseTest class method)</a>
 </li>
@@ -8467,6 +8645,8 @@
       <ul>
         <li><a href="api.admin.html#api.admin.password_admin_authentication_provider.PasswordAdminAuthenticationProvider.NAME">(api.admin.password_admin_authentication_provider.PasswordAdminAuthenticationProvider attribute)</a>
 </li>
+        <li><a href="api.html#api.authenticator.BaseSAMLAuthenticationProvider.NAME">(api.authenticator.BaseSAMLAuthenticationProvider attribute)</a>
+</li>
         <li><a href="api.html#api.authenticator.BasicAuthenticationProvider.NAME">(api.authenticator.BasicAuthenticationProvider attribute)</a>
 </li>
         <li><a href="api.html#api.axis.Axis360API.NAME">(api.axis.Axis360API attribute)</a>
@@ -8511,6 +8691,12 @@
 </li>
         <li><a href="api.html#api.rbdigital.RBDigitalAPI.NAME">(api.rbdigital.RBDigitalAPI attribute)</a>
 </li>
+      </ul></li>
+      <li><a href="api.saml.html#api.saml.metadata.Attribute.name">name (api.saml.metadata.Attribute attribute)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.provider.SAMLWebSSOAuthenticationProvider.NAME">NAME (api.saml.provider.SAMLWebSSOAuthenticationProvider attribute)</a>
+
+      <ul>
         <li><a href="api.html#api.simple_authentication.SimpleAuthenticationProvider.NAME">(api.simple_authentication.SimpleAuthenticationProvider attribute)</a>
 </li>
         <li><a href="api.sip.html#api.sip.SIP2AuthenticationProvider.NAME">(api.sip.SIP2AuthenticationProvider attribute)</a>
@@ -8640,7 +8826,25 @@
       </ul></li>
       <li><a href="core.util.html#core.util.languages.LanguageCodes.name_for_languageset">name_for_languageset() (core.util.languages.LanguageCodes class method)</a>
 </li>
+      <li><a href="api.saml.html#api.saml.metadata.Attribute.name_format">name_format (api.saml.metadata.Attribute attribute)</a>
+
+      <ul>
+        <li><a href="api.saml.html#api.saml.metadata.NameID.name_format">(api.saml.metadata.NameID attribute)</a>
+</li>
+      </ul></li>
       <li><a href="core.model.html#core.model.datasource.DataSource.name_from_uri">name_from_uri() (core.model.datasource.DataSource class method)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.metadata.NameID.name_id">name_id (api.saml.metadata.NameID attribute)</a>
+
+      <ul>
+        <li><a href="api.saml.html#api.saml.metadata.Subject.name_id">(api.saml.metadata.Subject attribute)</a>
+</li>
+      </ul></li>
+      <li><a href="api.saml.html#api.saml.configuration.SAMLOneLoginConfiguration.NAME_ID_FORMAT">NAME_ID_FORMAT (api.saml.configuration.SAMLOneLoginConfiguration attribute)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.metadata.ProviderMetadata.name_id_format">name_id_format (api.saml.metadata.ProviderMetadata attribute)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.metadata.NameID.name_qualifier">name_qualifier (api.saml.metadata.NameID attribute)</a>
 </li>
       <li><a href="core.util.html#core.util.languages.LanguageNames.name_re">name_re (core.util.languages.LanguageNames attribute)</a>
 </li>
@@ -8649,6 +8853,10 @@
       <li><a href="core.util.html#core.util.languages.LanguageNames.name_to_codes">name_to_codes (core.util.languages.LanguageNames attribute)</a>
 </li>
       <li><a href="api.sip.html#api.sip.client.named">named (class in api.sip.client)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.metadata.NameID">NameID (class in api.saml.metadata)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.metadata.NameIDFormat">NameIDFormat (class in api.saml.metadata)</a>
 </li>
       <li><a href="core.classifier.html#core.classifier.bisac.BISACClassifier.NAMES">NAMES (core.classifier.bisac.BISACClassifier attribute)</a>
 
@@ -8692,6 +8900,8 @@
         <li><a href="core.html#core.lane.SearchFacets.navigate">(core.lane.SearchFacets method)</a>
 </li>
       </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.html#api.controller.OPDSFeedController.navigation">navigation() (api.controller.OPDSFeedController method)</a>
 
       <ul>
@@ -8700,8 +8910,6 @@
       </ul></li>
       <li><a href="api.html#api.custom_index.COPPAGate.navigation_entry">navigation_entry() (api.custom_index.COPPAGate class method)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.html#api.routes.navigation_feed">navigation_feed() (in module api.routes)</a>
 </li>
       <li><a href="core.util.html#core.util.opds_writer.OPDSFeed.NAVIGATION_FEED_TYPE">NAVIGATION_FEED_TYPE (core.util.opds_writer.OPDSFeed attribute)</a>
@@ -9423,6 +9631,8 @@
 </li>
         <li><a href="api.html#api.onix.ONIXExtractor.parse">(api.onix.ONIXExtractor class method)</a>
 </li>
+        <li><a href="api.saml.html#api.saml.parser.SAMLMetadataParser.parse">(api.saml.parser.SAMLMetadataParser method)</a>
+</li>
         <li><a href="core.html#core.metadata_layer.MARCExtractor.parse">(core.metadata_layer.MARCExtractor class method)</a>
 </li>
         <li><a href="core.util.html#core.util.MoneyUtility.parse">(core.util.MoneyUtility class method)</a>
@@ -9600,6 +9810,8 @@
         <li><a href="core.model.html#core.model.credential.DelegatedPatronIdentifier.patron_identifier">(core.model.credential.DelegatedPatronIdentifier attribute)</a>
 </li>
       </ul></li>
+      <li><a href="api.saml.html#api.saml.controller.SAMLController.PATRON_INFO">PATRON_INFO (api.saml.controller.SAMLController attribute)</a>
+</li>
       <li><a href="api.sip.html#api.sip.client.SIPClient.patron_information">patron_information() (api.sip.client.SIPClient method)</a>
 
       <ul>
@@ -9643,6 +9855,8 @@
       <li><a href="api.html#api.millenium_patron.MilleniumPatronAPI.PATRON_TYPE_FIELD">PATRON_TYPE_FIELD (api.millenium_patron.MilleniumPatronAPI attribute)</a>
 </li>
       <li><a href="api.html#api.config.Configuration.PATRON_WEB_CLIENT_URL">PATRON_WEB_CLIENT_URL (api.config.Configuration attribute)</a>
+</li>
+      <li><a href="api.admin.html#api.admin.validator.PatronAuthenticationValidatorFactory">PatronAuthenticationValidatorFactory (class in api.admin.validator)</a>
 </li>
       <li><a href="api.html#api.circulation_exceptions.PatronAuthorizationFailedException">PatronAuthorizationFailedException</a>
 </li>
@@ -9717,6 +9931,8 @@
       <li><a href="core.model.html#core.model.edition.Edition.permanent_work_id">permanent_work_id (core.model.edition.Edition attribute)</a>
 </li>
       <li><a href="core.html#core.monitor.PermanentWorkIDRefreshMonitor">PermanentWorkIDRefreshMonitor (class in core.monitor)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.metadata.NameIDFormat.PERSISTENT">PERSISTENT (api.saml.metadata.NameIDFormat attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.coverage.BaseCoverageRecord.PERSISTENT_FAILURE">PERSISTENT_FAILURE (core.model.coverage.BaseCoverageRecord attribute)</a>
 </li>
@@ -9950,6 +10166,12 @@
         <li><a href="api.html#api.opds.LibraryAnnotator.PRIVACY_POLICY">(api.opds.LibraryAnnotator attribute)</a>
 </li>
       </ul></li>
+      <li><a href="api.saml.html#api.saml.metadata.UIInfo.privacy_statement_urls">privacy_statement_urls (api.saml.metadata.UIInfo attribute)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.configuration.SAMLOneLoginConfiguration.PRIVATE_KEY">PRIVATE_KEY (api.saml.configuration.SAMLOneLoginConfiguration attribute)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.metadata.ServiceProviderMetadata.private_key">private_key (api.saml.metadata.ServiceProviderMetadata attribute)</a>
+</li>
       <li><a href="core.util.html#core.util.flask_util.problem">problem() (in module core.util.flask_util)</a>
 </li>
       <li><a href="core.util.html#core.util.flask_util.problem_raw">problem_raw() (in module core.util.flask_util)</a>
@@ -10466,6 +10688,10 @@
       </ul></li>
       <li><a href="api.admin.controller.html#api.admin.controller.SettingsController.PROVIDER_APIS">PROVIDER_APIS (api.admin.controller.SettingsController attribute)</a>
 </li>
+      <li><a href="api.saml.html#api.saml.controller.SAMLController.PROVIDER_NAME">PROVIDER_NAME (api.saml.controller.SAMLController attribute)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.metadata.ProviderMetadata">ProviderMetadata (class in api.saml.metadata)</a>
+</li>
       <li><a href="api.html#api.authenticator.LibraryAuthenticator.providers">providers (api.authenticator.LibraryAuthenticator attribute)</a>
 </li>
       <li><a href="api.html#api.feedbooks.RehostingPolicy.PUBLIC_DOMAIN_CUTOFF">PUBLIC_DOMAIN_CUTOFF (api.feedbooks.RehostingPolicy attribute)</a>
@@ -10850,6 +11076,8 @@
 </li>
       <li><a href="api.admin.controller.html#api.admin.controller.SignInController.redirect_after_google_sign_in">redirect_after_google_sign_in() (api.admin.controller.SignInController method)</a>
 </li>
+      <li><a href="api.saml.html#api.saml.controller.SAMLController.REDIRECT_URI">REDIRECT_URI (api.saml.controller.SAMLController attribute)</a>
+</li>
       <li><a href="api.admin.html#api.admin.routes.refresh">refresh() (in module api.admin.routes)</a>
 </li>
       <li><a href="core.model.html#core.model.listeners.refresh_admin_cache">refresh_admin_cache() (in module core.model.listeners)</a>
@@ -10928,6 +11156,8 @@
 </li>
       <li><a href="api.html#api.authenticator.LibraryAuthenticator.register_provider">register_provider() (api.authenticator.LibraryAuthenticator method)</a>
 </li>
+      <li><a href="api.html#api.authenticator.LibraryAuthenticator.register_saml_provider">register_saml_provider() (api.authenticator.LibraryAuthenticator method)</a>
+</li>
       <li><a href="api.admin.controller.html#api.admin.controller.metadata_services.MetadataServicesController.register_with_metadata_wrangler">register_with_metadata_wrangler() (api.admin.controller.metadata_services.MetadataServicesController method)</a>
 </li>
       <li><a href="core.model.html#core.model.coverage.BaseCoverageRecord.REGISTERED">REGISTERED (core.model.coverage.BaseCoverageRecord attribute)</a>
@@ -10971,6 +11201,8 @@
       <li><a href="core.model.html#core.model.cachedfeed.CachedFeed.RELATED_TYPE">RELATED_TYPE (core.model.cachedfeed.CachedFeed attribute)</a>
 </li>
       <li><a href="api.html#api.lanes.RelatedBooksLane">RelatedBooksLane (class in api.lanes)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.controller.SAMLController.RELAY_STATE">RELAY_STATE (api.saml.controller.SAMLController attribute)</a>
 </li>
       <li><a href="api.html#api.axis.Axis360API.release_hold">release_hold() (api.axis.Axis360API method)</a>
 
@@ -11041,6 +11273,8 @@
 </li>
         <li><a href="api.html#api.millenium_patron.MockMilleniumPatronAPI.remote_patron_lookup">(api.millenium_patron.MockMilleniumPatronAPI method)</a>
 </li>
+        <li><a href="api.saml.html#api.saml.provider.SAMLWebSSOAuthenticationProvider.remote_patron_lookup">(api.saml.provider.SAMLWebSSOAuthenticationProvider method)</a>
+</li>
       </ul></li>
       <li><a href="api.html#api.firstbook.FirstBookAuthenticationAPI.remote_pin_test">remote_pin_test() (api.firstbook.FirstBookAuthenticationAPI method)</a>
 
@@ -11082,12 +11316,12 @@
 </li>
       <li><a href="api.html#api.custom_patron_catalog.CustomPatronCatalog.replace_link">replace_link() (api.custom_patron_catalog.CustomPatronCatalog class method)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="core.html#core.external_search.CurrentMapping.replacement">replacement (core.external_search.CurrentMapping attribute)</a>
 </li>
       <li><a href="api.html#api.feedbooks.FeedbooksOPDSImporter.REPLACEMENT_CSS_KEY">REPLACEMENT_CSS_KEY (api.feedbooks.FeedbooksOPDSImporter attribute)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.html#api.bibliotheca.BibliothecaAPI.replacement_policy">replacement_policy() (api.bibliotheca.BibliothecaAPI class method)</a>
 
       <ul>
@@ -11534,14 +11768,68 @@
 </li>
       <li><a href="core.html#core.s3.S3Uploader">S3Uploader (class in core.s3)</a>
 </li>
+      <li><a href="api.html#api.routes.saml_authenticate">saml_authenticate() (in module api.routes)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.controller.SAMLController.saml_authentication_callback">saml_authentication_callback() (api.saml.controller.SAMLController method)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.controller.SAMLController.saml_authentication_redirect">saml_authentication_redirect() (api.saml.controller.SAMLController method)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.provider.SAMLWebSSOAuthenticationProvider.saml_callback">saml_callback() (api.saml.provider.SAMLWebSSOAuthenticationProvider method)</a>
+
+      <ul>
+        <li><a href="api.html#api.routes.saml_callback">(in module api.routes)</a>
+</li>
+      </ul></li>
+      <li><a href="api.html#api.authenticator.Authenticator.saml_provider_lookup">saml_provider_lookup() (api.authenticator.Authenticator method)</a>
+
+      <ul>
+        <li><a href="api.html#api.authenticator.LibraryAuthenticator.saml_provider_lookup">(api.authenticator.LibraryAuthenticator method)</a>
+</li>
+      </ul></li>
+      <li><a href="api.saml.html#api.saml.metadata.SAMLAttributes">SAMLAttributes (class in api.saml.metadata)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.auth.SAMLAuthenticationManager">SAMLAuthenticationManager (class in api.saml.auth)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.auth.SAMLAuthenticationManagerFactory">SAMLAuthenticationManagerFactory (class in api.saml.auth)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.configuration.SAMLConfiguration">SAMLConfiguration (class in api.saml.configuration)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.configuration.SAMLConfigurationError">SAMLConfigurationError</a>
+</li>
+      <li><a href="api.saml.html#api.saml.configuration.SAMLConfigurationStorage">SAMLConfigurationStorage (class in api.saml.configuration)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.configuration.SAMLConfigurationStorageError">SAMLConfigurationStorageError</a>
+</li>
+      <li><a href="api.saml.html#api.saml.controller.SAMLController">SAMLController (class in api.saml.controller)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.exceptions.SAMLError">SAMLError</a>
+</li>
+      <li><a href="api.saml.html#api.saml.loader.SAMLMetadataLoader">SAMLMetadataLoader (class in api.saml.loader)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.loader.SAMLMetadataLoadingError">SAMLMetadataLoadingError</a>
+</li>
+      <li><a href="api.saml.html#api.saml.parser.SAMLMetadataParser">SAMLMetadataParser (class in api.saml.parser)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.parser.SAMLMetadataParsingError">SAMLMetadataParsingError</a>
+</li>
+      <li><a href="api.saml.html#api.saml.configuration.SAMLOneLoginConfiguration">SAMLOneLoginConfiguration (class in api.saml.configuration)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.validator.SAMLSettingsValidator">SAMLSettingsValidator (class in api.saml.validator)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.provider.SAMLWebSSOAuthenticationProvider">SAMLWebSSOAuthenticationProvider (class in api.saml.provider)</a>
+</li>
       <li><a href="core.model.html#core.model.constants.LinkRelations.SAMPLE">SAMPLE (core.model.constants.LinkRelations attribute)</a>
 </li>
       <li><a href="core.html#core.testing.DatabaseTest.sample_cover_path">sample_cover_path() (core.testing.DatabaseTest method)</a>
 </li>
       <li><a href="core.html#core.testing.DatabaseTest.sample_cover_representation">sample_cover_representation() (core.testing.DatabaseTest method)</a>
 </li>
-      <li><a href="core.html#core.scripts.DatabaseMigrationScript.TimestampInfo.save">save() (core.scripts.DatabaseMigrationScript.TimestampInfo method)</a>
+      <li><a href="api.saml.html#api.saml.configuration.SAMLConfigurationStorage.save">save() (api.saml.configuration.SAMLConfigurationStorage method)</a>
+
+      <ul>
+        <li><a href="core.html#core.scripts.DatabaseMigrationScript.TimestampInfo.save">(core.scripts.DatabaseMigrationScript.TimestampInfo method)</a>
 </li>
+      </ul></li>
       <li><a href="api.admin.controller.html#api.admin.controller.library_settings.LibrarySettingsController.scalar_setting">scalar_setting() (api.admin.controller.library_settings.LibrarySettingsController method)</a>
 </li>
       <li><a href="core.model.html#core.model.resource.Representation.scale">scale() (core.model.resource.Representation method)</a>
@@ -11706,6 +11994,8 @@
       </ul></li>
       <li><a href="api.html#api.config.Configuration.SECRET_KEY">SECRET_KEY (api.config.Configuration attribute)</a>
 </li>
+      <li><a href="api.saml.html#api.saml.configuration.SAMLOneLoginConfiguration.SECURITY">SECURITY (api.saml.configuration.SAMLOneLoginConfiguration attribute)</a>
+</li>
       <li><a href="core.classifier.html#core.classifier.bisac.BISACClassifier.see_also">see_also (core.classifier.bisac.BISACClassifier attribute)</a>
 </li>
       <li><a href="core.html#core.lane.BaseFacets.selectable_entrypoints">selectable_entrypoints() (core.lane.BaseFacets class method)</a>
@@ -11787,6 +12077,8 @@
 </li>
       </ul></li>
       <li><a href="api.html#api.authenticator.BasicAuthenticationProvider.server_side_validation">server_side_validation() (api.authenticator.BasicAuthenticationProvider method)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.metadata.Service">Service (class in api.saml.metadata)</a>
 </li>
       <li><a href="core.model.html#core.model.coverage.Timestamp.service">service (core.model.coverage.Timestamp attribute)</a>
 </li>
@@ -11913,6 +12205,8 @@
       <li><a href="core.model.html#core.model.coverage.Timestamp.service_type">service_type (core.model.coverage.Timestamp attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.coverage.Timestamp.service_type_enum">service_type_enum (core.model.coverage.Timestamp attribute)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.metadata.ServiceProviderMetadata">ServiceProviderMetadata (class in api.saml.metadata)</a>
 </li>
       <li><a href="core.model.html#core.model.SessionManager.session">session() (core.model.SessionManager class method)</a>
 </li>
@@ -12063,6 +12357,8 @@
       <ul>
         <li><a href="api.html#api.authenticator.AuthenticationProvider.SETTINGS">(api.authenticator.AuthenticationProvider attribute)</a>
 </li>
+        <li><a href="api.html#api.authenticator.BaseSAMLAuthenticationProvider.SETTINGS">(api.authenticator.BaseSAMLAuthenticationProvider attribute)</a>
+</li>
         <li><a href="api.html#api.authenticator.BasicAuthenticationProvider.SETTINGS">(api.authenticator.BasicAuthenticationProvider attribute)</a>
 </li>
         <li><a href="api.html#api.authenticator.OAuthAuthenticationProvider.SETTINGS">(api.authenticator.OAuthAuthenticationProvider attribute)</a>
@@ -12186,6 +12482,8 @@
         <li><a href="core.html#core.testing.SearchClientForTesting.setup_index">(core.testing.SearchClientForTesting method)</a>
 </li>
       </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.html#api.controller.CirculationManager.setup_one_time_controllers">setup_one_time_controllers() (api.controller.CirculationManager method)</a>
 </li>
       <li><a href="api.html#api.controller.CirculationManager.setup_search">setup_search() (api.controller.CirculationManager method)</a>
@@ -12196,8 +12494,6 @@
 </li>
       <li><a href="api.html#api.routes.shared_collection_borrow">shared_collection_borrow() (in module api.routes)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.html#api.routes.shared_collection_fulfill">shared_collection_fulfill() (in module api.routes)</a>
 </li>
       <li><a href="api.html#api.routes.shared_collection_hold_info">shared_collection_hold_info() (in module api.routes)</a>
@@ -12308,6 +12604,10 @@
 </li>
       <li><a href="api.admin.controller.html#api.admin.controller.SignInController">SignInController (class in api.admin.controller)</a>
 </li>
+      <li><a href="api.saml.html#api.saml.configuration.SAMLOneLoginConfiguration.SIGNING">SIGNING (api.saml.configuration.SAMLOneLoginConfiguration attribute)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.metadata.IdentityProviderMetadata.signing_certificates">signing_certificates (api.saml.metadata.IdentityProviderMetadata attribute)</a>
+</li>
       <li><a href="core.model.html#core.model.edition.Edition.similarity_to">similarity_to() (core.model.edition.Edition method)</a>
 </li>
       <li><a href="core.model.html#core.model.resource.Representation.simple_http_get">simple_http_get() (core.model.resource.Representation class method)</a>
@@ -12356,6 +12656,8 @@
         <li><a href="api.html#api.opds.SharedCollectionLoanAndHoldAnnotator.single_item_feed">(api.opds.SharedCollectionLoanAndHoldAnnotator class method)</a>
 </li>
       </ul></li>
+      <li><a href="api.saml.html#api.saml.configuration.SAMLOneLoginConfiguration.SINGLE_SIGN_ON_SERVICE">SINGLE_SIGN_ON_SERVICE (api.saml.configuration.SAMLOneLoginConfiguration attribute)</a>
+</li>
       <li><a href="api.sip.html#api.sip.SIP2AuthenticationProvider">SIP2AuthenticationProvider (class in api.sip)</a>
 </li>
       <li><a href="api.sip.html#api.sip.client.SIPClient">SIPClient (class in api.sip.client)</a>
@@ -12442,6 +12744,8 @@
 </li>
       <li><a href="core.html#core.external_search.Query.SLIGHTLY_ABOVE_BASELINE">SLIGHTLY_ABOVE_BASELINE (core.external_search.Query attribute)</a>
 </li>
+      <li><a href="api.saml.html#api.saml.metadata.IdentityProviderMetadata.slo_service">slo_service (api.saml.metadata.IdentityProviderMetadata attribute)</a>
+</li>
       <li><a href="core.util.html#core.util.slugify">slugify() (in module core.util)</a>
 </li>
       <li><a href="api.html#api.config.Configuration.SMALL_COLLECTION_CUTOFF">SMALL_COLLECTION_CUTOFF (api.config.Configuration attribute)</a>
@@ -12449,6 +12753,8 @@
       <li><a href="api.html#api.config.Configuration.SMALL_COLLECTION_LANGUAGES">SMALL_COLLECTION_LANGUAGES (api.config.Configuration attribute)</a>
 </li>
       <li><a href="api.html#api.config.Configuration.small_collection_languages">small_collection_languages() (api.config.Configuration class method)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.metadata.Binding.SOAP">SOAP (api.saml.metadata.Binding attribute)</a>
 </li>
       <li><a href="core.classifier.html#core.classifier.bisac.Something">Something (class in core.classifier.bisac)</a>
 </li>
@@ -12518,6 +12824,14 @@
       </ul></li>
       <li><a href="api.html#api.monitor.LoanlikeReaperMonitor.SOURCE_OF_TRUTH_PROTOCOLS">SOURCE_OF_TRUTH_PROTOCOLS (api.monitor.LoanlikeReaperMonitor attribute)</a>
 </li>
+      <li><a href="api.saml.html#api.saml.configuration.SAMLOneLoginConfiguration.SP">SP (api.saml.configuration.SAMLOneLoginConfiguration attribute)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.metadata.NameID.sp_name_qualifier">sp_name_qualifier (api.saml.metadata.NameID attribute)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.configuration.SAMLConfiguration.SP_PRIVATE_KEY">SP_PRIVATE_KEY (api.saml.configuration.SAMLConfiguration attribute)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.configuration.SAMLConfiguration.SP_XML_METADATA">SP_XML_METADATA (api.saml.configuration.SAMLConfiguration attribute)</a>
+</li>
       <li><a href="core.util.html#core.util.permanent_work_id.WorkIDCalculator.specialCharacterStrip">specialCharacterStrip (core.util.permanent_work_id.WorkIDCalculator attribute)</a>
 </li>
       <li><a href="api.sip.html#api.sip.SIP2AuthenticationProvider.SPECIFIC_BLOCK_REASONS">SPECIFIC_BLOCK_REASONS (api.sip.SIP2AuthenticationProvider attribute)</a>
@@ -12531,6 +12845,8 @@
       <li><a href="api.sip.html#api.sip.SIP2AuthenticationProvider.SSL_CERTIFICATE">SSL_CERTIFICATE (api.sip.SIP2AuthenticationProvider attribute)</a>
 </li>
       <li><a href="api.sip.html#api.sip.SIP2AuthenticationProvider.SSL_KEY">SSL_KEY (api.sip.SIP2AuthenticationProvider attribute)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.metadata.IdentityProviderMetadata.sso_service">sso_service (api.saml.metadata.IdentityProviderMetadata attribute)</a>
 </li>
       <li><a href="api.admin.html#api.admin.google_oauth_admin_authentication_provider.GoogleOAuthAdminAuthenticationProvider.staff_email">staff_email() (api.admin.google_oauth_admin_authentication_provider.GoogleOAuthAdminAuthenticationProvider method)</a>
 </li>
@@ -12566,6 +12882,8 @@
         <li><a href="core.model.html#core.model.patron.Loan.start">(core.model.patron.Loan attribute)</a>
 </li>
       </ul></li>
+      <li><a href="api.saml.html#api.saml.auth.SAMLAuthenticationManager.start_authentication">start_authentication() (api.saml.auth.SAMLAuthenticationManager method)</a>
+</li>
       <li><a href="core.model.html#core.model.cachedfeed.CachedMARCFile.start_time">start_time (core.model.cachedfeed.CachedMARCFile attribute)</a>
 </li>
       <li><a href="api.html#api.controller.StaticFileController.static_file">static_file() (api.controller.StaticFileController method)</a>
@@ -12724,6 +13042,12 @@
 </li>
       <li><a href="core.model.html#core.model.identifier.Equivalency.strength">strength (core.model.identifier.Equivalency attribute)</a>
 </li>
+      <li><a href="api.saml.html#api.saml.configuration.SAMLConfiguration.STRICT">STRICT (api.saml.configuration.SAMLConfiguration attribute)</a>
+
+      <ul>
+        <li><a href="api.saml.html#api.saml.configuration.SAMLOneLoginConfiguration.STRICT">(api.saml.configuration.SAMLOneLoginConfiguration attribute)</a>
+</li>
+      </ul></li>
       <li><a href="core.util.html#core.util.languages.LanguageCodes.string_to_alpha_3">string_to_alpha_3() (core.util.languages.LanguageCodes class method)</a>
 </li>
       <li><a href="core.html#core.log.StringFormatter">StringFormatter (class in core.log)</a>
@@ -12732,8 +13056,12 @@
 </li>
       <li><a href="core.model.html#core.model.classification.Genre.subgenres">subgenres (core.model.classification.Genre attribute)</a>
 </li>
-      <li><a href="core.model.html#core.model.classification.Subject">Subject (class in core.model.classification)</a>
+      <li><a href="api.saml.html#api.saml.metadata.Subject">Subject (class in api.saml.metadata)</a>
+
+      <ul>
+        <li><a href="core.model.html#core.model.classification.Subject">(class in core.model.classification)</a>
 </li>
+      </ul></li>
       <li><a href="core.model.html#core.model.classification.Classification.subject_id">subject_id (core.model.classification.Classification attribute)</a>
 </li>
       <li><a href="api.html#api.onix.ONIXExtractor.SUBJECT_TYPES">SUBJECT_TYPES (api.onix.ONIXExtractor attribute)</a>
@@ -12742,9 +13070,13 @@
 </li>
       <li><a href="core.html#core.scripts.SubjectInputScript">SubjectInputScript (class in core.scripts)</a>
 </li>
+      <li><a href="api.saml.html#api.saml.metadata.SubjectJSONEncoder">SubjectJSONEncoder (class in api.saml.metadata)</a>
+</li>
       <li><a href="core.model.html#core.model.classification.Genre.subjects">subjects (core.model.classification.Genre attribute)</a>
 </li>
       <li><a href="core.html#core.monitor.SubjectSweepMonitor">SubjectSweepMonitor (class in core.monitor)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.metadata.SubjectUIDExtractor">SubjectUIDExtractor (class in api.saml.metadata)</a>
 </li>
       <li><a href="core.html#core.lane.Lane.sublanes">sublanes (core.lane.Lane attribute)</a>
 </li>
@@ -12843,6 +13175,8 @@
 </li>
       </ul></li>
       <li><a href="api.admin.html#api.admin.opds.AdminAnnotator.suppressed_url">suppressed_url() (api.admin.opds.AdminAnnotator method)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.metadata.SAMLAttributes.surname">surname (api.saml.metadata.SAMLAttributes attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.constants.MediaTypes.SVG_MEDIA_TYPE">SVG_MEDIA_TYPE (core.model.constants.MediaTypes attribute)</a>
 </li>
@@ -13104,12 +13438,12 @@
 </li>
       <li><a href="api.admin.controller.html#api.admin.controller.TimestampsController">TimestampsController (class in api.admin.controller)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="core.html#core.scripts.TimestampScript">TimestampScript (class in core.scripts)</a>
 </li>
       <li><a href="api.html#api.config.Configuration.TINY_COLLECTION_LANGUAGES">TINY_COLLECTION_LANGUAGES (api.config.Configuration attribute)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.html#api.config.Configuration.tiny_collection_languages">tiny_collection_languages() (api.config.Configuration class method)</a>
 </li>
       <li><a href="core.model.html#core.model.edition.Edition.title">title (core.model.edition.Edition attribute)</a>
@@ -13206,8 +13540,12 @@
 </li>
       <li><a href="api.html#api.authenticator.OAuthAuthenticationProvider.token_data_source">token_data_source() (api.authenticator.OAuthAuthenticationProvider method)</a>
 </li>
-      <li><a href="api.clever.html#api.clever.CleverAuthenticationAPI.TOKEN_DATA_SOURCE_NAME">TOKEN_DATA_SOURCE_NAME (api.clever.CleverAuthenticationAPI attribute)</a>
+      <li><a href="api.html#api.authenticator.BaseSAMLAuthenticationProvider.TOKEN_DATA_SOURCE_NAME">TOKEN_DATA_SOURCE_NAME (api.authenticator.BaseSAMLAuthenticationProvider attribute)</a>
+
+      <ul>
+        <li><a href="api.clever.html#api.clever.CleverAuthenticationAPI.TOKEN_DATA_SOURCE_NAME">(api.clever.CleverAuthenticationAPI attribute)</a>
 </li>
+      </ul></li>
       <li><a href="api.html#api.odilo.OdiloAPI.TOKEN_ENDPOINT">TOKEN_ENDPOINT (api.odilo.OdiloAPI attribute)</a>
 
       <ul>
@@ -13226,8 +13564,12 @@
         <li><a href="core.html#core.overdrive.OverdriveAPI.token_post">(core.overdrive.OverdriveAPI method)</a>
 </li>
       </ul></li>
-      <li><a href="api.clever.html#api.clever.CleverAuthenticationAPI.TOKEN_TYPE">TOKEN_TYPE (api.clever.CleverAuthenticationAPI attribute)</a>
+      <li><a href="api.html#api.authenticator.BaseSAMLAuthenticationProvider.TOKEN_TYPE">TOKEN_TYPE (api.authenticator.BaseSAMLAuthenticationProvider attribute)</a>
+
+      <ul>
+        <li><a href="api.clever.html#api.clever.CleverAuthenticationAPI.TOKEN_TYPE">(api.clever.CleverAuthenticationAPI attribute)</a>
 </li>
+      </ul></li>
       <li><a href="api.html#api.authenticator.PatronData.TOO_MANY_ITEMS_BILLED">TOO_MANY_ITEMS_BILLED (api.authenticator.PatronData attribute)</a>
 
       <ul>
@@ -13306,6 +13648,8 @@
 </li>
       <li><a href="core.model.html#core.model.resource.Resource.transformations">transformations (core.model.resource.Resource attribute)</a>
 </li>
+      <li><a href="api.saml.html#api.saml.metadata.NameIDFormat.TRANSIENT">TRANSIENT (api.saml.metadata.NameIDFormat attribute)</a>
+</li>
       <li><a href="core.model.html#core.model.coverage.BaseCoverageRecord.TRANSIENT_FAILURE">TRANSIENT_FAILURE (core.model.coverage.BaseCoverageRecord attribute)</a>
 </li>
       <li><a href="core.html#core.testing.TransientFailureCoverageProvider">TransientFailureCoverageProvider (class in core.testing)</a>
@@ -13356,6 +13700,12 @@
 <h2 id="U">U</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api.saml.html#api.saml.metadata.ProviderMetadata.ui_info">ui_info (api.saml.metadata.ProviderMetadata attribute)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.metadata.SAMLAttributes.uid">uid (api.saml.metadata.SAMLAttributes attribute)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.metadata.UIInfo">UIInfo (class in api.saml.metadata)</a>
+</li>
       <li><a href="api.sip.html#api.sip.client.named.unavailable_hold_items">unavailable_hold_items (api.sip.client.named attribute)</a>
 </li>
       <li><a href="api.sip.html#api.sip.client.fixed.unavailable_holds_count">unavailable_holds_count (api.sip.client.fixed attribute)</a>
@@ -13413,6 +13763,8 @@
 </li>
       </ul></li>
       <li><a href="core.model.html#core.model.collection.Collection.unresolved_catalog">unresolved_catalog() (core.model.collection.Collection method)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.metadata.NameIDFormat.UNSPECIFIED">UNSPECIFIED (api.saml.metadata.NameIDFormat attribute)</a>
 </li>
       <li><a href="api.admin.controller.html#api.admin.controller.work_editor.WorkController.unsuppress">unsuppress() (api.admin.controller.work_editor.WorkController method)</a>
 
@@ -13534,14 +13886,14 @@
         <li><a href="core.model.html#core.model.customlist.CustomList.update_size">(core.model.customlist.CustomList method)</a>
 </li>
       </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="core.html#core.scripts.Script.update_timestamp">update_timestamp() (core.scripts.Script method)</a>
 
       <ul>
         <li><a href="core.html#core.scripts.TimestampScript.update_timestamp">(core.scripts.TimestampScript method)</a>
 </li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="core.html#core.scripts.DatabaseMigrationScript.update_timestamps">update_timestamps() (core.scripts.DatabaseMigrationScript method)</a>
 </li>
       <li><a href="api.html#api.opds_for_distributors.OPDSForDistributorsImporter.update_work_for_edition">update_work_for_edition() (api.opds_for_distributors.OPDSForDistributorsImporter method)</a>
@@ -13599,6 +13951,10 @@
       <li><a href="core.model.html#core.model.classification.Subject.uri_lookup">uri_lookup (core.model.classification.Subject attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.datasource.DataSource.URI_PREFIX">URI_PREFIX (core.model.datasource.DataSource attribute)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.configuration.SAMLOneLoginConfiguration.URL">URL (api.saml.configuration.SAMLOneLoginConfiguration attribute)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.metadata.Service.url">url (api.saml.metadata.Service attribute)</a>
 </li>
       <li><a href="core.html#core.config.Configuration.URL">URL (core.config.Configuration attribute)</a>
 
@@ -13744,10 +14100,16 @@
 </li>
       <li><a href="api.html#api.registry.Registration.VALID_REGISTRATION_STAGES">VALID_REGISTRATION_STAGES (api.registry.Registration attribute)</a>
 </li>
+      <li><a href="api.saml.html#api.saml.metadata.Subject.valid_till">valid_till (api.saml.metadata.Subject attribute)</a>
+</li>
       <li><a href="core.model.html#core.model.complaint.Complaint.VALID_TYPES">VALID_TYPES (core.model.complaint.Complaint attribute)</a>
 </li>
       <li><a href="api.admin.html#api.admin.validator.Validator.validate">validate() (api.admin.validator.Validator method)</a>
+
+      <ul>
+        <li><a href="api.saml.html#api.saml.validator.SAMLSettingsValidator.validate">(api.saml.validator.SAMLSettingsValidator method)</a>
 </li>
+      </ul></li>
       <li><a href="api.admin.html#api.admin.announcement_list_validator.AnnouncementListValidator.validate_announcement">validate_announcement() (api.admin.announcement_list_validator.AnnouncementListValidator method)</a>
 </li>
       <li><a href="api.admin.html#api.admin.announcement_list_validator.AnnouncementListValidator.validate_announcements">validate_announcements() (api.admin.announcement_list_validator.AnnouncementListValidator method)</a>
@@ -13812,15 +14174,23 @@
 </li>
       <li><a href="api.admin.controller.html#api.admin.controller.individual_admin_settings.IndividualAdminSettingsController.validate_role_exists">validate_role_exists() (api.admin.controller.individual_admin_settings.IndividualAdminSettingsController method)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.admin.html#api.admin.validator.Validator.validate_url">validate_url() (api.admin.validator.Validator method)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.admin.html#api.admin.validator.Validator">Validator (class in api.admin.validator)</a>
 </li>
-      <li><a href="core.model.html#core.model.configuration.ConfigurationSetting.value">value (core.model.configuration.ConfigurationSetting attribute)</a>
+      <li><a href="api.admin.html#api.admin.validator.PatronAuthenticationValidatorFactory.VALIDATOR_CLASS_NAME">VALIDATOR_CLASS_NAME (api.admin.validator.PatronAuthenticationValidatorFactory attribute)</a>
+</li>
+      <li><a href="api.admin.html#api.admin.validator.PatronAuthenticationValidatorFactory.VALIDATOR_FACTORY">VALIDATOR_FACTORY (api.admin.validator.PatronAuthenticationValidatorFactory attribute)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.provider.validator_factory">validator_factory() (in module api.saml.provider)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.metadata.LocalizableMetadataItem.value">value (api.saml.metadata.LocalizableMetadataItem attribute)</a>
 
       <ul>
+        <li><a href="core.model.html#core.model.configuration.ConfigurationSetting.value">(core.model.configuration.ConfigurationSetting attribute)</a>
+</li>
         <li><a href="core.model.html#core.model.measurement.Measurement.value">(core.model.measurement.Measurement attribute)</a>
 </li>
       </ul></li>
@@ -13831,6 +14201,8 @@
 </li>
       </ul></li>
       <li><a href="core.model.html#core.model.configuration.ConfigurationSetting.value_or_default">value_or_default() (core.model.configuration.ConfigurationSetting method)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.metadata.Attribute.values">values (api.saml.metadata.Attribute attribute)</a>
 </li>
       <li><a href="api.html#api.novelist.NoveListAPI.values">values() (api.novelist.NoveListAPI class method)</a>
 </li>
@@ -13912,6 +14284,10 @@
 <h2 id="W">W</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api.saml.html#api.saml.metadata.ServiceProviderMetadata.want_assertions_signed">want_assertions_signed (api.saml.metadata.ServiceProviderMetadata attribute)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.metadata.IdentityProviderMetadata.want_authn_requests_signed">want_authn_requests_signed (api.saml.metadata.IdentityProviderMetadata attribute)</a>
+</li>
       <li><a href="core.html#core.config.Configuration.WARN">WARN (core.config.Configuration attribute)</a>
 
       <ul>
@@ -13974,6 +14350,8 @@
 </li>
       <li><a href="core.model.html#core.model.cachedfeed.WillNotGenerateExpensiveFeed">WillNotGenerateExpensiveFeed</a>
 </li>
+      <li><a href="api.saml.html#api.saml.metadata.NameIDFormat.WINDOWS_DOMAIN_QUALIFIED_NAME">WINDOWS_DOMAIN_QUALIFIED_NAME (api.saml.metadata.NameIDFormat attribute)</a>
+</li>
       <li><a href="core.model.html#core.model.licensing.LicensePool.with_complaint">with_complaint() (core.model.licensing.LicensePool class method)</a>
 </li>
       <li><a href="core.util.html#core.util.problem_detail.ProblemDetail.with_debug">with_debug() (core.util.problem_detail.ProblemDetail method)</a>
@@ -14034,6 +14412,8 @@
         <li><a href="core.html#core.external_search.MockExternalSearchIndex.work_document_type">(core.external_search.MockExternalSearchIndex attribute)</a>
 </li>
       </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="scripts.html#scripts.DirectoryImportScript.work_from_metadata">work_from_metadata() (scripts.DirectoryImportScript method)</a>
 </li>
       <li><a href="core.model.html#core.model.classification.Genre.work_genres">work_genres (core.model.classification.Genre attribute)</a>
@@ -14044,8 +14424,6 @@
         <li><a href="core.model.html#core.model.work.Work.work_genres">(core.model.work.Work attribute)</a>
 </li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="core.model.html#core.model.cachedfeed.CachedFeed.work_id">work_id (core.model.cachedfeed.CachedFeed attribute)</a>
 
       <ul>
@@ -14190,6 +14568,12 @@
       </ul></li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api.saml.html#api.saml.configuration.SAMLOneLoginConfiguration.X509_CERT">X509_CERT (api.saml.configuration.SAMLOneLoginConfiguration attribute)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.configuration.SAMLOneLoginConfiguration.X509_CERT_MULTI">X509_CERT_MULTI (api.saml.configuration.SAMLOneLoginConfiguration attribute)</a>
+</li>
+      <li><a href="api.saml.html#api.saml.metadata.NameIDFormat.X509_SUBJECT_NAME">X509_SUBJECT_NAME (api.saml.metadata.NameIDFormat attribute)</a>
+</li>
       <li><a href="core.model.html#core.model.constants.DataSourceConstants.XID">XID (core.model.constants.DataSourceConstants attribute)</a>
 </li>
       <li><a href="core.util.html#core.util.xmlparser.XMLParser">XMLParser (class in core.util.xmlparser)</a>
