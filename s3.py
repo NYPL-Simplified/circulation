@@ -411,7 +411,7 @@ class S3Uploader(MirrorUploader):
     def bucket_and_filename(cls, url, unquote=True):
         scheme, netloc, path, query, fragment = urlsplit(url)
 
-        if 'amazonaws.com' in netloc:
+        if netloc.endswith('amazonaws.com'):
             host_parts = netloc.split('.')
             host_parts_count = len(host_parts)
 
