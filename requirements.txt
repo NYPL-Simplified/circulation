@@ -7,7 +7,7 @@ requests>=2.18.4
 sqlalchemy>=1.2.0
 nose
 parameterized
-mock
+mock>=3.0.5
 lxml
 flask
 isbnlib
@@ -21,7 +21,6 @@ elasticsearch-dsl>6.0.0,<7.0.0
 python-dateutil
 uwsgi
 loggly-python-handler
-mock
 py-bcrypt
 Flask-Babel
 money
