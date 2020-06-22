@@ -170,7 +170,7 @@ class TestBaseCoverageRecord(DatabaseTest):
         success = self._identifier()
         success_record = self._coverage_record(success, source)
         success_record.timestamp = (
-            datetime.datetime.now() - datetime.timedelta(seconds=3600)
+            datetime.datetime.utcnow() - datetime.timedelta(seconds=3600)
         )
         eq_(CoverageRecord.SUCCESS, success_record.status)
 

@@ -1,22 +1,21 @@
 # encoding: utf-8
-import os
 import datetime
-from PIL import Image
-from StringIO import StringIO
-import urllib
+
 from botocore.exceptions import (
     BotoCoreError,
     ClientError,
 )
+from mock import MagicMock
 from nose.tools import (
     assert_raises,
-    assert_raises_regexp,
     eq_,
-    set_trace,
 )
+from parameterized import parameterized
+
 from . import (
     DatabaseTest
 )
+from ..mirror import MirrorUploader
 from ..model import (
     DataSource,
     ExternalIntegration,
@@ -28,9 +27,8 @@ from ..s3 import (
     S3Uploader,
     MockS3Client,
     MultipartS3Upload,
-)
-from ..mirror import MirrorUploader
-from ..config import CannotLoadConfiguration
+    S3AddressingStyle)
+
 
 class S3UploaderTest(DatabaseTest):
 
@@ -44,15 +42,68 @@ class S3UploaderTest(DatabaseTest):
         integration.password = 'password'
         return integration
 
-    def _uploader(self, client_class=None, uploader_class=None, **settings):
-        """Create a simple S3Uploader."""
+    def _add_settings_value(self, settings, key, value):
+        """Adds a value to settings dictionary
+
+        :param settings: Settings dictionary
+        :type settings: Dict
+
+        :param key: Key
+        :type key: string
+
+        :param value: Value
+        :type value: Any
+
+        :return: Updated settings dictionary
+        :rtype: Dict
+        """
+        if value:
+            if settings:
+                settings[key] = value
+
+            else:
+                settings = {
+                    key: value
+                }
+
+        return settings
+
+    def _create_s3_uploader(
+            self,
+            client_class=None,
+            uploader_class=None,
+            region=None,
+            addressing_style=None,
+            **settings):
+        """Creates a new instance of S3 uploader
+
+        :param client_class: (Optional) Custom class to be used instead of boto3's client class
+        :type client_class: Optional[Type]
+
+        :param: uploader_class: (Optional) Custom class which will be used insted of S3Uploader
+        :type uploader_class: Optional[Type]
+
+        :param region: (Optional) S3 region
+        :type region: Optional[string]
+
+        :param addressing_style: (Optional) S3 addressing style
+        :type addressing_style: Optional[string]
+
+        :param settings: Kwargs used for initializing an external integration
+        :type: Optional[Dict]
+
+        :return: New intance of S3 uploader
+        :rtype: S3Uploader
+        """
+        settings = self._add_settings_value(settings, S3Uploader.S3_REGION, region)
+        settings = self._add_settings_value(settings, S3Uploader.S3_ADDRESSING_STYLE, addressing_style)
         integration = self._integration(**settings)
         uploader_class = uploader_class or S3Uploader
+
         return uploader_class(integration, client_class=client_class)
 
 
 class TestS3Uploader(S3UploaderTest):
-
     def test_names(self):
         # The NAME associated with this class must be the same as its
         # key in the MirrorUploader implementation registry, and it's
@@ -68,7 +119,7 @@ class TestS3Uploader(S3UploaderTest):
         )
         integration.username = 'your-access-key'
         integration.password = 'your-secret-key'
-        integration.setting(S3Uploader.URL_TEMPLATE_KEY).value='a transform'
+        integration.setting(S3Uploader.URL_TEMPLATE_KEY).value = 'a transform'
         uploader = MirrorUploader.implementation(integration)
         eq_(True, isinstance(uploader, S3Uploader))
 
@@ -77,13 +128,30 @@ class TestS3Uploader(S3UploaderTest):
         eq_('a transform', uploader.url_transform)
 
     def test_empty_string(self):
+        # Arrange
         settings = {'username': '', 'password': ''}
         integration = self._external_integration(
             ExternalIntegration.S3, goal=ExternalIntegration.STORAGE_GOAL, settings=settings
         )
-        uploader = S3Uploader(integration, client_class=MockS3Client)
-        eq_(uploader.client.access_key, None)
-        eq_(uploader.client.secret_key, None)
+        client_class = MagicMock()
+
+        # Act
+        S3Uploader(integration, client_class=client_class)
+
+        # Assert
+        eq_(client_class.call_count, 1)
+
+        service_name = client_class.call_args.args
+        region_name = client_class.call_args.kwargs['region_name']
+        aws_access_key_id = client_class.call_args.kwargs['aws_access_key_id']
+        aws_secret_access_key = client_class.call_args.kwargs['aws_secret_access_key']
+        config = client_class.call_args.kwargs['config']
+
+        eq_(service_name, ('s3',))
+        eq_(region_name, S3Uploader.S3_DEFAULT_REGION)
+        eq_(aws_access_key_id, None)
+        eq_(aws_secret_access_key, None)
+        eq_(config.s3['addressing_style'], S3Uploader.S3_DEFAULT_ADDRESSING_STYLE)
 
     def test_custom_client_class(self):
         """You can specify a client class to use instead of boto3.client."""
@@ -93,12 +161,12 @@ class TestS3Uploader(S3UploaderTest):
 
     def test_get_bucket(self):
         buckets = {
-            S3Uploader.OA_CONTENT_BUCKET_KEY : 'banana',
-            S3Uploader.BOOK_COVERS_BUCKET_KEY : 'bucket'
+            S3Uploader.OA_CONTENT_BUCKET_KEY: 'banana',
+            S3Uploader.BOOK_COVERS_BUCKET_KEY: 'bucket'
         }
         buckets_plus_irrelevant_setting = dict(buckets)
         buckets_plus_irrelevant_setting['not-a-bucket-at-all'] = "value"
-        uploader = self._uploader(**buckets_plus_irrelevant_setting)
+        uploader = self._create_s3_uploader(**buckets_plus_irrelevant_setting)
 
         # This S3Uploader knows about the configured buckets.  It
         # wasn't informed of the irrelevant 'not-a-bucket-at-all'
@@ -110,146 +178,589 @@ class TestS3Uploader(S3UploaderTest):
         result = uploader.get_bucket('foo')
         eq_(uploader.buckets['foo'], result)
 
-    def test_url(self):
-        m = S3Uploader.url
-        eq_("https://s3.amazonaws.com/a-bucket/a-path", m("a-bucket", "a-path"))
-        eq_("https://s3.amazonaws.com/a-bucket/a-path", m("a-bucket", "/a-path"))
-        eq_("http://a-bucket.com/a-path", m("http://a-bucket.com/", "a-path"))
-        eq_("https://a-bucket.com/a-path",
-            m("https://a-bucket.com/", "/a-path"))
+    @parameterized.expand([
+        (
+            's3_url_with_path_without_slash',
+            'a-bucket',
+            'a-path',
+            'https://a-bucket.s3.amazonaws.com/a-path',
+            None
+        ),
+        (
+            's3_path_style_url_with_path_without_slash',
+            'a-bucket',
+            'a-path',
+            'https://s3.amazonaws.com/a-bucket/a-path',
+            None,
+            S3AddressingStyle.PATH.value
+        ),
+        (
+            's3_url_with_path_with_slash',
+            'a-bucket',
+            '/a-path',
+            'https://a-bucket.s3.amazonaws.com/a-path',
+            None,
+        ),
+        (
+            's3_path_style_url_with_path_with_slash',
+            'a-bucket',
+            '/a-path',
+            'https://s3.amazonaws.com/a-bucket/a-path',
+            None,
+            S3AddressingStyle.PATH.value
+        ),
+        (
+            's3_url_with_custom_region_and_path_without_slash',
+            'a-bucket',
+            'a-path',
+            'https://a-bucket.s3.us-east-2.amazonaws.com/a-path',
+            'us-east-2',
+        ),
+        (
+            's3_path_style_url_with_custom_region_and_path_without_slash',
+            'a-bucket',
+            'a-path',
+            'https://s3.us-east-2.amazonaws.com/a-bucket/a-path',
+            'us-east-2',
+            S3AddressingStyle.PATH.value
+        ),
+        (
+            's3_url_with_custom_region_and_path_with_slash',
+            'a-bucket',
+            '/a-path',
+            'https://a-bucket.s3.us-east-3.amazonaws.com/a-path',
+            'us-east-3'
+        ),
+        (
+            's3_path_style_url_with_custom_region_and_path_with_slash',
+            'a-bucket',
+            '/a-path',
+            'https://s3.us-east-3.amazonaws.com/a-bucket/a-path',
+            'us-east-3',
+            S3AddressingStyle.PATH.value
+        ),
+        (
+            'custom_http_url_and_path_without_slash',
+            'http://a-bucket.com/',
+            'a-path',
+            'http://a-bucket.com/a-path',
+            None
+        ),
+        (
+            'custom_http_url_and_path_with_slash',
+            'http://a-bucket.com/',
+            '/a-path',
+            'http://a-bucket.com/a-path',
+            None
+        ),
+        (
+            'custom_http_url_and_path_without_slash',
+            'https://a-bucket.com/',
+            'a-path',
+            'https://a-bucket.com/a-path',
+            None
+        ),
+        (
+            'custom_http_url_and_path_with_slash',
+            'https://a-bucket.com/',
+            '/a-path',
+            'https://a-bucket.com/a-path',
+            None
+        )
+    ])
+    def test_url(self, name, bucket, path, expected_result, region=None, addressing_style=None):
+        # Arrange
+        uploader = self._create_s3_uploader(region=region, addressing_style=addressing_style)
 
-    def test_final_mirror_url(self):
-        # By default, the mirror URL is not modified.
-        uploader = self._uploader()
-        eq_(S3Uploader.URL_TEMPLATE_DEFAULT, uploader.url_transform)
-        eq_(u'https://s3.amazonaws.com/bucket/the+key',
-            uploader.final_mirror_url("bucket", "the key"))
+        # Act
+        result = uploader.url(bucket, path)
 
-        uploader.url_transform = S3Uploader.URL_TEMPLATE_HTTP
-        eq_(u'http://bucket/the+k%C3%ABy',
-            uploader.final_mirror_url("bucket", "the këy"))
+        # Assert
+        eq_(result, expected_result)
 
-        uploader.url_transform = S3Uploader.URL_TEMPLATE_HTTPS
-        eq_(u'https://bucket/key',
-            uploader.final_mirror_url("bucket", "key"))
+    @parameterized.expand([
+        (
+            'implicit_s3_url_template',
+            'bucket',
+            'the key',
+            'https://bucket.s3.amazonaws.com/the%20key'
+        ),
+        (
+            'implicit_s3_url_template_with_custom_region',
+            'bucket',
+            'the key',
+            'https://bucket.s3.us-east-2.amazonaws.com/the%20key',
+            None,
+            'us-east-2'
+        ),
+        (
+            'explicit_s3_url_template',
+            'bucket',
+            'the key',
+            'https://bucket.s3.amazonaws.com/the%20key',
+            S3Uploader.URL_TEMPLATE_DEFAULT
+        ),
+        (
+            'explicit_s3_url_template_with_custom_region',
+            'bucket',
+            'the key',
+            'https://bucket.s3.us-east-2.amazonaws.com/the%20key',
+            S3Uploader.URL_TEMPLATE_DEFAULT,
+            'us-east-2'
+        ),
+        (
+            'http_url_template',
+            'bucket',
+            'the këy',
+            'http://bucket/the%20k%C3%ABy',
+            S3Uploader.URL_TEMPLATE_HTTP
+        ),
+        (
+            'https_url_template',
+            'bucket',
+            'the këy',
+            'https://bucket/the%20k%C3%ABy',
+            S3Uploader.URL_TEMPLATE_HTTPS
+        )
+    ])
+    def test_final_mirror_url(self, name, bucket, key, expected_result, url_transform=None, region=None):
+        # Arrange
+        uploader = self._create_s3_uploader(region=region)
+
+        if url_transform:
+            uploader.url_transform = url_transform
+
+        # Act
+        result = uploader.final_mirror_url(bucket, key)
+
+        # Assert
+        if not url_transform:
+            eq_(S3Uploader.URL_TEMPLATE_DEFAULT, uploader.url_transform)
+
+        eq_(result, expected_result)
 
     def test_key_join(self):
         """Test the code used to build S3 keys from parts."""
-        parts = ["Gutenberg", b"Gutenberg ID", 1234, "Die Flügelmaus.epub"]
-        eq_('Gutenberg/Gutenberg+ID/1234/Die+Fl%C3%BCgelmaus.epub',
+        parts = ["Gutenberg", b"Gutenberg ID", 1234, "Die Flügelmaus+.epub"]
+        eq_('Gutenberg/Gutenberg%20ID/1234/Die%20Fl%C3%BCgelmaus%2B.epub',
             S3Uploader.key_join(parts))
 
-    def test_cover_image_root(self):
-        bucket = u'test-book-covers-s3-bucket'
-        m = S3Uploader.cover_image_root
-
-        gutenberg_illustrated = DataSource.lookup(
-            self._db, DataSource.GUTENBERG_COVER_GENERATOR)
-        overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
-
-        eq_("https://s3.amazonaws.com/test-book-covers-s3-bucket/Gutenberg+Illustrated/",
-            m(bucket, gutenberg_illustrated))
-        eq_("https://s3.amazonaws.com/test-book-covers-s3-bucket/Overdrive/",
-            m(bucket, overdrive))
-        eq_("https://s3.amazonaws.com/test-book-covers-s3-bucket/scaled/300/Overdrive/",
-            m(bucket, overdrive, 300))
-
-    def test_content_root(self):
-        bucket = u'test-open-access-s3-bucket'
-        m = S3Uploader.content_root
-        eq_(
-            "https://s3.amazonaws.com/test-open-access-s3-bucket/",
-            m(bucket)
+    @parameterized.expand([
+        (
+            'with_gutenberg_cover_generator_data_source',
+            'test-book-covers-s3-bucket',
+            DataSource.GUTENBERG_COVER_GENERATOR,
+            'https://test-book-covers-s3-bucket.s3.amazonaws.com/Gutenberg%20Illustrated/'
+        ),
+        (
+            'with_overdrive_data_source',
+            'test-book-covers-s3-bucket',
+            DataSource.OVERDRIVE,
+            'https://test-book-covers-s3-bucket.s3.amazonaws.com/Overdrive/'
+        ),
+        (
+            'with_overdrive_data_source_and_scaled_size',
+            'test-book-covers-s3-bucket',
+            DataSource.OVERDRIVE,
+            'https://test-book-covers-s3-bucket.s3.amazonaws.com/scaled/300/Overdrive/',
+            300
+        ),
+        (
+            'with_gutenberg_cover_generator_data_source_and_custom_region',
+            'test-book-covers-s3-bucket',
+            DataSource.GUTENBERG_COVER_GENERATOR,
+            'https://test-book-covers-s3-bucket.s3.us-east-3.amazonaws.com/Gutenberg%20Illustrated/',
+            None,
+            'us-east-3'
+        ),
+        (
+            'with_overdrive_data_source_and_custom_region',
+            'test-book-covers-s3-bucket',
+            DataSource.OVERDRIVE,
+            'https://test-book-covers-s3-bucket.s3.us-east-3.amazonaws.com/Overdrive/',
+            None,
+            'us-east-3'
+        ),
+        (
+            'with_overdrive_data_source_and_scaled_size_and_custom_region',
+            'test-book-covers-s3-bucket',
+            DataSource.OVERDRIVE,
+            'https://test-book-covers-s3-bucket.s3.us-east-3.amazonaws.com/scaled/300/Overdrive/',
+            300,
+            'us-east-3'
         )
+    ])
+    def test_cover_image_root(self, name, bucket, data_source_name, expected_result, scaled_size=None, region=None):
+        # Arrange
+        uploader = self._create_s3_uploader(region=region)
+        data_source = DataSource.lookup(self._db, data_source_name)
 
-        # There is nowhere to store content that is not open-access.
-        assert_raises(
-            NotImplementedError,
-            m, bucket, open_access=False
+        # Act
+        result = uploader.cover_image_root(bucket, data_source, scaled_size=scaled_size)
+
+        # Assert
+        eq_(result, expected_result)
+
+    @parameterized.expand([
+        (
+            'with_default_region',
+            'test-open-access-s3-bucket',
+            'https://test-open-access-s3-bucket.s3.amazonaws.com/'
+        ),
+        (
+            'with_custom_region',
+            'test-open-access-s3-bucket',
+            'https://test-open-access-s3-bucket.s3.us-east-3.amazonaws.com/',
+            'us-east-3'
         )
+    ])
+    def test_content_root(self, name, bucket, expected_result, region=None):
+        # Arrange
+        uploader = self._create_s3_uploader(region=region)
 
-    def test_marc_file_root(self):
-        bucket = u'test-marc-s3-bucket'
-        m = S3Uploader.marc_file_root
-        library = self._library(short_name="SHORT")
-        eq_("https://s3.amazonaws.com/test-marc-s3-bucket/SHORT/",
-            m(bucket, library))
+        # Act
+        result = uploader.content_root(bucket)
 
-    def test_book_url(self):
-        identifier = self._identifier(foreign_id="ABOOK")
-        buckets = {S3Uploader.OA_CONTENT_BUCKET_KEY : 'thebooks'}
-        uploader = self._uploader(**buckets)
-        m = uploader.book_url
+        # Assert
+        eq_(result, expected_result)
 
-        eq_(u'https://s3.amazonaws.com/thebooks/Gutenberg+ID/ABOOK.epub',
-            m(identifier))
+    def test_content_root_does_not_allow_to_store_non_open_access_content(self):
+        # Arrange
+        uploader = self._create_s3_uploader()
+        bucket = 'test-open-access-s3-bucket'
 
-        # The default extension is .epub, but a custom extension can
-        # be specified.
-        eq_(u'https://s3.amazonaws.com/thebooks/Gutenberg+ID/ABOOK.pdf',
-            m(identifier, extension='pdf'))
+        # Act, assert
+        assert_raises(NotImplementedError, uploader.content_root, bucket, open_access=False)
 
-        eq_(u'https://s3.amazonaws.com/thebooks/Gutenberg+ID/ABOOK.pdf',
-            m(identifier, extension='.pdf'))
+    @parameterized.expand([
+        (
+            's3_url',
+            'test-marc-s3-bucket',
+            'SHORT',
+            'https://test-marc-s3-bucket.s3.amazonaws.com/SHORT/'
+        ),
+        (
+            's3_url_with_custom_region',
+            'test-marc-s3-bucket',
+            'SHORT',
+            'https://test-marc-s3-bucket.s3.us-east-2.amazonaws.com/SHORT/',
+            'us-east-2'
+        ),
+        (
+            'custom_http_url',
+            'http://my-feed/',
+            'SHORT',
+            'http://my-feed/SHORT/'
+        ),
+        (
+            'custom_https_url',
+            'https://my-feed/',
+            'SHORT',
+            'https://my-feed/SHORT/'
+        ),
+    ])
+    def test_marc_file_root(self, name, bucket, library_name, expected_result, region=None):
+        # Arrange
+        uploader = self._create_s3_uploader(region=region)
+        library = self._library(short_name=library_name)
 
-        # If a data source is provided, the book is stored underneath the
-        # data source.
-        unglueit = DataSource.lookup(self._db, DataSource.UNGLUE_IT)
-        eq_(u'https://s3.amazonaws.com/thebooks/unglue.it/Gutenberg+ID/ABOOK.epub',
-            m(identifier, data_source=unglueit))
+        # Act
+        result = uploader.marc_file_root(bucket, library)
 
-        # If a title is provided, the book's filename incorporates the
-        # title, for the benefit of people who download the book onto
-        # their hard drive.
-        eq_(u'https://s3.amazonaws.com/thebooks/Gutenberg+ID/ABOOK/On+Books.epub',
-            m(identifier, title="On Books"))
+        # Assert
+        eq_(result, expected_result)
 
-        # Non-open-access content can't be stored.
-        assert_raises(NotImplementedError, m, identifier, open_access=False)
+    @parameterized.expand([
+        (
+            'with_identifier',
+            {S3Uploader.OA_CONTENT_BUCKET_KEY: 'thebooks'},
+            'ABOOK',
+            'https://thebooks.s3.amazonaws.com/Gutenberg%20ID/ABOOK.epub'
+        ),
+        (
+            'with_custom_extension',
+            {S3Uploader.OA_CONTENT_BUCKET_KEY: 'thebooks'},
+            'ABOOK',
+            'https://thebooks.s3.amazonaws.com/Gutenberg%20ID/ABOOK.pdf',
+            'pdf'
+        ),
+        (
+            'with_custom_dotted_extension',
+            {S3Uploader.OA_CONTENT_BUCKET_KEY: 'thebooks'},
+            'ABOOK',
+            'https://thebooks.s3.amazonaws.com/Gutenberg%20ID/ABOOK.pdf',
+            '.pdf'
+        ),
+        (
+            'with_custom_data_source',
+            {S3Uploader.OA_CONTENT_BUCKET_KEY: 'thebooks'},
+            'ABOOK',
+            'https://thebooks.s3.amazonaws.com/unglue.it/Gutenberg%20ID/ABOOK.epub',
+            None,
+            DataSource.UNGLUE_IT
+        ),
+        (
+            'with_custom_title',
+            {S3Uploader.OA_CONTENT_BUCKET_KEY: 'thebooks'},
+            'ABOOK',
+            'https://thebooks.s3.amazonaws.com/Gutenberg%20ID/ABOOK/On%20Books.epub',
+            None,
+            None,
+            'On Books'
+        ),
+        (
+            'with_custom_extension_and_title_and_data_source',
+            {S3Uploader.OA_CONTENT_BUCKET_KEY: 'thebooks'},
+            'ABOOK',
+            'https://thebooks.s3.amazonaws.com/unglue.it/Gutenberg%20ID/ABOOK/On%20Books.pdf',
+            '.pdf',
+            DataSource.UNGLUE_IT,
+            'On Books'
+        ),
+        (
+            'with_custom_extension_and_title_and_data_source_and_region',
+            {S3Uploader.OA_CONTENT_BUCKET_KEY: 'thebooks'},
+            'ABOOK',
+            'https://thebooks.s3.us-east-3.amazonaws.com/unglue.it/Gutenberg%20ID/ABOOK/On%20Books.pdf',
+            '.pdf',
+            DataSource.UNGLUE_IT,
+            'On Books',
+            'us-east-3'
+        )
+    ])
+    def test_book_url(
+            self,
+            name,
+            buckets,
+            identifier,
+            expected_result,
+            extension=None,
+            data_source_name=None,
+            title=None,
+            region=None):
+        # Arrange
+        identifier = self._identifier(foreign_id=identifier)
+        uploader = self._create_s3_uploader(region=region, **buckets)
 
-    def test_cover_image_url(self):
-        identifier = self._identifier(foreign_id="ABOOK")
-        buckets = {S3Uploader.BOOK_COVERS_BUCKET_KEY : 'thecovers'}
-        uploader = self._uploader(**buckets)
-        m = uploader.cover_image_url
+        parameters = {'identifier': identifier}
 
-        unglueit = DataSource.lookup(self._db, DataSource.UNGLUE_IT)
-        identifier = self._identifier(foreign_id="ABOOK")
-        eq_(u'https://s3.amazonaws.com/thecovers/scaled/601/unglue.it/Gutenberg+ID/ABOOK/filename',
-            m(unglueit, identifier, "filename", scaled_size=601))
+        if extension:
+            parameters['extension'] = extension
+        if title:
+            parameters['title'] = title
 
-    def test_marc_file_url(self):
-        library = self._library(short_name="SHORT")
-        lane = self._lane(display_name="Lane")
-        buckets = {S3Uploader.MARC_BUCKET_KEY : 'marc'}
-        uploader = self._uploader(**buckets)
-        m = uploader.marc_file_url
-        now = datetime.datetime.utcnow()
-        yesterday = now - datetime.timedelta(days=1)
-        eq_(u'https://s3.amazonaws.com/marc/SHORT/%s/Lane.mrc' % urllib.quote_plus(str(now)),
-            m(library, lane, now))
-        eq_(u'https://s3.amazonaws.com/marc/SHORT/%s-%s/Lane.mrc' % (
-                urllib.quote_plus(str(yesterday)),
-                urllib.quote_plus(str(now)),
-            ),
-            m(library, lane, now, yesterday))
+        if data_source_name:
+            data_source = DataSource.lookup(self._db, DataSource.UNGLUE_IT)
+            parameters['data_source'] = data_source
 
-    def test_bucket_and_filename(self):
-        m = S3Uploader.bucket_and_filename
-        eq_(("bucket", "directory/filename.jpg"),
-            m("https://s3.amazonaws.com/bucket/directory/filename.jpg"))
+        # Act
+        result = uploader.book_url(**parameters)
 
-        eq_(("book-covers.nypl.org", "directory/filename.jpg"),
-            m("http://book-covers.nypl.org/directory/filename.jpg"))
+        # Assert
+        eq_(result, expected_result)
 
-        # By default, escaped characters in the filename are unescaped.
-        eq_(("book-covers.nypl.org", "directory/filename with spaces!.jpg"),
-            m("http://book-covers.nypl.org/directory/filename+with+spaces%21.jpg"))
+    def test_book_url_does_not_allow_to_store_non_open_access_content(self):
+        # Arrange
+        identifier = self._identifier(foreign_id='ABOOK')
+        buckets = {S3Uploader.OA_CONTENT_BUCKET_KEY: 'thebooks'}
+        uploader = self._create_s3_uploader(**buckets)
 
-        # But you can choose to leave them alone.
-        eq_(("book-covers.nypl.org", "directory/filename+with+spaces%21.jpg"),
-            m("http://book-covers.nypl.org/directory/filename+with+spaces%21.jpg", False))
+        # Act, assert
+        assert_raises(NotImplementedError, uploader.book_url, identifier, open_access=False)
 
+    @parameterized.expand([
+        (
+            'without_scaled_size',
+            {S3Uploader.BOOK_COVERS_BUCKET_KEY: 'thecovers'},
+            DataSource.UNGLUE_IT,
+            'ABOOK',
+            'filename',
+            'https://thecovers.s3.amazonaws.com/unglue.it/Gutenberg%20ID/ABOOK/filename'
+        ),
+        (
+            'without_scaled_size_and_with_custom_region',
+            {S3Uploader.BOOK_COVERS_BUCKET_KEY: 'thecovers'},
+            DataSource.UNGLUE_IT,
+            'ABOOK',
+            'filename',
+            'https://thecovers.s3.us-east-3.amazonaws.com/unglue.it/Gutenberg%20ID/ABOOK/filename',
+            None,
+            'us-east-3'
+        ),
+        (
+            'with_scaled_size',
+            {S3Uploader.BOOK_COVERS_BUCKET_KEY: 'thecovers'},
+            DataSource.UNGLUE_IT,
+            'ABOOK',
+            'filename',
+            'https://thecovers.s3.amazonaws.com/scaled/601/unglue.it/Gutenberg%20ID/ABOOK/filename',
+            601
+        ),
+        (
+            'with_scaled_size_and_custom_region',
+            {S3Uploader.BOOK_COVERS_BUCKET_KEY: 'thecovers'},
+            DataSource.UNGLUE_IT,
+            'ABOOK',
+            'filename',
+            'https://thecovers.s3.us-east-3.amazonaws.com/scaled/601/unglue.it/Gutenberg%20ID/ABOOK/filename',
+            601,
+            'us-east-3'
+        )
+    ])
+    def test_cover_image_url(
+            self,
+            name,
+            buckets,
+            data_source_name,
+            identifier,
+            filename,
+            expected_result,
+            scaled_size=None,
+            region=None):
+        # identifier = self._identifier(foreign_id="ABOOK")
+        # buckets = {S3Uploader.BOOK_COVERS_BUCKET_KEY : 'thecovers'}
+        # uploader = self._uploader(**buckets)
+        # m = uploader.cover_image_url
+        #
+        # unglueit = DataSource.lookup(self._db, DataSource.UNGLUE_IT)
+        # identifier = self._identifier(foreign_id="ABOOK")
+        # eq_(u'https://s3.amazonaws.com/thecovers/scaled/601/unglue.it/Gutenberg+ID/ABOOK/filename',
+        #     m(unglueit, identifier, "filename", scaled_size=601))
+
+        # Arrange
+        data_source = DataSource.lookup(self._db, data_source_name)
+        identifier = self._identifier(foreign_id=identifier)
+        uploader = self._create_s3_uploader(region=region, **buckets)
+
+        # Act
+        result = uploader.cover_image_url(data_source, identifier, filename, scaled_size=scaled_size)
+
+        # Assert
+        eq_(result, expected_result)
+
+    @parameterized.expand([
+        (
+            'with_s3_bucket_and_end_time',
+            'marc',
+            'SHORT',
+            'Lane',
+            datetime.datetime(2020, 1, 1, 0, 0, 0),
+            'https://marc.s3.amazonaws.com/SHORT/2020-01-01%2000%3A00%3A00/Lane.mrc'
+        ),
+        (
+            'with_s3_bucket_and_end_time_and_start_time',
+            'marc',
+            'SHORT',
+            'Lane',
+            datetime.datetime(2020, 1, 2, 0, 0, 0),
+            'https://marc.s3.amazonaws.com/SHORT/2020-01-01%2000%3A00%3A00-2020-01-02%2000%3A00%3A00/Lane.mrc',
+            datetime.datetime(2020, 1, 1, 0, 0, 0),
+        ),
+        (
+            'with_s3_bucket_and_end_time_and_start_time_and_custom_region',
+            'marc',
+            'SHORT',
+            'Lane',
+            datetime.datetime(2020, 1, 2, 0, 0, 0),
+            'https://marc.s3.us-east-2.amazonaws.com/SHORT/2020-01-01%2000%3A00%3A00-2020-01-02%2000%3A00%3A00/Lane.mrc',
+            datetime.datetime(2020, 1, 1, 0, 0, 0),
+            'us-east-2'
+        ),
+        (
+            'with_http_bucket_and_end_time_and_start_time',
+            'http://marc',
+            'SHORT',
+            'Lane',
+            datetime.datetime(2020, 1, 2, 0, 0, 0),
+            'http://marc/SHORT/2020-01-01%2000%3A00%3A00-2020-01-02%2000%3A00%3A00/Lane.mrc',
+            datetime.datetime(2020, 1, 1, 0, 0, 0)
+        ),
+        (
+            'with_https_bucket_and_end_time_and_start_time',
+            'https://marc',
+            'SHORT',
+            'Lane',
+            datetime.datetime(2020, 1, 2, 0, 0, 0),
+            'https://marc/SHORT/2020-01-01%2000%3A00%3A00-2020-01-02%2000%3A00%3A00/Lane.mrc',
+            datetime.datetime(2020, 1, 1, 0, 0, 0)
+        )
+    ])
+    def test_marc_file_url(
+            self,
+            name,
+            bucket,
+            library_name,
+            lane_name,
+            end_time,
+            expected_result,
+            start_time=None,
+            region=None):
+        # Arrange
+        library = self._library(short_name=library_name)
+        lane = self._lane(display_name=lane_name)
+        buckets = {S3Uploader.MARC_BUCKET_KEY: bucket}
+        uploader = self._create_s3_uploader(region=region, **buckets)
+
+        # Act
+        result = uploader.marc_file_url(library, lane, end_time, start_time)
+
+        # Assert
+        eq_(result, expected_result)
+
+    @parameterized.expand([
+        (
+            's3_path_style_request_without_region',
+            'https://s3.amazonaws.com/bucket/directory/filename.jpg',
+            ('bucket', 'directory/filename.jpg')
+        ),
+        (
+            's3_path_style_request_with_region',
+            'https://s3.us-east-2.amazonaws.com/bucket/directory/filename.jpg',
+            ('bucket', 'directory/filename.jpg')
+        ),
+        (
+            's3_virtual_hosted_style_request_with_global_endpoint',
+            'https://bucket.s3.amazonaws.com/directory/filename.jpg',
+            ('bucket', 'directory/filename.jpg')
+        ),
+        (
+            's3_virtual_hosted_style_request_with_dashed_region',
+            'https://bucket.s3-us-east-2.amazonaws.com/directory/filename.jpg',
+            ('bucket', 'directory/filename.jpg')
+        ),
+        (
+            's3_virtual_hosted_style_request_with_dotted_region',
+            'https://bucket.s3.us-east-2.amazonaws.com/directory/filename.jpg',
+            ('bucket', 'directory/filename.jpg')
+        ),
+        (
+            'http_url',
+            'http://book-covers.nypl.org/directory/filename.jpg',
+            ('book-covers.nypl.org', 'directory/filename.jpg')
+        ),
+        (
+            'https_url',
+            'https://book-covers.nypl.org/directory/filename.jpg',
+            ('book-covers.nypl.org', 'directory/filename.jpg')
+        ),
+        (
+            'http_url_with_escaped_symbols',
+            'http://book-covers.nypl.org/directory/filename+with+spaces%21.jpg',
+            ('book-covers.nypl.org', 'directory/filename with spaces!.jpg')
+        ),
+        (
+            'http_url_with_escaped_symbols_but_unquote_set_to_false',
+            'http://book-covers.nypl.org/directory/filename+with+spaces%21.jpg',
+            ('book-covers.nypl.org', 'directory/filename+with+spaces%21.jpg'),
+            False
+        ),
+    ])
+    def test_bucket_and_filename(self, name, url, expected_result, unquote=True):
+        # Act
+        result = S3Uploader.bucket_and_filename(url, unquote)
+
+        # Assert
+        eq_(result, expected_result)
 
     def test_mirror_one(self):
         edition, pool = self._edition(with_license_pool=True)
@@ -274,7 +785,7 @@ class TestS3Uploader(S3UploaderTest):
         epub_rep = epub.resource.representation
         eq_(None, epub_rep.mirrored_at)
 
-        s3 = self._uploader(MockS3Client)
+        s3 = self._create_s3_uploader(client_class=MockS3Client)
 
         # Mock final_mirror_url so we can verify that it's called with
         # the right arguments
@@ -282,6 +793,7 @@ class TestS3Uploader(S3UploaderTest):
             return "final_mirror_url was called with bucket %s, key %s" % (
                 bucket, key
             )
+
         s3.final_mirror_url = mock_final_mirror_url
 
         book_url = "http://books-go/here.epub"
@@ -289,7 +801,7 @@ class TestS3Uploader(S3UploaderTest):
         s3.mirror_one(cover.resource.representation, cover_url)
         s3.mirror_one(epub.resource.representation, book_url)
         [[data1, bucket1, key1, args1, ignore1],
-         [data2, bucket2, key2, args2, ignore2],] = s3.client.uploads
+         [data2, bucket2, key2, args2, ignore2], ] = s3.client.uploads
 
         # Both representations have had .mirror_url set and been
         # mirrored to those URLs.
@@ -328,7 +840,7 @@ class TestS3Uploader(S3UploaderTest):
         )
         epub_rep = epub.resource.representation
 
-        uploader = self._uploader(MockS3Client)
+        uploader = self._create_s3_uploader(MockS3Client)
 
         # A network failure is treated as a transient error.
         uploader.client.fail_with = BotoCoreError()
@@ -375,7 +887,7 @@ class TestS3Uploader(S3UploaderTest):
             content=svg)
 
         # 'Upload' it to S3.
-        s3 = self._uploader(MockS3Client)
+        s3 = self._create_s3_uploader(MockS3Client)
         s3.mirror_one(hyperlink.resource.representation, self._url)
         [[data, bucket, key, args, ignore]] = s3.client.uploads
 
@@ -405,9 +917,8 @@ class TestS3Uploader(S3UploaderTest):
         rep, ignore = create(
             self._db, Representation, url="http://books.mrc",
             media_type=Representation.MARC_MEDIA_TYPE)
-                                        
 
-        s3 = self._uploader(MockS3Client)
+        s3 = self._create_s3_uploader(MockS3Client)
 
         # Successful upload
         with s3.multipart_upload(rep, rep.url, upload_class=MockMultipartS3Upload) as upload:
@@ -449,6 +960,7 @@ class TestS3Uploader(S3UploaderTest):
         eq_(True, MockMultipartS3Upload.aborted)
         eq_("Error!", rep.mirror_exception)
 
+
 class TestMultiPartS3Upload(S3UploaderTest):
     def _representation(self):
         rep, ignore = create(
@@ -457,7 +969,7 @@ class TestMultiPartS3Upload(S3UploaderTest):
         return rep
 
     def test_init(self):
-        uploader = self._uploader(MockS3Client)
+        uploader = self._create_s3_uploader(MockS3Client)
         rep = self._representation()
         upload = MultipartS3Upload(uploader, rep, rep.url)
         eq_(uploader, upload.uploader)
@@ -472,12 +984,12 @@ class TestMultiPartS3Upload(S3UploaderTest):
         assert_raises(Exception, MultipartS3Upload, uploader, rep, rep.url)
 
     def test_upload_part(self):
-        uploader = self._uploader(MockS3Client)
+        uploader = self._create_s3_uploader(MockS3Client)
         rep = self._representation()
         upload = MultipartS3Upload(uploader, rep, rep.url)
         upload.upload_part("Part 1")
         upload.upload_part("Part 2")
-        eq_([{'Body': 'Part 1', 'UploadId': 1, 'PartNumber': 1, 'Bucket': 'bucket','Key': 'books.mrc'},
+        eq_([{'Body': 'Part 1', 'UploadId': 1, 'PartNumber': 1, 'Bucket': 'bucket', 'Key': 'books.mrc'},
              {'Body': 'Part 2', 'UploadId': 1, 'PartNumber': 2, 'Bucket': 'bucket', 'Key': 'books.mrc'}],
             uploader.client.parts)
         eq_(3, upload.part_number)
@@ -488,18 +1000,18 @@ class TestMultiPartS3Upload(S3UploaderTest):
         assert_raises(Exception, upload.upload_part, "Part 3")
 
     def test_complete(self):
-        uploader = self._uploader(MockS3Client)
+        uploader = self._create_s3_uploader(MockS3Client)
         rep = self._representation()
         upload = MultipartS3Upload(uploader, rep, rep.url)
         upload.upload_part("Part 1")
         upload.upload_part("Part 2")
         upload.complete()
         eq_([{'Bucket': 'bucket', 'Key': 'books.mrc', 'UploadId': 1, 'MultipartUpload': {
-                 'Parts': [{'ETag': 'etag', 'PartNumber': 1}, {'ETag': 'etag', 'PartNumber': 2}],
-            }}], uploader.client.uploads)
+            'Parts': [{'ETag': 'etag', 'PartNumber': 1}, {'ETag': 'etag', 'PartNumber': 2}],
+        }}], uploader.client.uploads)
 
     def test_abort(self):
-        uploader = self._uploader(MockS3Client)
+        uploader = self._create_s3_uploader(MockS3Client)
         rep = self._representation()
         upload = MultipartS3Upload(uploader, rep, rep.url)
         upload.upload_part("Part 1")
