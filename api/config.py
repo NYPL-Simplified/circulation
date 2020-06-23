@@ -27,7 +27,7 @@ class Configuration(CoreConfiguration):
     DEFAULT_OPDS_FORMAT = "simple_opds_entry"
 
     # The name of the sitewide url that points to the patron web catalog.
-    PATRON_WEB_CLIENT_URL = u"Patron Web Client"
+    PATRON_WEB_HOSTNAMES = u"Patron Web Client"
 
     # The name of the sitewide secret used to sign cookies for admin login.
     SECRET_KEY = u"secret_key"
@@ -182,12 +182,11 @@ class Configuration(CoreConfiguration):
             "required": True,
         },
         {
-            "key": PATRON_WEB_CLIENT_URL,
+            "key": PATRON_WEB_HOSTNAMES,
             "label": _("Hostnames for web application access"),
             "required": True,
-            "format": "string",
-            "allowed": ["*"],
-            "description": _("Only web applications from these hosts can access this circulation manager. This can be a single hostname ('catalog.library.org'), or a regular expression that matches many hostnames ('.*\.libraryvendor\.com'). You can also set this to '*' to allow access from any host, but you must not do this in a production environment -- only during development.")
+            "format": "list",
+            "description": _("Only web applications from these hosts can access this circulation manager. This can be a single hostname ('catalog.library.org') or a comma-separated list of hostnames ('catalog.library.org','beta.library.org'). You can also set this to '*' to allow access from any host, but you must not do this in a production environment -- only during development.")
         },
         {
             "key": STATIC_FILE_CACHE_TIME,
