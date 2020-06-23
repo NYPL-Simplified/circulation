@@ -288,10 +288,11 @@ class CirculationManager(object):
             scheme, netloc, path, parameters, query, fragment = urlparse.urlparse(url)
             return scheme + "://" + netloc
 
-        sitewide_patron_web_client_url = ConfigurationSetting.sitewide(
-            self._db, Configuration.PATRON_WEB_CLIENT_URL).value
-        if sitewide_patron_web_client_url:
-            patron_web_domains.add(get_domain(sitewide_patron_web_client_url))
+        sitewide_patron_web_client_urls = ConfigurationSetting.sitewide(
+            self._db, Configuration.PATRON_WEB_HOSTNAMES).value
+        if sitewide_patron_web_client_urls:
+            for url in sitewide_patron_web_client_urls:
+                patron_web_domains.add(get_domain(url))
 
         from registry import Registration
         for setting in self._db.query(
