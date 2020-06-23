@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import re
+import urlparse
 
 from collections import defaultdict
 from datetime import datetime, timedelta
@@ -349,7 +350,7 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasCollectionSelfTests):
         """
         identifier = licensepool.identifier
         # This should include only one 'activity'.
-        activities = self.patron_activity(patron, pin, licensepool.identifier)
+        activities = self.patron_activity(patron, pin, licensepool.identifier, internal_format)
         for loan in activities:
             if not isinstance(loan, LoanInfo):
                 continue
@@ -362,9 +363,6 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasCollectionSelfTests):
             if not fulfillment or not isinstance(fulfillment, FulfillmentInfo):
                 raise CannotFulfill()
 
-            # We have a FulfillmentInfo that might be able to impersonate one
-            # of a couple different formats. Let it know which one the user wants.
-            fulfillment.configure_for_internal_format(internal_format)
             return fulfillment
 
         # If we made it to this point, the patron does not have this
@@ -413,7 +411,7 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasCollectionSelfTests):
         # If we didn't raise an exception, we're fine.
         return True
 
-    def patron_activity(self, patron, pin, identifier=None):
+    def patron_activity(self, patron, pin, identifier=None, internal_format=None):
         if identifier:
             title_ids = [identifier.identifier]
         else:
@@ -421,7 +419,7 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasCollectionSelfTests):
         availability = self.availability(
             patron_id=patron.authorization_identifier,
             title_ids=title_ids)
-        return list(AvailabilityResponseParser(self).process_all(
+        return list(AvailabilityResponseParser(self, internal_format).process_all(
             availability.content))
 
     def update_availability(self, licensepool):
@@ -1080,10 +1078,9 @@ class BibliographicParser(Axis360Parser):
                     medium = Edition.AUDIO_MEDIUM
                 else:
                     medium = Edition.BOOK_MEDIUM
-
-        if medium == Edition.BOOK_MEDIUM and axisnow_seen:
-            # This is an ebook available through AxisNow. Add
-            # an appropriate FormatData.
+        if medium == Edition.BOOK_MEDIUM:
+            # All ebooks are available through AxisNow. Add an
+            # appropriate FormatData.
             #
             # Audiobooks are also available through AxisNow, but we
             # currently ignore that fact.
@@ -1343,13 +1340,14 @@ class HoldReleaseResponseParser(ResponseParser):
 
 class AvailabilityResponseParser(ResponseParser):
 
-    def __init__(self, api):
+    def __init__(self, api, internal_format=None):
         """Constructor.
 
         :param api: An Axis360API instance, in case the parsing of an
         availability document triggers additional API requests.
         """
         self.api = api
+        self.internal_format = internal_format
         super(AvailabilityResponseParser, self).__init__(api.collection)
 
     def process_all(self, string):
@@ -1383,36 +1381,40 @@ class AvailabilityResponseParser(ResponseParser):
                 availability, 'axis:transactionID', ns) or ""
             isbn = self.text_of_optional_subtag(
                 availability, 'axis:isbn', ns) or ""
-            # Arguments common to EbookFulfillmentInfo and
-            # AudiobookFulfillmentInfo.
+
+            # Arguments common to FulfillmentInfo and
+            # Axis360FulfillmentInfo.
             kwargs = dict(
                 data_source_name=DataSource.AXIS_360,
                 identifier_type=self.id_type,
                 identifier=axis_identifier
             )
-            if download_url:
-                # This is an ebook. We don't know whether the
-                # user wants to read it in ACS or AxisNow format,
-                # so create an object capable of producing both.
-                fulfillment = EbookFulfillmentInfo(
+
+            if download_url and self.internal_format != self.api.AXISNOW:
+                # The patron wants a direct link to the book, which we can deliver
+                # immediately, without making any more API requests.
+                fulfillment = FulfillmentInfo(
                     collection=self.collection,
                     content_link=download_url,
                     content_type=DeliveryMechanism.ADOBE_DRM,
                     content=None,
                     content_expires=None,
-                    isbn=isbn,
-                    book_vault_id=transaction_id,
                     **kwargs
                 )
             elif transaction_id:
+                # We need to make another API request -- possibly two
+                # requests -- to fulfill this book. Fortunately this
+                # is possible since we have a transaction ID
+
                 # This is an audiobook. If necessary we
                 # are prepared to make another API request to
                 # turn the transaction ID into a Findaway
                 # audio manifest.
-                fulfillment = AudiobookFulfillmentInfo(
+                fulfillment = Axis360FulfillmentInfo(
                     api=self.api, key=transaction_id, **kwargs
                 )
             else:
+                # We're out of luck -- we can't fulfill this loan.
                 fulfillment = None
             info = LoanInfo(
                 collection=self.collection,
@@ -1511,8 +1513,8 @@ class JSONResponseParser(ResponseParser):
         raise NotImplementedError()
 
 
-class AudiobookFulfillmentInfoResponseParser(JSONResponseParser):
-    """Parse JSON documents into Findaway audiobook manifests."""
+class Axis360FulfillmentInfoResponseParser(JSONResponseParser):
+    """Parse JSON documents into Findaway audiobook manifests or AxisNow manifests."""
 
     def __init__(self, api):
         """Constructor.
@@ -1521,7 +1523,7 @@ class AudiobookFulfillmentInfoResponseParser(JSONResponseParser):
         a fulfillment document triggers additional API requests.
         """
         self.api = api
-        super(AudiobookFulfillmentInfoResponseParser, self).__init__(
+        super(Axis360FulfillmentInfoResponseParser, self).__init__(
             self.api.collection
         )
 
@@ -1535,43 +1537,59 @@ class AudiobookFulfillmentInfoResponseParser(JSONResponseParser):
         :param license_pool: The LicensePool for the book that's
         being fulfilled.
 
-        :return: A 2-tuple (FindawayManifest, expiration_date)
+        :return: A 2-tuple (manifest, expiration_date). `manifest` is either
+            a FindawayManifest (for an audiobook) or an AxisNowManifest (for an ebook).
         """
-        # Some pieces of information are unused by us or by the
-        # mobile client. There's no need to treat these fields as
-        # required.
-        k = self._required_key
-        checkoutId = parsed.get('FNDTransactionID')
-        fulfillmentId = k('FNDContentID', parsed)
-        licenseId = k('FNDLicenseID', parsed)
-        sessionKey = k('FNDSessionKey', parsed)
-        expiration_date = k('ExpirationDate', parsed)
+        set_trace()
+        if 'FNDTransactionID' in parsed:
+            manifest = self.parse_findaway(parsed)
+        else:
+            manifest = self.parse_axisnow(parsed)
 
-        if '.' in expiration_date:
+        expiration_date = self._required_key('ExpirationDate', parsed)
+
+        expiration_date = self.parse_date(expiration_date)
+        return manifest, expiration_date
+
+    def parse_date(self, date):
+        if '.' in date:
             # Remove 7(?!) decimal places of precision and
             # UTC timezone, which are more trouble to parse
             # than they're worth.
-            expiration_date = expiration_date[:expiration_date.rindex('.')]
+            date = date[:date.rindex('.')]
 
         try:
-            expiration_date = datetime.strptime(expiration_date, "%Y-%m-%d %H:%M:%S")
+            date = datetime.strptime(date, "%Y-%m-%d %H:%M:%S")
         except ValueError:
             raise RemoteInitiatedServerError(
-                "Could not parse expiration date: %s" % expiration_date,
+                "Could not parse expiration date: %s" % date,
                 self.SERVICE_NAME
             )
+        return date
+
+
+    def parse_findaway(self, parsed):
+        k = self._required_key
+        fulfillmentId = k('FNDContentID', parsed)
+        licenseId = k('FNDLicenseID', parsed)
+        sessionKey = k('FNDSessionKey', parsed)
 
         # Acquire the TOC information
         metadata_response = self.api.get_audiobook_metadata(fulfillmentId)
         parser = AudiobookMetadataParser(self.api.collection)
         accountId, spine_items = parser.parse(metadata_response.content)
 
-        manifest = FindawayManifest(
+        return FindawayManifest(
             license_pool, accountId=accountId, checkoutId=checkoutId,
             fulfillmentId=fulfillmentId, licenseId=licenseId,
             sessionKey=sessionKey, spine_items=spine_items
         )
-        return manifest, expiration_date
+
+    def parse_axisnow(self, parsed):
+        k = self._required_key
+        isbn = k('ISBN', parsed)
+        book_vault_uuid = k('BookVaultUUID', parsed)
+        return AxisNowManifest(isbn, book_vault_uuid)
 
 
 class AudiobookMetadataParser(JSONResponseParser):
@@ -1599,55 +1617,22 @@ class AudiobookMetadataParser(JSONResponseParser):
         return SpineItem(title, duration, part_number, sequence)
 
 
-class EbookFulfillmentInfo(FulfillmentInfo):
-    """A FulfillmentInfo that can be used to fulfill either an
-    ACS-encrypted EPUB or an AxisNow-encrypted unzipped EPUB.
-    """
+class AxisNowManifest(object):
 
-    def __init__(self, **kwargs):
+    MEDIA_TYPE = MediaTypes.AXISNOW_MANIFEST_MEDIA_TYPE
 
-        # Store extra Axis-specific information 
-        self.book_vault_id = kwargs.pop('book_vault_id')
-        self.isbn = kwargs.pop('isbn')
+    def __init__(self, isbn, book_vault_uuid):
+        self.isbn = isbn
+        self.book_vault_uuid = book_vault_uuid
 
-        super(EbookFulfillmentInfo, self).__init__(**kwargs)
-
-        # Store content_link and content_type in case we wipe them out with
-        # configure_for_internal_format and need them later.
-        self._content_link = self.content_link
-        self._content_type = self.content_type
-
-    def configure_for_internal_format(self, internal_format):
-        """Modify this FulfillmentInfo for one internal format or another."""
-        if internal_format == 'AxisNow':
-            # Send an AxisNow manifest document.
-            self.content_type = MediaTypes.AXISNOW_MANIFEST_MEDIA_TYPE
-            self.content = self.axisnow_manifest_document
-            self.content_link = None
-        else:
-            # Restore the content type and link that were originally
-            # present.
-            self.content_type = self._content_type
-            self.content_link = self._content_link
-            self.content = None
-
-    @property
-    def axisnow_manifest_document(self):
-        """Construct an AxisNow manifest document for this loan.
-
-        :return: A string containing a manifest document.
-        """
-        manifest = dict(
-            isbn=self.isbn,
-            book_vault_id=self.book_vault_id
-        )
-        return json.dumps(manifest)
+    def __unicode__(self):
+        return json.dumps(dict(isbn=self.isbn, book_vault_uuid=self.book_vault_uuid))
 
 
-class AudiobookFulfillmentInfo(APIAwareFulfillmentInfo):
+class Axis360FulfillmentInfo(APIAwareFulfillmentInfo):
     """An Axis 360-specific FulfillmentInfo implementation for audiobooks.
 
-    We use these instead of real FulfillmentInfo objects because
+    We use these instead of normal FulfillmentInfo objects because
     generating a real FulfillmentInfo object would require two extra
     HTTP requests, and there's often no need to make those requests.
     """
@@ -1656,14 +1641,9 @@ class AudiobookFulfillmentInfo(APIAwareFulfillmentInfo):
         license_pool = self.license_pool(_db)
         transaction_id = self.key
         response = self.api.get_fulfillment_info(transaction_id)
-        parser = AudiobookFulfillmentInfoResponseParser(self.api)
+        set_trace()
+        parser = Axis360FulfillmentInfoResponseParser(self.api)
         manifest, expires = parser.parse(response.content, license_pool)
         self._content = unicode(manifest)
-        self._content_type = DeliveryMechanism.FINDAWAY_DRM
+        self._content_type = manifest.MEDIA_TYPE
         self._content_expires = expires
-
-    def configure_for_internal_format(self, internal_format):
-        """AudiobookFulfillmentInfo does not need to be reconfigured
-        to support different formats.
-        """
-        return
