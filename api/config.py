@@ -26,8 +26,8 @@ class Configuration(CoreConfiguration):
 
     DEFAULT_OPDS_FORMAT = "simple_opds_entry"
 
-    # The name of the sitewide url that points to the patron web catalog.
-    PATRON_WEB_HOSTNAMES = u"Patron Web Client"
+    # The list of patron web urls allowed to access this CM
+    PATRON_WEB_HOSTNAMES = u"patron_web_hostnames"
 
     # The name of the sitewide secret used to sign cookies for admin login.
     SECRET_KEY = u"secret_key"
