@@ -105,7 +105,7 @@ class TestLibrarySettings(SettingsControllerTest, AnnouncementTest):
             announcements = library_settings.get(Announcements.SETTING_NAME)
             eq_(
                 [self.active['id'], self.expired['id'], self.forthcoming['id']],
-                [x.get('id') for x in announcements]
+                [json.loads(x).get('id') for x in announcements]
             )
 
             # The objects found in `library_settings` aren't exactly
