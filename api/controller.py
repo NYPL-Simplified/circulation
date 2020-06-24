@@ -289,7 +289,7 @@ class CirculationManager(object):
             return scheme + "://" + netloc
 
         sitewide_patron_web_client_urls = ConfigurationSetting.sitewide(
-            self._db, Configuration.PATRON_WEB_HOSTNAMES).value
+            self._db, Configuration.PATRON_WEB_HOSTNAMES).json_value
         if sitewide_patron_web_client_urls:
             for url in sitewide_patron_web_client_urls:
                 patron_web_domains.add(get_domain(url))

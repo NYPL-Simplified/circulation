@@ -185,7 +185,7 @@ class Configuration(CoreConfiguration):
             "key": PATRON_WEB_HOSTNAMES,
             "label": _("Hostnames for web application access"),
             "required": True,
-            "format": "list",
+            "type": "list",
             "description": _("Only web applications from these hosts can access this circulation manager. This can be a single hostname ('catalog.library.org') or a comma-separated list of hostnames ('catalog.library.org','beta.library.org'). You can also set this to '*' to allow access from any host, but you must not do this in a production environment -- only during development.")
         },
         {
