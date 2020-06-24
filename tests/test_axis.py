@@ -1432,71 +1432,16 @@ class TestAudiobookMetadataParser(Axis360Test):
 
 
 class TestAxis360FulfillmentInfo(Axis360Test):
-
-    def setup(self):
-        super(TestEbookFulfillmentInfo, self).setup()
-
-        # For formats other than AxisNow
-        self.content_link = "http://content/"
-        self.content_type = "content/type"
-
-        # For the AxisNow format we need two extra pieces of
-        # information -- the book vault ID and the ISBN. Both of these
-        # pieces come directly from Axis 360.
-        self.book_vault_id = "a-book-vault-id"
-        self.isbn = "an-isbn"
-
-        self.identifier = self._identifier()
-
-        self.info = Axis360FulfillmentInfo(
-            collection=self._default_collection, data_source_name=DataSource.AXIS_360,
-            identifier_type=self.identifier.type, identifier=self.identifier.identifier,
-            content_link=self.content_link, content_type=self.content_type,
-            content="some content", content_expires=object(),
-            book_vault_id=self.book_vault_id, isbn=self.isbn
-        )
-
-    def test_axisnow_manifest_document(self):
-        # An AxisNow manifest document includes only an ISBN and a book vault ID.
-        manifest_document = self.info.axisnow_manifest_document
-        parsed = json.loads(manifest_document)
-        eq_("an-isbn", parsed.pop('isbn'))
-        eq_("a-book-vault-id", parsed.pop('book_vault_id'))
-        eq_({}, parsed)
-
-    def test_configure_for_internal_format(self):
-
-        # By default, we're configured to send the content link.
-        eq_(self.content_link, self.info.content_link)
-        eq_(self.content_type, self.info.content_type)
-
-        # info.content is redundant and will soon be destroyed.
-        eq_("some content", self.info.content)
-
-        # Configure for the "AxisNow" format, and we stop sending the link
-        # and start sending an AxisNow manifest document.
-        self.info.configure_for_internal_format(Axis360API.AXISNOW)
-        eq_(MediaTypes.AXISNOW_MANIFEST_MEDIA_TYPE, self.info.content_type)
-        eq_(self.info.axisnow_manifest_document, self.info.content)
-        eq_(None, self.info.content_link)
-
-        # Reconfigure to send out the content link again. We get the
-        # old behavior back, except that info.content (which was
-        # redundant) has been cleared out.
-        self.info.configure_for_internal_format("ePub")
-        eq_(self.content_link, self.info.content_link)
-        eq_(self.content_type, self.info.content_type)
-        eq_(None, self.info.content)
-
-
-class TestAxis360FulfillmentInfo(Axis360Test):
     """An Axis360FulfillmentInfo can fulfill a title whether it's an ebook
     (fulfilled through AxisNow) or an audiobook (fulfilled through
     Findaway).
     """
 
     def test_fetch_audiobook(self):
-
+        # When Findaway information is present in the response from
+        # the fulfillment API, a second request is made to get
+        # spine-item metadata. Information from both requests is
+        # combined into a Findaway fulfillment document.
         fulfillment_info = self.sample_data("audiobook_fulfillment_info.json")
         self.api.queue_response(200, {}, fulfillment_info)
 
@@ -1535,6 +1480,9 @@ class TestAxis360FulfillmentInfo(Axis360Test):
         )
 
     def test_fetch_ebook(self):
+        # When no Findaway information is present in the response from
+        # the fulfillment API, information from the request is
+        # used to make an AxisNow fulfillment document.
 
         fulfillment_info = self.sample_data("ebook_fulfillment_info.json")
         self.api.queue_response(200, {}, fulfillment_info)

@@ -157,7 +157,7 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasCollectionSelfTests):
         (pdf, no_drm): 'PDF',
         (pdf, adobe_drm): 'PDF',
         (None, findaway_drm): 'Acoustik',
-        (Representation.UNZIPPED_EPUB_MEDIA_TYPE, 
+        (Representation.UNZIPPED_EPUB_MEDIA_TYPE,
          DeliveryMechanism.AXISNOW_DRM): AXISNOW
     }
 
@@ -627,7 +627,7 @@ class MockAxis360API(Axis360API):
         library = DatabaseTest.make_default_library(_db)
         collection, ignore = get_one_or_create(
             _db, Collection,
-            name=name,    
+            name=name,
             create_method_kwargs=dict(
                 external_account_id=u'c',
             )
