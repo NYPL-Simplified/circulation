@@ -321,13 +321,14 @@ class LibrarySettingsController(SettingsController):
             # Allow any entered values.
             value = []
             inputs = flask.request.form.getlist(setting.get("key")) if setting.get("type") == "list" else flask.request.form.get(setting.get("key"))
-            if json_objects:
+            if json_objects and inputs:
                 inputs = json.loads(inputs)
-            for i in inputs:
-                if not isinstance(i, list):
-                    i = [i]
-                value.extend(i)
-        
+            if inputs:
+                for i in inputs:
+                    if not isinstance(i, list):
+                        i = [i]
+                    value.extend(i)
+
         return json.dumps(filter(None, value))
 
     def image_setting(self, setting):
