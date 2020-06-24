@@ -1058,10 +1058,14 @@ class BibliographicParser(Axis360Parser):
             ns
         ):
             informal_name = format_tag.text
+            seen_formats.append(informal_name)
+
             if informal_name == Axis360API.AXISNOW:
+                # We will only be adding an AxisNow FormatData if this
+                # turns out to be an ebook.
                 axisnow_seen = True
                 continue
-            seen_formats.append(informal_name)
+
             if informal_name not in self.DELIVERY_DATA_FOR_AXIS_FORMAT:
                 self.log.warn("Unrecognized Axis format name for %s: %s" % (
                     identifier, informal_name
@@ -1078,11 +1082,11 @@ class BibliographicParser(Axis360Parser):
                     medium = Edition.AUDIO_MEDIUM
                 else:
                     medium = Edition.BOOK_MEDIUM
-        if medium == Edition.BOOK_MEDIUM:
-            # All ebooks are available through AxisNow. Add an
+        if medium == Edition.BOOK_MEDIUM and axisnow_seen:
+            # This ebook is available through AxisNow. Add an
             # appropriate FormatData.
             #
-            # Audiobooks are also available through AxisNow, but we
+            # Audiobooks may also be available through AxisNow, but we
             # currently ignore that fact.
             formats.append(
                 FormatData(
