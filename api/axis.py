@@ -1545,14 +1545,14 @@ class Axis360FulfillmentInfoResponseParser(JSONResponseParser):
         :return: A 2-tuple (manifest, expiration_date). `manifest` is either
             a FindawayManifest (for an audiobook) or an AxisNowManifest (for an ebook).
         """
+        expiration_date = self._required_key('ExpirationDate', parsed)
+        expiration_date = self.parse_date(expiration_date)
+
         if 'FNDTransactionID' in parsed:
             manifest = self.parse_findaway(parsed, license_pool)
         else:
             manifest = self.parse_axisnow(parsed)
 
-        expiration_date = self._required_key('ExpirationDate', parsed)
-
-        expiration_date = self.parse_date(expiration_date)
         return manifest, expiration_date
 
     def parse_date(self, date):
@@ -1644,11 +1644,13 @@ class AxisNowManifest(object):
 
 
 class Axis360FulfillmentInfo(APIAwareFulfillmentInfo):
-    """An Axis 360-specific FulfillmentInfo implementation for audiobooks.
+    """An Axis 360-specific FulfillmentInfo implementation for audiobooks
+    and books served through AxisNow.
 
     We use these instead of normal FulfillmentInfo objects because
-    generating a real FulfillmentInfo object would require two extra
-    HTTP requests, and there's often no need to make those requests.
+    putting all this information into FulfillmentInfo would require
+    one or two extra HTTP requests, and there's often no need to make
+    those requests.
     """
     def do_fetch(self):
         _db = self.api._db

@@ -402,26 +402,29 @@ class TestAxis360API(Axis360Test):
         self.api.queue_response(200, content=data)
         assert_raises(NoActiveLoan, fulfill)
 
-        # If the title is checked out and Axis provides fulfillment
-        # information, that information becomes an
-        # EbookFulfillmentInfo object with a content link.
+        # If an ebook is checked out and we're not asking for it to be
+        # fulfilled through AxisNow, we get a regular FulfillmentInfo
+        # object with a content link.
         data = self.sample_data("availability_with_loan_and_hold.xml")
         self.api.queue_response(200, content=data)
-        fulfillment = fulfill()
+        fulfillment = fulfill(internal_format="ePub")
         assert isinstance(fulfillment, FulfillmentInfo)
+        assert not isinstance(fulfillment, Axis360FulfillmentInfo)
         eq_(DeliveryMechanism.ADOBE_DRM, fulfillment.content_type)
         eq_("http://fulfillment/", fulfillment.content_link)
         eq_(None, fulfillment.content)
 
-        # If we ask for AxisNow format, we get an EbookFulfillmentInfo
+        # If we ask for AxisNow format, we get an Axis360FulfillmentInfo
         # containing an AxisNow manifest document.
-        data = self.sample_data("availability_with_loan_and_hold.xml")
+        data = self.sample_data("availability_with_axisnow_fulfillment.xml")
+        data = data.replace("0016820953", pool.identifier.identifier)
         self.api.queue_response(200, content=data)
         fulfillment = fulfill("AxisNow")
-        assert isinstance(fulfillment, EbookFulfillmentInfo)
-        eq_(MediaTypes.AXISNOW_MANIFEST_MEDIA_TYPE, fulfillment.content_type)
-        eq_(fulfillment.axisnow_manifest_document, fulfillment.content)
-        eq_(None, fulfillment.content_link)
+        assert isinstance(fulfillment, Axis360FulfillmentInfo)
+
+        # Looking up the details of the Axis360FulfillmentInfo will
+        # trigger another API request, so we won't do that; that's
+        # tested in TestAxis360FulfillmentInfo.
 
         # If the title is checked out but Axis provides no fulfillment
         # info, the exception is CannotFulfill.
@@ -439,8 +442,8 @@ class TestAxis360API(Axis360Test):
         )
         data = self.sample_data("availability_with_audiobook_fulfillment.xml")
         self.api.queue_response(200, content=data)
-        fulfillment = fulfill()
-        assert isinstance(fulfillment, AudiobookFulfillmentInfo)
+        fulfillment = fulfill(internal_format="irrelevant")
+        assert isinstance(fulfillment, Axis360FulfillmentInfo)
 
     def test_patron_activity(self):
         """Test the method that locates all current activity
@@ -1213,7 +1216,7 @@ class TestAvailabilityResponseParser(Axis360Test, BaseParserTest):
         # need to make a manifest for this book, the key will be used
         # in two more API requests. (See TestAudiobookFulfillmentInfo
         # for that.)
-        eq_("", fulfillment.key)
+        eq_("C3F71F8D-1883-2B34-061F-96570678AEB0", fulfillment.key)
 
         # The API object is present in the FulfillmentInfo and ready to go.
         eq_(self.api, fulfillment.api)
@@ -1328,13 +1331,13 @@ class TestJSONResponseParser(object):
 
 
 
-class TestAudiobookFulfillmentInfoResponseParser(Axis360Test):
+class TestAxis360FulfillmentInfoResponseParser(Axis360Test):
 
-    def test__parse(self):
+    def test__parse_findaway(self):
         # _parse will create a valid FindawayManifest given a
         # complete document.
 
-        parser = AudiobookFulfillmentInfoResponseParser(api=self.api)
+        parser = Axis360FulfillmentInfoResponseParser(api=self.api)
         m = parser._parse
 
         edition, pool = self._edition(with_license_pool=True)
@@ -1389,7 +1392,7 @@ class TestAudiobookFulfillmentInfoResponseParser(Axis360Test):
         #
         for field in (
                 'FNDContentID', 'FNDLicenseID', 'FNDSessionKey',
-                'ExpirationDate'
+                'ExpirationDate',
         ):
             missing_field = get_data()
             del missing_field[field]
@@ -1398,6 +1401,43 @@ class TestAudiobookFulfillmentInfoResponseParser(Axis360Test):
                 "Required key %s not present" % field,
                 m, missing_field, pool
             )
+
+        # Try with a bad expiration date.
+        bad_date = get_data()
+        bad_date['ExpirationDate'] = 'not-a-date'
+        assert_raises_regexp(
+            RemoteInitiatedServerError,
+            "Could not parse expiration date: not-a-date",
+            m, bad_date, pool
+        )
+
+    def test__parse_axisnow(self):
+        # _parse will create a valid AxisNowManifest given a
+        # complete document.
+
+        parser = Axis360FulfillmentInfoResponseParser(api=self.api)
+        m = parser._parse
+
+        edition, pool = self._edition(with_license_pool=True)
+        def get_data():
+            # We'll be modifying this document to simulate failures,
+            # so make it easy to load a fresh copy.
+            return json.loads(
+                self.sample_data("ebook_fulfillment_info.json")
+            )
+
+        # This is the data we just got from a call to Axis 360's
+        # getfulfillmentInfo endpoint.
+        data = get_data()
+
+        # Since this is an ebook, not an audiobook, there will be no
+        # second request to the API, the way there is in the audiobook
+        # test.
+        manifest, expires = m(data, pool)
+
+        assert isinstance(manifest, AxisNowManifest)
+        eq_({"book_vault_uuid": "1c11c31f-81c2-41bb-9179-491114c3f121", "isbn": "9780547351551"},
+            json.loads(unicode(manifest)))
 
         # Try with a bad expiration date.
         bad_date = get_data()
@@ -1534,7 +1574,7 @@ class TestAxis360FulfillmentInfo(Axis360Test):
         # document derived from the fulfillment document.
         eq_(MediaTypes.AXISNOW_MANIFEST_MEDIA_TYPE, fulfillment.content_type)
         eq_(
-            u'{"book_vault_uuid": "3c13c37f-8cc2-49bb-9f79-491194c3712a", "isbn": "9780547351551"}',
+            u'{"book_vault_uuid": "1c11c31f-81c2-41bb-9179-491114c3f121", "isbn": "9780547351551"}',
             fulfillment.content
         )
 
@@ -1550,7 +1590,7 @@ class TestAxisNowManifest(object):
     AxisNow."""
 
     def test_unicode(self):
-        manifest = AxisNowManifest("An ISBN", "A UUID")
+        manifest = AxisNowManifest("A UUID", "An ISBN")
         eq_(
             u'{"book_vault_uuid": "A UUID", "isbn": "An ISBN"}',
             unicode(manifest)
