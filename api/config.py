@@ -101,10 +101,10 @@ class Configuration(CoreConfiguration):
     DEFAULT_COLOR_SCHEME = "blue"
 
     # The color options for web applications to use for this library.
-    WEB_BACKGROUND_COLOR = "web-background-color"
-    WEB_FOREGROUND_COLOR = "web-foreground-color"
-    DEFAULT_WEB_BACKGROUND_COLOR = "#000000"
-    DEFAULT_WEB_FOREGROUND_COLOR = "#ffffff"
+    WEB_PRIMARY_COLOR = "web-primary-color"
+    WEB_SECONDARY_COLOR = "web-secondary-color"
+    DEFAULT_WEB_PRIMARY_COLOR = "#377F8B"
+    DEFAULT_WEB_SECONDARY_COLOR = "#D53F34"
 
     # A link to a CSS file for customizing the catalog display in web applications.
     WEB_CSS_FILE = "web-css-file"
@@ -286,19 +286,19 @@ class Configuration(CoreConfiguration):
             "category": "Client Interface Customization",
         },
         {
-            "key": WEB_BACKGROUND_COLOR,
-            "label": _("Web background color"),
-            "description": _("This tells web applications what background color to use. Must have sufficient contrast with the foreground color."),
+            "key": WEB_PRIMARY_COLOR,
+            "label": _("Web primary color"),
+            "description": _("This is the brand primary color for the web application. Must have sufficient contrast with white."),
             "type": "color-picker",
-            "default": DEFAULT_WEB_BACKGROUND_COLOR,
+            "default": DEFAULT_WEB_PRIMARY_COLOR,
             "category": "Client Interface Customization",
         },
         {
-            "key": WEB_FOREGROUND_COLOR,
-            "label": _("Web foreground color"),
-            "description": _("This tells web applications what foreground color to use. Must have sufficient contrast with the background color."),
+            "key": WEB_SECONDARY_COLOR,
+            "label": _("Web secondary color"),
+            "description": _("This is the brand secondary color for the web application. Must have sufficient contrast with white."),
             "type": "color-picker",
-            "default": DEFAULT_WEB_FOREGROUND_COLOR,
+            "default": DEFAULT_WEB_SECONDARY_COLOR,
             "category": "Client Interface Customization",
         },
         {

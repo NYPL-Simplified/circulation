@@ -1207,9 +1207,9 @@ class TestLibraryAuthenticator(AuthenticatorTest):
 
         # Set the colors a web client should use.
         ConfigurationSetting.for_library(
-            Configuration.WEB_BACKGROUND_COLOR, library).value = "#012345"
+            Configuration.WEB_PRIMARY_COLOR, library).value = "#012345"
         ConfigurationSetting.for_library(
-            Configuration.WEB_FOREGROUND_COLOR, library).value = "#abcdef"
+            Configuration.WEB_SECONDARY_COLOR, library).value = "#abcdef"
 
         # Configure the various ways a patron can get help.
         ConfigurationSetting.for_library(

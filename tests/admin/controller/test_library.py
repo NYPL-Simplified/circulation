@@ -190,12 +190,12 @@ class TestLibrarySettings(SettingsControllerTest):
             response = self.manager.admin_library_settings_controller.process_post()
             eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
 
-        # Test a bad contrast ratio between the web foreground and
-        # web background colors.
+        # Test a web primary and secondary color that doesn't contrast
+        # well on white. Here primary will, secondary should not.
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = self.library_form(
-                library, {Configuration.WEB_BACKGROUND_COLOR: "#000000",
-                Configuration.WEB_FOREGROUND_COLOR: "#010101"}
+                library, {Configuration.WEB_PRIMARY_COLOR: "#000000",
+                Configuration.WEB_SECONDARY_COLOR: "#e0e0e0"}
             )
             response = self.manager.admin_library_settings_controller.process_post()
             eq_(response.uri, INVALID_CONFIGURATION_OPTION.uri)
