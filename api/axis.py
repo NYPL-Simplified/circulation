@@ -1544,7 +1544,7 @@ class Axis360FulfillmentInfoResponseParser(JSONResponseParser):
             a FindawayManifest (for an audiobook) or an AxisNowManifest (for an ebook).
         """
         if 'FNDTransactionID' in parsed:
-            manifest = self.parse_findaway(parsed)
+            manifest = self.parse_findaway(parsed, license_pool)
         else:
             manifest = self.parse_axisnow(parsed)
 
@@ -1570,11 +1570,12 @@ class Axis360FulfillmentInfoResponseParser(JSONResponseParser):
         return date
 
 
-    def parse_findaway(self, parsed):
+    def parse_findaway(self, parsed, license_pool):
         k = self._required_key
         fulfillmentId = k('FNDContentID', parsed)
         licenseId = k('FNDLicenseID', parsed)
         sessionKey = k('FNDSessionKey', parsed)
+        checkoutId = k('FNDTransactionID', parsed)
 
         # Acquire the TOC information
         metadata_response = self.api.get_audiobook_metadata(fulfillmentId)
@@ -1652,7 +1653,6 @@ class Axis360FulfillmentInfo(APIAwareFulfillmentInfo):
         license_pool = self.license_pool(_db)
         transaction_id = self.key
         response = self.api.get_fulfillment_info(transaction_id)
-        set_trace()
         parser = Axis360FulfillmentInfoResponseParser(self.api)
         manifest, expires = parser.parse(response.content, license_pool)
         self._content = unicode(manifest)

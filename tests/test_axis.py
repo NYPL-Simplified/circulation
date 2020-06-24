@@ -1432,10 +1432,6 @@ class TestAudiobookMetadataParser(Axis360Test):
 
 
 class TestAxis360FulfillmentInfo(Axis360Test):
-    """An EbookFulfillmentInfo contains all information necessary to
-    fulfill an ebook in any supported format -- but it only exposes
-    one format at a time.
-    """
 
     def setup(self):
         super(TestEbookFulfillmentInfo, self).setup()
@@ -1452,7 +1448,7 @@ class TestAxis360FulfillmentInfo(Axis360Test):
 
         self.identifier = self._identifier()
 
-        self.info = EbookFulfillmentInfo(
+        self.info = Axis360FulfillmentInfo(
             collection=self._default_collection, data_source_name=DataSource.AXIS_360,
             identifier_type=self.identifier.type, identifier=self.identifier.identifier,
             content_link=self.content_link, content_type=self.content_type,
@@ -1493,8 +1489,13 @@ class TestAxis360FulfillmentInfo(Axis360Test):
         eq_(None, self.info.content)
 
 
-class TestAudiobookFulfillmentInfo(Axis360Test):
-    def test_fetch(self):
+class TestAxis360FulfillmentInfo(Axis360Test):
+    """An Axis360FulfillmentInfo can fulfill a title whether it's an ebook
+    (fulfilled through AxisNow) or an audiobook (fulfilled through
+    Findaway).
+    """
+
+    def test_fetch_audiobook(self):
 
         fulfillment_info = self.sample_data("audiobook_fulfillment_info.json")
         self.api.queue_response(200, {}, fulfillment_info)
@@ -1505,7 +1506,7 @@ class TestAudiobookFulfillmentInfo(Axis360Test):
         # Setup.
         edition, pool = self._edition(with_license_pool=True)
         identifier = pool.identifier
-        fulfillment = AudiobookFulfillmentInfo(
+        fulfillment = Axis360FulfillmentInfo(
             self.api, pool.data_source.name,
             identifier.type, identifier.identifier, 'transaction_id'
         )
@@ -1514,7 +1515,7 @@ class TestAudiobookFulfillmentInfo(Axis360Test):
         # Turn the crank.
         fulfillment.fetch()
 
-        # The AudiobookFufillmentInfo now contains a Findaway manifest
+        # The Axis360FulfillmentInfo now contains a Findaway manifest
         # document.
         eq_(DeliveryMechanism.FINDAWAY_DRM, fulfillment.content_type)
         assert isinstance(fulfillment.content, unicode)
@@ -1533,9 +1534,36 @@ class TestAudiobookFulfillmentInfo(Axis360Test):
             datetime.datetime(2018, 9, 29, 18, 34), fulfillment.content_expires
         )
 
-        # While we're here, verify that configure_for_internal_format is implemented.
-        # (It's a no-op.)
-        fulfillment.configure_for_internal_format("some other format")
+    def test_fetch_ebook(self):
+
+        fulfillment_info = self.sample_data("ebook_fulfillment_info.json")
+        self.api.queue_response(200, {}, fulfillment_info)
+
+        # Setup.
+        edition, pool = self._edition(with_license_pool=True)
+        identifier = pool.identifier
+        fulfillment = Axis360FulfillmentInfo(
+            self.api, pool.data_source.name,
+            identifier.type, identifier.identifier, 'transaction_id'
+        )
+        eq_(None, fulfillment._content_type)
+
+        # Turn the crank.
+        fulfillment.fetch()
+
+        # The Axis360FulfillmentInfo now contains an AxisNow manifest
+        # document derived from the fulfillment document.
+        eq_(MediaTypes.AXISNOW_MANIFEST_MEDIA_TYPE, fulfillment.content_type)
+        eq_(
+            u'{"book_vault_uuid": "3c13c37f-8cc2-49bb-9f79-491194c3712a", "isbn": "9780547351551"}',
+            fulfillment.content
+        )
+
+        # The content expiration date also comes from the fulfillment
+        # document.
+        eq_(
+            datetime.datetime(2018, 9, 29, 18, 34), fulfillment.content_expires
+        )
 
 
 class TestAxisNowManifest(object):
