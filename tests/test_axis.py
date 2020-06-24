@@ -1202,20 +1202,51 @@ class TestAvailabilityResponseParser(Axis360Test, BaseParserTest):
         eq_(None, loan.fulfillment_info)
         eq_(datetime.datetime(2015, 8, 12, 17, 40, 27), loan.end_date)
 
-    def test_parse_audiobook_fulfillmentinfo(self):
+    def test_parse_audiobook_availability(self):
         data = self.sample_data("availability_with_audiobook_fulfillment.xml")
         parser = AvailabilityResponseParser(self.api)
         [loan] = list(parser.process_all(data))
         fulfillment = loan.fulfillment_info
-        assert isinstance(fulfillment, AudiobookFulfillmentInfo)
+        assert isinstance(fulfillment, Axis360FulfillmentInfo)
 
         # The transaction ID is stored as the .key. If we actually
-        # need to make a manifest for this audiobook, the key will be
-        # used in one more API request. (See TestAudiobookFulfillmentInfo
+        # need to make a manifest for this book, the key will be used
+        # in two more API requests. (See TestAudiobookFulfillmentInfo
         # for that.)
-        eq_("C3F71F8D-1883-2B34-068F-96570678AEB0", fulfillment.key)
+        eq_("", fulfillment.key)
 
         # The API object is present in the FulfillmentInfo and ready to go.
+        eq_(self.api, fulfillment.api)
+
+    def test_parse_ebook_availability(self):
+        # AvailabilityResponseParser will behave differently depending on whether
+        # we ask for the book as an ePub or through AxisNow.
+        data = self.sample_data("availability_with_ebook_fulfillment.xml")
+
+        # First, ask for an ePub.
+        epub_parser = AvailabilityResponseParser(self.api, "ePub")
+        [availability] = list(epub_parser.process_all(data))
+        fulfillment = availability.fulfillment_info
+
+        # This particular file has a downloadUrl ready to go, so we
+        # get a standard FulfillmentInfo object with that downloadUrl
+        # as its content_link.
+        assert isinstance(fulfillment, FulfillmentInfo)
+        assert not isinstance(fulfillment, Axis360FulfillmentInfo)
+        eq_("http://adobe.acsm/", fulfillment.content_link)
+
+        # Next ask for AxisNow -- this will be more like
+        # test_parse_audiobook_availability, since it requires an
+        # additional API request.
+
+        axisnow_parser = AvailabilityResponseParser(self.api, self.api.AXISNOW)
+        [availability] = list(axisnow_parser.process_all(data))
+        fulfillment = availability.fulfillment_info
+        assert isinstance(fulfillment, Axis360FulfillmentInfo)
+        eq_("6670197A-D264-447A-86C7-E4CB829C0236", fulfillment.key)
+
+        # The API object is present in the FulfillmentInfo and ready to go
+        # make that extra request.
         eq_(self.api, fulfillment.api)
 
 

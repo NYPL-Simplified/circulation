@@ -340,7 +340,7 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasCollectionSelfTests):
         response = self.request(url, data=args, method="POST")
         return response
 
-    def fulfill(self, patron, pin, licensepool, **kwargs):
+    def fulfill(self, patron, pin, licensepool, internal_format, **kwargs):
         """Fulfill a patron's request for a specific book.
 
         :param kwargs: A container for arguments to fulfill()
@@ -828,7 +828,6 @@ class BibliographicParser(Axis360Parser):
     def extract_availability(self, circulation_data, element, ns):
         identifier = self.text_of_subtag(element, 'axis:titleId', ns)
         primary_identifier = IdentifierData(Identifier.AXIS_360_ID, identifier)
-
         if not circulation_data:
             circulation_data = CirculationData(
                 data_source=DataSource.AXIS_360,
@@ -1346,7 +1345,10 @@ class AvailabilityResponseParser(ResponseParser):
         """Constructor.
 
         :param api: An Axis360API instance, in case the parsing of an
-        availability document triggers additional API requests.
+           availability document triggers additional API requests.
+
+        :param internal_format: The name Axis 360 gave to the format
+           the user requested. Used to distinguish a request for 
         """
         self.api = api
         self.internal_format = internal_format

@@ -326,8 +326,8 @@ class CirculationManagerAnnotator(Annotator):
                 # we choose not to use visible_delivery_mechanisms --
                 # they already chose it and they're stuck with it.
                 for lpdm in active_license_pool.delivery_mechanisms:
-                    if (lpdm is active_loan.fulfillment 
-                        or lpdm.delivery_mechanism.is_streaming):
+
+                    if lpdm is active_loan.fulfillment or lpdm.delivery_mechanism.is_streaming:
                         fulfill_links.append(
                             self.fulfill_link(
                                 active_license_pool,
