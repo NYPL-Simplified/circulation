@@ -3,7 +3,6 @@ import json
 import logging
 import os
 import re
-import urlparse
 
 from collections import defaultdict
 from datetime import datetime, timedelta
@@ -148,7 +147,8 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasCollectionSelfTests):
     findaway_drm = DeliveryMechanism.FINDAWAY_DRM
     no_drm = DeliveryMechanism.NO_DRM
 
-    # The name Axis 360 gives for the web interface.
+    # The name Axis 360 gives to its web interface. We use it as the
+    # name for the underlying access control system.
     AXISNOW = "AxisNow"
 
     delivery_mechanism_to_internal_format = {
@@ -340,7 +340,7 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasCollectionSelfTests):
         response = self.request(url, data=args, method="POST")
         return response
 
-    def fulfill(self, patron, pin, licensepool, internal_format, **kwargs):
+    def fulfill(self, patron, pin, licensepool, **kwargs):
         """Fulfill a patron's request for a specific book.
 
         :param kwargs: A container for arguments to fulfill()
@@ -362,9 +362,7 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasCollectionSelfTests):
             fulfillment = loan.fulfillment_info
             if not fulfillment or not isinstance(fulfillment, FulfillmentInfo):
                 raise CannotFulfill()
-
             return fulfillment
-
         # If we made it to this point, the patron does not have this
         # book checked out.
         raise NoActiveLoan()
@@ -1383,8 +1381,6 @@ class AvailabilityResponseParser(ResponseParser):
                 availability, 'axis:downloadUrl', ns)
             transaction_id = self.text_of_optional_subtag(
                 availability, 'axis:transactionID', ns) or ""
-            isbn = self.text_of_optional_subtag(
-                availability, 'axis:isbn', ns) or ""
 
             # Arguments common to FulfillmentInfo and
             # Axis360FulfillmentInfo.
@@ -1406,14 +1402,17 @@ class AvailabilityResponseParser(ResponseParser):
                     **kwargs
                 )
             elif transaction_id:
-                # We need to make another API request -- possibly two
-                # requests -- to fulfill this book. Fortunately this
-                # is possible since we have a transaction ID
-
-                # This is an audiobook. If necessary we
-                # are prepared to make another API request to
-                # turn the transaction ID into a Findaway
-                # audio manifest.
+                # If this is an audiobook, we'll need to make two more
+                # requests: the first to get the Findaway content ID,
+                # license ID, and session key; the second to get the
+                # audiobook metadata.
+                #
+                # If this is an ebook being delivered in AxisNow
+                # format, we'll need to make one more request, to get
+                # the Book Vault UUID and ISBN.
+                #
+                # Fortunately, we have a transaction ID, and
+                # Axis360FulfillmentInfo can handle both cases.
                 fulfillment = Axis360FulfillmentInfo(
                     api=self.api, key=transaction_id, **kwargs
                 )
@@ -1544,7 +1543,6 @@ class Axis360FulfillmentInfoResponseParser(JSONResponseParser):
         :return: A 2-tuple (manifest, expiration_date). `manifest` is either
             a FindawayManifest (for an audiobook) or an AxisNowManifest (for an ebook).
         """
-        set_trace()
         if 'FNDTransactionID' in parsed:
             manifest = self.parse_findaway(parsed)
         else:
@@ -1593,7 +1591,7 @@ class Axis360FulfillmentInfoResponseParser(JSONResponseParser):
         k = self._required_key
         isbn = k('ISBN', parsed)
         book_vault_uuid = k('BookVaultUUID', parsed)
-        return AxisNowManifest(isbn, book_vault_uuid)
+        return AxisNowManifest(book_vault_uuid, isbn)
 
 
 class AudiobookMetadataParser(JSONResponseParser):
@@ -1622,15 +1620,24 @@ class AudiobookMetadataParser(JSONResponseParser):
 
 
 class AxisNowManifest(object):
+    """A simple media type for conveying an entry point into the AxisNow access control
+    system.
+    """
 
     MEDIA_TYPE = MediaTypes.AXISNOW_MANIFEST_MEDIA_TYPE
 
-    def __init__(self, isbn, book_vault_uuid):
-        self.isbn = isbn
+    def __init__(self, book_vault_uuid, isbn):
+        """Constructor.
+
+        :param book_vault_uuid: The UUID of a Book Vault.
+        :param isbn: The ISBN of a book in that Book Vault.
+        """
         self.book_vault_uuid = book_vault_uuid
+        self.isbn = isbn
 
     def __unicode__(self):
-        return json.dumps(dict(isbn=self.isbn, book_vault_uuid=self.book_vault_uuid))
+        data = dict(isbn=self.isbn, book_vault_uuid=self.book_vault_uuid)
+        return json.dumps(data, sort_keys=True)
 
 
 class Axis360FulfillmentInfo(APIAwareFulfillmentInfo):

@@ -51,17 +51,17 @@ from core.util.http import (
 from api.authenticator import BasicAuthenticationProvider
 
 from api.axis import (
-    AudiobookFulfillmentInfo,
-    AudiobookFulfillmentInfoResponseParser,
     AudiobookMetadataParser,
     AvailabilityResponseParser,
     Axis360API,
     Axis360BibliographicCoverageProvider,
     Axis360CirculationMonitor,
+    Axis360FulfillmentInfo,
+    Axis360FulfillmentInfoResponseParser,
     AxisCollectionReaper,
+    AxisNowManifest,
     BibliographicParser,
     CheckoutResponseParser,
-    EbookFulfillmentInfo,
     HoldReleaseResponseParser,
     HoldResponseParser,
     JSONResponseParser,
@@ -1431,7 +1431,7 @@ class TestAudiobookMetadataParser(Axis360Test):
         eq_(Representation.MP3_MEDIA_TYPE, item.media_type)
 
 
-class TestEbookFulfillmentInfo(Axis360Test):
+class TestAxis360FulfillmentInfo(Axis360Test):
     """An EbookFulfillmentInfo contains all information necessary to
     fulfill an ebook in any supported format -- but it only exposes
     one format at a time.
@@ -1536,6 +1536,19 @@ class TestAudiobookFulfillmentInfo(Axis360Test):
         # While we're here, verify that configure_for_internal_format is implemented.
         # (It's a no-op.)
         fulfillment.configure_for_internal_format("some other format")
+
+
+class TestAxisNowManifest(object):
+    """Test the simple data format used to communicate an entry point into
+    AxisNow."""
+
+    def test_unicode(self):
+        manifest = AxisNowManifest("An ISBN", "A UUID")
+        eq_(
+            u'{"book_vault_uuid": "A UUID", "isbn": "An ISBN"}',
+            unicode(manifest)
+        )
+        eq_(MediaTypes.AXISNOW_MANIFEST_MEDIA_TYPE, manifest.MEDIA_TYPE)
 
 
 class TestAxis360BibliographicCoverageProvider(Axis360Test):
