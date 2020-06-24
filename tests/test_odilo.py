@@ -169,7 +169,7 @@ class TestOdiloAPI(OdiloAPITest):
         self.api.refresh_creds(credential)
         eq_("new bearer token 2", credential.credential)
         eq_(self.api.token, credential.credential)
-        assert credential.expires > datetime.datetime.now()
+        assert credential.expires > datetime.datetime.utcnow()
 
     def test_credential_refresh_failure(self):
         """Verify that a useful error message results when the Odilo bearer

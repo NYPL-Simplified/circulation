@@ -1075,17 +1075,19 @@ class TestDirectoryImportScript(DatabaseTest):
         # We have created a book. It has a cover image, which has a
         # thumbnail.
         eq_("A book", work.title)
-        assert work.cover_full_url.endswith(
-            '/test.cover.bucket/Gutenberg/Gutenberg+ID/1003/1003.jpg'
+        eq_(
+            work.cover_full_url,
+            u'https://test-cover-bucket.s3.amazonaws.com/Gutenberg/Gutenberg%20ID/1003/1003.jpg'
         )
-        assert work.cover_thumbnail_url.endswith(
-            '/test.cover.bucket/scaled/300/Gutenberg/Gutenberg+ID/1003/1003.png'
+        eq_(
+            work.cover_thumbnail_url,
+            u'https://test-cover-bucket.s3.amazonaws.com/scaled/300/Gutenberg/Gutenberg%20ID/1003/1003.png'
         )
         [pool] = work.license_pools
-        assert pool.open_access_download_url.endswith(
-            '/test.content.bucket/Gutenberg/Gutenberg+ID/1003/A+book.epub'
+        eq_(
+            pool.open_access_download_url,
+            u'https://test-content-bucket.s3.amazonaws.com/Gutenberg/Gutenberg%20ID/1003/A%20book.epub'
         )
-
         eq_(RightsStatus.CC0,
             pool.delivery_mechanisms[0].rights_status.uri)
 
@@ -1237,8 +1239,9 @@ class TestDirectoryImportScript(DatabaseTest):
         # The CirculationData has an open-access link associated with it.
         [link] = circulation.links
         eq_(Hyperlink.OPEN_ACCESS_DOWNLOAD, link.rel)
-        assert link.href.endswith(
-            '/test.content.bucket/Gutenberg/Gutenberg+ID/2345/Name+of+book.epub'
+        eq_(
+            link.href,
+            u'https://test-content-bucket.s3.amazonaws.com/Gutenberg/Gutenberg%20ID/2345/Name%20of%20book.epub'
         )
         eq_(Representation.EPUB_MEDIA_TYPE, link.media_type)
         eq_("I'm an EPUB.", link.content)
@@ -1279,8 +1282,9 @@ class TestDirectoryImportScript(DatabaseTest):
         script = MockDirectoryImportScript(self._db, mock_filesystem)
         link = script.load_cover_link(*args)
         eq_(Hyperlink.IMAGE, link.rel)
-        assert link.href.endswith(
-            '/test.cover.bucket/Gutenberg/Gutenberg+ID/2345/2345.jpg'
+        eq_(
+            link.href,
+            u'https://test-cover-bucket.s3.amazonaws.com/Gutenberg/Gutenberg%20ID/2345/2345.jpg'
         )
         eq_(Representation.JPEG_MEDIA_TYPE, link.media_type)
         eq_("I'm an image.", link.content)
