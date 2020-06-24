@@ -445,13 +445,13 @@ class TestCirculationManager(CirculationControllerTest):
         # We also set up some patron web client settings that will
         # be loaded.
         ConfigurationSetting.sitewide(
-            self._db, Configuration.PATRON_WEB_HOSTNAMES).value = list("http://sitewide/1234")
+            self._db, Configuration.PATRON_WEB_HOSTNAMES).value = json.dumps(list("http://sitewide/1234"))
         registry = self._external_integration(
             protocol="some protocol", goal=ExternalIntegration.DISCOVERY_GOAL
         )
         ConfigurationSetting.for_library_and_externalintegration(
             self._db, Registration.LIBRARY_REGISTRATION_WEB_CLIENT,
-            library, registry).value = "http://registration"
+            library, registry).value = json.dumps(list("http://registration"))
 
         # Then reload the CirculationManager...
         self.manager.load_settings()
