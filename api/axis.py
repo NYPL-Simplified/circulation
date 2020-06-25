@@ -798,7 +798,7 @@ class Axis360Parser(XMLParser):
 class BibliographicParser(Axis360Parser):
 
     DELIVERY_DATA_FOR_AXIS_FORMAT = {
-        "Blio" : None,   # Unknown ebook format
+        "Blio" : None,   # Legacy format, handled the same way as AxisNow
         "Acoustik" : (None, DeliveryMechanism.FINDAWAY_DRM), # Audiobooks
         "AxisNow" : None, # Handled specially, for ebooks only.
         "ePub" : (Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.ADOBE_DRM),
@@ -1050,6 +1050,9 @@ class BibliographicParser(Axis360Parser):
         # we'll be adding an extra delivery mechanism.
         axisnow_seen = False
 
+        # Blio is an older ebook format now used as an alias for AxisNow.
+        blio_seen = False
+
         for format_tag in self._xpath(
             element, 'axis:availability/axis:availableFormats/axis:formatName',
             ns
@@ -1057,7 +1060,11 @@ class BibliographicParser(Axis360Parser):
             informal_name = format_tag.text
             seen_formats.append(informal_name)
 
-            if informal_name == Axis360API.AXISNOW:
+            if informal_name == "Blio":
+                # We will be adding an AxisNow FormatData.
+                blio_seen = True
+                continue
+            elif informal_name == Axis360API.AXISNOW:
                 # We will only be adding an AxisNow FormatData if this
                 # turns out to be an ebook.
                 axisnow_seen = True
@@ -1079,7 +1086,7 @@ class BibliographicParser(Axis360Parser):
                     medium = Edition.AUDIO_MEDIUM
                 else:
                     medium = Edition.BOOK_MEDIUM
-        if medium == Edition.BOOK_MEDIUM and axisnow_seen:
+        if (blio_seen or (axisnow_seen and medium == Edition.BOOK_MEDIUM)):
             # This ebook is available through AxisNow. Add an
             # appropriate FormatData.
             #
