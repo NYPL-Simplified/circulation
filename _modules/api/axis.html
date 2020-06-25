@@ -181,6 +181,11 @@
     <span class="n">adobe_drm</span> <span class="o">=</span> <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">ADOBE_DRM</span>
     <span class="n">findaway_drm</span> <span class="o">=</span> <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">FINDAWAY_DRM</span>
     <span class="n">no_drm</span> <span class="o">=</span> <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">NO_DRM</span>
+    <span class="n">axisnow_drm</span> <span class="o">=</span> <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">AXISNOW_DRM</span>
+
+    <span class="c1"># The name Axis 360 gives to its web interface. We use it as the</span>
+    <span class="c1"># name for the underlying access control system.</span>
+    <span class="n">AXISNOW</span> <span class="o">=</span> <span class="s2">&quot;AxisNow&quot;</span>
 
     <span class="n">delivery_mechanism_to_internal_format</span> <span class="o">=</span> <span class="p">{</span>
         <span class="p">(</span><span class="n">epub</span><span class="p">,</span> <span class="n">no_drm</span><span class="p">):</span> <span class="s1">&#39;ePub&#39;</span><span class="p">,</span>
@@ -188,6 +193,7 @@
         <span class="p">(</span><span class="n">pdf</span><span class="p">,</span> <span class="n">no_drm</span><span class="p">):</span> <span class="s1">&#39;PDF&#39;</span><span class="p">,</span>
         <span class="p">(</span><span class="n">pdf</span><span class="p">,</span> <span class="n">adobe_drm</span><span class="p">):</span> <span class="s1">&#39;PDF&#39;</span><span class="p">,</span>
         <span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">findaway_drm</span><span class="p">):</span> <span class="s1">&#39;Acoustik&#39;</span><span class="p">,</span>
+        <span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">axisnow_drm</span><span class="p">):</span> <span class="n">AXISNOW</span><span class="p">,</span>
     <span class="p">}</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">):</span>
@@ -369,7 +375,7 @@
         <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">request</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">args</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;POST&quot;</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">response</span>
 
-<div class="viewcode-block" id="Axis360API.fulfill"><a class="viewcode-back" href="../../api.html#api.axis.Axis360API.fulfill">[docs]</a>    <span class="k">def</span> <span class="nf">fulfill</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<div class="viewcode-block" id="Axis360API.fulfill"><a class="viewcode-back" href="../../api.html#api.axis.Axis360API.fulfill">[docs]</a>    <span class="k">def</span> <span class="nf">fulfill</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">,</span> <span class="n">internal_format</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Fulfill a patron&#39;s request for a specific book.</span>
 
 <span class="sd">        :param kwargs: A container for arguments to fulfill()</span>
@@ -379,8 +385,7 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">identifier</span> <span class="o">=</span> <span class="n">licensepool</span><span class="o">.</span><span class="n">identifier</span>
         <span class="c1"># This should include only one &#39;activity&#39;.</span>
-        <span class="n">activities</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">patron_activity</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">licensepool</span><span class="o">.</span><span class="n">identifier</span><span class="p">)</span>
-
+        <span class="n">activities</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">patron_activity</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">licensepool</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span> <span class="n">internal_format</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">loan</span> <span class="ow">in</span> <span class="n">activities</span><span class="p">:</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">loan</span><span class="p">,</span> <span class="n">LoanInfo</span><span class="p">):</span>
                 <span class="k">continue</span>
@@ -439,7 +444,7 @@
         <span class="c1"># If we didn&#39;t raise an exception, we&#39;re fine.</span>
         <span class="k">return</span> <span class="kc">True</span></div>
 
-<div class="viewcode-block" id="Axis360API.patron_activity"><a class="viewcode-back" href="../../api.html#api.axis.Axis360API.patron_activity">[docs]</a>    <span class="k">def</span> <span class="nf">patron_activity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">identifier</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<div class="viewcode-block" id="Axis360API.patron_activity"><a class="viewcode-back" href="../../api.html#api.axis.Axis360API.patron_activity">[docs]</a>    <span class="k">def</span> <span class="nf">patron_activity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">identifier</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">internal_format</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">identifier</span><span class="p">:</span>
             <span class="n">title_ids</span> <span class="o">=</span> <span class="p">[</span><span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span><span class="p">]</span>
         <span class="k">else</span><span class="p">:</span>
@@ -447,7 +452,7 @@
         <span class="n">availability</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">availability</span><span class="p">(</span>
             <span class="n">patron_id</span><span class="o">=</span><span class="n">patron</span><span class="o">.</span><span class="n">authorization_identifier</span><span class="p">,</span>
             <span class="n">title_ids</span><span class="o">=</span><span class="n">title_ids</span><span class="p">)</span>
-        <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="n">AvailabilityResponseParser</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">process_all</span><span class="p">(</span>
+        <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="n">AvailabilityResponseParser</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">internal_format</span><span class="p">)</span><span class="o">.</span><span class="n">process_all</span><span class="p">(</span>
             <span class="n">availability</span><span class="o">.</span><span class="n">content</span><span class="p">))</span></div>
 
 <div class="viewcode-block" id="Axis360API.update_availability"><a class="viewcode-back" href="../../api.html#api.axis.Axis360API.update_availability">[docs]</a>    <span class="k">def</span> <span class="nf">update_availability</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">):</span>
@@ -657,7 +662,7 @@
         <span class="n">library</span> <span class="o">=</span> <span class="n">DatabaseTest</span><span class="o">.</span><span class="n">make_default_library</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
         <span class="n">collection</span><span class="p">,</span> <span class="n">ignore</span> <span class="o">=</span> <span class="n">get_one_or_create</span><span class="p">(</span>
             <span class="n">_db</span><span class="p">,</span> <span class="n">Collection</span><span class="p">,</span>
-            <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>    
+            <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
             <span class="n">create_method_kwargs</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span>
                 <span class="n">external_account_id</span><span class="o">=</span><span class="sa">u</span><span class="s1">&#39;c&#39;</span><span class="p">,</span>
             <span class="p">)</span>
@@ -830,7 +835,7 @@
     <span class="n">DELIVERY_DATA_FOR_AXIS_FORMAT</span> <span class="o">=</span> <span class="p">{</span>
         <span class="s2">&quot;Blio&quot;</span> <span class="p">:</span> <span class="kc">None</span><span class="p">,</span>   <span class="c1"># Unknown ebook format</span>
         <span class="s2">&quot;Acoustik&quot;</span> <span class="p">:</span> <span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">FINDAWAY_DRM</span><span class="p">),</span> <span class="c1"># Audiobooks</span>
-        <span class="s2">&quot;AxisNow&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span> <span class="c1"># Proprietary web viewer</span>
+        <span class="s2">&quot;AxisNow&quot;</span> <span class="p">:</span> <span class="kc">None</span><span class="p">,</span> <span class="c1"># Handled specially, for ebooks only.</span>
         <span class="s2">&quot;ePub&quot;</span> <span class="p">:</span> <span class="p">(</span><span class="n">Representation</span><span class="o">.</span><span class="n">EPUB_MEDIA_TYPE</span><span class="p">,</span> <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">ADOBE_DRM</span><span class="p">),</span>
         <span class="s2">&quot;PDF&quot;</span> <span class="p">:</span> <span class="p">(</span><span class="n">Representation</span><span class="o">.</span><span class="n">PDF_MEDIA_TYPE</span><span class="p">,</span> <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">ADOBE_DRM</span><span class="p">),</span>
     <span class="p">}</span>
@@ -858,7 +863,6 @@
 <div class="viewcode-block" id="BibliographicParser.extract_availability"><a class="viewcode-back" href="../../api.html#api.axis.BibliographicParser.extract_availability">[docs]</a>    <span class="k">def</span> <span class="nf">extract_availability</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">circulation_data</span><span class="p">,</span> <span class="n">element</span><span class="p">,</span> <span class="n">ns</span><span class="p">):</span>
         <span class="n">identifier</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">text_of_subtag</span><span class="p">(</span><span class="n">element</span><span class="p">,</span> <span class="s1">&#39;axis:titleId&#39;</span><span class="p">,</span> <span class="n">ns</span><span class="p">)</span>
         <span class="n">primary_identifier</span> <span class="o">=</span> <span class="n">IdentifierData</span><span class="p">(</span><span class="n">Identifier</span><span class="o">.</span><span class="n">AXIS_360_ID</span><span class="p">,</span> <span class="n">identifier</span><span class="p">)</span>
-
         <span class="k">if</span> <span class="ow">not</span> <span class="n">circulation_data</span><span class="p">:</span>
             <span class="n">circulation_data</span> <span class="o">=</span> <span class="n">CirculationData</span><span class="p">(</span>
                 <span class="n">data_source</span><span class="o">=</span><span class="n">DataSource</span><span class="o">.</span><span class="n">AXIS_360</span><span class="p">,</span>
@@ -1077,12 +1081,23 @@
         <span class="c1"># hear about it below.</span>
         <span class="n">medium</span> <span class="o">=</span> <span class="n">Edition</span><span class="o">.</span><span class="n">BOOK_MEDIUM</span>
 
+        <span class="c1"># If AxisNow is mentioned as a format, and this turns out to be a book,</span>
+        <span class="c1"># we&#39;ll be adding an extra delivery mechanism.</span>
+        <span class="n">axisnow_seen</span> <span class="o">=</span> <span class="kc">False</span>
+
         <span class="k">for</span> <span class="n">format_tag</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_xpath</span><span class="p">(</span>
-                <span class="n">element</span><span class="p">,</span> <span class="s1">&#39;axis:availability/axis:availableFormats/axis:formatName&#39;</span><span class="p">,</span>
-                <span class="n">ns</span>
+            <span class="n">element</span><span class="p">,</span> <span class="s1">&#39;axis:availability/axis:availableFormats/axis:formatName&#39;</span><span class="p">,</span>
+            <span class="n">ns</span>
         <span class="p">):</span>
             <span class="n">informal_name</span> <span class="o">=</span> <span class="n">format_tag</span><span class="o">.</span><span class="n">text</span>
             <span class="n">seen_formats</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">informal_name</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">informal_name</span> <span class="o">==</span> <span class="n">Axis360API</span><span class="o">.</span><span class="n">AXISNOW</span><span class="p">:</span>
+                <span class="c1"># We will only be adding an AxisNow FormatData if this</span>
+                <span class="c1"># turns out to be an ebook.</span>
+                <span class="n">axisnow_seen</span> <span class="o">=</span> <span class="kc">True</span>
+                <span class="k">continue</span>
+
             <span class="k">if</span> <span class="n">informal_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">DELIVERY_DATA_FOR_AXIS_FORMAT</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;Unrecognized Axis format name for </span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span>
                     <span class="n">identifier</span><span class="p">,</span> <span class="n">informal_name</span>
@@ -1094,10 +1109,20 @@
                 <span class="n">formats</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
                     <span class="n">FormatData</span><span class="p">(</span><span class="n">content_type</span><span class="o">=</span><span class="n">content_type</span><span class="p">,</span> <span class="n">drm_scheme</span><span class="o">=</span><span class="n">drm_scheme</span><span class="p">)</span>
                 <span class="p">)</span>
+
                 <span class="k">if</span> <span class="n">drm_scheme</span> <span class="o">==</span> <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">FINDAWAY_DRM</span><span class="p">:</span>
                     <span class="n">medium</span> <span class="o">=</span> <span class="n">Edition</span><span class="o">.</span><span class="n">AUDIO_MEDIUM</span>
                 <span class="k">else</span><span class="p">:</span>
                     <span class="n">medium</span> <span class="o">=</span> <span class="n">Edition</span><span class="o">.</span><span class="n">BOOK_MEDIUM</span>
+        <span class="k">if</span> <span class="n">medium</span> <span class="o">==</span> <span class="n">Edition</span><span class="o">.</span><span class="n">BOOK_MEDIUM</span> <span class="ow">and</span> <span class="n">axisnow_seen</span><span class="p">:</span>
+            <span class="c1"># This ebook is available through AxisNow. Add an</span>
+            <span class="c1"># appropriate FormatData.</span>
+            <span class="c1">#</span>
+            <span class="c1"># Audiobooks may also be available through AxisNow, but we</span>
+            <span class="c1"># currently ignore that fact.</span>
+            <span class="n">formats</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="n">FormatData</span><span class="p">(</span><span class="n">content_type</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">drm_scheme</span><span class="o">=</span><span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">AXISNOW_DRM</span><span class="p">)</span>
+            <span class="p">)</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="n">formats</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
@@ -1282,20 +1307,12 @@
             <span class="n">expiration_date</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span>
                 <span class="n">expiration_date</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">FULL_DATE_FORMAT</span><span class="p">)</span>
 
-        <span class="c1"># WTH??? Why is identifier None? Is this ever used?</span>
-        <span class="n">fulfillment</span> <span class="o">=</span> <span class="n">FulfillmentInfo</span><span class="p">(</span>
-            <span class="n">collection</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">collection</span><span class="p">,</span> <span class="n">data_source_name</span><span class="o">=</span><span class="n">DataSource</span><span class="o">.</span><span class="n">AXIS_360</span><span class="p">,</span>
-            <span class="n">identifier_type</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">id_type</span><span class="p">,</span>
-            <span class="n">identifier</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">content_link</span><span class="o">=</span><span class="n">fulfillment_url</span><span class="p">,</span>
-            <span class="n">content_type</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">content</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">content_expires</span><span class="o">=</span><span class="kc">None</span>
-        <span class="p">)</span>
         <span class="n">loan_start</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
         <span class="n">loan</span> <span class="o">=</span> <span class="n">LoanInfo</span><span class="p">(</span>
             <span class="n">collection</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">collection</span><span class="p">,</span> <span class="n">data_source_name</span><span class="o">=</span><span class="n">DataSource</span><span class="o">.</span><span class="n">AXIS_360</span><span class="p">,</span>
             <span class="n">identifier_type</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">id_type</span><span class="p">,</span> <span class="n">identifier</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
             <span class="n">start_date</span><span class="o">=</span><span class="n">loan_start</span><span class="p">,</span>
             <span class="n">end_date</span><span class="o">=</span><span class="n">expiration_date</span><span class="p">,</span>
-            <span class="n">fulfillment_info</span><span class="o">=</span><span class="n">fulfillment</span>
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">loan</span></div></div>
 
@@ -1356,13 +1373,19 @@
 
 <div class="viewcode-block" id="AvailabilityResponseParser"><a class="viewcode-back" href="../../api.html#api.axis.AvailabilityResponseParser">[docs]</a><span class="k">class</span> <span class="nc">AvailabilityResponseParser</span><span class="p">(</span><span class="n">ResponseParser</span><span class="p">):</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">api</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">api</span><span class="p">,</span> <span class="n">internal_format</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Constructor.</span>
 
 <span class="sd">        :param api: An Axis360API instance, in case the parsing of an</span>
-<span class="sd">        availability document triggers additional API requests.</span>
+<span class="sd">           availability document triggers additional API requests.</span>
+
+<span class="sd">        :param internal_format: The name Axis 360 gave to the format</span>
+<span class="sd">           the user requested. Used to distinguish books</span>
+<span class="sd">           checked out through the AxisNow Book Vault from books checked</span>
+<span class="sd">           out through ACS.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">api</span> <span class="o">=</span> <span class="n">api</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">internal_format</span> <span class="o">=</span> <span class="n">internal_format</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">AvailabilityResponseParser</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">api</span><span class="o">.</span><span class="n">collection</span><span class="p">)</span>
 
 <div class="viewcode-block" id="AvailabilityResponseParser.process_all"><a class="viewcode-back" href="../../api.html#api.axis.AvailabilityResponseParser.process_all">[docs]</a>    <span class="k">def</span> <span class="nf">process_all</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">string</span><span class="p">):</span>
@@ -1393,16 +1416,19 @@
             <span class="n">download_url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">text_of_optional_subtag</span><span class="p">(</span>
                 <span class="n">availability</span><span class="p">,</span> <span class="s1">&#39;axis:downloadUrl&#39;</span><span class="p">,</span> <span class="n">ns</span><span class="p">)</span>
             <span class="n">transaction_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">text_of_optional_subtag</span><span class="p">(</span>
-                <span class="n">availability</span><span class="p">,</span> <span class="s1">&#39;axis:transactionID&#39;</span><span class="p">,</span> <span class="n">ns</span><span class="p">)</span>
+                <span class="n">availability</span><span class="p">,</span> <span class="s1">&#39;axis:transactionID&#39;</span><span class="p">,</span> <span class="n">ns</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span>
+
             <span class="c1"># Arguments common to FulfillmentInfo and</span>
-            <span class="c1"># AudiobookFulfillmentInfo.</span>
+            <span class="c1"># Axis360FulfillmentInfo.</span>
             <span class="n">kwargs</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span>
                 <span class="n">data_source_name</span><span class="o">=</span><span class="n">DataSource</span><span class="o">.</span><span class="n">AXIS_360</span><span class="p">,</span>
                 <span class="n">identifier_type</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">id_type</span><span class="p">,</span>
                 <span class="n">identifier</span><span class="o">=</span><span class="n">axis_identifier</span>
             <span class="p">)</span>
-            <span class="k">if</span> <span class="n">download_url</span><span class="p">:</span>
-                <span class="c1"># This is an ebook.</span>
+
+            <span class="k">if</span> <span class="n">download_url</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">internal_format</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">AXISNOW</span><span class="p">:</span>
+                <span class="c1"># The patron wants a direct link to the book, which we can deliver</span>
+                <span class="c1"># immediately, without making any more API requests.</span>
                 <span class="n">fulfillment</span> <span class="o">=</span> <span class="n">FulfillmentInfo</span><span class="p">(</span>
                     <span class="n">collection</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">collection</span><span class="p">,</span>
                     <span class="n">content_link</span><span class="o">=</span><span class="n">download_url</span><span class="p">,</span>
@@ -1412,14 +1438,24 @@
                     <span class="o">**</span><span class="n">kwargs</span>
                 <span class="p">)</span>
             <span class="k">elif</span> <span class="n">transaction_id</span><span class="p">:</span>
-                <span class="c1"># This is an audiobook. If necessary we</span>
-                <span class="c1"># are prepared to make another API request to</span>
-                <span class="c1"># turn the transaction ID into a Findaway</span>
-                <span class="c1"># audio manifest.</span>
-                <span class="n">fulfillment</span> <span class="o">=</span> <span class="n">AudiobookFulfillmentInfo</span><span class="p">(</span>
+                <span class="c1"># We will eventually need to make a request to the</span>
+                <span class="c1"># &quot;getfulfillmentInfo&quot; endpoint, using this</span>
+                <span class="c1"># transaction ID.</span>
+                <span class="c1">#</span>
+                <span class="c1"># For a book delivered in AxisNow format, this will give</span>
+                <span class="c1"># us the Book Vault UUID and ISBN.</span>
+                <span class="c1">#</span>
+                <span class="c1"># For an audiobook, this will give us the Findaway</span>
+                <span class="c1"># content ID, license ID, and session key. We&#39;ll also</span>
+                <span class="c1"># need to make a second request to get the audiobook</span>
+                <span class="c1"># metadata.</span>
+                <span class="c1">#</span>
+                <span class="c1"># Axis360FulfillmentInfo can handle both cases.</span>
+                <span class="n">fulfillment</span> <span class="o">=</span> <span class="n">Axis360FulfillmentInfo</span><span class="p">(</span>
                     <span class="n">api</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="n">transaction_id</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
                 <span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># We&#39;re out of luck -- we can&#39;t fulfill this loan.</span>
                 <span class="n">fulfillment</span> <span class="o">=</span> <span class="kc">None</span>
             <span class="n">info</span> <span class="o">=</span> <span class="n">LoanInfo</span><span class="p">(</span>
                 <span class="n">collection</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">collection</span><span class="p">,</span>
@@ -1518,8 +1554,8 @@
         <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
 
 
-<div class="viewcode-block" id="AudiobookFulfillmentInfoResponseParser"><a class="viewcode-back" href="../../api.html#api.axis.AudiobookFulfillmentInfoResponseParser">[docs]</a><span class="k">class</span> <span class="nc">AudiobookFulfillmentInfoResponseParser</span><span class="p">(</span><span class="n">JSONResponseParser</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Parse JSON documents into Findaway audiobook manifests.&quot;&quot;&quot;</span>
+<div class="viewcode-block" id="Axis360FulfillmentInfoResponseParser"><a class="viewcode-back" href="../../api.html#api.axis.Axis360FulfillmentInfoResponseParser">[docs]</a><span class="k">class</span> <span class="nc">Axis360FulfillmentInfoResponseParser</span><span class="p">(</span><span class="n">JSONResponseParser</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Parse JSON documents into Findaway audiobook manifests or AxisNow manifests.&quot;&quot;&quot;</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">api</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Constructor.</span>
@@ -1528,7 +1564,7 @@
 <span class="sd">        a fulfillment document triggers additional API requests.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">api</span> <span class="o">=</span> <span class="n">api</span>
-        <span class="nb">super</span><span class="p">(</span><span class="n">AudiobookFulfillmentInfoResponseParser</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">Axis360FulfillmentInfoResponseParser</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">collection</span>
         <span class="p">)</span>
 
@@ -1542,43 +1578,59 @@
 <span class="sd">        :param license_pool: The LicensePool for the book that&#39;s</span>
 <span class="sd">        being fulfilled.</span>
 
-<span class="sd">        :return: A 2-tuple (FindawayManifest, expiration_date)</span>
+<span class="sd">        :return: A 2-tuple (manifest, expiration_date). `manifest` is either</span>
+<span class="sd">            a FindawayManifest (for an audiobook) or an AxisNowManifest (for an ebook).</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="c1"># Some pieces of information are unused by us or by the</span>
-        <span class="c1"># mobile client. There&#39;s no need to treat these fields as</span>
-        <span class="c1"># required.</span>
-        <span class="n">k</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_required_key</span>
-        <span class="n">checkoutId</span> <span class="o">=</span> <span class="n">parsed</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;FNDTransactionID&#39;</span><span class="p">)</span>
-        <span class="n">fulfillmentId</span> <span class="o">=</span> <span class="n">k</span><span class="p">(</span><span class="s1">&#39;FNDContentID&#39;</span><span class="p">,</span> <span class="n">parsed</span><span class="p">)</span>
-        <span class="n">licenseId</span> <span class="o">=</span> <span class="n">k</span><span class="p">(</span><span class="s1">&#39;FNDLicenseID&#39;</span><span class="p">,</span> <span class="n">parsed</span><span class="p">)</span>
-        <span class="n">sessionKey</span> <span class="o">=</span> <span class="n">k</span><span class="p">(</span><span class="s1">&#39;FNDSessionKey&#39;</span><span class="p">,</span> <span class="n">parsed</span><span class="p">)</span>
-        <span class="n">expiration_date</span> <span class="o">=</span> <span class="n">k</span><span class="p">(</span><span class="s1">&#39;ExpirationDate&#39;</span><span class="p">,</span> <span class="n">parsed</span><span class="p">)</span>
+        <span class="n">expiration_date</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_required_key</span><span class="p">(</span><span class="s1">&#39;ExpirationDate&#39;</span><span class="p">,</span> <span class="n">parsed</span><span class="p">)</span>
+        <span class="n">expiration_date</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_date</span><span class="p">(</span><span class="n">expiration_date</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="s1">&#39;.&#39;</span> <span class="ow">in</span> <span class="n">expiration_date</span><span class="p">:</span>
+        <span class="k">if</span> <span class="s1">&#39;FNDTransactionID&#39;</span> <span class="ow">in</span> <span class="n">parsed</span><span class="p">:</span>
+            <span class="n">manifest</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_findaway</span><span class="p">(</span><span class="n">parsed</span><span class="p">,</span> <span class="n">license_pool</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">manifest</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_axisnow</span><span class="p">(</span><span class="n">parsed</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">manifest</span><span class="p">,</span> <span class="n">expiration_date</span>
+
+<div class="viewcode-block" id="Axis360FulfillmentInfoResponseParser.parse_date"><a class="viewcode-back" href="../../api.html#api.axis.Axis360FulfillmentInfoResponseParser.parse_date">[docs]</a>    <span class="k">def</span> <span class="nf">parse_date</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">date</span><span class="p">):</span>
+        <span class="k">if</span> <span class="s1">&#39;.&#39;</span> <span class="ow">in</span> <span class="n">date</span><span class="p">:</span>
             <span class="c1"># Remove 7(?!) decimal places of precision and</span>
             <span class="c1"># UTC timezone, which are more trouble to parse</span>
             <span class="c1"># than they&#39;re worth.</span>
-            <span class="n">expiration_date</span> <span class="o">=</span> <span class="n">expiration_date</span><span class="p">[:</span><span class="n">expiration_date</span><span class="o">.</span><span class="n">rindex</span><span class="p">(</span><span class="s1">&#39;.&#39;</span><span class="p">)]</span>
+            <span class="n">date</span> <span class="o">=</span> <span class="n">date</span><span class="p">[:</span><span class="n">date</span><span class="o">.</span><span class="n">rindex</span><span class="p">(</span><span class="s1">&#39;.&#39;</span><span class="p">)]</span>
 
         <span class="k">try</span><span class="p">:</span>
-            <span class="n">expiration_date</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="n">expiration_date</span><span class="p">,</span> <span class="s2">&quot;%Y-%m-</span><span class="si">%d</span><span class="s2"> %H:%M:%S&quot;</span><span class="p">)</span>
+            <span class="n">date</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="n">date</span><span class="p">,</span> <span class="s2">&quot;%Y-%m-</span><span class="si">%d</span><span class="s2"> %H:%M:%S&quot;</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">RemoteInitiatedServerError</span><span class="p">(</span>
-                <span class="s2">&quot;Could not parse expiration date: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">expiration_date</span><span class="p">,</span>
+                <span class="s2">&quot;Could not parse expiration date: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">date</span><span class="p">,</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">SERVICE_NAME</span>
             <span class="p">)</span>
+        <span class="k">return</span> <span class="n">date</span></div>
+
+
+<div class="viewcode-block" id="Axis360FulfillmentInfoResponseParser.parse_findaway"><a class="viewcode-back" href="../../api.html#api.axis.Axis360FulfillmentInfoResponseParser.parse_findaway">[docs]</a>    <span class="k">def</span> <span class="nf">parse_findaway</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parsed</span><span class="p">,</span> <span class="n">license_pool</span><span class="p">):</span>
+        <span class="n">k</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_required_key</span>
+        <span class="n">fulfillmentId</span> <span class="o">=</span> <span class="n">k</span><span class="p">(</span><span class="s1">&#39;FNDContentID&#39;</span><span class="p">,</span> <span class="n">parsed</span><span class="p">)</span>
+        <span class="n">licenseId</span> <span class="o">=</span> <span class="n">k</span><span class="p">(</span><span class="s1">&#39;FNDLicenseID&#39;</span><span class="p">,</span> <span class="n">parsed</span><span class="p">)</span>
+        <span class="n">sessionKey</span> <span class="o">=</span> <span class="n">k</span><span class="p">(</span><span class="s1">&#39;FNDSessionKey&#39;</span><span class="p">,</span> <span class="n">parsed</span><span class="p">)</span>
+        <span class="n">checkoutId</span> <span class="o">=</span> <span class="n">k</span><span class="p">(</span><span class="s1">&#39;FNDTransactionID&#39;</span><span class="p">,</span> <span class="n">parsed</span><span class="p">)</span>
 
         <span class="c1"># Acquire the TOC information</span>
         <span class="n">metadata_response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">get_audiobook_metadata</span><span class="p">(</span><span class="n">fulfillmentId</span><span class="p">)</span>
         <span class="n">parser</span> <span class="o">=</span> <span class="n">AudiobookMetadataParser</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">collection</span><span class="p">)</span>
         <span class="n">accountId</span><span class="p">,</span> <span class="n">spine_items</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">metadata_response</span><span class="o">.</span><span class="n">content</span><span class="p">)</span>
 
-        <span class="n">manifest</span> <span class="o">=</span> <span class="n">FindawayManifest</span><span class="p">(</span>
+        <span class="k">return</span> <span class="n">FindawayManifest</span><span class="p">(</span>
             <span class="n">license_pool</span><span class="p">,</span> <span class="n">accountId</span><span class="o">=</span><span class="n">accountId</span><span class="p">,</span> <span class="n">checkoutId</span><span class="o">=</span><span class="n">checkoutId</span><span class="p">,</span>
             <span class="n">fulfillmentId</span><span class="o">=</span><span class="n">fulfillmentId</span><span class="p">,</span> <span class="n">licenseId</span><span class="o">=</span><span class="n">licenseId</span><span class="p">,</span>
             <span class="n">sessionKey</span><span class="o">=</span><span class="n">sessionKey</span><span class="p">,</span> <span class="n">spine_items</span><span class="o">=</span><span class="n">spine_items</span>
-        <span class="p">)</span>
-        <span class="k">return</span> <span class="n">manifest</span><span class="p">,</span> <span class="n">expiration_date</span></div>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="Axis360FulfillmentInfoResponseParser.parse_axisnow"><a class="viewcode-back" href="../../api.html#api.axis.Axis360FulfillmentInfoResponseParser.parse_axisnow">[docs]</a>    <span class="k">def</span> <span class="nf">parse_axisnow</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parsed</span><span class="p">):</span>
+        <span class="n">k</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_required_key</span>
+        <span class="n">isbn</span> <span class="o">=</span> <span class="n">k</span><span class="p">(</span><span class="s1">&#39;ISBN&#39;</span><span class="p">,</span> <span class="n">parsed</span><span class="p">)</span>
+        <span class="n">book_vault_uuid</span> <span class="o">=</span> <span class="n">k</span><span class="p">(</span><span class="s1">&#39;BookVaultUUID&#39;</span><span class="p">,</span> <span class="n">parsed</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">AxisNowManifest</span><span class="p">(</span><span class="n">book_vault_uuid</span><span class="p">,</span> <span class="n">isbn</span><span class="p">)</span></div></div>
 
 
 <div class="viewcode-block" id="AudiobookMetadataParser"><a class="viewcode-back" href="../../api.html#api.axis.AudiobookMetadataParser">[docs]</a><span class="k">class</span> <span class="nc">AudiobookMetadataParser</span><span class="p">(</span><span class="n">JSONResponseParser</span><span class="p">):</span>
@@ -1606,22 +1658,45 @@
         <span class="k">return</span> <span class="n">SpineItem</span><span class="p">(</span><span class="n">title</span><span class="p">,</span> <span class="n">duration</span><span class="p">,</span> <span class="n">part_number</span><span class="p">,</span> <span class="n">sequence</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="AudiobookFulfillmentInfo"><a class="viewcode-back" href="../../api.html#api.axis.AudiobookFulfillmentInfo">[docs]</a><span class="k">class</span> <span class="nc">AudiobookFulfillmentInfo</span><span class="p">(</span><span class="n">APIAwareFulfillmentInfo</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;An Axis 360-specific FulfillmentInfo implementation for audiobooks.</span>
-
-<span class="sd">    We use these instead of real FulfillmentInfo objects because</span>
-<span class="sd">    generating a real FulfillmentInfo object would require two extra</span>
-<span class="sd">    HTTP requests, and there&#39;s often no need to make those requests.</span>
+<div class="viewcode-block" id="AxisNowManifest"><a class="viewcode-back" href="../../api.html#api.axis.AxisNowManifest">[docs]</a><span class="k">class</span> <span class="nc">AxisNowManifest</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A simple media type for conveying an entry point into the AxisNow access control</span>
+<span class="sd">    system.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-<div class="viewcode-block" id="AudiobookFulfillmentInfo.do_fetch"><a class="viewcode-back" href="../../api.html#api.axis.AudiobookFulfillmentInfo.do_fetch">[docs]</a>    <span class="k">def</span> <span class="nf">do_fetch</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+
+    <span class="n">MEDIA_TYPE</span> <span class="o">=</span> <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">AXISNOW_DRM</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">book_vault_uuid</span><span class="p">,</span> <span class="n">isbn</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Constructor.</span>
+
+<span class="sd">        :param book_vault_uuid: The UUID of a Book Vault.</span>
+<span class="sd">        :param isbn: The ISBN of a book in that Book Vault.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">book_vault_uuid</span> <span class="o">=</span> <span class="n">book_vault_uuid</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">isbn</span> <span class="o">=</span> <span class="n">isbn</span>
+
+    <span class="k">def</span> <span class="nf">__unicode__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">isbn</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">isbn</span><span class="p">,</span> <span class="n">book_vault_uuid</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">book_vault_uuid</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">sort_keys</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Axis360FulfillmentInfo"><a class="viewcode-back" href="../../api.html#api.axis.Axis360FulfillmentInfo">[docs]</a><span class="k">class</span> <span class="nc">Axis360FulfillmentInfo</span><span class="p">(</span><span class="n">APIAwareFulfillmentInfo</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;An Axis 360-specific FulfillmentInfo implementation for audiobooks</span>
+<span class="sd">    and books served through AxisNow.</span>
+
+<span class="sd">    We use these instead of normal FulfillmentInfo objects because</span>
+<span class="sd">    putting all this information into FulfillmentInfo would require</span>
+<span class="sd">    one or two extra HTTP requests, and there&#39;s often no need to make</span>
+<span class="sd">    those requests.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+<div class="viewcode-block" id="Axis360FulfillmentInfo.do_fetch"><a class="viewcode-back" href="../../api.html#api.axis.Axis360FulfillmentInfo.do_fetch">[docs]</a>    <span class="k">def</span> <span class="nf">do_fetch</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">_db</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">_db</span>
         <span class="n">license_pool</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">license_pool</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
         <span class="n">transaction_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">key</span>
         <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">get_fulfillment_info</span><span class="p">(</span><span class="n">transaction_id</span><span class="p">)</span>
-        <span class="n">parser</span> <span class="o">=</span> <span class="n">AudiobookFulfillmentInfoResponseParser</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="p">)</span>
+        <span class="n">parser</span> <span class="o">=</span> <span class="n">Axis360FulfillmentInfoResponseParser</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="p">)</span>
         <span class="n">manifest</span><span class="p">,</span> <span class="n">expires</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">content</span><span class="p">,</span> <span class="n">license_pool</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_content</span> <span class="o">=</span> <span class="n">unicode</span><span class="p">(</span><span class="n">manifest</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_content_type</span> <span class="o">=</span> <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">FINDAWAY_DRM</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_content_type</span> <span class="o">=</span> <span class="n">manifest</span><span class="o">.</span><span class="n">MEDIA_TYPE</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_content_expires</span> <span class="o">=</span> <span class="n">expires</span></div></div>
 </pre></div>
 

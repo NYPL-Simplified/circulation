@@ -2015,32 +2015,6 @@ a patron’s credentials are verified by an OAuth provider.</p>
 <div class="section" id="module-api.axis">
 <span id="api-axis-module"></span><h2>api.axis module<a class="headerlink" href="#module-api.axis" title="Permalink to this headline">¶</a></h2>
 <dl class="class">
-<dt id="api.axis.AudiobookFulfillmentInfo">
-<em class="property">class </em><code class="descclassname">api.axis.</code><code class="descname">AudiobookFulfillmentInfo</code><span class="sig-paren">(</span><em>api</em>, <em>data_source_name</em>, <em>identifier_type</em>, <em>identifier</em>, <em>key</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/axis.html#AudiobookFulfillmentInfo"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.axis.AudiobookFulfillmentInfo" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="#api.circulation.APIAwareFulfillmentInfo" title="api.circulation.APIAwareFulfillmentInfo"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.circulation.APIAwareFulfillmentInfo</span></code></a></p>
-<p>An Axis 360-specific FulfillmentInfo implementation for audiobooks.</p>
-<p>We use these instead of real FulfillmentInfo objects because
-generating a real FulfillmentInfo object would require two extra
-HTTP requests, and there’s often no need to make those requests.</p>
-<dl class="method">
-<dt id="api.axis.AudiobookFulfillmentInfo.do_fetch">
-<code class="descname">do_fetch</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/axis.html#AudiobookFulfillmentInfo.do_fetch"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.axis.AudiobookFulfillmentInfo.do_fetch" title="Permalink to this definition">¶</a></dt>
-<dd><p>Actually make the API request.</p>
-<p>When implemented, this method must set values for some or all
-of _content_link, _content_type, _content, and
-_content_expires.</p>
-</dd></dl>
-
-</dd></dl>
-
-<dl class="class">
-<dt id="api.axis.AudiobookFulfillmentInfoResponseParser">
-<em class="property">class </em><code class="descclassname">api.axis.</code><code class="descname">AudiobookFulfillmentInfoResponseParser</code><span class="sig-paren">(</span><em>api</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/axis.html#AudiobookFulfillmentInfoResponseParser"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.axis.AudiobookFulfillmentInfoResponseParser" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="#api.axis.JSONResponseParser" title="api.axis.JSONResponseParser"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.axis.JSONResponseParser</span></code></a></p>
-<p>Parse JSON documents into Findaway audiobook manifests.</p>
-</dd></dl>
-
-<dl class="class">
 <dt id="api.axis.AudiobookMetadataParser">
 <em class="property">class </em><code class="descclassname">api.axis.</code><code class="descname">AudiobookMetadataParser</code><span class="sig-paren">(</span><em>collection</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/axis.html#AudiobookMetadataParser"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.axis.AudiobookMetadataParser" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="#api.axis.JSONResponseParser" title="api.axis.JSONResponseParser"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.axis.JSONResponseParser</span></code></a></p>
@@ -2049,7 +2023,7 @@ _content_expires.</p>
 
 <dl class="class">
 <dt id="api.axis.AvailabilityResponseParser">
-<em class="property">class </em><code class="descclassname">api.axis.</code><code class="descname">AvailabilityResponseParser</code><span class="sig-paren">(</span><em>api</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/axis.html#AvailabilityResponseParser"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.axis.AvailabilityResponseParser" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="descclassname">api.axis.</code><code class="descname">AvailabilityResponseParser</code><span class="sig-paren">(</span><em>api</em>, <em>internal_format=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/axis.html#AvailabilityResponseParser"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.axis.AvailabilityResponseParser" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="#api.axis.ResponseParser" title="api.axis.ResponseParser"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.axis.ResponseParser</span></code></a></p>
 <dl class="method">
 <dt id="api.axis.AvailabilityResponseParser.process_all">
@@ -2067,6 +2041,11 @@ _content_expires.</p>
 <dt id="api.axis.Axis360API">
 <em class="property">class </em><code class="descclassname">api.axis.</code><code class="descname">Axis360API</code><span class="sig-paren">(</span><em>_db</em>, <em>collection</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/axis.html#Axis360API"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.axis.Axis360API" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="#api.authenticator.Authenticator" title="api.authenticator.Authenticator"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.authenticator.Authenticator</span></code></a>, <a class="reference internal" href="#api.circulation.BaseCirculationAPI" title="api.circulation.BaseCirculationAPI"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.circulation.BaseCirculationAPI</span></code></a>, <a class="reference internal" href="#api.selftest.HasCollectionSelfTests" title="api.selftest.HasCollectionSelfTests"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.selftest.HasCollectionSelfTests</span></code></a></p>
+<dl class="attribute">
+<dt id="api.axis.Axis360API.AXISNOW">
+<code class="descname">AXISNOW</code><em class="property"> = 'AxisNow'</em><a class="headerlink" href="#api.axis.Axis360API.AXISNOW" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
 <dl class="attribute">
 <dt id="api.axis.Axis360API.DATE_FORMAT">
 <code class="descname">DATE_FORMAT</code><em class="property"> = '%m-%d-%Y %H:%M:%S'</em><a class="headerlink" href="#api.axis.Axis360API.DATE_FORMAT" title="Permalink to this definition">¶</a></dt>
@@ -2142,6 +2121,11 @@ _content_expires.</p>
 <code class="descname">availability_endpoint</code><em class="property"> = 'availability/v2'</em><a class="headerlink" href="#api.axis.Axis360API.availability_endpoint" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
+<dl class="attribute">
+<dt id="api.axis.Axis360API.axisnow_drm">
+<code class="descname">axisnow_drm</code><em class="property"> = 'application/vnd.librarysimplified.axisnow+json'</em><a class="headerlink" href="#api.axis.Axis360API.axisnow_drm" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
 <dl class="method">
 <dt id="api.axis.Axis360API.checkin">
 <code class="descname">checkin</code><span class="sig-paren">(</span><em>patron</em>, <em>pin</em>, <em>licensepool</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/axis.html#Axis360API.checkin"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.axis.Axis360API.checkin" title="Permalink to this definition">¶</a></dt>
@@ -2196,7 +2180,7 @@ _content_expires.</p>
 
 <dl class="attribute">
 <dt id="api.axis.Axis360API.delivery_mechanism_to_internal_format">
-<code class="descname">delivery_mechanism_to_internal_format</code><em class="property"> = {(None, u'application/vnd.librarysimplified.findaway.license+json'): 'Acoustik', (u'application/epub+zip', None): 'ePub', (u'application/epub+zip', u'application/vnd.adobe.adept+xml'): 'ePub', (u'application/pdf', None): 'PDF', (u'application/pdf', u'application/vnd.adobe.adept+xml'): 'PDF'}</em><a class="headerlink" href="#api.axis.Axis360API.delivery_mechanism_to_internal_format" title="Permalink to this definition">¶</a></dt>
+<code class="descname">delivery_mechanism_to_internal_format</code><em class="property"> = {(None, 'application/vnd.librarysimplified.axisnow+json'): 'AxisNow', (None, u'application/vnd.librarysimplified.findaway.license+json'): 'Acoustik', (u'application/epub+zip', None): 'ePub', (u'application/epub+zip', u'application/vnd.adobe.adept+xml'): 'ePub', (u'application/pdf', None): 'PDF', (u'application/pdf', u'application/vnd.adobe.adept+xml'): 'PDF'}</em><a class="headerlink" href="#api.axis.Axis360API.delivery_mechanism_to_internal_format" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -2221,7 +2205,7 @@ ExternalIntegration, and self-test status will not be stored.</p>
 
 <dl class="method">
 <dt id="api.axis.Axis360API.fulfill">
-<code class="descname">fulfill</code><span class="sig-paren">(</span><em>patron</em>, <em>pin</em>, <em>licensepool</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/axis.html#Axis360API.fulfill"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.axis.Axis360API.fulfill" title="Permalink to this definition">¶</a></dt>
+<code class="descname">fulfill</code><span class="sig-paren">(</span><em>patron</em>, <em>pin</em>, <em>licensepool</em>, <em>internal_format</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/axis.html#Axis360API.fulfill"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.axis.Axis360API.fulfill" title="Permalink to this definition">¶</a></dt>
 <dd><p>Fulfill a patron’s request for a specific book.</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
@@ -2270,7 +2254,7 @@ which are not relevant to this vendor.</td>
 
 <dl class="method">
 <dt id="api.axis.Axis360API.patron_activity">
-<code class="descname">patron_activity</code><span class="sig-paren">(</span><em>patron</em>, <em>pin</em>, <em>identifier=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/axis.html#Axis360API.patron_activity"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.axis.Axis360API.patron_activity" title="Permalink to this definition">¶</a></dt>
+<code class="descname">patron_activity</code><span class="sig-paren">(</span><em>patron</em>, <em>pin</em>, <em>identifier=None</em>, <em>internal_format=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/axis.html#Axis360API.patron_activity"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.axis.Axis360API.patron_activity" title="Permalink to this definition">¶</a></dt>
 <dd><p>Return a patron’s current checkouts and holds.</p>
 </dd></dl>
 
@@ -2501,6 +2485,49 @@ covered by this Monitor.</td>
 </dd></dl>
 
 <dl class="class">
+<dt id="api.axis.Axis360FulfillmentInfo">
+<em class="property">class </em><code class="descclassname">api.axis.</code><code class="descname">Axis360FulfillmentInfo</code><span class="sig-paren">(</span><em>api</em>, <em>data_source_name</em>, <em>identifier_type</em>, <em>identifier</em>, <em>key</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/axis.html#Axis360FulfillmentInfo"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.axis.Axis360FulfillmentInfo" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#api.circulation.APIAwareFulfillmentInfo" title="api.circulation.APIAwareFulfillmentInfo"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.circulation.APIAwareFulfillmentInfo</span></code></a></p>
+<p>An Axis 360-specific FulfillmentInfo implementation for audiobooks
+and books served through AxisNow.</p>
+<p>We use these instead of normal FulfillmentInfo objects because
+putting all this information into FulfillmentInfo would require
+one or two extra HTTP requests, and there’s often no need to make
+those requests.</p>
+<dl class="method">
+<dt id="api.axis.Axis360FulfillmentInfo.do_fetch">
+<code class="descname">do_fetch</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/axis.html#Axis360FulfillmentInfo.do_fetch"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.axis.Axis360FulfillmentInfo.do_fetch" title="Permalink to this definition">¶</a></dt>
+<dd><p>Actually make the API request.</p>
+<p>When implemented, this method must set values for some or all
+of _content_link, _content_type, _content, and
+_content_expires.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="api.axis.Axis360FulfillmentInfoResponseParser">
+<em class="property">class </em><code class="descclassname">api.axis.</code><code class="descname">Axis360FulfillmentInfoResponseParser</code><span class="sig-paren">(</span><em>api</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/axis.html#Axis360FulfillmentInfoResponseParser"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.axis.Axis360FulfillmentInfoResponseParser" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#api.axis.JSONResponseParser" title="api.axis.JSONResponseParser"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.axis.JSONResponseParser</span></code></a></p>
+<p>Parse JSON documents into Findaway audiobook manifests or AxisNow manifests.</p>
+<dl class="method">
+<dt id="api.axis.Axis360FulfillmentInfoResponseParser.parse_axisnow">
+<code class="descname">parse_axisnow</code><span class="sig-paren">(</span><em>parsed</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/axis.html#Axis360FulfillmentInfoResponseParser.parse_axisnow"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.axis.Axis360FulfillmentInfoResponseParser.parse_axisnow" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="api.axis.Axis360FulfillmentInfoResponseParser.parse_date">
+<code class="descname">parse_date</code><span class="sig-paren">(</span><em>date</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/axis.html#Axis360FulfillmentInfoResponseParser.parse_date"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.axis.Axis360FulfillmentInfoResponseParser.parse_date" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="api.axis.Axis360FulfillmentInfoResponseParser.parse_findaway">
+<code class="descname">parse_findaway</code><span class="sig-paren">(</span><em>parsed</em>, <em>license_pool</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/axis.html#Axis360FulfillmentInfoResponseParser.parse_findaway"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.axis.Axis360FulfillmentInfoResponseParser.parse_findaway" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
 <dt id="api.axis.Axis360Parser">
 <em class="property">class </em><code class="descclassname">api.axis.</code><code class="descname">Axis360Parser</code><a class="reference internal" href="_modules/api/axis.html#Axis360Parser"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.axis.Axis360Parser" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="core.util.html#core.util.xmlparser.XMLParser" title="core.util.xmlparser.XMLParser"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.util.xmlparser.XMLParser</span></code></a></p>
@@ -2552,6 +2579,19 @@ Axis 360 collection.</p>
 <code class="descname">process_items</code><span class="sig-paren">(</span><em>identifiers</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/axis.html#AxisCollectionReaper.process_items"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.axis.AxisCollectionReaper.process_items" title="Permalink to this definition">¶</a></dt>
 <dd><p>Process a list of items.</p>
 </dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="api.axis.AxisNowManifest">
+<em class="property">class </em><code class="descclassname">api.axis.</code><code class="descname">AxisNowManifest</code><span class="sig-paren">(</span><em>book_vault_uuid</em>, <em>isbn</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/axis.html#AxisNowManifest"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.axis.AxisNowManifest" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>A simple media type for conveying an entry point into the AxisNow access control
+system.</p>
+<dl class="attribute">
+<dt id="api.axis.AxisNowManifest.MEDIA_TYPE">
+<code class="descname">MEDIA_TYPE</code><em class="property"> = 'application/vnd.librarysimplified.axisnow+json'</em><a class="headerlink" href="#api.axis.AxisNowManifest.MEDIA_TYPE" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
 
 </dd></dl>
 
@@ -3410,12 +3450,12 @@ changes will be overwritten by run_once().</li>
 
 <dl class="attribute">
 <dt id="api.bibliotheca.ErrorParser.hold_limit_reached">
-<code class="descname">hold_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x57cb170&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.hold_limit_reached" title="Permalink to this definition">¶</a></dt>
+<code class="descname">hold_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x43ddf20&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.hold_limit_reached" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="api.bibliotheca.ErrorParser.loan_limit_reached">
-<code class="descname">loan_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x57d2cc0&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.loan_limit_reached" title="Permalink to this definition">¶</a></dt>
+<code class="descname">loan_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x4505780&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.loan_limit_reached" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -3430,7 +3470,7 @@ changes will be overwritten by run_once().</li>
 
 <dl class="attribute">
 <dt id="api.bibliotheca.ErrorParser.wrong_status">
-<code class="descname">wrong_status</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x57d3180&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.wrong_status" title="Permalink to this definition">¶</a></dt>
+<code class="descname">wrong_status</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x451a6e0&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.wrong_status" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -8666,7 +8706,7 @@ the patron belongs to the library associated with thie BasicAuthenticationProvid
 
 <dl class="attribute">
 <dt id="api.millenium_patron.MockMilleniumPatronAPI.the_future">
-<code class="descname">the_future</code><em class="property"> = datetime.datetime(2020, 7, 5, 16, 3, 16, 907988)</em><a class="headerlink" href="#api.millenium_patron.MockMilleniumPatronAPI.the_future" title="Permalink to this definition">¶</a></dt>
+<code class="descname">the_future</code><em class="property"> = datetime.datetime(2020, 7, 5, 17, 41, 54, 222920)</em><a class="headerlink" href="#api.millenium_patron.MockMilleniumPatronAPI.the_future" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -13938,6 +13978,11 @@ Short Client Token integration.</li>
 <dl class="attribute">
 <dt id="api.web_publication_manifest.FindawayManifest.FINDAWAY_EXTENSION_CONTEXT">
 <code class="descname">FINDAWAY_EXTENSION_CONTEXT</code><em class="property"> = 'http://librarysimplified.org/terms/third-parties/findaway.com/'</em><a class="headerlink" href="#api.web_publication_manifest.FindawayManifest.FINDAWAY_EXTENSION_CONTEXT" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.web_publication_manifest.FindawayManifest.MEDIA_TYPE">
+<code class="descname">MEDIA_TYPE</code><em class="property"> = u'application/vnd.librarysimplified.findaway.license+json'</em><a class="headerlink" href="#api.web_publication_manifest.FindawayManifest.MEDIA_TYPE" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>

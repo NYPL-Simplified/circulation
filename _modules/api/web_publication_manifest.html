@@ -37,7 +37,10 @@
 <span class="sd">&quot;&quot;&quot;</span>
 
 <span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
-<span class="kn">from</span> <span class="nn">core.model</span> <span class="kn">import</span> <span class="n">Representation</span>
+<span class="kn">from</span> <span class="nn">core.model</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">DeliveryMechanism</span><span class="p">,</span>
+    <span class="n">Representation</span><span class="p">,</span>
+<span class="p">)</span>
 <span class="kn">from</span> <span class="nn">core.util.web_publication_manifest</span> <span class="kn">import</span> <span class="n">AudiobookManifest</span>
 
 <div class="viewcode-block" id="SpineItem"><a class="viewcode-back" href="../../api.html#api.web_publication_manifest.SpineItem">[docs]</a><span class="k">class</span> <span class="nc">SpineItem</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
@@ -74,6 +77,8 @@
     <span class="c1"># This URI prefix makes it clear when we are using a term coined</span>
     <span class="c1"># by Findaway in a JSON-LD document.</span>
     <span class="n">FINDAWAY_EXTENSION_CONTEXT</span> <span class="o">=</span> <span class="s2">&quot;http://librarysimplified.org/terms/third-parties/findaway.com/&quot;</span>
+
+    <span class="n">MEDIA_TYPE</span> <span class="o">=</span> <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">FINDAWAY_DRM</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">license_pool</span><span class="p">,</span> <span class="n">accountId</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">checkoutId</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>

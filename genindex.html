@@ -782,12 +782,12 @@
 </li>
       <li><a href="api.html#module-api.lanes">api.lanes (module)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.html#module-api.local_analytics_exporter">api.local_analytics_exporter (module)</a>
 </li>
       <li><a href="api.html#module-api.marc">api.marc (module)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.html#module-api.metadata_wrangler">api.metadata_wrangler (module)</a>
 </li>
       <li><a href="api.html#module-api.millenium_patron">api.millenium_patron (module)</a>
@@ -1232,10 +1232,6 @@
 </li>
       <li><a href="core.util.html#core.util.web_publication_manifest.Manifest.AUDIOBOOK_TYPE">AUDIOBOOK_TYPE (core.util.web_publication_manifest.Manifest attribute)</a>
 </li>
-      <li><a href="api.html#api.axis.AudiobookFulfillmentInfo">AudiobookFulfillmentInfo (class in api.axis)</a>
-</li>
-      <li><a href="api.html#api.axis.AudiobookFulfillmentInfoResponseParser">AudiobookFulfillmentInfoResponseParser (class in api.axis)</a>
-</li>
       <li><a href="api.html#api.rbdigital.AudiobookManifest">AudiobookManifest (class in api.rbdigital)</a>
 
       <ul>
@@ -1486,6 +1482,10 @@
 </li>
       <li><a href="api.html#api.axis.Axis360CirculationMonitor">Axis360CirculationMonitor (class in api.axis)</a>
 </li>
+      <li><a href="api.html#api.axis.Axis360FulfillmentInfo">Axis360FulfillmentInfo (class in api.axis)</a>
+</li>
+      <li><a href="api.html#api.axis.Axis360FulfillmentInfoResponseParser">Axis360FulfillmentInfoResponseParser (class in api.axis)</a>
+</li>
       <li><a href="api.html#api.axis.Axis360Parser">Axis360Parser (class in api.axis)</a>
 </li>
       <li><a href="core.model.html#core.model.configuration.ExternalIntegration.AXIS_360">AXIS_360 (core.model.configuration.ExternalIntegration attribute)</a>
@@ -1505,6 +1505,14 @@
       <li><a href="core.html#core.config.Configuration.AXIS_INTEGRATION">AXIS_INTEGRATION (core.config.Configuration attribute)</a>
 </li>
       <li><a href="api.html#api.axis.AxisCollectionReaper">AxisCollectionReaper (class in api.axis)</a>
+</li>
+      <li><a href="api.html#api.axis.Axis360API.AXISNOW">AXISNOW (api.axis.Axis360API attribute)</a>
+</li>
+      <li><a href="api.html#api.axis.Axis360API.axisnow_drm">axisnow_drm (api.axis.Axis360API attribute)</a>
+</li>
+      <li><a href="core.model.html#core.model.licensing.DeliveryMechanism.AXISNOW_DRM">AXISNOW_DRM (core.model.licensing.DeliveryMechanism attribute)</a>
+</li>
+      <li><a href="api.html#api.axis.AxisNowManifest">AxisNowManifest (class in api.axis)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -4138,7 +4146,7 @@
 </li>
       <li><a href="core.model.html#core.model.circulationevent.CirculationEvent.DISTRIBUTOR_TITLE_REMOVE">DISTRIBUTOR_TITLE_REMOVE (core.model.circulationevent.CirculationEvent attribute)</a>
 </li>
-      <li><a href="api.html#api.axis.AudiobookFulfillmentInfo.do_fetch">do_fetch() (api.axis.AudiobookFulfillmentInfo method)</a>
+      <li><a href="api.html#api.axis.Axis360FulfillmentInfo.do_fetch">do_fetch() (api.axis.Axis360FulfillmentInfo method)</a>
 
       <ul>
         <li><a href="api.html#api.circulation.APIAwareFulfillmentInfo.do_fetch">(api.circulation.APIAwareFulfillmentInfo method)</a>
@@ -8188,6 +8196,12 @@
         <li><a href="api.admin.html#api.admin.routes.media">(in module api.admin.routes)</a>
 </li>
       </ul></li>
+      <li><a href="api.html#api.axis.AxisNowManifest.MEDIA_TYPE">MEDIA_TYPE (api.axis.AxisNowManifest attribute)</a>
+
+      <ul>
+        <li><a href="api.html#api.web_publication_manifest.FindawayManifest.MEDIA_TYPE">(api.web_publication_manifest.FindawayManifest attribute)</a>
+</li>
+      </ul></li>
       <li><a href="core.model.html#core.model.constants.MediaTypes.media_type">media_type (core.model.constants.MediaTypes attribute)</a>
 
       <ul>
@@ -8302,10 +8316,10 @@
 </li>
       <li><a href="api.html#api.metadata_wrangler.MetadataWranglerCollectionMonitor">MetadataWranglerCollectionMonitor (class in api.metadata_wrangler)</a>
 </li>
-      <li><a href="api.html#api.metadata_wrangler.MetadataWranglerCollectionReaper">MetadataWranglerCollectionReaper (class in api.metadata_wrangler)</a>
-</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api.html#api.metadata_wrangler.MetadataWranglerCollectionReaper">MetadataWranglerCollectionReaper (class in api.metadata_wrangler)</a>
+</li>
       <li><a href="api.html#api.metadata_wrangler.MetadataWranglerCollectionRegistrar">MetadataWranglerCollectionRegistrar (class in api.metadata_wrangler)</a>
 </li>
       <li><a href="core.html#core.opds_import.MetadataWranglerOPDSLookup">MetadataWranglerOPDSLookup (class in core.opds_import)</a>
@@ -9662,6 +9676,8 @@
       </ul></li>
       <li><a href="api.html#api.kansas_patron.KansasAuthenticationAPI.parse_authorize_response">parse_authorize_response() (api.kansas_patron.KansasAuthenticationAPI method)</a>
 </li>
+      <li><a href="api.html#api.axis.Axis360FulfillmentInfoResponseParser.parse_axisnow">parse_axisnow() (api.axis.Axis360FulfillmentInfoResponseParser method)</a>
+</li>
       <li><a href="core.html#core.scripts.CollectionInputScript.parse_command_line">parse_command_line() (core.scripts.CollectionInputScript class method)</a>
 
       <ul>
@@ -9684,14 +9700,18 @@
       </ul></li>
       <li><a href="api.html#api.axis.BibliographicParser.parse_contributor">parse_contributor() (api.axis.BibliographicParser class method)</a>
 </li>
-      <li><a href="api.html#api.bibliotheca.BibliothecaParser.parse_date">parse_date() (api.bibliotheca.BibliothecaParser method)</a>
+      <li><a href="api.html#api.axis.Axis360FulfillmentInfoResponseParser.parse_date">parse_date() (api.axis.Axis360FulfillmentInfoResponseParser method)</a>
 
       <ul>
+        <li><a href="api.html#api.bibliotheca.BibliothecaParser.parse_date">(api.bibliotheca.BibliothecaParser method)</a>
+</li>
         <li><a href="api.html#api.nyt.NYTAPI.parse_date">(api.nyt.NYTAPI class method)</a>
 </li>
         <li><a href="api.sip.html#api.sip.SIP2AuthenticationProvider.parse_date">(api.sip.SIP2AuthenticationProvider class method)</a>
 </li>
       </ul></li>
+      <li><a href="api.html#api.axis.Axis360FulfillmentInfoResponseParser.parse_findaway">parse_findaway() (api.axis.Axis360FulfillmentInfoResponseParser method)</a>
+</li>
       <li><a href="api.html#api.enki.EnkiAPI.parse_fulfill_result">parse_fulfill_result() (api.enki.EnkiAPI method)</a>
 </li>
       <li><a href="api.html#api.bibliotheca.ItemListParser.parse_genre_string">parse_genre_string() (api.bibliotheca.ItemListParser class method)</a>
@@ -10166,12 +10186,12 @@
 </li>
       <li><a href="core.html#core.testing.DatabaseTest.print_database_instance">print_database_instance() (core.testing.DatabaseTest method)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.sip.html#api.sip.client.named.print_line">print_line (api.sip.client.named attribute)</a>
 </li>
       <li><a href="core.html#core.selftest.HasSelfTests.prior_test_results">prior_test_results() (core.selftest.HasSelfTests class method)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="core.html#core.lane.Lane.priority">priority (core.lane.Lane attribute)</a>
 </li>
       <li><a href="api.html#api.config.Configuration.PRIVACY_POLICY">PRIVACY_POLICY (api.config.Configuration attribute)</a>
