@@ -146,6 +146,7 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasCollectionSelfTests):
     adobe_drm = DeliveryMechanism.ADOBE_DRM
     findaway_drm = DeliveryMechanism.FINDAWAY_DRM
     no_drm = DeliveryMechanism.NO_DRM
+    axisnow_drm = DeliveryMechanism.AXISNOW_DRM
 
     # The name Axis 360 gives to its web interface. We use it as the
     # name for the underlying access control system.
@@ -157,8 +158,7 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasCollectionSelfTests):
         (pdf, no_drm): 'PDF',
         (pdf, adobe_drm): 'PDF',
         (None, findaway_drm): 'Acoustik',
-        (Representation.UNZIPPED_EPUB_MEDIA_TYPE,
-         DeliveryMechanism.AXISNOW_DRM): AXISNOW
+        (None, axisnow_drm): AXISNOW,
     }
 
     def __init__(self, _db, collection):
@@ -1086,10 +1086,7 @@ class BibliographicParser(Axis360Parser):
             # Audiobooks may also be available through AxisNow, but we
             # currently ignore that fact.
             formats.append(
-                FormatData(
-                    content_type=Representation.UNZIPPED_EPUB_MEDIA_TYPE,
-                    drm_scheme=DeliveryMechanism.AXISNOW_DRM
-                )
+                FormatData(content_type=None, drm_scheme=DeliveryMechanism.AXISNOW_DRM)
             )
 
         if not formats:
@@ -1627,7 +1624,7 @@ class AxisNowManifest(object):
     system.
     """
 
-    MEDIA_TYPE = MediaTypes.AXISNOW_MANIFEST_MEDIA_TYPE
+    MEDIA_TYPE = DeliveryMechanism.AXISNOW_DRM
 
     def __init__(self, book_vault_uuid, isbn):
         """Constructor.

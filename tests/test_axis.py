@@ -974,7 +974,7 @@ class TestParsers(Axis360Test):
         eq_(Representation.EPUB_MEDIA_TYPE, adobe.content_type)
         eq_(DeliveryMechanism.ADOBE_DRM, adobe.drm_scheme)
 
-        eq_(MediaTypes.UNZIPPED_EPUB_MEDIA_TYPE, axisnow.content_type)
+        eq_(None, axisnow.content_type)
         eq_(DeliveryMechanism.AXISNOW_DRM, axisnow.drm_scheme)
 
         # The second book is only available in 'Blio' format, which
@@ -1572,7 +1572,7 @@ class TestAxis360FulfillmentInfo(Axis360Test):
 
         # The Axis360FulfillmentInfo now contains an AxisNow manifest
         # document derived from the fulfillment document.
-        eq_(MediaTypes.AXISNOW_MANIFEST_MEDIA_TYPE, fulfillment.content_type)
+        eq_(DeliveryMechanism.AXISNOW_DRM, fulfillment.content_type)
         eq_(
             u'{"book_vault_uuid": "1c11c31f-81c2-41bb-9179-491114c3f121", "isbn": "9780547351551"}',
             fulfillment.content
@@ -1595,7 +1595,7 @@ class TestAxisNowManifest(object):
             u'{"book_vault_uuid": "A UUID", "isbn": "An ISBN"}',
             unicode(manifest)
         )
-        eq_(MediaTypes.AXISNOW_MANIFEST_MEDIA_TYPE, manifest.MEDIA_TYPE)
+        eq_(DeliveryMechanism.AXISNOW_DRM, manifest.MEDIA_TYPE)
 
 
 class TestAxis360BibliographicCoverageProvider(Axis360Test):
