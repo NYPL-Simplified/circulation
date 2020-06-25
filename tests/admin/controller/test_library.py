@@ -105,15 +105,15 @@ class TestLibrarySettings(SettingsControllerTest, AnnouncementTest):
             announcements = library_settings.get(Announcements.SETTING_NAME)
             eq_(
                 [self.active['id'], self.expired['id'], self.forthcoming['id']],
-                [json.loads(x).get('id') for x in announcements]
+                [x.get('id') for x in json.loads(announcements)]
             )
 
             # The objects found in `library_settings` aren't exactly
             # the same as what is stored in the database: string dates
-            # have been parsed into datetime.date objects.
-            for i in announcements:
-                assert isinstance(i['start'], datetime.date)
-                assert isinstance(i['finish'], datetime.date)
+            # can be parsed into datetime.date objects.
+            for i in json.loads(announcements):
+                assert isinstance(datetime.datetime.strptime(i.get('start'), "%Y-%m-%d"), datetime.date)
+                assert isinstance(datetime.datetime.strptime(i.get('finish'), "%Y-%m-%d"), datetime.date)
 
     def test_libraries_get_with_multiple_libraries(self):
         # Delete any existing library created by the controller test setup.
