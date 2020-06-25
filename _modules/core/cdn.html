@@ -54,8 +54,8 @@
         <span class="k">return</span> <span class="n">url</span>
     <span class="n">scheme</span><span class="p">,</span> <span class="n">netloc</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">query</span><span class="p">,</span> <span class="n">fragment</span> <span class="o">=</span> <span class="n">urlparse</span><span class="o">.</span><span class="n">urlsplit</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
 
-    <span class="k">if</span> <span class="n">netloc</span> <span class="o">==</span> <span class="s1">&#39;s3.amazonaws.com&#39;</span><span class="p">:</span>
-        <span class="c1"># This is a URL like &quot;http://s3.amazonaws.com/bucket/foo&quot;.</span>
+    <span class="k">if</span> <span class="n">netloc</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s1">&#39;amazonaws.com&#39;</span><span class="p">):</span>
+        <span class="c1"># This is a URL like &quot;http://bucket.s3.region.amazonaws.com/foo&quot;.</span>
         <span class="c1"># It&#39;s equivalent to &quot;http://bucket/foo&quot;.</span>
         <span class="c1"># i.e. treat the bucket name as the netloc.</span>
         <span class="c1">#</span>
