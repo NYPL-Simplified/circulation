@@ -217,7 +217,7 @@ class TestBaseCoverageProvider(CoverageProviderTest):
         # timing information, since run_once_and_update_timestamp()
         # didn't provide anything.
         assert isinstance(result, CoverageProviderProgress)
-        now = datetime.datetime.now()
+        now = datetime.datetime.utcnow()
         assert result.start < result.finish
         for time in (result.start, result.finish):
             assert (now - time).total_seconds() < 5
@@ -2082,7 +2082,7 @@ class TestWorkCoverageProvider(DatabaseTest):
             self._db, service_name,
             service_type=Timestamp.COVERAGE_PROVIDER_TYPE, collection=None
         )
-        assert (datetime.datetime.now()-value).total_seconds() < 2
+        assert (datetime.datetime.utcnow()-value).total_seconds() < 2
 
     def test_persistent_failure(self):
         class MockProvider(NeverSuccessfulWorkCoverageProvider):
@@ -2108,7 +2108,7 @@ class TestWorkCoverageProvider(DatabaseTest):
             self._db, service_name,
             service_type=Timestamp.COVERAGE_PROVIDER_TYPE, collection=None
         )
-        assert (datetime.datetime.now()-value).total_seconds() < 2
+        assert (datetime.datetime.utcnow()-value).total_seconds() < 2
 
     def test_items_that_need_coverage(self):
         # Here's a WorkCoverageProvider.

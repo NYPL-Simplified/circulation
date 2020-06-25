@@ -6,11 +6,14 @@ psycopg2
 requests>=2.18.4
 sqlalchemy>=1.2.0
 nose
+parameterized
+mock>=3.0.5
 lxml
 flask
 isbnlib
 rdflib
 pyspellchecker
+enum34
 
 elasticsearch>6.0.0,<7.0.0
 elasticsearch-dsl>6.0.0,<7.0.0
@@ -18,7 +21,6 @@ elasticsearch-dsl>6.0.0,<7.0.0
 python-dateutil
 uwsgi
 loggly-python-handler
-mock
 py-bcrypt
 Flask-Babel
 money

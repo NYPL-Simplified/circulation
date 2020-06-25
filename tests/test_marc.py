@@ -59,7 +59,7 @@ class TestAnnotator(DatabaseTest):
         record = Record()
         work = self._work(with_license_pool=True)
         pool = work.license_pools[0]
-        
+
         annotator.annotate_work_record(work, pool, None, None, record)
         eq_([record, pool], annotator.add_distributor_called_with)
         eq_([record, pool], annotator.add_formats_called_with)
@@ -94,7 +94,7 @@ class TestAnnotator(DatabaseTest):
 
         now = datetime.datetime.now()
         record = Record()
-        
+
         Annotator.add_control_fields(record, identifier, pool, edition)
         self._check_control_field(record, "001", identifier.urn)
         assert now.strftime("%Y%m%d") in record.get_fields("005")[0].value()
@@ -508,7 +508,7 @@ class TestMARCExporter(DatabaseTest):
         # If there's a storage protocol but not corresponding storage integration,
         # it raises an exception.
         assert_raises(Exception, exporter.records, lane, annotator)
-        
+
         # If there is a storage integration, the output file is mirrored.
         mirror_integration = self._external_integration(
             ExternalIntegration.S3, ExternalIntegration.STORAGE_GOAL,
@@ -526,10 +526,10 @@ class TestMARCExporter(DatabaseTest):
         eq_(lane, cache.lane)
         eq_(mirror.uploaded[0], cache.representation)
         eq_(None, cache.representation.content)
-        eq_("https://s3.amazonaws.com/test.marc.bucket/%s/%s/%s.mrc" % (
-                self._default_library.short_name,
-                urllib.quote_plus(str(cache.representation.fetched_at)),
-                urllib.quote_plus(lane.display_name)),
+        eq_("https://test-marc-bucket.s3.amazonaws.com/%s/%s/%s.mrc" % (
+            self._default_library.short_name,
+            urllib.quote(str(cache.representation.fetched_at)),
+            urllib.quote(lane.display_name)),
             mirror.uploaded[0].mirror_url)
         eq_(None, cache.start_time)
         assert cache.end_time > now
@@ -563,10 +563,10 @@ class TestMARCExporter(DatabaseTest):
         eq_(None, cache.lane)
         eq_(mirror.uploaded[0], cache.representation)
         eq_(None, cache.representation.content)
-        eq_("https://s3.amazonaws.com/test.marc.bucket/%s/%s/%s.mrc" % (
-                self._default_library.short_name,
-                urllib.quote_plus(str(cache.representation.fetched_at)),
-                urllib.quote_plus(worklist.display_name)),
+        eq_("https://test-marc-bucket.s3.amazonaws.com/%s/%s/%s.mrc" % (
+            self._default_library.short_name,
+            urllib.quote(str(cache.representation.fetched_at)),
+            urllib.quote(worklist.display_name)),
             mirror.uploaded[0].mirror_url)
         eq_(None, cache.start_time)
         assert cache.end_time > now
@@ -597,10 +597,10 @@ class TestMARCExporter(DatabaseTest):
         eq_(lane, cache.lane)
         eq_(mirror.uploaded[0], cache.representation)
         eq_(None, cache.representation.content)
-        eq_("https://s3.amazonaws.com/test.marc.bucket/%s/%s-%s/%s.mrc" % (
-                self._default_library.short_name, urllib.quote_plus(str(start_time)), 
-                urllib.quote_plus(str(cache.representation.fetched_at)),
-                urllib.quote_plus(lane.display_name)),
+        eq_("https://test-marc-bucket.s3.amazonaws.com/%s/%s-%s/%s.mrc" % (
+            self._default_library.short_name, urllib.quote(str(start_time)),
+            urllib.quote(str(cache.representation.fetched_at)),
+            urllib.quote(lane.display_name)),
             mirror.uploaded[0].mirror_url)
         eq_(start_time, cache.start_time)
         assert cache.end_time > now
@@ -629,7 +629,6 @@ class TestMARCExporter(DatabaseTest):
 
 class TestMARCExporterFacets(object):
     def test_modify_search_filter(self):
-
         # A facet object.
         facets = MARCExporterFacets("some start time")
 
