@@ -977,9 +977,11 @@ class TestParsers(Axis360Test):
         eq_(None, axisnow.content_type)
         eq_(DeliveryMechanism.AXISNOW_DRM, axisnow.drm_scheme)
 
-        # The second book is only available in 'Blio' format, which
-        # we can't use.
-        eq_([], bib2.circulation.formats)
+        # The second book is available in 'Blio' format, which
+        # is treated as an alternate name for 'AxisNow'
+        [axisnow] = bib2.circulation.formats
+        eq_(None, axisnow.content_type)
+        eq_(DeliveryMechanism.AXISNOW_DRM, axisnow.drm_scheme)
 
     def test_bibliographic_parser_audiobook(self):
         # TODO - we need a real example to test from. The example we were
@@ -1002,15 +1004,42 @@ class TestParsers(Axis360Test):
         # way it would have been for an ebook.
         assert '<formatName>AxisNow</formatName>' in data
 
-    def test_bibliographic_parser_unsupported_format(self):
+    def test_bibliographic_parser_blio_format(self):
+        # This book is available as 'Blio' but not 'AxisNow'.
+        data = self.sample_data("availability_with_audiobook_fulfillment.xml")
+        data = data.replace('Acoustik', 'Blio')
+        data = data.replace('AxisNow', 'No Such Format')
+
+        [[bib, av]] = BibliographicParser(False, True).process_all(data)
+
+        # A book in Blio format is treated as an AxisNow ebook.
+        eq_(Edition.BOOK_MEDIUM, bib.medium)
+        [axisnow] = bib.circulation.formats
+        eq_(None, axisnow.content_type)
+        eq_(DeliveryMechanism.AXISNOW_DRM, axisnow.drm_scheme)
+
+    def test_bibliographic_parser_blio_and_axisnow_format(self):
+        # This book is available as both 'Blio' and 'AxisNow'.
         data = self.sample_data("availability_with_audiobook_fulfillment.xml")
         data = data.replace('Acoustik', 'Blio')
 
         [[bib, av]] = BibliographicParser(False, True).process_all(data)
 
-        # We don't support the Blio format, but we know Blio titles
-        # are ebooks, not audiobooks.
+        # There is only one FormatData -- 'Blio' and 'AxisNow' mean the same thing.
         eq_(Edition.BOOK_MEDIUM, bib.medium)
+        [axisnow] = bib.circulation.formats
+        eq_(None, axisnow.content_type)
+        eq_(DeliveryMechanism.AXISNOW_DRM, axisnow.drm_scheme)
+
+    def test_bibliographic_parser_unsupported_format(self):
+        data = self.sample_data("availability_with_audiobook_fulfillment.xml")
+        data = data.replace('Acoustik', 'No Such Format 1')
+        data = data.replace('AxisNow', 'No Such Format 2')
+
+        [[bib, av]] = BibliographicParser(False, True).process_all(data)
+
+        # We don't support any of the formats, so no FormatData objects were created.
+        eq_([], bib.circulation.formats)
 
     def test_parse_author_role(self):
         """Suffixes on author names are turned into roles."""
