@@ -1397,6 +1397,7 @@ class DeliveryMechanism(Base, HasFullTableCache):
     NO_DRM = None
     ADOBE_DRM = u"application/vnd.adobe.adept+xml"
     FINDAWAY_DRM = u"application/vnd.librarysimplified.findaway.license+json"
+    AXISNOW_DRM = "application/vnd.librarysimplified.axisnow+json"
     KINDLE_DRM = u"Kindle DRM"
     NOOK_DRM = u"Nook DRM"
     STREAMING_DRM = u"Streaming"
