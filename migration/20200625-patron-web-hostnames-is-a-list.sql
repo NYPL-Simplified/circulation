@@ -1,0 +1,1 @@
+update configurationsettings set value=concat('["', value, '"]') where key='patron_web_hostnames' and value is not null;
