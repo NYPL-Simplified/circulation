@@ -1076,14 +1076,14 @@ class TestDirectoryImportScript(DatabaseTest):
         # thumbnail.
         eq_("A book", work.title)
         assert work.cover_full_url.endswith(
-            '/test.cover.bucket/Gutenberg/Gutenberg+ID/1003/1003.jpg'
+            'test-cover-bucket.s3.amazonaws.com/Gutenberg/Gutenberg%20ID/1003/1003.jpg'
         )
         assert work.cover_thumbnail_url.endswith(
-            '/test.cover.bucket/scaled/300/Gutenberg/Gutenberg+ID/1003/1003.png'
+            'test-cover-bucket.s3.amazonaws.com/scaled/300/Gutenberg/Gutenberg%20ID/1003/1003.png'
         )
         [pool] = work.license_pools
         assert pool.open_access_download_url.endswith(
-            '/test.content.bucket/Gutenberg/Gutenberg+ID/1003/A+book.epub'
+            'test-content-bucket.s3.amazonaws.com/Gutenberg/Gutenberg%20ID/1003/A%20book.epub'
         )
 
         eq_(RightsStatus.CC0,
@@ -1238,7 +1238,7 @@ class TestDirectoryImportScript(DatabaseTest):
         [link] = circulation.links
         eq_(Hyperlink.OPEN_ACCESS_DOWNLOAD, link.rel)
         assert link.href.endswith(
-            '/test.content.bucket/Gutenberg/Gutenberg+ID/2345/Name+of+book.epub'
+            'test-content-bucket.s3.amazonaws.com/Gutenberg/Gutenberg%20ID/2345/Name%20of%20book.epub'
         )
         eq_(Representation.EPUB_MEDIA_TYPE, link.media_type)
         eq_("I'm an EPUB.", link.content)
@@ -1280,7 +1280,7 @@ class TestDirectoryImportScript(DatabaseTest):
         link = script.load_cover_link(*args)
         eq_(Hyperlink.IMAGE, link.rel)
         assert link.href.endswith(
-            '/test.cover.bucket/Gutenberg/Gutenberg+ID/2345/2345.jpg'
+            '/test-cover-bucket.s3.amazonaws.com/Gutenberg/Gutenberg%20ID/2345/2345.jpg'
         )
         eq_(Representation.JPEG_MEDIA_TYPE, link.media_type)
         eq_("I'm an image.", link.content)

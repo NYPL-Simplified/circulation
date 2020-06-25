@@ -291,7 +291,7 @@ class TestFeedbooksOPDSImporter(DatabaseTest):
         # into a LicensePoolDeliveryMechanism. The other formats were
         # ignored.
         [mechanism] = pool.delivery_mechanisms
-        eq_('https://s3.amazonaws.com/test.content.bucket/FeedBooks/URI/http%3A%2F%2Fwww.feedbooks.com%2Fbook%2F677/Discourse+on+the+Method.epub',
+        eq_('https://s3.amazonaws.com/test-content-bucket/FeedBooks/URI/http%3A%2F%2Fwww.feedbooks.com%2Fbook%2F677/Discourse+on+the+Method.epub',
             mechanism.resource.representation.mirror_url
         )
         eq_(u'application/epub+zip', mechanism.delivery_mechanism.content_type)
