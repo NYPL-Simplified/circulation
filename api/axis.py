@@ -1345,7 +1345,9 @@ class AvailabilityResponseParser(ResponseParser):
            availability document triggers additional API requests.
 
         :param internal_format: The name Axis 360 gave to the format
-           the user requested. Used to distinguish a request for 
+           the user requested. Used to distinguish books
+           checked out through the AxisNow Book Vault from books checked
+           out through ACS.
         """
         self.api = api
         self.internal_format = internal_format
@@ -1401,16 +1403,18 @@ class AvailabilityResponseParser(ResponseParser):
                     **kwargs
                 )
             elif transaction_id:
-                # If this is an audiobook, we'll need to make two more
-                # requests: the first to get the Findaway content ID,
-                # license ID, and session key; the second to get the
-                # audiobook metadata.
+                # We will eventually need to make a request to the
+                # "getfulfillmentInfo" endpoint, using this
+                # transaction ID.
                 #
-                # If this is an ebook being delivered in AxisNow
-                # format, we'll need to make one more request, to get
-                # the Book Vault UUID and ISBN.
+                # For a book delivered in AxisNow format, this will give
+                # us the Book Vault UUID and ISBN.
                 #
-                # Fortunately, we have a transaction ID, and
+                # For an audiobook, this will give us the Findaway
+                # content ID, license ID, and session key. We'll also
+                # need to make a second request to get the audiobook
+                # metadata.
+                #
                 # Axis360FulfillmentInfo can handle both cases.
                 fulfillment = Axis360FulfillmentInfo(
                     api=self.api, key=transaction_id, **kwargs
