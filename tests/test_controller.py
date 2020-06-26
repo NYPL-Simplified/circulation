@@ -504,6 +504,12 @@ class TestCirculationManager(CirculationControllerTest):
         self.manager.load_settings()
         eq_(set(["*", "http://registration"]), manager.patron_web_domains)
 
+        # The sitewide patron web domain can have pipe separated domains, and will get spaces stripped
+        ConfigurationSetting.sitewide(
+            self._db, Configuration.PATRON_WEB_HOSTNAMES).value = "https://1.com|http://2.com |  http://subdomain.3.com|4.com"
+        self.manager.load_settings()
+        eq_(set(["https://1.com", "http://2.com",  "http://subdomain.3.com", "http://registration"]), manager.patron_web_domains)
+
         # Restore the CustomIndexView.for_library implementation
         CustomIndexView.for_library = old_for_library
 
