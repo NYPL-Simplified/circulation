@@ -173,7 +173,7 @@ class Configuration(CoreConfiguration):
     SITEWIDE_SETTINGS = CoreConfiguration.SITEWIDE_SETTINGS + [
         {
             "key": BEARER_TOKEN_SIGNING_SECRET,
-            "label": _("Internal signing secret for OAuth bearer tokens"),
+            "label": _("Internal signing secret for OAuth and SAML bearer tokens"),
             "required": True,
         },
         {
