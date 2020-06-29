@@ -2,7 +2,10 @@
 """
 
 from nose.tools import set_trace
-from core.model import Representation
+from core.model import (
+    DeliveryMechanism,
+    Representation,
+)
 from core.util.web_publication_manifest import AudiobookManifest
 
 class SpineItem(object):
@@ -39,6 +42,8 @@ class FindawayManifest(AudiobookManifest):
     # This URI prefix makes it clear when we are using a term coined
     # by Findaway in a JSON-LD document.
     FINDAWAY_EXTENSION_CONTEXT = "http://librarysimplified.org/terms/third-parties/findaway.com/"
+
+    MEDIA_TYPE = DeliveryMechanism.FINDAWAY_DRM
 
     def __init__(
         self, license_pool, accountId=None, checkoutId=None,
