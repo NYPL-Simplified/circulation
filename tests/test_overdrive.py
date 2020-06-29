@@ -1215,6 +1215,86 @@ class TestOverdriveAPI(OverdriveAPITest):
         eq_("false", payload['password_required'])
         eq_("[ignore]", payload['password'])
 
+
+class TestOverdriveAPICredentials(OverdriveAPITest):
+
+    def test_patron_correct_credentials_for_multiple_overdrive_collections(self):
+        # Verify that the correct credential will be used
+        # when a library has more than one OverDrive collection.
+
+        def _optional_value(self, obj, key):
+            return obj.get(key, 'none')
+
+        def _make_token(scope, username, password, grant_type='password'):
+            return u'%s|%s|%s|%s' % (grant_type, scope, username, password)
+
+        class MockAPI(MockOverdriveAPI):
+
+            def token_post(self, url, payload, headers={}, **kwargs):
+                url = self.endpoint(url)
+                self.access_token_requests.append((url, payload, headers, kwargs))
+                token = _make_token(
+                    _optional_value(self, payload, 'scope'),
+                    _optional_value(self, payload, 'username'),
+                    _optional_value(self, payload, 'password'),
+                    grant_type=_optional_value(self, payload, 'grant_type'),
+                )
+                response = self.mock_access_token_response(token)
+
+                from core.util.http import HTTP
+                return HTTP._process_response(url, response, **kwargs)
+
+        library = self._default_library
+        patron = self._patron(library=library)
+        patron.authorization_identifier = "patron_barcode"
+        pin = "patron_pin"
+
+        # clear out any collections added before we add ours
+        library.collections = []
+
+        # Distinct credentials for the two OverDrive collections in which our
+        # library has membership.
+        library_collection_properties = [
+            dict(
+                library=library, name="Test OD Collection 1",
+                client_key="client_key_1", client_secret="client_secret_1",
+                library_id="lib_id_1", website_id="ws_id_1", ils_name="lib1_coll1_ils"
+            ),
+            dict(
+                library=library, name="Test OD Collection 2",
+                client_key="client_key_2", client_secret="client_secret_2",
+                library_id="lib_id_2", website_id="ws_id_2", ils_name="lib1_coll2_ils"
+            )
+        ]
+
+        # These are the credentials we'll expect for each of our collections.
+        expected_credentials = {
+            props['name']: _make_token(
+                'websiteid:%s authorizationname:%s' % (props['website_id'], props['ils_name']),
+                patron.authorization_identifier, pin,
+            )
+            for props in library_collection_properties
+        }
+
+        # Add the collections.
+        collections = [MockAPI.mock_collection(self._db, **props)
+                       for props in library_collection_properties]
+
+        circulation = CirculationAPI(
+            self._db, library, api_map={ExternalIntegration.OVERDRIVE: MockAPI}
+        )
+        od_apis = {api.collection.name: api
+                   for api in circulation.api_for_collection.values()}
+
+        # Ensure that we have the correct number of OverDrive collections.
+        eq_(len(library_collection_properties), len(od_apis))
+
+        # Verify that the expected credentials match what we got.
+        for name in expected_credentials.keys() + list(reversed(expected_credentials.keys())):
+            credential = od_apis[name].get_patron_credential(patron, pin)
+            eq_(expected_credentials[name], credential.credential)
+
+
 class TestExtractData(OverdriveAPITest):
 
     def test_get_download_link(self):
