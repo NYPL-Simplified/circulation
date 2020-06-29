@@ -445,7 +445,7 @@ class TestCirculationManager(CirculationControllerTest):
         # We also set up some patron web client settings that will
         # be loaded.
         ConfigurationSetting.sitewide(
-            self._db, Configuration.PATRON_WEB_HOSTNAMES).value = json.dumps(["http://sitewide/1234"])
+            self._db, Configuration.PATRON_WEB_HOSTNAMES).value = "http://sitewide/1234"
         registry = self._external_integration(
             protocol="some protocol", goal=ExternalIntegration.DISCOVERY_GOAL
         )
@@ -500,9 +500,15 @@ class TestCirculationManager(CirculationControllerTest):
 
         # The sitewide patron web domain can also be set to *.
         ConfigurationSetting.sitewide(
-            self._db, Configuration.PATRON_WEB_HOSTNAMES).value = json.dumps(["*"])
+            self._db, Configuration.PATRON_WEB_HOSTNAMES).value = "*"
         self.manager.load_settings()
         eq_(set(["*", "http://registration"]), manager.patron_web_domains)
+
+        # The sitewide patron web domain can have pipe separated domains, and will get spaces stripped
+        ConfigurationSetting.sitewide(
+            self._db, Configuration.PATRON_WEB_HOSTNAMES).value = "https://1.com|http://2.com |  http://subdomain.3.com|4.com"
+        self.manager.load_settings()
+        eq_(set(["https://1.com", "http://2.com",  "http://subdomain.3.com", "http://registration"]), manager.patron_web_domains)
 
         # Restore the CustomIndexView.for_library implementation
         CustomIndexView.for_library = old_for_library
