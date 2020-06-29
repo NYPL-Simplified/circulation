@@ -534,24 +534,30 @@ class OverdriveAPI(object):
 class MockOverdriveAPI(OverdriveAPI):
 
     @classmethod
-    def mock_collection(self, _db):
+    def mock_collection(self, _db, library=None,
+                        name="Test Overdrive Collection",
+                        client_key=u"a", client_secret=u"b",
+                        library_id=u"c", website_id="d",
+                        ils_name="e",
+                        ):
         """Create a mock Overdrive collection for use in tests."""
-        library = DatabaseTest.make_default_library(_db)
+        if library is None:
+            library = DatabaseTest.make_default_library(_db)
         collection, ignore = get_one_or_create(
             _db, Collection,
-                name="Test Overdrive Collection",
+                name=name,
                 create_method_kwargs=dict(
-                    external_account_id=u'c'
+                    external_account_id=library_id
                 )
             )
         integration = collection.create_external_integration(
             protocol=ExternalIntegration.OVERDRIVE
         )
-        integration.username = u'a'
-        integration.password = u'b'
-        integration.set_setting('website_id', 'd')
+        integration.username = client_key
+        integration.password = client_secret
+        integration.set_setting('website_id', website_id)
         library.collections.append(collection)
-        OverdriveAPI.ils_name_setting(_db, collection, library).value = 'e'
+        OverdriveAPI.ils_name_setting(_db, collection, library).value = ils_name
         return collection
 
     def __init__(self, _db, collection, *args, **kwargs):
