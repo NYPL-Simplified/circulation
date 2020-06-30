@@ -288,7 +288,6 @@ class TestLibrarySettings(SettingsControllerTest, AnnouncementTest):
                 (Configuration.LIBRARY_SERVICE_AREA, ['06759', 'everywhere', 'MD', 'Boston, MA']),
                 (Configuration.LIBRARY_FOCUS_AREA, ['Manitoba', 'Broward County, FL', 'QC']),
                 (Announcements.SETTING_NAME, json.dumps([self.active, self.forthcoming])),
-                # (Announcements.SETTING_NAME, [json.dumps(x) for x in [self.active, self.forthcoming]]),
                 (Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, "email@example.com"),
                 (Configuration.HELP_EMAIL, "help@example.com"),
                 (Configuration.FEATURED_LANE_SIZE, "5"),
@@ -639,7 +638,7 @@ class TestLibrarySettings(SettingsControllerTest, AnnouncementTest):
 
         eq_(
             'validated value',
-            m(library, dict(key="announcement_list", type="announcements"), validator)
+            m(library, dict(key="announcement_list", format="announcements"), validator)
         )
         eq_(json.dumps(controller.announcement_list), validator.called_with)
 
