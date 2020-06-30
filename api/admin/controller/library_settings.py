@@ -163,8 +163,10 @@ class LibrarySettingsController(SettingsController):
             )
 
     def check_web_color_contrast(self, settings):
-        """Verify that the web primary color and web secondary
-        color go together.
+        """
+        Verify that the web primary and secondary color both contrast
+        well on white, as these colors will serve as button backgrounds with
+        white test, as well as text color on white backgrounds.
         """
         primary = flask.request.form.get(Configuration.WEB_PRIMARY_COLOR, Configuration.DEFAULT_WEB_PRIMARY_COLOR)
         secondary = flask.request.form.get(Configuration.WEB_SECONDARY_COLOR, Configuration.DEFAULT_WEB_SECONDARY_COLOR)
