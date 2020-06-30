@@ -130,8 +130,8 @@ class TestS3Uploader(S3UploaderTest):
 
     def test_empty_string(self):
         # Arrange
-        username = ''
-        password = ''
+        username = 'username'
+        password = 'password'
         settings = {'username': username, 'password': password}
         integration = self._external_integration(
             ExternalIntegration.S3, goal=ExternalIntegration.STORAGE_GOAL, settings=settings
