@@ -371,14 +371,6 @@ class TestLibraryAnnotator(VendorIDTest):
         for rel, value in link_config.iteritems():
             ConfigurationSetting.for_library(rel, self._default_library).value = value
 
-        # Set up settings for navigation links.
-        ConfigurationSetting.for_library(
-            Configuration.WEB_HEADER_LINKS, self._default_library
-        ).value = json.dumps(["http://example.com/1", "http://example.com/2"])
-        ConfigurationSetting.for_library(
-            Configuration.WEB_HEADER_LABELS, self._default_library
-        ).value = json.dumps(["one", "two"])
-
         self.annotator.add_configuration_links(mock_feed)
 
         # Ten links were added to the "feed"

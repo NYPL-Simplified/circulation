@@ -137,7 +137,6 @@ class LibrarySettingsController(SettingsController):
         validations = [
             self.check_for_missing_fields,
             self.check_web_color_contrast,
-            self.check_header_links,
             self.validate_formats
         ]
         for validation in validations:
@@ -176,14 +175,6 @@ class LibrarySettingsController(SettingsController):
             return INVALID_CONFIGURATION_OPTION.detailed(
                 _("The web background and foreground colors don't have enough contrast to pass the WCAG 2.0 AA guidelines and will be difficult for some patrons to read. Check contrast <a href='%(contrast_check_url)s' target='_blank'>here</a>.",
                   contrast_check_url=contrast_check_url))
-
-    def check_header_links(self, settings):
-        """Verify that header links and labels are the same length."""
-        header_links = flask.request.form.getlist(Configuration.WEB_HEADER_LINKS)
-        header_labels = flask.request.form.getlist(Configuration.WEB_HEADER_LABELS)
-        if len(header_links) != len(header_labels):
-            return INVALID_CONFIGURATION_OPTION.detailed(
-                _("There must be the same number of web header links and web header labels."))
 
     def get_library_from_uuid(self, library_uuid):
         if library_uuid:

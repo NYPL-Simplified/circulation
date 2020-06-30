@@ -946,15 +946,6 @@ class LibraryAnnotator(CirculationManagerAnnotator):
                 d = dict(href=setting.value, type="text/html", rel=rel)
                 _add_link(d)
 
-        navigation_urls = ConfigurationSetting.for_library(
-            Configuration.WEB_HEADER_LINKS, self.library).json_value
-        if navigation_urls:
-            navigation_labels = ConfigurationSetting.for_library(
-                Configuration.WEB_HEADER_LABELS, self.library).json_value
-            for (url, label) in zip(navigation_urls, navigation_labels):
-                d = dict(href=url, title=label, type="text/html", rel="related", role="navigation")
-                _add_link(d)
-
         for type, value in Configuration.help_uris(self.library):
             d = dict(href=value, rel="help")
             if type:

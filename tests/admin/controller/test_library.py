@@ -212,9 +212,6 @@ class TestLibrarySettings(SettingsControllerTest):
                 (Configuration.WEBSITE_URL, "https://library.library/"),
                 (Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, "email@example.com"),
                 (Configuration.HELP_EMAIL, "help@example.com"),
-                (Configuration.WEB_HEADER_LINKS, "http://library.com/1"),
-                (Configuration.WEB_HEADER_LINKS, "http://library.com/2"),
-                (Configuration.WEB_HEADER_LABELS, "One"),
             ])
             response = self.manager.admin_library_settings_controller.process_post()
             eq_(response.uri, INVALID_CONFIGURATION_OPTION.uri)
