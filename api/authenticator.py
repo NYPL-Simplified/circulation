@@ -1096,7 +1096,7 @@ class LibraryAuthenticator(object):
             Configuration.WEB_PRIMARY_COLOR, library).value
         secondary = ConfigurationSetting.for_library(
             Configuration.WEB_SECONDARY_COLOR, library).value
-        if background or foreground:
+        if primary or secondary:
             doc["web_color_scheme"] = dict(primary=primary, secondary=secondary)
 
         # Add the description of the library as the OPDS feed's
