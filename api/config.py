@@ -225,7 +225,7 @@ class Configuration(CoreConfiguration):
             "label": _("Scheduled announcements"),
             "description": _("Announcements will be displayed to authenticated patrons."),
             "category": "Announcements",
-            "format": "announcements"
+            "type": "announcements"
         },
         {
             "key": HELP_EMAIL,

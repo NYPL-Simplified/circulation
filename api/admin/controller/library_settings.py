@@ -58,8 +58,6 @@ class LibrarySettingsController(SettingsController):
                     value = ConfigurationSetting.for_library(setting.get("key"), library).json_value
                     if value and setting.get("format") == "geographic":
                         value = self.get_extra_geographic_information(value)
-                    # if value and setting.get("format") == "announcements":
-                    #     value = AnnouncementListValidator().validate_announcements(value)
                 else:
                     value = self.current_value(setting, library)
 
@@ -320,7 +318,11 @@ class LibrarySettingsController(SettingsController):
         else:
             # Allow any entered values.
             value = []
-            inputs = flask.request.form.getlist(setting.get("key")) if setting.get("type") == "list" else flask.request.form.get(setting.get("key"))
+            if setting.get("type") == "list":
+                inputs = flask.request.form.getlist(setting.get("key"))
+            else:
+                inputs = flask.request.form.get(setting.get("key"))
+
             if json_objects and inputs:
                 inputs = json.loads(inputs)
             if inputs:

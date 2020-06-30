@@ -639,7 +639,7 @@ class TestLibrarySettings(SettingsControllerTest, AnnouncementTest):
 
         eq_(
             'validated value',
-            m(library, dict(key="announcement_list", format="announcements"), validator)
+            m(library, dict(key="announcement_list", type="announcements"), validator)
         )
         eq_(json.dumps(controller.announcement_list), validator.called_with)
 
