@@ -569,24 +569,30 @@
 <div class="viewcode-block" id="MockOverdriveAPI"><a class="viewcode-back" href="../../core.html#core.overdrive.MockOverdriveAPI">[docs]</a><span class="k">class</span> <span class="nc">MockOverdriveAPI</span><span class="p">(</span><span class="n">OverdriveAPI</span><span class="p">):</span>
 
 <div class="viewcode-block" id="MockOverdriveAPI.mock_collection"><a class="viewcode-back" href="../../core.html#core.overdrive.MockOverdriveAPI.mock_collection">[docs]</a>    <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">mock_collection</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">mock_collection</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">library</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                        <span class="n">name</span><span class="o">=</span><span class="s2">&quot;Test Overdrive Collection&quot;</span><span class="p">,</span>
+                        <span class="n">client_key</span><span class="o">=</span><span class="sa">u</span><span class="s2">&quot;a&quot;</span><span class="p">,</span> <span class="n">client_secret</span><span class="o">=</span><span class="sa">u</span><span class="s2">&quot;b&quot;</span><span class="p">,</span>
+                        <span class="n">library_id</span><span class="o">=</span><span class="sa">u</span><span class="s2">&quot;c&quot;</span><span class="p">,</span> <span class="n">website_id</span><span class="o">=</span><span class="s2">&quot;d&quot;</span><span class="p">,</span>
+                        <span class="n">ils_name</span><span class="o">=</span><span class="s2">&quot;e&quot;</span><span class="p">,</span>
+                        <span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Create a mock Overdrive collection for use in tests.&quot;&quot;&quot;</span>
-        <span class="n">library</span> <span class="o">=</span> <span class="n">DatabaseTest</span><span class="o">.</span><span class="n">make_default_library</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">library</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">library</span> <span class="o">=</span> <span class="n">DatabaseTest</span><span class="o">.</span><span class="n">make_default_library</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
         <span class="n">collection</span><span class="p">,</span> <span class="n">ignore</span> <span class="o">=</span> <span class="n">get_one_or_create</span><span class="p">(</span>
             <span class="n">_db</span><span class="p">,</span> <span class="n">Collection</span><span class="p">,</span>
-                <span class="n">name</span><span class="o">=</span><span class="s2">&quot;Test Overdrive Collection&quot;</span><span class="p">,</span>
+                <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
                 <span class="n">create_method_kwargs</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span>
-                    <span class="n">external_account_id</span><span class="o">=</span><span class="sa">u</span><span class="s1">&#39;c&#39;</span>
+                    <span class="n">external_account_id</span><span class="o">=</span><span class="n">library_id</span>
                 <span class="p">)</span>
             <span class="p">)</span>
         <span class="n">integration</span> <span class="o">=</span> <span class="n">collection</span><span class="o">.</span><span class="n">create_external_integration</span><span class="p">(</span>
             <span class="n">protocol</span><span class="o">=</span><span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">OVERDRIVE</span>
         <span class="p">)</span>
-        <span class="n">integration</span><span class="o">.</span><span class="n">username</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;a&#39;</span>
-        <span class="n">integration</span><span class="o">.</span><span class="n">password</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;b&#39;</span>
-        <span class="n">integration</span><span class="o">.</span><span class="n">set_setting</span><span class="p">(</span><span class="s1">&#39;website_id&#39;</span><span class="p">,</span> <span class="s1">&#39;d&#39;</span><span class="p">)</span>
+        <span class="n">integration</span><span class="o">.</span><span class="n">username</span> <span class="o">=</span> <span class="n">client_key</span>
+        <span class="n">integration</span><span class="o">.</span><span class="n">password</span> <span class="o">=</span> <span class="n">client_secret</span>
+        <span class="n">integration</span><span class="o">.</span><span class="n">set_setting</span><span class="p">(</span><span class="s1">&#39;website_id&#39;</span><span class="p">,</span> <span class="n">website_id</span><span class="p">)</span>
         <span class="n">library</span><span class="o">.</span><span class="n">collections</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">collection</span><span class="p">)</span>
-        <span class="n">OverdriveAPI</span><span class="o">.</span><span class="n">ils_name_setting</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">library</span><span class="p">)</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="s1">&#39;e&#39;</span>
+        <span class="n">OverdriveAPI</span><span class="o">.</span><span class="n">ils_name_setting</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">library</span><span class="p">)</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="n">ils_name</span>
         <span class="k">return</span> <span class="n">collection</span></div>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
