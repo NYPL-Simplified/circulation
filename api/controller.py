@@ -283,16 +283,22 @@ class CirculationManager(object):
         patron_web_domains = set()
 
         def get_domain(url):
+            url = url.strip()
             if url == "*":
                 return url
             scheme, netloc, path, parameters, query, fragment = urlparse.urlparse(url)
-            return scheme + "://" + netloc
+            if scheme and netloc:
+                return scheme + "://" + netloc
+            else:
+                return None
 
         sitewide_patron_web_client_urls = ConfigurationSetting.sitewide(
-            self._db, Configuration.PATRON_WEB_HOSTNAMES).json_value
+            self._db, Configuration.PATRON_WEB_HOSTNAMES).value
         if sitewide_patron_web_client_urls:
-            for url in sitewide_patron_web_client_urls:
-                patron_web_domains.add(get_domain(url))
+            for url in sitewide_patron_web_client_urls.split('|'):
+                domain = get_domain(url)
+                if domain:
+                    patron_web_domains.add(domain)
 
         from registry import Registration
         for setting in self._db.query(
