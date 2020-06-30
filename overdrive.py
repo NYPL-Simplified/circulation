@@ -292,7 +292,8 @@ class OverdriveAPI(object):
         the Overdrive API.
         """
         return Credential.lookup(
-            self._db, DataSource.OVERDRIVE, None, None, refresh
+            self._db, DataSource.OVERDRIVE, None, None, refresh,
+            collection=self.collection
         )
 
     def refresh_creds(self, credential):
