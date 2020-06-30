@@ -224,8 +224,7 @@ class Configuration(CoreConfiguration):
             "key": Announcements.SETTING_NAME,
             "label": _("Scheduled announcements"),
             "description": _("Announcements will be displayed to authenticated patrons."),
-            "category": "Basic Information",
-            "type": "list",
+            "category": "Announcements",
             "format": "announcements"
         },
         {

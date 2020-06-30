@@ -50,12 +50,14 @@ class LibrarySettingsController(SettingsController):
 
             settings = dict()
             for setting in Configuration.LIBRARY_SETTINGS:
+                if setting.get("format") == "announcements":
+                    value = ConfigurationSetting.for_library(setting.get("key"), library).json_value
+                    if value:
+                        value = AnnouncementListValidator().validate_announcements(value)
                 if setting.get("type") == "list":
                     value = ConfigurationSetting.for_library(setting.get("key"), library).json_value
                     if value and setting.get("format") == "geographic":
                         value = self.get_extra_geographic_information(value)
-                    if value and setting.get("format") == "announcements":
-                        value = AnnouncementListValidator().validate_announcements(value)
                 else:
                     value = self.current_value(setting, library)
 
@@ -316,13 +318,19 @@ class LibrarySettingsController(SettingsController):
         else:
             # Allow any entered values.
             value = []
-            inputs = flask.request.form.getlist(setting.get("key"))
-            for i in inputs:
-                if not isinstance(i, list):
-                    i = [i]
-                if json_objects:
-                    i = [json.loads(x) for x in i]
-                value.extend(i)
+            if setting.get("type") == "list":
+                inputs = flask.request.form.getlist(setting.get("key"))
+            else:
+                inputs = flask.request.form.get(setting.get("key"))
+
+            if json_objects and inputs:
+                inputs = json.loads(inputs)
+            if inputs:
+                for i in inputs:
+                    if not isinstance(i, list):
+                        i = [i]
+                    value.extend(i)
+
         return json.dumps(filter(None, value))
 
     def image_setting(self, setting):

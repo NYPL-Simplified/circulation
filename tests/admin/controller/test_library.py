@@ -105,15 +105,15 @@ class TestLibrarySettings(SettingsControllerTest, AnnouncementTest):
             announcements = library_settings.get(Announcements.SETTING_NAME)
             eq_(
                 [self.active['id'], self.expired['id'], self.forthcoming['id']],
-                [x['id'] for x in announcements]
+                [x.get('id') for x in json.loads(announcements)]
             )
 
             # The objects found in `library_settings` aren't exactly
             # the same as what is stored in the database: string dates
-            # have been parsed into datetime.date objects.
-            for i in announcements:
-                assert isinstance(i['start'], datetime.date)
-                assert isinstance(i['finish'], datetime.date)
+            # can be parsed into datetime.date objects.
+            for i in json.loads(announcements):
+                assert isinstance(datetime.datetime.strptime(i.get('start'), "%Y-%m-%d"), datetime.date)
+                assert isinstance(datetime.datetime.strptime(i.get('finish'), "%Y-%m-%d"), datetime.date)
 
     def test_libraries_get_with_multiple_libraries(self):
         # Delete any existing library created by the controller test setup.
@@ -287,7 +287,7 @@ class TestLibrarySettings(SettingsControllerTest, AnnouncementTest):
                 (Configuration.TINY_COLLECTION_LANGUAGES, ['ger']),
                 (Configuration.LIBRARY_SERVICE_AREA, ['06759', 'everywhere', 'MD', 'Boston, MA']),
                 (Configuration.LIBRARY_FOCUS_AREA, ['Manitoba', 'Broward County, FL', 'QC']),
-                (Announcements.SETTING_NAME, [json.dumps(x) for x in [self.active, self.forthcoming]]),
+                (Announcements.SETTING_NAME, json.dumps([self.active, self.forthcoming])),
                 (Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, "email@example.com"),
                 (Configuration.HELP_EMAIL, "help@example.com"),
                 (Configuration.FEATURED_LANE_SIZE, "5"),
@@ -643,7 +643,7 @@ class TestLibrarySettings(SettingsControllerTest, AnnouncementTest):
         eq_(json.dumps(controller.announcement_list), validator.called_with)
 
     def test__format_validated_value(self):
-        
+
         m = LibrarySettingsController._format_validated_value
 
         # When there is no validator, the incoming value is used as the formatted value,
