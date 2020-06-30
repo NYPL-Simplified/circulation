@@ -128,10 +128,25 @@ class TestS3Uploader(S3UploaderTest):
         # attribute on the S3Uploader object.
         eq_('a transform', uploader.url_transform)
 
-    def test_empty_string(self):
+    @parameterized.expand([
+        (
+            'empty_credentials',
+            None,
+            None
+        ),
+        (
+            'empty_string_credentials',
+            '',
+            ''
+        ),
+        (
+            'empty_string_credentials',
+            'username',
+            'password'
+        )
+    ])
+    def test_initialization(self, name, username, password):
         # Arrange
-        username = 'username'
-        password = 'password'
         settings = {'username': username, 'password': password}
         integration = self._external_integration(
             ExternalIntegration.S3, goal=ExternalIntegration.STORAGE_GOAL, settings=settings
@@ -162,8 +177,8 @@ class TestS3Uploader(S3UploaderTest):
         aws_secret_access_key = client_class.call_args_list[1].kwargs['aws_secret_access_key']
         eq_(service_name, 's3')
         eq_(region_name, S3Uploader.S3_DEFAULT_REGION)
-        eq_(aws_access_key_id, username)
-        eq_(aws_secret_access_key, password)
+        eq_(aws_access_key_id, username if username != '' else None)
+        eq_(aws_secret_access_key, password if password != '' else None)
         assert 'config' not in client_class.call_args_list[1].kwargs
 
     def test_custom_client_class(self):
