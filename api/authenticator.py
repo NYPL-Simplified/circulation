@@ -1071,12 +1071,6 @@ class LibraryAuthenticator(object):
         if logo:
             links.append(dict(rel="logo", type="image/png", href=logo))
 
-        # Add the library's custom CSS file, if it has one.
-        css_file = ConfigurationSetting.for_library(
-            Configuration.WEB_CSS_FILE, library).value
-        if css_file:
-            links.append(dict(rel="stylesheet", type="text/css", href=css_file))
-
         library_name = self.library_name or unicode(_("Library"))
         auth_doc_url = self.authentication_document_url(library)
         doc = AuthenticationForOPDSDocument(

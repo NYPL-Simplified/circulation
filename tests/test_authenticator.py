@@ -1187,7 +1187,6 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             LibraryAnnotator.LICENSE: "http://license/",
             LibraryAnnotator.REGISTER: "custom-registration-hook://library/",
             Configuration.LOGO: "image data",
-            Configuration.WEB_CSS_FILE: "http://style.css",
         }
 
         for rel, value in link_config.iteritems():

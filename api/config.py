@@ -106,9 +106,6 @@ class Configuration(CoreConfiguration):
     DEFAULT_WEB_BACKGROUND_COLOR = "#000000"
     DEFAULT_WEB_FOREGROUND_COLOR = "#ffffff"
 
-    # A link to a CSS file for customizing the catalog display in web applications.
-    WEB_CSS_FILE = "web-css-file"
-
     # Header links and labels for web applications to display for this library.
     # TODO: It's very awkward to have these as separate settings, and separate
     # lists of inputs in the UI.
@@ -299,13 +296,6 @@ class Configuration(CoreConfiguration):
             "description": _("This tells web applications what foreground color to use. Must have sufficient contrast with the background color."),
             "type": "color-picker",
             "default": DEFAULT_WEB_FOREGROUND_COLOR,
-            "category": "Client Interface Customization",
-        },
-        {
-            "key": WEB_CSS_FILE,
-            "label": _("Custom CSS file for web"),
-            "description": _("Give web applications a CSS file to customize the catalog display."),
-            "format": "url",
             "category": "Client Interface Customization",
         },
         {
