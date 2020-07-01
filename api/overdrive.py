@@ -250,7 +250,9 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
             return self.refresh_patron_access_token(
                 credential, patron, pin)
         return Credential.lookup(
-            self._db, DataSource.OVERDRIVE, "OAuth Token", patron, refresh)
+            self._db, DataSource.OVERDRIVE, "OAuth Token", patron, refresh,
+            collection=self.collection
+        )
 
     def scope_string(self, library):
         """Create the Overdrive scope string for the given library.
