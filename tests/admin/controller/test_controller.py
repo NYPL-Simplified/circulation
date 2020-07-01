@@ -1528,7 +1528,7 @@ class TestLanesController(AdminControllerTest):
             eq_(self._default_library, lane.library)
             eq_("lane", lane.display_name)
             eq_(parent, lane.parent)
-            eq_([Edition.BOOK_MEDIUM], lane.media)
+            eq_(None, lane.media)
             eq_(1, len(lane.customlists))
             eq_(list, lane.customlists[0])
             eq_(False, lane.inherit_parent_restrictions)
@@ -1571,6 +1571,7 @@ class TestLanesController(AdminControllerTest):
             eq_("new name", lane.display_name)
             eq_([list2], lane.customlists)
             eq_(True, lane.inherit_parent_restrictions)
+            eq_(None, lane.media)
             eq_(2, lane.size)
 
     def test_lane_delete_success(self):
