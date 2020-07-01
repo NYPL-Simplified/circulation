@@ -175,7 +175,7 @@ class LibrarySettingsController(SettingsController):
             return tuple(int(hex[i:i+2], 16)/255.0 for i in (0, 2 ,4))
         primary_passes = wcag_contrast_ratio.passes_AA(wcag_contrast_ratio.rgb(hex_to_rgb(primary), hex_to_rgb("#ffffff")))
         secondary_passes = wcag_contrast_ratio.passes_AA(wcag_contrast_ratio.rgb(hex_to_rgb(secondary), hex_to_rgb("#ffffff")))
-        if not primary_passes and secondary_passes:
+        if not (primary_passes and secondary_passes):
             primary_check_url = "https://contrast-ratio.com/#%23" + secondary[1:] + "-on-%23" + "#ffffff"[1:] 
             secondary_check_url = "https://contrast-ratio.com/#%23" + secondary[1:] + "-on-%23" + "#ffffff"[1:]
             return INVALID_CONFIGURATION_OPTION.detailed(
