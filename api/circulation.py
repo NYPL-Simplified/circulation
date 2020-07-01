@@ -1,26 +1,23 @@
-from nose.tools import set_trace
-from circulation_exceptions import *
 import datetime
-from collections import defaultdict
-from threading import Thread
-import flask
 import logging
-import re
+import sys
 import time
+from threading import Thread
+
+import flask
 from flask_babel import lazy_gettext as _
 
-from core.config import CannotLoadConfiguration
+from circulation_exceptions import *
+from config import Configuration
 from core.cdn import cdnify
+from core.config import CannotLoadConfiguration
 from core.model import (
     get_one,
     CirculationEvent,
     Collection,
-    CollectionMissing,
     ConfigurationSetting,
     DeliveryMechanism,
     ExternalIntegration,
-    Identifier,
-    DataSource,
     Library,
     LicensePoolDeliveryMechanism,
     LicensePool,
@@ -31,8 +28,7 @@ from core.model import (
     Session,
 )
 from util.patron import PatronUtility
-from config import Configuration
-import sys
+
 
 class CirculationInfo(object):
 
@@ -411,7 +407,7 @@ class CirculationAPI(object):
             if collection.protocol in api_map:
                 api = None
                 try:
-                    api = api_map[collection.protocol](_db, collection)
+                    api = api_map[collection.protocol](_db, collection, circulation=self)
                 except CannotLoadConfiguration, e:
                     self.log.error(
                         "Error loading configuration for %s: %s",
@@ -439,6 +435,7 @@ class CirculationAPI(object):
         from enki import EnkiAPI
         from opds_for_distributors import OPDSForDistributorsAPI
         from odl import ODLAPI, SharedODLAPI
+        from manual_import import ManualImportAPI
         return {
             ExternalIntegration.OVERDRIVE : OverdriveAPI,
             ExternalIntegration.ODILO : OdiloAPI,
@@ -449,6 +446,7 @@ class CirculationAPI(object):
             OPDSForDistributorsAPI.NAME: OPDSForDistributorsAPI,
             ODLAPI.NAME: ODLAPI,
             SharedODLAPI.NAME: SharedODLAPI,
+            ExternalIntegration.MANUAL: ManualImportAPI
         }
 
     def api_for_license_pool(self, licensepool):
