@@ -199,7 +199,8 @@ class TestLibrarySettings(SettingsControllerTest):
             )
             response = self.manager.admin_library_settings_controller.process_post()
             eq_(response.uri, INVALID_CONFIGURATION_OPTION.uri)
-            assert "contrast-ratio.com/#%23010101-on-%23000000" in response.detail
+            assert "contrast-ratio.com/#%23e0e0e0-on-%23ffffff" in response.detail
+            assert "contrast-ratio.com/#%23e0e0e0-on-%23ffffff" in response.detail
 
         # Test a list of web header links and a list of labels that
         # aren't the same length.
