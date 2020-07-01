@@ -255,12 +255,23 @@
                 <span class="n">signature_version</span><span class="o">=</span><span class="n">botocore</span><span class="o">.</span><span class="n">UNSIGNED</span><span class="p">,</span>
                 <span class="n">s3</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;addressing_style&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_s3_addressing_style</span><span class="p">}</span>
             <span class="p">)</span>
+            <span class="c1"># NOTE: Unfortunately, boto ignores credentials (aws_access_key_id, aws_secret_access_key)</span>
+            <span class="c1"># when using botocore.UNSIGNED signature version and doesn&#39;t authenticate the client in this case.</span>
+            <span class="c1"># That&#39;s why we have to create two S3 boto clients:</span>
+            <span class="c1"># - the first client WITHOUT authentication which is used for generating unsigned URLs</span>
+            <span class="c1"># - the second client WITH authentication used for working with S3: uploading files, etc.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_s3_link_client</span> <span class="o">=</span> <span class="n">client_class</span><span class="p">(</span>
+                <span class="s1">&#39;s3&#39;</span><span class="p">,</span>
+                <span class="n">region_name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_s3_region</span><span class="p">,</span>
+                <span class="n">aws_access_key_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                <span class="n">aws_secret_access_key</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                <span class="n">config</span><span class="o">=</span><span class="n">config</span>
+            <span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">client</span> <span class="o">=</span> <span class="n">client_class</span><span class="p">(</span>
                 <span class="s1">&#39;s3&#39;</span><span class="p">,</span>
                 <span class="n">region_name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_s3_region</span><span class="p">,</span>
                 <span class="n">aws_access_key_id</span><span class="o">=</span><span class="n">access_key</span><span class="p">,</span>
                 <span class="n">aws_secret_access_key</span><span class="o">=</span><span class="n">secret_key</span><span class="p">,</span>
-                <span class="n">config</span><span class="o">=</span><span class="n">config</span>
             <span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">client</span> <span class="o">=</span> <span class="n">client_class</span>
@@ -295,7 +306,7 @@
         <span class="k">if</span> <span class="ow">not</span> <span class="n">path</span><span class="p">:</span>
             <span class="n">key</span> <span class="o">=</span> <span class="s1">&#39;dummy&#39;</span>
 
-        <span class="n">url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">generate_presigned_url</span><span class="p">(</span>
+        <span class="n">url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_s3_link_client</span><span class="o">.</span><span class="n">generate_presigned_url</span><span class="p">(</span>
             <span class="s1">&#39;get_object&#39;</span><span class="p">,</span>
             <span class="n">ExpiresIn</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
             <span class="n">Params</span><span class="o">=</span><span class="p">{</span>
@@ -584,12 +595,18 @@
             <span class="n">signature_version</span><span class="o">=</span><span class="n">botocore</span><span class="o">.</span><span class="n">UNSIGNED</span><span class="p">,</span>
             <span class="n">s3</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;addressing_style&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_s3_addressing_style</span><span class="p">}</span>
         <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_s3_link_client</span> <span class="o">=</span> <span class="n">boto3</span><span class="o">.</span><span class="n">client</span><span class="p">(</span>
+            <span class="s1">&#39;s3&#39;</span><span class="p">,</span>
+            <span class="n">region_name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_s3_region</span><span class="p">,</span>
+            <span class="n">aws_access_key_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">aws_secret_access_key</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">config</span><span class="o">=</span><span class="n">config</span>
+        <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">client</span> <span class="o">=</span> <span class="n">boto3</span><span class="o">.</span><span class="n">client</span><span class="p">(</span>
             <span class="s1">&#39;s3&#39;</span><span class="p">,</span>
             <span class="n">region_name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_s3_region</span><span class="p">,</span>
-            <span class="n">aws_access_key_id</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span>
-            <span class="n">aws_secret_access_key</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span>
-            <span class="n">config</span><span class="o">=</span><span class="n">config</span>
+            <span class="n">aws_access_key_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">aws_secret_access_key</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
         <span class="p">)</span>
 
 <div class="viewcode-block" id="MockS3Uploader.mirror_one"><a class="viewcode-back" href="../../core.html#core.s3.MockS3Uploader.mirror_one">[docs]</a>    <span class="k">def</span> <span class="nf">mirror_one</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">representation</span><span class="p">,</span> <span class="n">mirror_to</span><span class="p">):</span>
