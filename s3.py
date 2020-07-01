@@ -108,6 +108,9 @@ class S3Uploader(MirrorUploader):
     S3_ADDRESSING_STYLE = u's3_addressing_style'
     S3_DEFAULT_ADDRESSING_STYLE = S3AddressingStyle.VIRTUAL.value
 
+    S3_PRESIGNED_URL_EXPIRATION = u's3_presigned_url_expiration'
+    S3_DEFAULT_PRESIGNED_URL_EXPIRATION = 3600
+
     BOOK_COVERS_BUCKET_KEY = u'book_covers_bucket'
     OA_CONTENT_BUCKET_KEY = u'open_access_content_bucket'
     MARC_BUCKET_KEY = u'marc_bucket'
@@ -172,6 +175,11 @@ class S3Uploader(MirrorUploader):
                "Amazon S3 Path Deprecation Plan - The Rest of the Story</a>."),
          "default": S3_DEFAULT_ADDRESSING_STYLE,
          },
+        {"key": S3_PRESIGNED_URL_EXPIRATION, "label": _("S3 presigned URL expiration"),
+         "type": "number",
+         "description": _("Time in seconds for the presigned URL to remain valid"),
+         "default": S3_DEFAULT_PRESIGNED_URL_EXPIRATION,
+         },
         {"key": URL_TEMPLATE_KEY, "label": _("URL format"),
          "type": "select",
          "options": [
@@ -212,6 +220,10 @@ class S3Uploader(MirrorUploader):
             self.S3_ADDRESSING_STYLE).value_or_default(
             self.S3_DEFAULT_ADDRESSING_STYLE)
 
+        self._s3_presigned_url_expiration = integration.setting(
+            self.S3_PRESIGNED_URL_EXPIRATION).value_or_default(
+            self.S3_DEFAULT_PRESIGNED_URL_EXPIRATION)
+
         if callable(client_class):
             # Pass None into boto3 if we get an empty string.
             access_key = integration.username if integration.username != '' else None
@@ -220,11 +232,6 @@ class S3Uploader(MirrorUploader):
                 signature_version=botocore.UNSIGNED,
                 s3={'addressing_style': self._s3_addressing_style}
             )
-            # NOTE: Unfortunately, boto ignores credentials (aws_access_key_id, aws_secret_access_key)
-            # when using botocore.UNSIGNED signature version and doesn't authenticate the client in this case.
-            # That's why we have to create two S3 boto clients:
-            # - the first client WITHOUT authentication which is used for generating unsigned URLs
-            # - the second client WITH authentication used for working with S3: uploading files, etc.
             self._s3_link_client = client_class(
                 's3',
                 region_name=self._s3_region,
@@ -284,6 +291,34 @@ class S3Uploader(MirrorUploader):
         # pointing at the root directory of the bucket
         if not path:
             url = url.replace('/' + key, '/')
+
+        return url
+
+    def sign_url(self, url, expiration=None):
+        """Signs a URL and make it expirable
+
+        :param url: URL
+        :type url: string
+
+        :param expiration: (Optional) Time in seconds for the presigned URL to remain valid.
+            If it's empty, S3_PRESIGNED_URL_EXPIRATION configuration setting is used
+        :type expiration: int
+
+        :return: Signed expirable link
+        :rtype: string
+        """
+        if not expiration:
+            expiration = self._s3_presigned_url_expiration
+
+        bucket, key = self.bucket_and_filename(url)
+        url = self.client.generate_presigned_url(
+            'get_object',
+            ExpiresIn=expiration,
+            Params={
+                'Bucket': bucket,
+                'Key': key
+            }
+        )
 
         return url
 

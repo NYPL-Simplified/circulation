@@ -1,6 +1,7 @@
-from nose.tools import set_trace
 import datetime
+
 from config import CannotLoadConfiguration
+
 
 class MirrorUploader():
     """Handles the job of uploading a representation's content to
@@ -133,5 +134,20 @@ class MirrorUploader():
         This does not upload anything to the URL, but it is expected
         that calling mirror() on a certain Representation object will
         make that representation end up at that URL.
+        """
+        raise NotImplementedError()
+
+    def sign_url(self, url, expiration=None):
+        """Signs a URL and make it expirable
+
+        :param url: URL
+        :type url: string
+
+        :param expiration: (Optional) Time in seconds for the presigned URL to remain valid.
+            Default value depends on a specific implementation
+        :type expiration: int
+
+        :return: Signed expirable link
+        :rtype: string
         """
         raise NotImplementedError()
