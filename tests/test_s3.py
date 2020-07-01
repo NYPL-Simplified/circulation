@@ -140,7 +140,7 @@ class TestS3Uploader(S3UploaderTest):
             ''
         ),
         (
-            'empty_string_credentials',
+            'non_empty_string_credentials',
             'username',
             'password'
         )
