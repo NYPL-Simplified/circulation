@@ -220,12 +220,23 @@ class S3Uploader(MirrorUploader):
                 signature_version=botocore.UNSIGNED,
                 s3={'addressing_style': self._s3_addressing_style}
             )
+            # NOTE: Unfortunately, boto ignores credentials (aws_access_key_id, aws_secret_access_key)
+            # when using botocore.UNSIGNED signature version and doesn't authenticate the client in this case.
+            # That's why we have to create two S3 boto clients:
+            # - the first client WITHOUT authentication which is used for generating unsigned URLs
+            # - the second client WITH authentication used for working with S3: uploading files, etc.
+            self._s3_link_client = client_class(
+                's3',
+                region_name=self._s3_region,
+                aws_access_key_id=None,
+                aws_secret_access_key=None,
+                config=config
+            )
             self.client = client_class(
                 's3',
                 region_name=self._s3_region,
                 aws_access_key_id=access_key,
                 aws_secret_access_key=secret_key,
-                config=config
             )
         else:
             self.client = client_class
@@ -260,7 +271,7 @@ class S3Uploader(MirrorUploader):
         if not path:
             key = 'dummy'
 
-        url = self.client.generate_presigned_url(
+        url = self._s3_link_client.generate_presigned_url(
             'get_object',
             ExpiresIn=0,
             Params={
@@ -549,12 +560,18 @@ class MockS3Uploader(S3Uploader):
             signature_version=botocore.UNSIGNED,
             s3={'addressing_style': self._s3_addressing_style}
         )
+        self._s3_link_client = boto3.client(
+            's3',
+            region_name=self._s3_region,
+            aws_access_key_id=None,
+            aws_secret_access_key=None,
+            config=config
+        )
         self.client = boto3.client(
             's3',
             region_name=self._s3_region,
-            aws_access_key_id='',
-            aws_secret_access_key='',
-            config=config
+            aws_access_key_id=None,
+            aws_secret_access_key=None,
         )
 
     def mirror_one(self, representation, mirror_to):

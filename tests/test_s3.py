@@ -1,6 +1,7 @@
 # encoding: utf-8
 import datetime
 
+import botocore
 from botocore.exceptions import (
     BotoCoreError,
     ClientError,
@@ -127,9 +128,26 @@ class TestS3Uploader(S3UploaderTest):
         # attribute on the S3Uploader object.
         eq_('a transform', uploader.url_transform)
 
-    def test_empty_string(self):
+    @parameterized.expand([
+        (
+            'empty_credentials',
+            None,
+            None
+        ),
+        (
+            'empty_string_credentials',
+            '',
+            ''
+        ),
+        (
+            'non_empty_string_credentials',
+            'username',
+            'password'
+        )
+    ])
+    def test_initialization(self, name, username, password):
         # Arrange
-        settings = {'username': '', 'password': ''}
+        settings = {'username': username, 'password': password}
         integration = self._external_integration(
             ExternalIntegration.S3, goal=ExternalIntegration.STORAGE_GOAL, settings=settings
         )
@@ -139,19 +157,29 @@ class TestS3Uploader(S3UploaderTest):
         S3Uploader(integration, client_class=client_class)
 
         # Assert
-        eq_(client_class.call_count, 1)
+        eq_(client_class.call_count, 2)
 
-        service_name = client_class.call_args.args
-        region_name = client_class.call_args.kwargs['region_name']
-        aws_access_key_id = client_class.call_args.kwargs['aws_access_key_id']
-        aws_secret_access_key = client_class.call_args.kwargs['aws_secret_access_key']
-        config = client_class.call_args.kwargs['config']
-
-        eq_(service_name, ('s3',))
+        service_name = client_class.call_args_list[0].args[0]
+        region_name = client_class.call_args_list[0].kwargs['region_name']
+        aws_access_key_id = client_class.call_args_list[0].kwargs['aws_access_key_id']
+        aws_secret_access_key = client_class.call_args_list[0].kwargs['aws_secret_access_key']
+        config = client_class.call_args_list[0].kwargs['config']
+        eq_(service_name, 's3')
         eq_(region_name, S3Uploader.S3_DEFAULT_REGION)
         eq_(aws_access_key_id, None)
         eq_(aws_secret_access_key, None)
+        eq_(config.signature_version, botocore.UNSIGNED)
         eq_(config.s3['addressing_style'], S3Uploader.S3_DEFAULT_ADDRESSING_STYLE)
+
+        service_name = client_class.call_args_list[1].args[0]
+        region_name = client_class.call_args_list[1].kwargs['region_name']
+        aws_access_key_id = client_class.call_args_list[1].kwargs['aws_access_key_id']
+        aws_secret_access_key = client_class.call_args_list[1].kwargs['aws_secret_access_key']
+        eq_(service_name, 's3')
+        eq_(region_name, S3Uploader.S3_DEFAULT_REGION)
+        eq_(aws_access_key_id, username if username != '' else None)
+        eq_(aws_secret_access_key, password if password != '' else None)
+        assert 'config' not in client_class.call_args_list[1].kwargs
 
     def test_custom_client_class(self):
         """You can specify a client class to use instead of boto3.client."""
@@ -187,10 +215,25 @@ class TestS3Uploader(S3UploaderTest):
             None
         ),
         (
+            's3_dummy_url_with_path_without_slash',
+            'dummy',
+            'dummy',
+            'https://dummy.s3.amazonaws.com/dummy',
+            None
+        ),
+        (
             's3_path_style_url_with_path_without_slash',
             'a-bucket',
             'a-path',
             'https://s3.amazonaws.com/a-bucket/a-path',
+            None,
+            S3AddressingStyle.PATH.value
+        ),
+        (
+            's3_path_style_dummy_url_with_path_without_slash',
+            'dummy',
+            'dummy',
+            'https://s3.amazonaws.com/dummy/dummy',
             None,
             S3AddressingStyle.PATH.value
         ),
