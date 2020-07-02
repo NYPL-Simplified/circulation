@@ -955,7 +955,6 @@ class LanesController(AdminCirculationManagerController):
                 lane, is_new = create(
                     self._db, Lane, display_name=display_name,
                     parent=parent, library=library)
-                lane.media = [Edition.BOOK_MEDIUM]
 
                 # Make a new lane the first child of its parent and bump all the siblings down in priority.
                 siblings = self._db.query(Lane).filter(Lane.library==library).filter(Lane.parent==lane.parent).filter(Lane.id!=lane.id)
