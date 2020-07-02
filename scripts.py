@@ -1370,6 +1370,10 @@ class DirectoryImportScript(TimestampScript):
                 collection, metadata, replacement_policy, cover_directory,
                 ebook_directory, rights_uri
             )
+
+            for licensepool in collection.licensepools:
+                licensepool.self_hosted = True
+
             if not dry_run:
                 self._db.commit()
 
