@@ -318,7 +318,7 @@ class S3Uploader(MirrorUploader):
         bucket, key = self.bucket_and_filename(url)
         url = self.client.generate_presigned_url(
             'get_object',
-            ExpiresIn=expiration,
+            ExpiresIn=int(expiration),
             Params={
                 'Bucket': bucket,
                 'Key': key

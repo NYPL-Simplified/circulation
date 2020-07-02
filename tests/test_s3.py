@@ -1003,6 +1003,35 @@ class TestS3Uploader(S3UploaderTest):
         eq_(True, MockMultipartS3Upload.aborted)
         eq_("Error!", rep.mirror_exception)
 
+    @parameterized.expand([
+        ('default_expiration_parameter', None, int(S3Uploader.S3_DEFAULT_PRESIGNED_URL_EXPIRATION)),
+        ('empty_expiration_parameter', {S3Uploader.S3_PRESIGNED_URL_EXPIRATION: 100}, 100)
+    ])
+    def test_sign_url(self, name, expiration_settings, expected_expiration):
+        # Arrange
+        region = 'us-east-1'
+        bucket = 'bucket'
+        filename = 'filename'
+        url = 'https://{0}.s3.{1}.amazonaws.com/{2}'.format(bucket, region, filename)
+        expected_url = url + '?AWSAccessKeyId=KEY&Expires=1&Signature=S'
+        s3_uploader = self._create_s3_uploader(region=region, **expiration_settings if expiration_settings else {})
+        s3_uploader.bucket_and_filename = MagicMock(return_value=(bucket, filename))
+        s3_uploader.client.generate_presigned_url = MagicMock(return_value=expected_url)
+
+        # Act
+        result = s3_uploader.sign_url(url)
+
+        # Assert
+        eq_(result, expected_url)
+        s3_uploader.bucket_and_filename.assert_called_once_with(url)
+        s3_uploader.client.generate_presigned_url.assert_called_once_with(
+            'get_object',
+            ExpiresIn=expected_expiration,
+            Params={
+                'Bucket': bucket,
+                'Key': filename
+            })
+
 
 class TestMultiPartS3Upload(S3UploaderTest):
     def _representation(self):
