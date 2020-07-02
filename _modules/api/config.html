@@ -136,10 +136,10 @@
     <span class="n">DEFAULT_COLOR_SCHEME</span> <span class="o">=</span> <span class="s2">&quot;blue&quot;</span>
 
     <span class="c1"># The color options for web applications to use for this library.</span>
-    <span class="n">WEB_BACKGROUND_COLOR</span> <span class="o">=</span> <span class="s2">&quot;web-background-color&quot;</span>
-    <span class="n">WEB_FOREGROUND_COLOR</span> <span class="o">=</span> <span class="s2">&quot;web-foreground-color&quot;</span>
-    <span class="n">DEFAULT_WEB_BACKGROUND_COLOR</span> <span class="o">=</span> <span class="s2">&quot;#000000&quot;</span>
-    <span class="n">DEFAULT_WEB_FOREGROUND_COLOR</span> <span class="o">=</span> <span class="s2">&quot;#ffffff&quot;</span>
+    <span class="n">WEB_PRIMARY_COLOR</span> <span class="o">=</span> <span class="s2">&quot;web-primary-color&quot;</span>
+    <span class="n">WEB_SECONDARY_COLOR</span> <span class="o">=</span> <span class="s2">&quot;web-secondary-color&quot;</span>
+    <span class="n">DEFAULT_WEB_PRIMARY_COLOR</span> <span class="o">=</span> <span class="s2">&quot;#377F8B&quot;</span>
+    <span class="n">DEFAULT_WEB_SECONDARY_COLOR</span> <span class="o">=</span> <span class="s2">&quot;#D53F34&quot;</span>
 
     <span class="c1"># A link to a CSS file for customizing the catalog display in web applications.</span>
     <span class="n">WEB_CSS_FILE</span> <span class="o">=</span> <span class="s2">&quot;web-css-file&quot;</span>
@@ -321,19 +321,19 @@
             <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Client Interface Customization&quot;</span><span class="p">,</span>
         <span class="p">},</span>
         <span class="p">{</span>
-            <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">WEB_BACKGROUND_COLOR</span><span class="p">,</span>
-            <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Web background color&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;This tells web applications what background color to use. Must have sufficient contrast with the foreground color.&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">WEB_PRIMARY_COLOR</span><span class="p">,</span>
+            <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Web primary color&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;This is the brand primary color for the web application. Must have sufficient contrast with white.&quot;</span><span class="p">),</span>
             <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;color-picker&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="n">DEFAULT_WEB_BACKGROUND_COLOR</span><span class="p">,</span>
+            <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="n">DEFAULT_WEB_PRIMARY_COLOR</span><span class="p">,</span>
             <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Client Interface Customization&quot;</span><span class="p">,</span>
         <span class="p">},</span>
         <span class="p">{</span>
-            <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">WEB_FOREGROUND_COLOR</span><span class="p">,</span>
-            <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Web foreground color&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;This tells web applications what foreground color to use. Must have sufficient contrast with the background color.&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">WEB_SECONDARY_COLOR</span><span class="p">,</span>
+            <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Web secondary color&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;This is the brand secondary color for the web application. Must have sufficient contrast with white.&quot;</span><span class="p">),</span>
             <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;color-picker&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="n">DEFAULT_WEB_FOREGROUND_COLOR</span><span class="p">,</span>
+            <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="n">DEFAULT_WEB_SECONDARY_COLOR</span><span class="p">,</span>
             <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Client Interface Customization&quot;</span><span class="p">,</span>
         <span class="p">},</span>
         <span class="p">{</span>

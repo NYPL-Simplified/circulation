@@ -1127,12 +1127,12 @@
             <span class="n">doc</span><span class="p">[</span><span class="s1">&#39;color_scheme&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">description</span>
 
         <span class="c1"># Add the library&#39;s web colors, if it has any.</span>
-        <span class="n">background</span> <span class="o">=</span> <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">for_library</span><span class="p">(</span>
-            <span class="n">Configuration</span><span class="o">.</span><span class="n">WEB_BACKGROUND_COLOR</span><span class="p">,</span> <span class="n">library</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
-        <span class="n">foreground</span> <span class="o">=</span> <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">for_library</span><span class="p">(</span>
-            <span class="n">Configuration</span><span class="o">.</span><span class="n">WEB_FOREGROUND_COLOR</span><span class="p">,</span> <span class="n">library</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
-        <span class="k">if</span> <span class="n">background</span> <span class="ow">or</span> <span class="n">foreground</span><span class="p">:</span>
-            <span class="n">doc</span><span class="p">[</span><span class="s2">&quot;web_color_scheme&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">background</span><span class="o">=</span><span class="n">background</span><span class="p">,</span> <span class="n">foreground</span><span class="o">=</span><span class="n">foreground</span><span class="p">)</span>
+        <span class="n">primary</span> <span class="o">=</span> <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">for_library</span><span class="p">(</span>
+            <span class="n">Configuration</span><span class="o">.</span><span class="n">WEB_PRIMARY_COLOR</span><span class="p">,</span> <span class="n">library</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+        <span class="n">secondary</span> <span class="o">=</span> <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">for_library</span><span class="p">(</span>
+            <span class="n">Configuration</span><span class="o">.</span><span class="n">WEB_SECONDARY_COLOR</span><span class="p">,</span> <span class="n">library</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+        <span class="k">if</span> <span class="n">primary</span> <span class="ow">or</span> <span class="n">secondary</span><span class="p">:</span>
+            <span class="n">doc</span><span class="p">[</span><span class="s2">&quot;web_color_scheme&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">primary</span><span class="o">=</span><span class="n">primary</span><span class="p">,</span> <span class="n">secondary</span><span class="o">=</span><span class="n">secondary</span><span class="p">,</span> <span class="n">background</span><span class="o">=</span><span class="n">primary</span><span class="p">,</span> <span class="n">foreground</span><span class="o">=</span><span class="n">secondary</span><span class="p">)</span>
 
         <span class="c1"># Add the description of the library as the OPDS feed&#39;s</span>
         <span class="c1"># service_description.</span>
