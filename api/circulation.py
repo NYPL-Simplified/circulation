@@ -11,6 +11,7 @@ from circulation_exceptions import *
 from config import Configuration
 from core.cdn import cdnify
 from core.config import CannotLoadConfiguration
+from core.mirror import MirrorUploader
 from core.model import (
     get_one,
     CirculationEvent,
@@ -26,7 +27,7 @@ from core.model import (
     Patron,
     RightsStatus,
     Session,
-)
+    ExternalIntegrationLink)
 from util.patron import PatronUtility
 
 
@@ -407,7 +408,7 @@ class CirculationAPI(object):
             if collection.protocol in api_map:
                 api = None
                 try:
-                    api = api_map[collection.protocol](_db, collection, circulation=self)
+                    api = api_map[collection.protocol](_db, collection)
                 except CannotLoadConfiguration, e:
                     self.log.error(
                         "Error loading configuration for %s: %s",
@@ -435,7 +436,6 @@ class CirculationAPI(object):
         from enki import EnkiAPI
         from opds_for_distributors import OPDSForDistributorsAPI
         from odl import ODLAPI, SharedODLAPI
-        from manual_import import ManualImportAPI
         return {
             ExternalIntegration.OVERDRIVE : OverdriveAPI,
             ExternalIntegration.ODILO : OdiloAPI,
@@ -446,7 +446,6 @@ class CirculationAPI(object):
             OPDSForDistributorsAPI.NAME: OPDSForDistributorsAPI,
             ODLAPI.NAME: ODLAPI,
             SharedODLAPI.NAME: SharedODLAPI,
-            ExternalIntegration.MANUAL: ManualImportAPI
         }
 
     def api_for_license_pool(self, licensepool):
@@ -464,6 +463,36 @@ class CirculationAPI(object):
         if api.CAN_REVOKE_HOLD_WHEN_RESERVED:
             return True
         return False
+
+    def _try_to_sign_fulfillment_link(self, licensepool, fulfillment):
+        """Tries to sign the fulfilment URL (only works in the case when the collection has mirrors set up)
+
+        :param licensepool: License pool
+        :type licensepool: LicensePool
+
+        :param fulfillment: Fulfillment info
+        :type fulfillment: FulfillmentInfo
+
+        :return: Fulfillment info with a possibly signed URL
+        :rtype: FulfillmentInfo
+        """
+        mirror_types = [ExternalIntegrationLink.BOOKS, ExternalIntegrationLink.COVERS]
+        mirror = next(iter([
+            MirrorUploader.for_collection(licensepool.collection, mirror_type)
+            for mirror_type in mirror_types
+        ]))
+
+        if mirror:
+            signed_url = mirror.sign_url(fulfillment.content_link)
+
+            self.log.info(
+                'Fulfilment link {0} has been signed and translated into {1}'.format(
+                    fulfillment.content_link, signed_url)
+            )
+
+            fulfillment.content_link = signed_url
+
+        return fulfillment
 
     def _collect_event(self, patron, licensepool, name,
                        include_neighborhood=False):
@@ -883,13 +912,16 @@ class CirculationAPI(object):
                   requested_delivery_mechanism=delivery_mechanism.delivery_mechanism.name)
             )
 
-        if licensepool.open_access:
+        if licensepool.open_access or licensepool.self_hosted:
             # We ignore the vendor-specific arguments when doing
             # open-access fulfillment, because we just don't support
             # partial fulfillment of open-access content.
             fulfillment = self.fulfill_open_access(
                 licensepool, delivery_mechanism.delivery_mechanism,
             )
+
+            if licensepool.self_hosted:
+                fulfillment = self._try_to_sign_fulfillment_link(licensepool, fulfillment)
         else:
             api = self.api_for_license_pool(licensepool)
             internal_format = api.internal_format(delivery_mechanism)
