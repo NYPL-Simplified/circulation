@@ -1173,10 +1173,12 @@ class Work(Base):
                     # We have an unlimited source for this book.
                     # There's no need to keep looking.
                     break
+            elif p.self_hosted:
+                active_license_pool = p
+                break
             elif edition and edition.title and p.licenses_owned > 0:
                 active_license_pool = p
         return active_license_pool
-
 
     def _reset_coverage(self, operation):
         """Put this work's WorkCoverageRecord for the given `operation`

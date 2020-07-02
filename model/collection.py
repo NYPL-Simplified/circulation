@@ -744,9 +744,9 @@ class Collection(Base, HasFullTableCache):
         if not show_suppressed:
             query = query.filter(LicensePool.suppressed==False)
 
-        # Only find books with available licenses.
+        # Only find books with available licenses or books from self-hosted collections using MirrorUploader
         query = query.filter(
-                or_(LicensePool.licenses_owned > 0, LicensePool.open_access)
+            or_(LicensePool.licenses_owned > 0, LicensePool.open_access, LicensePool.self_hosted)
         )
 
         # Only find books in an appropriate collection.
