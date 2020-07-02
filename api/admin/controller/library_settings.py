@@ -50,7 +50,7 @@ class LibrarySettingsController(SettingsController):
 
             settings = dict()
             for setting in Configuration.LIBRARY_SETTINGS:
-                if setting.get("format") == "announcements":
+                if setting.get("type") == "announcements":
                     value = ConfigurationSetting.for_library(setting.get("key"), library).json_value
                     if value:
                         value = AnnouncementListValidator().validate_announcements(value)
@@ -282,7 +282,7 @@ class LibrarySettingsController(SettingsController):
         if format == "geographic":
             value = self.list_setting(setting)
             value = validator.validate_geographic_areas(value, self._db)
-        elif format == "announcements":
+        elif type == "announcements":
             value = self.list_setting(setting, json_objects=True)
             value = validator.validate_announcements(value)
         elif type == "list":
