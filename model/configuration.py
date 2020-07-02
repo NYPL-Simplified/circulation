@@ -46,6 +46,9 @@ class ExternalIntegrationLink(Base, HasFullTableCache):
     BOOKS = "books_mirror"
     MARC = "MARC_mirror"
 
+    URL_SIGNING = 'url_signing'
+    URL_SIGNING_DEFAULT_VALUE = str(False)
+
     id = Column(Integer, primary_key=True)
     external_integration_id = Column(
         Integer, ForeignKey('externalintegrations.id'), index=True
@@ -77,7 +80,21 @@ class ExternalIntegrationLink(Base, HasFullTableCache):
                 )
             ]
         })
+
     COLLECTION_MIRROR_SETTINGS = settings
+    URL_SIGNING_SETTINGS = [
+        {
+            'key': URL_SIGNING,
+            'label': _('URL signing'),
+            'description': _('Sign URLs and make them expirable'),
+            'type': 'select',
+            'options': [
+                {'key': str(False), 'label': _('Use original URLs')},
+                {'key': str(True), 'label': _('Sign URLs and make them expirable')}
+            ],
+            'default': URL_SIGNING_DEFAULT_VALUE
+        }
+    ]
 
 
 class ExternalIntegration(Base, HasFullTableCache):
