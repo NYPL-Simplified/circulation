@@ -1092,12 +1092,12 @@ class LibraryAuthenticator(object):
             doc['color_scheme'] = description
 
         # Add the library's web colors, if it has any.
-        background = ConfigurationSetting.for_library(
-            Configuration.WEB_BACKGROUND_COLOR, library).value
-        foreground = ConfigurationSetting.for_library(
-            Configuration.WEB_FOREGROUND_COLOR, library).value
-        if background or foreground:
-            doc["web_color_scheme"] = dict(background=background, foreground=foreground)
+        primary = ConfigurationSetting.for_library(
+            Configuration.WEB_PRIMARY_COLOR, library).value
+        secondary = ConfigurationSetting.for_library(
+            Configuration.WEB_SECONDARY_COLOR, library).value
+        if primary or secondary:
+            doc["web_color_scheme"] = dict(primary=primary, secondary=secondary, background=primary, foreground=secondary)
 
         # Add the description of the library as the OPDS feed's
         # service_description.
