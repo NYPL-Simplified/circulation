@@ -42,7 +42,6 @@ from api.enki import EnkiAPI
 from api.feedbooks import FeedbooksOPDSImporter
 from api.lanes import create_default_lanes
 from api.local_analytics_exporter import LocalAnalyticsExporter
-from api.manual_import import ManualImportAPI
 from api.odilo import OdiloAPI
 from api.odl import ODLAPI, SharedODLAPI
 from api.opds_for_distributors import OPDSForDistributorsAPI
@@ -1294,7 +1293,6 @@ class SettingsController(AdminCirculationManagerController):
                      ODLAPI,
                      SharedODLAPI,
                      FeedbooksOPDSImporter,
-                     ManualImportAPI
                      ]
 
     @classmethod
@@ -1493,9 +1491,17 @@ class SettingsController(AdminCirculationManagerController):
         self._db.delete(integration)
         return Response(unicode(_("Deleted")), 200)
 
-
     def _get_collection_protocols(self, provider_apis):
         protocols = self._get_integration_protocols(provider_apis, protocol_name_attr="NAME")
+        protocols.append(
+            {
+                'name': ExternalIntegration.MANUAL,
+                'label': _('Manual import'),
+                'description': _('Books will be manually added to the circulation manager, '
+                                 'not imported automatically through a protocol.'),
+                'settings': []
+            }
+        )
 
         return protocols
 
@@ -1581,6 +1587,9 @@ class SettingsController(AdminCirculationManagerController):
                 setting['options'].append(
                     dict(key=str(integration.id), label=integration.name)
                 )
+
+        mirror_integration_settings.extend(copy.deepcopy(ExternalIntegrationLink.URL_SIGNING_SETTINGS))
+
         return mirror_integration_settings
 
     def _create_integration(self, protocol_definitions, protocol, goal):
