@@ -1403,19 +1403,13 @@ class LibraryLoanAndHoldAnnotator(LibraryAnnotator):
     ):
         db = Session.object_session(patron)
 
-        excluded_audio_sources = ConfigurationSetting.excluded_audio_data_sources(_db)
-
         active_loans_by_work = {}
         for loan in patron.loans:
-            if cls._exclude_from_feeds(excluded_audio_sources, loan):
-                continue
             work = loan.work
             if work:
                 active_loans_by_work[work] = loan
         active_holds_by_work = {}
         for hold in patron.holds:
-            if cls._exclude_from_feeds(excluded_audio_sources, hold):
-                continue
             work = hold.work
             if work:
                 active_holds_by_work[work] = hold
@@ -1430,22 +1424,6 @@ class LibraryLoanAndHoldAnnotator(LibraryAnnotator):
         feed_obj = AcquisitionFeed(db, "Active loans and holds", url, works, annotator)
         annotator.annotate_feed(feed_obj, None)
         return feed_obj.as_response(max_age=60*30, private=True)
-
-    @classmethod
-    def _exclude_from_feeds(cls, excluded_sources, loan):
-        pool = loan.license_pool
-        if not pool:
-            # Shouldn't happen
-            return False
-        edition = pool.presentation_edition
-        if not edition:
-            # Shouldn't happen
-            return False
-        if edition.medium != Edition.AUDIO_MEDIUM:
-            return False
-        if pool.data_source.name in excluded_sources:
-            return True
-        return False
 
     @classmethod
     def single_item_feed(cls, circulation, item, fulfillment=None, test_mode=False,
