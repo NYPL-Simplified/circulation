@@ -1,6 +1,8 @@
 # encoding: utf-8
 import datetime
+import functools
 
+import boto3
 import botocore
 from botocore.exceptions import (
     BotoCoreError,
@@ -18,6 +20,7 @@ from . import (
 )
 from ..mirror import MirrorUploader
 from ..model import (
+    Identifier,
     DataSource,
     ExternalIntegration,
     Hyperlink,
@@ -39,8 +42,8 @@ class S3UploaderTest(DatabaseTest):
             ExternalIntegration.S3, ExternalIntegration.STORAGE_GOAL,
             settings=settings
         )
-        integration.username = 'username'
-        integration.password = 'password'
+        integration.username = settings.get('username', 'username')
+        integration.password = settings.get('password', 'password')
         return integration
 
     def _add_settings_value(self, settings, key, value):
@@ -102,6 +105,94 @@ class S3UploaderTest(DatabaseTest):
         uploader_class = uploader_class or S3Uploader
 
         return uploader_class(integration, client_class=client_class)
+
+
+class S3UploaderIntegrationTest(S3UploaderTest):
+    MINIO_PORT = 9000
+    MINIO_ENDPOINT_URL = 'http://localhost:{0}'.format(MINIO_PORT)
+    MINIO_USER = 'minioadmin'
+    MINIO_PASSWORD = 'minioadmin'
+
+    minio_s3_client = None
+    """boto3 client connected to locally running MinIO instance"""
+
+    s3_client_class = None
+    """Factory function used for creating a boto3 client inside S3Uploader"""
+
+    @classmethod
+    def setup_class(cls):
+        """Initializes the test suite"""
+        super(S3UploaderIntegrationTest, cls).setup_class()
+
+        cls.minio_s3_client = boto3.client(
+            's3',
+            aws_access_key_id=TestS3UploaderIntegration.MINIO_USER,
+            aws_secret_access_key=TestS3UploaderIntegration.MINIO_PASSWORD,
+            endpoint_url=TestS3UploaderIntegration.MINIO_ENDPOINT_URL
+        )
+        cls.s3_client_class = functools.partial(
+            boto3.client,
+            endpoint_url=TestS3UploaderIntegration.MINIO_ENDPOINT_URL
+        )
+
+    @classmethod
+    def teardown_class(cls):
+        """Deinitializes the test suite"""
+        response = cls.minio_s3_client.list_buckets()
+
+        for bucket in response['Buckets']:
+            bucket_name = bucket['Name']
+
+            response = cls.minio_s3_client.list_objects(Bucket=bucket_name)
+
+            for object in response.get('Contents', []):
+                object_key = object['Key']
+
+                cls.minio_s3_client.delete_object(Bucket=bucket_name, Key=object_key)
+
+            cls.minio_s3_client.delete_bucket(Bucket=bucket_name)
+
+    def _create_s3_uploader(
+            self,
+            client_class=None,
+            uploader_class=None,
+            region=None,
+            addressing_style=None,
+            **settings):
+        """Creates a new instance of S3 uploader
+
+        :param client_class: (Optional) Custom class to be used instead of boto3's client class
+        :type client_class: Optional[Type]
+
+        :param: uploader_class: (Optional) Custom class which will be used insted of S3Uploader
+        :type uploader_class: Optional[Type]
+
+        :param region: (Optional) S3 region
+        :type region: Optional[string]
+
+        :param addressing_style: (Optional) S3 addressing style
+        :type addressing_style: Optional[string]
+
+        :param settings: Kwargs used for initializing an external integration
+        :type: Optional[Dict]
+
+        :return: New intance of S3 uploader
+        :rtype: S3Uploader
+        """
+        if settings and 'username' not in settings:
+            self._add_settings_value(settings, 'username', self.MINIO_USER)
+        if settings and 'password' not in settings:
+            self._add_settings_value(settings, 'password', self.MINIO_PASSWORD)
+        if not client_class:
+            client_class = self.s3_client_class
+
+        return super(S3UploaderIntegrationTest, self)._create_s3_uploader(
+            client_class,
+            uploader_class,
+            region,
+            addressing_style,
+            **settings
+        )
 
 
 class TestS3Uploader(S3UploaderTest):
@@ -1085,3 +1176,32 @@ class TestMultiPartS3Upload(S3UploaderTest):
         upload.upload_part("Part 2")
         upload.abort()
         eq_([], uploader.client.parts)
+
+
+class TestS3UploaderIntegration(S3UploaderIntegrationTest):
+    def test_mirror(self):
+        # Arrange
+        book_title = '1234567890'
+        book_content = '1234567890'
+        identifier = Identifier(type=Identifier.ISBN, identifier=book_title)
+        representation = Representation(content=book_content, media_type=Representation.EPUB_MEDIA_TYPE)
+        bucket_name = 'testbucket'
+        buckets = {
+            S3Uploader.OA_CONTENT_BUCKET_KEY: bucket_name,
+        }
+        s3_uploader = self._create_s3_uploader(**buckets)
+
+        self.minio_s3_client.create_bucket(Bucket=bucket_name)
+
+        # Act
+        book_url = s3_uploader.book_url(identifier)
+        s3_uploader.mirror_one(representation, book_url)
+
+        # Assert
+        response = self.minio_s3_client.list_objects(Bucket=bucket_name)
+        assert 'Contents' in response
+        eq_(len(response['Contents']), 1)
+
+        [object] = response['Contents']
+
+        eq_(object['Key'], 'ISBN/{0}.epub'.format(book_title))

@@ -102,6 +102,12 @@ class S3AddressingStyle(Enum):
 class S3Uploader(MirrorUploader):
     NAME = ExternalIntegration.S3
 
+    # AWS S3 host
+    S3_HOST = 'amazonaws.com'
+
+    # MinIO host used in integration tests (we assume that it's always using port 9000)
+    MINIO_HOST = 'localhost:9000'
+
     S3_REGION = u's3_region'
     S3_DEFAULT_REGION = u'us-east-1'
 
@@ -465,7 +471,7 @@ class S3Uploader(MirrorUploader):
     def bucket_and_filename(cls, url, unquote=True):
         scheme, netloc, path, query, fragment = urlsplit(url)
 
-        if netloc.endswith('amazonaws.com'):
+        if netloc.endswith(S3Uploader.S3_HOST) or netloc.endswith(S3Uploader.MINIO_HOST):
             host_parts = netloc.split('.')
             host_parts_count = len(host_parts)
 
