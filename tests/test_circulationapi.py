@@ -1215,11 +1215,12 @@ class TestCirculationAPI(DatabaseTest):
         class Mock(MockCirculationAPI):
             called_with = []
 
-            def filter_unfulfillable_items(self, items):
-                self.called_with.append(items)
-                for x in items:
-                    if x.license_pool != lp1:
-                        yield x
+            def _remote_loans_representable_locally(self, licensepool):
+                # For whatever reason, remote loans for lp1 are not
+                # representable locally.
+                self.called_with.append(licensepool)
+                return licensepool != lp1
+
         circulation = Mock(
             self._db, self._default_library,
         )
@@ -1245,23 +1246,25 @@ class TestCirculationAPI(DatabaseTest):
         # Sync the bookshelf.
         info = circulation.sync_bookshelf(self.patron, "1234")
 
-        # Our mocked filter_unfulfillable_items was called twice: once
-        # with a list of loans and once with a list of holds.
-        [[loan], [hold]] = circulation.called_with
-        assert isinstance(loan, Loan)
-        eq_(lp1, loan.license_pool)
+        # Our mocked _remote_loans_representable_locally was called twice: once with
+        # l1 (associated with a loan) and once with l2 (associated
+        # with a hold).
+        eq_([lp1, lp2], circulation.called_with)
+
+        # Since the loan was deemed unfulfillable, sync_bookshelf
+        # only returned a Hold.
+        loans, [hold] = info
+        eq_(0, len(loans))
         assert isinstance(hold, Hold)
         eq_(lp2, hold.license_pool)
 
-        # Since the loan was deemed unfulfillable, sync_bookshelf
-        # only returned the hold.
-        filtered_loans, [filtered_hold] = info
-        eq_(0, len(filtered_loans))
-        eq_(hold, filtered_hold)
+        # The patron ended up with a Hold but no Loan.
+        eq_([], self.patron.loans)
+        eq_([lp2], [x.license_pool for x in self.patron.holds])
 
-    def test_filter_unfulfillable_items(self):
-        # A loan or hold is filtered as unfulfillable if it is an audiobook from
-        # an excluded source.
+    def test__remote_loans_representable_locally(self):
+        # A remote loan or hold cannot be represented locally if it is
+        # an audiobook from an excluded source.
 
         # Clear out the list of excluded audiobook data sources.
         setting = ConfigurationSetting.sitewide(
@@ -1269,28 +1272,22 @@ class TestCirculationAPI(DatabaseTest):
         )
         setting.value = json.dumps([])
 
-        # Create a Loan and a Hold for our precreated LicensePool.
-        loan, ignore = self.pool.loan_to(self.patron)
-        patron2 = self._patron()
-        hold, ignore = self.pool.on_hold_to(patron2)
-
-        # Neither the Loan nor the Hold is filtered.
-        m = self.circulation.filter_unfulfillable_items
-        eq_([loan, hold], list(m([loan, hold])))
+        # Our precreated LicensePool can have local loans.
+        m = self.circulation._remote_loans_representable_locally
+        eq_(True, m(self.pool))
 
         # Add the data source of our LicensePool to the list
         # of excluded audio data sources.
         setting.value = json.dumps([self.pool.data_source.name])
 
         # Still not filtered, because this isn't an audiobook.
-        eq_([loan, hold], list(m([loan, hold])))
-        assert self.pool.presentation_edition.medium != EditionConstants.AUDIO_MEDIUM
+        eq_(True, m(self.pool))
 
         # What if it was an audiobook?
         self.pool.presentation_edition.medium = EditionConstants.AUDIO_MEDIUM
 
-        # Now both the loan and hold are filtered.
-        eq_([], list(m([loan, hold])))
+        # No longer representable
+        eq_(False, m(self.pool))
 
 
     def test_patron_activity(self):

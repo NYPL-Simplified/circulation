@@ -1120,7 +1120,6 @@ class CirculationAPI(object):
         )
 
     def sync_bookshelf(self, patron, pin):
-
         # Get the external view of the patron's current state.
         remote_loans, remote_holds, complete = self.patron_activity(patron, pin)
 
@@ -1165,6 +1164,8 @@ class CirculationAPI(object):
             # This is a remote loan. Find or create the corresponding
             # local loan.
             pool = loan.license_pool(self._db)
+            if not self._remote_loans_representable_locally(pool):
+                continue
             start = loan.start_date
             end = loan.end_date
             key = (loan.identifier_type, loan.identifier)
@@ -1201,6 +1202,8 @@ class CirculationAPI(object):
             # This is a remote hold. Find or create the corresponding
             # local hold.
             pool = hold.license_pool(self._db)
+            if not self._remote_loans_representable_locally(pool):
+                continue
             start = hold.start_date
             end = hold.end_date
             position = hold.hold_position
@@ -1252,30 +1255,35 @@ class CirculationAPI(object):
         __transaction.commit()
         return active_loans, active_holds
 
-    def filter_unfulfillable_items(self, items):
-        """Remove unfulfillable items from a list of loans or holds.
+    def _remote_loans_representable_locally(self, licensepool):
+        """In rare cases, loans or holds that are present on the remote side should not
+        be stored locally.
 
-        This should only be used to remove items that the _server_ knows it will be
-        unable to fulfill. The server should try not to make judgements about
-        which items the client will be unable to fulfill.
+        Currently this only happens because the loan/hold is for an
+        audiobook from an excluded data source. Storing these loans or
+        holds locally will give the client the incorrect impression
+        that the circulation manager is capable of fulfilling the
+        book.
 
-        :param items: A list of Loans or Holds.
-        :return: A new list without unfulfillable items.
+        :param licensepool: A LicensePool
+        :return: A boolean -- should loans and holds for this LicensePool be stored locally?
         """
         excluded = ConfigurationSetting.excluded_audio_data_sources(self._db)
-        for item in items:
-            pool = item.license_pool
-            if not pool:
-                # Shouldn't happen.
-                continue
-            edition = pool.presentation_edition
-            if not edition:
-                # Shouldn't happen.
-                continue
-            if pool.data_source.name in excluded and edition.medium == EditionConstants.AUDIO_MEDIUM:
-                continue
-            yield item
+        if not licensepool:
+            # Shouldn't happen; preserve old behavior.
+            return True
 
+        edition = licensepool.presentation_edition
+        if not edition:
+            # Shouldn't happen; preserve old behavior.
+            return True
+
+        if licensepool.data_source.name in excluded and edition.medium == EditionConstants.AUDIO_MEDIUM:
+            # This is an audiobook we can't fulfill. Don't store loans or holds locally.
+            return False
+
+        # All other loans and holds can be stored locally.
+        return True
 
 class BaseCirculationAPI(object):
     """Encapsulates logic common to all circulation APIs."""
