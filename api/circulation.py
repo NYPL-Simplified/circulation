@@ -18,6 +18,7 @@ from core.model import (
     CollectionMissing,
     ConfigurationSetting,
     DeliveryMechanism,
+    EditionConstants,
     ExternalIntegration,
     Identifier,
     DataSource,
@@ -1250,6 +1251,30 @@ class CirculationAPI(object):
 
         __transaction.commit()
         return active_loans, active_holds
+
+    def filter_unfulfillable_items(self, items):
+        """Remove unfulfillable items from a list of loans or holds.
+
+        This should only be used to remove items that the _server_ knows it will be
+        unable to fulfill. The server should try not to make judgements about
+        which items the client will be unable to fulfill.
+
+        :param items: A list of Loans or Holds.
+        :return: A new list without unfulfillable items.
+        """
+        excluded = ConfigurationSetting.excluded_audio_data_sources(self._db)
+        for item in items:
+            pool = item.license_pool
+            if not pool:
+                # Shouldn't happen.
+                continue
+            edition = pool.presentation_edition
+            if not edition:
+                # Shouldn't happen.
+                continue
+            if pool.data_source.name in excluded and edition.medium == EditionConstants.AUDIO_MEDIUM:
+                continue
+            yield item
 
 
 class BaseCirculationAPI(object):

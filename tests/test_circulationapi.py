@@ -18,6 +18,7 @@ from datetime import (
     datetime,
     timedelta,
 )
+import json
 
 from api.authenticator import (
     LibraryAuthenticator,
@@ -41,6 +42,7 @@ from core.model import (
     ConfigurationSetting,
     DataSource,
     DeliveryMechanism,
+    EditionConstants,
     ExternalIntegration,
     Hyperlink,
     Identifier,
@@ -1207,6 +1209,89 @@ class TestCirculationAPI(DatabaseTest):
         # ... and (once we commit) with the LicensePool.
         self._db.commit()
         assert loan.fulfillment in pool.delivery_mechanisms
+
+    def test_sync_bookshelf_filters_unfulfillable_items(self):
+
+        class Mock(MockCirculationAPI):
+            called_with = []
+
+            def filter_unfulfillable_items(self, items):
+                self.called_with.append(items)
+                for x in items:
+                    if x.license_pool != lp1:
+                        yield x
+        circulation = Mock(
+            self._db, self._default_library,
+        )
+
+        # Remote knows about a loan...
+        lp1 = self._licensepool(None)
+        circulation.add_remote_loan(
+            lp1.collection, lp1.data_source.name,
+            lp1.identifier.type,
+            lp1.identifier.identifier,
+            datetime.utcnow(),
+            None,
+        )
+
+        # ...and a hold.
+        lp2 = self._licensepool(None)
+        circulation.add_remote_hold(
+            lp2.collection, lp2.data_source, lp2.identifier.type,
+            lp2.identifier.identifier, self.TODAY, self.IN_TWO_WEEKS,
+            0
+        )
+
+        # Sync the bookshelf.
+        info = circulation.sync_bookshelf(self.patron, "1234")
+
+        # Our mocked filter_unfulfillable_items was called twice: once
+        # with a list of loans and once with a list of holds.
+        [[loan], [hold]] = circulation.called_with
+        assert isinstance(loan, Loan)
+        eq_(lp1, loan.license_pool)
+        assert isinstance(hold, Hold)
+        eq_(lp2, hold.license_pool)
+
+        # Since the loan was deemed unfulfillable, sync_bookshelf
+        # only returned the hold.
+        filtered_loans, [filtered_hold] = info
+        eq_(0, len(filtered_loans))
+        eq_(hold, filtered_hold)
+
+    def test_filter_unfulfillable_items(self):
+        # A loan or hold is filtered as unfulfillable if it is an audiobook from
+        # an excluded source.
+
+        # Clear out the list of excluded audiobook data sources.
+        setting = ConfigurationSetting.sitewide(
+            self._db, Configuration.EXCLUDED_AUDIO_DATA_SOURCES
+        )
+        setting.value = json.dumps([])
+
+        # Create a Loan and a Hold for our precreated LicensePool.
+        loan, ignore = self.pool.loan_to(self.patron)
+        patron2 = self._patron()
+        hold, ignore = self.pool.on_hold_to(patron2)
+
+        # Neither the Loan nor the Hold is filtered.
+        m = self.circulation.filter_unfulfillable_items
+        eq_([loan, hold], list(m([loan, hold])))
+
+        # Add the data source of our LicensePool to the list
+        # of excluded audio data sources.
+        setting.value = json.dumps([self.pool.data_source.name])
+
+        # Still not filtered, because this isn't an audiobook.
+        eq_([loan, hold], list(m([loan, hold])))
+        assert self.pool.presentation_edition.medium != EditionConstants.AUDIO_MEDIUM
+
+        # What if it was an audiobook?
+        self.pool.presentation_edition.medium = EditionConstants.AUDIO_MEDIUM
+
+        # Now both the loan and hold are filtered.
+        eq_([], list(m([loan, hold])))
+
 
     def test_patron_activity(self):
         # Get a CirculationAPI that doesn't mock out its API's patron activity.
