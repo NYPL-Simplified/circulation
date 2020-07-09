@@ -1,7 +1,24 @@
 # encoding: utf-8
 # ExternalIntegration, ExternalIntegrationLink, ConfigurationSetting
-from nose.tools import set_trace
 
+import json
+import logging
+
+from flask_babel import lazy_gettext as _
+from sqlalchemy import (
+    Column,
+    ForeignKey,
+    Integer,
+    Unicode,
+    UniqueConstraint,
+)
+from sqlalchemy.ext.hybrid import hybrid_property
+from sqlalchemy.orm import relationship
+from sqlalchemy.orm.session import Session
+
+from constants import DataSourceConstants
+from hasfulltablecache import HasFullTableCache
+from library import Library
 from . import (
     Base,
     get_one,
@@ -11,28 +28,9 @@ from ..config import (
     CannotLoadConfiguration,
     Configuration,
 )
-from constants import DataSourceConstants
-from hasfulltablecache import HasFullTableCache
-from library import Library
 from ..mirror import MirrorUploader
 from ..util.string_helpers import random_string
 
-import json
-import logging
-import os
-from sqlalchemy import (
-    Column,
-    ForeignKey,
-    Integer,
-    Unicode,
-    UniqueConstraint,
-)
-from flask_babel import lazy_gettext as _
-from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy.orm import relationship
-from sqlalchemy.orm.session import Session
-from sqlalchemy.sql import select
-from sqlalchemy.sql.functions import func
 
 class ExternalIntegrationLink(Base, HasFullTableCache):
 
@@ -42,12 +40,16 @@ class ExternalIntegrationLink(Base, HasFullTableCache):
     # Possible purposes that a storage external integration can be used for.
     # These string literals may be stored in the database, so changes to them
     # may need to be accompanied by a DB migration.
-    COVERS = "covers_mirror"
-    BOOKS = "books_mirror"
-    MARC = "MARC_mirror"
+    COVERS = 'covers_mirror'
+    COVERS_KEY = '{0}_integration_id'.format(COVERS)
 
-    URL_SIGNING = 'url_signing'
-    URL_SIGNING_DEFAULT_VALUE = str(False)
+    OPEN_ACCESS_BOOKS = 'books_mirror'
+    OPEN_ACCESS_BOOKS_KEY = '{0}_integration_id'.format(OPEN_ACCESS_BOOKS)
+
+    PROTECTED_ACCESS_BOOKS = 'protected_books_mirror'
+    PROTECTED_ACCESS_BOOKS_KEY = '{0}_integration_id'.format(PROTECTED_ACCESS_BOOKS)
+
+    MARC = "MARC_mirror"
 
     id = Column(Integer, primary_key=True)
     external_integration_id = Column(
@@ -61,40 +63,48 @@ class ExternalIntegrationLink(Base, HasFullTableCache):
     )
     purpose = Column(Unicode, index=True)
 
-    types = [COVERS, BOOKS]
+    mirror_settings = [
+        {
+            'key': COVERS_KEY,
+            'type': COVERS,
+            'description_type': 'cover images',
+            'label': 'Covers Mirror'
+        },
+        {
+            'key': OPEN_ACCESS_BOOKS_KEY,
+            'type': OPEN_ACCESS_BOOKS,
+            'description_type': 'free books',
+            'label': 'Open Access Mirror'
+        },
+        {
+            'key': PROTECTED_ACCESS_BOOKS_KEY,
+            'type': PROTECTED_ACCESS_BOOKS,
+            'description_type': 'self-hosted books',
+            'label': 'Protected Access Mirror'
+        }
+    ]
     settings = []
 
-    for type in types:
-        description_type = "cover images" if type == COVERS else "free books"
-        key = "%s_integration_id" % type.lower()
-        label = type.split('_')[0]
+    for mirror_setting in mirror_settings:
+        mirror_type = mirror_setting['type']
+        mirror_description_type = mirror_setting['description_type']
+        mirror_label = mirror_setting['label']
+
         settings.append({
-            "key": key,
-            "label": _("%s Mirror" % label.capitalize()),
-            "description": _("Any %s encountered while importing content from this collection can be mirrored to a server you control." % description_type),
-            "type": "select",
-            "options" : [
-                dict(
-                    key=NO_MIRROR_INTEGRATION,
-                    label=_("None - Do not mirror %s" % description_type)
-                )
+            'key': '{0}_integration_id'.format(mirror_type.lower()),
+            'label': _(mirror_label.capitalize()),
+            "description": _('Any {0} encountered while importing content from this collection '
+                             'can be mirrored to a server you control.'.format(mirror_description_type)),
+            'type': 'select',
+            'options': [
+                {
+                    'key': NO_MIRROR_INTEGRATION,
+                    'label': _('None - Do not mirror {0}'.format(mirror_description_type))
+                }
             ]
         })
 
     COLLECTION_MIRROR_SETTINGS = settings
-    URL_SIGNING_SETTINGS = [
-        {
-            'key': URL_SIGNING,
-            'label': _('URL signing'),
-            'description': _('Sign URLs and make them expirable'),
-            'type': 'select',
-            'options': [
-                {'key': str(False), 'label': _('Use original URLs')},
-                {'key': str(True), 'label': _('Sign URLs and make them expirable')}
-            ],
-            'default': URL_SIGNING_DEFAULT_VALUE
-        }
-    ]
 
 
 class ExternalIntegration(Base, HasFullTableCache):

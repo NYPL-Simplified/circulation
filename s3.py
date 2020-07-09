@@ -113,6 +113,7 @@ class S3Uploader(MirrorUploader):
 
     BOOK_COVERS_BUCKET_KEY = u'book_covers_bucket'
     OA_CONTENT_BUCKET_KEY = u'open_access_content_bucket'
+    PROTECTED_CONTENT_BUCKET_KEY = u'protected_content_bucket'
     MARC_BUCKET_KEY = u'marc_bucket'
 
     URL_TEMPLATE_KEY = u'bucket_name_transform'
@@ -140,6 +141,10 @@ class S3Uploader(MirrorUploader):
         {"key": OA_CONTENT_BUCKET_KEY, "label": _("Open Access Content Bucket"),
          "description": _(
              "All open-access books encountered will be uploaded to this S3 bucket. <p>The bucket must already exist&mdash;it will not be created automatically.</p>")
+         },
+        {"key": PROTECTED_CONTENT_BUCKET_KEY, "label": _("Protected Access Content Bucket"),
+         "description": _(
+             "Self-hosted books will be uploaded to this S3 bucket. <p>The bucket must already exist&mdash;it will not be created automatically.</p>")
          },
         {"key": MARC_BUCKET_KEY, "label": _("MARC File Bucket"),
          "description": _(

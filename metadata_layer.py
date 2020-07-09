@@ -547,7 +547,7 @@ class LinkData(object):
         """
         if self.rel in [Hyperlink.IMAGE, Hyperlink.THUMBNAIL_IMAGE]:
             return ExternalIntegrationLink.COVERS
-        return ExternalIntegrationLink.BOOKS
+        return ExternalIntegrationLink.OPEN_ACCESS_BOOKS
 
 
 class MeasurementData(object):

@@ -157,7 +157,7 @@ class TestTimestampScript(DatabaseTest):
 
     def _ts(self, script):
         """Convenience method to look up the Timestamp for a script.
-        
+
         We don't use Timestamp.stamp() because we want to make sure
         that Timestamps are being created by the actual code, not test
         code.
@@ -2305,7 +2305,7 @@ class TestWhereAreMyBooksScript(DatabaseTest):
         # Every collection in the database was explained.
         eq_(set([collection1, collection2]),
             set(script.explained_collections))
-        
+
         # There only output were the newlines after the five method
         # calls. All other output happened inside the methods we
         # mocked.
@@ -2366,7 +2366,7 @@ class TestWhereAreMyBooksScript(DatabaseTest):
         [how_many] = script.output
         eq_(('%d feeds in cachedfeeds table, not counting grouped feeds.', [0]),
             how_many)
-        
+
     def check_explanation(
         self, presentation_ready=1, not_presentation_ready=0,
         no_delivery_mechanisms=0, suppressed=0, not_owned=0,
@@ -2619,7 +2619,7 @@ class TestMirrorResourcesScript(DatabaseTest):
         eq_(Mock.mock_policy, policy)
         # The mirror uploader was associated with a purpose of "covers", so we only
         # expect to have one MirrorUploader.
-        eq_(Mock.replacement_policy_called_with[ExternalIntegrationLink.BOOKS], None)
+        eq_(Mock.replacement_policy_called_with[ExternalIntegrationLink.OPEN_ACCESS_BOOKS], None)
         assert isinstance(
             Mock.replacement_policy_called_with[ExternalIntegrationLink.COVERS], MirrorUploader
         )
@@ -2632,7 +2632,7 @@ class TestMirrorResourcesScript(DatabaseTest):
         integration_link = self._external_integration_link(
             integration=has_uploader._external_integration,
             other_integration=another_mirror,
-            purpose=ExternalIntegrationLink.BOOKS
+            purpose=ExternalIntegrationLink.OPEN_ACCESS_BOOKS
         )
 
         result = script.collections_with_uploader(

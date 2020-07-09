@@ -1,7 +1,55 @@
 # encoding: utf-8
 # WorkGenre, Work
-from nose.tools import set_trace
 
+import datetime
+import logging
+from collections import Counter
+
+from sqlalchemy import (
+    Boolean,
+    Column,
+    DateTime,
+    Enum,
+    Float,
+    ForeignKey,
+    Integer,
+    Numeric,
+    String,
+    Unicode,
+)
+from sqlalchemy.dialects.postgresql import INT4RANGE
+from sqlalchemy.ext.associationproxy import association_proxy
+from sqlalchemy.orm import (
+    contains_eager,
+    relationship,
+)
+from sqlalchemy.orm.session import Session
+from sqlalchemy.sql.expression import (
+    and_,
+    or_,
+    select,
+    join,
+    literal_column,
+    case,
+)
+from sqlalchemy.sql.functions import func
+
+from config import CannotLoadConfiguration
+from constants import (
+    DataSourceConstants,
+)
+from contributor import (
+    Contribution,
+    Contributor,
+)
+from coverage import (
+    CoverageRecord,
+    WorkCoverageRecord,
+)
+from datasource import DataSource
+from edition import Edition
+from identifier import Identifier
+from measurement import Measurement
 from . import (
     Base,
     flush,
@@ -11,68 +59,13 @@ from . import (
     PresentationCalculationPolicy,
     tuple_to_numericrange,
 )
-from coverage import (
-    CoverageRecord,
-    WorkCoverageRecord,
-)
-from contributor import (
-    Contribution,
-    Contributor,
-)
 from ..classifier import (
     Classifier,
     WorkClassifier,
 )
-from constants import (
-    DataSourceConstants,
-    LinkRelations,
-)
-from datasource import DataSource
-from edition import Edition
-from identifier import Identifier
-from measurement import Measurement
 from ..util import LanguageCodes
 from ..util.string_helpers import native_string
 
-from collections import Counter
-import datetime
-import logging
-import random
-from sqlalchemy import (
-    Boolean,
-    Binary,
-    Column,
-    DateTime,
-    Enum,
-    Float,
-    ForeignKey,
-    func,
-    Index,
-    Integer,
-    Numeric,
-    String,
-    Table,
-    Unicode,
-)
-from sqlalchemy.dialects.postgresql import INT4RANGE
-from sqlalchemy.ext.associationproxy import association_proxy
-from sqlalchemy.sql.functions import func
-from sqlalchemy.orm import (
-    contains_eager,
-    relationship,
-)
-from sqlalchemy.orm.session import Session
-from sqlalchemy.sql import select
-from sqlalchemy.sql.expression import (
-    and_,
-    extract,
-    or_,
-    select,
-    join,
-    literal_column,
-    case,
-)
-from configuration import CannotLoadConfiguration
 
 class WorkGenre(Base):
     """An assignment of a genre to a work."""
@@ -1508,7 +1501,7 @@ class Work(Base):
             Subject,
         )
         from customlist import CustomListEntry
-        from licensing import LicensePool, LicensePoolDeliveryMechanism
+        from licensing import LicensePool
 
         # We need information about LicensePools for a few reasons:
         #

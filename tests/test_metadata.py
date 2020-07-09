@@ -672,7 +672,7 @@ class TestMetadataImporter(DatabaseTest):
         m = Metadata(data_source=data_source)
 
         mirrors = dict(books_mirror=MockS3Uploader())
-        mirror_type = ExternalIntegrationLink.BOOKS
+        mirror_type = ExternalIntegrationLink.OPEN_ACCESS_BOOKS
         def dummy_content_modifier(representation):
             representation.content = "Replaced Content"
         h = DummyHTTPClient()
