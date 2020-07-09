@@ -82,6 +82,7 @@ from core.model import (
 from core.model.configuration import ExternalIntegrationLink
 from core.opds import AcquisitionFeed
 from core.opds_import import (OPDSImporter, OPDSImportMonitor)
+from core.s3 import S3Uploader
 from core.selftest import HasSelfTests
 from core.util.flask_util import OPDSFeedResponse
 from core.util.http import HTTP
@@ -1582,13 +1583,35 @@ class SettingsController(AdminCirculationManagerController):
             return
 
         mirror_integration_settings = copy.deepcopy(ExternalIntegrationLink.COLLECTION_MIRROR_SETTINGS)
-        for setting in mirror_integration_settings:
-            for integration in integrations:
-                setting['options'].append(
-                    dict(key=str(integration.id), label=integration.name)
-                )
+        for integration in integrations:
+            book_covers_bucket = integration.setting(S3Uploader.BOOK_COVERS_BUCKET_KEY).value
+            open_access_bucket = integration.setting(S3Uploader.OA_CONTENT_BUCKET_KEY).value
+            protected_access_bucket = integration.setting(S3Uploader.PROTECTED_CONTENT_BUCKET_KEY).value
 
-        mirror_integration_settings.extend(copy.deepcopy(ExternalIntegrationLink.URL_SIGNING_SETTINGS))
+            for setting in mirror_integration_settings:
+                if setting['key'] == ExternalIntegrationLink.COVERS_KEY and book_covers_bucket:
+                    setting['options'].append(
+                        {
+                            'key': str(integration.id),
+                            'label': integration.name
+                        }
+                    )
+                elif setting['key'] == ExternalIntegrationLink.OPEN_ACCESS_BOOKS_KEY:
+                    if open_access_bucket:
+                        setting['options'].append(
+                            {
+                                'key': str(integration.id),
+                                'label': integration.name
+                            }
+                        )
+                elif setting['key'] == ExternalIntegrationLink.PROTECTED_ACCESS_BOOKS_KEY:
+                    if protected_access_bucket:
+                        setting['options'].append(
+                            {
+                                'key': str(integration.id),
+                                'label': integration.name
+                            }
+                        )
 
         return mirror_integration_settings
 

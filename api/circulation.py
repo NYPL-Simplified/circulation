@@ -476,7 +476,7 @@ class CirculationAPI(object):
         :return: Fulfillment info with a possibly signed URL
         :rtype: FulfillmentInfo
         """
-        mirror_types = [ExternalIntegrationLink.BOOKS, ExternalIntegrationLink.COVERS]
+        mirror_types = [ExternalIntegrationLink.PROTECTED_ACCESS_BOOKS]
         mirror = next(iter([
             MirrorUploader.for_collection(licensepool.collection, mirror_type)
             for mirror_type in mirror_types

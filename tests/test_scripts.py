@@ -1010,13 +1010,13 @@ class TestDirectoryImportScript(DatabaseTest):
         external_integration_link = self._external_integration_link(
             integration=existing_collection.external_integration,
             other_integration=storage2,
-            purpose=ExternalIntegrationLink.BOOKS
+            purpose=ExternalIntegrationLink.OPEN_ACCESS_BOOKS
         )
 
         collection, mirrors = script.load_collection("some collection", "data source name")
         eq_(collection, existing_collection)
         assert isinstance(mirrors[ExternalIntegrationLink.COVERS], MirrorUploader)
-        assert isinstance(mirrors[ExternalIntegrationLink.BOOKS], MirrorUploader)
+        assert isinstance(mirrors[ExternalIntegrationLink.OPEN_ACCESS_BOOKS], MirrorUploader)
 
     def test_work_from_metadata(self):
         # Validate the ability to create a new Work from appropriate metadata.
@@ -1042,7 +1042,7 @@ class TestDirectoryImportScript(DatabaseTest):
         datasource = DataSource.lookup(self._db, DataSource.GUTENBERG)
         policy = ReplacementPolicy.from_license_source(self._db)
         mirrors = dict(books_mirror=MockS3Uploader(),covers_mirror=MockS3Uploader())
-        mirror_type_books = ExternalIntegrationLink.BOOKS
+        mirror_type_books = ExternalIntegrationLink.OPEN_ACCESS_BOOKS
         mirror_type_covers = ExternalIntegrationLink.COVERS
         policy.mirrors = mirrors
 

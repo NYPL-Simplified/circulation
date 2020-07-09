@@ -1403,7 +1403,7 @@ class DirectoryImportScript(TimestampScript):
 
         mirrors = dict(covers_mirror=None, books_mirror=None)
 
-        types = [ExternalIntegrationLink.COVERS, ExternalIntegrationLink.BOOKS]
+        types = [ExternalIntegrationLink.COVERS, ExternalIntegrationLink.OPEN_ACCESS_BOOKS]
         for type in types:
             mirror_for_type = MirrorUploader.for_collection(collection, type)
             if not mirror_for_type:
@@ -1514,8 +1514,8 @@ class DirectoryImportScript(TimestampScript):
             return
 
         # Use the S3 storage for books.
-        if mirrors and mirrors[ExternalIntegrationLink.BOOKS]:
-            book_url = mirrors[ExternalIntegrationLink.BOOKS].book_url(
+        if mirrors and mirrors[ExternalIntegrationLink.OPEN_ACCESS_BOOKS]:
+            book_url = mirrors[ExternalIntegrationLink.OPEN_ACCESS_BOOKS].book_url(
                 identifier,
                 '.' + Representation.FILE_EXTENSIONS[book_media_type],
                 data_source=data_source,
