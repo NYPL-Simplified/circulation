@@ -34,7 +34,6 @@ from sqlalchemy.sql.expression import (
 )
 from sqlalchemy.sql.functions import func
 
-from config import CannotLoadConfiguration
 from constants import (
     DataSourceConstants,
 )
@@ -63,6 +62,7 @@ from ..classifier import (
     Classifier,
     WorkClassifier,
 )
+from ..config import CannotLoadConfiguration
 from ..util import LanguageCodes
 from ..util.string_helpers import native_string
 
