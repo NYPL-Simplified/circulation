@@ -241,6 +241,8 @@ class LibrarySettingsController(SettingsController):
             validator = None
             if 'format' in setting:
                 validator = validators_by_format.get(setting["format"])
+            elif 'type' in setting:
+                validator = validators_by_format.get(setting["type"])
             validated_value = self._validate_setting(library, setting, validator)
 
             if isinstance(validated_value, ProblemDetail):
