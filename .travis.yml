@@ -25,7 +25,7 @@ cache: pip
 
 before_install:
   - pip install --upgrade pip
-  - pip install "setuptools>=18.5"
+  - pip install --upgrade "setuptools>=18.5"
   # Setup elasticsearch for integration testing in docker
   - docker run -d -p 9200:9200 -e "discovery.type=single-node" --name es elasticsearch:$ES_VERSION
   - docker exec es elasticsearch-plugin install analysis-icu
