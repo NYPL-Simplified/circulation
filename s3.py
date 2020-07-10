@@ -480,10 +480,10 @@ class S3Uploader(MirrorUploader):
         """
         scheme, netloc, path, query, fragment = urlsplit(url)
 
-        if netloc.endswith(S3Uploader.S3_HOST) or netloc.endswith(S3Uploader.MINIO_HOST):
-            return False
-        else:
+        if netloc.endswith(S3Uploader.S3_HOST) or (S3Uploader.MINIO_HOST and netloc.endswith(S3Uploader.MINIO_HOST)):
             return True
+        else:
+            return False
 
     @classmethod
     def bucket_and_filename(cls, url, unquote=True):
