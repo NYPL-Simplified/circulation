@@ -82,6 +82,7 @@ import external_search
 import mock
 import inspect
 
+from nose.plugins.attrib import attr
 
 def package_setup():
     """Make sure the application starts in a pristine state.
@@ -1072,7 +1073,7 @@ class SearchClientForTesting(ExternalSearchIndex):
             new_index, number_of_shards=1, number_of_replicas=0
         )
 
-
+@attr(integration='elasticsearch')
 class ExternalSearchTest(DatabaseTest):
     """
     These tests require elasticsearch to be running locally. If it's not, or there's

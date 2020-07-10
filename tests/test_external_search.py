@@ -148,14 +148,9 @@ class TestExternalSearch(ExternalSearchTest):
         ExternalSearchTest.setup) plus a version number associated
         with this version of the core code.
         """
-        if not self.search:
-            return
         eq_("test_index-v4", self.search.works_index_name(self._db))
 
     def test_setup_index_creates_new_index(self):
-        if not self.search:
-            return
-
         current_index = self.search.works_index
         # This calls self.search.setup_index (which is what we're testing)
         # and also registers the index to be torn down at the end of the test.
@@ -175,9 +170,6 @@ class TestExternalSearch(ExternalSearchTest):
         eq_(False, self.search.indices.exists_alias('the_other_index', alias))
 
     def test_set_works_index_and_alias(self):
-        if not self.search:
-            return
-
         # If the index or alias don't exist, set_works_index_and_alias
         # will create them.
         self.integration.set_setting(ExternalSearchIndex.WORKS_INDEX_PREFIX_KEY, u'banana')
@@ -195,9 +187,6 @@ class TestExternalSearch(ExternalSearchTest):
         eq_(expected_alias, self.search.works_alias)
 
     def test_setup_current_alias(self):
-        if not self.search:
-            return
-
         # The index was generated from the string in configuration.
         version = CurrentMapping.version_name()
         index_name = 'test_index-' + version
@@ -220,9 +209,6 @@ class TestExternalSearch(ExternalSearchTest):
         eq_('my-app-' + self.search.CURRENT_ALIAS_SUFFIX, self.search.works_alias)
 
     def test_transfer_current_alias(self):
-        if not self.search:
-            return
-
         # An error is raised if you try to set the alias to point to
         # an index that doesn't already exist.
         assert_raises(
@@ -603,11 +589,6 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
         # We then run actual Elasticsearch queries against the
         # search index and verify that the work IDs returned
         # are the ones we expect.
-        if not self.search:
-            logging.error(
-                "Search is not configured, skipping test_query_works."
-            )
-            return
 
         # First, run some basic checks to make sure the search
         # document query doesn't contain over-zealous joins. This test
@@ -1138,13 +1119,6 @@ class TestFacetFilters(EndToEndSearchTest):
         self.becoming.quality = 0.9
 
     def test_facet_filtering(self):
-
-        if not self.search:
-            logging.error(
-                "Search is not configured, skipping test_facet_filtering."
-            )
-            return
-
         # Add all the works created in the setup to the search index.
         SearchIndexCoverageProvider(
             self._db, search_index_client=self.search
@@ -1370,12 +1344,6 @@ class TestSearchOrder(EndToEndSearchTest):
         self.d.last_update_time = datetime.datetime(2091, 1, 1)
 
     def test_ordering(self):
-
-        if not self.search:
-            logging.error(
-                "Search is not configured, skipping test_ordering."
-            )
-            return
 
         def assert_order(sort_field, order, **filter_kwargs):
             """Verify that when the books created during test setup are ordered by
@@ -1605,12 +1573,6 @@ class TestAuthorFilter(EndToEndSearchTest):
 
     def test_author_match(self):
 
-        if not self.search:
-            logging.error(
-                "Search is not configured, skipping test_author_match."
-            )
-            return
-
         # By providing a Contributor object with all the identifiers,
         # we get every work with an author-type contribution from
         # someone who can be identified with that Contributor.
@@ -1728,8 +1690,6 @@ class TestExactMatches(EndToEndSearchTest):
         )
 
     def test_exact_matches(self):
-        if not self.search:
-            return
 
         expect = self._expect_results
 
@@ -4431,9 +4391,6 @@ class TestBulkUpdate(DatabaseTest):
 class TestSearchErrors(ExternalSearchTest):
 
     def test_search_connection_timeout(self):
-        if not self.search:
-            return
-
         attempts = []
 
         def bulk_with_timeout(docs, raise_on_error=False, raise_on_exception=False):
@@ -4463,9 +4420,6 @@ class TestSearchErrors(ExternalSearchTest):
             [docs[0]['_id'] for docs in attempts])
 
     def test_search_single_document_error(self):
-        if not self.search:
-            return
-
         successful_work = self._work()
         successful_work.set_presentation_ready()
         failing_work = self._work()
