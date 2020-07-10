@@ -1,6 +1,7 @@
 # encoding: utf-8
 import datetime
 import functools
+import os
 
 import boto3
 import botocore
@@ -9,6 +10,7 @@ from botocore.exceptions import (
     ClientError,
 )
 from mock import MagicMock
+from nose.plugins.attrib import attr
 from nose.tools import (
     assert_raises,
     eq_,
@@ -121,7 +123,7 @@ class S3UploaderIntegrationTest(S3UploaderTest):
 
     @classmethod
     def setup_class(cls):
-        """Initializes the test suite"""
+        """Initializes the test suite by creating a boto3 client set up with MinIO credentials"""
         super(S3UploaderIntegrationTest, cls).setup_class()
 
         cls.minio_s3_client = boto3.client(
@@ -137,7 +139,7 @@ class S3UploaderIntegrationTest(S3UploaderTest):
 
     @classmethod
     def teardown_class(cls):
-        """Deinitializes the test suite"""
+        """Deinitializes the test suite by removing all the buckets from MinIO"""
         response = cls.minio_s3_client.list_buckets()
 
         for bucket in response['Buckets']:
@@ -1178,6 +1180,7 @@ class TestMultiPartS3Upload(S3UploaderTest):
         eq_([], uploader.client.parts)
 
 
+@attr(integration='minio')
 class TestS3UploaderIntegration(S3UploaderIntegrationTest):
     def test_mirror(self):
         # Arrange
