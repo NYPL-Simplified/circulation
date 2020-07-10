@@ -10,10 +10,11 @@ addons:
 env:
   global:
     - SIMPLIFIED_TEST_DATABASE="postgres://simplified_test:test@localhost:5432/simplified_core_test"
-    - ES_VERSION="6.3.2" ES_DOWNLOAD="https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-${ES_VERSION}.tar.gz"
+    - ES_VERSION="6.4.0"
 
 services:
   - postgresql
+  - docker
 
 language: python
 
@@ -25,18 +26,12 @@ cache: pip
 before_install:
   - pip install --upgrade pip
   - pip install "setuptools>=18.5"
-  - sleep 10
+  # Setup elasticsearch for integration testing in docker
+  - docker run -d -p 9200:9200 -e "discovery.type=single-node" --name es elasticsearch:$ES_VERSION
+  - docker exec es elasticsearch-plugin install analysis-icu
+  - docker restart es
 
 install:
-  - wget ${ES_DOWNLOAD}
-  - export ES_PATH=elasticsearch-${ES_VERSION}
-  - tar -xzf ${ES_PATH}.tar.gz
-  # Disable bootstrap checks so that Elasticsearch will start up even in
-  # a low-resource development environment.
-  - "echo 'transport.host: 127.0.0.1' >> ./${ES_PATH}/config/elasticsearch.yml"
-  - "echo 'http.host: 0.0.0.0' >> ./${ES_PATH}/config/elasticsearch.yml"
-  - ./${ES_PATH}/bin/elasticsearch-plugin install analysis-icu
-  - ./${ES_PATH}/bin/elasticsearch &
   - pip install -r requirements.txt
   - python -m textblob.download_corpora
 
