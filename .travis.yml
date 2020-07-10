@@ -11,10 +11,10 @@ env:
   global:
     - SIMPLIFIED_TEST_DATABASE="postgres://simplified_test:test@localhost:5432/simplified_core_test"
     - ES_VERSION="6.3.2" ES_DOWNLOAD="https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-${ES_VERSION}.tar.gz"
-    - MINIO_ENDPOINT_URL=http://localhost:9000
+    - MINIO_HOST=localhost:9000
+    - MINIO_ENDPOINT_URL=http://${MINIO_HOST}
     - MINIO_USER=minioadmin
     - MINIO_PASSWORD=minioadmin
-    - MINIO_HOST=localhost:9000
 
 services:
   - postgresql
