@@ -28,7 +28,6 @@ before_install:
   - pip install "setuptools>=18.5"
   - docker pull minio/minio
   - docker run -d -p 9000:9000 minio/minio server /data
-  - sleep 10
 
 install:
   - wget ${ES_DOWNLOAD}
