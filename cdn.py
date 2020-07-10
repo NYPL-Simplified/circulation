@@ -1,11 +1,9 @@
 """Turn local URLs into CDN URLs."""
-import os, sys
-import urllib
 import urlparse
-from nose.tools import set_trace
 
 from config import Configuration, CannotLoadConfiguration
 from s3 import S3Uploader
+
 
 def cdnify(url, cdns=None):
     """Turn local URLs into CDN URLs"""
@@ -19,7 +17,7 @@ def cdnify(url, cdns=None):
         return url
     scheme, netloc, path, query, fragment = urlparse.urlsplit(url)
 
-    if netloc.endswith('amazonaws.com'):
+    if S3Uploader.is_s3_url(url):
         # This is a URL like "http://bucket.s3.region.amazonaws.com/foo".
         # It's equivalent to "http://bucket/foo".
         # i.e. treat the bucket name as the netloc.

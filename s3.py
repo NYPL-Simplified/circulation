@@ -1,4 +1,5 @@
 import logging
+import os
 import urllib
 from contextlib import contextmanager
 from urlparse import urlsplit
@@ -106,7 +107,7 @@ class S3Uploader(MirrorUploader):
     S3_HOST = 'amazonaws.com'
 
     # MinIO host used in integration tests (we assume that it's always using port 9000)
-    MINIO_HOST = 'localhost:9000'
+    MINIO_HOST = os.environ.get('MINIO_HOST')
 
     S3_REGION = u's3_region'
     S3_DEFAULT_REGION = u'us-east-1'
@@ -468,10 +469,27 @@ class S3Uploader(MirrorUploader):
         return root + self.key_join(parts) + ".mrc"
 
     @classmethod
-    def bucket_and_filename(cls, url, unquote=True):
+    def is_s3_url(cls, url):
+        """Determines whether the URL is S3-based or use a custom domain name
+
+        :param url: The URL
+        :type url: string
+
+        :return: Boolean value indicating whether the URL is S3-based or use a custom domain name
+        :rtype: bool
+        """
         scheme, netloc, path, query, fragment = urlsplit(url)
 
         if netloc.endswith(S3Uploader.S3_HOST) or netloc.endswith(S3Uploader.MINIO_HOST):
+            return False
+        else:
+            return True
+
+    @classmethod
+    def bucket_and_filename(cls, url, unquote=True):
+        scheme, netloc, path, query, fragment = urlsplit(url)
+
+        if cls.is_s3_url(url):
             host_parts = netloc.split('.')
             host_parts_count = len(host_parts)
 

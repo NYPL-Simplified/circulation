@@ -110,8 +110,7 @@ class S3UploaderTest(DatabaseTest):
 
 
 class S3UploaderIntegrationTest(S3UploaderTest):
-    MINIO_PORT = os.environ.get('MINIO_PORT', 9000)
-    MINIO_ENDPOINT_URL = os.environ.get('MINIO_ENDPOINT_URL', 'http://localhost:{0}'.format(MINIO_PORT))
+    MINIO_ENDPOINT_URL = os.environ.get('MINIO_ENDPOINT_URL', 'http://localhost:9000')
     MINIO_USER = os.environ.get('MINIO_USER', 'minioadmin')
     MINIO_PASSWORD = os.environ.get('MINIO_PASSWORD', 'minioadmin')
 
