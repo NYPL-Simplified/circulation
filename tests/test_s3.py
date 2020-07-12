@@ -110,9 +110,9 @@ class S3UploaderTest(DatabaseTest):
 
 
 class S3UploaderIntegrationTest(S3UploaderTest):
-    MINIO_ENDPOINT_URL = os.environ.get('MINIO_ENDPOINT_URL', 'http://localhost:9000')
-    MINIO_USER = os.environ.get('MINIO_USER', 'minioadmin')
-    MINIO_PASSWORD = os.environ.get('MINIO_PASSWORD', 'minioadmin')
+    SIMPLIFIED_TEST_MINIO_ENDPOINT_URL = os.environ.get('SIMPLIFIED_TEST_MINIO_ENDPOINT_URL', 'http://localhost:9000')
+    SIMPLIFIED_TEST_MINIO_USER = os.environ.get('SIMPLIFIED_TEST_MINIO_USER', 'minioadmin')
+    SIMPLIFIED_TEST_MINIO_PASSWORD = os.environ.get('SIMPLIFIED_TEST_MINIO_PASSWORD', 'minioadmin')
 
     minio_s3_client = None
     """boto3 client connected to locally running MinIO instance"""
@@ -127,13 +127,13 @@ class S3UploaderIntegrationTest(S3UploaderTest):
 
         cls.minio_s3_client = boto3.client(
             's3',
-            aws_access_key_id=TestS3UploaderIntegration.MINIO_USER,
-            aws_secret_access_key=TestS3UploaderIntegration.MINIO_PASSWORD,
-            endpoint_url=TestS3UploaderIntegration.MINIO_ENDPOINT_URL
+            aws_access_key_id=TestS3UploaderIntegration.SIMPLIFIED_TEST_MINIO_USER,
+            aws_secret_access_key=TestS3UploaderIntegration.SIMPLIFIED_TEST_MINIO_PASSWORD,
+            endpoint_url=TestS3UploaderIntegration.SIMPLIFIED_TEST_MINIO_ENDPOINT_URL
         )
         cls.s3_client_class = functools.partial(
             boto3.client,
-            endpoint_url=TestS3UploaderIntegration.MINIO_ENDPOINT_URL
+            endpoint_url=TestS3UploaderIntegration.SIMPLIFIED_TEST_MINIO_ENDPOINT_URL
         )
 
     @classmethod
@@ -181,9 +181,9 @@ class S3UploaderIntegrationTest(S3UploaderTest):
         :rtype: S3Uploader
         """
         if settings and 'username' not in settings:
-            self._add_settings_value(settings, 'username', self.MINIO_USER)
+            self._add_settings_value(settings, 'username', self.SIMPLIFIED_TEST_MINIO_USER)
         if settings and 'password' not in settings:
-            self._add_settings_value(settings, 'password', self.MINIO_PASSWORD)
+            self._add_settings_value(settings, 'password', self.SIMPLIFIED_TEST_MINIO_PASSWORD)
         if not client_class:
             client_class = self.s3_client_class
 

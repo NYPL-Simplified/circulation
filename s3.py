@@ -107,7 +107,7 @@ class S3Uploader(MirrorUploader):
     S3_HOST = 'amazonaws.com'
 
     # MinIO host used in integration tests (we assume that it's always using port 9000)
-    MINIO_HOST = os.environ.get('MINIO_HOST')
+    SIMPLIFIED_MINIO_HOST = os.environ.get('SIMPLIFIED_MINIO_HOST')
 
     S3_REGION = u's3_region'
     S3_DEFAULT_REGION = u'us-east-1'
@@ -480,7 +480,8 @@ class S3Uploader(MirrorUploader):
         """
         scheme, netloc, path, query, fragment = urlsplit(url)
 
-        if netloc.endswith(S3Uploader.S3_HOST) or (S3Uploader.MINIO_HOST and netloc.endswith(S3Uploader.MINIO_HOST)):
+        if netloc.endswith(S3Uploader.S3_HOST) or \
+                (S3Uploader.SIMPLIFIED_MINIO_HOST and netloc.endswith(S3Uploader.SIMPLIFIED_MINIO_HOST)):
             return True
         else:
             return False
