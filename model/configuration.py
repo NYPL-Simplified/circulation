@@ -214,6 +214,7 @@ class ExternalIntegration(Base, HasFullTableCache):
 
     # Integrations with STORAGE_GOAL
     S3 = u'Amazon S3'
+    MINIO = u'MinIO'
 
     # Integrations with CDN_GOAL
     CDN = u'CDN'

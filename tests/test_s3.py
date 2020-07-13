@@ -885,9 +885,12 @@ class TestS3Uploader(S3UploaderTest):
             False
         ),
     ])
-    def test_bucket_and_filename(self, name, url, expected_result, unquote=True):
+    def test_split_url(self, name, url, expected_result, unquote=True):
+        # Arrange
+        s3_uploader = self._create_s3_uploader()
+
         # Act
-        result = S3Uploader.bucket_and_filename(url, unquote)
+        result = s3_uploader.split_url(url, unquote)
 
         # Assert
         eq_(result, expected_result)
@@ -1102,7 +1105,7 @@ class TestS3Uploader(S3UploaderTest):
         url = 'https://{0}.s3.{1}.amazonaws.com/{2}'.format(bucket, region, filename)
         expected_url = url + '?AWSAccessKeyId=KEY&Expires=1&Signature=S'
         s3_uploader = self._create_s3_uploader(region=region, **expiration_settings if expiration_settings else {})
-        s3_uploader.bucket_and_filename = MagicMock(return_value=(bucket, filename))
+        s3_uploader.split_url = MagicMock(return_value=(bucket, filename))
         s3_uploader.client.generate_presigned_url = MagicMock(return_value=expected_url)
 
         # Act
@@ -1110,7 +1113,7 @@ class TestS3Uploader(S3UploaderTest):
 
         # Assert
         eq_(result, expected_url)
-        s3_uploader.bucket_and_filename.assert_called_once_with(url)
+        s3_uploader.split_url.assert_called_once_with(url)
         s3_uploader.client.generate_presigned_url.assert_called_once_with(
             'get_object',
             ExpiresIn=expected_expiration,
