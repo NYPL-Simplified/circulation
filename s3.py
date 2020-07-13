@@ -376,12 +376,10 @@ class S3Uploader(MirrorUploader):
             url += '/'
         return url
 
-    def content_root(self, bucket, open_access=True):
+    def content_root(self, bucket):
         """The root URL to the S3 location of hosted content of
         the given type.
         """
-        if not open_access:
-            raise NotImplementedError()
         return self.url(bucket, '/')
 
     def marc_file_root(self, bucket, library):
@@ -423,8 +421,8 @@ class S3Uploader(MirrorUploader):
     def book_url(self, identifier, extension='.epub', open_access=True,
                  data_source=None, title=None):
         """The path to the hosted EPUB file for the given identifier."""
-        bucket = self.get_bucket(self.OA_CONTENT_BUCKET_KEY)
-        root = self.content_root(bucket, open_access)
+        bucket = self.get_bucket(self.OA_CONTENT_BUCKET_KEY if open_access else self.PROTECTED_CONTENT_BUCKET_KEY)
+        root = self.content_root(bucket)
 
         if not extension.startswith('.'):
             extension = '.' + extension
@@ -528,7 +526,6 @@ class S3Uploader(MirrorUploader):
         """Mirror a single representation to the given URL."""
 
         # Turn the original URL into an s3.amazonaws.com URL.
-        bucket, filename = self.bucket_and_filename(mirror_to)
         media_type = representation.external_media_type
         bucket, remote_filename = self.bucket_and_filename(mirror_to)
         fh = representation.external_content()
@@ -591,6 +588,7 @@ class MockS3Uploader(S3Uploader):
     buckets = {
         S3Uploader.BOOK_COVERS_BUCKET_KEY: 'test-cover-bucket',
         S3Uploader.OA_CONTENT_BUCKET_KEY: 'test-content-bucket',
+        S3Uploader.PROTECTED_CONTENT_BUCKET_KEY: 'test-content-bucket',
         S3Uploader.MARC_BUCKET_KEY: 'test-marc-bucket',
     }
 

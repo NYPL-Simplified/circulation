@@ -467,14 +467,6 @@ class TestS3Uploader(S3UploaderTest):
         # Assert
         eq_(result, expected_result)
 
-    def test_content_root_does_not_allow_to_store_non_open_access_content(self):
-        # Arrange
-        uploader = self._create_s3_uploader()
-        bucket = 'test-open-access-s3-bucket'
-
-        # Act, assert
-        assert_raises(NotImplementedError, uploader.content_root, bucket, open_access=False)
-
     @parameterized.expand([
         (
             's3_url',
@@ -569,6 +561,17 @@ class TestS3Uploader(S3UploaderTest):
             DataSource.UNGLUE_IT,
             'On Books',
             'us-east-3'
+        ),
+        (
+            'with_protected_access_and_custom_extension_and_title_and_data_source_and_region',
+            {S3Uploader.PROTECTED_CONTENT_BUCKET_KEY: 'thebooks'},
+            'ABOOK',
+            'https://thebooks.s3.us-east-3.amazonaws.com/unglue.it/Gutenberg%20ID/ABOOK/On%20Books.pdf',
+            '.pdf',
+            DataSource.UNGLUE_IT,
+            'On Books',
+            'us-east-3',
+            False,
         )
     ])
     def test_book_url(
@@ -580,12 +583,13 @@ class TestS3Uploader(S3UploaderTest):
             extension=None,
             data_source_name=None,
             title=None,
-            region=None):
+            region=None,
+            open_access=True):
         # Arrange
         identifier = self._identifier(foreign_id=identifier)
         uploader = self._create_s3_uploader(region=region, **buckets)
 
-        parameters = {'identifier': identifier}
+        parameters = {'identifier': identifier, 'open_access': open_access}
 
         if extension:
             parameters['extension'] = extension
@@ -601,15 +605,6 @@ class TestS3Uploader(S3UploaderTest):
 
         # Assert
         eq_(result, expected_result)
-
-    def test_book_url_does_not_allow_to_store_non_open_access_content(self):
-        # Arrange
-        identifier = self._identifier(foreign_id='ABOOK')
-        buckets = {S3Uploader.OA_CONTENT_BUCKET_KEY: 'thebooks'}
-        uploader = self._create_s3_uploader(**buckets)
-
-        # Act, assert
-        assert_raises(NotImplementedError, uploader.book_url, identifier, open_access=False)
 
     @parameterized.expand([
         (
