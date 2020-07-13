@@ -46,7 +46,7 @@ class ExternalIntegrationLink(Base, HasFullTableCache):
     OPEN_ACCESS_BOOKS = 'books_mirror'
     OPEN_ACCESS_BOOKS_KEY = '{0}_integration_id'.format(OPEN_ACCESS_BOOKS)
 
-    PROTECTED_ACCESS_BOOKS = 'protected_books_mirror'
+    PROTECTED_ACCESS_BOOKS = 'protected_access_books_mirror'
     PROTECTED_ACCESS_BOOKS_KEY = '{0}_integration_id'.format(PROTECTED_ACCESS_BOOKS)
 
     MARC = "MARC_mirror"
@@ -74,13 +74,13 @@ class ExternalIntegrationLink(Base, HasFullTableCache):
             'key': OPEN_ACCESS_BOOKS_KEY,
             'type': OPEN_ACCESS_BOOKS,
             'description_type': 'free books',
-            'label': 'Open Access Mirror'
+            'label': 'Open Access Books Mirror'
         },
         {
             'key': PROTECTED_ACCESS_BOOKS_KEY,
             'type': PROTECTED_ACCESS_BOOKS,
             'description_type': 'self-hosted books',
-            'label': 'Protected Access Mirror'
+            'label': 'Protected Access Books Mirror'
         }
     ]
     settings = []
@@ -92,7 +92,7 @@ class ExternalIntegrationLink(Base, HasFullTableCache):
 
         settings.append({
             'key': '{0}_integration_id'.format(mirror_type.lower()),
-            'label': _(mirror_label.capitalize()),
+            'label': _(mirror_label),
             "description": _('Any {0} encountered while importing content from this collection '
                              'can be mirrored to a server you control.'.format(mirror_description_type)),
             'type': 'select',
