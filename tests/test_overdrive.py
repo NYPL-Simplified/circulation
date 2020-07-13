@@ -311,7 +311,7 @@ class TestOverdriveAPI(OverdriveAPITest):
         # First, test the successful path.
         api = Mock(self._db, self.collection)
         api_response = json.dumps("some data")
-        api.queue_response(200, content=api_response)
+        api.queue_response(201, content=api_response)
         loan = api.checkout(patron, pin, pool, "internal format is ignored")
 
         # Verify that a good-looking patron request went out.
@@ -329,7 +329,7 @@ class TestOverdriveAPI(OverdriveAPITest):
         # The API response was passed into extract_expiration_date.
         #
         # The most important thing here is not the content of the response but the
-        # fact that the response code was 200.
+        # fact that the response code was not 400.
         eq_("some data", api.extract_expiration_date_called_with.pop())
 
         # The return value is a LoanInfo object with all relevant info.
