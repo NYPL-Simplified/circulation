@@ -547,7 +547,11 @@ class LinkData(object):
         """
         if self.rel in [Hyperlink.IMAGE, Hyperlink.THUMBNAIL_IMAGE]:
             return ExternalIntegrationLink.COVERS
-        return ExternalIntegrationLink.OPEN_ACCESS_BOOKS
+
+        if self.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
+            return ExternalIntegrationLink.OPEN_ACCESS_BOOKS
+        elif self.rel == Hyperlink.GENERIC_OPDS_ACQUISITION:
+            return ExternalIntegrationLink.PROTECTED_ACCESS_BOOKS
 
 
 class MeasurementData(object):
@@ -791,12 +795,12 @@ class MetaToModelUtility(object):
         link_obj.resource.representation = representation
 
         # If we couldn't fetch this representation, don't mirror it,
-        # and if this was an open access link, then suppress the associated
+        # and if this was an open/protected access link, then suppress the associated
         # license pool until someone fixes it manually.
         # The license pool to suppress will be either the passed-in model_object (if it's of type pool),
         # or the license pool associated with the passed-in model object (if it's of type edition).
         if representation.fetch_exception:
-            if pools and link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
+            if pools and link.rel in [Hyperlink.OPEN_ACCESS_DOWNLOAD, Hyperlink.GENERIC_OPDS_ACQUISITION]:
                 for pool in pools:
                     pool.suppressed = True
                     pool.license_exception = "Fetch exception: %s" % representation.fetch_exception
@@ -843,12 +847,15 @@ class MetaToModelUtility(object):
 
         # Determine the best URL to use when mirroring this
         # representation.
-        if link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
+        if link.media_type in Representation.BOOK_MEDIA_TYPES:
             url_title = title or identifier.identifier
             extension = representation.extension()
             mirror_url = mirror.book_url(
-                identifier, data_source=data_source, title=url_title,
-                extension=extension
+                identifier,
+                data_source=data_source,
+                title=url_title,
+                extension=extension,
+                open_access=link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD
             )
         else:
             filename = representation.default_filename(
@@ -861,10 +868,10 @@ class MetaToModelUtility(object):
         # Mirror it.
         mirror.mirror_one(representation, mirror_url)
 
-        # If we couldn't mirror an open access link representation, suppress
+        # If we couldn't mirror an open/protected access link representation, suppress
         # the license pool until someone fixes it manually.
         if representation.mirror_exception:
-            if pools and link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
+            if pools and link.rel in [Hyperlink.OPEN_ACCESS_DOWNLOAD, Hyperlink.GENERIC_OPDS_ACQUISITION]:
                 for pool in pools:
                     pool.suppressed = True
                     pool.license_exception = "Mirror exception: %s" % representation.mirror_exception
@@ -891,13 +898,12 @@ class MetaToModelUtility(object):
                 # image. Mirror it as well.
                 mirror.mirror_one(thumbnail, thumbnail_url)
 
-        if link_obj.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
+        if link_obj.rel in [Hyperlink.OPEN_ACCESS_DOWNLOAD, Hyperlink.GENERIC_OPDS_ACQUISITION]:
             # If we mirrored book content successfully, remove it from
             # the database to save space. We do keep images in case we
             # ever need to resize them or mirror them elsewhere.
             if representation.mirrored_at and not representation.mirror_exception:
                 representation.content = None
-
 
 
 class CirculationData(MetaToModelUtility):
