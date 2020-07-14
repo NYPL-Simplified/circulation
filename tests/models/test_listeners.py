@@ -221,3 +221,4 @@ class TestListeners(DatabaseTest):
         eq_(1, len(work.coverage_records))
         eq_(work.id, work.coverage_records[0].work_id)
         eq_(WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION, work.coverage_records[0].operation)
+        eq_(WorkCoverageRecord.REGISTERED, work.coverage_records[0].status)
