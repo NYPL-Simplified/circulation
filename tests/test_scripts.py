@@ -13,7 +13,6 @@ from nose.tools import (
 )
 from parameterized import parameterized
 
-from core.s3 import S3Uploader, MinIOUploader
 from . import (
     DatabaseTest,
 )
@@ -57,6 +56,7 @@ from ..monitor import (
     CollectionMonitor,
     ReaperMonitor,
 )
+from ..s3 import S3Uploader, MinIOUploader
 from ..scripts import (
     AddClassificationScript,
     CheckContributorNamesInDB,
