@@ -38,8 +38,8 @@ from ...model.work import (
     WorkGenre,
 )
 
-class TestWork(DatabaseTest):
 
+class TestWork(DatabaseTest):
     def test_complaints(self):
         work = self._work(with_license_pool=True)
 
@@ -1211,6 +1211,26 @@ class TestWork(DatabaseTest):
         eq_(set([collection1.id, collection2.id]),
             set([x['collection_id'] for x in search_doc['licensepools']]))
 
+    def test_self_hosted_books_are_available_by_default(self):
+        # Set up an edition and work.
+        edition, pool = self._edition(authors=[self._str, self._str], with_license_pool=True)
+        work = self._work(presentation_edition=edition)
+
+        pool.licenses_available = 0
+        pool.self_hosted = True
+
+        # Make sure all of this will show up in a database query.
+        self._db.flush()
+
+        search_doc = work.to_search_document()
+
+        # Each LicensePool for the Work is listed in
+        # the 'licensepools' section.
+        licensepools = search_doc['licensepools']
+        eq_(1, len(licensepools))
+        eq_(licensepools[0]['open_access'], False)
+        eq_(licensepools[0]['available'], True)
+
     def test_target_age_string(self):
         work = self._work()
         work.target_age = NumericRange(7, 8, '[]')
@@ -1248,7 +1268,6 @@ class TestWork(DatabaseTest):
 
         work.target_age = None
         eq_("", work.target_age_string)
-
 
     def test_reindex_on_availability_change(self):
         # A change in a LicensePool's availability creates a
@@ -1329,7 +1348,6 @@ class TestWork(DatabaseTest):
         for work in (work, another_work):
             record = find_record(work)
             eq_(registered, record.status)
-
 
     def test_reset_coverage(self):
         # Test the methods that reset coverage for works, indicating

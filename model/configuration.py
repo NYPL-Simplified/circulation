@@ -79,7 +79,7 @@ class ExternalIntegrationLink(Base, HasFullTableCache):
         {
             'key': PROTECTED_ACCESS_BOOKS_KEY,
             'type': PROTECTED_ACCESS_BOOKS,
-            'description_type': 'self-hosted books',
+            'description_type': 'self-hosted, commercially licensed books',
             'label': 'Protected Access Books Mirror'
         }
     ]

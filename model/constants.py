@@ -185,6 +185,7 @@ class IdentifierConstants(object):
     IDEAL_IMAGE_HEIGHT = 240
     IDEAL_IMAGE_WIDTH = 160
 
+
 class LinkRelations(object):
     # Some common link relations.
     CANONICAL = u"canonical"
@@ -208,6 +209,8 @@ class LinkRelations(object):
     METADATA_ALLOWED = [CANONICAL, IMAGE, THUMBNAIL_IMAGE, ILLUSTRATION, REVIEW,
         DESCRIPTION, SHORT_DESCRIPTION, AUTHOR, ALTERNATE, SAMPLE]
     MIRRORED = [OPEN_ACCESS_DOWNLOAD, GENERIC_OPDS_ACQUISITION, IMAGE, THUMBNAIL_IMAGE]
+    SELF_HOSTED_BOOKS = list(set(CIRCULATION_ALLOWED) & set(MIRRORED))
+
 
 class MediaTypes(object):
     EPUB_MEDIA_TYPE = u"application/epub+zip"

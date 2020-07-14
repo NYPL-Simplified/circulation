@@ -2642,7 +2642,7 @@ class TestMirrorResourcesScript(DatabaseTest):
         [(collection, policy)] = result
         eq_(has_uploader, collection)
         eq_(Mock.mock_policy, policy)
-        # There should be two MirrorUploaders for each purpose.
+        # There should be two MirrorUploaders, one for each purpose.
         assert isinstance(Mock.replacement_policy_called_with[ExternalIntegrationLink.COVERS], MirrorUploader)
         assert isinstance(
             Mock.replacement_policy_called_with[ExternalIntegrationLink.OPEN_ACCESS_BOOKS], MirrorUploader)

@@ -1168,7 +1168,6 @@ class Work(Base):
                     break
             elif p.self_hosted:
                 active_license_pool = p
-                break
             elif edition and edition.title and p.licenses_owned > 0:
                 active_license_pool = p
         return active_license_pool
@@ -1529,7 +1528,10 @@ class Work(Base):
                 LicensePool.collection_id.label('collection_id'),
                 LicensePool.open_access.label('open_access'),
                 LicensePool.suppressed,
-                (LicensePool.licenses_available > 0).label('available'),
+                or_(
+                    LicensePool.self_hosted,
+                    LicensePool.licenses_available > 0,
+                ).label('available'),
                 (LicensePool.licenses_owned > 0).label('licensed'),
                 work_quality_column,
                 Edition.medium,
@@ -1544,6 +1546,7 @@ class Work(Base):
                 work_presentation_edition_id_column==Edition.id,
                 or_(
                     LicensePool.open_access,
+                    # LicensePool.self_hosted,
                     LicensePool.licenses_owned>0,
                 ),
             )

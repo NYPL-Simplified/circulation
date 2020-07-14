@@ -800,7 +800,7 @@ class MetaToModelUtility(object):
         # The license pool to suppress will be either the passed-in model_object (if it's of type pool),
         # or the license pool associated with the passed-in model object (if it's of type edition).
         if representation.fetch_exception:
-            if pools and link.rel in [Hyperlink.OPEN_ACCESS_DOWNLOAD, Hyperlink.GENERIC_OPDS_ACQUISITION]:
+            if pools and link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
                 for pool in pools:
                     pool.suppressed = True
                     pool.license_exception = "Fetch exception: %s" % representation.fetch_exception
@@ -871,7 +871,7 @@ class MetaToModelUtility(object):
         # If we couldn't mirror an open/protected access link representation, suppress
         # the license pool until someone fixes it manually.
         if representation.mirror_exception:
-            if pools and link.rel in [Hyperlink.OPEN_ACCESS_DOWNLOAD, Hyperlink.GENERIC_OPDS_ACQUISITION]:
+            if pools and link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
                 for pool in pools:
                     pool.suppressed = True
                     pool.license_exception = "Mirror exception: %s" % representation.mirror_exception
@@ -898,7 +898,7 @@ class MetaToModelUtility(object):
                 # image. Mirror it as well.
                 mirror.mirror_one(thumbnail, thumbnail_url)
 
-        if link_obj.rel in [Hyperlink.OPEN_ACCESS_DOWNLOAD, Hyperlink.GENERIC_OPDS_ACQUISITION]:
+        if link_obj.rel in Hyperlink.SELF_HOSTED_BOOKS:
             # If we mirrored book content successfully, remove it from
             # the database to save space. We do keep images in case we
             # ever need to resize them or mirror them elsewhere.

@@ -307,7 +307,7 @@ class TestExternalIntegrationLink(DatabaseTest):
         eq_(settings[2]["options"][0]['key'],
             ExternalIntegrationLink.NO_MIRROR_INTEGRATION)
         eq_(settings[2]["options"][0]['label'],
-            _("None - Do not mirror self-hosted books"))
+            _("None - Do not mirror self-hosted, commercially licensed books"))
     
     def test_relationships(self):
         # Create a collection with two storage external integrations.
