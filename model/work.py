@@ -1546,7 +1546,6 @@ class Work(Base):
                 work_presentation_edition_id_column==Edition.id,
                 or_(
                     LicensePool.open_access,
-                    # LicensePool.self_hosted,
                     LicensePool.licenses_owned>0,
                 ),
             )
