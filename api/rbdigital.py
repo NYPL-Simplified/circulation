@@ -664,6 +664,78 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         return delivery_mechanism
 
 ### Patron account handling
+    # RBdigital identifier property to cache
+    CACHED_IDENTIFIER_PROPERTY = 'patronId'
+
+    CREDENTIAL_TYPES = {
+        CACHED_IDENTIFIER_PROPERTY: dict(
+            label=Credential.IDENTIFIER_FROM_REMOTE_SERVICE,
+            lifetime=None
+        ),
+    }
+
+    def patron_credential(self, kind, patron, value=None):
+        """Provide the credential of the given type for the given Patron,
+        either from the cache or by retrieving it from the remote service.
+
+        The behavior is as follows:
+        - If a value is specified, we'll cache it.
+        - If no value is specified and no cached credential is present
+          and unexpired, then we'll retrieve a value from the remote
+          service and cache it.
+        - The cached value will be returned.
+
+        :param patron: A Patron.
+        :param kind: The type of credential.
+        :param value: An optional value for the credential, which, if
+            provided, will replace replace the value in the cache.
+        :return: The credential of type `type` for the patron.
+        """
+
+        credential_type = self.CREDENTIAL_TYPES[kind].get('label', None)
+        lifetime = self.CREDENTIAL_TYPES[kind].get('lifetime', None)
+        is_persistent = (lifetime is None)
+
+        # Credential.lookup() expects to pass a Credential to this refresh method
+        def refresh_credential(credential):
+            if lifetime is not None:
+                credential.expires = (datetime.datetime.utcnow() + datetime.timedelta(seconds=lifetime))
+            else:
+                credential.expires = None
+
+            if value:
+                value_ = value
+            else:
+                # retrieve the credential from the remote service
+                if kind == self.CACHED_IDENTIFIER_PROPERTY:
+                    # value_ = self.fetch_patron_identifier(patron)
+                    # From self.patron_remote_identifier
+                    try:
+                        value_ = self._find_or_create_remote_account(
+                            patron
+                        )
+
+                    except CirculationException:
+                        # If an exception was thrown by _find_or_create_remote_account
+                        # delete the credential so we don't create a credential with
+                        # None stored in credential.credential, then continue to raise
+                        # the exception.
+                        _db = Session.object_session(credential)
+                        _db.delete(credential)
+                        raise
+                else:
+                    raise NotImplementedError("No RBDigital credential of type '%s'" % kind)
+
+            credential.credential = value_
+            return credential
+
+        _db = Session.object_session(patron)
+        collection = Collection.by_id(_db, id=self.collection_id)
+        credential = Credential.lookup(
+            _db, DataSource.RB_DIGITAL, credential_type, patron, refresh_credential,
+            collection=collection, allow_persistent_token=is_persistent
+        )
+        return credential.credential
 
     def patron_remote_identifier(self, patron):
         """Locate the identifier for the given Patron's account on the
@@ -703,40 +775,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
             and the ILS.
         """
 
-        # Set up a refresher method that takes no arguments except the
-        # credential -- this is what lookup() expects.
-        def refresh_credential(credential):
-            try:
-                remote_identifier = self._find_or_create_remote_account(
-                    patron
-                )
-                credential.credential = remote_identifier
-                credential.expires = None
-            except CirculationException:
-                # If an exception was thrown by _find_or_create_remote_account
-                # delete the credential so we don't create a credential with
-                # None stored in credential.credential, then continue to raise
-                # the exception.
-                _db = Session.object_session(credential)
-                _db.delete(credential)
-                raise
-            return credential
-
-        # Find or create the credential.
-        # We use the DB session from the passed in patron object here
-        # because in the case we are in a thread the self._db session may be
-        # different from the session used for patron. By using the session
-        # from patron we make sure all the DB objects interacting with each
-        # other are from the same session.
-        _db = Session.object_session(patron)
-        collection = Collection.by_id(_db, id=self.collection_id)
-        credential = Credential.lookup(
-            _db, DataSource.RB_DIGITAL,
-            Credential.IDENTIFIER_FROM_REMOTE_SERVICE,
-            patron, refresh_credential,
-            collection=collection, allow_persistent_token=True
-        )
-        return credential.credential
+        return self.patron_credential(self.CACHED_IDENTIFIER_PROPERTY, patron)
 
     def _find_or_create_remote_account(self, patron):
         """Look up a patron on RBdigital, creating an account if necessary.
