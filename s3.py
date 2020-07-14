@@ -641,8 +641,8 @@ class MinIOUploader(S3Uploader):
         super(MinIOUploader, self).__init__(integration, client_class, host)
 
 
-# MirrorUploader.implementation will instantiate an S3Uploader
-# for storage integrations with protocol 'Amazon S3'.
+# MirrorUploader.implementation will instantiate an MinIOUploader instance
+# for storage integrations with protocol 'MinIO'.
 MirrorUploader.IMPLEMENTATION_REGISTRY[MinIOUploader.NAME] = MinIOUploader
 
 

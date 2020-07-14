@@ -2,6 +2,7 @@
 import datetime
 import functools
 import os
+from urlparse import urlsplit
 
 import boto3
 import botocore
@@ -33,7 +34,7 @@ from ..s3 import (
     S3Uploader,
     MockS3Client,
     MultipartS3Upload,
-    S3AddressingStyle)
+    S3AddressingStyle, MinIOUploader)
 
 
 class S3UploaderTest(DatabaseTest):
@@ -113,6 +114,7 @@ class S3UploaderIntegrationTest(S3UploaderTest):
     SIMPLIFIED_TEST_MINIO_ENDPOINT_URL = os.environ.get('SIMPLIFIED_TEST_MINIO_ENDPOINT_URL', 'http://localhost:9000')
     SIMPLIFIED_TEST_MINIO_USER = os.environ.get('SIMPLIFIED_TEST_MINIO_USER', 'minioadmin')
     SIMPLIFIED_TEST_MINIO_PASSWORD = os.environ.get('SIMPLIFIED_TEST_MINIO_PASSWORD', 'minioadmin')
+    _, SIMPLIFIED_TEST_MINIO_HOST, _, _, _ = urlsplit(SIMPLIFIED_TEST_MINIO_ENDPOINT_URL)
 
     minio_s3_client = None
     """boto3 client connected to locally running MinIO instance"""
@@ -136,22 +138,23 @@ class S3UploaderIntegrationTest(S3UploaderTest):
             endpoint_url=TestS3UploaderIntegration.SIMPLIFIED_TEST_MINIO_ENDPOINT_URL
         )
 
-    @classmethod
-    def teardown_class(cls):
+    def teardown(self):
         """Deinitializes the test suite by removing all the buckets from MinIO"""
-        response = cls.minio_s3_client.list_buckets()
+        super(S3UploaderTest, self).teardown()
+
+        response = self.minio_s3_client.list_buckets()
 
         for bucket in response['Buckets']:
             bucket_name = bucket['Name']
 
-            response = cls.minio_s3_client.list_objects(Bucket=bucket_name)
+            response = self.minio_s3_client.list_objects(Bucket=bucket_name)
 
             for object in response.get('Contents', []):
                 object_key = object['Key']
 
-                cls.minio_s3_client.delete_object(Bucket=bucket_name, Key=object_key)
+                self.minio_s3_client.delete_object(Bucket=bucket_name, Key=object_key)
 
-            cls.minio_s3_client.delete_bucket(Bucket=bucket_name)
+            self.minio_s3_client.delete_bucket(Bucket=bucket_name)
 
     def _create_s3_uploader(
             self,
@@ -1184,22 +1187,63 @@ class TestMultiPartS3Upload(S3UploaderTest):
 
 @attr(integration='minio')
 class TestS3UploaderIntegration(S3UploaderIntegrationTest):
-    def test_mirror(self):
+    @parameterized.expand([
+        (
+            'using_s3_uploader_and_open_access_bucket',
+            functools.partial(S3Uploader, host=S3UploaderIntegrationTest.SIMPLIFIED_TEST_MINIO_HOST),
+            S3Uploader.OA_CONTENT_BUCKET_KEY,
+            'test-bucket',
+            True
+        ),
+        (
+            'using_s3_uploader_and_protected_access_bucket',
+            functools.partial(S3Uploader, host=S3UploaderIntegrationTest.SIMPLIFIED_TEST_MINIO_HOST),
+            S3Uploader.PROTECTED_CONTENT_BUCKET_KEY,
+            'test-bucket',
+            False
+        ),
+        (
+            'using_minio_uploader_and_open_access_bucket',
+            MinIOUploader,
+            S3Uploader.OA_CONTENT_BUCKET_KEY,
+            'test-bucket',
+            True,
+            {
+                MinIOUploader.ENDPOINT_URL: S3UploaderIntegrationTest.SIMPLIFIED_TEST_MINIO_ENDPOINT_URL
+            }
+        ),
+        (
+            'using_minio_uploader_and_protected_access_bucket',
+            MinIOUploader,
+            S3Uploader.PROTECTED_CONTENT_BUCKET_KEY,
+            'test-bucket',
+            False,
+            {
+                MinIOUploader.ENDPOINT_URL: S3UploaderIntegrationTest.SIMPLIFIED_TEST_MINIO_ENDPOINT_URL
+            }
+        )
+    ])
+    def test_mirror(self, name, uploader_class, bucket_type, bucket_name, open_access, settings=None):
         # Arrange
         book_title = '1234567890'
         book_content = '1234567890'
         identifier = Identifier(type=Identifier.ISBN, identifier=book_title)
         representation = Representation(content=book_content, media_type=Representation.EPUB_MEDIA_TYPE)
-        bucket_name = 'testbucket'
         buckets = {
-            S3Uploader.OA_CONTENT_BUCKET_KEY: bucket_name,
+            bucket_type: bucket_name,
         }
-        s3_uploader = self._create_s3_uploader(**buckets)
+
+        if settings:
+            settings.update(buckets)
+        else:
+            settings = buckets
+
+        s3_uploader = self._create_s3_uploader(uploader_class=uploader_class, **settings)
 
         self.minio_s3_client.create_bucket(Bucket=bucket_name)
 
         # Act
-        book_url = s3_uploader.book_url(identifier)
+        book_url = s3_uploader.book_url(identifier, open_access=open_access)
         s3_uploader.mirror_one(representation, book_url)
 
         # Assert
