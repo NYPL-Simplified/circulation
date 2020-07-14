@@ -323,6 +323,12 @@ class SAMLMetadataParser(object):
             './md:KeyDescriptor/ds:KeyInfo/ds:X509Data/ds:X509Certificate')
         certificates = self._parse_certificates(certificate_nodes)
 
+        if len(certificates) > 1:
+            raise SAMLMetadataParsingError(
+                _('There are more than 1 SP certificates'.format(required_acs_binding.value)))
+
+        certificate = next(iter(certificates))
+
         sp = ServiceProviderMetadata(
             entity_id,
             ui_info,
@@ -330,7 +336,7 @@ class SAMLMetadataParser(object):
             acs_service,
             authn_requests_signed,
             want_assertions_signed,
-            certificates)
+            certificate)
 
         return sp
 
