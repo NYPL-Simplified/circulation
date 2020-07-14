@@ -1216,6 +1216,7 @@ class TestWork(DatabaseTest):
         edition, pool = self._edition(authors=[self._str, self._str], with_license_pool=True)
         work = self._work(presentation_edition=edition)
 
+        pool.licenses_owned = 0
         pool.licenses_available = 0
         pool.self_hosted = True
 
