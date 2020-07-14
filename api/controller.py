@@ -1412,6 +1412,7 @@ class LoanController(CirculationManagerController):
             return url_for(
                 "fulfill", license_pool_id=requested_license_pool.id,
                 mechanism_id=mechanism.delivery_mechanism.id,
+                library_short_name=library.short_name,
                 part=unicode(part), _external=True
             )
 
