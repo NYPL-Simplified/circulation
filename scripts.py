@@ -1895,7 +1895,7 @@ class MirrorResourcesScript(CollectionInputScript):
                 collection, ExternalIntegrationLink.COVERS
             )
             books = MirrorUploader.for_collection(
-                collection, ExternalIntegrationLink.BOOKS
+                collection, ExternalIntegrationLink.OPEN_ACCESS_BOOKS
             )
             if covers or books:
                 mirrors = dict(covers_mirror=covers, books_mirror=books)
@@ -2507,7 +2507,7 @@ class DatabaseMigrationScript(Script):
                 self._db, finish=last_run_date,
                 counter=counter, migration_name=migration_file
             )
-        
+
         # Nothing to update
         if self.overall_timestamp is None:
             return

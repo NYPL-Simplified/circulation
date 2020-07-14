@@ -108,8 +108,12 @@ class S3Uploader(MirrorUploader):
     S3_ADDRESSING_STYLE = u's3_addressing_style'
     S3_DEFAULT_ADDRESSING_STYLE = S3AddressingStyle.VIRTUAL.value
 
+    S3_PRESIGNED_URL_EXPIRATION = u's3_presigned_url_expiration'
+    S3_DEFAULT_PRESIGNED_URL_EXPIRATION = 3600
+
     BOOK_COVERS_BUCKET_KEY = u'book_covers_bucket'
     OA_CONTENT_BUCKET_KEY = u'open_access_content_bucket'
+    PROTECTED_CONTENT_BUCKET_KEY = u'protected_content_bucket'
     MARC_BUCKET_KEY = u'marc_bucket'
 
     URL_TEMPLATE_KEY = u'bucket_name_transform'
@@ -137,6 +141,10 @@ class S3Uploader(MirrorUploader):
         {"key": OA_CONTENT_BUCKET_KEY, "label": _("Open Access Content Bucket"),
          "description": _(
              "All open-access books encountered will be uploaded to this S3 bucket. <p>The bucket must already exist&mdash;it will not be created automatically.</p>")
+         },
+        {"key": PROTECTED_CONTENT_BUCKET_KEY, "label": _("Protected Access Content Bucket"),
+         "description": _(
+             "Self-hosted books will be uploaded to this S3 bucket. <p>The bucket must already exist&mdash;it will not be created automatically.</p>")
          },
         {"key": MARC_BUCKET_KEY, "label": _("MARC File Bucket"),
          "description": _(
@@ -171,6 +179,11 @@ class S3Uploader(MirrorUploader):
                "see <a href='https://aws.amazon.com/blogs/aws/amazon-s3-path-deprecation-plan-the-rest-of-the-story/'>"
                "Amazon S3 Path Deprecation Plan - The Rest of the Story</a>."),
          "default": S3_DEFAULT_ADDRESSING_STYLE,
+         },
+        {"key": S3_PRESIGNED_URL_EXPIRATION, "label": _("S3 presigned URL expiration"),
+         "type": "number",
+         "description": _("Time in seconds for the presigned URL to remain valid"),
+         "default": S3_DEFAULT_PRESIGNED_URL_EXPIRATION,
          },
         {"key": URL_TEMPLATE_KEY, "label": _("URL format"),
          "type": "select",
@@ -211,6 +224,10 @@ class S3Uploader(MirrorUploader):
         self._s3_addressing_style = integration.setting(
             self.S3_ADDRESSING_STYLE).value_or_default(
             self.S3_DEFAULT_ADDRESSING_STYLE)
+
+        self._s3_presigned_url_expiration = integration.setting(
+            self.S3_PRESIGNED_URL_EXPIRATION).value_or_default(
+            self.S3_DEFAULT_PRESIGNED_URL_EXPIRATION)
 
         if callable(client_class):
             # Pass None into boto3 if we get an empty string.
@@ -287,6 +304,34 @@ class S3Uploader(MirrorUploader):
 
         return url
 
+    def sign_url(self, url, expiration=None):
+        """Signs a URL and make it expirable
+
+        :param url: URL
+        :type url: string
+
+        :param expiration: (Optional) Time in seconds for the presigned URL to remain valid.
+            If it's empty, S3_PRESIGNED_URL_EXPIRATION configuration setting is used
+        :type expiration: int
+
+        :return: Signed expirable link
+        :rtype: string
+        """
+        if not expiration:
+            expiration = self._s3_presigned_url_expiration
+
+        bucket, key = self.bucket_and_filename(url)
+        url = self.client.generate_presigned_url(
+            'get_object',
+            ExpiresIn=int(expiration),
+            Params={
+                'Bucket': bucket,
+                'Key': key
+            }
+        )
+
+        return url
+
     def get_bucket(self, bucket_key):
         """Gets the bucket for a particular use based on the given key"""
         return self.buckets.get(bucket_key)
@@ -331,12 +376,10 @@ class S3Uploader(MirrorUploader):
             url += '/'
         return url
 
-    def content_root(self, bucket, open_access=True):
+    def content_root(self, bucket):
         """The root URL to the S3 location of hosted content of
         the given type.
         """
-        if not open_access:
-            raise NotImplementedError()
         return self.url(bucket, '/')
 
     def marc_file_root(self, bucket, library):
@@ -378,8 +421,8 @@ class S3Uploader(MirrorUploader):
     def book_url(self, identifier, extension='.epub', open_access=True,
                  data_source=None, title=None):
         """The path to the hosted EPUB file for the given identifier."""
-        bucket = self.get_bucket(self.OA_CONTENT_BUCKET_KEY)
-        root = self.content_root(bucket, open_access)
+        bucket = self.get_bucket(self.OA_CONTENT_BUCKET_KEY if open_access else self.PROTECTED_CONTENT_BUCKET_KEY)
+        root = self.content_root(bucket)
 
         if not extension.startswith('.'):
             extension = '.' + extension
@@ -483,7 +526,6 @@ class S3Uploader(MirrorUploader):
         """Mirror a single representation to the given URL."""
 
         # Turn the original URL into an s3.amazonaws.com URL.
-        bucket, filename = self.bucket_and_filename(mirror_to)
         media_type = representation.external_media_type
         bucket, remote_filename = self.bucket_and_filename(mirror_to)
         fh = representation.external_content()
@@ -546,6 +588,7 @@ class MockS3Uploader(S3Uploader):
     buckets = {
         S3Uploader.BOOK_COVERS_BUCKET_KEY: 'test-cover-bucket',
         S3Uploader.OA_CONTENT_BUCKET_KEY: 'test-content-bucket',
+        S3Uploader.PROTECTED_CONTENT_BUCKET_KEY: 'test-content-bucket',
         S3Uploader.MARC_BUCKET_KEY: 'test-marc-bucket',
     }
 

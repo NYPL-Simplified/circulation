@@ -467,14 +467,6 @@ class TestS3Uploader(S3UploaderTest):
         # Assert
         eq_(result, expected_result)
 
-    def test_content_root_does_not_allow_to_store_non_open_access_content(self):
-        # Arrange
-        uploader = self._create_s3_uploader()
-        bucket = 'test-open-access-s3-bucket'
-
-        # Act, assert
-        assert_raises(NotImplementedError, uploader.content_root, bucket, open_access=False)
-
     @parameterized.expand([
         (
             's3_url',
@@ -569,6 +561,17 @@ class TestS3Uploader(S3UploaderTest):
             DataSource.UNGLUE_IT,
             'On Books',
             'us-east-3'
+        ),
+        (
+            'with_protected_access_and_custom_extension_and_title_and_data_source_and_region',
+            {S3Uploader.PROTECTED_CONTENT_BUCKET_KEY: 'thebooks'},
+            'ABOOK',
+            'https://thebooks.s3.us-east-3.amazonaws.com/unglue.it/Gutenberg%20ID/ABOOK/On%20Books.pdf',
+            '.pdf',
+            DataSource.UNGLUE_IT,
+            'On Books',
+            'us-east-3',
+            False,
         )
     ])
     def test_book_url(
@@ -580,12 +583,13 @@ class TestS3Uploader(S3UploaderTest):
             extension=None,
             data_source_name=None,
             title=None,
-            region=None):
+            region=None,
+            open_access=True):
         # Arrange
         identifier = self._identifier(foreign_id=identifier)
         uploader = self._create_s3_uploader(region=region, **buckets)
 
-        parameters = {'identifier': identifier}
+        parameters = {'identifier': identifier, 'open_access': open_access}
 
         if extension:
             parameters['extension'] = extension
@@ -601,15 +605,6 @@ class TestS3Uploader(S3UploaderTest):
 
         # Assert
         eq_(result, expected_result)
-
-    def test_book_url_does_not_allow_to_store_non_open_access_content(self):
-        # Arrange
-        identifier = self._identifier(foreign_id='ABOOK')
-        buckets = {S3Uploader.OA_CONTENT_BUCKET_KEY: 'thebooks'}
-        uploader = self._create_s3_uploader(**buckets)
-
-        # Act, assert
-        assert_raises(NotImplementedError, uploader.book_url, identifier, open_access=False)
 
     @parameterized.expand([
         (
@@ -1002,6 +997,35 @@ class TestS3Uploader(S3UploaderTest):
         eq_(False, MockMultipartS3Upload.completed)
         eq_(True, MockMultipartS3Upload.aborted)
         eq_("Error!", rep.mirror_exception)
+
+    @parameterized.expand([
+        ('default_expiration_parameter', None, int(S3Uploader.S3_DEFAULT_PRESIGNED_URL_EXPIRATION)),
+        ('empty_expiration_parameter', {S3Uploader.S3_PRESIGNED_URL_EXPIRATION: 100}, 100)
+    ])
+    def test_sign_url(self, name, expiration_settings, expected_expiration):
+        # Arrange
+        region = 'us-east-1'
+        bucket = 'bucket'
+        filename = 'filename'
+        url = 'https://{0}.s3.{1}.amazonaws.com/{2}'.format(bucket, region, filename)
+        expected_url = url + '?AWSAccessKeyId=KEY&Expires=1&Signature=S'
+        s3_uploader = self._create_s3_uploader(region=region, **expiration_settings if expiration_settings else {})
+        s3_uploader.bucket_and_filename = MagicMock(return_value=(bucket, filename))
+        s3_uploader.client.generate_presigned_url = MagicMock(return_value=expected_url)
+
+        # Act
+        result = s3_uploader.sign_url(url)
+
+        # Assert
+        eq_(result, expected_url)
+        s3_uploader.bucket_and_filename.assert_called_once_with(url)
+        s3_uploader.client.generate_presigned_url.assert_called_once_with(
+            'get_object',
+            ExpiresIn=expected_expiration,
+            Params={
+                'Bucket': bucket,
+                'Key': filename
+            })
 
 
 class TestMultiPartS3Upload(S3UploaderTest):

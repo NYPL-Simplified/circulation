@@ -1,7 +1,54 @@
 # encoding: utf-8
 # WorkGenre, Work
-from nose.tools import set_trace
 
+import datetime
+import logging
+from collections import Counter
+
+from sqlalchemy import (
+    Boolean,
+    Column,
+    DateTime,
+    Enum,
+    Float,
+    ForeignKey,
+    Integer,
+    Numeric,
+    String,
+    Unicode,
+)
+from sqlalchemy.dialects.postgresql import INT4RANGE
+from sqlalchemy.ext.associationproxy import association_proxy
+from sqlalchemy.orm import (
+    contains_eager,
+    relationship,
+)
+from sqlalchemy.orm.session import Session
+from sqlalchemy.sql.expression import (
+    and_,
+    or_,
+    select,
+    join,
+    literal_column,
+    case,
+)
+from sqlalchemy.sql.functions import func
+
+from constants import (
+    DataSourceConstants,
+)
+from contributor import (
+    Contribution,
+    Contributor,
+)
+from coverage import (
+    CoverageRecord,
+    WorkCoverageRecord,
+)
+from datasource import DataSource
+from edition import Edition
+from identifier import Identifier
+from measurement import Measurement
 from . import (
     Base,
     flush,
@@ -11,68 +58,14 @@ from . import (
     PresentationCalculationPolicy,
     tuple_to_numericrange,
 )
-from coverage import (
-    CoverageRecord,
-    WorkCoverageRecord,
-)
-from contributor import (
-    Contribution,
-    Contributor,
-)
 from ..classifier import (
     Classifier,
     WorkClassifier,
 )
-from constants import (
-    DataSourceConstants,
-    LinkRelations,
-)
-from datasource import DataSource
-from edition import Edition
-from identifier import Identifier
-from measurement import Measurement
+from ..config import CannotLoadConfiguration
 from ..util import LanguageCodes
 from ..util.string_helpers import native_string
 
-from collections import Counter
-import datetime
-import logging
-import random
-from sqlalchemy import (
-    Boolean,
-    Binary,
-    Column,
-    DateTime,
-    Enum,
-    Float,
-    ForeignKey,
-    func,
-    Index,
-    Integer,
-    Numeric,
-    String,
-    Table,
-    Unicode,
-)
-from sqlalchemy.dialects.postgresql import INT4RANGE
-from sqlalchemy.ext.associationproxy import association_proxy
-from sqlalchemy.sql.functions import func
-from sqlalchemy.orm import (
-    contains_eager,
-    relationship,
-)
-from sqlalchemy.orm.session import Session
-from sqlalchemy.sql import select
-from sqlalchemy.sql.expression import (
-    and_,
-    extract,
-    or_,
-    select,
-    join,
-    literal_column,
-    case,
-)
-from configuration import CannotLoadConfiguration
 
 class WorkGenre(Base):
     """An assignment of a genre to a work."""
@@ -1173,10 +1166,11 @@ class Work(Base):
                     # We have an unlimited source for this book.
                     # There's no need to keep looking.
                     break
+            elif p.self_hosted:
+                active_license_pool = p
             elif edition and edition.title and p.licenses_owned > 0:
                 active_license_pool = p
         return active_license_pool
-
 
     def _reset_coverage(self, operation):
         """Put this work's WorkCoverageRecord for the given `operation`
@@ -1506,7 +1500,7 @@ class Work(Base):
             Subject,
         )
         from customlist import CustomListEntry
-        from licensing import LicensePool, LicensePoolDeliveryMechanism
+        from licensing import LicensePool
 
         # We need information about LicensePools for a few reasons:
         #
@@ -1534,7 +1528,10 @@ class Work(Base):
                 LicensePool.collection_id.label('collection_id'),
                 LicensePool.open_access.label('open_access'),
                 LicensePool.suppressed,
-                (LicensePool.licenses_available > 0).label('available'),
+                or_(
+                    LicensePool.self_hosted,
+                    LicensePool.licenses_available > 0,
+                ).label('available'),
                 (LicensePool.licenses_owned > 0).label('licensed'),
                 work_quality_column,
                 Edition.medium,
@@ -1549,6 +1546,7 @@ class Work(Base):
                 work_presentation_edition_id_column==Edition.id,
                 or_(
                     LicensePool.open_access,
+                    LicensePool.self_hosted,
                     LicensePool.licenses_owned>0,
                 ),
             )
