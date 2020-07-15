@@ -11,6 +11,7 @@ env:
   global:
     - SIMPLIFIED_TEST_DATABASE="postgres://simplified_test:test@localhost:5432/simplified_core_test"
     - ES_VERSION="6.4.0"
+    - SIMPLIFIED_TEST_ELASTICSEARCH="http://localhost:9200"
     - SIMPLIFIED_MINIO_HOST=localhost:9000
     - SIMPLIFIED_TEST_MINIO_ENDPOINT_URL=http://${SIMPLIFIED_MINIO_HOST}
     - SIMPLIFIED_TEST_MINIO_USER=minioadmin
