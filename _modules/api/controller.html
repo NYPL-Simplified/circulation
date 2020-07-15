@@ -1447,6 +1447,7 @@
             <span class="k">return</span> <span class="n">url_for</span><span class="p">(</span>
                 <span class="s2">&quot;fulfill&quot;</span><span class="p">,</span> <span class="n">license_pool_id</span><span class="o">=</span><span class="n">requested_license_pool</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
                 <span class="n">mechanism_id</span><span class="o">=</span><span class="n">mechanism</span><span class="o">.</span><span class="n">delivery_mechanism</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+                <span class="n">library_short_name</span><span class="o">=</span><span class="n">library</span><span class="o">.</span><span class="n">short_name</span><span class="p">,</span>
                 <span class="n">part</span><span class="o">=</span><span class="n">unicode</span><span class="p">(</span><span class="n">part</span><span class="p">),</span> <span class="n">_external</span><span class="o">=</span><span class="kc">True</span>
             <span class="p">)</span>
 

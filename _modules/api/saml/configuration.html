@@ -209,6 +209,9 @@
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">sp_provider</span><span class="p">,</span> <span class="n">ServiceProviderMetadata</span><span class="p">):</span>
             <span class="k">raise</span> <span class="n">SAMLConfigurationError</span><span class="p">(</span><span class="n">_</span><span class="p">(</span><span class="s1">&#39;SAML SP configuration is not correct&#39;</span><span class="p">))</span>
 
+        <span class="n">sp_provider_private_key</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_configuration_storage</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">db</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">SP_PRIVATE_KEY</span><span class="p">)</span>
+        <span class="n">sp_provider</span><span class="o">.</span><span class="n">private_key</span> <span class="o">=</span> <span class="n">sp_provider_private_key</span>
+
         <span class="k">return</span> <span class="n">sp_provider</span>
 
 <div class="viewcode-block" id="SAMLConfiguration.get_debug"><a class="viewcode-back" href="../../../api.saml.html#api.saml.configuration.SAMLConfiguration.get_debug">[docs]</a>    <span class="k">def</span> <span class="nf">get_debug</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">db</span><span class="p">):</span>
