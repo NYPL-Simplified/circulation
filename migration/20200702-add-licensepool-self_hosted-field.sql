@@ -1,0 +1,1 @@
+ALTER TABLE licensepools ADD COLUMN self_hosted BOOLEAN;

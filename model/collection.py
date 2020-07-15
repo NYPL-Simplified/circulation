@@ -1,34 +1,5 @@
 # encoding: utf-8
 # Collection, CollectionIdentifier, CollectionMissing
-from nose.tools import set_trace
-
-from . import (
-    Base,
-    create,
-    get_one,
-    get_one_or_create,
-)
-from coverage import (
-    CoverageRecord,
-    WorkCoverageRecord,
-)
-from configuration import (
-    CannotLoadConfiguration,
-    ConfigurationSetting,
-    ExternalIntegration,
-)
-from constants import EditionConstants
-from datasource import DataSource
-from edition import Edition
-from hasfulltablecache import HasFullTableCache
-from identifier import Identifier
-from integrationclient import IntegrationClient
-from library import Library
-from licensing import (
-    LicensePool,
-    LicensePoolDeliveryMechanism,
-)
-from work import Work
 
 from sqlalchemy import (
     Column,
@@ -56,10 +27,37 @@ from sqlalchemy.sql.expression import (
     or_,
 )
 
+from configuration import (
+    ConfigurationSetting,
+    ExternalIntegration,
+)
+from constants import EditionConstants
+from coverage import (
+    CoverageRecord,
+    WorkCoverageRecord,
+)
+from datasource import DataSource
+from edition import Edition
+from hasfulltablecache import HasFullTableCache
+from identifier import Identifier
+from integrationclient import IntegrationClient
+from library import Library
+from licensing import (
+    LicensePool,
+    LicensePoolDeliveryMechanism,
+)
+from work import Work
+from . import (
+    Base,
+    create,
+    get_one,
+    get_one_or_create,
+)
 from ..util.string_helpers import (
     base64,
     native_string,
 )
+
 
 class Collection(Base, HasFullTableCache):
 
@@ -744,9 +742,9 @@ class Collection(Base, HasFullTableCache):
         if not show_suppressed:
             query = query.filter(LicensePool.suppressed==False)
 
-        # Only find books with available licenses.
+        # Only find books with available licenses or books from self-hosted collections using MirrorUploader
         query = query.filter(
-                or_(LicensePool.licenses_owned > 0, LicensePool.open_access)
+            or_(LicensePool.licenses_owned > 0, LicensePool.open_access, LicensePool.self_hosted)
         )
 
         # Only find books in an appropriate collection.

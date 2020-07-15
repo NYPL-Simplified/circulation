@@ -99,6 +99,7 @@ class License(Base):
         return ((self.expires and self.expires <= now) or
                 (self.remaining_checkouts is not None and self.remaining_checkouts <= 0))
 
+
 class LicensePool(Base):
     """A pool of undifferentiated licenses for a work from a given source.
     """
@@ -173,6 +174,9 @@ class LicensePool(Base):
     licenses_available = Column(Integer,default=0, index=True)
     licenses_reserved = Column(Integer,default=0)
     patrons_in_hold_queue = Column(Integer,default=0)
+
+    # Set to True for collections imported using MirrorUploaded
+    self_hosted = Column(Boolean, index=True, default=False)
 
     # This lets us cache the work of figuring out the best open access
     # link for this LicensePool.

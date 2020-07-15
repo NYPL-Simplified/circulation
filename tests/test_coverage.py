@@ -1595,7 +1595,7 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
 
         # ..and will then be uploaded to this 'mirror'.
         mirrors = dict(books_mirror=MockS3Uploader())
-        mirror_type = ExternalIntegrationLink.BOOKS
+        mirror_type = ExternalIntegrationLink.OPEN_ACCESS_BOOKS
 
         class Tripwire(PresentationCalculationPolicy):
             # This class sets a variable if one of its properties is

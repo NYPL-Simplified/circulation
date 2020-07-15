@@ -622,7 +622,7 @@ class TestMetaToModelUtility(DatabaseTest):
         # correctly calls on CirculationData, as well as Metadata.  This is a risk.
 
         mirrors = dict(books_mirror=MockS3Uploader(),covers_mirror=None)
-        mirror_type = ExternalIntegrationLink.BOOKS
+        mirror_type = ExternalIntegrationLink.OPEN_ACCESS_BOOKS
         # Here's a book.
         edition, pool = self._edition(with_license_pool=True)
 
