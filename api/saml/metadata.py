@@ -577,6 +577,18 @@ class ServiceProviderMetadata(ProviderMetadata):
         """
         return self._private_key
 
+    @private_key.setter
+    def private_key(self, value):
+        """Returns the private key used for encrypting SAML requests
+
+        :param value: New private key
+        :type value: string
+
+        :return: Private key used for encrypting SAML requests
+        :rtype: string
+        """
+        self._private_key = value
+
 
 class NameID(object):
     """Represents saml2:NameID"""

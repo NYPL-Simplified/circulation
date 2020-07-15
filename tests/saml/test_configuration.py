@@ -1,5 +1,5 @@
 import sqlalchemy
-from mock import MagicMock, create_autospec
+from mock import MagicMock, create_autospec, call
 from nose.tools import eq_
 
 from api.saml.configuration import SAMLConfiguration, SAMLOneLoginConfiguration, SAMLConfigurationStorage
@@ -11,7 +11,8 @@ SERVICE_PROVIDER = ServiceProviderMetadata(
     fixtures.SP_ENTITY_ID,
     UIInfo(),
     NameIDFormat.UNSPECIFIED.value,
-    Service(fixtures.SP_ACS_URL, fixtures.SP_ACS_BINDING)
+    Service(fixtures.SP_ACS_URL, fixtures.SP_ACS_BINDING),
+    private_key=fixtures.PRIVATE_KEY
 )
 
 IDENTITY_PROVIDERS = [
@@ -47,7 +48,10 @@ class SAMLConfigurationTest(object):
 
         # Assert
         eq_(result, expected_result)
-        configuration_storage.load.assert_called_once_with(db, SAMLConfiguration.SP_XML_METADATA)
+        configuration_storage.load.assert_has_calls([
+            call(db, SAMLConfiguration.SP_XML_METADATA),
+            call(db, SAMLConfiguration.SP_PRIVATE_KEY)
+        ])
         metadata_parser.parse.assert_called_once_with(service_provider_metadata)
 
     def test_identity_providers_returns_correct_value(self):
@@ -111,7 +115,7 @@ class SAMLOneLoginConfigurationTest(object):
                 },
                 'NameIDFormat': SERVICE_PROVIDER.name_id_format,
                 'x509cert': SERVICE_PROVIDER.certificate,
-                'privateKey': ''
+                'privateKey': SERVICE_PROVIDER.private_key
             },
             'security': {
                 'authnRequestsSigned': SERVICE_PROVIDER.authn_requests_signed
