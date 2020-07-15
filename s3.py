@@ -1,3 +1,4 @@
+import functools
 import logging
 import urllib
 from contextlib import contextmanager
@@ -21,7 +22,7 @@ class MultipartS3Upload():
     def __init__(self, uploader, representation, mirror_to):
         self.uploader = uploader
         self.representation = representation
-        self.bucket, self.filename = uploader.bucket_and_filename(mirror_to)
+        self.bucket, self.filename = uploader.split_url(mirror_to)
         media_type = representation.external_media_type
         self.part_number = 1
         self.parts = []
@@ -101,6 +102,9 @@ class S3AddressingStyle(Enum):
 
 class S3Uploader(MirrorUploader):
     NAME = ExternalIntegration.S3
+
+    # AWS S3 host
+    S3_HOST = 'amazonaws.com'
 
     S3_REGION = u's3_region'
     S3_DEFAULT_REGION = u'us-east-1'
@@ -206,14 +210,21 @@ class S3Uploader(MirrorUploader):
 
     SITEWIDE = True
 
-    def __init__(self, integration, client_class=None):
+    def __init__(self, integration, client_class=None, host=S3_HOST):
         """Instantiate an S3Uploader from an ExternalIntegration.
 
         :param integration: An ExternalIntegration
+        :type integration: ExternalIntegration
 
         :param client_class: Mock object (or class) to use (or instantiate)
             instead of boto3.client.
+        :type client_class: Any
+
+        :param host: Host used by this integration
+        :type host: string
         """
+        super(S3Uploader, self).__init__(integration, host)
+
         if not client_class:
             client_class = boto3.client
 
@@ -320,7 +331,7 @@ class S3Uploader(MirrorUploader):
         if not expiration:
             expiration = self._s3_presigned_url_expiration
 
-        bucket, key = self.bucket_and_filename(url)
+        bucket, key = self.split_url(url)
         url = self.client.generate_presigned_url(
             'get_object',
             ExpiresIn=int(expiration),
@@ -461,11 +472,21 @@ class S3Uploader(MirrorUploader):
         parts = [time_part, lane.display_name]
         return root + self.key_join(parts) + ".mrc"
 
-    @classmethod
-    def bucket_and_filename(cls, url, unquote=True):
+    def split_url(self, url, unquote=True):
+        """Splits the URL into the components: bucket and file path
+
+        :param url: URL
+        :type url: string
+
+        :param unquote: Boolean value indicating whether it's required to unquote URL elements
+        :type unquote: bool
+
+        :return: Tuple (bucket, file path)
+        :rtype: Tuple[string, string]
+        """
         scheme, netloc, path, query, fragment = urlsplit(url)
 
-        if netloc.endswith('amazonaws.com'):
+        if self.is_self_url(url):
             host_parts = netloc.split('.')
             host_parts_count = len(host_parts)
 
@@ -527,7 +548,7 @@ class S3Uploader(MirrorUploader):
 
         # Turn the original URL into an s3.amazonaws.com URL.
         media_type = representation.external_media_type
-        bucket, remote_filename = self.bucket_and_filename(mirror_to)
+        bucket, remote_filename = self.split_url(mirror_to)
         fh = representation.external_content()
         try:
             result = self.client.upload_fileobj(
@@ -580,6 +601,49 @@ class S3Uploader(MirrorUploader):
 # MirrorUploader.implementation will instantiate an S3Uploader
 # for storage integrations with protocol 'Amazon S3'.
 MirrorUploader.IMPLEMENTATION_REGISTRY[S3Uploader.NAME] = S3Uploader
+
+
+class MinIOUploader(S3Uploader):
+    NAME = ExternalIntegration.MINIO
+
+    ENDPOINT_URL = 'ENDPOINT_URL'
+
+    SETTINGS = [
+        {
+            'key': ENDPOINT_URL,
+            'label': _('Endpoint URL'),
+            'description': _('MinIO\'s endpoint URL'),
+            'required': True
+        }
+    ] + S3Uploader.SETTINGS
+
+    def __init__(self, integration, client_class=None):
+        """Instantiate an S3Uploader from an ExternalIntegration.
+
+        :param integration: An ExternalIntegration
+
+        :param client_class: Mock object (or class) to use (or instantiate)
+            instead of boto3.client.
+        """
+        endpoint_url = integration.setting(
+            self.ENDPOINT_URL).value
+
+        _, host, _, _, _ = urlsplit(endpoint_url)
+
+        if not client_class:
+            client_class = boto3.client
+
+        if callable(client_class):
+            client_class = functools.partial(client_class, endpoint_url=endpoint_url)
+        else:
+            self.client = client_class
+
+        super(MinIOUploader, self).__init__(integration, client_class, host)
+
+
+# MirrorUploader.implementation will instantiate an MinIOUploader instance
+# for storage integrations with protocol 'MinIO'.
+MirrorUploader.IMPLEMENTATION_REGISTRY[MinIOUploader.NAME] = MinIOUploader
 
 
 class MockS3Uploader(S3Uploader):

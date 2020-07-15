@@ -37,14 +37,6 @@ class TestCDN(DatabaseTest):
                   "bar.com" : "http://cdn2.net/"}
         )
 
-    def test_s3_bucket(self):
-        # Instead of the foo.com URL we accidentally used the full S3
-        # address for the bucket that hosts S3. cdnify() handles this
-        # with no problem.
-        url = "http://s3.amazonaws.com/foo.com/bar+bar%21#baz"
-        self.ceq("https://cdn.org/bar+bar%21#baz", url,
-                 {"foo.com" : "https://cdn.org/"})
-
     def test_relative_url(self):
         # By default, relative URLs are untouched.
         url = "/groups/"

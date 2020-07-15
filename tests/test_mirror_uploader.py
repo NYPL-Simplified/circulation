@@ -3,24 +3,50 @@ from nose.tools import (
     eq_,
     assert_raises_regexp,
 )
+from parameterized import parameterized
+
 from . import DatabaseTest
 from ..config import CannotLoadConfiguration
 from ..mirror import MirrorUploader
 from ..model import ExternalIntegration
 from ..model.configuration import ExternalIntegrationLink
-from ..s3 import S3Uploader
+from ..s3 import S3Uploader, MinIOUploader
+
 
 class DummySuccessUploader(MirrorUploader):
-
     def __init__(self, integration=None):
+        pass
+
+    def book_url(self, identifier, extension='.epub', open_access=True, data_source=None, title=None):
+        pass
+
+    def cover_image_url(self, data_source, identifier, filename=None, scaled_size=None):
+        pass
+
+    def sign_url(self, url, expiration=None):
+        pass
+
+    def split_url(self, url, unquote=True):
         pass
 
     def do_upload(self, representation):
         return None
 
-class DummyFailureUploader(MirrorUploader):
 
+class DummyFailureUploader(MirrorUploader):
     def __init__(self, integration=None):
+        pass
+
+    def book_url(self, identifier, extension='.epub', open_access=True, data_source=None, title=None):
+        pass
+
+    def cover_image_url(self, data_source, identifier, filename=None, scaled_size=None):
+        pass
+
+    def sign_url(self, url, expiration=None):
+        pass
+
+    def split_url(self, url, unquote=True):
         pass
 
     def do_upload(self, representation):
@@ -41,7 +67,11 @@ class TestInitialization(DatabaseTest):
         integration.name = storage_name
         return integration
 
-    def test_mirror(self):
+    @parameterized.expand([
+        ('s3_uploader', ExternalIntegration.S3, S3Uploader),
+        ('minio_uploader', ExternalIntegration.MINIO, MinIOUploader, {MinIOUploader.ENDPOINT_URL: 'http://localhost'})
+    ])
+    def test_mirror(self, name, protocol, uploader_class, settings=None):
         storage_name = "some storage"
         # If there's no integration with goal=STORAGE or name=storage_name,
         # MirrorUploader.mirror raises an exception.
@@ -54,8 +84,15 @@ class TestInitialization(DatabaseTest):
         # If there's only one, mirror() uses it to initialize a
         # MirrorUploader.
         integration = self._integration
+        integration.protocol = protocol
+
+        if settings:
+            for key, value in settings.iteritems():
+                integration.setting(key).value = value
+
         uploader = MirrorUploader.mirror(self._db, integration=integration)
-        assert isinstance(uploader, MirrorUploader)
+
+        assert isinstance(uploader, uploader_class)
 
     def test_integration_by_name(self):
         integration = self._integration
@@ -93,15 +130,25 @@ class TestInitialization(DatabaseTest):
         uploader = MirrorUploader.for_collection(collection, ExternalIntegrationLink.COVERS)
         assert isinstance(uploader, MirrorUploader)
 
-    def test_constructor(self):
+    @parameterized.expand([
+        ('s3_uploader', ExternalIntegration.S3, S3Uploader),
+        ('minio_uploader', ExternalIntegration.MINIO, MinIOUploader, {MinIOUploader.ENDPOINT_URL: 'http://localhost'})
+    ])
+    def test_constructor(self, name, protocol, uploader_class, settings=None):
         # You can't create a MirrorUploader with an integration
         # that's not designed for storage.
         integration = self._integration
         integration.goal = ExternalIntegration.LICENSE_GOAL
+        integration.protocol = protocol
+
+        if settings:
+            for key, value in settings.iteritems():
+                integration.setting(key).value = value
+
         assert_raises_regexp(
             CannotLoadConfiguration,
             "from an integration with goal=licenses",
-            MirrorUploader, integration
+            uploader_class, integration
         )
 
     def test_implementation_registry(self):
