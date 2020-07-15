@@ -188,6 +188,13 @@
     <span class="c1"># displayed to a patron, so it doesn&#39;t matter much.</span>
     <span class="n">DEFAULT_ERROR_URL</span> <span class="o">=</span> <span class="s2">&quot;http://librarysimplified.org/&quot;</span>
 
+    <span class="c1"># Map Overdrive&#39;s error messages to standard circulation manager</span>
+    <span class="c1"># exceptions.</span>
+    <span class="n">ERROR_MESSAGE_TO_EXCEPTION</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;PatronHasExceededCheckoutLimit&quot;</span><span class="p">:</span> <span class="n">PatronLoanLimitReached</span><span class="p">,</span>
+        <span class="s2">&quot;PatronHasExceededCheckoutLimit_ForCPC&quot;</span><span class="p">:</span> <span class="n">PatronLoanLimitReached</span><span class="p">,</span>
+    <span class="p">}</span>
+
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">OverdriveAPI</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">overdrive_bibliographic_coverage_provider</span> <span class="o">=</span> <span class="p">(</span>
@@ -360,37 +367,16 @@
 
         <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">patron_request</span><span class="p">(</span>
             <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">CHECKOUTS_ENDPOINT</span><span class="p">,</span> <span class="n">extra_headers</span><span class="o">=</span><span class="n">headers</span><span class="p">,</span>
-            <span class="n">data</span><span class="o">=</span><span class="n">payload</span><span class="p">)</span>
+            <span class="n">data</span><span class="o">=</span><span class="n">payload</span>
+        <span class="p">)</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">400</span><span class="p">:</span>
-            <span class="n">error</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
-            <span class="n">code</span> <span class="o">=</span> <span class="n">error</span><span class="p">[</span><span class="s1">&#39;errorCode&#39;</span><span class="p">]</span>
-            <span class="k">if</span> <span class="n">code</span> <span class="o">==</span> <span class="s1">&#39;NoCopiesAvailable&#39;</span><span class="p">:</span>
-                <span class="c1"># Clearly our info is out of date.</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">update_licensepool</span><span class="p">(</span><span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span><span class="p">)</span>
-                <span class="k">raise</span> <span class="n">NoAvailableCopies</span><span class="p">()</span>
-            <span class="k">elif</span> <span class="n">code</span> <span class="o">==</span> <span class="s1">&#39;TitleAlreadyCheckedOut&#39;</span><span class="p">:</span>
-                <span class="c1"># Client should have used a fulfill link instead, but</span>
-                <span class="c1"># we can handle it.</span>
-                <span class="n">loan</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_loan</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span><span class="p">)</span>
-                <span class="n">expires</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">extract_expiration_date</span><span class="p">(</span><span class="n">loan</span><span class="p">)</span>
-                <span class="k">return</span> <span class="n">LoanInfo</span><span class="p">(</span>
-                    <span class="n">licensepool</span><span class="o">.</span><span class="n">collection</span><span class="p">,</span>
-                    <span class="n">licensepool</span><span class="o">.</span><span class="n">data_source</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
-                    <span class="n">licensepool</span><span class="o">.</span><span class="n">identifier</span><span class="o">.</span><span class="n">type</span><span class="p">,</span>
-                    <span class="n">licensepool</span><span class="o">.</span><span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span>
-                    <span class="kc">None</span><span class="p">,</span>
-                    <span class="n">expires</span><span class="p">,</span>
-                    <span class="kc">None</span>
-                <span class="p">)</span>
-            <span class="k">elif</span> <span class="n">code</span> <span class="o">==</span> <span class="s1">&#39;PatronHasExceededCheckoutLimit&#39;</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="n">PatronLoanLimitReached</span><span class="p">()</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="n">CannotLoan</span><span class="p">(</span><span class="n">code</span><span class="p">)</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_process_checkout_error</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="c1"># Try to extract the expiration date from the response.</span>
-            <span class="n">expires</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">extract_expiration_date</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">())</span>
+            <span class="n">expires</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">extract_expiration_date</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
 
-        <span class="c1"># Create the loan info. We don&#39;t know the expiration</span>
+        <span class="c1"># Create the loan info.</span>
         <span class="n">loan</span> <span class="o">=</span> <span class="n">LoanInfo</span><span class="p">(</span>
             <span class="n">licensepool</span><span class="o">.</span><span class="n">collection</span><span class="p">,</span>
             <span class="n">licensepool</span><span class="o">.</span><span class="n">data_source</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
@@ -401,6 +387,50 @@
             <span class="kc">None</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">loan</span></div>
+
+    <span class="k">def</span> <span class="nf">_process_checkout_error</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">,</span> <span class="n">error</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Handle an error received by the API checkout endpoint.</span>
+
+<span class="sd">        :param patron: The Patron who tried to check out the book.</span>
+<span class="sd">        :param pin: The Patron&#39;s PIN; used in case follow-up</span>
+<span class="sd">            API requests are necessary.</span>
+<span class="sd">        :param licensepool: LicensePool for the book that was to be borrowed.</span>
+<span class="sd">        :param error: A dictionary representing the error response, parsed as JSON.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">code</span> <span class="o">=</span> <span class="s2">&quot;Unknown Error&quot;</span>
+        <span class="n">identifier</span> <span class="o">=</span> <span class="n">licensepool</span><span class="o">.</span><span class="n">identifier</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">error</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+            <span class="n">code</span> <span class="o">=</span> <span class="n">error</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;errorCode&#39;</span><span class="p">,</span> <span class="n">code</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">code</span> <span class="o">==</span> <span class="s1">&#39;NoCopiesAvailable&#39;</span><span class="p">:</span>
+            <span class="c1"># Clearly our info is out of date.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">update_licensepool</span><span class="p">(</span><span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="n">NoAvailableCopies</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">code</span> <span class="o">==</span> <span class="s1">&#39;TitleAlreadyCheckedOut&#39;</span><span class="p">:</span>
+            <span class="c1"># Client should have used a fulfill link instead, but</span>
+            <span class="c1"># we can handle it.</span>
+            <span class="c1">#</span>
+            <span class="c1"># NOTE: It&#39;s very unlikely this will happen, but it could</span>
+            <span class="c1"># happen if the patron borrows a book through Libby and</span>
+            <span class="c1"># then immediately borrows the same book through SimplyE.</span>
+            <span class="n">loan</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_loan</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span><span class="p">)</span>
+            <span class="n">expires</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">extract_expiration_date</span><span class="p">(</span><span class="n">loan</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">LoanInfo</span><span class="p">(</span>
+                <span class="n">licensepool</span><span class="o">.</span><span class="n">collection</span><span class="p">,</span>
+                <span class="n">licensepool</span><span class="o">.</span><span class="n">data_source</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+                <span class="n">identifier</span><span class="o">.</span><span class="n">type</span><span class="p">,</span>
+                <span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span>
+                <span class="kc">None</span><span class="p">,</span>
+                <span class="n">expires</span><span class="p">,</span>
+                <span class="kc">None</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">code</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ERROR_MESSAGE_TO_EXCEPTION</span><span class="p">:</span>
+            <span class="n">exc_class</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ERROR_MESSAGE_TO_EXCEPTION</span><span class="p">[</span><span class="n">code</span><span class="p">]</span>
+            <span class="k">raise</span> <span class="n">exc_class</span><span class="p">()</span>
+
+        <span class="c1"># All-purpose fallback</span>
+        <span class="k">raise</span> <span class="n">CannotLoan</span><span class="p">(</span><span class="n">code</span><span class="p">)</span>
 
 <div class="viewcode-block" id="OverdriveAPI.checkin"><a class="viewcode-back" href="../../api.html#api.overdrive.OverdriveAPI.checkin">[docs]</a>    <span class="k">def</span> <span class="nf">checkin</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">):</span>
 
@@ -679,12 +709,17 @@
 
     <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">_extract_date</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">field_name</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">None</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">field_name</span> <span class="ow">in</span> <span class="n">data</span><span class="p">:</span>
-            <span class="n">d</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">d</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span>
-                <span class="n">data</span><span class="p">[</span><span class="n">field_name</span><span class="p">],</span> <span class="bp">cls</span><span class="o">.</span><span class="n">TIME_FORMAT</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">d</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span>
+                <span class="n">data</span><span class="p">[</span><span class="n">field_name</span><span class="p">],</span> <span class="bp">cls</span><span class="o">.</span><span class="n">TIME_FORMAT</span>
+            <span class="p">)</span>
+        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="c1"># Wrong format</span>
+            <span class="k">return</span> <span class="kc">None</span>
 
 <div class="viewcode-block" id="OverdriveAPI.get_patron_information"><a class="viewcode-back" href="../../api.html#api.overdrive.OverdriveAPI.get_patron_information">[docs]</a>    <span class="k">def</span> <span class="nf">get_patron_information</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">):</span>
         <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">patron_request</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ME_ENDPOINT</span><span class="p">)</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
