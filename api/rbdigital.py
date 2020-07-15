@@ -666,12 +666,16 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
 ### Patron account handling
     # RBdigital identifier property to cache
     CACHED_IDENTIFIER_PROPERTY = 'patronId'
+    BEARER_TOKEN_PROPERTY = 'bearer'
 
     CREDENTIAL_TYPES = {
         CACHED_IDENTIFIER_PROPERTY: dict(
             label=Credential.IDENTIFIER_FROM_REMOTE_SERVICE,
             lifetime=None
         ),
+        BEARER_TOKEN_PROPERTY: dict(
+            label="Patron Bearer Token",
+            lifetime=(23 * 60 + 30) * 60),
     }
 
     def patron_credential(self, kind, patron, value=None):
@@ -695,6 +699,10 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         credential_type = self.CREDENTIAL_TYPES[kind].get('label', None)
         lifetime = self.CREDENTIAL_TYPES[kind].get('lifetime', None)
         is_persistent = (lifetime is None)
+
+        # Force refresh if we've specified a value for the credential. That
+        # ensures that both the expiration date and value are updated.
+        force_refresh = (value is not None)
 
         # Credential.lookup() expects to pass a Credential to this refresh method
         def refresh_credential(credential):
@@ -723,6 +731,8 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
                         _db = Session.object_session(credential)
                         _db.delete(credential)
                         raise
+                elif kind == self.BEARER_TOKEN_PROPERTY:
+                    value_ = self.fetch_patron_bearer_token(patron)
                 else:
                     raise NotImplementedError("No RBDigital credential of type '%s'" % kind)
 
@@ -732,7 +742,8 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         _db = Session.object_session(patron)
         collection = Collection.by_id(_db, id=self.collection_id)
         credential = Credential.lookup(
-            _db, DataSource.RB_DIGITAL, credential_type, patron, refresh_credential,
+            _db, DataSource.RB_DIGITAL, credential_type, patron,
+            refresh_credential, force_refresh=force_refresh,
             collection=collection, allow_persistent_token=is_persistent
         )
         return credential.credential
