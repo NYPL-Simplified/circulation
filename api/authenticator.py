@@ -2683,3 +2683,5 @@ class BaseSAMLAuthenticationProvider(AuthenticationProvider, BearerTokenSigner):
            'required': True
        }
     ] + AuthenticationProvider.SETTINGS
+
+    LIBRARY_SETTINGS = []
