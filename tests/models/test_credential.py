@@ -161,6 +161,41 @@ class TestCredentials(DatabaseTest):
             allow_persistent_token=True, allow_empty_token=False
         )
 
+    def test_force_refresher_method(self):
+        # Ensure that passing `force_refresh=True` triggers the
+        # refresher method, even when none of the usual conditions
+        # are satisfied.
+
+        def refresher(self):
+            raise Exception("Refresher method was called")
+
+        # Create a persistent token and ensure that it's present
+        data_source = DataSource.lookup(self._db, DataSource.ADOBE)
+        patron = self._patron()
+        token, is_new = Credential.persistent_token_create(
+            self._db, data_source, "some random type", patron
+        )
+        eq_(data_source, token.data_source)
+        eq_("some random type", token.type)
+        eq_(patron, token.patron)
+
+        # We'll vary the `force_refresh` setting, but otherwise
+        # use the same parameters for the next to calls to `lookup`.
+        args = self._db, data_source, token.type, patron, refresher
+
+        # This call should should not run the refresher method.
+        again_token = Credential.lookup(
+            *args, allow_persistent_token=True, force_refresh=False
+        )
+        eq_(again_token, token)
+
+        # This call should run the refresher method.
+        assert_raises_regexp(
+            Exception, "Refresher method was called",
+            Credential.lookup, *args,
+            allow_persistent_token=True, force_refresh=True
+        )
+
     def test_collection_token(self):
         # Make sure we can have two tokens from the same data_source with
         # different collections.

@@ -1,11 +1,16 @@
-from nose.tools import set_trace
 import datetime
+from abc import abstractmethod, ABCMeta
+from urlparse import urlsplit
+
 from config import CannotLoadConfiguration
 
-class MirrorUploader():
+
+class MirrorUploader(object):
     """Handles the job of uploading a representation's content to
     a mirror that we control.
     """
+
+    __metaclass__ = ABCMeta
 
     STORAGE_GOAL = u'storage'
 
@@ -80,11 +85,15 @@ class MirrorUploader():
         )
         return implementation_class(integration)
 
-    def __init__(self, integration):
+    def __init__(self, integration, host):
         """Instantiate a MirrorUploader from an ExternalIntegration.
 
         :param integration: An ExternalIntegration configuring the credentials
            used to upload things.
+        :type integration: ExternalIntegration
+
+        :param host: Base host used by the mirror
+        :type host: string
         """
         if integration.goal != self.STORAGE_GOAL:
             # This collection's 'mirror integration' isn't intended to
@@ -93,6 +102,8 @@ class MirrorUploader():
                 "Cannot create an MirrorUploader from an integration with goal=%s" %
                 integration.goal
             )
+
+        self._host = host
 
         # Subclasses will override this to further configure the client
         # based on the credentials in the ExternalIntegration.
@@ -133,5 +144,51 @@ class MirrorUploader():
         This does not upload anything to the URL, but it is expected
         that calling mirror() on a certain Representation object will
         make that representation end up at that URL.
+        """
+        raise NotImplementedError()
+
+    def sign_url(self, url, expiration=None):
+        """Signs a URL and make it expirable
+
+        :param url: URL
+        :type url: string
+
+        :param expiration: (Optional) Time in seconds for the presigned URL to remain valid.
+            Default value depends on a specific implementation
+        :type expiration: int
+
+        :return: Signed expirable link
+        :rtype: string
+        """
+        raise NotImplementedError()
+
+    def is_self_url(self, url):
+        """Determines whether the URL has the mirror's host or a custom domain
+
+        :param url: The URL
+        :type url: string
+
+        :return: Boolean value indicating whether the URL has the mirror's host or a custom domain
+        :rtype: bool
+        """
+        scheme, netloc, path, query, fragment = urlsplit(url)
+
+        if netloc.endswith(self._host):
+            return True
+        else:
+            return False
+
+    @abstractmethod
+    def split_url(self, url, unquote=True):
+        """Splits the URL into the components: container (bucket) and file path
+
+        :param url: URL
+        :type url: string
+
+        :param unquote: Boolean value indicating whether it's required to unquote URL elements
+        :type unquote: bool
+
+        :return: Tuple (bucket, file path)
+        :rtype: Tuple[string, string]
         """
         raise NotImplementedError()

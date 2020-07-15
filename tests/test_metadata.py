@@ -1,22 +1,26 @@
-from StringIO import StringIO
+import csv
+import datetime
+import os
+from copy import deepcopy
+
 from nose.tools import (
     assert_raises_regexp,
     eq_,
-    set_trace,
 )
-import datetime
-import pkgutil
-import csv
-from copy import deepcopy
+from parameterized import parameterized
 
+from . import (
+    DatabaseTest,
+    DummyHTTPClient,
+    DummyMetadataClient,
+)
+from ..analytics import Analytics
 from ..classifier import Classifier
+from ..classifier import NO_VALUE, NO_NUMBER
 from ..metadata_layer import (
-    CSVFormatError,
     CSVMetadataImporter,
     CirculationData,
     ContributorData,
-    ContributorData,
-    FormatData,
     IdentifierData,
     LinkData,
     MARCExtractor,
@@ -26,8 +30,6 @@ from ..metadata_layer import (
     SubjectData,
     TimestampData,
 )
-
-import os
 from ..model import (
     Contributor,
     CoverageRecord,
@@ -35,7 +37,6 @@ from ..model import (
     Edition,
     Identifier,
     Measurement,
-    DeliveryMechanism,
     Hyperlink,
     Representation,
     RightsStatus,
@@ -45,18 +46,9 @@ from ..model import (
     WorkCoverageRecord,
 )
 from ..model.configuration import ExternalIntegrationLink
-
+from ..s3 import MockS3Uploader
 from ..util.http import RemoteIntegrationException
 
-from . import (
-    DatabaseTest,
-    DummyHTTPClient,
-    DummyMetadataClient,
-)
-
-from ..analytics import Analytics
-from ..s3 import MockS3Uploader
-from ..classifier import NO_VALUE, NO_NUMBER
 
 class TestIdentifierData(object):
 
@@ -66,8 +58,8 @@ class TestIdentifierData(object):
         eq_("foo", data.identifier)
         eq_(0.5, data.weight)
 
-class TestMetadataImporter(DatabaseTest):
 
+class TestMetadataImporter(DatabaseTest):
     def test_parse(self):
         base_path = os.path.split(__file__)[0]
         path = os.path.join(
@@ -327,7 +319,6 @@ class TestMetadataImporter(DatabaseTest):
         resource_path = os.path.join(base_path, "files", "covers")
         sample_cover_path = os.path.join(resource_path, name)
         return sample_cover_path
-
 
     def test_image_scale_and_mirror(self):
         # Make sure that open access material links are translated to our S3 buckets, and that
@@ -672,7 +663,7 @@ class TestMetadataImporter(DatabaseTest):
         m = Metadata(data_source=data_source)
 
         mirrors = dict(books_mirror=MockS3Uploader())
-        mirror_type = ExternalIntegrationLink.BOOKS
+        mirror_type = ExternalIntegrationLink.OPEN_ACCESS_BOOKS
         def dummy_content_modifier(representation):
             representation.content = "Replaced Content"
         h = DummyHTTPClient()
@@ -712,6 +703,54 @@ class TestMetadataImporter(DatabaseTest):
         eq_([representation], mirrors[mirror_type].uploaded)
         eq_(["Replaced Content"], mirrors[mirror_type].content)
 
+    def test_mirror_protected_access_book(self):
+        edition, pool = self._edition(with_license_pool=True)
+
+        data_source = DataSource.lookup(self._db, DataSource.GUTENBERG)
+        m = Metadata(data_source=data_source)
+
+        mirror_type = ExternalIntegrationLink.PROTECTED_ACCESS_BOOKS
+        mirrors = {mirror_type: MockS3Uploader()}
+
+        def dummy_content_modifier(representation):
+            representation.content = "Replaced Content"
+        h = DummyHTTPClient()
+
+        policy = ReplacementPolicy(mirrors=mirrors, content_modifier=dummy_content_modifier, http_get=h.do_get)
+
+        link = LinkData(
+            rel=Hyperlink.GENERIC_OPDS_ACQUISITION,
+            media_type=Representation.EPUB_MEDIA_TYPE,
+            href="http://example.com/test.epub",
+            content="I'm an epub",
+        )
+
+        link_obj, ignore = edition.primary_identifier.add_link(
+            rel=link.rel, href=link.href, data_source=data_source,
+            media_type=link.media_type, content=link.content
+        )
+
+        h.queue_response(200, media_type=Representation.EPUB_MEDIA_TYPE)
+
+        m.mirror_link(edition, data_source, link, link_obj, policy)
+
+        representation = link_obj.resource.representation
+
+        # The representation was fetched successfully.
+        eq_(None, representation.fetch_exception)
+        assert representation.fetched_at is not None
+
+        # The mirror url is set.
+        assert "Gutenberg" in representation.mirror_url
+        assert representation.mirror_url.endswith("%s/%s.epub" % (edition.primary_identifier.identifier, edition.title))
+
+        # Content isn't there since it was mirrored.
+        eq_(None, representation.content)
+
+        # The representation was mirrored, with the modified content.
+        eq_([representation], mirrors[mirror_type].uploaded)
+        eq_(["Replaced Content"], mirrors[mirror_type].content)
+
     def test_measurements(self):
         edition = self._edition()
         measurement = MeasurementData(quantity_measured=Measurement.POPULARITY,
@@ -722,7 +761,6 @@ class TestMetadataImporter(DatabaseTest):
         [m] = edition.primary_identifier.measurements
         eq_(Measurement.POPULARITY, m.quantity_measured)
         eq_(100, m.value)
-
 
     def test_coverage_record(self):
         edition, pool = self._edition(with_license_pool=True)
@@ -1022,6 +1060,21 @@ class TestContributorData(DatabaseTest):
 
 
 class TestLinkData(DatabaseTest):
+    @parameterized.expand([
+        ('image', Hyperlink.IMAGE, ExternalIntegrationLink.COVERS),
+        ('thumbnail', Hyperlink.THUMBNAIL_IMAGE, ExternalIntegrationLink.COVERS),
+        ('open_access_book', Hyperlink.OPEN_ACCESS_DOWNLOAD, ExternalIntegrationLink.OPEN_ACCESS_BOOKS),
+        ('protected_access_book', Hyperlink.GENERIC_OPDS_ACQUISITION, ExternalIntegrationLink.PROTECTED_ACCESS_BOOKS)
+    ])
+    def test_mirror_type_returns_correct_mirror_type_for(self, name, rel, expected_mirror_type):
+        # Arrange
+        link_data = LinkData(rel, href='dummy')
+
+        # Act
+        result = link_data.mirror_type()
+
+        # Assert
+        eq_(result, expected_mirror_type)
 
     def test_guess_media_type(self):
         rel = Hyperlink.IMAGE
@@ -1044,8 +1097,8 @@ class TestLinkData(DatabaseTest):
         description = LinkData(Hyperlink.DESCRIPTION, content="Some content")
         eq_(None, description.guessed_media_type)
 
-class TestMetadata(DatabaseTest):
 
+class TestMetadata(DatabaseTest):
     def test_defaults(self):
         # Verify that a Metadata object doesn't make any assumptions
         # about an item's medium.

@@ -1,14 +1,16 @@
 # encoding: utf-8
+import datetime
+import functools
+
 from nose.tools import (
     eq_,
-    set_trace,
 )
-import datetime
+from parameterized import parameterized
 
 from .. import DatabaseTest
-from ...config import Configuration
 from ... import lane
 from ... import model
+from ...config import Configuration
 from ...model import (
     CachedFeed,
     ConfigurationSetting,
@@ -17,6 +19,7 @@ from ...model import (
     Timestamp,
     WorkCoverageRecord,
 )
+
 
 class TestSiteConfigurationHasChanged(DatabaseTest):
 
@@ -187,3 +190,35 @@ class TestSiteConfigurationHasChanged(DatabaseTest):
         # tests the circumstances under which a database change
         # requires that a Work's entry in the search index be
         # recreated.
+
+
+def _set_property(object, value, property_name):
+    setattr(object, property_name, value)
+
+
+class TestListeners(DatabaseTest):
+    @parameterized.expand([
+        ('works_when_open_access_property_changes', functools.partial(_set_property, property_name='open_access')),
+        ('works_when_self_hosted_property_changes', functools.partial(_set_property, property_name='self_hosted'))
+    ])
+    def test_licensepool_storage_status_change(self, name, status_property_setter):
+        # Arrange
+        work = self._work(with_license_pool=True)
+        [pool] = work.license_pools
+
+        # Clear out any WorkCoverageRecords created as the work was initialized.
+        work.coverage_records = []
+
+        # Act
+        # Change the field
+        status_property_setter(pool, True)
+
+        # Then verify that if the field is 'set' to its existing value, this doesn't happen.
+        # pool.self_hosted = True
+        status_property_setter(pool, True)
+
+        # Assert
+        eq_(1, len(work.coverage_records))
+        eq_(work.id, work.coverage_records[0].work_id)
+        eq_(WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION, work.coverage_records[0].operation)
+        eq_(WorkCoverageRecord.REGISTERED, work.coverage_records[0].status)

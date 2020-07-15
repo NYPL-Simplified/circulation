@@ -11,6 +11,10 @@ env:
   global:
     - SIMPLIFIED_TEST_DATABASE="postgres://simplified_test:test@localhost:5432/simplified_core_test"
     - ES_VERSION="6.4.0"
+    - SIMPLIFIED_MINIO_HOST=localhost:9000
+    - SIMPLIFIED_TEST_MINIO_ENDPOINT_URL=http://${SIMPLIFIED_MINIO_HOST}
+    - SIMPLIFIED_TEST_MINIO_USER=minioadmin
+    - SIMPLIFIED_TEST_MINIO_PASSWORD=minioadmin
 
 services:
   - postgresql
@@ -26,10 +30,11 @@ cache: pip
 before_install:
   - pip install --upgrade pip
   - pip install "setuptools>=44.1.0"
-  # Setup elasticsearch for integration testing in docker
   - docker run -d -p 9200:9200 -e "discovery.type=single-node" --name es elasticsearch:$ES_VERSION
   - docker exec es elasticsearch-plugin install analysis-icu
   - docker restart es
+  - docker pull minio/minio
+  - docker run -d -p 9000:9000 minio/minio server /data
 
 install:
   - pip install -r requirements.txt

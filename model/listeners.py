@@ -277,7 +277,8 @@ def licensepool_collection_change(target, value, oldvalue, initiator):
     work.external_index_needs_updating()
 
 @event.listens_for(LicensePool.open_access, 'set')
-def licensepool_open_access_change(target, value, oldvalue, initiator):
+@event.listens_for(LicensePool.self_hosted, 'set')
+def licensepool_storage_status_change(target, value, oldvalue, initiator):
     """A Work may need to have its search document re-indexed if one of
     its LicensePools changes its open-access status.
 

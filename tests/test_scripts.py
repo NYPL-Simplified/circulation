@@ -1,5 +1,4 @@
 import datetime
-import json
 import os
 import random
 import shutil
@@ -11,20 +10,25 @@ from nose.tools import (
     assert_raises,
     assert_raises_regexp,
     eq_,
-    set_trace,
 )
+from parameterized import parameterized
 
 from . import (
     DatabaseTest,
 )
 from ..classifier import Classifier
-
 from ..config import (
     CannotLoadConfiguration,
-    Configuration,
-    temp_config,
 )
 from ..external_search import MockExternalSearchIndex
+from ..lane import (
+    Lane,
+    WorkList,
+)
+from ..metadata_layer import (
+    LinkData,
+    TimestampData,
+)
 from ..mirror import MirrorUploader
 from ..model import (
     create,
@@ -36,29 +40,23 @@ from ..model import (
     ConfigurationSetting,
     Contributor,
     CoverageRecord,
-    CustomList,
     DataSource,
-    Edition,
     ExternalIntegration,
     Hyperlink,
     Identifier,
     Library,
-    LicensePool,
     RightsStatus,
     Timestamp,
     Work,
     WorkCoverageRecord,
 )
 from ..model.configuration import ExternalIntegrationLink
-from ..lane import (
-    Lane,
-    WorkList,
+from ..monitor import (
+    Monitor,
+    CollectionMonitor,
+    ReaperMonitor,
 )
-from ..metadata_layer import (
-    LinkData,
-    TimestampData,
-)
-
+from ..s3 import S3Uploader, MinIOUploader
 from ..scripts import (
     AddClassificationScript,
     CheckContributorNamesInDB,
@@ -68,7 +66,6 @@ from ..scripts import (
     ConfigureLaneScript,
     ConfigureLibraryScript,
     ConfigureSiteScript,
-    CustomListManagementScript,
     DatabaseMigrationInitializationScript,
     DatabaseMigrationScript,
     Explain,
@@ -101,20 +98,10 @@ from ..scripts import (
     WhereAreMyBooksScript,
     WorkClassificationScript,
     WorkProcessingScript,
-)
-from ..testing import(
-    AlwaysSuccessfulBibliographicCoverageProvider,
-    BrokenBibliographicCoverageProvider,
+    CollectionType)
+from ..testing import (
     AlwaysSuccessfulCollectionCoverageProvider,
     AlwaysSuccessfulWorkCoverageProvider,
-)
-from ..monitor import (
-    Monitor,
-    CollectionMonitor,
-    ReaperMonitor,
-)
-from ..util.opds_writer import (
-    OPDSFeed,
 )
 from ..util.worker_pools import (
     DatabasePool,
@@ -157,7 +144,7 @@ class TestTimestampScript(DatabaseTest):
 
     def _ts(self, script):
         """Convenience method to look up the Timestamp for a script.
-        
+
         We don't use Timestamp.stamp() because we want to make sure
         that Timestamps are being created by the actual code, not test
         code.
@@ -2305,7 +2292,7 @@ class TestWhereAreMyBooksScript(DatabaseTest):
         # Every collection in the database was explained.
         eq_(set([collection1, collection2]),
             set(script.explained_collections))
-        
+
         # There only output were the newlines after the five method
         # calls. All other output happened inside the methods we
         # mocked.
@@ -2366,7 +2353,7 @@ class TestWhereAreMyBooksScript(DatabaseTest):
         [how_many] = script.output
         eq_(('%d feeds in cachedfeeds table, not counting grouped feeds.', [0]),
             how_many)
-        
+
     def check_explanation(
         self, presentation_ready=1, not_presentation_ready=0,
         no_delivery_mechanisms=0, suppressed=0, not_owned=0,
@@ -2539,8 +2526,8 @@ class TestListCollectionMetadataIdentifiersScript(DatabaseTest):
         assert expected(c2) in output
         assert '2 collections found.\n' in output
 
-class TestMirrorResourcesScript(DatabaseTest):
 
+class TestMirrorResourcesScript(DatabaseTest):
     def test_do_run(self):
 
         has_uploader = self._collection()
@@ -2550,7 +2537,7 @@ class TestMirrorResourcesScript(DatabaseTest):
 
             processed = []
 
-            def collections_with_uploader(self, collections):
+            def collections_with_uploader(self, collections, collection_type):
                 # Pretend that `has_uploader` is the only Collection
                 # with an uploader.
                 for collection in collections:
@@ -2581,7 +2568,39 @@ class TestMirrorResourcesScript(DatabaseTest):
         processed = script.processed.pop()
         eq_((has_uploader, mock_uploader), processed)
 
-    def test_collections_with_uploader(self):
+    @parameterized.expand([
+        (
+            'containing_open_access_books_with_s3_uploader',
+            CollectionType.OPEN_ACCESS,
+            ExternalIntegrationLink.OPEN_ACCESS_BOOKS,
+            ExternalIntegration.S3,
+            S3Uploader
+        ),
+        (
+            'containing_protected_access_books_with_s3_uploader',
+            CollectionType.PROTECTED_ACCESS,
+            ExternalIntegrationLink.PROTECTED_ACCESS_BOOKS,
+            ExternalIntegration.S3,
+            S3Uploader
+        ),
+        (
+            'containing_open_access_books_with_minio_uploader',
+            CollectionType.OPEN_ACCESS,
+            ExternalIntegrationLink.OPEN_ACCESS_BOOKS,
+            ExternalIntegration.MINIO,
+            MinIOUploader,
+            {MinIOUploader.ENDPOINT_URL: 'http://localhost'}
+        ),
+        (
+            'containing_protected_access_books_with_minio_uploader',
+            CollectionType.PROTECTED_ACCESS,
+            ExternalIntegrationLink.PROTECTED_ACCESS_BOOKS,
+            ExternalIntegration.MINIO,
+            MinIOUploader,
+            {MinIOUploader.ENDPOINT_URL: 'http://localhost'}
+        )
+    ])
+    def test_collections(self, name, collection_type, book_mirror_type, protocol, uploader_class, settings=None):
         class Mock(MirrorResourcesScript):
 
             mock_policy = object()
@@ -2597,8 +2616,12 @@ class TestMirrorResourcesScript(DatabaseTest):
         # This new collection does.
         has_uploader = self._collection()
         mirror = self._external_integration(
-            "S3", ExternalIntegration.STORAGE_GOAL
+            protocol, ExternalIntegration.STORAGE_GOAL
         )
+
+        if settings:
+            for key, value in settings.iteritems():
+                mirror.setting(key).value = value
 
         integration_link = self._external_integration_link(
             integration=has_uploader._external_integration,
@@ -2611,7 +2634,8 @@ class TestMirrorResourcesScript(DatabaseTest):
         # the other collection, pass it into replacement_policy,
         # and yield the result.
         result = script.collections_with_uploader(
-            [self._default_collection, has_uploader, self._default_collection]
+            [self._default_collection, has_uploader, self._default_collection],
+            collection_type
         )
 
         [(collection, policy)] = result
@@ -2619,32 +2643,34 @@ class TestMirrorResourcesScript(DatabaseTest):
         eq_(Mock.mock_policy, policy)
         # The mirror uploader was associated with a purpose of "covers", so we only
         # expect to have one MirrorUploader.
-        eq_(Mock.replacement_policy_called_with[ExternalIntegrationLink.BOOKS], None)
+        eq_(Mock.replacement_policy_called_with[book_mirror_type], None)
         assert isinstance(
             Mock.replacement_policy_called_with[ExternalIntegrationLink.COVERS], MirrorUploader
         )
 
         # Add another storage for books.
         another_mirror = self._external_integration(
-            "S3", ExternalIntegration.STORAGE_GOAL
+            protocol, ExternalIntegration.STORAGE_GOAL
         )
 
         integration_link = self._external_integration_link(
             integration=has_uploader._external_integration,
             other_integration=another_mirror,
-            purpose=ExternalIntegrationLink.BOOKS
+            purpose=book_mirror_type
         )
 
         result = script.collections_with_uploader(
-            [self._default_collection, has_uploader, self._default_collection]
+            [self._default_collection, has_uploader, self._default_collection],
+            collection_type
         )
 
         [(collection, policy)] = result
         eq_(has_uploader, collection)
         eq_(Mock.mock_policy, policy)
-        # There should be two MirrorUploaders for each purpose.
-        assert isinstance(Mock.replacement_policy_called_with[ExternalIntegrationLink.COVERS], MirrorUploader)
-        assert isinstance(Mock.replacement_policy_called_with[ExternalIntegrationLink.BOOKS], MirrorUploader)
+        # There should be two MirrorUploaders, one for each purpose.
+        assert isinstance(Mock.replacement_policy_called_with[ExternalIntegrationLink.COVERS], uploader_class)
+        assert isinstance(
+            Mock.replacement_policy_called_with[book_mirror_type], uploader_class)
 
     def test_replacement_policy(self):
         uploader = object()

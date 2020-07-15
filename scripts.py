@@ -1,52 +1,39 @@
 import argparse
 import datetime
-import imp
 import logging
 import os
 import random
 import re
-import requests
-import string
 import subprocess
-import time
-import uuid
-from requests.exceptions import (
-    ConnectionError,
-    HTTPError,
-)
 import sys
 import traceback
 import unicodedata
-
+import uuid
 from collections import defaultdict
-from external_search import (
-    ExternalSearchIndex,
-    Filter,
-    SearchIndexCoverageProvider,
-)
-import json
-from nose.tools import set_trace
+
+from enum import Enum
 from sqlalchemy import (
-    create_engine,
     exists,
     and_,
-    or_,
     text,
 )
 from sqlalchemy.exc import ProgrammingError
-from sqlalchemy.sql.functions import func
+from sqlalchemy.orm import Session
 from sqlalchemy.orm.exc import (
     NoResultFound,
     MultipleResultsFound,
 )
-from sqlalchemy.orm import Session
 
-from app_server import ComplaintController
 # from axis import Axis360BibliographicCoverageProvider
 from config import Configuration, CannotLoadConfiguration
 from coverage import (
     CollectionCoverageProviderJob,
     CoverageProviderProgress,
+)
+from external_search import (
+    ExternalSearchIndex,
+    Filter,
+    SearchIndexCoverageProvider,
 )
 from lane import Lane
 from metadata_layer import (
@@ -67,7 +54,6 @@ from model import (
     Complaint,
     ConfigurationSetting,
     Contributor,
-    CoverageRecord,
     CustomList,
     DataSource,
     Edition,
@@ -85,7 +71,6 @@ from model import (
     Timestamp,
     Work,
     WorkCoverageRecord,
-    WorkGenre,
     site_configuration_has_changed,
 )
 from model.configuration import ExternalIntegrationLink
@@ -100,19 +85,15 @@ from opds_import import (
 # from oneclick import (
 #     OneClickBibliographicCoverageProvider,
 # )
-from overdrive import OverdriveBibliographicCoverageProvider
 from util import fast_query_count
-from util.opds_writer import OPDSFeed
 from util.personal_names import (
     contributor_name_match_ratio,
-    display_name_to_sort_name,
-    is_corporate_name
+    display_name_to_sort_name
 )
 from util.worker_pools import (
-    DatabaseWorker,
     DatabasePool,
 )
-from functools import cmp_to_key
+
 
 class Script(object):
 
@@ -1790,6 +1771,14 @@ class CustomListManagementScript(Script):
         self._db.commit()
 
 
+class CollectionType(Enum):
+    OPEN_ACCESS = 'OPEN_ACCESS'
+    PROTECTED_ACCESS = 'PROTECTED_ACCESS'
+
+    def __str__(self):
+        return self.name
+
+
 class CollectionInputScript(Script):
     """A script that takes collection names as command line inputs."""
 
@@ -1820,6 +1809,13 @@ class CollectionInputScript(Script):
             help='Collection to use',
             dest='collection_names',
             metavar='NAME', action='append', default=[]
+        )
+        parser.add_argument(
+            '--collection-type',
+            help=u'Collection type. Valid values are: OPEN_ACCESS (default), PROTECTED_ACCESS.',
+            type=CollectionType,
+            choices=list(CollectionType),
+            default=CollectionType.OPEN_ACCESS
         )
         return parser
 
@@ -1875,15 +1871,16 @@ class MirrorResourcesScript(CollectionInputScript):
     def do_run(self, cmd_args=None):
         parsed = self.parse_command_line(self._db, cmd_args=cmd_args)
         collections = parsed.collections
+        collection_type = parsed.collection_type
         if not collections:
             # Assume they mean all collections.
             collections = self._db.query(Collection).all()
 
         # But only process collections that have an associated MirrorUploader.
-        for collection, policy in self.collections_with_uploader(collections):
+        for collection, policy in self.collections_with_uploader(collections, collection_type):
             self.process_collection(collection, policy)
 
-    def collections_with_uploader(self, collections):
+    def collections_with_uploader(self, collections, collection_type=CollectionType.OPEN_ACCESS):
         """Filter out collections that have no MirrorUploader.
 
         :yield: 2-tuples (Collection, ReplacementPolicy). The
@@ -1894,11 +1891,19 @@ class MirrorResourcesScript(CollectionInputScript):
             covers = MirrorUploader.for_collection(
                 collection, ExternalIntegrationLink.COVERS
             )
+            books_mirror_type = \
+                ExternalIntegrationLink.OPEN_ACCESS_BOOKS \
+                if collection_type == CollectionType.OPEN_ACCESS \
+                else ExternalIntegrationLink.PROTECTED_ACCESS_BOOKS
             books = MirrorUploader.for_collection(
-                collection, ExternalIntegrationLink.BOOKS
+                collection,
+                books_mirror_type
             )
             if covers or books:
-                mirrors = dict(covers_mirror=covers, books_mirror=books)
+                mirrors = {
+                    ExternalIntegrationLink.COVERS: covers,
+                    books_mirror_type: books
+                }
                 policy = self.replacement_policy(mirrors)
                 yield collection, policy
             else:
@@ -2507,7 +2512,7 @@ class DatabaseMigrationScript(Script):
                 self._db, finish=last_run_date,
                 counter=counter, migration_name=migration_file
             )
-        
+
         # Nothing to update
         if self.overall_timestamp is None:
             return

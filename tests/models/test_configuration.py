@@ -283,23 +283,31 @@ nonsecret_setting='2'"""
         assert 'a_secret' not in without_secrets
         assert 'nonsecret_setting' in without_secrets
 
-class TestExternalIntegrationLink(DatabaseTest):
 
+class TestExternalIntegrationLink(DatabaseTest):
     def test_collection_mirror_settings(self):
         settings = ExternalIntegrationLink.COLLECTION_MIRROR_SETTINGS
 
-        eq_(settings[0]["key"], "covers_mirror_integration_id")
+        eq_(settings[0]["key"], ExternalIntegrationLink.COVERS_KEY)
         eq_(settings[0]["label"], "Covers Mirror")
         eq_(settings[0]["options"][0]['key'],
             ExternalIntegrationLink.NO_MIRROR_INTEGRATION)
         eq_(settings[0]["options"][0]['label'],
             _("None - Do not mirror cover images"))
-        eq_(settings[1]["key"], "books_mirror_integration_id")
-        eq_(settings[1]["label"], "Books Mirror")
+
+        eq_(settings[1]["key"], ExternalIntegrationLink.OPEN_ACCESS_BOOKS_KEY)
+        eq_(settings[1]["label"], "Open Access Books Mirror")
         eq_(settings[1]["options"][0]['key'],
             ExternalIntegrationLink.NO_MIRROR_INTEGRATION)
         eq_(settings[1]["options"][0]['label'],
             _("None - Do not mirror free books"))
+
+        eq_(settings[2]["key"], ExternalIntegrationLink.PROTECTED_ACCESS_BOOKS_KEY)
+        eq_(settings[2]["label"], "Protected Access Books Mirror")
+        eq_(settings[2]["options"][0]['key'],
+            ExternalIntegrationLink.NO_MIRROR_INTEGRATION)
+        eq_(settings[2]["options"][0]['label'],
+            _("None - Do not mirror self-hosted, commercially licensed books"))
     
     def test_relationships(self):
         # Create a collection with two storage external integrations.

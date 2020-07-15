@@ -1,12 +1,17 @@
 # encoding: utf-8
 import datetime
+import functools
+import os
+from urlparse import urlsplit
 
+import boto3
 import botocore
 from botocore.exceptions import (
     BotoCoreError,
     ClientError,
 )
 from mock import MagicMock
+from nose.plugins.attrib import attr
 from nose.tools import (
     assert_raises,
     eq_,
@@ -18,6 +23,7 @@ from . import (
 )
 from ..mirror import MirrorUploader
 from ..model import (
+    Identifier,
     DataSource,
     ExternalIntegration,
     Hyperlink,
@@ -28,7 +34,7 @@ from ..s3 import (
     S3Uploader,
     MockS3Client,
     MultipartS3Upload,
-    S3AddressingStyle)
+    S3AddressingStyle, MinIOUploader)
 
 
 class S3UploaderTest(DatabaseTest):
@@ -39,8 +45,8 @@ class S3UploaderTest(DatabaseTest):
             ExternalIntegration.S3, ExternalIntegration.STORAGE_GOAL,
             settings=settings
         )
-        integration.username = 'username'
-        integration.password = 'password'
+        integration.username = settings.get('username', 'username')
+        integration.password = settings.get('password', 'password')
         return integration
 
     def _add_settings_value(self, settings, key, value):
@@ -102,6 +108,95 @@ class S3UploaderTest(DatabaseTest):
         uploader_class = uploader_class or S3Uploader
 
         return uploader_class(integration, client_class=client_class)
+
+
+class S3UploaderIntegrationTest(S3UploaderTest):
+    SIMPLIFIED_TEST_MINIO_ENDPOINT_URL = os.environ.get('SIMPLIFIED_TEST_MINIO_ENDPOINT_URL', 'http://localhost:9000')
+    SIMPLIFIED_TEST_MINIO_USER = os.environ.get('SIMPLIFIED_TEST_MINIO_USER', 'minioadmin')
+    SIMPLIFIED_TEST_MINIO_PASSWORD = os.environ.get('SIMPLIFIED_TEST_MINIO_PASSWORD', 'minioadmin')
+    _, SIMPLIFIED_TEST_MINIO_HOST, _, _, _ = urlsplit(SIMPLIFIED_TEST_MINIO_ENDPOINT_URL)
+
+    minio_s3_client = None
+    """boto3 client connected to locally running MinIO instance"""
+
+    s3_client_class = None
+    """Factory function used for creating a boto3 client inside S3Uploader"""
+
+    @classmethod
+    def setup_class(cls):
+        """Initializes the test suite by creating a boto3 client set up with MinIO credentials"""
+        super(S3UploaderIntegrationTest, cls).setup_class()
+
+        cls.minio_s3_client = boto3.client(
+            's3',
+            aws_access_key_id=TestS3UploaderIntegration.SIMPLIFIED_TEST_MINIO_USER,
+            aws_secret_access_key=TestS3UploaderIntegration.SIMPLIFIED_TEST_MINIO_PASSWORD,
+            endpoint_url=TestS3UploaderIntegration.SIMPLIFIED_TEST_MINIO_ENDPOINT_URL
+        )
+        cls.s3_client_class = functools.partial(
+            boto3.client,
+            endpoint_url=TestS3UploaderIntegration.SIMPLIFIED_TEST_MINIO_ENDPOINT_URL
+        )
+
+    def teardown(self):
+        """Deinitializes the test suite by removing all the buckets from MinIO"""
+        super(S3UploaderTest, self).teardown()
+
+        response = self.minio_s3_client.list_buckets()
+
+        for bucket in response['Buckets']:
+            bucket_name = bucket['Name']
+
+            response = self.minio_s3_client.list_objects(Bucket=bucket_name)
+
+            for object in response.get('Contents', []):
+                object_key = object['Key']
+
+                self.minio_s3_client.delete_object(Bucket=bucket_name, Key=object_key)
+
+            self.minio_s3_client.delete_bucket(Bucket=bucket_name)
+
+    def _create_s3_uploader(
+            self,
+            client_class=None,
+            uploader_class=None,
+            region=None,
+            addressing_style=None,
+            **settings):
+        """Creates a new instance of S3 uploader
+
+        :param client_class: (Optional) Custom class to be used instead of boto3's client class
+        :type client_class: Optional[Type]
+
+        :param: uploader_class: (Optional) Custom class which will be used insted of S3Uploader
+        :type uploader_class: Optional[Type]
+
+        :param region: (Optional) S3 region
+        :type region: Optional[string]
+
+        :param addressing_style: (Optional) S3 addressing style
+        :type addressing_style: Optional[string]
+
+        :param settings: Kwargs used for initializing an external integration
+        :type: Optional[Dict]
+
+        :return: New intance of S3 uploader
+        :rtype: S3Uploader
+        """
+        if settings and 'username' not in settings:
+            self._add_settings_value(settings, 'username', self.SIMPLIFIED_TEST_MINIO_USER)
+        if settings and 'password' not in settings:
+            self._add_settings_value(settings, 'password', self.SIMPLIFIED_TEST_MINIO_PASSWORD)
+        if not client_class:
+            client_class = self.s3_client_class
+
+        return super(S3UploaderIntegrationTest, self)._create_s3_uploader(
+            client_class,
+            uploader_class,
+            region,
+            addressing_style,
+            **settings
+        )
 
 
 class TestS3Uploader(S3UploaderTest):
@@ -467,14 +562,6 @@ class TestS3Uploader(S3UploaderTest):
         # Assert
         eq_(result, expected_result)
 
-    def test_content_root_does_not_allow_to_store_non_open_access_content(self):
-        # Arrange
-        uploader = self._create_s3_uploader()
-        bucket = 'test-open-access-s3-bucket'
-
-        # Act, assert
-        assert_raises(NotImplementedError, uploader.content_root, bucket, open_access=False)
-
     @parameterized.expand([
         (
             's3_url',
@@ -569,6 +656,17 @@ class TestS3Uploader(S3UploaderTest):
             DataSource.UNGLUE_IT,
             'On Books',
             'us-east-3'
+        ),
+        (
+            'with_protected_access_and_custom_extension_and_title_and_data_source_and_region',
+            {S3Uploader.PROTECTED_CONTENT_BUCKET_KEY: 'thebooks'},
+            'ABOOK',
+            'https://thebooks.s3.us-east-3.amazonaws.com/unglue.it/Gutenberg%20ID/ABOOK/On%20Books.pdf',
+            '.pdf',
+            DataSource.UNGLUE_IT,
+            'On Books',
+            'us-east-3',
+            False,
         )
     ])
     def test_book_url(
@@ -580,12 +678,13 @@ class TestS3Uploader(S3UploaderTest):
             extension=None,
             data_source_name=None,
             title=None,
-            region=None):
+            region=None,
+            open_access=True):
         # Arrange
         identifier = self._identifier(foreign_id=identifier)
         uploader = self._create_s3_uploader(region=region, **buckets)
 
-        parameters = {'identifier': identifier}
+        parameters = {'identifier': identifier, 'open_access': open_access}
 
         if extension:
             parameters['extension'] = extension
@@ -601,15 +700,6 @@ class TestS3Uploader(S3UploaderTest):
 
         # Assert
         eq_(result, expected_result)
-
-    def test_book_url_does_not_allow_to_store_non_open_access_content(self):
-        # Arrange
-        identifier = self._identifier(foreign_id='ABOOK')
-        buckets = {S3Uploader.OA_CONTENT_BUCKET_KEY: 'thebooks'}
-        uploader = self._create_s3_uploader(**buckets)
-
-        # Act, assert
-        assert_raises(NotImplementedError, uploader.book_url, identifier, open_access=False)
 
     @parameterized.expand([
         (
@@ -798,9 +888,12 @@ class TestS3Uploader(S3UploaderTest):
             False
         ),
     ])
-    def test_bucket_and_filename(self, name, url, expected_result, unquote=True):
+    def test_split_url(self, name, url, expected_result, unquote=True):
+        # Arrange
+        s3_uploader = self._create_s3_uploader()
+
         # Act
-        result = S3Uploader.bucket_and_filename(url, unquote)
+        result = s3_uploader.split_url(url, unquote)
 
         # Assert
         eq_(result, expected_result)
@@ -1003,6 +1096,35 @@ class TestS3Uploader(S3UploaderTest):
         eq_(True, MockMultipartS3Upload.aborted)
         eq_("Error!", rep.mirror_exception)
 
+    @parameterized.expand([
+        ('default_expiration_parameter', None, int(S3Uploader.S3_DEFAULT_PRESIGNED_URL_EXPIRATION)),
+        ('empty_expiration_parameter', {S3Uploader.S3_PRESIGNED_URL_EXPIRATION: 100}, 100)
+    ])
+    def test_sign_url(self, name, expiration_settings, expected_expiration):
+        # Arrange
+        region = 'us-east-1'
+        bucket = 'bucket'
+        filename = 'filename'
+        url = 'https://{0}.s3.{1}.amazonaws.com/{2}'.format(bucket, region, filename)
+        expected_url = url + '?AWSAccessKeyId=KEY&Expires=1&Signature=S'
+        s3_uploader = self._create_s3_uploader(region=region, **expiration_settings if expiration_settings else {})
+        s3_uploader.split_url = MagicMock(return_value=(bucket, filename))
+        s3_uploader.client.generate_presigned_url = MagicMock(return_value=expected_url)
+
+        # Act
+        result = s3_uploader.sign_url(url)
+
+        # Assert
+        eq_(result, expected_url)
+        s3_uploader.split_url.assert_called_once_with(url)
+        s3_uploader.client.generate_presigned_url.assert_called_once_with(
+            'get_object',
+            ExpiresIn=expected_expiration,
+            Params={
+                'Bucket': bucket,
+                'Key': filename
+            })
+
 
 class TestMultiPartS3Upload(S3UploaderTest):
     def _representation(self):
@@ -1061,3 +1183,74 @@ class TestMultiPartS3Upload(S3UploaderTest):
         upload.upload_part("Part 2")
         upload.abort()
         eq_([], uploader.client.parts)
+
+
+@attr(integration='minio')
+class TestS3UploaderIntegration(S3UploaderIntegrationTest):
+    @parameterized.expand([
+        (
+            'using_s3_uploader_and_open_access_bucket',
+            functools.partial(S3Uploader, host=S3UploaderIntegrationTest.SIMPLIFIED_TEST_MINIO_HOST),
+            S3Uploader.OA_CONTENT_BUCKET_KEY,
+            'test-bucket',
+            True
+        ),
+        (
+            'using_s3_uploader_and_protected_access_bucket',
+            functools.partial(S3Uploader, host=S3UploaderIntegrationTest.SIMPLIFIED_TEST_MINIO_HOST),
+            S3Uploader.PROTECTED_CONTENT_BUCKET_KEY,
+            'test-bucket',
+            False
+        ),
+        (
+            'using_minio_uploader_and_open_access_bucket',
+            MinIOUploader,
+            S3Uploader.OA_CONTENT_BUCKET_KEY,
+            'test-bucket',
+            True,
+            {
+                MinIOUploader.ENDPOINT_URL: S3UploaderIntegrationTest.SIMPLIFIED_TEST_MINIO_ENDPOINT_URL
+            }
+        ),
+        (
+            'using_minio_uploader_and_protected_access_bucket',
+            MinIOUploader,
+            S3Uploader.PROTECTED_CONTENT_BUCKET_KEY,
+            'test-bucket',
+            False,
+            {
+                MinIOUploader.ENDPOINT_URL: S3UploaderIntegrationTest.SIMPLIFIED_TEST_MINIO_ENDPOINT_URL
+            }
+        )
+    ])
+    def test_mirror(self, name, uploader_class, bucket_type, bucket_name, open_access, settings=None):
+        # Arrange
+        book_title = '1234567890'
+        book_content = '1234567890'
+        identifier = Identifier(type=Identifier.ISBN, identifier=book_title)
+        representation = Representation(content=book_content, media_type=Representation.EPUB_MEDIA_TYPE)
+        buckets = {
+            bucket_type: bucket_name,
+        }
+
+        if settings:
+            settings.update(buckets)
+        else:
+            settings = buckets
+
+        s3_uploader = self._create_s3_uploader(uploader_class=uploader_class, **settings)
+
+        self.minio_s3_client.create_bucket(Bucket=bucket_name)
+
+        # Act
+        book_url = s3_uploader.book_url(identifier, open_access=open_access)
+        s3_uploader.mirror_one(representation, book_url)
+
+        # Assert
+        response = self.minio_s3_client.list_objects(Bucket=bucket_name)
+        assert 'Contents' in response
+        eq_(len(response['Contents']), 1)
+
+        [object] = response['Contents']
+
+        eq_(object['Key'], 'ISBN/{0}.epub'.format(book_title))
