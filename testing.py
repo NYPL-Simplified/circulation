@@ -82,6 +82,7 @@ import external_search
 import mock
 import inspect
 
+from nose.plugins.attrib import attr
 
 def package_setup():
     """Make sure the application starts in a pristine state.
@@ -1072,7 +1073,7 @@ class SearchClientForTesting(ExternalSearchIndex):
             new_index, number_of_shards=1, number_of_replicas=0
         )
 
-
+@attr(integration='elasticsearch')
 class ExternalSearchTest(DatabaseTest):
     """
     These tests require elasticsearch to be running locally. If it's not, or there's
@@ -1083,7 +1084,10 @@ class ExternalSearchTest(DatabaseTest):
     to ensure that it works well overall, with a realistic index.
     """
 
+    SIMPLIFIED_TEST_ELASTICSEARCH = os.environ.get('SIMPLIFIED_TEST_ELASTICSEARCH', u'http://localhost:9200')
+
     def setup(self):
+
         super(ExternalSearchTest, self).setup(mock_search=False)
 
         # Track the indexes created so they can be torn down at the
@@ -1093,7 +1097,7 @@ class ExternalSearchTest(DatabaseTest):
         self.integration = self._external_integration(
             ExternalIntegration.ELASTICSEARCH,
             goal=ExternalIntegration.SEARCH_GOAL,
-            url=u'http://localhost:9200',
+            url=self.SIMPLIFIED_TEST_ELASTICSEARCH,
             settings={
                 ExternalSearchIndex.WORKS_INDEX_PREFIX_KEY : u'test_index',
                 ExternalSearchIndex.TEST_SEARCH_TERM_KEY : u'test_search_term',
