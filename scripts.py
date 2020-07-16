@@ -99,7 +99,7 @@ from core.opds_import import (
     MetadataWranglerOPDSLookup,
     OPDSImporter,
 )
-from core.scripts import OPDSImportScript
+from core.scripts import OPDSImportScript, CollectionType
 from core.scripts import (
     Script as CoreScript,
     DatabaseMigrationInitializationScript,
@@ -1256,13 +1256,6 @@ class DirectoryImportScript(TimestampScript):
     metadata and directories containing ebook and cover files.
     """
 
-    class CollectionType(Enum):
-        OPEN_ACCESS = 'OPEN_ACCESS'
-        PROTECTED_ACCESS = 'PROTECTED_ACCESS'
-
-        def __str__(self):
-            return self.name
-
     name = "Import new titles from a directory on disk"
 
     @classmethod
@@ -1276,9 +1269,9 @@ class DirectoryImportScript(TimestampScript):
         parser.add_argument(
             '--collection-type',
             help=u'Collection type. Valid values are: OPEN_ACCESS (default), PROTECTED_ACCESS.',
-            type=DirectoryImportScript.CollectionType,
-            choices=list(DirectoryImportScript.CollectionType),
-            default=DirectoryImportScript.CollectionType.OPEN_ACCESS
+            type=CollectionType,
+            choices=list(CollectionType),
+            default=CollectionType.OPEN_ACCESS
         )
         parser.add_argument(
             '--data-source-name',
@@ -1387,7 +1380,7 @@ class DirectoryImportScript(TimestampScript):
         :type collection_name: string
 
         :param collection_type: Type of the collection: open access/proteceted access.
-        :type collection_name: DirectoryImportScript.CollectionType
+        :type collection_name: CollectionType
 
         :param data_source_name: Associate this data source with
             the Collection if it does not already have a data source.
@@ -1412,7 +1405,7 @@ class DirectoryImportScript(TimestampScript):
         types = [
             ExternalIntegrationLink.COVERS,
             ExternalIntegrationLink.OPEN_ACCESS_BOOKS
-            if collection_type == DirectoryImportScript.CollectionType.OPEN_ACCESS
+            if collection_type == CollectionType.OPEN_ACCESS
             else ExternalIntegrationLink.PROTECTED_ACCESS_BOOKS
         ]
         for type in types:
@@ -1454,7 +1447,7 @@ class DirectoryImportScript(TimestampScript):
         :type collection: Collection
 
         :param collection_type: Collection's type: open access/protected access
-        :type collection_type: DirectoryImportScript.CollectionType
+        :type collection_type: CollectionType
 
         :param metadata: Book's metadata
         :type metadata: Metadata
@@ -1501,7 +1494,7 @@ class DirectoryImportScript(TimestampScript):
         """Add a CirculationData and possibly an extra LinkData to `metadata`
 
         :param collection_type: Collection's type: open access/protected access
-        :type collection_type: DirectoryImportScript.CollectionType
+        :type collection_type: CollectionType
 
         :param metadata: Book's metadata
         :type metadata: Metadata
@@ -1563,7 +1556,7 @@ class DirectoryImportScript(TimestampScript):
         """Loads an actual copy of a book from disk
 
         :param collection_type: Collection's type: open access/protected access
-        :type collection_type: DirectoryImportScript.CollectionType
+        :type collection_type: CollectionType
 
         :param identifier: Book's identifier
         :type identifier: Identifier
@@ -1599,7 +1592,7 @@ class DirectoryImportScript(TimestampScript):
 
         book_mirror = mirrors[
             ExternalIntegrationLink.OPEN_ACCESS_BOOKS
-            if collection_type == DirectoryImportScript.CollectionType.OPEN_ACCESS
+            if collection_type == CollectionType.OPEN_ACCESS
             else ExternalIntegrationLink.PROTECTED_ACCESS_BOOKS
         ] if mirrors else None
 
@@ -1608,7 +1601,7 @@ class DirectoryImportScript(TimestampScript):
             book_url = book_mirror.book_url(
                 identifier,
                 '.' + Representation.FILE_EXTENSIONS[book_media_type],
-                open_access=collection_type == DirectoryImportScript.CollectionType.OPEN_ACCESS,
+                open_access=collection_type == CollectionType.OPEN_ACCESS,
                 data_source=data_source,
                 title=title
             )
@@ -1618,7 +1611,7 @@ class DirectoryImportScript(TimestampScript):
 
         book_link_rel = \
             Hyperlink.OPEN_ACCESS_DOWNLOAD \
-            if collection_type == DirectoryImportScript.CollectionType.OPEN_ACCESS \
+            if collection_type == CollectionType.OPEN_ACCESS \
             else Hyperlink.GENERIC_OPDS_ACQUISITION
         book_link = LinkData(
             rel=book_link_rel,

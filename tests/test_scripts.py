@@ -77,6 +77,7 @@ from core.s3 import MockS3Uploader
 from core.mirror import MirrorUploader
 
 from core.marc import MARCExporter
+from core.scripts import CollectionType
 
 from core.util.flask_util import (
     Response,
@@ -879,8 +880,20 @@ class TestDirectoryImportScript(DatabaseTest):
                 "--dry-run"
             ]
         )
-        eq_(('coll1', 'ds1', 'metadata', 'marc', 'covers', 'ebooks', 'rights', True),
-            script.ran_with)
+        eq_(
+            (
+                'coll1',
+                CollectionType.OPEN_ACCESS,
+                'ds1',
+                'metadata',
+                'marc',
+                'covers',
+                'ebooks',
+                'rights',
+                True
+            ),
+            script.ran_with
+        )
 
     def test_run_with_arguments(self):
 
@@ -915,20 +928,31 @@ class TestDirectoryImportScript(DatabaseTest):
         self._default_collection.name = 'changed'
 
         script = Mock(self._db)
-        basic_args = ["collection name", "data source name", "metadata file", "marc",
-                      "cover directory", "ebook directory", "rights URI"]
+        basic_args = [
+            "collection name",
+            CollectionType.OPEN_ACCESS,
+            "data source name",
+            "metadata file",
+            "marc",
+            "cover directory",
+            "ebook directory",
+            "rights URI"
+        ]
         script.run_with_arguments(*(basic_args + [True]))
 
         # load_collection was called with the collection and data source names.
-        eq_([('collection name', 'data source name')], script.load_collection_calls)
+        eq_(
+            [('collection name', CollectionType.OPEN_ACCESS, 'data source name')],
+            script.load_collection_calls
+        )
 
         # load_metadata was called with the metadata file and data source name.
         eq_([('metadata file', 'marc', 'data source name')], script.load_metadata_calls)
 
         # work_from_metadata was called twice, once on each metadata
         # object.
-        [(coll1, o1, policy1, c1, e1, r1),
-         (coll2, o2, policy2, c2, e2, r2)] = script.work_from_metadata_calls
+        [(coll1, t1, o1, policy1, c1, e1, r1),
+         (coll2, t2, o2, policy2, c2, e2, r2)] = script.work_from_metadata_calls
 
         eq_(coll1, self._default_collection)
         eq_(coll1, coll2)
@@ -960,8 +984,8 @@ class TestDirectoryImportScript(DatabaseTest):
 
         # This time, the ReplacementPolicy has a mirror set
         # appropriately.
-        [(coll1, o1, policy1, c1, e1, r1),
-         (coll1, o2, policy2, c2, e2, r2)] = script.work_from_metadata_calls
+        [(coll1, t1, o1, policy1, c1, e1, r1),
+         (coll1, t2, o2, policy2, c2, e2, r2)] = script.work_from_metadata_calls
         for policy in policy1, policy2:
             eq_(mirrors, policy.mirrors)
 
@@ -972,7 +996,8 @@ class TestDirectoryImportScript(DatabaseTest):
     def test_load_collection_setting_mirrors(self):
         # Calling load_collection does not create a new collection.
         script = DirectoryImportScript(self._db)
-        collection, mirrors = script.load_collection("New collection", "data source name")
+        collection, mirrors = script.load_collection(
+            "New collection", CollectionType.OPEN_ACCESS, "data source name")
         eq_(None, collection)
         eq_(None, mirrors)
 
@@ -980,7 +1005,8 @@ class TestDirectoryImportScript(DatabaseTest):
             name="some collection", protocol=ExternalIntegration.MANUAL
         )
 
-        collection, mirrors = script.load_collection("some collection", "data source name")
+        collection, mirrors = script.load_collection(
+            "some collection", CollectionType.OPEN_ACCESS, "data source name")
 
         # No covers or books mirrors were created beforehand for this collection
         # so nothing is returned.
@@ -998,7 +1024,8 @@ class TestDirectoryImportScript(DatabaseTest):
             purpose=ExternalIntegrationLink.COVERS
         )
 
-        collection, mirrors = script.load_collection("some collection", "data source name")
+        collection, mirrors = script.load_collection(
+            "some collection", CollectionType.OPEN_ACCESS, "data source name")
         eq_(None, collection)
         eq_(None, mirrors)
 
@@ -1013,7 +1040,8 @@ class TestDirectoryImportScript(DatabaseTest):
             purpose=ExternalIntegrationLink.OPEN_ACCESS_BOOKS
         )
 
-        collection, mirrors = script.load_collection("some collection", "data source name")
+        collection, mirrors = script.load_collection(
+            "some collection", CollectionType.OPEN_ACCESS, "data source name")
         eq_(collection, existing_collection)
         assert isinstance(mirrors[ExternalIntegrationLink.COVERS], MirrorUploader)
         assert isinstance(mirrors[ExternalIntegrationLink.OPEN_ACCESS_BOOKS], MirrorUploader)
@@ -1025,10 +1053,10 @@ class TestDirectoryImportScript(DatabaseTest):
             """In this test we need to verify that annotate_metadata
             was called but did nothing.
             """
-            def annotate_metadata(self, metadata, *args, **kwargs):
+            def annotate_metadata(self, collection_type, metadata, *args, **kwargs):
                 metadata.annotated = True
                 return super(Mock, self).annotate_metadata(
-                    metadata, *args, **kwargs
+                    collection_type, metadata, *args, **kwargs
                 )
 
         identifier = IdentifierData(Identifier.GUTENBERG_ID, "1003")
@@ -1050,7 +1078,8 @@ class TestDirectoryImportScript(DatabaseTest):
         # not actually import anything because there are no files 'on
         # disk' and thus no way to actually get the book.
         collection = self._default_collection
-        args = (collection, metadata, policy, "cover directory",
+        collection_type = CollectionType.OPEN_ACCESS
+        args = (collection, collection_type, metadata, policy, "cover directory",
                 "ebook directory", RightsStatus.CC0)
         script = Mock(self._db)
         eq_(None, script.work_from_metadata(*args))
@@ -1122,6 +1151,7 @@ class TestDirectoryImportScript(DatabaseTest):
             def load_cover_link(self, *args):
                 raise Exception("Explode!")
 
+        collection_type = CollectionType.OPEN_ACCESS
         gutenberg = DataSource.lookup(self._db, DataSource.GUTENBERG)
         identifier = IdentifierData(Identifier.GUTENBERG_ID, "11111")
         identifier_obj, ignore = identifier.load(self._db)
@@ -1137,13 +1167,27 @@ class TestDirectoryImportScript(DatabaseTest):
         rights_uri = object()
 
         script = MockNoCirculationData(self._db)
-        args = (metadata, policy, cover_directory, ebook_directory, rights_uri)
+        args = (
+            collection_type,
+            metadata,
+            policy,
+            cover_directory,
+            ebook_directory,
+            rights_uri
+        )
         script.annotate_metadata(*args)
 
         # load_circulation_data was called.
         eq_(
-            (identifier_obj, gutenberg, ebook_directory, mirrors,
-             metadata.title, rights_uri),
+            (
+                collection_type,
+                identifier_obj,
+                gutenberg,
+                ebook_directory,
+                mirrors,
+                metadata.title,
+                rights_uri
+            ),
             script.load_circulation_data_args
         )
 
@@ -1206,8 +1250,15 @@ class TestDirectoryImportScript(DatabaseTest):
         identifier = self._identifier(Identifier.GUTENBERG_ID, "2345")
         gutenberg = DataSource.lookup(self._db, DataSource.GUTENBERG)
         mirrors = dict(books_mirror=MockS3Uploader(),covers_mirror=None)
-        args = (identifier, gutenberg, "ebooks", mirrors, "Name of book",
-                "rights URI")
+        args = (
+            CollectionType.OPEN_ACCESS,
+            identifier,
+            gutenberg,
+            "ebooks",
+            mirrors,
+            "Name of book",
+            "rights URI"
+        )
 
         # There is nothing on the mock filesystem, so in this case
         # load_circulation_data returns None.
