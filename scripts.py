@@ -1456,7 +1456,7 @@ class DirectoryImportScript(TimestampScript):
         :type policy: ReplacementPolicy
 
         :return: Work object
-        :rtype: Work
+        :rtype: core.model.work.Work
         """
         self.annotate_metadata(collection_type, metadata, policy, *args, **kwargs)
 
