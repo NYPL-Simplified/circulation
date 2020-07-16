@@ -1638,9 +1638,11 @@ class TestRBFulfillmentInfo(RBDigitalAPITest):
         )
         manifest = AudiobookManifest(book)
 
-        class Mock(RBFulfillmentInfo):
-            def _raw_request(self, url):
-                self.raw_request_called_with = url
+        part_files = book['files']
+
+        class MockFulfillmentRequestTracker():
+            def fulfillment_request(self, url):
+                self.fulfillment_request_last_called_with = url
                 data, ignore = get_data(
                     "audiobook_chapter_access_document.json"
                 )
@@ -1649,8 +1651,10 @@ class TestRBFulfillmentInfo(RBDigitalAPITest):
         # We have an RBFulfillmentInfo object and the underlying
         # AudiobookManifest has already been created.
         fulfill_part_url = object()
-        info = Mock(
-            fulfill_part_url, self.api, "data source",
+        request_tracker = MockFulfillmentRequestTracker()
+        info = RBFulfillmentInfo(
+            fulfill_part_url, request_tracker.fulfillment_request,
+            self.api, "data source",
             "identifier type", "identifier", "key"
         )
 
@@ -1692,8 +1696,10 @@ class TestRBFulfillmentInfo(RBDigitalAPITest):
         )
 
         # Finally, let's fulfill a part that does exist.
-        fulfillment = m(10)
+        part_index = 10
+        fulfillment = m(part_index)
         assert isinstance(fulfillment, FulfillmentInfo)
+        eq_(part_files[part_index]["downloadUrl"], request_tracker.fulfillment_request_last_called_with)
         eq_("http://book/chapter1.mp3", fulfillment.content_link)
         eq_("audio/mpeg", fulfillment.content_type)
 
