@@ -427,6 +427,9 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
 
         return resp_obj
 
+    def patron_fulfillment_request(self, patron, url):
+        return self._make_request(url, 'GET', {})
+
     def fulfill(
         self, patron, pin, licensepool, internal_format, part=None,
         fulfill_part_url=None
@@ -445,11 +448,15 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
 
         :return a FulfillmentInfo object.
         """
+        def make_fulfillment_request(url):
+            return self.patron_fulfillment_request(patron, url)
 
         patron_rbdigital_id = self.patron_remote_identifier(patron)
         (item_rbdigital_id, item_media) = self.validate_item(licensepool)
 
-        checkouts_list = self.get_patron_checkouts(patron_id=patron_rbdigital_id, fulfill_part_url=fulfill_part_url)
+        checkouts_list = self.get_patron_checkouts(patron_id=patron_rbdigital_id,
+                                                   fulfill_part_url=fulfill_part_url,
+                                                   request_fulfillment=make_fulfillment_request)
 
         # find this licensepool in patron's checkouts
         found_checkout = None
@@ -870,6 +877,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
             patron_info = resp_dict.get('patron')
             if patron_info:
                 patron_rbdigital_id = patron_info.get('patronId')
+        # TODO: should snag bearer token here, if it's present
 
         if not patron_rbdigital_id:
             raise RemotePatronCreationFailedException(action +
@@ -994,7 +1002,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         internal_patron_id = resp_dict.get('patronId', None)
         return internal_patron_id
 
-    def get_patron_checkouts(self, patron_id, fulfill_part_url=None):
+    def get_patron_checkouts(self, patron_id, fulfill_part_url=None, request_fulfillment=None):
         """
         Gets the books and audio the patron currently has checked out.
         Obtains fulfillment info for each item -- the way to fulfill a book
@@ -1030,13 +1038,16 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         # by now we can assume response is either empty or a list
         for item in resp_obj:
             loan_info = self._make_loan_info(
-                item, fulfill_part_url=fulfill_part_url
+                item, fulfill_part_url=fulfill_part_url,
+                request_fulfillment=request_fulfillment,
             )
             if loan_info:
                 loans.append(loan_info)
         return loans
 
-    def _make_loan_info(self, item, fulfill_part_url=None):
+
+
+    def _make_loan_info(self, item, fulfill_part_url=None, request_fulfillment=None):
         """Convert one of the items returned by a request to /checkouts into a
         LoanInfo with an RBFulfillmentInfo.
 
@@ -1066,6 +1077,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
 
         fulfillment_info = RBFulfillmentInfo(
             fulfill_part_url,
+            request_fulfillment,
             self,
             DataSource.RB_DIGITAL,
             identifier.type,
@@ -1704,9 +1716,10 @@ class RBFulfillmentInfo(APIAwareFulfillmentInfo):
     and there's often no need to make that request.
     """
 
-    def __init__(self, fulfill_part_url, *args, **kwargs):
+    def __init__(self, fulfill_part_url, request_fulfillment, *args, **kwargs):
         super(RBFulfillmentInfo, self).__init__(*args, **kwargs)
         self.fulfill_part_url = fulfill_part_url
+        self.request_fulfillment = request_fulfillment
 
     def fulfill_part(self, part):
         """Fulfill a specific part of this book.
@@ -1718,6 +1731,10 @@ class RBFulfillmentInfo(APIAwareFulfillmentInfo):
         :return: A FulfillmentInfo if the part could be fulfilled;
             a ProblemDetail otherwise.
         """
+        # TODO: This test is needed until we can convert this kwarg into an arg.
+        # if fulfillment_request is None:
+        #     raise ValueError("fulfillment_request parameter must be specified")
+
         if self.content_type != Representation.AUDIOBOOK_MANIFEST_MEDIA_TYPE:
             raise CannotPartiallyFulfill(
                 _("This work does not support partial fulfillment.")
@@ -1788,17 +1805,8 @@ class RBFulfillmentInfo(APIAwareFulfillmentInfo):
         An access document is a small JSON document containing a link
         to the URL we actually want to deliver.
         """
-        access_document = self._raw_request(url)
+        access_document = self.request_fulfillment(url)
         return self.process_access_document(access_document)
-
-    def _raw_request(self, url):
-        """Make a request without using our normal RBdigital credentials.
-
-        We do this when we need to access a different, publicly
-        accessible server. Basically this only happens when we are
-        retrieving access documents.
-        """
-        return self.api._make_request(url, 'GET', {})
 
     @classmethod
     def process_access_document(self, access_document):
