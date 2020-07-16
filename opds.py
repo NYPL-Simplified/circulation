@@ -1595,7 +1595,7 @@ class AcquisitionFeed(OPDSFeed):
             else:
                 status = 'reserved'
                 since = hold.start
-        elif (license_pool.open_access or (
+        elif (license_pool.open_access or license_pool.self_hosted or (
                 license_pool.licenses_available > 0 and
                 license_pool.licenses_owned > 0)
           ):
@@ -1613,9 +1613,8 @@ class AcquisitionFeed(OPDSFeed):
         tags.append(availability_tag)
 
         # Open-access pools do not need to display <opds:holds> or <opds:copies>.
-        if license_pool.open_access:
+        if license_pool.open_access or license_pool.self_hosted:
             return tags
-
 
         holds_kw = dict()
         total = license_pool.patrons_in_hold_queue or 0

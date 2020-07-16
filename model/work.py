@@ -1532,7 +1532,10 @@ class Work(Base):
                     LicensePool.self_hosted,
                     LicensePool.licenses_available > 0,
                 ).label('available'),
-                (LicensePool.licenses_owned > 0).label('licensed'),
+                or_(
+                    LicensePool.self_hosted,
+                    LicensePool.licenses_owned > 0
+                ).label('licensed'),
                 work_quality_column,
                 Edition.medium,
                 func.extract(
