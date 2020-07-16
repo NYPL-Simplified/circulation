@@ -567,7 +567,7 @@ class CirculationAPI(object):
         PatronUtility.assert_borrowing_privileges(patron)
 
         now = datetime.datetime.utcnow()
-        if licensepool.open_access:
+        if licensepool.open_access or licensepool.self_hosted:
             # We can 'loan' open-access content ourselves just by
             # putting a row in the database.
             now = datetime.datetime.utcnow()
