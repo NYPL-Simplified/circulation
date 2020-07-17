@@ -308,7 +308,7 @@ class TestFeedbooksOPDSImporter(DatabaseTest):
 
         # The mirrored content contains the modified CSS in the books mirror
         # due to the link rel type.
-        content = StringIO(self.mirrors[ExternalIntegrationLink.BOOKS].content[0])
+        content = StringIO(self.mirrors[ExternalIntegrationLink.OPEN_ACCESS_BOOKS].content[0])
         with ZipFile(content) as zip:
             # The zip still contains the original epub's files.
             assert "META-INF/container.xml" in zip.namelist()

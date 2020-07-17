@@ -77,7 +77,7 @@ from core.model import (
 )
 from core.model.configuration import ExternalIntegrationLink
 from core.lane import Lane
-from core.s3 import MockS3Uploader
+from core.s3 import MockS3Uploader, S3Uploader
 from core.testing import (
     AlwaysSuccessfulCoverageProvider,
     NeverSuccessfulCoverageProvider,
@@ -2336,6 +2336,11 @@ class TestSettingsController(SettingsControllerTest):
         # Storages created will appear for settings of any purpose
         storage1 = self._external_integration(
             "protocol1", ExternalIntegration.STORAGE_GOAL, name="storage1",
+            settings={
+                S3Uploader.BOOK_COVERS_BUCKET_KEY: 'covers',
+                S3Uploader.OA_CONTENT_BUCKET_KEY: 'open-access-books',
+                S3Uploader.PROTECTED_CONTENT_BUCKET_KEY: 'protected-access-books'
+            }
         )
 
         settings = mirror_integration_settings()
@@ -2347,14 +2352,24 @@ class TestSettingsController(SettingsControllerTest):
         eq_(settings[0]["options"][1]['key'],
             str(storage1.id))
         eq_(settings[1]["key"], "books_mirror_integration_id")
-        eq_(settings[1]["label"], "Books Mirror")
+        eq_(settings[1]["label"], "Open Access Books Mirror")
         eq_(settings[1]["options"][0]['key'],
             self.manager.admin_settings_controller.NO_MIRROR_INTEGRATION)
         eq_(settings[1]["options"][1]['key'],
             str(storage1.id))
+        eq_(settings[2]["label"], "Protected Access Books Mirror")
+        eq_(settings[2]["options"][0]['key'],
+            self.manager.admin_settings_controller.NO_MIRROR_INTEGRATION)
+        eq_(settings[2]["options"][1]['key'],
+            str(storage1.id))
 
         storage2 = self._external_integration(
-            "protocol2", ExternalIntegration.STORAGE_GOAL, name="storage2"
+            "protocol2", ExternalIntegration.STORAGE_GOAL, name="storage2",
+            settings={
+                S3Uploader.BOOK_COVERS_BUCKET_KEY: 'covers',
+                S3Uploader.OA_CONTENT_BUCKET_KEY: 'open-access-books',
+                S3Uploader.PROTECTED_CONTENT_BUCKET_KEY: 'protected-access-books'
+            }
         )
         settings = mirror_integration_settings()
 
@@ -2367,13 +2382,18 @@ class TestSettingsController(SettingsControllerTest):
         eq_(settings[0]["options"][2]['key'],
             str(storage2.id))
         eq_(settings[1]["key"], "books_mirror_integration_id")
-        eq_(settings[1]["label"], "Books Mirror")
+        eq_(settings[1]["label"], "Open Access Books Mirror")
         eq_(settings[1]["options"][0]['key'],
             self.manager.admin_settings_controller.NO_MIRROR_INTEGRATION)
         eq_(settings[1]["options"][1]['key'],
             str(storage1.id))
         eq_(settings[1]["options"][2]['key'],
             str(storage2.id))
+        eq_(settings[2]["label"], "Protected Access Books Mirror")
+        eq_(settings[2]["options"][0]['key'],
+            self.manager.admin_settings_controller.NO_MIRROR_INTEGRATION)
+        eq_(settings[2]["options"][1]['key'],
+            str(storage1.id))
 
     def test_check_url_unique(self):
         # Verify our ability to catch duplicate integrations for a
