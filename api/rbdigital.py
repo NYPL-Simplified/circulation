@@ -829,6 +829,9 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
 
         return bearer_token
 
+    def cache_patron_bearer_token(self, patron, value):
+        self.patron_credential(self.BEARER_TOKEN_PROPERTY, patron, value=value)
+
     def patron_bearer_token(self, patron):
         return self.patron_credential(self.BEARER_TOKEN_PROPERTY, patron)
 
@@ -898,7 +901,8 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         try:
             return self.create_patron(
                 patron.library, patron.authorization_identifier,
-                self.patron_email_address(patron)
+                self.patron_email_address(patron),
+                bearer_token_handler=lambda token: self.cache_patron_bearer_token(patron, token)
             )
         except RemotePatronCreationFailedException:
             # Its possible to get a RemotePatronCreationFailedException if an account
@@ -913,7 +917,8 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
                 raise
 
 
-    def create_patron(self, library, authorization_identifier, email_address):
+    def create_patron(self, library, authorization_identifier, email_address,
+                      bearer_token_handler=None):
         """Ask RBdigital to create a new patron record.
 
         :param library: Library for the patron that needs a new RBdigital
@@ -955,7 +960,8 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
             patron_info = resp_dict.get('patron')
             if patron_info:
                 patron_rbdigital_id = patron_info.get('patronId')
-        # TODO: should snag bearer token here, if it's present
+            if bearer_token_handler and 'bearer' in resp_dict:
+                bearer_token_handler(resp_dict['bearer'])
 
         if not patron_rbdigital_id:
             raise RemotePatronCreationFailedException(action +
