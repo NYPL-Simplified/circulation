@@ -9,6 +9,8 @@ from Crypto.Cipher import PKCS1_OAEP
 
 from flask_babel import lazy_gettext as _
 
+from .announcements import Announcements
+
 from core.config import (
     Configuration as CoreConfiguration,
     CannotLoadConfiguration,
@@ -215,6 +217,13 @@ class Configuration(CoreConfiguration):
             "label": _("A short description of this library"),
             "description": _("This will be shown to people who aren't sure they've chosen the right library."),
             "category": "Basic Information",
+        },
+        {
+            "key": Announcements.SETTING_NAME,
+            "label": _("Scheduled announcements"),
+            "description": _("Announcements will be displayed to authenticated patrons."),
+            "category": "Announcements",
+            "type": "announcements"
         },
         {
             "key": HELP_EMAIL,

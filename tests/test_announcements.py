@@ -5,43 +5,16 @@ from nose.tools import (
 import datetime
 import json
 
-from . import DatabaseTest
+from api.testing import AnnouncementTest
+from api.admin.announcement_list_validator import AnnouncementListValidator
 from api.announcements import (
     Announcements,
     Announcement
 )
+from . import DatabaseTest
 
-class TestAnnouncements(DatabaseTest):
+class TestAnnouncements(AnnouncementTest, DatabaseTest):
     """Test the Announcements object."""
-
-    # Create raw data to be used in tests.
-    format = '%Y-%m-%d'
-    today = datetime.date.today()
-    yesterday = (today - datetime.timedelta(days=1)).strftime(format)
-    tomorrow = (today + datetime.timedelta(days=1)).strftime(format)
-    a_week_ago = (today - datetime.timedelta(days=7)).strftime(format)
-    in_a_week = (today + datetime.timedelta(days=7)).strftime(format)
-    today = today.strftime(format)
-
-    # This announcement is active.
-    active = dict(
-        id="active",
-        start=today,
-        finish=tomorrow,
-        content="A sample announcement."
-    )
-
-    # This announcement expired yesterday.
-    expired = dict(active)
-    expired['id'] = 'expired'
-    expired['start'] = a_week_ago
-    expired['finish'] = yesterday
-
-    # This announcement should be displayed starting tomorrow.
-    forthcoming = dict(active)
-    forthcoming['id'] = 'forthcoming'
-    forthcoming['start'] = tomorrow
-    forthcoming['finish'] = in_a_week
 
     def test_for_library(self):
         """Verify that we can create an Announcements object for a library."""
@@ -100,4 +73,20 @@ class TestAnnouncements(DatabaseTest):
         announcement = Announcement(extra="extra value", **self.active)
         eq_(dict(id="active", content="A sample announcement."),
             announcement.for_authentication_document
+        )
+
+    def test_json_ready(self):
+        # Demonstrate the form of an Announcement used to store in the database.
+        #
+        # 'start' and 'finish' will be converted into strings the extra value
+        # that has no meaning within Announcement will be ignored.
+        announcement = Announcement(extra="extra value", **self.active)
+        eq_(
+            dict(
+                id="active",
+                content="A sample announcement.",
+                start=announcement.start.strftime(AnnouncementListValidator.DATE_FORMAT),
+                finish=announcement.finish.strftime(AnnouncementListValidator.DATE_FORMAT),
+            ),
+            announcement.json_ready
         )

@@ -67,6 +67,15 @@ class Announcement(object):
         self.finish = AnnouncementListValidator.validate_date("", kwargs.pop('finish'))
 
     @property
+    def json_ready(self):
+        format = AnnouncementListValidator.DATE_FORMAT
+        return dict(
+            id=self.id, content=self.content,
+            start=datetime.datetime.strftime(self.start, format),
+            finish=datetime.datetime.strftime(self.finish, format),
+        )
+
+    @property
     def is_active(self):
         """Should this announcement be displayed now?"""
         today = datetime.date.today()

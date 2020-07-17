@@ -50,12 +50,14 @@ class LibrarySettingsController(SettingsController):
 
             settings = dict()
             for setting in Configuration.LIBRARY_SETTINGS:
+                if setting.get("type") == "announcements":
+                    value = ConfigurationSetting.for_library(setting.get("key"), library).json_value
+                    if value:
+                        value = AnnouncementListValidator().validate_announcements(value)
                 if setting.get("type") == "list":
                     value = ConfigurationSetting.for_library(setting.get("key"), library).json_value
                     if value and setting.get("format") == "geographic":
                         value = self.get_extra_geographic_information(value)
-                    if value and setting.get("format") == "announcements":
-                        value = AnnouncementListValidator().validate_announcements(value)
                 else:
                     value = self.current_value(setting, library)
 
@@ -244,6 +246,8 @@ class LibrarySettingsController(SettingsController):
             validator = None
             if 'format' in setting:
                 validator = validators_by_format.get(setting["format"])
+            elif 'type' in setting:
+                validator = validators_by_format.get(setting["type"])
             validated_value = self._validate_setting(library, setting, validator)
 
             if isinstance(validated_value, ProblemDetail):
@@ -251,7 +255,9 @@ class LibrarySettingsController(SettingsController):
                 return validated_value
 
             # Validation succeeded -- set the new value.
-            ConfigurationSetting.for_library(setting['key'], library).value = validated_value
+            ConfigurationSetting.for_library(setting['key'], library).value = self._format_validated_value(
+                validated_value, validator
+            )
 
     def _validate_setting(self, library, setting, validator=None):
         """Validate the incoming value for a single library setting.
@@ -283,9 +289,9 @@ class LibrarySettingsController(SettingsController):
         if format == "geographic":
             value = self.list_setting(setting)
             value = validator.validate_geographic_areas(value, self._db)
-        elif format == "announcements":
+        elif type == "announcements":
             value = self.list_setting(setting, json_objects=True)
-            value = validator.validate(value)
+            value = validator.validate_announcements(value)
         elif type == "list":
             value = self.list_setting(setting)
             if format == "language-code":
@@ -319,13 +325,19 @@ class LibrarySettingsController(SettingsController):
         else:
             # Allow any entered values.
             value = []
-            inputs = flask.request.form.getlist(setting.get("key"))
-            for i in inputs:
-                if not isinstance(i, list):
-                    i = [i]
-                if json_objects:
-                    i = [json.loads(s) for x in i]
-                value.extend(i)
+            if setting.get("type") == "list":
+                inputs = flask.request.form.getlist(setting.get("key"))
+            else:
+                inputs = flask.request.form.get(setting.get("key"))
+
+            if json_objects and inputs:
+                inputs = json.loads(inputs)
+            if inputs:
+                for i in inputs:
+                    if not isinstance(i, list):
+                        i = [i]
+                    value.extend(i)
+
         return json.dumps(filter(None, value))
 
     def image_setting(self, setting):
@@ -344,3 +356,12 @@ class LibrarySettingsController(SettingsController):
     def current_value(self, setting, library):
         """Retrieve the current value of the given setting from the database."""
         return ConfigurationSetting.for_library(setting['key'], library).value
+
+    @classmethod
+    def _format_validated_value(cls, value, validator=None):
+        """Convert a validated value to a string that can be stored in ConfigurationSetting.value
+        """
+        if not validator:
+            # Assume the value is already a string.
+            return value
+        return validator.format_as_string(value)

@@ -96,7 +96,7 @@ class GeographicValidator(Validator):
                         locations[registry_response].append(value)
                     else:
                         return UNKNOWN_LOCATION.detailed(_('Unable to locate "%(value)s".', value=value))
-        return json.dumps(locations)
+        return locations
 
     def is_zip(self, value, country):
         if country == "US":
@@ -148,3 +148,7 @@ class GeographicValidator(Validator):
                     return True
 
         return result
+
+    def format_as_string(self, value):
+        """Format the output of validate_geographic_areas for storage in ConfigurationSetting.value."""
+        return json.dumps(value)
