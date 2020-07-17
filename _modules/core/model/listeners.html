@@ -311,8 +311,9 @@
         <span class="k">return</span>
     <span class="n">work</span><span class="o">.</span><span class="n">external_index_needs_updating</span><span class="p">()</span></div>
 
-<div class="viewcode-block" id="licensepool_open_access_change"><a class="viewcode-back" href="../../../core.model.html#core.model.listeners.licensepool_open_access_change">[docs]</a><span class="nd">@event</span><span class="o">.</span><span class="n">listens_for</span><span class="p">(</span><span class="n">LicensePool</span><span class="o">.</span><span class="n">open_access</span><span class="p">,</span> <span class="s1">&#39;set&#39;</span><span class="p">)</span>
-<span class="k">def</span> <span class="nf">licensepool_open_access_change</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">oldvalue</span><span class="p">,</span> <span class="n">initiator</span><span class="p">):</span>
+<div class="viewcode-block" id="licensepool_storage_status_change"><a class="viewcode-back" href="../../../core.model.html#core.model.listeners.licensepool_storage_status_change">[docs]</a><span class="nd">@event</span><span class="o">.</span><span class="n">listens_for</span><span class="p">(</span><span class="n">LicensePool</span><span class="o">.</span><span class="n">open_access</span><span class="p">,</span> <span class="s1">&#39;set&#39;</span><span class="p">)</span>
+<span class="nd">@event</span><span class="o">.</span><span class="n">listens_for</span><span class="p">(</span><span class="n">LicensePool</span><span class="o">.</span><span class="n">self_hosted</span><span class="p">,</span> <span class="s1">&#39;set&#39;</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">licensepool_storage_status_change</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">oldvalue</span><span class="p">,</span> <span class="n">initiator</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;A Work may need to have its search document re-indexed if one of</span>
 <span class="sd">    its LicensePools changes its open-access status.</span>
 

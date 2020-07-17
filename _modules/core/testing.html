@@ -117,6 +117,7 @@
 <span class="kn">import</span> <span class="nn">mock</span>
 <span class="kn">import</span> <span class="nn">inspect</span>
 
+<span class="kn">from</span> <span class="nn">nose.plugins.attrib</span> <span class="kn">import</span> <span class="n">attr</span>
 
 <div class="viewcode-block" id="package_setup"><a class="viewcode-back" href="../../core.html#core.testing.package_setup">[docs]</a><span class="k">def</span> <span class="nf">package_setup</span><span class="p">():</span>
     <span class="sd">&quot;&quot;&quot;Make sure the application starts in a pristine state.</span>
@@ -1107,8 +1108,8 @@
             <span class="n">new_index</span><span class="p">,</span> <span class="n">number_of_shards</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">number_of_replicas</span><span class="o">=</span><span class="mi">0</span>
         <span class="p">)</span></div></div>
 
-
-<div class="viewcode-block" id="ExternalSearchTest"><a class="viewcode-back" href="../../core.html#core.testing.ExternalSearchTest">[docs]</a><span class="k">class</span> <span class="nc">ExternalSearchTest</span><span class="p">(</span><span class="n">DatabaseTest</span><span class="p">):</span>
+<div class="viewcode-block" id="ExternalSearchTest"><a class="viewcode-back" href="../../core.html#core.testing.ExternalSearchTest">[docs]</a><span class="nd">@attr</span><span class="p">(</span><span class="n">integration</span><span class="o">=</span><span class="s1">&#39;elasticsearch&#39;</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">ExternalSearchTest</span><span class="p">(</span><span class="n">DatabaseTest</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    These tests require elasticsearch to be running locally. If it&#39;s not, or there&#39;s</span>
 <span class="sd">    an error creating the index, the tests will pass without doing anything.</span>
@@ -1118,7 +1119,10 @@
 <span class="sd">    to ensure that it works well overall, with a realistic index.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
+    <span class="n">SIMPLIFIED_TEST_ELASTICSEARCH</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;SIMPLIFIED_TEST_ELASTICSEARCH&#39;</span><span class="p">,</span> <span class="sa">u</span><span class="s1">&#39;http://localhost:9200&#39;</span><span class="p">)</span>
+
 <div class="viewcode-block" id="ExternalSearchTest.setup"><a class="viewcode-back" href="../../core.html#core.testing.ExternalSearchTest.setup">[docs]</a>    <span class="k">def</span> <span class="nf">setup</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+
         <span class="nb">super</span><span class="p">(</span><span class="n">ExternalSearchTest</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">setup</span><span class="p">(</span><span class="n">mock_search</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 
         <span class="c1"># Track the indexes created so they can be torn down at the</span>
@@ -1128,7 +1132,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">integration</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_external_integration</span><span class="p">(</span>
             <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">ELASTICSEARCH</span><span class="p">,</span>
             <span class="n">goal</span><span class="o">=</span><span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">SEARCH_GOAL</span><span class="p">,</span>
-            <span class="n">url</span><span class="o">=</span><span class="sa">u</span><span class="s1">&#39;http://localhost:9200&#39;</span><span class="p">,</span>
+            <span class="n">url</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">SIMPLIFIED_TEST_ELASTICSEARCH</span><span class="p">,</span>
             <span class="n">settings</span><span class="o">=</span><span class="p">{</span>
                 <span class="n">ExternalSearchIndex</span><span class="o">.</span><span class="n">WORKS_INDEX_PREFIX_KEY</span> <span class="p">:</span> <span class="sa">u</span><span class="s1">&#39;test_index&#39;</span><span class="p">,</span>
                 <span class="n">ExternalSearchIndex</span><span class="o">.</span><span class="n">TEST_SEARCH_TERM_KEY</span> <span class="p">:</span> <span class="sa">u</span><span class="s1">&#39;test_search_term&#39;</span><span class="p">,</span>

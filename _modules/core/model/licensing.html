@@ -134,6 +134,7 @@
         <span class="k">return</span> <span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">expires</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">expires</span> <span class="o">&lt;=</span> <span class="n">now</span><span class="p">)</span> <span class="ow">or</span>
                 <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remaining_checkouts</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">remaining_checkouts</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">))</span></div>
 
+
 <div class="viewcode-block" id="LicensePool"><a class="viewcode-back" href="../../../core.model.html#core.model.licensing.LicensePool">[docs]</a><span class="k">class</span> <span class="nc">LicensePool</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;A pool of undifferentiated licenses for a work from a given source.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
@@ -208,6 +209,9 @@
     <span class="n">licenses_available</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span><span class="n">default</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
     <span class="n">licenses_reserved</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span><span class="n">default</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
     <span class="n">patrons_in_hold_queue</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span><span class="n">default</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+    <span class="c1"># Set to True for collections imported using MirrorUploaded</span>
+    <span class="n">self_hosted</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Boolean</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 
     <span class="c1"># This lets us cache the work of figuring out the best open access</span>
     <span class="c1"># link for this LicensePool.</span>

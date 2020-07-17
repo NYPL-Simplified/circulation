@@ -34,49 +34,80 @@
             
   <h1>Source code for scripts</h1><div class="highlight"><pre>
 <span></span><span class="c1"># encoding: utf-8</span>
+<span class="kn">import</span> <span class="nn">argparse</span>
+<span class="kn">import</span> <span class="nn">csv</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">sys</span>
+<span class="kn">import</span> <span class="nn">time</span>
 <span class="kn">from</span> <span class="nn">cStringIO</span> <span class="kn">import</span> <span class="n">StringIO</span>
 <span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">datetime</span><span class="p">,</span>
     <span class="n">timedelta</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
-<span class="kn">import</span> <span class="nn">csv</span>
-<span class="kn">import</span> <span class="nn">json</span>
-<span class="kn">import</span> <span class="nn">os</span>
-<span class="kn">import</span> <span class="nn">sys</span>
-<span class="kn">import</span> <span class="nn">time</span>
-<span class="kn">import</span> <span class="nn">urlparse</span>
-<span class="kn">import</span> <span class="nn">logging</span>
-<span class="kn">import</span> <span class="nn">argparse</span>
 
+<span class="kn">from</span> <span class="nn">enum</span> <span class="kn">import</span> <span class="n">Enum</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">or_</span><span class="p">,</span>
-    <span class="n">func</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">contains_eager</span><span class="p">,</span>
-    <span class="n">defer</span>
-<span class="p">)</span>
-<span class="kn">from</span> <span class="nn">psycopg2.extras</span> <span class="kn">import</span> <span class="n">NumericRange</span>
 
-<span class="kn">from</span> <span class="nn">core</span> <span class="kn">import</span> <span class="n">log</span>
-<span class="kn">from</span> <span class="nn">core.cdn</span> <span class="kn">import</span> <span class="n">cdnify</span>
+<span class="kn">from</span> <span class="nn">api.adobe_vendor_id</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">AuthdataUtility</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">api.bibliotheca</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">BibliothecaCirculationSweep</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">api.config</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">CannotLoadConfiguration</span><span class="p">,</span>
+    <span class="n">Configuration</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">api.controller</span> <span class="kn">import</span> <span class="n">CirculationManager</span>
+<span class="kn">from</span> <span class="nn">api.lanes</span> <span class="kn">import</span> <span class="n">create_default_lanes</span>
+<span class="kn">from</span> <span class="nn">api.local_analytics_exporter</span> <span class="kn">import</span> <span class="n">LocalAnalyticsExporter</span>
+<span class="kn">from</span> <span class="nn">api.marc</span> <span class="kn">import</span> <span class="n">LibraryAnnotator</span> <span class="k">as</span> <span class="n">MARCLibraryAnnotator</span>
+<span class="kn">from</span> <span class="nn">api.novelist</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">NoveListAPI</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">api.nyt</span> <span class="kn">import</span> <span class="n">NYTBestSellerAPI</span>
+<span class="kn">from</span> <span class="nn">api.odl</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">ODLImporter</span><span class="p">,</span>
+    <span class="n">ODLImportMonitor</span><span class="p">,</span>
+    <span class="n">SharedODLImporter</span><span class="p">,</span>
+    <span class="n">SharedODLImportMonitor</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">api.onix</span> <span class="kn">import</span> <span class="n">ONIXExtractor</span>
+<span class="kn">from</span> <span class="nn">api.opds_for_distributors</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">OPDSForDistributorsImporter</span><span class="p">,</span>
+    <span class="n">OPDSForDistributorsImportMonitor</span><span class="p">,</span>
+    <span class="n">OPDSForDistributorsReaperMonitor</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">api.overdrive</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">OverdriveAPI</span><span class="p">,</span>
+<span class="p">)</span>
 <span class="kn">from</span> <span class="nn">core.entrypoint</span> <span class="kn">import</span> <span class="n">EntryPoint</span>
+<span class="kn">from</span> <span class="nn">core.external_list</span> <span class="kn">import</span> <span class="n">CustomListFromCSV</span>
+<span class="kn">from</span> <span class="nn">core.external_search</span> <span class="kn">import</span> <span class="n">ExternalSearchIndex</span>
 <span class="kn">from</span> <span class="nn">core.lane</span> <span class="kn">import</span> <span class="n">Lane</span>
-<span class="kn">from</span> <span class="nn">core.classifier</span> <span class="kn">import</span> <span class="n">Classifier</span>
+<span class="kn">from</span> <span class="nn">core.lane</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Pagination</span><span class="p">,</span>
+    <span class="n">Facets</span><span class="p">,</span>
+    <span class="n">FeaturedFacets</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">core.marc</span> <span class="kn">import</span> <span class="n">MARCExporter</span>
 <span class="kn">from</span> <span class="nn">core.metadata_layer</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">CirculationData</span><span class="p">,</span>
     <span class="n">FormatData</span><span class="p">,</span>
     <span class="n">ReplacementPolicy</span><span class="p">,</span>
     <span class="n">LinkData</span><span class="p">,</span>
 <span class="p">)</span>
+<span class="kn">from</span> <span class="nn">core.metadata_layer</span> <span class="kn">import</span> <span class="n">MARCExtractor</span>
+<span class="kn">from</span> <span class="nn">core.mirror</span> <span class="kn">import</span> <span class="n">MirrorUploader</span>
 <span class="kn">from</span> <span class="nn">core.model</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">CachedMARCFile</span><span class="p">,</span>
     <span class="n">CirculationEvent</span><span class="p">,</span>
     <span class="n">Collection</span><span class="p">,</span>
     <span class="n">ConfigurationSetting</span><span class="p">,</span>
     <span class="n">Contribution</span><span class="p">,</span>
-    <span class="n">Credential</span><span class="p">,</span>
     <span class="n">CustomList</span><span class="p">,</span>
     <span class="n">DataSource</span><span class="p">,</span>
     <span class="n">DeliveryMechanism</span><span class="p">,</span>
@@ -86,9 +117,7 @@
     <span class="n">Hold</span><span class="p">,</span>
     <span class="n">Hyperlink</span><span class="p">,</span>
     <span class="n">Identifier</span><span class="p">,</span>
-    <span class="n">Library</span><span class="p">,</span>
     <span class="n">LicensePool</span><span class="p">,</span>
-    <span class="n">LicensePoolDeliveryMechanism</span><span class="p">,</span>
     <span class="n">Loan</span><span class="p">,</span>
     <span class="n">Representation</span><span class="p">,</span>
     <span class="n">RightsStatus</span><span class="p">,</span>
@@ -98,78 +127,28 @@
     <span class="n">Work</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">core.model.configuration</span> <span class="kn">import</span> <span class="n">ExternalIntegrationLink</span>
-<span class="kn">from</span> <span class="nn">core.scripts</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">Script</span> <span class="k">as</span> <span class="n">CoreScript</span><span class="p">,</span>
-    <span class="n">DatabaseMigrationInitializationScript</span><span class="p">,</span>
-    <span class="n">RunCoverageProvidersScript</span><span class="p">,</span>
-    <span class="n">RunCoverageProviderScript</span><span class="p">,</span>
-    <span class="n">IdentifierInputScript</span><span class="p">,</span>
-    <span class="n">LaneSweeperScript</span><span class="p">,</span>
-    <span class="n">LibraryInputScript</span><span class="p">,</span>
-    <span class="n">PatronInputScript</span><span class="p">,</span>
-    <span class="n">RunMonitorScript</span><span class="p">,</span>
-    <span class="n">TimestampScript</span><span class="p">,</span>
-<span class="p">)</span>
-<span class="kn">from</span> <span class="nn">core.lane</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">Pagination</span><span class="p">,</span>
-    <span class="n">Facets</span><span class="p">,</span>
-    <span class="n">FeaturedFacets</span><span class="p">,</span>
+<span class="kn">from</span> <span class="nn">core.opds</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">AcquisitionFeed</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">core.opds_import</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">MetadataWranglerOPDSLookup</span><span class="p">,</span>
     <span class="n">OPDSImporter</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">core.opds</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">AcquisitionFeed</span><span class="p">,</span>
+<span class="kn">from</span> <span class="nn">core.scripts</span> <span class="kn">import</span> <span class="n">OPDSImportScript</span><span class="p">,</span> <span class="n">CollectionType</span>
+<span class="kn">from</span> <span class="nn">core.scripts</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Script</span> <span class="k">as</span> <span class="n">CoreScript</span><span class="p">,</span>
+    <span class="n">DatabaseMigrationInitializationScript</span><span class="p">,</span>
+    <span class="n">IdentifierInputScript</span><span class="p">,</span>
+    <span class="n">LaneSweeperScript</span><span class="p">,</span>
+    <span class="n">LibraryInputScript</span><span class="p">,</span>
+    <span class="n">PatronInputScript</span><span class="p">,</span>
+    <span class="n">TimestampScript</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">core.util.opds_writer</span> <span class="kn">import</span> <span class="p">(</span>
-     <span class="n">OPDSFeed</span><span class="p">,</span>
-<span class="p">)</span>
-<span class="kn">from</span> <span class="nn">core.external_list</span> <span class="kn">import</span> <span class="n">CustomListFromCSV</span>
-<span class="kn">from</span> <span class="nn">core.external_search</span> <span class="kn">import</span> <span class="n">ExternalSearchIndex</span>
 <span class="kn">from</span> <span class="nn">core.util</span> <span class="kn">import</span> <span class="n">LanguageCodes</span>
-<span class="kn">from</span> <span class="nn">core.mirror</span> <span class="kn">import</span> <span class="n">MirrorUploader</span>
+<span class="kn">from</span> <span class="nn">core.util.opds_writer</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">OPDSFeed</span><span class="p">,</span>
+<span class="p">)</span>
 
-<span class="kn">from</span> <span class="nn">api.config</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">CannotLoadConfiguration</span><span class="p">,</span>
-    <span class="n">Configuration</span><span class="p">,</span>
-<span class="p">)</span>
-<span class="kn">from</span> <span class="nn">api.adobe_vendor_id</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">AdobeVendorIDModel</span><span class="p">,</span>
-    <span class="n">AuthdataUtility</span><span class="p">,</span>
-<span class="p">)</span>
-<span class="kn">from</span> <span class="nn">api.lanes</span> <span class="kn">import</span> <span class="n">create_default_lanes</span>
-<span class="kn">from</span> <span class="nn">api.controller</span> <span class="kn">import</span> <span class="n">CirculationManager</span>
-<span class="kn">from</span> <span class="nn">api.overdrive</span> <span class="kn">import</span> <span class="n">OverdriveAPI</span>
-<span class="kn">from</span> <span class="nn">api.circulation</span> <span class="kn">import</span> <span class="n">CirculationAPI</span>
-<span class="kn">from</span> <span class="nn">api.opds</span> <span class="kn">import</span> <span class="n">CirculationManagerAnnotator</span>
-<span class="kn">from</span> <span class="nn">api.overdrive</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">OverdriveAPI</span><span class="p">,</span>
-<span class="p">)</span>
-<span class="kn">from</span> <span class="nn">api.bibliotheca</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">BibliothecaCirculationSweep</span>
-<span class="p">)</span>
-<span class="kn">from</span> <span class="nn">api.nyt</span> <span class="kn">import</span> <span class="n">NYTBestSellerAPI</span>
-<span class="kn">from</span> <span class="nn">api.opds_for_distributors</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">OPDSForDistributorsImporter</span><span class="p">,</span>
-    <span class="n">OPDSForDistributorsImportMonitor</span><span class="p">,</span>
-    <span class="n">OPDSForDistributorsReaperMonitor</span><span class="p">,</span>
-<span class="p">)</span>
-<span class="kn">from</span> <span class="nn">api.odl</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">ODLImporter</span><span class="p">,</span>
-    <span class="n">ODLImportMonitor</span><span class="p">,</span>
-    <span class="n">SharedODLImporter</span><span class="p">,</span>
-    <span class="n">SharedODLImportMonitor</span><span class="p">,</span>
-<span class="p">)</span>
-<span class="kn">from</span> <span class="nn">core.scripts</span> <span class="kn">import</span> <span class="n">OPDSImportScript</span>
-<span class="kn">from</span> <span class="nn">api.novelist</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">NoveListAPI</span>
-<span class="p">)</span>
-<span class="kn">from</span> <span class="nn">core.metadata_layer</span> <span class="kn">import</span> <span class="n">MARCExtractor</span>
-<span class="kn">from</span> <span class="nn">api.onix</span> <span class="kn">import</span> <span class="n">ONIXExtractor</span>
-<span class="kn">from</span> <span class="nn">core.marc</span> <span class="kn">import</span> <span class="n">MARCExporter</span>
-<span class="kn">from</span> <span class="nn">api.marc</span> <span class="kn">import</span> <span class="n">LibraryAnnotator</span> <span class="k">as</span> <span class="n">MARCLibraryAnnotator</span>
-<span class="kn">from</span> <span class="nn">api.local_analytics_exporter</span> <span class="kn">import</span> <span class="n">LocalAnalyticsExporter</span>
 
 <div class="viewcode-block" id="Script"><a class="viewcode-back" href="../scripts.html#scripts.Script">[docs]</a><span class="k">class</span> <span class="nc">Script</span><span class="p">(</span><span class="n">CoreScript</span><span class="p">):</span>
 <div class="viewcode-block" id="Script.load_config"><a class="viewcode-back" href="../scripts.html#scripts.Script.load_config">[docs]</a>    <span class="k">def</span> <span class="nf">load_config</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -1323,6 +1302,13 @@
             <span class="n">required</span><span class="o">=</span><span class="kc">True</span>
         <span class="p">)</span>
         <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+            <span class="s1">&#39;--collection-type&#39;</span><span class="p">,</span>
+            <span class="n">help</span><span class="o">=</span><span class="sa">u</span><span class="s1">&#39;Collection type. Valid values are: OPEN_ACCESS (default), PROTECTED_ACCESS.&#39;</span><span class="p">,</span>
+            <span class="nb">type</span><span class="o">=</span><span class="n">CollectionType</span><span class="p">,</span>
+            <span class="n">choices</span><span class="o">=</span><span class="nb">list</span><span class="p">(</span><span class="n">CollectionType</span><span class="p">),</span>
+            <span class="n">default</span><span class="o">=</span><span class="n">CollectionType</span><span class="o">.</span><span class="n">OPEN_ACCESS</span>
+        <span class="p">)</span>
+        <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
             <span class="s1">&#39;--data-source-name&#39;</span><span class="p">,</span>
             <span class="n">help</span><span class="o">=</span><span class="sa">u</span><span class="s1">&#39;All data associated with this import activity will be recorded as originating with this data source. The data source will be created if it does not already exist.&#39;</span><span class="p">,</span>
             <span class="n">required</span><span class="o">=</span><span class="kc">True</span>
@@ -1364,6 +1350,7 @@
         <span class="n">parser</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">arg_parser</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">)</span>
         <span class="n">parsed</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">(</span><span class="n">cmd_args</span><span class="p">)</span>
         <span class="n">collection_name</span> <span class="o">=</span> <span class="n">parsed</span><span class="o">.</span><span class="n">collection_name</span>
+        <span class="n">collection_type</span> <span class="o">=</span> <span class="n">parsed</span><span class="o">.</span><span class="n">collection_type</span>
         <span class="n">data_source_name</span> <span class="o">=</span> <span class="n">parsed</span><span class="o">.</span><span class="n">data_source_name</span>
         <span class="n">metadata_file</span> <span class="o">=</span> <span class="n">parsed</span><span class="o">.</span><span class="n">metadata_file</span>
         <span class="n">metadata_format</span> <span class="o">=</span> <span class="n">parsed</span><span class="o">.</span><span class="n">metadata_format</span>
@@ -1372,13 +1359,13 @@
         <span class="n">rights_uri</span> <span class="o">=</span> <span class="n">parsed</span><span class="o">.</span><span class="n">rights_uri</span>
         <span class="n">dry_run</span> <span class="o">=</span> <span class="n">parsed</span><span class="o">.</span><span class="n">dry_run</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">run_with_arguments</span><span class="p">(</span>
-            <span class="n">collection_name</span><span class="p">,</span> <span class="n">data_source_name</span><span class="p">,</span>
+            <span class="n">collection_name</span><span class="p">,</span> <span class="n">collection_type</span><span class="p">,</span> <span class="n">data_source_name</span><span class="p">,</span>
             <span class="n">metadata_file</span><span class="p">,</span> <span class="n">metadata_format</span><span class="p">,</span> <span class="n">cover_directory</span><span class="p">,</span>
             <span class="n">ebook_directory</span><span class="p">,</span> <span class="n">rights_uri</span><span class="p">,</span> <span class="n">dry_run</span>
         <span class="p">)</span></div>
 
 <div class="viewcode-block" id="DirectoryImportScript.run_with_arguments"><a class="viewcode-back" href="../scripts.html#scripts.DirectoryImportScript.run_with_arguments">[docs]</a>    <span class="k">def</span> <span class="nf">run_with_arguments</span><span class="p">(</span>
-            <span class="bp">self</span><span class="p">,</span> <span class="n">collection_name</span><span class="p">,</span> <span class="n">data_source_name</span><span class="p">,</span> <span class="n">metadata_file</span><span class="p">,</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">collection_name</span><span class="p">,</span> <span class="n">collection_type</span><span class="p">,</span> <span class="n">data_source_name</span><span class="p">,</span> <span class="n">metadata_file</span><span class="p">,</span>
             <span class="n">metadata_format</span><span class="p">,</span> <span class="n">cover_directory</span><span class="p">,</span> <span class="n">ebook_directory</span><span class="p">,</span> <span class="n">rights_uri</span><span class="p">,</span>
             <span class="n">dry_run</span>
     <span class="p">):</span>
@@ -1387,7 +1374,7 @@
                 <span class="s2">&quot;This is a dry run. No files will be uploaded and nothing will change in the database.&quot;</span>
             <span class="p">)</span>
 
-        <span class="n">collection</span><span class="p">,</span> <span class="n">mirrors</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">load_collection</span><span class="p">(</span><span class="n">collection_name</span><span class="p">,</span> <span class="n">data_source_name</span><span class="p">)</span>
+        <span class="n">collection</span><span class="p">,</span> <span class="n">mirrors</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">load_collection</span><span class="p">(</span><span class="n">collection_name</span><span class="p">,</span> <span class="n">collection_type</span><span class="p">,</span> <span class="n">data_source_name</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="n">collection</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">mirrors</span><span class="p">:</span>
             <span class="k">return</span>
@@ -1402,13 +1389,22 @@
         <span class="n">metadata_records</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">load_metadata</span><span class="p">(</span><span class="n">metadata_file</span><span class="p">,</span> <span class="n">metadata_format</span><span class="p">,</span> <span class="n">data_source_name</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">metadata</span> <span class="ow">in</span> <span class="n">metadata_records</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">work_from_metadata</span><span class="p">(</span>
-                <span class="n">collection</span><span class="p">,</span> <span class="n">metadata</span><span class="p">,</span> <span class="n">replacement_policy</span><span class="p">,</span> <span class="n">cover_directory</span><span class="p">,</span>
-                <span class="n">ebook_directory</span><span class="p">,</span> <span class="n">rights_uri</span>
+                <span class="n">collection</span><span class="p">,</span>
+                <span class="n">collection_type</span><span class="p">,</span>
+                <span class="n">metadata</span><span class="p">,</span>
+                <span class="n">replacement_policy</span><span class="p">,</span>
+                <span class="n">cover_directory</span><span class="p">,</span>
+                <span class="n">ebook_directory</span><span class="p">,</span>
+                <span class="n">rights_uri</span>
             <span class="p">)</span>
+
+            <span class="k">for</span> <span class="n">licensepool</span> <span class="ow">in</span> <span class="n">collection</span><span class="o">.</span><span class="n">licensepools</span><span class="p">:</span>
+                <span class="n">licensepool</span><span class="o">.</span><span class="n">self_hosted</span> <span class="o">=</span> <span class="kc">True</span>
+
             <span class="k">if</span> <span class="ow">not</span> <span class="n">dry_run</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span></div>
 
-<div class="viewcode-block" id="DirectoryImportScript.load_collection"><a class="viewcode-back" href="../scripts.html#scripts.DirectoryImportScript.load_collection">[docs]</a>    <span class="k">def</span> <span class="nf">load_collection</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collection_name</span><span class="p">,</span> <span class="n">data_source_name</span><span class="p">):</span>
+<div class="viewcode-block" id="DirectoryImportScript.load_collection"><a class="viewcode-back" href="../scripts.html#scripts.DirectoryImportScript.load_collection">[docs]</a>    <span class="k">def</span> <span class="nf">load_collection</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collection_name</span><span class="p">,</span> <span class="n">collection_type</span><span class="p">,</span> <span class="n">data_source_name</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Locate a Collection with the given name.</span>
 
 <span class="sd">        If the collection is found, it will be associated</span>
@@ -1416,11 +1412,18 @@
 <span class="sd">        covers and books mirror configurations.</span>
 
 <span class="sd">        :param collection_name: Name of the Collection.</span>
+<span class="sd">        :type collection_name: string</span>
+
+<span class="sd">        :param collection_type: Type of the collection: open access/proteceted access.</span>
+<span class="sd">        :type collection_name: CollectionType</span>
+
 <span class="sd">        :param data_source_name: Associate this data source with</span>
 <span class="sd">            the Collection if it does not already have a data source.</span>
 <span class="sd">            A DataSource object will be created if necessary.</span>
+<span class="sd">        :type data_source_name: string</span>
 
-<span class="sd">        :return: A 2-tuple (Collection, MirrorUploader)</span>
+<span class="sd">        :return: A 2-tuple (Collection, list of MirrorUploader instances)</span>
+<span class="sd">        :rtype: Tuple[Collection, List[MirrorUploader]]</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">collection</span><span class="p">,</span> <span class="n">is_new</span> <span class="o">=</span> <span class="n">Collection</span><span class="o">.</span><span class="n">by_name_and_protocol</span><span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">collection_name</span><span class="p">,</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">MANUAL</span>
@@ -1434,7 +1437,12 @@
 
         <span class="n">mirrors</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">covers_mirror</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">books_mirror</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 
-        <span class="n">types</span> <span class="o">=</span> <span class="p">[</span><span class="n">ExternalIntegrationLink</span><span class="o">.</span><span class="n">COVERS</span><span class="p">,</span> <span class="n">ExternalIntegrationLink</span><span class="o">.</span><span class="n">BOOKS</span><span class="p">]</span>
+        <span class="n">types</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">ExternalIntegrationLink</span><span class="o">.</span><span class="n">COVERS</span><span class="p">,</span>
+            <span class="n">ExternalIntegrationLink</span><span class="o">.</span><span class="n">OPEN_ACCESS_BOOKS</span>
+            <span class="k">if</span> <span class="n">collection_type</span> <span class="o">==</span> <span class="n">CollectionType</span><span class="o">.</span><span class="n">OPEN_ACCESS</span>
+            <span class="k">else</span> <span class="n">ExternalIntegrationLink</span><span class="o">.</span><span class="n">PROTECTED_ACCESS_BOOKS</span>
+        <span class="p">]</span>
         <span class="k">for</span> <span class="nb">type</span> <span class="ow">in</span> <span class="n">types</span><span class="p">:</span>
             <span class="n">mirror_for_type</span> <span class="o">=</span> <span class="n">MirrorUploader</span><span class="o">.</span><span class="n">for_collection</span><span class="p">(</span><span class="n">collection</span><span class="p">,</span> <span class="nb">type</span><span class="p">)</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">mirror_for_type</span><span class="p">:</span>
@@ -1467,8 +1475,25 @@
             <span class="n">metadata_records</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">extractor</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">data_source_name</span><span class="p">))</span>
         <span class="k">return</span> <span class="n">metadata_records</span></div>
 
-<div class="viewcode-block" id="DirectoryImportScript.work_from_metadata"><a class="viewcode-back" href="../scripts.html#scripts.DirectoryImportScript.work_from_metadata">[docs]</a>    <span class="k">def</span> <span class="nf">work_from_metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">metadata</span><span class="p">,</span> <span class="n">policy</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">annotate_metadata</span><span class="p">(</span><span class="n">metadata</span><span class="p">,</span> <span class="n">policy</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+<div class="viewcode-block" id="DirectoryImportScript.work_from_metadata"><a class="viewcode-back" href="../scripts.html#scripts.DirectoryImportScript.work_from_metadata">[docs]</a>    <span class="k">def</span> <span class="nf">work_from_metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">collection_type</span><span class="p">,</span> <span class="n">metadata</span><span class="p">,</span> <span class="n">policy</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Creates a Work instance from metadata</span>
+
+<span class="sd">        :param collection: Target collection</span>
+<span class="sd">        :type collection: Collection</span>
+
+<span class="sd">        :param collection_type: Collection&#39;s type: open access/protected access</span>
+<span class="sd">        :type collection_type: CollectionType</span>
+
+<span class="sd">        :param metadata: Book&#39;s metadata</span>
+<span class="sd">        :type metadata: Metadata</span>
+
+<span class="sd">        :param policy: Replacement policy</span>
+<span class="sd">        :type policy: ReplacementPolicy</span>
+
+<span class="sd">        :return: Work object</span>
+<span class="sd">        :rtype: core.model.work.Work</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">annotate_metadata</span><span class="p">(</span><span class="n">collection_type</span><span class="p">,</span> <span class="n">metadata</span><span class="p">,</span> <span class="n">policy</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="n">metadata</span><span class="o">.</span><span class="n">circulation</span><span class="p">:</span>
             <span class="c1"># We cannot actually provide access to the book so there</span>
@@ -1493,19 +1518,46 @@
             <span class="p">)</span>
         <span class="k">return</span> <span class="n">work</span></div>
 
+<div class="viewcode-block" id="DirectoryImportScript.annotate_metadata"><a class="viewcode-back" href="../scripts.html#scripts.DirectoryImportScript.annotate_metadata">[docs]</a>    <span class="k">def</span> <span class="nf">annotate_metadata</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">collection_type</span><span class="p">,</span>
+            <span class="n">metadata</span><span class="p">,</span>
+            <span class="n">policy</span><span class="p">,</span>
+            <span class="n">cover_directory</span><span class="p">,</span>
+            <span class="n">ebook_directory</span><span class="p">,</span>
+            <span class="n">rights_uri</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Add a CirculationData and possibly an extra LinkData to `metadata`</span>
 
-<div class="viewcode-block" id="DirectoryImportScript.annotate_metadata"><a class="viewcode-back" href="../scripts.html#scripts.DirectoryImportScript.annotate_metadata">[docs]</a>    <span class="k">def</span> <span class="nf">annotate_metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">metadata</span><span class="p">,</span> <span class="n">policy</span><span class="p">,</span>
-                          <span class="n">cover_directory</span><span class="p">,</span> <span class="n">ebook_directory</span><span class="p">,</span> <span class="n">rights_uri</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Add a CirculationData and possibly an extra LinkData</span>
-<span class="sd">        to `metadata`.</span>
+<span class="sd">        :param collection_type: Collection&#39;s type: open access/protected access</span>
+<span class="sd">        :type collection_type: CollectionType</span>
+
+<span class="sd">        :param metadata: Book&#39;s metadata</span>
+<span class="sd">        :type metadata: Metadata</span>
+
+<span class="sd">        :param policy: Replacement policy</span>
+<span class="sd">        :type policy: ReplacementPolicy</span>
+
+<span class="sd">        :param cover_directory: Directory containing book covers</span>
+<span class="sd">        :type cover_directory: string</span>
+
+<span class="sd">        :param ebook_directory: Directory containing books</span>
+<span class="sd">        :type ebook_directory: string</span>
+
+<span class="sd">        :param rights_uri: URI explaining the rights status of the works being uploaded</span>
+<span class="sd">        :type rights_uri: string</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">identifier</span><span class="p">,</span> <span class="n">ignore</span> <span class="o">=</span> <span class="n">metadata</span><span class="o">.</span><span class="n">primary_identifier</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">)</span>
         <span class="n">data_source</span> <span class="o">=</span> <span class="n">metadata</span><span class="o">.</span><span class="n">data_source</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">)</span>
         <span class="n">mirrors</span> <span class="o">=</span> <span class="n">policy</span><span class="o">.</span><span class="n">mirrors</span>
 
         <span class="n">circulation_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">load_circulation_data</span><span class="p">(</span>
-            <span class="n">identifier</span><span class="p">,</span> <span class="n">data_source</span><span class="p">,</span> <span class="n">ebook_directory</span><span class="p">,</span> <span class="n">mirrors</span><span class="p">,</span>
-            <span class="n">metadata</span><span class="o">.</span><span class="n">title</span><span class="p">,</span> <span class="n">rights_uri</span>
+            <span class="n">collection_type</span><span class="p">,</span>
+            <span class="n">identifier</span><span class="p">,</span>
+            <span class="n">data_source</span><span class="p">,</span>
+            <span class="n">ebook_directory</span><span class="p">,</span>
+            <span class="n">mirrors</span><span class="p">,</span>
+            <span class="n">metadata</span><span class="o">.</span><span class="n">title</span><span class="p">,</span>
+            <span class="n">rights_uri</span>
         <span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">circulation_data</span><span class="p">:</span>
             <span class="c1"># There is no point in contining.</span>
@@ -1527,12 +1579,41 @@
                 <span class="n">identifier</span>
             <span class="p">)</span></div>
 
-<div class="viewcode-block" id="DirectoryImportScript.load_circulation_data"><a class="viewcode-back" href="../scripts.html#scripts.DirectoryImportScript.load_circulation_data">[docs]</a>    <span class="k">def</span> <span class="nf">load_circulation_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">data_source</span><span class="p">,</span> <span class="n">ebook_directory</span><span class="p">,</span>
-                              <span class="n">mirrors</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">rights_uri</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Load an actual copy of a book from disk.</span>
+<div class="viewcode-block" id="DirectoryImportScript.load_circulation_data"><a class="viewcode-back" href="../scripts.html#scripts.DirectoryImportScript.load_circulation_data">[docs]</a>    <span class="k">def</span> <span class="nf">load_circulation_data</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">collection_type</span><span class="p">,</span>
+            <span class="n">identifier</span><span class="p">,</span>
+            <span class="n">data_source</span><span class="p">,</span>
+            <span class="n">ebook_directory</span><span class="p">,</span>
+            <span class="n">mirrors</span><span class="p">,</span>
+            <span class="n">title</span><span class="p">,</span>
+            <span class="n">rights_uri</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Loads an actual copy of a book from disk</span>
+
+<span class="sd">        :param collection_type: Collection&#39;s type: open access/protected access</span>
+<span class="sd">        :type collection_type: CollectionType</span>
+
+<span class="sd">        :param identifier: Book&#39;s identifier</span>
+<span class="sd">        :type identifier: Identifier</span>
+
+<span class="sd">        :param data_source: DataSource object</span>
+<span class="sd">        :type data_source: DataSource</span>
+
+<span class="sd">        :param ebook_directory: Directory containing books</span>
+<span class="sd">        :type ebook_directory: string</span>
+
+<span class="sd">        :param mirrors: Dictionary containing mirrors for books and their covers</span>
+<span class="sd">        :type mirrors: Dict[string, MirrorUploader]</span>
+
+<span class="sd">        :param title: Book&#39;s title</span>
+<span class="sd">        :type title: string</span>
+
+<span class="sd">        :param rights_uri: URI explaining the rights status of the works being uploaded</span>
+<span class="sd">        :type rights_uri: string</span>
 
 <span class="sd">        :return: A CirculationData that contains the book as an open-access</span>
-<span class="sd">            download, or None if no such book can be found.</span>
+<span class="sd">            download, or None if no such book can be found</span>
+<span class="sd">        :rtype: CirculationData</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">ignore</span><span class="p">,</span> <span class="n">book_media_type</span><span class="p">,</span> <span class="n">book_content</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_locate_file</span><span class="p">(</span>
             <span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span> <span class="n">ebook_directory</span><span class="p">,</span>
@@ -1544,11 +1625,18 @@
             <span class="c1"># no point in proceeding.</span>
             <span class="k">return</span>
 
+        <span class="n">book_mirror</span> <span class="o">=</span> <span class="n">mirrors</span><span class="p">[</span>
+            <span class="n">ExternalIntegrationLink</span><span class="o">.</span><span class="n">OPEN_ACCESS_BOOKS</span>
+            <span class="k">if</span> <span class="n">collection_type</span> <span class="o">==</span> <span class="n">CollectionType</span><span class="o">.</span><span class="n">OPEN_ACCESS</span>
+            <span class="k">else</span> <span class="n">ExternalIntegrationLink</span><span class="o">.</span><span class="n">PROTECTED_ACCESS_BOOKS</span>
+        <span class="p">]</span> <span class="k">if</span> <span class="n">mirrors</span> <span class="k">else</span> <span class="kc">None</span>
+
         <span class="c1"># Use the S3 storage for books.</span>
-        <span class="k">if</span> <span class="n">mirrors</span> <span class="ow">and</span> <span class="n">mirrors</span><span class="p">[</span><span class="n">ExternalIntegrationLink</span><span class="o">.</span><span class="n">BOOKS</span><span class="p">]:</span>
-            <span class="n">book_url</span> <span class="o">=</span> <span class="n">mirrors</span><span class="p">[</span><span class="n">ExternalIntegrationLink</span><span class="o">.</span><span class="n">BOOKS</span><span class="p">]</span><span class="o">.</span><span class="n">book_url</span><span class="p">(</span>
+        <span class="k">if</span> <span class="n">book_mirror</span><span class="p">:</span>
+            <span class="n">book_url</span> <span class="o">=</span> <span class="n">book_mirror</span><span class="o">.</span><span class="n">book_url</span><span class="p">(</span>
                 <span class="n">identifier</span><span class="p">,</span>
                 <span class="s1">&#39;.&#39;</span> <span class="o">+</span> <span class="n">Representation</span><span class="o">.</span><span class="n">FILE_EXTENSIONS</span><span class="p">[</span><span class="n">book_media_type</span><span class="p">],</span>
+                <span class="n">open_access</span><span class="o">=</span><span class="n">collection_type</span> <span class="o">==</span> <span class="n">CollectionType</span><span class="o">.</span><span class="n">OPEN_ACCESS</span><span class="p">,</span>
                 <span class="n">data_source</span><span class="o">=</span><span class="n">data_source</span><span class="p">,</span>
                 <span class="n">title</span><span class="o">=</span><span class="n">title</span>
             <span class="p">)</span>
@@ -1556,8 +1644,12 @@
             <span class="c1"># This is a dry run and we won&#39;t be mirroring anything.</span>
             <span class="n">book_url</span> <span class="o">=</span> <span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span> <span class="o">+</span> <span class="s2">&quot;.&quot;</span> <span class="o">+</span> <span class="n">Representation</span><span class="o">.</span><span class="n">FILE_EXTENSIONS</span><span class="p">[</span><span class="n">book_media_type</span><span class="p">]</span>
 
+        <span class="n">book_link_rel</span> <span class="o">=</span> \
+            <span class="n">Hyperlink</span><span class="o">.</span><span class="n">OPEN_ACCESS_DOWNLOAD</span> \
+            <span class="k">if</span> <span class="n">collection_type</span> <span class="o">==</span> <span class="n">CollectionType</span><span class="o">.</span><span class="n">OPEN_ACCESS</span> \
+            <span class="k">else</span> <span class="n">Hyperlink</span><span class="o">.</span><span class="n">GENERIC_OPDS_ACQUISITION</span>
         <span class="n">book_link</span> <span class="o">=</span> <span class="n">LinkData</span><span class="p">(</span>
-            <span class="n">rel</span><span class="o">=</span><span class="n">Hyperlink</span><span class="o">.</span><span class="n">OPEN_ACCESS_DOWNLOAD</span><span class="p">,</span>
+            <span class="n">rel</span><span class="o">=</span><span class="n">book_link_rel</span><span class="p">,</span>
             <span class="n">href</span><span class="o">=</span><span class="n">book_url</span><span class="p">,</span>
             <span class="n">media_type</span><span class="o">=</span><span class="n">book_media_type</span><span class="p">,</span>
             <span class="n">content</span><span class="o">=</span><span class="n">book_content</span>

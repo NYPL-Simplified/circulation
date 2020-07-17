@@ -35,53 +35,40 @@
   <h1>Source code for core.scripts</h1><div class="highlight"><pre>
 <span></span><span class="kn">import</span> <span class="nn">argparse</span>
 <span class="kn">import</span> <span class="nn">datetime</span>
-<span class="kn">import</span> <span class="nn">imp</span>
 <span class="kn">import</span> <span class="nn">logging</span>
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">random</span>
 <span class="kn">import</span> <span class="nn">re</span>
-<span class="kn">import</span> <span class="nn">requests</span>
-<span class="kn">import</span> <span class="nn">string</span>
 <span class="kn">import</span> <span class="nn">subprocess</span>
-<span class="kn">import</span> <span class="nn">time</span>
-<span class="kn">import</span> <span class="nn">uuid</span>
-<span class="kn">from</span> <span class="nn">requests.exceptions</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="ne">ConnectionError</span><span class="p">,</span>
-    <span class="n">HTTPError</span><span class="p">,</span>
-<span class="p">)</span>
 <span class="kn">import</span> <span class="nn">sys</span>
 <span class="kn">import</span> <span class="nn">traceback</span>
 <span class="kn">import</span> <span class="nn">unicodedata</span>
-
+<span class="kn">import</span> <span class="nn">uuid</span>
 <span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">defaultdict</span>
-<span class="kn">from</span> <span class="nn">external_search</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">ExternalSearchIndex</span><span class="p">,</span>
-    <span class="n">Filter</span><span class="p">,</span>
-    <span class="n">SearchIndexCoverageProvider</span><span class="p">,</span>
-<span class="p">)</span>
-<span class="kn">import</span> <span class="nn">json</span>
-<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
+
+<span class="kn">from</span> <span class="nn">enum</span> <span class="kn">import</span> <span class="n">Enum</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">create_engine</span><span class="p">,</span>
     <span class="n">exists</span><span class="p">,</span>
     <span class="n">and_</span><span class="p">,</span>
-    <span class="n">or_</span><span class="p">,</span>
     <span class="n">text</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy.exc</span> <span class="kn">import</span> <span class="n">ProgrammingError</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.sql.functions</span> <span class="kn">import</span> <span class="n">func</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="kn">import</span> <span class="n">Session</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy.orm.exc</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">NoResultFound</span><span class="p">,</span>
     <span class="n">MultipleResultsFound</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="kn">import</span> <span class="n">Session</span>
 
-<span class="kn">from</span> <span class="nn">app_server</span> <span class="kn">import</span> <span class="n">ComplaintController</span>
 <span class="c1"># from axis import Axis360BibliographicCoverageProvider</span>
 <span class="kn">from</span> <span class="nn">config</span> <span class="kn">import</span> <span class="n">Configuration</span><span class="p">,</span> <span class="n">CannotLoadConfiguration</span>
 <span class="kn">from</span> <span class="nn">coverage</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">CollectionCoverageProviderJob</span><span class="p">,</span>
     <span class="n">CoverageProviderProgress</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">external_search</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">ExternalSearchIndex</span><span class="p">,</span>
+    <span class="n">Filter</span><span class="p">,</span>
+    <span class="n">SearchIndexCoverageProvider</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">lane</span> <span class="kn">import</span> <span class="n">Lane</span>
 <span class="kn">from</span> <span class="nn">metadata_layer</span> <span class="kn">import</span> <span class="p">(</span>
@@ -102,7 +89,6 @@
     <span class="n">Complaint</span><span class="p">,</span>
     <span class="n">ConfigurationSetting</span><span class="p">,</span>
     <span class="n">Contributor</span><span class="p">,</span>
-    <span class="n">CoverageRecord</span><span class="p">,</span>
     <span class="n">CustomList</span><span class="p">,</span>
     <span class="n">DataSource</span><span class="p">,</span>
     <span class="n">Edition</span><span class="p">,</span>
@@ -120,7 +106,6 @@
     <span class="n">Timestamp</span><span class="p">,</span>
     <span class="n">Work</span><span class="p">,</span>
     <span class="n">WorkCoverageRecord</span><span class="p">,</span>
-    <span class="n">WorkGenre</span><span class="p">,</span>
     <span class="n">site_configuration_has_changed</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">model.configuration</span> <span class="kn">import</span> <span class="n">ExternalIntegrationLink</span>
@@ -135,19 +120,15 @@
 <span class="c1"># from oneclick import (</span>
 <span class="c1">#     OneClickBibliographicCoverageProvider,</span>
 <span class="c1"># )</span>
-<span class="kn">from</span> <span class="nn">overdrive</span> <span class="kn">import</span> <span class="n">OverdriveBibliographicCoverageProvider</span>
 <span class="kn">from</span> <span class="nn">util</span> <span class="kn">import</span> <span class="n">fast_query_count</span>
-<span class="kn">from</span> <span class="nn">util.opds_writer</span> <span class="kn">import</span> <span class="n">OPDSFeed</span>
 <span class="kn">from</span> <span class="nn">util.personal_names</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">contributor_name_match_ratio</span><span class="p">,</span>
-    <span class="n">display_name_to_sort_name</span><span class="p">,</span>
-    <span class="n">is_corporate_name</span>
+    <span class="n">display_name_to_sort_name</span>
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">util.worker_pools</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">DatabaseWorker</span><span class="p">,</span>
     <span class="n">DatabasePool</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">cmp_to_key</span>
+
 
 <div class="viewcode-block" id="Script"><a class="viewcode-back" href="../../core.html#core.scripts.Script">[docs]</a><span class="k">class</span> <span class="nc">Script</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
 
@@ -1825,6 +1806,14 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span></div></div>
 
 
+<div class="viewcode-block" id="CollectionType"><a class="viewcode-back" href="../../core.html#core.scripts.CollectionType">[docs]</a><span class="k">class</span> <span class="nc">CollectionType</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
+    <span class="n">OPEN_ACCESS</span> <span class="o">=</span> <span class="s1">&#39;OPEN_ACCESS&#39;</span>
+    <span class="n">PROTECTED_ACCESS</span> <span class="o">=</span> <span class="s1">&#39;PROTECTED_ACCESS&#39;</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span></div>
+
+
 <div class="viewcode-block" id="CollectionInputScript"><a class="viewcode-back" href="../../core.html#core.scripts.CollectionInputScript">[docs]</a><span class="k">class</span> <span class="nc">CollectionInputScript</span><span class="p">(</span><span class="n">Script</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;A script that takes collection names as command line inputs.&quot;&quot;&quot;</span>
 
@@ -1855,6 +1844,13 @@
             <span class="n">help</span><span class="o">=</span><span class="s1">&#39;Collection to use&#39;</span><span class="p">,</span>
             <span class="n">dest</span><span class="o">=</span><span class="s1">&#39;collection_names&#39;</span><span class="p">,</span>
             <span class="n">metavar</span><span class="o">=</span><span class="s1">&#39;NAME&#39;</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s1">&#39;append&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="p">[]</span>
+        <span class="p">)</span>
+        <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+            <span class="s1">&#39;--collection-type&#39;</span><span class="p">,</span>
+            <span class="n">help</span><span class="o">=</span><span class="sa">u</span><span class="s1">&#39;Collection type. Valid values are: OPEN_ACCESS (default), PROTECTED_ACCESS.&#39;</span><span class="p">,</span>
+            <span class="nb">type</span><span class="o">=</span><span class="n">CollectionType</span><span class="p">,</span>
+            <span class="n">choices</span><span class="o">=</span><span class="nb">list</span><span class="p">(</span><span class="n">CollectionType</span><span class="p">),</span>
+            <span class="n">default</span><span class="o">=</span><span class="n">CollectionType</span><span class="o">.</span><span class="n">OPEN_ACCESS</span>
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">parser</span></div></div>
 
@@ -1910,15 +1906,16 @@
 <div class="viewcode-block" id="MirrorResourcesScript.do_run"><a class="viewcode-back" href="../../core.html#core.scripts.MirrorResourcesScript.do_run">[docs]</a>    <span class="k">def</span> <span class="nf">do_run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cmd_args</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="n">parsed</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_command_line</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">cmd_args</span><span class="o">=</span><span class="n">cmd_args</span><span class="p">)</span>
         <span class="n">collections</span> <span class="o">=</span> <span class="n">parsed</span><span class="o">.</span><span class="n">collections</span>
+        <span class="n">collection_type</span> <span class="o">=</span> <span class="n">parsed</span><span class="o">.</span><span class="n">collection_type</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">collections</span><span class="p">:</span>
             <span class="c1"># Assume they mean all collections.</span>
             <span class="n">collections</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Collection</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
 
         <span class="c1"># But only process collections that have an associated MirrorUploader.</span>
-        <span class="k">for</span> <span class="n">collection</span><span class="p">,</span> <span class="n">policy</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">collections_with_uploader</span><span class="p">(</span><span class="n">collections</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">collection</span><span class="p">,</span> <span class="n">policy</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">collections_with_uploader</span><span class="p">(</span><span class="n">collections</span><span class="p">,</span> <span class="n">collection_type</span><span class="p">):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">process_collection</span><span class="p">(</span><span class="n">collection</span><span class="p">,</span> <span class="n">policy</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="MirrorResourcesScript.collections_with_uploader"><a class="viewcode-back" href="../../core.html#core.scripts.MirrorResourcesScript.collections_with_uploader">[docs]</a>    <span class="k">def</span> <span class="nf">collections_with_uploader</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collections</span><span class="p">):</span>
+<div class="viewcode-block" id="MirrorResourcesScript.collections_with_uploader"><a class="viewcode-back" href="../../core.html#core.scripts.MirrorResourcesScript.collections_with_uploader">[docs]</a>    <span class="k">def</span> <span class="nf">collections_with_uploader</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collections</span><span class="p">,</span> <span class="n">collection_type</span><span class="o">=</span><span class="n">CollectionType</span><span class="o">.</span><span class="n">OPEN_ACCESS</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Filter out collections that have no MirrorUploader.</span>
 
 <span class="sd">        :yield: 2-tuples (Collection, ReplacementPolicy). The</span>
@@ -1929,11 +1926,19 @@
             <span class="n">covers</span> <span class="o">=</span> <span class="n">MirrorUploader</span><span class="o">.</span><span class="n">for_collection</span><span class="p">(</span>
                 <span class="n">collection</span><span class="p">,</span> <span class="n">ExternalIntegrationLink</span><span class="o">.</span><span class="n">COVERS</span>
             <span class="p">)</span>
+            <span class="n">books_mirror_type</span> <span class="o">=</span> \
+                <span class="n">ExternalIntegrationLink</span><span class="o">.</span><span class="n">OPEN_ACCESS_BOOKS</span> \
+                <span class="k">if</span> <span class="n">collection_type</span> <span class="o">==</span> <span class="n">CollectionType</span><span class="o">.</span><span class="n">OPEN_ACCESS</span> \
+                <span class="k">else</span> <span class="n">ExternalIntegrationLink</span><span class="o">.</span><span class="n">PROTECTED_ACCESS_BOOKS</span>
             <span class="n">books</span> <span class="o">=</span> <span class="n">MirrorUploader</span><span class="o">.</span><span class="n">for_collection</span><span class="p">(</span>
-                <span class="n">collection</span><span class="p">,</span> <span class="n">ExternalIntegrationLink</span><span class="o">.</span><span class="n">BOOKS</span>
+                <span class="n">collection</span><span class="p">,</span>
+                <span class="n">books_mirror_type</span>
             <span class="p">)</span>
             <span class="k">if</span> <span class="n">covers</span> <span class="ow">or</span> <span class="n">books</span><span class="p">:</span>
-                <span class="n">mirrors</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">covers_mirror</span><span class="o">=</span><span class="n">covers</span><span class="p">,</span> <span class="n">books_mirror</span><span class="o">=</span><span class="n">books</span><span class="p">)</span>
+                <span class="n">mirrors</span> <span class="o">=</span> <span class="p">{</span>
+                    <span class="n">ExternalIntegrationLink</span><span class="o">.</span><span class="n">COVERS</span><span class="p">:</span> <span class="n">covers</span><span class="p">,</span>
+                    <span class="n">books_mirror_type</span><span class="p">:</span> <span class="n">books</span>
+                <span class="p">}</span>
                 <span class="n">policy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">replacement_policy</span><span class="p">(</span><span class="n">mirrors</span><span class="p">)</span>
                 <span class="k">yield</span> <span class="n">collection</span><span class="p">,</span> <span class="n">policy</span>
             <span class="k">else</span><span class="p">:</span>
@@ -2542,7 +2547,7 @@
                 <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">finish</span><span class="o">=</span><span class="n">last_run_date</span><span class="p">,</span>
                 <span class="n">counter</span><span class="o">=</span><span class="n">counter</span><span class="p">,</span> <span class="n">migration_name</span><span class="o">=</span><span class="n">migration_file</span>
             <span class="p">)</span>
-        
+
         <span class="c1"># Nothing to update</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">overall_timestamp</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">return</span>

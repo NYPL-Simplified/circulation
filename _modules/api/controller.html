@@ -713,7 +713,8 @@
 
         <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="n">patron</span><span class="o">.</span><span class="n">library</span><span class="o">.</span><span class="n">allow_holds</span> <span class="ow">and</span>
             <span class="n">license_pool</span><span class="o">.</span><span class="n">licenses_available</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span>
-            <span class="ow">not</span> <span class="n">license_pool</span><span class="o">.</span><span class="n">open_access</span>
+            <span class="ow">not</span> <span class="n">license_pool</span><span class="o">.</span><span class="n">open_access</span> <span class="ow">and</span>
+            <span class="ow">not</span> <span class="n">license_pool</span><span class="o">.</span><span class="n">self_hosted</span>
         <span class="p">):</span>
             <span class="k">return</span> <span class="n">FORBIDDEN_BY_POLICY</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span>
                 <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Library policy prohibits the placement of holds.&quot;</span><span class="p">),</span>

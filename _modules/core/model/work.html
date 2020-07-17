@@ -35,8 +35,55 @@
   <h1>Source code for core.model.work</h1><div class="highlight"><pre>
 <span></span><span class="c1"># encoding: utf-8</span>
 <span class="c1"># WorkGenre, Work</span>
-<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
 
+<span class="kn">import</span> <span class="nn">datetime</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">Counter</span>
+
+<span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Boolean</span><span class="p">,</span>
+    <span class="n">Column</span><span class="p">,</span>
+    <span class="n">DateTime</span><span class="p">,</span>
+    <span class="n">Enum</span><span class="p">,</span>
+    <span class="n">Float</span><span class="p">,</span>
+    <span class="n">ForeignKey</span><span class="p">,</span>
+    <span class="n">Integer</span><span class="p">,</span>
+    <span class="n">Numeric</span><span class="p">,</span>
+    <span class="n">String</span><span class="p">,</span>
+    <span class="n">Unicode</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.dialects.postgresql</span> <span class="kn">import</span> <span class="n">INT4RANGE</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.ext.associationproxy</span> <span class="kn">import</span> <span class="n">association_proxy</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">contains_eager</span><span class="p">,</span>
+    <span class="n">relationship</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="kn">import</span> <span class="n">Session</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.sql.expression</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">and_</span><span class="p">,</span>
+    <span class="n">or_</span><span class="p">,</span>
+    <span class="n">select</span><span class="p">,</span>
+    <span class="n">join</span><span class="p">,</span>
+    <span class="n">literal_column</span><span class="p">,</span>
+    <span class="n">case</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.sql.functions</span> <span class="kn">import</span> <span class="n">func</span>
+
+<span class="kn">from</span> <span class="nn">constants</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">DataSourceConstants</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">contributor</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Contribution</span><span class="p">,</span>
+    <span class="n">Contributor</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">coverage</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">CoverageRecord</span><span class="p">,</span>
+    <span class="n">WorkCoverageRecord</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">datasource</span> <span class="kn">import</span> <span class="n">DataSource</span>
+<span class="kn">from</span> <span class="nn">edition</span> <span class="kn">import</span> <span class="n">Edition</span>
+<span class="kn">from</span> <span class="nn">identifier</span> <span class="kn">import</span> <span class="n">Identifier</span>
+<span class="kn">from</span> <span class="nn">measurement</span> <span class="kn">import</span> <span class="n">Measurement</span>
 <span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Base</span><span class="p">,</span>
     <span class="n">flush</span><span class="p">,</span>
@@ -46,68 +93,14 @@
     <span class="n">PresentationCalculationPolicy</span><span class="p">,</span>
     <span class="n">tuple_to_numericrange</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">coverage</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">CoverageRecord</span><span class="p">,</span>
-    <span class="n">WorkCoverageRecord</span><span class="p">,</span>
-<span class="p">)</span>
-<span class="kn">from</span> <span class="nn">contributor</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">Contribution</span><span class="p">,</span>
-    <span class="n">Contributor</span><span class="p">,</span>
-<span class="p">)</span>
 <span class="kn">from</span> <span class="nn">..classifier</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Classifier</span><span class="p">,</span>
     <span class="n">WorkClassifier</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">constants</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">DataSourceConstants</span><span class="p">,</span>
-    <span class="n">LinkRelations</span><span class="p">,</span>
-<span class="p">)</span>
-<span class="kn">from</span> <span class="nn">datasource</span> <span class="kn">import</span> <span class="n">DataSource</span>
-<span class="kn">from</span> <span class="nn">edition</span> <span class="kn">import</span> <span class="n">Edition</span>
-<span class="kn">from</span> <span class="nn">identifier</span> <span class="kn">import</span> <span class="n">Identifier</span>
-<span class="kn">from</span> <span class="nn">measurement</span> <span class="kn">import</span> <span class="n">Measurement</span>
+<span class="kn">from</span> <span class="nn">..config</span> <span class="kn">import</span> <span class="n">CannotLoadConfiguration</span>
 <span class="kn">from</span> <span class="nn">..util</span> <span class="kn">import</span> <span class="n">LanguageCodes</span>
 <span class="kn">from</span> <span class="nn">..util.string_helpers</span> <span class="kn">import</span> <span class="n">native_string</span>
 
-<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">Counter</span>
-<span class="kn">import</span> <span class="nn">datetime</span>
-<span class="kn">import</span> <span class="nn">logging</span>
-<span class="kn">import</span> <span class="nn">random</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">Boolean</span><span class="p">,</span>
-    <span class="n">Binary</span><span class="p">,</span>
-    <span class="n">Column</span><span class="p">,</span>
-    <span class="n">DateTime</span><span class="p">,</span>
-    <span class="n">Enum</span><span class="p">,</span>
-    <span class="n">Float</span><span class="p">,</span>
-    <span class="n">ForeignKey</span><span class="p">,</span>
-    <span class="n">func</span><span class="p">,</span>
-    <span class="n">Index</span><span class="p">,</span>
-    <span class="n">Integer</span><span class="p">,</span>
-    <span class="n">Numeric</span><span class="p">,</span>
-    <span class="n">String</span><span class="p">,</span>
-    <span class="n">Table</span><span class="p">,</span>
-    <span class="n">Unicode</span><span class="p">,</span>
-<span class="p">)</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.dialects.postgresql</span> <span class="kn">import</span> <span class="n">INT4RANGE</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.ext.associationproxy</span> <span class="kn">import</span> <span class="n">association_proxy</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.sql.functions</span> <span class="kn">import</span> <span class="n">func</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">contains_eager</span><span class="p">,</span>
-    <span class="n">relationship</span><span class="p">,</span>
-<span class="p">)</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="kn">import</span> <span class="n">Session</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.sql</span> <span class="kn">import</span> <span class="n">select</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.sql.expression</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">and_</span><span class="p">,</span>
-    <span class="n">extract</span><span class="p">,</span>
-    <span class="n">or_</span><span class="p">,</span>
-    <span class="n">select</span><span class="p">,</span>
-    <span class="n">join</span><span class="p">,</span>
-    <span class="n">literal_column</span><span class="p">,</span>
-    <span class="n">case</span><span class="p">,</span>
-<span class="p">)</span>
-<span class="kn">from</span> <span class="nn">configuration</span> <span class="kn">import</span> <span class="n">CannotLoadConfiguration</span>
 
 <div class="viewcode-block" id="WorkGenre"><a class="viewcode-back" href="../../../core.model.html#core.monitor.WorkGenre">[docs]</a><span class="k">class</span> <span class="nc">WorkGenre</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;An assignment of a genre to a work.&quot;&quot;&quot;</span>
@@ -1208,10 +1201,11 @@
                     <span class="c1"># We have an unlimited source for this book.</span>
                     <span class="c1"># There&#39;s no need to keep looking.</span>
                     <span class="k">break</span>
+            <span class="k">elif</span> <span class="n">p</span><span class="o">.</span><span class="n">self_hosted</span><span class="p">:</span>
+                <span class="n">active_license_pool</span> <span class="o">=</span> <span class="n">p</span>
             <span class="k">elif</span> <span class="n">edition</span> <span class="ow">and</span> <span class="n">edition</span><span class="o">.</span><span class="n">title</span> <span class="ow">and</span> <span class="n">p</span><span class="o">.</span><span class="n">licenses_owned</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
                 <span class="n">active_license_pool</span> <span class="o">=</span> <span class="n">p</span>
         <span class="k">return</span> <span class="n">active_license_pool</span></div>
-
 
     <span class="k">def</span> <span class="nf">_reset_coverage</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">operation</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Put this work&#39;s WorkCoverageRecord for the given `operation`</span>
@@ -1541,7 +1535,7 @@
             <span class="n">Subject</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="kn">from</span> <span class="nn">customlist</span> <span class="kn">import</span> <span class="n">CustomListEntry</span>
-        <span class="kn">from</span> <span class="nn">licensing</span> <span class="kn">import</span> <span class="n">LicensePool</span><span class="p">,</span> <span class="n">LicensePoolDeliveryMechanism</span>
+        <span class="kn">from</span> <span class="nn">licensing</span> <span class="kn">import</span> <span class="n">LicensePool</span>
 
         <span class="c1"># We need information about LicensePools for a few reasons:</span>
         <span class="c1">#</span>
@@ -1569,8 +1563,14 @@
                 <span class="n">LicensePool</span><span class="o">.</span><span class="n">collection_id</span><span class="o">.</span><span class="n">label</span><span class="p">(</span><span class="s1">&#39;collection_id&#39;</span><span class="p">),</span>
                 <span class="n">LicensePool</span><span class="o">.</span><span class="n">open_access</span><span class="o">.</span><span class="n">label</span><span class="p">(</span><span class="s1">&#39;open_access&#39;</span><span class="p">),</span>
                 <span class="n">LicensePool</span><span class="o">.</span><span class="n">suppressed</span><span class="p">,</span>
-                <span class="p">(</span><span class="n">LicensePool</span><span class="o">.</span><span class="n">licenses_available</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">label</span><span class="p">(</span><span class="s1">&#39;available&#39;</span><span class="p">),</span>
-                <span class="p">(</span><span class="n">LicensePool</span><span class="o">.</span><span class="n">licenses_owned</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">label</span><span class="p">(</span><span class="s1">&#39;licensed&#39;</span><span class="p">),</span>
+                <span class="n">or_</span><span class="p">(</span>
+                    <span class="n">LicensePool</span><span class="o">.</span><span class="n">self_hosted</span><span class="p">,</span>
+                    <span class="n">LicensePool</span><span class="o">.</span><span class="n">licenses_available</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span>
+                <span class="p">)</span><span class="o">.</span><span class="n">label</span><span class="p">(</span><span class="s1">&#39;available&#39;</span><span class="p">),</span>
+                <span class="n">or_</span><span class="p">(</span>
+                    <span class="n">LicensePool</span><span class="o">.</span><span class="n">self_hosted</span><span class="p">,</span>
+                    <span class="n">LicensePool</span><span class="o">.</span><span class="n">licenses_owned</span> <span class="o">&gt;</span> <span class="mi">0</span>
+                <span class="p">)</span><span class="o">.</span><span class="n">label</span><span class="p">(</span><span class="s1">&#39;licensed&#39;</span><span class="p">),</span>
                 <span class="n">work_quality_column</span><span class="p">,</span>
                 <span class="n">Edition</span><span class="o">.</span><span class="n">medium</span><span class="p">,</span>
                 <span class="n">func</span><span class="o">.</span><span class="n">extract</span><span class="p">(</span>
@@ -1584,6 +1584,7 @@
                 <span class="n">work_presentation_edition_id_column</span><span class="o">==</span><span class="n">Edition</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
                 <span class="n">or_</span><span class="p">(</span>
                     <span class="n">LicensePool</span><span class="o">.</span><span class="n">open_access</span><span class="p">,</span>
+                    <span class="n">LicensePool</span><span class="o">.</span><span class="n">self_hosted</span><span class="p">,</span>
                     <span class="n">LicensePool</span><span class="o">.</span><span class="n">licenses_owned</span><span class="o">&gt;</span><span class="mi">0</span><span class="p">,</span>
                 <span class="p">),</span>
             <span class="p">)</span>

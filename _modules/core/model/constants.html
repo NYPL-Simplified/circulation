@@ -220,6 +220,7 @@
     <span class="n">IDEAL_IMAGE_HEIGHT</span> <span class="o">=</span> <span class="mi">240</span>
     <span class="n">IDEAL_IMAGE_WIDTH</span> <span class="o">=</span> <span class="mi">160</span></div>
 
+
 <div class="viewcode-block" id="LinkRelations"><a class="viewcode-back" href="../../../core.model.html#core.model.constants.LinkRelations">[docs]</a><span class="k">class</span> <span class="nc">LinkRelations</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
     <span class="c1"># Some common link relations.</span>
     <span class="n">CANONICAL</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;canonical&quot;</span>
@@ -242,7 +243,9 @@
     <span class="n">CIRCULATION_ALLOWED</span> <span class="o">=</span> <span class="p">[</span><span class="n">OPEN_ACCESS_DOWNLOAD</span><span class="p">,</span> <span class="n">DRM_ENCRYPTED_DOWNLOAD</span><span class="p">,</span> <span class="n">BORROW</span><span class="p">,</span> <span class="n">GENERIC_OPDS_ACQUISITION</span><span class="p">]</span>
     <span class="n">METADATA_ALLOWED</span> <span class="o">=</span> <span class="p">[</span><span class="n">CANONICAL</span><span class="p">,</span> <span class="n">IMAGE</span><span class="p">,</span> <span class="n">THUMBNAIL_IMAGE</span><span class="p">,</span> <span class="n">ILLUSTRATION</span><span class="p">,</span> <span class="n">REVIEW</span><span class="p">,</span>
         <span class="n">DESCRIPTION</span><span class="p">,</span> <span class="n">SHORT_DESCRIPTION</span><span class="p">,</span> <span class="n">AUTHOR</span><span class="p">,</span> <span class="n">ALTERNATE</span><span class="p">,</span> <span class="n">SAMPLE</span><span class="p">]</span>
-    <span class="n">MIRRORED</span> <span class="o">=</span> <span class="p">[</span><span class="n">OPEN_ACCESS_DOWNLOAD</span><span class="p">,</span> <span class="n">IMAGE</span><span class="p">,</span> <span class="n">THUMBNAIL_IMAGE</span><span class="p">]</span></div>
+    <span class="n">MIRRORED</span> <span class="o">=</span> <span class="p">[</span><span class="n">OPEN_ACCESS_DOWNLOAD</span><span class="p">,</span> <span class="n">GENERIC_OPDS_ACQUISITION</span><span class="p">,</span> <span class="n">IMAGE</span><span class="p">,</span> <span class="n">THUMBNAIL_IMAGE</span><span class="p">]</span>
+    <span class="n">SELF_HOSTED_BOOKS</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">CIRCULATION_ALLOWED</span><span class="p">)</span> <span class="o">&amp;</span> <span class="nb">set</span><span class="p">(</span><span class="n">MIRRORED</span><span class="p">))</span></div>
+
 
 <div class="viewcode-block" id="MediaTypes"><a class="viewcode-back" href="../../../core.model.html#core.model.constants.MediaTypes">[docs]</a><span class="k">class</span> <span class="nc">MediaTypes</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
     <span class="n">EPUB_MEDIA_TYPE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;application/epub+zip&quot;</span>

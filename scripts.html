@@ -331,9 +331,24 @@ ID.</p>
 metadata and directories containing ebook and cover files.</p>
 <dl class="method">
 <dt id="scripts.DirectoryImportScript.annotate_metadata">
-<code class="descname">annotate_metadata</code><span class="sig-paren">(</span><em>metadata</em>, <em>policy</em>, <em>cover_directory</em>, <em>ebook_directory</em>, <em>rights_uri</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/scripts.html#DirectoryImportScript.annotate_metadata"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#scripts.DirectoryImportScript.annotate_metadata" title="Permalink to this definition">¶</a></dt>
-<dd><p>Add a CirculationData and possibly an extra LinkData
-to <cite>metadata</cite>.</p>
+<code class="descname">annotate_metadata</code><span class="sig-paren">(</span><em>collection_type</em>, <em>metadata</em>, <em>policy</em>, <em>cover_directory</em>, <em>ebook_directory</em>, <em>rights_uri</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/scripts.html#DirectoryImportScript.annotate_metadata"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#scripts.DirectoryImportScript.annotate_metadata" title="Permalink to this definition">¶</a></dt>
+<dd><p>Add a CirculationData and possibly an extra LinkData to <cite>metadata</cite></p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>collection_type</strong> (<a class="reference internal" href="core.html#core.scripts.CollectionType" title="core.scripts.CollectionType"><em>CollectionType</em></a>) – Collection’s type: open access/protected access</li>
+<li><strong>metadata</strong> (<a class="reference internal" href="core.html#core.metadata_layer.Metadata" title="core.metadata_layer.Metadata"><em>Metadata</em></a>) – Book’s metadata</li>
+<li><strong>policy</strong> (<a class="reference internal" href="core.html#core.metadata_layer.ReplacementPolicy" title="core.metadata_layer.ReplacementPolicy"><em>ReplacementPolicy</em></a>) – Replacement policy</li>
+<li><strong>cover_directory</strong> (<em>string</em>) – Directory containing book covers</li>
+<li><strong>ebook_directory</strong> (<em>string</em>) – Directory containing books</li>
+<li><strong>rights_uri</strong> (<em>string</em>) – URI explaining the rights status of the works being uploaded</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
 </dd></dl>
 
 <dl class="classmethod">
@@ -348,14 +363,29 @@ to <cite>metadata</cite>.</p>
 
 <dl class="method">
 <dt id="scripts.DirectoryImportScript.load_circulation_data">
-<code class="descname">load_circulation_data</code><span class="sig-paren">(</span><em>identifier</em>, <em>data_source</em>, <em>ebook_directory</em>, <em>mirrors</em>, <em>title</em>, <em>rights_uri</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/scripts.html#DirectoryImportScript.load_circulation_data"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#scripts.DirectoryImportScript.load_circulation_data" title="Permalink to this definition">¶</a></dt>
-<dd><p>Load an actual copy of a book from disk.</p>
+<code class="descname">load_circulation_data</code><span class="sig-paren">(</span><em>collection_type</em>, <em>identifier</em>, <em>data_source</em>, <em>ebook_directory</em>, <em>mirrors</em>, <em>title</em>, <em>rights_uri</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/scripts.html#DirectoryImportScript.load_circulation_data"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#scripts.DirectoryImportScript.load_circulation_data" title="Permalink to this definition">¶</a></dt>
+<dd><p>Loads an actual copy of a book from disk</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">A CirculationData that contains the book as an open-access
-download, or None if no such book can be found.</td>
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>collection_type</strong> (<a class="reference internal" href="core.html#core.scripts.CollectionType" title="core.scripts.CollectionType"><em>CollectionType</em></a>) – Collection’s type: open access/protected access</li>
+<li><strong>identifier</strong> (<a class="reference internal" href="core.model.html#core.model.identifier.Identifier" title="core.model.identifier.Identifier"><em>Identifier</em></a>) – Book’s identifier</li>
+<li><strong>data_source</strong> (<a class="reference internal" href="core.model.html#core.model.datasource.DataSource" title="core.model.datasource.DataSource"><em>DataSource</em></a>) – DataSource object</li>
+<li><strong>ebook_directory</strong> (<em>string</em>) – Directory containing books</li>
+<li><strong>mirrors</strong> (<em>Dict</em><em>[</em><em>string</em><em>, </em><a class="reference internal" href="core.html#core.mirror.MirrorUploader" title="core.mirror.MirrorUploader"><em>MirrorUploader</em></a><em>]</em>) – Dictionary containing mirrors for books and their covers</li>
+<li><strong>title</strong> (<em>string</em>) – Book’s title</li>
+<li><strong>rights_uri</strong> (<em>string</em>) – URI explaining the rights status of the works being uploaded</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">A CirculationData that contains the book as an open-access
+download, or None if no such book can be found</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last"><a class="reference internal" href="core.html#core.metadata_layer.CirculationData" title="core.metadata_layer.CirculationData">CirculationData</a></p>
+</td>
 </tr>
 </tbody>
 </table>
@@ -363,7 +393,7 @@ download, or None if no such book can be found.</td>
 
 <dl class="method">
 <dt id="scripts.DirectoryImportScript.load_collection">
-<code class="descname">load_collection</code><span class="sig-paren">(</span><em>collection_name</em>, <em>data_source_name</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/scripts.html#DirectoryImportScript.load_collection"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#scripts.DirectoryImportScript.load_collection" title="Permalink to this definition">¶</a></dt>
+<code class="descname">load_collection</code><span class="sig-paren">(</span><em>collection_name</em>, <em>collection_type</em>, <em>data_source_name</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/scripts.html#DirectoryImportScript.load_collection"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#scripts.DirectoryImportScript.load_collection" title="Permalink to this definition">¶</a></dt>
 <dd><p>Locate a Collection with the given name.</p>
 <p>If the collection is found, it will be associated
 with the given data source and configured with existing
@@ -373,14 +403,18 @@ covers and books mirror configurations.</p>
 <col class="field-body" />
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
-<li><strong>collection_name</strong> – Name of the Collection.</li>
-<li><strong>data_source_name</strong> – Associate this data source with
+<li><strong>collection_name</strong> (<a class="reference internal" href="core.html#core.scripts.CollectionType" title="core.scripts.CollectionType"><em>CollectionType</em></a>) – Name of the Collection.</li>
+<li><strong>collection_type</strong> – Type of the collection: open access/proteceted access.</li>
+<li><strong>data_source_name</strong> (<em>string</em>) – Associate this data source with
 the Collection if it does not already have a data source.
 A DataSource object will be created if necessary.</li>
 </ul>
 </td>
 </tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">A 2-tuple (Collection, MirrorUploader)</p>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">A 2-tuple (Collection, list of MirrorUploader instances)</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">Tuple[<a class="reference internal" href="core.model.html#core.model.collection.Collection" title="core.model.collection.Collection">Collection</a>, List[<a class="reference internal" href="core.html#core.mirror.MirrorUploader" title="core.mirror.MirrorUploader">MirrorUploader</a>]]</p>
 </td>
 </tr>
 </tbody>
@@ -415,13 +449,34 @@ if no book cover can be found.</td>
 
 <dl class="method">
 <dt id="scripts.DirectoryImportScript.run_with_arguments">
-<code class="descname">run_with_arguments</code><span class="sig-paren">(</span><em>collection_name</em>, <em>data_source_name</em>, <em>metadata_file</em>, <em>metadata_format</em>, <em>cover_directory</em>, <em>ebook_directory</em>, <em>rights_uri</em>, <em>dry_run</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/scripts.html#DirectoryImportScript.run_with_arguments"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#scripts.DirectoryImportScript.run_with_arguments" title="Permalink to this definition">¶</a></dt>
+<code class="descname">run_with_arguments</code><span class="sig-paren">(</span><em>collection_name</em>, <em>collection_type</em>, <em>data_source_name</em>, <em>metadata_file</em>, <em>metadata_format</em>, <em>cover_directory</em>, <em>ebook_directory</em>, <em>rights_uri</em>, <em>dry_run</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/scripts.html#DirectoryImportScript.run_with_arguments"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#scripts.DirectoryImportScript.run_with_arguments" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
 <dt id="scripts.DirectoryImportScript.work_from_metadata">
-<code class="descname">work_from_metadata</code><span class="sig-paren">(</span><em>collection</em>, <em>metadata</em>, <em>policy</em>, <em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/scripts.html#DirectoryImportScript.work_from_metadata"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#scripts.DirectoryImportScript.work_from_metadata" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
+<code class="descname">work_from_metadata</code><span class="sig-paren">(</span><em>collection</em>, <em>collection_type</em>, <em>metadata</em>, <em>policy</em>, <em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/scripts.html#DirectoryImportScript.work_from_metadata"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#scripts.DirectoryImportScript.work_from_metadata" title="Permalink to this definition">¶</a></dt>
+<dd><p>Creates a Work instance from metadata</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>collection</strong> (<a class="reference internal" href="core.model.html#core.model.collection.Collection" title="core.model.collection.Collection"><em>Collection</em></a>) – Target collection</li>
+<li><strong>collection_type</strong> (<a class="reference internal" href="core.html#core.scripts.CollectionType" title="core.scripts.CollectionType"><em>CollectionType</em></a>) – Collection’s type: open access/protected access</li>
+<li><strong>metadata</strong> (<a class="reference internal" href="core.html#core.metadata_layer.Metadata" title="core.metadata_layer.Metadata"><em>Metadata</em></a>) – Book’s metadata</li>
+<li><strong>policy</strong> (<a class="reference internal" href="core.html#core.metadata_layer.ReplacementPolicy" title="core.metadata_layer.ReplacementPolicy"><em>ReplacementPolicy</em></a>) – Replacement policy</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">Work object</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last"><a class="reference internal" href="core.model.html#core.model.work.Work" title="core.model.work.Work">core.model.work.Work</a></p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
 
 </dd></dl>
 

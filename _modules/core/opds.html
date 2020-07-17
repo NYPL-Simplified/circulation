@@ -1630,7 +1630,7 @@
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">status</span> <span class="o">=</span> <span class="s1">&#39;reserved&#39;</span>
                 <span class="n">since</span> <span class="o">=</span> <span class="n">hold</span><span class="o">.</span><span class="n">start</span>
-        <span class="k">elif</span> <span class="p">(</span><span class="n">license_pool</span><span class="o">.</span><span class="n">open_access</span> <span class="ow">or</span> <span class="p">(</span>
+        <span class="k">elif</span> <span class="p">(</span><span class="n">license_pool</span><span class="o">.</span><span class="n">open_access</span> <span class="ow">or</span> <span class="n">license_pool</span><span class="o">.</span><span class="n">self_hosted</span> <span class="ow">or</span> <span class="p">(</span>
                 <span class="n">license_pool</span><span class="o">.</span><span class="n">licenses_available</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span>
                 <span class="n">license_pool</span><span class="o">.</span><span class="n">licenses_owned</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
           <span class="p">):</span>
@@ -1648,9 +1648,8 @@
         <span class="n">tags</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">availability_tag</span><span class="p">)</span>
 
         <span class="c1"># Open-access pools do not need to display &lt;opds:holds&gt; or &lt;opds:copies&gt;.</span>
-        <span class="k">if</span> <span class="n">license_pool</span><span class="o">.</span><span class="n">open_access</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">license_pool</span><span class="o">.</span><span class="n">open_access</span> <span class="ow">or</span> <span class="n">license_pool</span><span class="o">.</span><span class="n">self_hosted</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">tags</span>
-
 
         <span class="n">holds_kw</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
         <span class="n">total</span> <span class="o">=</span> <span class="n">license_pool</span><span class="o">.</span><span class="n">patrons_in_hold_queue</span> <span class="ow">or</span> <span class="mi">0</span>

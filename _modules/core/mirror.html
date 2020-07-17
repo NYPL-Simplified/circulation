@@ -33,14 +33,19 @@
           <div class="body" role="main">
             
   <h1>Source code for core.mirror</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
-<span class="kn">import</span> <span class="nn">datetime</span>
+<span></span><span class="kn">import</span> <span class="nn">datetime</span>
+<span class="kn">from</span> <span class="nn">abc</span> <span class="kn">import</span> <span class="n">abstractmethod</span><span class="p">,</span> <span class="n">ABCMeta</span>
+<span class="kn">from</span> <span class="nn">urlparse</span> <span class="kn">import</span> <span class="n">urlsplit</span>
+
 <span class="kn">from</span> <span class="nn">config</span> <span class="kn">import</span> <span class="n">CannotLoadConfiguration</span>
 
-<div class="viewcode-block" id="MirrorUploader"><a class="viewcode-back" href="../../core.html#core.mirror.MirrorUploader">[docs]</a><span class="k">class</span> <span class="nc">MirrorUploader</span><span class="p">():</span>
+
+<div class="viewcode-block" id="MirrorUploader"><a class="viewcode-back" href="../../core.html#core.mirror.MirrorUploader">[docs]</a><span class="k">class</span> <span class="nc">MirrorUploader</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Handles the job of uploading a representation&#39;s content to</span>
 <span class="sd">    a mirror that we control.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">__metaclass__</span> <span class="o">=</span> <span class="n">ABCMeta</span>
 
     <span class="n">STORAGE_GOAL</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;storage&#39;</span>
 
@@ -115,11 +120,15 @@
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">implementation_class</span><span class="p">(</span><span class="n">integration</span><span class="p">)</span></div>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">integration</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">integration</span><span class="p">,</span> <span class="n">host</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Instantiate a MirrorUploader from an ExternalIntegration.</span>
 
 <span class="sd">        :param integration: An ExternalIntegration configuring the credentials</span>
 <span class="sd">           used to upload things.</span>
+<span class="sd">        :type integration: ExternalIntegration</span>
+
+<span class="sd">        :param host: Base host used by the mirror</span>
+<span class="sd">        :type host: string</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">integration</span><span class="o">.</span><span class="n">goal</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">STORAGE_GOAL</span><span class="p">:</span>
             <span class="c1"># This collection&#39;s &#39;mirror integration&#39; isn&#39;t intended to</span>
@@ -128,6 +137,8 @@
                 <span class="s2">&quot;Cannot create an MirrorUploader from an integration with goal=</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span>
                 <span class="n">integration</span><span class="o">.</span><span class="n">goal</span>
             <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_host</span> <span class="o">=</span> <span class="n">host</span>
 
         <span class="c1"># Subclasses will override this to further configure the client</span>
         <span class="c1"># based on the credentials in the ExternalIntegration.</span>
@@ -168,6 +179,52 @@
 <span class="sd">        This does not upload anything to the URL, but it is expected</span>
 <span class="sd">        that calling mirror() on a certain Representation object will</span>
 <span class="sd">        make that representation end up at that URL.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="MirrorUploader.sign_url"><a class="viewcode-back" href="../../core.html#core.mirror.MirrorUploader.sign_url">[docs]</a>    <span class="k">def</span> <span class="nf">sign_url</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">expiration</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Signs a URL and make it expirable</span>
+
+<span class="sd">        :param url: URL</span>
+<span class="sd">        :type url: string</span>
+
+<span class="sd">        :param expiration: (Optional) Time in seconds for the presigned URL to remain valid.</span>
+<span class="sd">            Default value depends on a specific implementation</span>
+<span class="sd">        :type expiration: int</span>
+
+<span class="sd">        :return: Signed expirable link</span>
+<span class="sd">        :rtype: string</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="MirrorUploader.is_self_url"><a class="viewcode-back" href="../../core.html#core.mirror.MirrorUploader.is_self_url">[docs]</a>    <span class="k">def</span> <span class="nf">is_self_url</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Determines whether the URL has the mirror&#39;s host or a custom domain</span>
+
+<span class="sd">        :param url: The URL</span>
+<span class="sd">        :type url: string</span>
+
+<span class="sd">        :return: Boolean value indicating whether the URL has the mirror&#39;s host or a custom domain</span>
+<span class="sd">        :rtype: bool</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">scheme</span><span class="p">,</span> <span class="n">netloc</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">query</span><span class="p">,</span> <span class="n">fragment</span> <span class="o">=</span> <span class="n">urlsplit</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">netloc</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_host</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span></div>
+
+<div class="viewcode-block" id="MirrorUploader.split_url"><a class="viewcode-back" href="../../core.html#core.mirror.MirrorUploader.split_url">[docs]</a>    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">split_url</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">unquote</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Splits the URL into the components: container (bucket) and file path</span>
+
+<span class="sd">        :param url: URL</span>
+<span class="sd">        :type url: string</span>
+
+<span class="sd">        :param unquote: Boolean value indicating whether it&#39;s required to unquote URL elements</span>
+<span class="sd">        :type unquote: bool</span>
+
+<span class="sd">        :return: Tuple (bucket, file path)</span>
+<span class="sd">        :rtype: Tuple[string, string]</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div></div>
 </pre></div>

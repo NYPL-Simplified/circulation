@@ -582,7 +582,11 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">rel</span> <span class="ow">in</span> <span class="p">[</span><span class="n">Hyperlink</span><span class="o">.</span><span class="n">IMAGE</span><span class="p">,</span> <span class="n">Hyperlink</span><span class="o">.</span><span class="n">THUMBNAIL_IMAGE</span><span class="p">]:</span>
             <span class="k">return</span> <span class="n">ExternalIntegrationLink</span><span class="o">.</span><span class="n">COVERS</span>
-        <span class="k">return</span> <span class="n">ExternalIntegrationLink</span><span class="o">.</span><span class="n">BOOKS</span></div></div>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">rel</span> <span class="o">==</span> <span class="n">Hyperlink</span><span class="o">.</span><span class="n">OPEN_ACCESS_DOWNLOAD</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">ExternalIntegrationLink</span><span class="o">.</span><span class="n">OPEN_ACCESS_BOOKS</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">rel</span> <span class="o">==</span> <span class="n">Hyperlink</span><span class="o">.</span><span class="n">GENERIC_OPDS_ACQUISITION</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">ExternalIntegrationLink</span><span class="o">.</span><span class="n">PROTECTED_ACCESS_BOOKS</span></div></div>
 
 
 <div class="viewcode-block" id="MeasurementData"><a class="viewcode-back" href="../../core.html#core.metadata_layer.MeasurementData">[docs]</a><span class="k">class</span> <span class="nc">MeasurementData</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
@@ -826,7 +830,7 @@
         <span class="n">link_obj</span><span class="o">.</span><span class="n">resource</span><span class="o">.</span><span class="n">representation</span> <span class="o">=</span> <span class="n">representation</span>
 
         <span class="c1"># If we couldn&#39;t fetch this representation, don&#39;t mirror it,</span>
-        <span class="c1"># and if this was an open access link, then suppress the associated</span>
+        <span class="c1"># and if this was an open/protected access link, then suppress the associated</span>
         <span class="c1"># license pool until someone fixes it manually.</span>
         <span class="c1"># The license pool to suppress will be either the passed-in model_object (if it&#39;s of type pool),</span>
         <span class="c1"># or the license pool associated with the passed-in model object (if it&#39;s of type edition).</span>
@@ -878,12 +882,15 @@
 
         <span class="c1"># Determine the best URL to use when mirroring this</span>
         <span class="c1"># representation.</span>
-        <span class="k">if</span> <span class="n">link</span><span class="o">.</span><span class="n">rel</span> <span class="o">==</span> <span class="n">Hyperlink</span><span class="o">.</span><span class="n">OPEN_ACCESS_DOWNLOAD</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">link</span><span class="o">.</span><span class="n">media_type</span> <span class="ow">in</span> <span class="n">Representation</span><span class="o">.</span><span class="n">BOOK_MEDIA_TYPES</span><span class="p">:</span>
             <span class="n">url_title</span> <span class="o">=</span> <span class="n">title</span> <span class="ow">or</span> <span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span>
             <span class="n">extension</span> <span class="o">=</span> <span class="n">representation</span><span class="o">.</span><span class="n">extension</span><span class="p">()</span>
             <span class="n">mirror_url</span> <span class="o">=</span> <span class="n">mirror</span><span class="o">.</span><span class="n">book_url</span><span class="p">(</span>
-                <span class="n">identifier</span><span class="p">,</span> <span class="n">data_source</span><span class="o">=</span><span class="n">data_source</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="n">url_title</span><span class="p">,</span>
-                <span class="n">extension</span><span class="o">=</span><span class="n">extension</span>
+                <span class="n">identifier</span><span class="p">,</span>
+                <span class="n">data_source</span><span class="o">=</span><span class="n">data_source</span><span class="p">,</span>
+                <span class="n">title</span><span class="o">=</span><span class="n">url_title</span><span class="p">,</span>
+                <span class="n">extension</span><span class="o">=</span><span class="n">extension</span><span class="p">,</span>
+                <span class="n">open_access</span><span class="o">=</span><span class="n">link</span><span class="o">.</span><span class="n">rel</span> <span class="o">==</span> <span class="n">Hyperlink</span><span class="o">.</span><span class="n">OPEN_ACCESS_DOWNLOAD</span>
             <span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">filename</span> <span class="o">=</span> <span class="n">representation</span><span class="o">.</span><span class="n">default_filename</span><span class="p">(</span>
@@ -896,7 +903,7 @@
         <span class="c1"># Mirror it.</span>
         <span class="n">mirror</span><span class="o">.</span><span class="n">mirror_one</span><span class="p">(</span><span class="n">representation</span><span class="p">,</span> <span class="n">mirror_url</span><span class="p">)</span>
 
-        <span class="c1"># If we couldn&#39;t mirror an open access link representation, suppress</span>
+        <span class="c1"># If we couldn&#39;t mirror an open/protected access link representation, suppress</span>
         <span class="c1"># the license pool until someone fixes it manually.</span>
         <span class="k">if</span> <span class="n">representation</span><span class="o">.</span><span class="n">mirror_exception</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">pools</span> <span class="ow">and</span> <span class="n">link</span><span class="o">.</span><span class="n">rel</span> <span class="o">==</span> <span class="n">Hyperlink</span><span class="o">.</span><span class="n">OPEN_ACCESS_DOWNLOAD</span><span class="p">:</span>
@@ -926,13 +933,12 @@
                 <span class="c1"># image. Mirror it as well.</span>
                 <span class="n">mirror</span><span class="o">.</span><span class="n">mirror_one</span><span class="p">(</span><span class="n">thumbnail</span><span class="p">,</span> <span class="n">thumbnail_url</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="n">link_obj</span><span class="o">.</span><span class="n">rel</span> <span class="o">==</span> <span class="n">Hyperlink</span><span class="o">.</span><span class="n">OPEN_ACCESS_DOWNLOAD</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">link_obj</span><span class="o">.</span><span class="n">rel</span> <span class="ow">in</span> <span class="n">Hyperlink</span><span class="o">.</span><span class="n">SELF_HOSTED_BOOKS</span><span class="p">:</span>
             <span class="c1"># If we mirrored book content successfully, remove it from</span>
             <span class="c1"># the database to save space. We do keep images in case we</span>
             <span class="c1"># ever need to resize them or mirror them elsewhere.</span>
             <span class="k">if</span> <span class="n">representation</span><span class="o">.</span><span class="n">mirrored_at</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">representation</span><span class="o">.</span><span class="n">mirror_exception</span><span class="p">:</span>
                 <span class="n">representation</span><span class="o">.</span><span class="n">content</span> <span class="o">=</span> <span class="kc">None</span></div></div>
-
 
 
 <div class="viewcode-block" id="CirculationData"><a class="viewcode-back" href="../../core.html#core.metadata_layer.CirculationData">[docs]</a><span class="k">class</span> <span class="nc">CirculationData</span><span class="p">(</span><span class="n">MetaToModelUtility</span><span class="p">):</span>

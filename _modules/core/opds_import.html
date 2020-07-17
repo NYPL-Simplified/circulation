@@ -615,7 +615,7 @@
         <span class="c1"># Check to see if a mirror for each purpose was passed in.</span>
         <span class="c1"># If not, then attempt to create one.</span>
         <span class="n">covers_mirror</span> <span class="o">=</span> <span class="n">mirrors</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">ExternalIntegrationLink</span><span class="o">.</span><span class="n">COVERS</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="k">if</span> <span class="n">mirrors</span> <span class="k">else</span> <span class="kc">None</span>
-        <span class="n">books_mirror</span> <span class="o">=</span> <span class="n">mirrors</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">ExternalIntegrationLink</span><span class="o">.</span><span class="n">BOOKS</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="k">if</span> <span class="n">mirrors</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="n">books_mirror</span> <span class="o">=</span> <span class="n">mirrors</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">ExternalIntegrationLink</span><span class="o">.</span><span class="n">OPEN_ACCESS_BOOKS</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="k">if</span> <span class="n">mirrors</span> <span class="k">else</span> <span class="kc">None</span>
         <span class="k">if</span> <span class="n">collection</span><span class="p">:</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">covers_mirror</span><span class="p">:</span>
                 <span class="c1"># If this Collection is configured to mirror the assets it</span>
@@ -626,7 +626,7 @@
                 <span class="p">)</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">books_mirror</span><span class="p">:</span>
                 <span class="n">books_mirror</span> <span class="o">=</span> <span class="n">MirrorUploader</span><span class="o">.</span><span class="n">for_collection</span><span class="p">(</span>
-                    <span class="n">collection</span><span class="p">,</span> <span class="n">ExternalIntegrationLink</span><span class="o">.</span><span class="n">BOOKS</span>
+                    <span class="n">collection</span><span class="p">,</span> <span class="n">ExternalIntegrationLink</span><span class="o">.</span><span class="n">OPEN_ACCESS_BOOKS</span>
                 <span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">mirrors</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">covers_mirror</span><span class="o">=</span><span class="n">covers_mirror</span><span class="p">,</span> <span class="n">books_mirror</span><span class="o">=</span><span class="n">books_mirror</span><span class="p">)</span>

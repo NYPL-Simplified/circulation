@@ -1931,6 +1931,11 @@ to a third-party API.</p>
 <dd></dd></dl>
 
 <dl class="attribute">
+<dt id="core.model.configuration.ExternalIntegration.MINIO">
+<code class="descname">MINIO</code><em class="property"> = u'MinIO'</em><a class="headerlink" href="#core.model.configuration.ExternalIntegration.MINIO" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
 <dt id="core.model.configuration.ExternalIntegration.NOVELIST">
 <code class="descname">NOVELIST</code><em class="property"> = u'NoveList Select'</em><a class="headerlink" href="#core.model.configuration.ExternalIntegration.NOVELIST" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -2196,18 +2201,18 @@ has this value.</li>
 <em class="property">class </em><code class="descclassname">core.model.configuration.</code><code class="descname">ExternalIntegrationLink</code><span class="sig-paren">(</span><em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/model/configuration.html#ExternalIntegrationLink"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.configuration.ExternalIntegrationLink" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">sqlalchemy.ext.declarative.api.Base</span></code>, <a class="reference internal" href="#core.model.hasfulltablecache.HasFullTableCache" title="core.model.hasfulltablecache.HasFullTableCache"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.model.hasfulltablecache.HasFullTableCache</span></code></a></p>
 <dl class="attribute">
-<dt id="core.model.configuration.ExternalIntegrationLink.BOOKS">
-<code class="descname">BOOKS</code><em class="property"> = 'books_mirror'</em><a class="headerlink" href="#core.model.configuration.ExternalIntegrationLink.BOOKS" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
 <dt id="core.model.configuration.ExternalIntegrationLink.COLLECTION_MIRROR_SETTINGS">
-<code class="descname">COLLECTION_MIRROR_SETTINGS</code><em class="property"> = [{'options': [{'key': u'NO_MIRROR', 'label': l'None - Do not mirror cover images'}], 'type': 'select', 'description': l'Any cover images encountered while importing content from this collection can be mirrored to a server you control.', 'key': 'covers_mirror_integration_id', 'label': l'Covers Mirror'}, {'options': [{'key': u'NO_MIRROR', 'label': l'None - Do not mirror free books'}], 'type': 'select', 'description': l'Any free books encountered while importing content from this collection can be mirrored to a server you control.', 'key': 'books_mirror_integration_id', 'label': l'Books Mirror'}]</em><a class="headerlink" href="#core.model.configuration.ExternalIntegrationLink.COLLECTION_MIRROR_SETTINGS" title="Permalink to this definition">¶</a></dt>
+<code class="descname">COLLECTION_MIRROR_SETTINGS</code><em class="property"> = [{'options': [{'key': u'NO_MIRROR', 'label': l'None - Do not mirror cover images'}], 'type': 'select', 'description': l'Any cover images encountered while importing content from this collection can be mirrored to a server you control.', 'key': 'covers_mirror_integration_id', 'label': l'Covers Mirror'}, {'options': [{'key': u'NO_MIRROR', 'label': l'None - Do not mirror free books'}], 'type': 'select', 'description': l'Any free books encountered while importing content from this collection can be mirrored to a server you control.', 'key': 'books_mirror_integration_id', 'label': l'Open Access Books Mirror'}, {'options': [{'key': u'NO_MIRROR', 'label': l'None - Do not mirror self-hosted, commercially licensed books'}], 'type': 'select', 'description': l'Any self-hosted, commercially licensed books encountered while importing content from this collection can be mirrored to a server you control.', 'key': 'protected_access_books_mirror_integration_id', 'label': l'Protected Access Books Mirror'}]</em><a class="headerlink" href="#core.model.configuration.ExternalIntegrationLink.COLLECTION_MIRROR_SETTINGS" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="core.model.configuration.ExternalIntegrationLink.COVERS">
 <code class="descname">COVERS</code><em class="property"> = 'covers_mirror'</em><a class="headerlink" href="#core.model.configuration.ExternalIntegrationLink.COVERS" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.model.configuration.ExternalIntegrationLink.COVERS_KEY">
+<code class="descname">COVERS_KEY</code><em class="property"> = 'covers_mirror_integration_id'</em><a class="headerlink" href="#core.model.configuration.ExternalIntegrationLink.COVERS_KEY" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -2221,8 +2226,23 @@ has this value.</li>
 <dd></dd></dl>
 
 <dl class="attribute">
-<dt id="core.model.configuration.ExternalIntegrationLink.description_type">
-<code class="descname">description_type</code><em class="property"> = 'free books'</em><a class="headerlink" href="#core.model.configuration.ExternalIntegrationLink.description_type" title="Permalink to this definition">¶</a></dt>
+<dt id="core.model.configuration.ExternalIntegrationLink.OPEN_ACCESS_BOOKS">
+<code class="descname">OPEN_ACCESS_BOOKS</code><em class="property"> = 'books_mirror'</em><a class="headerlink" href="#core.model.configuration.ExternalIntegrationLink.OPEN_ACCESS_BOOKS" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.model.configuration.ExternalIntegrationLink.OPEN_ACCESS_BOOKS_KEY">
+<code class="descname">OPEN_ACCESS_BOOKS_KEY</code><em class="property"> = 'books_mirror_integration_id'</em><a class="headerlink" href="#core.model.configuration.ExternalIntegrationLink.OPEN_ACCESS_BOOKS_KEY" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.model.configuration.ExternalIntegrationLink.PROTECTED_ACCESS_BOOKS">
+<code class="descname">PROTECTED_ACCESS_BOOKS</code><em class="property"> = 'protected_access_books_mirror'</em><a class="headerlink" href="#core.model.configuration.ExternalIntegrationLink.PROTECTED_ACCESS_BOOKS" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.model.configuration.ExternalIntegrationLink.PROTECTED_ACCESS_BOOKS_KEY">
+<code class="descname">PROTECTED_ACCESS_BOOKS_KEY</code><em class="property"> = 'protected_access_books_mirror_integration_id'</em><a class="headerlink" href="#core.model.configuration.ExternalIntegrationLink.PROTECTED_ACCESS_BOOKS_KEY" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -2236,18 +2256,33 @@ has this value.</li>
 <dd></dd></dl>
 
 <dl class="attribute">
-<dt id="core.model.configuration.ExternalIntegrationLink.key">
-<code class="descname">key</code><em class="property"> = 'books_mirror_integration_id'</em><a class="headerlink" href="#core.model.configuration.ExternalIntegrationLink.key" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="core.model.configuration.ExternalIntegrationLink.label">
-<code class="descname">label</code><em class="property"> = 'books'</em><a class="headerlink" href="#core.model.configuration.ExternalIntegrationLink.label" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
 <dt id="core.model.configuration.ExternalIntegrationLink.library_id">
 <code class="descname">library_id</code><a class="headerlink" href="#core.model.configuration.ExternalIntegrationLink.library_id" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.model.configuration.ExternalIntegrationLink.mirror_description_type">
+<code class="descname">mirror_description_type</code><em class="property"> = 'self-hosted, commercially licensed books'</em><a class="headerlink" href="#core.model.configuration.ExternalIntegrationLink.mirror_description_type" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.model.configuration.ExternalIntegrationLink.mirror_label">
+<code class="descname">mirror_label</code><em class="property"> = 'Protected Access Books Mirror'</em><a class="headerlink" href="#core.model.configuration.ExternalIntegrationLink.mirror_label" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.model.configuration.ExternalIntegrationLink.mirror_setting">
+<code class="descname">mirror_setting</code><em class="property"> = {'description_type': 'self-hosted, commercially licensed books', 'key': 'protected_access_books_mirror_integration_id', 'label': 'Protected Access Books Mirror', 'type': 'protected_access_books_mirror'}</em><a class="headerlink" href="#core.model.configuration.ExternalIntegrationLink.mirror_setting" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.model.configuration.ExternalIntegrationLink.mirror_settings">
+<code class="descname">mirror_settings</code><em class="property"> = [{'type': 'covers_mirror', 'description_type': 'cover images', 'key': 'covers_mirror_integration_id', 'label': 'Covers Mirror'}, {'type': 'books_mirror', 'description_type': 'free books', 'key': 'books_mirror_integration_id', 'label': 'Open Access Books Mirror'}, {'type': 'protected_access_books_mirror', 'description_type': 'self-hosted, commercially licensed books', 'key': 'protected_access_books_mirror_integration_id', 'label': 'Protected Access Books Mirror'}]</em><a class="headerlink" href="#core.model.configuration.ExternalIntegrationLink.mirror_settings" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.model.configuration.ExternalIntegrationLink.mirror_type">
+<code class="descname">mirror_type</code><em class="property"> = 'protected_access_books_mirror'</em><a class="headerlink" href="#core.model.configuration.ExternalIntegrationLink.mirror_type" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -2262,17 +2297,7 @@ has this value.</li>
 
 <dl class="attribute">
 <dt id="core.model.configuration.ExternalIntegrationLink.settings">
-<code class="descname">settings</code><em class="property"> = [{'options': [{'key': u'NO_MIRROR', 'label': l'None - Do not mirror cover images'}], 'type': 'select', 'description': l'Any cover images encountered while importing content from this collection can be mirrored to a server you control.', 'key': 'covers_mirror_integration_id', 'label': l'Covers Mirror'}, {'options': [{'key': u'NO_MIRROR', 'label': l'None - Do not mirror free books'}], 'type': 'select', 'description': l'Any free books encountered while importing content from this collection can be mirrored to a server you control.', 'key': 'books_mirror_integration_id', 'label': l'Books Mirror'}]</em><a class="headerlink" href="#core.model.configuration.ExternalIntegrationLink.settings" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="core.model.configuration.ExternalIntegrationLink.type">
-<code class="descname">type</code><em class="property"> = 'books_mirror'</em><a class="headerlink" href="#core.model.configuration.ExternalIntegrationLink.type" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="core.model.configuration.ExternalIntegrationLink.types">
-<code class="descname">types</code><em class="property"> = ['covers_mirror', 'books_mirror']</em><a class="headerlink" href="#core.model.configuration.ExternalIntegrationLink.types" title="Permalink to this definition">¶</a></dt>
+<code class="descname">settings</code><em class="property"> = [{'options': [{'key': u'NO_MIRROR', 'label': l'None - Do not mirror cover images'}], 'type': 'select', 'description': l'Any cover images encountered while importing content from this collection can be mirrored to a server you control.', 'key': 'covers_mirror_integration_id', 'label': l'Covers Mirror'}, {'options': [{'key': u'NO_MIRROR', 'label': l'None - Do not mirror free books'}], 'type': 'select', 'description': l'Any free books encountered while importing content from this collection can be mirrored to a server you control.', 'key': 'books_mirror_integration_id', 'label': l'Open Access Books Mirror'}, {'options': [{'key': u'NO_MIRROR', 'label': l'None - Do not mirror self-hosted, commercially licensed books'}], 'type': 'select', 'description': l'Any self-hosted, commercially licensed books encountered while importing content from this collection can be mirrored to a server you control.', 'key': 'protected_access_books_mirror_integration_id', 'label': l'Protected Access Books Mirror'}]</em><a class="headerlink" href="#core.model.configuration.ExternalIntegrationLink.settings" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -2804,7 +2829,7 @@ has this value.</li>
 
 <dl class="attribute">
 <dt id="core.model.constants.LinkRelations.MIRRORED">
-<code class="descname">MIRRORED</code><em class="property"> = [u'http://opds-spec.org/acquisition/open-access', u'http://opds-spec.org/image', u'http://opds-spec.org/image/thumbnail']</em><a class="headerlink" href="#core.model.constants.LinkRelations.MIRRORED" title="Permalink to this definition">¶</a></dt>
+<code class="descname">MIRRORED</code><em class="property"> = [u'http://opds-spec.org/acquisition/open-access', u'http://opds-spec.org/acquisition', u'http://opds-spec.org/image', u'http://opds-spec.org/image/thumbnail']</em><a class="headerlink" href="#core.model.constants.LinkRelations.MIRRORED" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -2820,6 +2845,11 @@ has this value.</li>
 <dl class="attribute">
 <dt id="core.model.constants.LinkRelations.SAMPLE">
 <code class="descname">SAMPLE</code><em class="property"> = u'http://opds-spec.org/acquisition/sample'</em><a class="headerlink" href="#core.model.constants.LinkRelations.SAMPLE" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.model.constants.LinkRelations.SELF_HOSTED_BOOKS">
+<code class="descname">SELF_HOSTED_BOOKS</code><em class="property"> = [u'http://opds-spec.org/acquisition', u'http://opds-spec.org/acquisition/open-access']</em><a class="headerlink" href="#core.model.constants.LinkRelations.SELF_HOSTED_BOOKS" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -3810,7 +3840,7 @@ and as such there is no data_source_id.</p>
 
 <dl class="classmethod">
 <dt id="core.model.credential.Credential.lookup">
-<em class="property">classmethod </em><code class="descname">lookup</code><span class="sig-paren">(</span><em>_db</em>, <em>data_source</em>, <em>type</em>, <em>patron</em>, <em>refresher_method</em>, <em>allow_persistent_token=False</em>, <em>allow_empty_token=False</em>, <em>collection=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/model/credential.html#Credential.lookup"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.credential.Credential.lookup" title="Permalink to this definition">¶</a></dt>
+<em class="property">classmethod </em><code class="descname">lookup</code><span class="sig-paren">(</span><em>_db</em>, <em>data_source</em>, <em>type</em>, <em>patron</em>, <em>refresher_method</em>, <em>allow_persistent_token=False</em>, <em>allow_empty_token=False</em>, <em>collection=None</em>, <em>force_refresh=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/model/credential.html#Credential.lookup"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.credential.Credential.lookup" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="classmethod">
@@ -6015,6 +6045,11 @@ are more likely to have good cover art.</p>
 <code class="descname">presentation_edition_id</code><a class="headerlink" href="#core.model.licensing.LicensePool.presentation_edition_id" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
+<dl class="attribute">
+<dt id="core.model.licensing.LicensePool.self_hosted">
+<code class="descname">self_hosted</code><a class="headerlink" href="#core.model.licensing.LicensePool.self_hosted" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
 <dl class="method">
 <dt id="core.model.licensing.LicensePool.set_delivery_mechanism">
 <code class="descname">set_delivery_mechanism</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/model/licensing.html#LicensePool.set_delivery_mechanism"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.licensing.LicensePool.set_delivery_mechanism" title="Permalink to this definition">¶</a></dt>
@@ -6422,17 +6457,17 @@ If this happens, we need to keep the Work’s index up to date.</p>
 </dd></dl>
 
 <dl class="function">
-<dt id="core.model.listeners.licensepool_open_access_change">
-<code class="descclassname">core.model.listeners.</code><code class="descname">licensepool_open_access_change</code><span class="sig-paren">(</span><em>target</em>, <em>value</em>, <em>oldvalue</em>, <em>initiator</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/model/listeners.html#licensepool_open_access_change"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.listeners.licensepool_open_access_change" title="Permalink to this definition">¶</a></dt>
-<dd><p>A Work may need to have its search document re-indexed if one of
-its LicensePools changes its open-access status.</p>
-<p>This shouldn’t ever happen.</p>
-</dd></dl>
-
-<dl class="function">
 <dt id="core.model.listeners.licensepool_removed_from_work">
 <code class="descclassname">core.model.listeners.</code><code class="descname">licensepool_removed_from_work</code><span class="sig-paren">(</span><em>target</em>, <em>value</em>, <em>initiator</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/model/listeners.html#licensepool_removed_from_work"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.listeners.licensepool_removed_from_work" title="Permalink to this definition">¶</a></dt>
 <dd><p>When a Work gains or loses a LicensePool, it needs to be reindexed.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="core.model.listeners.licensepool_storage_status_change">
+<code class="descclassname">core.model.listeners.</code><code class="descname">licensepool_storage_status_change</code><span class="sig-paren">(</span><em>target</em>, <em>value</em>, <em>oldvalue</em>, <em>initiator</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/model/listeners.html#licensepool_storage_status_change"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.listeners.licensepool_storage_status_change" title="Permalink to this definition">¶</a></dt>
+<dd><p>A Work may need to have its search document re-indexed if one of
+its LicensePools changes its open-access status.</p>
+<p>This shouldn’t ever happen.</p>
 </dd></dl>
 
 <dl class="function">

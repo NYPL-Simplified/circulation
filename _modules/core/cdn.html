@@ -34,35 +34,23 @@
             
   <h1>Source code for core.cdn</h1><div class="highlight"><pre>
 <span></span><span class="sd">&quot;&quot;&quot;Turn local URLs into CDN URLs.&quot;&quot;&quot;</span>
-<span class="kn">import</span> <span class="nn">os</span><span class="o">,</span> <span class="nn">sys</span>
-<span class="kn">import</span> <span class="nn">urllib</span>
 <span class="kn">import</span> <span class="nn">urlparse</span>
-<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
 
 <span class="kn">from</span> <span class="nn">config</span> <span class="kn">import</span> <span class="n">Configuration</span><span class="p">,</span> <span class="n">CannotLoadConfiguration</span>
-<span class="kn">from</span> <span class="nn">s3</span> <span class="kn">import</span> <span class="n">S3Uploader</span>
+
 
 <div class="viewcode-block" id="cdnify"><a class="viewcode-back" href="../../core.html#core.cdn.cdnify">[docs]</a><span class="k">def</span> <span class="nf">cdnify</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">cdns</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Turn local URLs into CDN URLs&quot;&quot;&quot;</span>
     <span class="k">try</span><span class="p">:</span>
         <span class="n">cdns</span> <span class="o">=</span> <span class="n">cdns</span> <span class="ow">or</span> <span class="n">Configuration</span><span class="o">.</span><span class="n">cdns</span><span class="p">()</span>
-    <span class="k">except</span> <span class="n">CannotLoadConfiguration</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+    <span class="k">except</span> <span class="n">CannotLoadConfiguration</span><span class="p">:</span>
         <span class="k">pass</span>
 
     <span class="k">if</span> <span class="ow">not</span> <span class="n">cdns</span><span class="p">:</span>
         <span class="c1"># No CDNs configured</span>
         <span class="k">return</span> <span class="n">url</span>
-    <span class="n">scheme</span><span class="p">,</span> <span class="n">netloc</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">query</span><span class="p">,</span> <span class="n">fragment</span> <span class="o">=</span> <span class="n">urlparse</span><span class="o">.</span><span class="n">urlsplit</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
 
-    <span class="k">if</span> <span class="n">netloc</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s1">&#39;amazonaws.com&#39;</span><span class="p">):</span>
-        <span class="c1"># This is a URL like &quot;http://bucket.s3.region.amazonaws.com/foo&quot;.</span>
-        <span class="c1"># It&#39;s equivalent to &quot;http://bucket/foo&quot;.</span>
-        <span class="c1"># i.e. treat the bucket name as the netloc.</span>
-        <span class="c1">#</span>
-        <span class="c1"># Since we are using the &#39;filename&#39; to generate a URL rather</span>
-        <span class="c1"># than talk to S3, we don&#39;t want it to be unquoted.</span>
-        <span class="c1">#</span>
-        <span class="n">netloc</span><span class="p">,</span> <span class="n">path</span> <span class="o">=</span> <span class="n">S3Uploader</span><span class="o">.</span><span class="n">bucket_and_filename</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">unquote</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">scheme</span><span class="p">,</span> <span class="n">netloc</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">query</span><span class="p">,</span> <span class="n">fragment</span> <span class="o">=</span> <span class="n">urlparse</span><span class="o">.</span><span class="n">urlsplit</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
 
     <span class="k">if</span> <span class="n">netloc</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">cdns</span><span class="p">:</span>
         <span class="c1"># This domain name is not covered by any of our CDNs.</span>
@@ -71,7 +59,6 @@
     <span class="n">cdn_host</span> <span class="o">=</span> <span class="n">cdns</span><span class="p">[</span><span class="n">netloc</span><span class="p">]</span>
     <span class="n">cdn_scheme</span><span class="p">,</span> <span class="n">cdn_netloc</span><span class="p">,</span> <span class="n">i1</span><span class="p">,</span> <span class="n">i2</span><span class="p">,</span> <span class="n">i3</span> <span class="o">=</span> <span class="n">urlparse</span><span class="o">.</span><span class="n">urlsplit</span><span class="p">(</span><span class="n">cdn_host</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">urlparse</span><span class="o">.</span><span class="n">urlunsplit</span><span class="p">((</span><span class="n">cdn_scheme</span><span class="p">,</span> <span class="n">cdn_netloc</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">query</span><span class="p">,</span> <span class="n">fragment</span><span class="p">))</span></div>
-
 </pre></div>
 
           </div>

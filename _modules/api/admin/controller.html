@@ -33,34 +33,64 @@
           <div class="body" role="main">
             
   <h1>Source code for api.admin.controller</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
-<span class="kn">import</span> <span class="nn">logging</span>
-<span class="kn">import</span> <span class="nn">sys</span>
-<span class="kn">import</span> <span class="nn">os</span>
-<span class="kn">import</span> <span class="nn">base64</span>
-<span class="kn">import</span> <span class="nn">random</span>
+<span></span><span class="kn">import</span> <span class="nn">base64</span>
+<span class="kn">import</span> <span class="nn">copy</span>
 <span class="kn">import</span> <span class="nn">json</span>
-<span class="kn">import</span> <span class="nn">jwt</span>
-<span class="kn">import</span> <span class="nn">re</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">sys</span>
 <span class="kn">import</span> <span class="nn">urllib</span>
 <span class="kn">import</span> <span class="nn">urlparse</span>
-<span class="kn">import</span> <span class="nn">copy</span>
+<span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">date</span><span class="p">,</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timedelta</span>
 
 <span class="kn">import</span> <span class="nn">flask</span>
+<span class="kn">import</span> <span class="nn">jwt</span>
 <span class="kn">from</span> <span class="nn">flask</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Response</span><span class="p">,</span>
     <span class="n">redirect</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
-<span class="kn">from</span> <span class="nn">PIL</span> <span class="kn">import</span> <span class="n">Image</span><span class="p">,</span> <span class="n">ImageDraw</span><span class="p">,</span> <span class="n">ImageFont</span>
-<span class="kn">import</span> <span class="nn">textwrap</span>
-<span class="kn">from</span> <span class="nn">StringIO</span> <span class="kn">import</span> <span class="n">StringIO</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.sql</span> <span class="kn">import</span> <span class="n">func</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.sql.expression</span> <span class="kn">import</span> <span class="n">desc</span><span class="p">,</span> <span class="n">nullslast</span><span class="p">,</span> <span class="n">and_</span><span class="p">,</span> <span class="n">distinct</span><span class="p">,</span> <span class="n">select</span><span class="p">,</span> <span class="n">join</span>
+
+<span class="kn">from</span> <span class="nn">api.admin.exceptions</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">api.admin.google_oauth_admin_authentication_provider</span> <span class="kn">import</span> <span class="n">GoogleOAuthAdminAuthenticationProvider</span>
+<span class="kn">from</span> <span class="nn">api.admin.opds</span> <span class="kn">import</span> <span class="n">AdminAnnotator</span><span class="p">,</span> <span class="n">AdminFeed</span>
+<span class="kn">from</span> <span class="nn">api.admin.password_admin_authentication_provider</span> <span class="kn">import</span> <span class="n">PasswordAdminAuthenticationProvider</span>
+<span class="kn">from</span> <span class="nn">api.admin.template_styles</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">api.admin.templates</span> <span class="kn">import</span> <span class="n">admin</span> <span class="k">as</span> <span class="n">admin_template</span>
+<span class="kn">from</span> <span class="nn">api.admin.validator</span> <span class="kn">import</span> <span class="n">Validator</span>
+<span class="kn">from</span> <span class="nn">api.adobe_vendor_id</span> <span class="kn">import</span> <span class="n">AuthdataUtility</span>
 <span class="kn">from</span> <span class="nn">api.authenticator</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">CannotCreateLocalPatron</span><span class="p">,</span>
     <span class="n">PatronData</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">api.admin.validator</span> <span class="kn">import</span> <span class="n">Validator</span>
+<span class="kn">from</span> <span class="nn">api.authenticator</span> <span class="kn">import</span> <span class="n">LibraryAuthenticator</span>
+<span class="kn">from</span> <span class="nn">api.axis</span> <span class="kn">import</span> <span class="n">Axis360API</span>
+<span class="kn">from</span> <span class="nn">api.bibliotheca</span> <span class="kn">import</span> <span class="n">BibliothecaAPI</span>
+<span class="kn">from</span> <span class="nn">api.config</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Configuration</span><span class="p">,</span>
+    <span class="n">CannotLoadConfiguration</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">api.controller</span> <span class="kn">import</span> <span class="n">CirculationManagerController</span>
+<span class="kn">from</span> <span class="nn">api.enki</span> <span class="kn">import</span> <span class="n">EnkiAPI</span>
+<span class="kn">from</span> <span class="nn">api.feedbooks</span> <span class="kn">import</span> <span class="n">FeedbooksOPDSImporter</span>
+<span class="kn">from</span> <span class="nn">api.lanes</span> <span class="kn">import</span> <span class="n">create_default_lanes</span>
+<span class="kn">from</span> <span class="nn">api.local_analytics_exporter</span> <span class="kn">import</span> <span class="n">LocalAnalyticsExporter</span>
+<span class="kn">from</span> <span class="nn">api.odilo</span> <span class="kn">import</span> <span class="n">OdiloAPI</span>
+<span class="kn">from</span> <span class="nn">api.odl</span> <span class="kn">import</span> <span class="n">ODLAPI</span><span class="p">,</span> <span class="n">SharedODLAPI</span>
+<span class="kn">from</span> <span class="nn">api.opds_for_distributors</span> <span class="kn">import</span> <span class="n">OPDSForDistributorsAPI</span>
+<span class="kn">from</span> <span class="nn">api.overdrive</span> <span class="kn">import</span> <span class="n">OverdriveAPI</span>
+<span class="kn">from</span> <span class="nn">api.rbdigital</span> <span class="kn">import</span> <span class="n">RBDigitalAPI</span>
+<span class="kn">from</span> <span class="nn">core.app_server</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">load_pagination_from_request</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">core.classifier</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">genres</span>
+<span class="p">)</span>
 <span class="kn">from</span> <span class="nn">core.external_search</span> <span class="kn">import</span> <span class="n">ExternalSearchIndex</span>
+<span class="kn">from</span> <span class="nn">core.lane</span> <span class="kn">import</span> <span class="p">(</span><span class="n">Lane</span><span class="p">,</span> <span class="n">WorkList</span><span class="p">)</span>
+<span class="kn">from</span> <span class="nn">core.local_analytics_provider</span> <span class="kn">import</span> <span class="n">LocalAnalyticsProvider</span>
 <span class="kn">from</span> <span class="nn">core.model</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">create</span><span class="p">,</span>
     <span class="n">get_one</span><span class="p">,</span>
@@ -68,97 +98,31 @@
     <span class="n">Admin</span><span class="p">,</span>
     <span class="n">AdminRole</span><span class="p">,</span>
     <span class="n">CirculationEvent</span><span class="p">,</span>
-    <span class="n">Classification</span><span class="p">,</span>
     <span class="n">Collection</span><span class="p">,</span>
-    <span class="n">Complaint</span><span class="p">,</span>
     <span class="n">ConfigurationSetting</span><span class="p">,</span>
-    <span class="n">Contributor</span><span class="p">,</span>
     <span class="n">CustomList</span><span class="p">,</span>
     <span class="n">CustomListEntry</span><span class="p">,</span>
     <span class="n">DataSource</span><span class="p">,</span>
     <span class="n">Edition</span><span class="p">,</span>
     <span class="n">ExternalIntegration</span><span class="p">,</span>
-    <span class="n">Genre</span><span class="p">,</span>
     <span class="n">Hold</span><span class="p">,</span>
-    <span class="n">Hyperlink</span><span class="p">,</span>
     <span class="n">Identifier</span><span class="p">,</span>
     <span class="n">Library</span><span class="p">,</span>
     <span class="n">LicensePool</span><span class="p">,</span>
     <span class="n">Loan</span><span class="p">,</span>
-    <span class="n">Measurement</span><span class="p">,</span>
     <span class="n">Patron</span><span class="p">,</span>
-    <span class="n">PresentationCalculationPolicy</span><span class="p">,</span>
-    <span class="n">Representation</span><span class="p">,</span>
-    <span class="n">RightsStatus</span><span class="p">,</span>
-    <span class="n">Session</span><span class="p">,</span>
-    <span class="n">Subject</span><span class="p">,</span>
     <span class="n">Timestamp</span><span class="p">,</span>
     <span class="n">Work</span><span class="p">,</span>
-    <span class="n">WorkGenre</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">core.model.configuration</span> <span class="kn">import</span> <span class="n">ExternalIntegrationLink</span>
-<span class="kn">from</span> <span class="nn">core.lane</span> <span class="kn">import</span> <span class="p">(</span><span class="n">Lane</span><span class="p">,</span> <span class="n">WorkList</span><span class="p">)</span>
-<span class="kn">from</span> <span class="nn">core.log</span> <span class="kn">import</span> <span class="p">(</span><span class="n">LogConfiguration</span><span class="p">,</span> <span class="n">SysLogger</span><span class="p">,</span> <span class="n">Loggly</span><span class="p">,</span> <span class="n">CloudwatchLogs</span><span class="p">)</span>
-<span class="kn">from</span> <span class="nn">core.util.problem_detail</span> <span class="kn">import</span> <span class="n">ProblemDetail</span>
-<span class="kn">from</span> <span class="nn">core.metadata_layer</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">Metadata</span><span class="p">,</span>
-    <span class="n">LinkData</span><span class="p">,</span>
-    <span class="n">ReplacementPolicy</span><span class="p">,</span>
-<span class="p">)</span>
-<span class="kn">from</span> <span class="nn">core.mirror</span> <span class="kn">import</span> <span class="n">MirrorUploader</span>
-<span class="kn">from</span> <span class="nn">core.util.http</span> <span class="kn">import</span> <span class="n">HTTP</span>
-<span class="kn">from</span> <span class="nn">api.problem_details</span> <span class="kn">import</span> <span class="o">*</span>
-<span class="kn">from</span> <span class="nn">api.admin.exceptions</span> <span class="kn">import</span> <span class="o">*</span>
-<span class="kn">from</span> <span class="nn">core.util</span> <span class="kn">import</span> <span class="n">LanguageCodes</span>
-<span class="kn">from</span> <span class="nn">core.util.flask_util</span> <span class="kn">import</span> <span class="n">OPDSFeedResponse</span>
-
-<span class="kn">from</span> <span class="nn">api.config</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">Configuration</span><span class="p">,</span>
-    <span class="n">CannotLoadConfiguration</span>
-<span class="p">)</span>
-<span class="kn">from</span> <span class="nn">api.lanes</span> <span class="kn">import</span> <span class="n">create_default_lanes</span>
-<span class="kn">from</span> <span class="nn">api.admin.google_oauth_admin_authentication_provider</span> <span class="kn">import</span> <span class="n">GoogleOAuthAdminAuthenticationProvider</span>
-<span class="kn">from</span> <span class="nn">api.admin.password_admin_authentication_provider</span> <span class="kn">import</span> <span class="n">PasswordAdminAuthenticationProvider</span>
-
-<span class="kn">from</span> <span class="nn">api.controller</span> <span class="kn">import</span> <span class="n">CirculationManagerController</span>
-<span class="kn">from</span> <span class="nn">api.metadata_wrangler</span> <span class="kn">import</span> <span class="n">MetadataWranglerCollectionRegistrar</span>
-<span class="kn">from</span> <span class="nn">core.app_server</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">load_pagination_from_request</span><span class="p">,</span>
-<span class="p">)</span>
 <span class="kn">from</span> <span class="nn">core.opds</span> <span class="kn">import</span> <span class="n">AcquisitionFeed</span>
-<span class="kn">from</span> <span class="nn">api.admin.opds</span> <span class="kn">import</span> <span class="n">AdminAnnotator</span><span class="p">,</span> <span class="n">AdminFeed</span>
-<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">Counter</span>
-<span class="kn">from</span> <span class="nn">core.classifier</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">genres</span><span class="p">,</span>
-    <span class="n">SimplifiedGenreClassifier</span><span class="p">,</span>
-    <span class="n">NO_NUMBER</span><span class="p">,</span>
-    <span class="n">NO_VALUE</span>
-<span class="p">)</span>
-<span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">date</span><span class="p">,</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timedelta</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.sql</span> <span class="kn">import</span> <span class="n">func</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.sql.expression</span> <span class="kn">import</span> <span class="n">desc</span><span class="p">,</span> <span class="n">nullslast</span><span class="p">,</span> <span class="n">or_</span><span class="p">,</span> <span class="n">and_</span><span class="p">,</span> <span class="n">distinct</span><span class="p">,</span> <span class="n">select</span><span class="p">,</span> <span class="n">join</span>
-
-<span class="kn">from</span> <span class="nn">api.admin.templates</span> <span class="kn">import</span> <span class="n">admin</span> <span class="k">as</span> <span class="n">admin_template</span>
-<span class="kn">from</span> <span class="nn">api.authenticator</span> <span class="kn">import</span> <span class="n">LibraryAuthenticator</span>
-
-<span class="kn">from</span> <span class="nn">core.opds_import</span> <span class="kn">import</span> <span class="p">(</span><span class="n">MetadataWranglerOPDSLookup</span><span class="p">,</span> <span class="n">OPDSImporter</span><span class="p">,</span> <span class="n">OPDSImportMonitor</span><span class="p">)</span>
-<span class="kn">from</span> <span class="nn">api.feedbooks</span> <span class="kn">import</span> <span class="n">FeedbooksOPDSImporter</span>
-<span class="kn">from</span> <span class="nn">api.opds_for_distributors</span> <span class="kn">import</span> <span class="n">OPDSForDistributorsAPI</span>
-<span class="kn">from</span> <span class="nn">api.overdrive</span> <span class="kn">import</span> <span class="n">OverdriveAPI</span>
-<span class="kn">from</span> <span class="nn">api.odilo</span> <span class="kn">import</span> <span class="n">OdiloAPI</span>
-<span class="kn">from</span> <span class="nn">api.bibliotheca</span> <span class="kn">import</span> <span class="n">BibliothecaAPI</span>
-<span class="kn">from</span> <span class="nn">api.axis</span> <span class="kn">import</span> <span class="n">Axis360API</span>
-<span class="kn">from</span> <span class="nn">api.rbdigital</span> <span class="kn">import</span> <span class="n">RBDigitalAPI</span>
-<span class="kn">from</span> <span class="nn">api.enki</span> <span class="kn">import</span> <span class="n">EnkiAPI</span>
-<span class="kn">from</span> <span class="nn">api.odl</span> <span class="kn">import</span> <span class="n">ODLAPI</span><span class="p">,</span> <span class="n">SharedODLAPI</span>
-<span class="kn">from</span> <span class="nn">core.local_analytics_provider</span> <span class="kn">import</span> <span class="n">LocalAnalyticsProvider</span>
-
-<span class="kn">from</span> <span class="nn">api.adobe_vendor_id</span> <span class="kn">import</span> <span class="n">AuthdataUtility</span>
-<span class="kn">from</span> <span class="nn">api.admin.template_styles</span> <span class="kn">import</span> <span class="o">*</span>
-
+<span class="kn">from</span> <span class="nn">core.opds_import</span> <span class="kn">import</span> <span class="p">(</span><span class="n">OPDSImporter</span><span class="p">,</span> <span class="n">OPDSImportMonitor</span><span class="p">)</span>
+<span class="kn">from</span> <span class="nn">core.s3</span> <span class="kn">import</span> <span class="n">S3Uploader</span>
 <span class="kn">from</span> <span class="nn">core.selftest</span> <span class="kn">import</span> <span class="n">HasSelfTests</span>
+<span class="kn">from</span> <span class="nn">core.util.flask_util</span> <span class="kn">import</span> <span class="n">OPDSFeedResponse</span>
+<span class="kn">from</span> <span class="nn">core.util.http</span> <span class="kn">import</span> <span class="n">HTTP</span>
+<span class="kn">from</span> <span class="nn">core.util.problem_detail</span> <span class="kn">import</span> <span class="n">ProblemDetail</span>
 
-<span class="kn">from</span> <span class="nn">api.local_analytics_exporter</span> <span class="kn">import</span> <span class="n">LocalAnalyticsExporter</span>
 
 <div class="viewcode-block" id="setup_admin_controllers"><a class="viewcode-back" href="../../../api.admin.controller.html#api.admin.controller.setup_admin_controllers">[docs]</a><span class="k">def</span> <span class="nf">setup_admin_controllers</span><span class="p">(</span><span class="n">manager</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Set up all the controllers that will be used by the admin parts of the web app.&quot;&quot;&quot;</span>
@@ -1365,7 +1329,7 @@
                      <span class="n">ODLAPI</span><span class="p">,</span>
                      <span class="n">SharedODLAPI</span><span class="p">,</span>
                      <span class="n">FeedbooksOPDSImporter</span><span class="p">,</span>
-                    <span class="p">]</span>
+                     <span class="p">]</span>
 
     <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">_get_integration_protocols</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">provider_apis</span><span class="p">,</span> <span class="n">protocol_name_attr</span><span class="o">=</span><span class="s2">&quot;__module__&quot;</span><span class="p">):</span>
@@ -1563,14 +1527,17 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">integration</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;Deleted&quot;</span><span class="p">)),</span> <span class="mi">200</span><span class="p">)</span>
 
-
     <span class="k">def</span> <span class="nf">_get_collection_protocols</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">provider_apis</span><span class="p">):</span>
         <span class="n">protocols</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_integration_protocols</span><span class="p">(</span><span class="n">provider_apis</span><span class="p">,</span> <span class="n">protocol_name_attr</span><span class="o">=</span><span class="s2">&quot;NAME&quot;</span><span class="p">)</span>
-        <span class="n">protocols</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">dict</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">MANUAL</span><span class="p">,</span>
-                              <span class="n">label</span><span class="o">=</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;Manual import&quot;</span><span class="p">),</span>
-                              <span class="n">description</span><span class="o">=</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;Books will be manually added to the circulation manager, not imported automatically through a protocol.&quot;</span><span class="p">),</span>
-                              <span class="n">settings</span><span class="o">=</span><span class="p">[],</span>
-                              <span class="p">))</span>
+        <span class="n">protocols</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="p">{</span>
+                <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">MANUAL</span><span class="p">,</span>
+                <span class="s1">&#39;label&#39;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s1">&#39;Manual import&#39;</span><span class="p">),</span>
+                <span class="s1">&#39;description&#39;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s1">&#39;Books will be manually added to the circulation manager, &#39;</span>
+                                 <span class="s1">&#39;not imported automatically through a protocol.&#39;</span><span class="p">),</span>
+                <span class="s1">&#39;settings&#39;</span><span class="p">:</span> <span class="p">[]</span>
+            <span class="p">}</span>
+        <span class="p">)</span>
 
         <span class="k">return</span> <span class="n">protocols</span>
 
@@ -1651,11 +1618,36 @@
             <span class="k">return</span>
 
         <span class="n">mirror_integration_settings</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">ExternalIntegrationLink</span><span class="o">.</span><span class="n">COLLECTION_MIRROR_SETTINGS</span><span class="p">)</span>
-        <span class="k">for</span> <span class="n">setting</span> <span class="ow">in</span> <span class="n">mirror_integration_settings</span><span class="p">:</span>
-            <span class="k">for</span> <span class="n">integration</span> <span class="ow">in</span> <span class="n">integrations</span><span class="p">:</span>
-                <span class="n">setting</span><span class="p">[</span><span class="s1">&#39;options&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-                    <span class="nb">dict</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">integration</span><span class="o">.</span><span class="n">id</span><span class="p">),</span> <span class="n">label</span><span class="o">=</span><span class="n">integration</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
-                <span class="p">)</span>
+        <span class="k">for</span> <span class="n">integration</span> <span class="ow">in</span> <span class="n">integrations</span><span class="p">:</span>
+            <span class="n">book_covers_bucket</span> <span class="o">=</span> <span class="n">integration</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="n">S3Uploader</span><span class="o">.</span><span class="n">BOOK_COVERS_BUCKET_KEY</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+            <span class="n">open_access_bucket</span> <span class="o">=</span> <span class="n">integration</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="n">S3Uploader</span><span class="o">.</span><span class="n">OA_CONTENT_BUCKET_KEY</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+            <span class="n">protected_access_bucket</span> <span class="o">=</span> <span class="n">integration</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="n">S3Uploader</span><span class="o">.</span><span class="n">PROTECTED_CONTENT_BUCKET_KEY</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+
+            <span class="k">for</span> <span class="n">setting</span> <span class="ow">in</span> <span class="n">mirror_integration_settings</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">setting</span><span class="p">[</span><span class="s1">&#39;key&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="n">ExternalIntegrationLink</span><span class="o">.</span><span class="n">COVERS_KEY</span> <span class="ow">and</span> <span class="n">book_covers_bucket</span><span class="p">:</span>
+                    <span class="n">setting</span><span class="p">[</span><span class="s1">&#39;options&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                        <span class="p">{</span>
+                            <span class="s1">&#39;key&#39;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">integration</span><span class="o">.</span><span class="n">id</span><span class="p">),</span>
+                            <span class="s1">&#39;label&#39;</span><span class="p">:</span> <span class="n">integration</span><span class="o">.</span><span class="n">name</span>
+                        <span class="p">}</span>
+                    <span class="p">)</span>
+                <span class="k">elif</span> <span class="n">setting</span><span class="p">[</span><span class="s1">&#39;key&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="n">ExternalIntegrationLink</span><span class="o">.</span><span class="n">OPEN_ACCESS_BOOKS_KEY</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">open_access_bucket</span><span class="p">:</span>
+                        <span class="n">setting</span><span class="p">[</span><span class="s1">&#39;options&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                            <span class="p">{</span>
+                                <span class="s1">&#39;key&#39;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">integration</span><span class="o">.</span><span class="n">id</span><span class="p">),</span>
+                                <span class="s1">&#39;label&#39;</span><span class="p">:</span> <span class="n">integration</span><span class="o">.</span><span class="n">name</span>
+                            <span class="p">}</span>
+                        <span class="p">)</span>
+                <span class="k">elif</span> <span class="n">setting</span><span class="p">[</span><span class="s1">&#39;key&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="n">ExternalIntegrationLink</span><span class="o">.</span><span class="n">PROTECTED_ACCESS_BOOKS_KEY</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">protected_access_bucket</span><span class="p">:</span>
+                        <span class="n">setting</span><span class="p">[</span><span class="s1">&#39;options&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                            <span class="p">{</span>
+                                <span class="s1">&#39;key&#39;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">integration</span><span class="o">.</span><span class="n">id</span><span class="p">),</span>
+                                <span class="s1">&#39;label&#39;</span><span class="p">:</span> <span class="n">integration</span><span class="o">.</span><span class="n">name</span>
+                            <span class="p">}</span>
+                        <span class="p">)</span>
+
         <span class="k">return</span> <span class="n">mirror_integration_settings</span>
 
     <span class="k">def</span> <span class="nf">_create_integration</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">protocol_definitions</span><span class="p">,</span> <span class="n">protocol</span><span class="p">,</span> <span class="n">goal</span><span class="p">):</span>

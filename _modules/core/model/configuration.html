@@ -35,8 +35,25 @@
   <h1>Source code for core.model.configuration</h1><div class="highlight"><pre>
 <span></span><span class="c1"># encoding: utf-8</span>
 <span class="c1"># ExternalIntegration, ExternalIntegrationLink, ConfigurationSetting</span>
-<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
 
+<span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+
+<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Column</span><span class="p">,</span>
+    <span class="n">ForeignKey</span><span class="p">,</span>
+    <span class="n">Integer</span><span class="p">,</span>
+    <span class="n">Unicode</span><span class="p">,</span>
+    <span class="n">UniqueConstraint</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.ext.hybrid</span> <span class="kn">import</span> <span class="n">hybrid_property</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="kn">import</span> <span class="n">relationship</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="kn">import</span> <span class="n">Session</span>
+
+<span class="kn">from</span> <span class="nn">constants</span> <span class="kn">import</span> <span class="n">DataSourceConstants</span>
+<span class="kn">from</span> <span class="nn">hasfulltablecache</span> <span class="kn">import</span> <span class="n">HasFullTableCache</span>
+<span class="kn">from</span> <span class="nn">library</span> <span class="kn">import</span> <span class="n">Library</span>
 <span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Base</span><span class="p">,</span>
     <span class="n">get_one</span><span class="p">,</span>
@@ -46,28 +63,9 @@
     <span class="n">CannotLoadConfiguration</span><span class="p">,</span>
     <span class="n">Configuration</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">constants</span> <span class="kn">import</span> <span class="n">DataSourceConstants</span>
-<span class="kn">from</span> <span class="nn">hasfulltablecache</span> <span class="kn">import</span> <span class="n">HasFullTableCache</span>
-<span class="kn">from</span> <span class="nn">library</span> <span class="kn">import</span> <span class="n">Library</span>
 <span class="kn">from</span> <span class="nn">..mirror</span> <span class="kn">import</span> <span class="n">MirrorUploader</span>
 <span class="kn">from</span> <span class="nn">..util.string_helpers</span> <span class="kn">import</span> <span class="n">random_string</span>
 
-<span class="kn">import</span> <span class="nn">json</span>
-<span class="kn">import</span> <span class="nn">logging</span>
-<span class="kn">import</span> <span class="nn">os</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">Column</span><span class="p">,</span>
-    <span class="n">ForeignKey</span><span class="p">,</span>
-    <span class="n">Integer</span><span class="p">,</span>
-    <span class="n">Unicode</span><span class="p">,</span>
-    <span class="n">UniqueConstraint</span><span class="p">,</span>
-<span class="p">)</span>
-<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.ext.hybrid</span> <span class="kn">import</span> <span class="n">hybrid_property</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="kn">import</span> <span class="n">relationship</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="kn">import</span> <span class="n">Session</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.sql</span> <span class="kn">import</span> <span class="n">select</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.sql.functions</span> <span class="kn">import</span> <span class="n">func</span>
 
 <div class="viewcode-block" id="ExternalIntegrationLink"><a class="viewcode-back" href="../../../core.model.html#core.model.configuration.ExternalIntegrationLink">[docs]</a><span class="k">class</span> <span class="nc">ExternalIntegrationLink</span><span class="p">(</span><span class="n">Base</span><span class="p">,</span> <span class="n">HasFullTableCache</span><span class="p">):</span>
 
@@ -77,8 +75,15 @@
     <span class="c1"># Possible purposes that a storage external integration can be used for.</span>
     <span class="c1"># These string literals may be stored in the database, so changes to them</span>
     <span class="c1"># may need to be accompanied by a DB migration.</span>
-    <span class="n">COVERS</span> <span class="o">=</span> <span class="s2">&quot;covers_mirror&quot;</span>
-    <span class="n">BOOKS</span> <span class="o">=</span> <span class="s2">&quot;books_mirror&quot;</span>
+    <span class="n">COVERS</span> <span class="o">=</span> <span class="s1">&#39;covers_mirror&#39;</span>
+    <span class="n">COVERS_KEY</span> <span class="o">=</span> <span class="s1">&#39;</span><span class="si">{0}</span><span class="s1">_integration_id&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">COVERS</span><span class="p">)</span>
+
+    <span class="n">OPEN_ACCESS_BOOKS</span> <span class="o">=</span> <span class="s1">&#39;books_mirror&#39;</span>
+    <span class="n">OPEN_ACCESS_BOOKS_KEY</span> <span class="o">=</span> <span class="s1">&#39;</span><span class="si">{0}</span><span class="s1">_integration_id&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">OPEN_ACCESS_BOOKS</span><span class="p">)</span>
+
+    <span class="n">PROTECTED_ACCESS_BOOKS</span> <span class="o">=</span> <span class="s1">&#39;protected_access_books_mirror&#39;</span>
+    <span class="n">PROTECTED_ACCESS_BOOKS_KEY</span> <span class="o">=</span> <span class="s1">&#39;</span><span class="si">{0}</span><span class="s1">_integration_id&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">PROTECTED_ACCESS_BOOKS</span><span class="p">)</span>
+
     <span class="n">MARC</span> <span class="o">=</span> <span class="s2">&quot;MARC_mirror&quot;</span>
 
     <span class="nb">id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">primary_key</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -93,25 +98,47 @@
     <span class="p">)</span>
     <span class="n">purpose</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
-    <span class="n">types</span> <span class="o">=</span> <span class="p">[</span><span class="n">COVERS</span><span class="p">,</span> <span class="n">BOOKS</span><span class="p">]</span>
+    <span class="n">mirror_settings</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="p">{</span>
+            <span class="s1">&#39;key&#39;</span><span class="p">:</span> <span class="n">COVERS_KEY</span><span class="p">,</span>
+            <span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="n">COVERS</span><span class="p">,</span>
+            <span class="s1">&#39;description_type&#39;</span><span class="p">:</span> <span class="s1">&#39;cover images&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;label&#39;</span><span class="p">:</span> <span class="s1">&#39;Covers Mirror&#39;</span>
+        <span class="p">},</span>
+        <span class="p">{</span>
+            <span class="s1">&#39;key&#39;</span><span class="p">:</span> <span class="n">OPEN_ACCESS_BOOKS_KEY</span><span class="p">,</span>
+            <span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="n">OPEN_ACCESS_BOOKS</span><span class="p">,</span>
+            <span class="s1">&#39;description_type&#39;</span><span class="p">:</span> <span class="s1">&#39;free books&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;label&#39;</span><span class="p">:</span> <span class="s1">&#39;Open Access Books Mirror&#39;</span>
+        <span class="p">},</span>
+        <span class="p">{</span>
+            <span class="s1">&#39;key&#39;</span><span class="p">:</span> <span class="n">PROTECTED_ACCESS_BOOKS_KEY</span><span class="p">,</span>
+            <span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="n">PROTECTED_ACCESS_BOOKS</span><span class="p">,</span>
+            <span class="s1">&#39;description_type&#39;</span><span class="p">:</span> <span class="s1">&#39;self-hosted, commercially licensed books&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;label&#39;</span><span class="p">:</span> <span class="s1">&#39;Protected Access Books Mirror&#39;</span>
+        <span class="p">}</span>
+    <span class="p">]</span>
     <span class="n">settings</span> <span class="o">=</span> <span class="p">[]</span>
 
-    <span class="k">for</span> <span class="nb">type</span> <span class="ow">in</span> <span class="n">types</span><span class="p">:</span>
-        <span class="n">description_type</span> <span class="o">=</span> <span class="s2">&quot;cover images&quot;</span> <span class="k">if</span> <span class="nb">type</span> <span class="o">==</span> <span class="n">COVERS</span> <span class="k">else</span> <span class="s2">&quot;free books&quot;</span>
-        <span class="n">key</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">_integration_id&quot;</span> <span class="o">%</span> <span class="nb">type</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
-        <span class="n">label</span> <span class="o">=</span> <span class="nb">type</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;_&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">mirror_setting</span> <span class="ow">in</span> <span class="n">mirror_settings</span><span class="p">:</span>
+        <span class="n">mirror_type</span> <span class="o">=</span> <span class="n">mirror_setting</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span>
+        <span class="n">mirror_description_type</span> <span class="o">=</span> <span class="n">mirror_setting</span><span class="p">[</span><span class="s1">&#39;description_type&#39;</span><span class="p">]</span>
+        <span class="n">mirror_label</span> <span class="o">=</span> <span class="n">mirror_setting</span><span class="p">[</span><span class="s1">&#39;label&#39;</span><span class="p">]</span>
+
         <span class="n">settings</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
-            <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">key</span><span class="p">,</span>
-            <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> Mirror&quot;</span> <span class="o">%</span> <span class="n">label</span><span class="o">.</span><span class="n">capitalize</span><span class="p">()),</span>
-            <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Any </span><span class="si">%s</span><span class="s2"> encountered while importing content from this collection can be mirrored to a server you control.&quot;</span> <span class="o">%</span> <span class="n">description_type</span><span class="p">),</span>
-            <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;select&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;options&quot;</span> <span class="p">:</span> <span class="p">[</span>
-                <span class="nb">dict</span><span class="p">(</span>
-                    <span class="n">key</span><span class="o">=</span><span class="n">NO_MIRROR_INTEGRATION</span><span class="p">,</span>
-                    <span class="n">label</span><span class="o">=</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;None - Do not mirror </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">description_type</span><span class="p">)</span>
-                <span class="p">)</span>
+            <span class="s1">&#39;key&#39;</span><span class="p">:</span> <span class="s1">&#39;</span><span class="si">{0}</span><span class="s1">_integration_id&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">mirror_type</span><span class="o">.</span><span class="n">lower</span><span class="p">()),</span>
+            <span class="s1">&#39;label&#39;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="n">mirror_label</span><span class="p">),</span>
+            <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s1">&#39;Any </span><span class="si">{0}</span><span class="s1"> encountered while importing content from this collection &#39;</span>
+                             <span class="s1">&#39;can be mirrored to a server you control.&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">mirror_description_type</span><span class="p">)),</span>
+            <span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;select&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;options&#39;</span><span class="p">:</span> <span class="p">[</span>
+                <span class="p">{</span>
+                    <span class="s1">&#39;key&#39;</span><span class="p">:</span> <span class="n">NO_MIRROR_INTEGRATION</span><span class="p">,</span>
+                    <span class="s1">&#39;label&#39;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s1">&#39;None - Do not mirror </span><span class="si">{0}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">mirror_description_type</span><span class="p">))</span>
+                <span class="p">}</span>
             <span class="p">]</span>
         <span class="p">})</span>
+
     <span class="n">COLLECTION_MIRROR_SETTINGS</span> <span class="o">=</span> <span class="n">settings</span></div>
 
 
@@ -222,6 +249,7 @@
 
     <span class="c1"># Integrations with STORAGE_GOAL</span>
     <span class="n">S3</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;Amazon S3&#39;</span>
+    <span class="n">MINIO</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;MinIO&#39;</span>
 
     <span class="c1"># Integrations with CDN_GOAL</span>
     <span class="n">CDN</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;CDN&#39;</span>

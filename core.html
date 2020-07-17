@@ -5116,7 +5116,7 @@ it is formatted using formatException() and appended to the message.</p>
 
 <dl class="attribute">
 <dt id="core.log.JSONFormatter.hostname">
-<code class="descname">hostname</code><em class="property"> = 'travis-job-c8bbf4e4-de72-41c4-b3ae-a3c4bb446cb8'</em><a class="headerlink" href="#core.log.JSONFormatter.hostname" title="Permalink to this definition">¶</a></dt>
+<code class="descname">hostname</code><em class="property"> = 'travis-job-b8fe3510-672d-453e-878c-4393511fa907'</em><a class="headerlink" href="#core.log.JSONFormatter.hostname" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -6218,12 +6218,13 @@ completion is known.</p>
 <span id="core-mirror-module"></span><h2>core.mirror module<a class="headerlink" href="#module-core.mirror" title="Permalink to this headline">¶</a></h2>
 <dl class="class">
 <dt id="core.mirror.MirrorUploader">
-<em class="property">class </em><code class="descclassname">core.mirror.</code><code class="descname">MirrorUploader</code><span class="sig-paren">(</span><em>integration</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/mirror.html#MirrorUploader"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.mirror.MirrorUploader" title="Permalink to this definition">¶</a></dt>
-<dd><p>Handles the job of uploading a representation’s content to
+<em class="property">class </em><code class="descclassname">core.mirror.</code><code class="descname">MirrorUploader</code><span class="sig-paren">(</span><em>integration</em>, <em>host</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/mirror.html#MirrorUploader"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.mirror.MirrorUploader" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Handles the job of uploading a representation’s content to
 a mirror that we control.</p>
 <dl class="attribute">
 <dt id="core.mirror.MirrorUploader.IMPLEMENTATION_REGISTRY">
-<code class="descname">IMPLEMENTATION_REGISTRY</code><em class="property"> = {u'Amazon S3': &lt;class core.s3.S3Uploader&gt;}</em><a class="headerlink" href="#core.mirror.MirrorUploader.IMPLEMENTATION_REGISTRY" title="Permalink to this definition">¶</a></dt>
+<code class="descname">IMPLEMENTATION_REGISTRY</code><em class="property"> = {u'Amazon S3': &lt;class 'core.s3.S3Uploader'&gt;, u'MinIO': &lt;class 'core.s3.MinIOUploader'&gt;}</em><a class="headerlink" href="#core.mirror.MirrorUploader.IMPLEMENTATION_REGISTRY" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -6289,6 +6290,24 @@ for the given ExternalIntegration.</p>
 <dd><p>Find the ExternalIntegration for the mirror by storage name.</p>
 </dd></dl>
 
+<dl class="method">
+<dt id="core.mirror.MirrorUploader.is_self_url">
+<code class="descname">is_self_url</code><span class="sig-paren">(</span><em>url</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/mirror.html#MirrorUploader.is_self_url"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.mirror.MirrorUploader.is_self_url" title="Permalink to this definition">¶</a></dt>
+<dd><p>Determines whether the URL has the mirror’s host or a custom domain</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>url</strong> (<em>string</em>) – The URL</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">Boolean value indicating whether the URL has the mirror’s host or a custom domain</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body">bool</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
 <dl class="classmethod">
 <dt id="core.mirror.MirrorUploader.mirror">
 <em class="property">classmethod </em><code class="descname">mirror</code><span class="sig-paren">(</span><em>_db</em>, <em>storage_name=None</em>, <em>integration=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/mirror.html#MirrorUploader.mirror"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.mirror.MirrorUploader.mirror" title="Permalink to this definition">¶</a></dt>
@@ -6324,6 +6343,55 @@ goal==STORAGE_GOAL is configured.</p>
 <dt id="core.mirror.MirrorUploader.mirror_one">
 <code class="descname">mirror_one</code><span class="sig-paren">(</span><em>representation</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/mirror.html#MirrorUploader.mirror_one"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.mirror.MirrorUploader.mirror_one" title="Permalink to this definition">¶</a></dt>
 <dd><p>Mirror a single Representation.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="core.mirror.MirrorUploader.sign_url">
+<code class="descname">sign_url</code><span class="sig-paren">(</span><em>url</em>, <em>expiration=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/mirror.html#MirrorUploader.sign_url"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.mirror.MirrorUploader.sign_url" title="Permalink to this definition">¶</a></dt>
+<dd><p>Signs a URL and make it expirable</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>url</strong> (<em>string</em>) – URL</li>
+<li><strong>expiration</strong> (<em>int</em>) – (Optional) Time in seconds for the presigned URL to remain valid.
+Default value depends on a specific implementation</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">Signed expirable link</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">string</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="core.mirror.MirrorUploader.split_url">
+<code class="descname">split_url</code><span class="sig-paren">(</span><em>url</em>, <em>unquote=True</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/mirror.html#MirrorUploader.split_url"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.mirror.MirrorUploader.split_url" title="Permalink to this definition">¶</a></dt>
+<dd><p>Splits the URL into the components: container (bucket) and file path</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>url</strong> (<em>string</em>) – URL</li>
+<li><strong>unquote</strong> (<em>bool</em>) – Boolean value indicating whether it’s required to unquote URL elements</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">Tuple (bucket, file path)</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">Tuple[string, string]</p>
+</td>
+</tr>
+</tbody>
+</table>
 </dd></dl>
 
 </dd></dl>
@@ -9410,6 +9478,27 @@ from the json data that goes into the book_info_to_circulation() method.</p>
 <div class="section" id="module-core.s3">
 <span id="core-s3-module"></span><h2>core.s3 module<a class="headerlink" href="#module-core.s3" title="Permalink to this headline">¶</a></h2>
 <dl class="class">
+<dt id="core.s3.MinIOUploader">
+<em class="property">class </em><code class="descclassname">core.s3.</code><code class="descname">MinIOUploader</code><span class="sig-paren">(</span><em>integration</em>, <em>client_class=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/s3.html#MinIOUploader"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.s3.MinIOUploader" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#core.s3.S3Uploader" title="core.s3.S3Uploader"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.s3.S3Uploader</span></code></a></p>
+<dl class="attribute">
+<dt id="core.s3.MinIOUploader.ENDPOINT_URL">
+<code class="descname">ENDPOINT_URL</code><em class="property"> = 'ENDPOINT_URL'</em><a class="headerlink" href="#core.s3.MinIOUploader.ENDPOINT_URL" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.s3.MinIOUploader.NAME">
+<code class="descname">NAME</code><em class="property"> = u'MinIO'</em><a class="headerlink" href="#core.s3.MinIOUploader.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.s3.MinIOUploader.SETTINGS">
+<code class="descname">SETTINGS</code><em class="property"> = [{'required': True, 'description': l'MinIO's endpoint URL', 'key': 'ENDPOINT_URL', 'label': l'Endpoint URL'}, {'key': u'username', 'label': l'Access Key'}, {'description': l'If the &lt;em&gt;Access Key&lt;/em&gt; and &lt;em&gt;Secret Key&lt;/em&gt; are not given here credentials will be used as outlined in the &lt;a href='https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html#configuring-credentials'&gt;Boto3 documenation&lt;/a&gt;. If &lt;em&gt;Access Key&lt;/em&gt; is given, &lt;em&gt;Secrent Key&lt;/em&gt; must also be given.', 'key': u'password', 'label': l'Secret Key'}, {'description': l'All book cover images encountered will be mirrored to this S3 bucket. Large images will be scaled down, and the scaled-down copies will also be uploaded to this bucket. &lt;p&gt;The bucket must already exist&amp;mdash;it will not be created automatically.&lt;/p&gt;', 'key': u'book_covers_bucket', 'label': l'Book Covers Bucket'}, {'description': l'All open-access books encountered will be uploaded to this S3 bucket. &lt;p&gt;The bucket must already exist&amp;mdash;it will not be created automatically.&lt;/p&gt;', 'key': u'open_access_content_bucket', 'label': l'Open Access Content Bucket'}, {'description': l'Self-hosted books will be uploaded to this S3 bucket. &lt;p&gt;The bucket must already exist&amp;mdash;it will not be created automatically.&lt;/p&gt;', 'key': u'protected_content_bucket', 'label': l'Protected Access Content Bucket'}, {'description': l'All generated MARC files will be uploaded to this S3 bucket. &lt;p&gt;The bucket must already exist&amp;mdash;it will not be created automatically.&lt;/p&gt;', 'key': u'marc_bucket', 'label': l'MARC File Bucket'}, {'description': l'S3 region which will be used for storing the content.', 'default': u'us-east-1', 'label': l'S3 region', 'key': u's3_region', 'type': 'select', 'options': [{'key': u'af-south-1', 'label': u'af-south-1'}, {'key': u'ap-east-1', 'label': u'ap-east-1'}, {'key': u'ap-northeast-1', 'label': u'ap-northeast-1'}, {'key': u'ap-northeast-2', 'label': u'ap-northeast-2'}, {'key': u'ap-south-1', 'label': u'ap-south-1'}, {'key': u'ap-southeast-1', 'label': u'ap-southeast-1'}, {'key': u'ap-southeast-2', 'label': u'ap-southeast-2'}, {'key': u'ca-central-1', 'label': u'ca-central-1'}, {'key': u'eu-central-1', 'label': u'eu-central-1'}, {'key': u'eu-north-1', 'label': u'eu-north-1'}, {'key': u'eu-south-1', 'label': u'eu-south-1'}, {'key': u'eu-west-1', 'label': u'eu-west-1'}, {'key': u'eu-west-2', 'label': u'eu-west-2'}, {'key': u'eu-west-3', 'label': u'eu-west-3'}, {'key': u'me-south-1', 'label': u'me-south-1'}, {'key': u'sa-east-1', 'label': u'sa-east-1'}, {'key': u'us-east-1', 'label': u'us-east-1'}, {'key': u'us-east-2', 'label': u'us-east-2'}, {'key': u'us-west-1', 'label': u'us-west-1'}, {'key': u'us-west-2', 'label': u'us-west-2'}]}, {'description': l'Buckets created after September 30, 2020, will support only virtual hosted-style requests. Path-style requests will continue to be supported for buckets created on or before this date. For more information, see &lt;a href='https://aws.amazon.com/blogs/aws/amazon-s3-path-deprecation-plan-the-rest-of-the-story/'&gt;Amazon S3 Path Deprecation Plan - The Rest of the Story&lt;/a&gt;.', 'default': 'virtual', 'label': l'S3 addressing style', 'key': u's3_addressing_style', 'type': 'select', 'options': [{'key': 'virtual', 'label': l'Virtual'}, {'key': 'path', 'label': l'Path'}, {'key': 'auto', 'label': l'Auto'}]}, {'default': 3600, 'type': 'number', 'description': l'Time in seconds for the presigned URL to remain valid', 'key': u's3_presigned_url_expiration', 'label': l'S3 presigned URL expiration'}, {'description': l'A file mirrored to S3 is available at &lt;code&gt;http://{bucket}.s3.{region}.amazonaws.com/{filename}&lt;/code&gt;. If you've set up your DNS so that http://[bucket]/ or https://[bucket]/ points to the appropriate S3 bucket, you can configure this S3 integration to shorten the URLs. &lt;p&gt;If you haven't set up your S3 buckets, don't change this from the default -- you'll get URLs that don't work.&lt;/p&gt;', 'default': u'identity', 'label': l'URL format', 'key': u'bucket_name_transform', 'type': 'select', 'options': [{'key': u'identity', 'label': l'S3 Default: https://{bucket}.s3.{region}.amazonaws.com/{file}'}, {'key': u'https', 'label': l'HTTPS: https://{bucket}/{file}'}, {'key': u'http', 'label': l'HTTP: http://{bucket}/{file}'}]}]</em><a class="headerlink" href="#core.s3.MinIOUploader.SETTINGS" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
 <dt id="core.s3.MockS3Client">
 <em class="property">class </em><code class="descclassname">core.s3.</code><code class="descname">MockS3Client</code><span class="sig-paren">(</span><em>service</em>, <em>region_name</em>, <em>aws_access_key_id</em>, <em>aws_secret_access_key</em>, <em>config=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/s3.html#MockS3Client"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.s3.MockS3Client" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
@@ -9454,13 +9543,14 @@ boto3 client.</p>
 <p>A dummy uploader for use in tests.</p>
 <dl class="attribute">
 <dt id="core.s3.MockS3Uploader.buckets">
-<code class="descname">buckets</code><em class="property"> = {u'book_covers_bucket': 'test-cover-bucket', u'marc_bucket': 'test-marc-bucket', u'open_access_content_bucket': 'test-content-bucket'}</em><a class="headerlink" href="#core.s3.MockS3Uploader.buckets" title="Permalink to this definition">¶</a></dt>
+<code class="descname">buckets</code><em class="property"> = {u'book_covers_bucket': 'test-cover-bucket', u'marc_bucket': 'test-marc-bucket', u'open_access_content_bucket': 'test-content-bucket', u'protected_content_bucket': 'test-content-bucket'}</em><a class="headerlink" href="#core.s3.MockS3Uploader.buckets" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
 <dt id="core.s3.MockS3Uploader.mirror_one">
 <code class="descname">mirror_one</code><span class="sig-paren">(</span><em>representation</em>, <em>mirror_to</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/s3.html#MockS3Uploader.mirror_one"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.s3.MockS3Uploader.mirror_one" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
+<dd><p>Mirror a single representation to the given URL.</p>
+</dd></dl>
 
 <dl class="method">
 <dt id="core.s3.MockS3Uploader.multipart_upload">
@@ -9513,7 +9603,7 @@ boto3 client.</p>
 
 <dl class="class">
 <dt id="core.s3.S3Uploader">
-<em class="property">class </em><code class="descclassname">core.s3.</code><code class="descname">S3Uploader</code><span class="sig-paren">(</span><em>integration</em>, <em>client_class=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/s3.html#S3Uploader"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.s3.S3Uploader" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="descclassname">core.s3.</code><code class="descname">S3Uploader</code><span class="sig-paren">(</span><em>integration</em>, <em>client_class=None</em>, <em>host='amazonaws.com'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/s3.html#S3Uploader"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.s3.S3Uploader" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="#core.mirror.MirrorUploader" title="core.mirror.MirrorUploader"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.mirror.MirrorUploader</span></code></a></p>
 <dl class="attribute">
 <dt id="core.s3.S3Uploader.BOOK_COVERS_BUCKET_KEY">
@@ -9536,6 +9626,11 @@ boto3 client.</p>
 <dd></dd></dl>
 
 <dl class="attribute">
+<dt id="core.s3.S3Uploader.PROTECTED_CONTENT_BUCKET_KEY">
+<code class="descname">PROTECTED_CONTENT_BUCKET_KEY</code><em class="property"> = u'protected_content_bucket'</em><a class="headerlink" href="#core.s3.S3Uploader.PROTECTED_CONTENT_BUCKET_KEY" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
 <dt id="core.s3.S3Uploader.S3_ADDRESSING_STYLE">
 <code class="descname">S3_ADDRESSING_STYLE</code><em class="property"> = u's3_addressing_style'</em><a class="headerlink" href="#core.s3.S3Uploader.S3_ADDRESSING_STYLE" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -9546,8 +9641,23 @@ boto3 client.</p>
 <dd></dd></dl>
 
 <dl class="attribute">
+<dt id="core.s3.S3Uploader.S3_DEFAULT_PRESIGNED_URL_EXPIRATION">
+<code class="descname">S3_DEFAULT_PRESIGNED_URL_EXPIRATION</code><em class="property"> = 3600</em><a class="headerlink" href="#core.s3.S3Uploader.S3_DEFAULT_PRESIGNED_URL_EXPIRATION" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
 <dt id="core.s3.S3Uploader.S3_DEFAULT_REGION">
 <code class="descname">S3_DEFAULT_REGION</code><em class="property"> = u'us-east-1'</em><a class="headerlink" href="#core.s3.S3Uploader.S3_DEFAULT_REGION" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.s3.S3Uploader.S3_HOST">
+<code class="descname">S3_HOST</code><em class="property"> = 'amazonaws.com'</em><a class="headerlink" href="#core.s3.S3Uploader.S3_HOST" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.s3.S3Uploader.S3_PRESIGNED_URL_EXPIRATION">
+<code class="descname">S3_PRESIGNED_URL_EXPIRATION</code><em class="property"> = u's3_presigned_url_expiration'</em><a class="headerlink" href="#core.s3.S3Uploader.S3_PRESIGNED_URL_EXPIRATION" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -9557,7 +9667,7 @@ boto3 client.</p>
 
 <dl class="attribute">
 <dt id="core.s3.S3Uploader.SETTINGS">
-<code class="descname">SETTINGS</code><em class="property"> = [{'key': u'username', 'label': l'Access Key'}, {'description': l'If the &lt;em&gt;Access Key&lt;/em&gt; and &lt;em&gt;Secret Key&lt;/em&gt; are not given here credentials will be used as outlined in the &lt;a href='https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html#configuring-credentials'&gt;Boto3 documenation&lt;/a&gt;. If &lt;em&gt;Access Key&lt;/em&gt; is given, &lt;em&gt;Secrent Key&lt;/em&gt; must also be given.', 'key': u'password', 'label': l'Secret Key'}, {'description': l'All book cover images encountered will be mirrored to this S3 bucket. Large images will be scaled down, and the scaled-down copies will also be uploaded to this bucket. &lt;p&gt;The bucket must already exist&amp;mdash;it will not be created automatically.&lt;/p&gt;', 'key': u'book_covers_bucket', 'label': l'Book Covers Bucket'}, {'description': l'All open-access books encountered will be uploaded to this S3 bucket. &lt;p&gt;The bucket must already exist&amp;mdash;it will not be created automatically.&lt;/p&gt;', 'key': u'open_access_content_bucket', 'label': l'Open Access Content Bucket'}, {'description': l'All generated MARC files will be uploaded to this S3 bucket. &lt;p&gt;The bucket must already exist&amp;mdash;it will not be created automatically.&lt;/p&gt;', 'key': u'marc_bucket', 'label': l'MARC File Bucket'}, {'description': l'S3 region which will be used for storing the content.', 'default': u'us-east-1', 'label': l'S3 region', 'key': u's3_region', 'type': 'select', 'options': [{'key': u'af-south-1', 'label': u'af-south-1'}, {'key': u'ap-east-1', 'label': u'ap-east-1'}, {'key': u'ap-northeast-1', 'label': u'ap-northeast-1'}, {'key': u'ap-northeast-2', 'label': u'ap-northeast-2'}, {'key': u'ap-south-1', 'label': u'ap-south-1'}, {'key': u'ap-southeast-1', 'label': u'ap-southeast-1'}, {'key': u'ap-southeast-2', 'label': u'ap-southeast-2'}, {'key': u'ca-central-1', 'label': u'ca-central-1'}, {'key': u'eu-central-1', 'label': u'eu-central-1'}, {'key': u'eu-north-1', 'label': u'eu-north-1'}, {'key': u'eu-south-1', 'label': u'eu-south-1'}, {'key': u'eu-west-1', 'label': u'eu-west-1'}, {'key': u'eu-west-2', 'label': u'eu-west-2'}, {'key': u'eu-west-3', 'label': u'eu-west-3'}, {'key': u'me-south-1', 'label': u'me-south-1'}, {'key': u'sa-east-1', 'label': u'sa-east-1'}, {'key': u'us-east-1', 'label': u'us-east-1'}, {'key': u'us-east-2', 'label': u'us-east-2'}, {'key': u'us-west-1', 'label': u'us-west-1'}, {'key': u'us-west-2', 'label': u'us-west-2'}]}, {'description': l'Buckets created after September 30, 2020, will support only virtual hosted-style requests. Path-style requests will continue to be supported for buckets created on or before this date. For more information, see &lt;a href='https://aws.amazon.com/blogs/aws/amazon-s3-path-deprecation-plan-the-rest-of-the-story/'&gt;Amazon S3 Path Deprecation Plan - The Rest of the Story&lt;/a&gt;.', 'default': 'virtual', 'label': l'S3 addressing style', 'key': u's3_addressing_style', 'type': 'select', 'options': [{'key': 'virtual', 'label': l'Virtual'}, {'key': 'path', 'label': l'Path'}, {'key': 'auto', 'label': l'Auto'}]}, {'description': l'A file mirrored to S3 is available at &lt;code&gt;http://{bucket}.s3.{region}.amazonaws.com/{filename}&lt;/code&gt;. If you've set up your DNS so that http://[bucket]/ or https://[bucket]/ points to the appropriate S3 bucket, you can configure this S3 integration to shorten the URLs. &lt;p&gt;If you haven't set up your S3 buckets, don't change this from the default -- you'll get URLs that don't work.&lt;/p&gt;', 'default': u'identity', 'label': l'URL format', 'key': u'bucket_name_transform', 'type': 'select', 'options': [{'key': u'identity', 'label': l'S3 Default: https://{bucket}.s3.{region}.amazonaws.com/{file}'}, {'key': u'https', 'label': l'HTTPS: https://{bucket}/{file}'}, {'key': u'http', 'label': l'HTTP: http://{bucket}/{file}'}]}]</em><a class="headerlink" href="#core.s3.S3Uploader.SETTINGS" title="Permalink to this definition">¶</a></dt>
+<code class="descname">SETTINGS</code><em class="property"> = [{'key': u'username', 'label': l'Access Key'}, {'description': l'If the &lt;em&gt;Access Key&lt;/em&gt; and &lt;em&gt;Secret Key&lt;/em&gt; are not given here credentials will be used as outlined in the &lt;a href='https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html#configuring-credentials'&gt;Boto3 documenation&lt;/a&gt;. If &lt;em&gt;Access Key&lt;/em&gt; is given, &lt;em&gt;Secrent Key&lt;/em&gt; must also be given.', 'key': u'password', 'label': l'Secret Key'}, {'description': l'All book cover images encountered will be mirrored to this S3 bucket. Large images will be scaled down, and the scaled-down copies will also be uploaded to this bucket. &lt;p&gt;The bucket must already exist&amp;mdash;it will not be created automatically.&lt;/p&gt;', 'key': u'book_covers_bucket', 'label': l'Book Covers Bucket'}, {'description': l'All open-access books encountered will be uploaded to this S3 bucket. &lt;p&gt;The bucket must already exist&amp;mdash;it will not be created automatically.&lt;/p&gt;', 'key': u'open_access_content_bucket', 'label': l'Open Access Content Bucket'}, {'description': l'Self-hosted books will be uploaded to this S3 bucket. &lt;p&gt;The bucket must already exist&amp;mdash;it will not be created automatically.&lt;/p&gt;', 'key': u'protected_content_bucket', 'label': l'Protected Access Content Bucket'}, {'description': l'All generated MARC files will be uploaded to this S3 bucket. &lt;p&gt;The bucket must already exist&amp;mdash;it will not be created automatically.&lt;/p&gt;', 'key': u'marc_bucket', 'label': l'MARC File Bucket'}, {'description': l'S3 region which will be used for storing the content.', 'default': u'us-east-1', 'label': l'S3 region', 'key': u's3_region', 'type': 'select', 'options': [{'key': u'af-south-1', 'label': u'af-south-1'}, {'key': u'ap-east-1', 'label': u'ap-east-1'}, {'key': u'ap-northeast-1', 'label': u'ap-northeast-1'}, {'key': u'ap-northeast-2', 'label': u'ap-northeast-2'}, {'key': u'ap-south-1', 'label': u'ap-south-1'}, {'key': u'ap-southeast-1', 'label': u'ap-southeast-1'}, {'key': u'ap-southeast-2', 'label': u'ap-southeast-2'}, {'key': u'ca-central-1', 'label': u'ca-central-1'}, {'key': u'eu-central-1', 'label': u'eu-central-1'}, {'key': u'eu-north-1', 'label': u'eu-north-1'}, {'key': u'eu-south-1', 'label': u'eu-south-1'}, {'key': u'eu-west-1', 'label': u'eu-west-1'}, {'key': u'eu-west-2', 'label': u'eu-west-2'}, {'key': u'eu-west-3', 'label': u'eu-west-3'}, {'key': u'me-south-1', 'label': u'me-south-1'}, {'key': u'sa-east-1', 'label': u'sa-east-1'}, {'key': u'us-east-1', 'label': u'us-east-1'}, {'key': u'us-east-2', 'label': u'us-east-2'}, {'key': u'us-west-1', 'label': u'us-west-1'}, {'key': u'us-west-2', 'label': u'us-west-2'}]}, {'description': l'Buckets created after September 30, 2020, will support only virtual hosted-style requests. Path-style requests will continue to be supported for buckets created on or before this date. For more information, see &lt;a href='https://aws.amazon.com/blogs/aws/amazon-s3-path-deprecation-plan-the-rest-of-the-story/'&gt;Amazon S3 Path Deprecation Plan - The Rest of the Story&lt;/a&gt;.', 'default': 'virtual', 'label': l'S3 addressing style', 'key': u's3_addressing_style', 'type': 'select', 'options': [{'key': 'virtual', 'label': l'Virtual'}, {'key': 'path', 'label': l'Path'}, {'key': 'auto', 'label': l'Auto'}]}, {'default': 3600, 'type': 'number', 'description': l'Time in seconds for the presigned URL to remain valid', 'key': u's3_presigned_url_expiration', 'label': l'S3 presigned URL expiration'}, {'description': l'A file mirrored to S3 is available at &lt;code&gt;http://{bucket}.s3.{region}.amazonaws.com/{filename}&lt;/code&gt;. If you've set up your DNS so that http://[bucket]/ or https://[bucket]/ points to the appropriate S3 bucket, you can configure this S3 integration to shorten the URLs. &lt;p&gt;If you haven't set up your S3 buckets, don't change this from the default -- you'll get URLs that don't work.&lt;/p&gt;', 'default': u'identity', 'label': l'URL format', 'key': u'bucket_name_transform', 'type': 'select', 'options': [{'key': u'identity', 'label': l'S3 Default: https://{bucket}.s3.{region}.amazonaws.com/{file}'}, {'key': u'https', 'label': l'HTTPS: https://{bucket}/{file}'}, {'key': u'http', 'label': l'HTTP: http://{bucket}/{file}'}]}]</em><a class="headerlink" href="#core.s3.S3Uploader.SETTINGS" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -9596,14 +9706,9 @@ boto3 client.</p>
 <dd><p>The path to the hosted EPUB file for the given identifier.</p>
 </dd></dl>
 
-<dl class="classmethod">
-<dt id="core.s3.S3Uploader.bucket_and_filename">
-<em class="property">classmethod </em><code class="descname">bucket_and_filename</code><span class="sig-paren">(</span><em>url</em>, <em>unquote=True</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/s3.html#S3Uploader.bucket_and_filename"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.s3.S3Uploader.bucket_and_filename" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
 <dl class="method">
 <dt id="core.s3.S3Uploader.content_root">
-<code class="descname">content_root</code><span class="sig-paren">(</span><em>bucket</em>, <em>open_access=True</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/s3.html#S3Uploader.content_root"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.s3.S3Uploader.content_root" title="Permalink to this definition">¶</a></dt>
+<code class="descname">content_root</code><span class="sig-paren">(</span><em>bucket</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/s3.html#S3Uploader.content_root"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.s3.S3Uploader.content_root" title="Permalink to this definition">¶</a></dt>
 <dd><p>The root URL to the S3 location of hosted content of
 the given type.</p>
 </dd></dl>
@@ -9681,6 +9786,55 @@ and date range.</p>
 <dt id="core.s3.S3Uploader.multipart_upload">
 <code class="descname">multipart_upload</code><span class="sig-paren">(</span><em>**kwds</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/s3.html#S3Uploader.multipart_upload"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.s3.S3Uploader.multipart_upload" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
+
+<dl class="method">
+<dt id="core.s3.S3Uploader.sign_url">
+<code class="descname">sign_url</code><span class="sig-paren">(</span><em>url</em>, <em>expiration=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/s3.html#S3Uploader.sign_url"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.s3.S3Uploader.sign_url" title="Permalink to this definition">¶</a></dt>
+<dd><p>Signs a URL and make it expirable</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>url</strong> (<em>string</em>) – URL</li>
+<li><strong>expiration</strong> (<em>int</em>) – (Optional) Time in seconds for the presigned URL to remain valid.
+If it’s empty, S3_PRESIGNED_URL_EXPIRATION configuration setting is used</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">Signed expirable link</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">string</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="core.s3.S3Uploader.split_url">
+<code class="descname">split_url</code><span class="sig-paren">(</span><em>url</em>, <em>unquote=True</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/s3.html#S3Uploader.split_url"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.s3.S3Uploader.split_url" title="Permalink to this definition">¶</a></dt>
+<dd><p>Splits the URL into the components: bucket and file path</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>url</strong> (<em>string</em>) – URL</li>
+<li><strong>unquote</strong> (<em>bool</em>) – Boolean value indicating whether it’s required to unquote URL elements</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">Tuple (bucket, file path)</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">Tuple[string, string]</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
 
 <dl class="method">
 <dt id="core.s3.S3Uploader.url">
@@ -9795,6 +9949,22 @@ real database Collection objects.</p>
 <dl class="classmethod">
 <dt id="core.scripts.CollectionInputScript.parse_command_line">
 <em class="property">classmethod </em><code class="descname">parse_command_line</code><span class="sig-paren">(</span><em>_db=None</em>, <em>cmd_args=None</em>, <em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/scripts.html#CollectionInputScript.parse_command_line"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.scripts.CollectionInputScript.parse_command_line" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="core.scripts.CollectionType">
+<em class="property">class </em><code class="descclassname">core.scripts.</code><code class="descname">CollectionType</code><a class="reference internal" href="_modules/core/scripts.html#CollectionType"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.scripts.CollectionType" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">enum.Enum</span></code></p>
+<dl class="attribute">
+<dt id="core.scripts.CollectionType.OPEN_ACCESS">
+<code class="descname">OPEN_ACCESS</code><em class="property"> = 'OPEN_ACCESS'</em><a class="headerlink" href="#core.scripts.CollectionType.OPEN_ACCESS" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.scripts.CollectionType.PROTECTED_ACCESS">
+<code class="descname">PROTECTED_ACCESS</code><em class="property"> = 'PROTECTED_ACCESS'</em><a class="headerlink" href="#core.scripts.CollectionType.PROTECTED_ACCESS" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -10375,7 +10545,7 @@ in fact been mirrored.</p>
 
 <dl class="method">
 <dt id="core.scripts.MirrorResourcesScript.collections_with_uploader">
-<code class="descname">collections_with_uploader</code><span class="sig-paren">(</span><em>collections</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/scripts.html#MirrorResourcesScript.collections_with_uploader"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.scripts.MirrorResourcesScript.collections_with_uploader" title="Permalink to this definition">¶</a></dt>
+<code class="descname">collections_with_uploader</code><span class="sig-paren">(</span><em>collections</em>, <em>collection_type=&lt;CollectionType.OPEN_ACCESS: 'OPEN_ACCESS'&gt;</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/scripts.html#MirrorResourcesScript.collections_with_uploader"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.scripts.MirrorResourcesScript.collections_with_uploader" title="Permalink to this definition">¶</a></dt>
 <dd><p>Filter out collections that have no MirrorUploader.</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
@@ -11625,12 +11795,22 @@ an error creating the index, the tests will pass without doing anything.</p>
 <p>Tests for elasticsearch are useful for ensuring that we haven’t accidentally broken
 a type of search by changing analyzers or queries, but search needs to be tested manually
 to ensure that it works well overall, with a realistic index.</p>
+<dl class="attribute">
+<dt id="core.testing.ExternalSearchTest.SIMPLIFIED_TEST_ELASTICSEARCH">
+<code class="descname">SIMPLIFIED_TEST_ELASTICSEARCH</code><em class="property"> = u'http://localhost:9200'</em><a class="headerlink" href="#core.testing.ExternalSearchTest.SIMPLIFIED_TEST_ELASTICSEARCH" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
 <dl class="method">
 <dt id="core.testing.ExternalSearchTest.default_work">
 <code class="descname">default_work</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/testing.html#ExternalSearchTest.default_work"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.testing.ExternalSearchTest.default_work" title="Permalink to this definition">¶</a></dt>
 <dd><p>Convenience method to create a work with a license pool
 in the default collection.</p>
 </dd></dl>
+
+<dl class="attribute">
+<dt id="core.testing.ExternalSearchTest.integration">
+<code class="descname">integration</code><em class="property"> = 'elasticsearch'</em><a class="headerlink" href="#core.testing.ExternalSearchTest.integration" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
 
 <dl class="method">
 <dt id="core.testing.ExternalSearchTest.setup">

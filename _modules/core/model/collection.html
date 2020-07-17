@@ -35,35 +35,6 @@
   <h1>Source code for core.model.collection</h1><div class="highlight"><pre>
 <span></span><span class="c1"># encoding: utf-8</span>
 <span class="c1"># Collection, CollectionIdentifier, CollectionMissing</span>
-<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
-
-<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">Base</span><span class="p">,</span>
-    <span class="n">create</span><span class="p">,</span>
-    <span class="n">get_one</span><span class="p">,</span>
-    <span class="n">get_one_or_create</span><span class="p">,</span>
-<span class="p">)</span>
-<span class="kn">from</span> <span class="nn">coverage</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">CoverageRecord</span><span class="p">,</span>
-    <span class="n">WorkCoverageRecord</span><span class="p">,</span>
-<span class="p">)</span>
-<span class="kn">from</span> <span class="nn">configuration</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">CannotLoadConfiguration</span><span class="p">,</span>
-    <span class="n">ConfigurationSetting</span><span class="p">,</span>
-    <span class="n">ExternalIntegration</span><span class="p">,</span>
-<span class="p">)</span>
-<span class="kn">from</span> <span class="nn">constants</span> <span class="kn">import</span> <span class="n">EditionConstants</span>
-<span class="kn">from</span> <span class="nn">datasource</span> <span class="kn">import</span> <span class="n">DataSource</span>
-<span class="kn">from</span> <span class="nn">edition</span> <span class="kn">import</span> <span class="n">Edition</span>
-<span class="kn">from</span> <span class="nn">hasfulltablecache</span> <span class="kn">import</span> <span class="n">HasFullTableCache</span>
-<span class="kn">from</span> <span class="nn">identifier</span> <span class="kn">import</span> <span class="n">Identifier</span>
-<span class="kn">from</span> <span class="nn">integrationclient</span> <span class="kn">import</span> <span class="n">IntegrationClient</span>
-<span class="kn">from</span> <span class="nn">library</span> <span class="kn">import</span> <span class="n">Library</span>
-<span class="kn">from</span> <span class="nn">licensing</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">LicensePool</span><span class="p">,</span>
-    <span class="n">LicensePoolDeliveryMechanism</span><span class="p">,</span>
-<span class="p">)</span>
-<span class="kn">from</span> <span class="nn">work</span> <span class="kn">import</span> <span class="n">Work</span>
 
 <span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Column</span><span class="p">,</span>
@@ -91,10 +62,37 @@
     <span class="n">or_</span><span class="p">,</span>
 <span class="p">)</span>
 
+<span class="kn">from</span> <span class="nn">configuration</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">ConfigurationSetting</span><span class="p">,</span>
+    <span class="n">ExternalIntegration</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">constants</span> <span class="kn">import</span> <span class="n">EditionConstants</span>
+<span class="kn">from</span> <span class="nn">coverage</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">CoverageRecord</span><span class="p">,</span>
+    <span class="n">WorkCoverageRecord</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">datasource</span> <span class="kn">import</span> <span class="n">DataSource</span>
+<span class="kn">from</span> <span class="nn">edition</span> <span class="kn">import</span> <span class="n">Edition</span>
+<span class="kn">from</span> <span class="nn">hasfulltablecache</span> <span class="kn">import</span> <span class="n">HasFullTableCache</span>
+<span class="kn">from</span> <span class="nn">identifier</span> <span class="kn">import</span> <span class="n">Identifier</span>
+<span class="kn">from</span> <span class="nn">integrationclient</span> <span class="kn">import</span> <span class="n">IntegrationClient</span>
+<span class="kn">from</span> <span class="nn">library</span> <span class="kn">import</span> <span class="n">Library</span>
+<span class="kn">from</span> <span class="nn">licensing</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">LicensePool</span><span class="p">,</span>
+    <span class="n">LicensePoolDeliveryMechanism</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">work</span> <span class="kn">import</span> <span class="n">Work</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Base</span><span class="p">,</span>
+    <span class="n">create</span><span class="p">,</span>
+    <span class="n">get_one</span><span class="p">,</span>
+    <span class="n">get_one_or_create</span><span class="p">,</span>
+<span class="p">)</span>
 <span class="kn">from</span> <span class="nn">..util.string_helpers</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">base64</span><span class="p">,</span>
     <span class="n">native_string</span><span class="p">,</span>
 <span class="p">)</span>
+
 
 <div class="viewcode-block" id="Collection"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Collection">[docs]</a><span class="k">class</span> <span class="nc">Collection</span><span class="p">(</span><span class="n">Base</span><span class="p">,</span> <span class="n">HasFullTableCache</span><span class="p">):</span>
 
@@ -779,9 +777,9 @@
         <span class="k">if</span> <span class="ow">not</span> <span class="n">show_suppressed</span><span class="p">:</span>
             <span class="n">query</span> <span class="o">=</span> <span class="n">query</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">LicensePool</span><span class="o">.</span><span class="n">suppressed</span><span class="o">==</span><span class="kc">False</span><span class="p">)</span>
 
-        <span class="c1"># Only find books with available licenses.</span>
+        <span class="c1"># Only find books with available licenses or books from self-hosted collections using MirrorUploader</span>
         <span class="n">query</span> <span class="o">=</span> <span class="n">query</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
-                <span class="n">or_</span><span class="p">(</span><span class="n">LicensePool</span><span class="o">.</span><span class="n">licenses_owned</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="n">LicensePool</span><span class="o">.</span><span class="n">open_access</span><span class="p">)</span>
+            <span class="n">or_</span><span class="p">(</span><span class="n">LicensePool</span><span class="o">.</span><span class="n">licenses_owned</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="n">LicensePool</span><span class="o">.</span><span class="n">open_access</span><span class="p">,</span> <span class="n">LicensePool</span><span class="o">.</span><span class="n">self_hosted</span><span class="p">)</span>
         <span class="p">)</span>
 
         <span class="c1"># Only find books in an appropriate collection.</span>
