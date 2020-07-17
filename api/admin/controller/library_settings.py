@@ -27,6 +27,7 @@ from PIL import Image
 from api.admin.exceptions import *
 from api.admin.problem_details import *
 from api.admin.geographic_validator import GeographicValidator
+from api.admin.announcement_list_validator import AnnouncementListValidator
 from core.util.problem_detail import ProblemDetail
 from core.util import LanguageCodes
 from nose.tools import set_trace
@@ -53,7 +54,8 @@ class LibrarySettingsController(SettingsController):
                     value = ConfigurationSetting.for_library(setting.get("key"), library).json_value
                     if value and setting.get("format") == "geographic":
                         value = self.get_extra_geographic_information(value)
-
+                    if value and setting.get("format") == "announcements":
+                        value = AnnouncementListValidator().validate_announcements(value)
                 else:
                     value = self.current_value(setting, library)
 
@@ -68,12 +70,15 @@ class LibrarySettingsController(SettingsController):
             )]
         return dict(libraries=libraries, settings=Configuration.LIBRARY_SETTINGS)
 
-    def process_post(self, validator=None):
+    def process_post(self, validators_by_type=None):
         self.require_system_admin()
 
         library = None
         is_new = False
-        validator = validator or GeographicValidator()
+        if validators_by_type is None:
+            validators_by_type = dict()
+            validators_by_type['geographic'] = GeographicValidator()
+            validators_by_type['announcements'] = AnnouncementListValidator()
 
         library_uuid = flask.request.form.get("uuid")
         library = self.get_library_from_uuid(library_uuid)
@@ -100,7 +105,7 @@ class LibrarySettingsController(SettingsController):
         if short_name:
             library.short_name = short_name
 
-        configuration_settings = self.library_configuration_settings(library, validator)
+        configuration_settings = self.library_configuration_settings(library, validators_by_type)
         if isinstance(configuration_settings, ProblemDetail):
             return configuration_settings
 
@@ -216,29 +221,90 @@ class LibrarySettingsController(SettingsController):
 
         return value
 
-    def library_configuration_settings(self, library, validator):
-        for setting in Configuration.LIBRARY_SETTINGS:
-            if setting.get("format") == "geographic":
-                locations = validator.validate_geographic_areas(self.list_setting(setting), self._db)
-                if isinstance(locations, ProblemDetail):
-                    return locations
-                value = locations or self.current_value(setting, library)
-            elif setting.get("type") == "list":
-                value = self.list_setting(setting) or self.current_value(setting, library)
-                if setting.get("format") == "language-code":
-                    value = json.dumps([LanguageCodes.string_to_alpha_3(language) for language in json.loads(value)])
-            elif setting.get("type") == "image":
-                value = self.image_setting(setting) or self.current_value(setting, library)
+    def library_configuration_settings(
+            self, library, validators_by_format, settings=None
+    ):
+        """Validate and update a library's configuration settings based on incoming new
+        values.
+
+        :param library: A Library
+        :param validators_by_format: A dictionary mapping the 'format' field from a setting
+           configuration to a corresponding validator object.
+        :param settings: A list of setting configurations to use in tests instead of
+           Configuration.LIBRARY_SETTINGS
+        """
+        settings = settings or Configuration.LIBRARY_SETTINGS
+        for setting in settings:
+            # Validate the incoming value.
+            validator = None
+            if 'format' in setting:
+                validator = validators_by_format.get(setting["format"])
+            validated_value = self._validate_setting(library, setting, validator)
+
+            if isinstance(validated_value, ProblemDetail):
+                # Validation failed -- return a ProblemDetail.
+                return validated_value
+
+            # Validation succeeded -- set the new value.
+            ConfigurationSetting.for_library(setting['key'], library).value = validated_value
+
+    def _validate_setting(self, library, setting, validator=None):
+        """Validate the incoming value for a single library setting.
+
+        :param library: A Library
+        :param setting: Configuration data for one of the library's settings.
+        :param validator: A validation object for data of this type.
+        """
+        # TODO: there are some opportunities for improvement here:
+        # * There's no standard interface for validators.
+        # * We can handle settings that are lists of certain types (language codes,
+        #   geographic areas), but not settings that are a single value of that type
+        #   (_one_ language code or geographic area). Sometimes there's even an implication
+        #   that a certain data type ('geographic') _must_ mean a list.
+        # * A list value is returned as a JSON-encoded string. It
+        #   would be better to keep that as a list for longer in case
+        #   controller code needs to look at it.
+        format = setting.get('format')
+        type = setting.get('type')
+
+        # In some cases, if there is no incoming value we can use a
+        # default value or the current value.
+        #
+        # When the configuration item is a list, we can't do this
+        # because an empty list may be a valid value.
+        current_value = self.current_value(setting, library)
+        default_value = setting.get('default') or current_value
+
+        if format == "geographic":
+            value = self.list_setting(setting)
+            value = validator.validate_geographic_areas(value, self._db)
+        elif format == "announcements":
+            value = self.list_setting(setting, json_objects=True)
+            value = validator.validate(value)
+        elif type == "list":
+            value = self.list_setting(setting)
+            if format == "language-code":
+                value = json.dumps([LanguageCodes.string_to_alpha_3(language) for language in json.loads(value)])
+        else:
+            if type == "image":
+                value = self.image_setting(setting) or default_value
             else:
-                default = setting.get('default')
-                value = flask.request.form.get(setting['key'], default)
+                value = self.scalar_setting(setting) or default_value
+        return value
 
-            ConfigurationSetting.for_library(setting['key'], library).value = value
+    def scalar_setting(self, setting):
+        """Retrieve the single value of the given setting from the current HTTP request."""
+        return flask.request.form.get(setting['key'])
 
-    def current_value(self, setting, library):
-        return ConfigurationSetting.for_library(setting['key'], library).value
+    def list_setting(self, setting, json_objects=False):
+        """Retrieve the list of values for the given setting from the current HTTP request.
 
-    def list_setting(self, setting):
+        :param json_objects: If this is True, the incoming settings are JSON-encoded objects and not
+           regular strings.
+
+        :return: A JSON-encoded string encoding the list of values set for the given setting in the
+           current request.
+        """
         if setting.get('options'):
             # Restrict to the values in 'options'.
             value = []
@@ -250,11 +316,15 @@ class LibrarySettingsController(SettingsController):
             value = []
             inputs = flask.request.form.getlist(setting.get("key"))
             for i in inputs:
-                value.extend(i) if isinstance(i, list) else value.append(i)
-
+                if not isinstance(i, list):
+                    i = [i]
+                if json_objects:
+                    i = [json.loads(s) for x in i]
+                value.extend(i)
         return json.dumps(filter(None, value))
 
     def image_setting(self, setting):
+        """Retrieve an uploaded image for the given setting from the current HTTP request."""
         image_file = flask.request.files.get(setting.get("key"))
         if image_file:
             image = Image.open(image_file)
@@ -265,3 +335,7 @@ class LibrarySettingsController(SettingsController):
             image.save(buffer, format="PNG")
             b64 = base64.b64encode(buffer.getvalue())
             return "data:image/png;base64,%s" % b64
+
+    def current_value(self, setting, library):
+        """Retrieve the current value of the given setting from the database."""
+        return ConfigurationSetting.for_library(setting['key'], library).value

@@ -795,21 +795,21 @@ class CacheMARCFiles(LaneSweeperScript):
         # integration.
         integration_link = get_one(
             self._db, ExternalIntegrationLink,
-            other_integration_id=exporter.integration.id,
+            external_integration_id=exporter.integration.id,
             purpose=ExternalIntegrationLink.MARC
         )
         # Then use the "other" integration value to find the storage integration.
-        integration = get_one(self._db, ExternalIntegration,
+        storage_integration = get_one(self._db, ExternalIntegration,
             id=integration_link.other_integration_id
         )
 
-        if not integration:
+        if not storage_integration:
             self.log.info("No storage External Integration was found.")
             return
 
         # First update the file with ALL the records.
         records = exporter.records(
-            lane, annotator, integration
+            lane, annotator, storage_integration
         )
 
         # Then create a new file with changes since the last update.
@@ -819,7 +819,7 @@ class CacheMARCFiles(LaneSweeperScript):
             start_time = last_update - timedelta(days=1)
 
             records = exporter.records(
-                lane, annotator, integration, start_time=start_time
+                lane, annotator, storage_integration, start_time=start_time
             )
 
 

@@ -596,9 +596,18 @@ class TestCacheMARCFiles(TestLaneScript):
                 self.called_with += [(lane, annotator, mirror_integration, start_time)]
 
         exporter = MockMARCExporter(None, None, integration)
+
+        # This just needs to be an ExternalIntegration, but a storage integration
+        # makes the most sense in this context.
+        the_linked_integration, ignore = create(
+            self._db, ExternalIntegration,
+            protocol=ExternalIntegration.S3,
+            goal=ExternalIntegration.STORAGE_GOAL,
+        )
+
         integration_link = self._external_integration_link(
             integration=integration,
-            other_integration=exporter.integration,
+            other_integration=the_linked_integration,
             purpose=ExternalIntegrationLink.MARC
         )
 
@@ -611,7 +620,7 @@ class TestCacheMARCFiles(TestLaneScript):
 
         eq_(lane, exporter.called_with[0][0])
         assert isinstance(exporter.called_with[0][1], MARCLibraryAnnotator)
-        eq_(exporter.integration, exporter.called_with[0][2])
+        eq_(the_linked_integration, exporter.called_with[0][2])
         eq_(None, exporter.called_with[0][3])
 
         # If we have a cached file already, and it's old enough, the script will
@@ -635,12 +644,12 @@ class TestCacheMARCFiles(TestLaneScript):
 
         eq_(lane, exporter.called_with[0][0])
         assert isinstance(exporter.called_with[0][1], MARCLibraryAnnotator)
-        eq_(exporter.integration, exporter.called_with[0][2])
+        eq_(the_linked_integration, exporter.called_with[0][2])
         eq_(None, exporter.called_with[0][3])
 
         eq_(lane, exporter.called_with[1][0])
         assert isinstance(exporter.called_with[1][1], MARCLibraryAnnotator)
-        eq_(exporter.integration, exporter.called_with[1][2])
+        eq_(the_linked_integration, exporter.called_with[1][2])
         assert exporter.called_with[1][3] < last_week
 
         # If we already have a recent cached file, the script won't do anything.
@@ -657,12 +666,12 @@ class TestCacheMARCFiles(TestLaneScript):
 
         eq_(lane, exporter.called_with[0][0])
         assert isinstance(exporter.called_with[0][1], MARCLibraryAnnotator)
-        eq_(exporter.integration, exporter.called_with[0][2])
+        eq_(the_linked_integration, exporter.called_with[0][2])
         eq_(None, exporter.called_with[0][3])
 
         eq_(lane, exporter.called_with[1][0])
         assert isinstance(exporter.called_with[1][1], MARCLibraryAnnotator)
-        eq_(exporter.integration, exporter.called_with[1][2])
+        eq_(the_linked_integration, exporter.called_with[1][2])
         assert exporter.called_with[1][3] < yesterday
         assert exporter.called_with[1][3] > last_week
 
@@ -678,12 +687,12 @@ class TestCacheMARCFiles(TestLaneScript):
 
         eq_(lane, exporter.called_with[0][0])
         assert isinstance(exporter.called_with[0][1], MARCLibraryAnnotator)
-        eq_(exporter.integration, exporter.called_with[0][2])
+        eq_(the_linked_integration, exporter.called_with[0][2])
         eq_(None, exporter.called_with[0][3])
 
         eq_(lane, exporter.called_with[1][0])
         assert isinstance(exporter.called_with[1][1], MARCLibraryAnnotator)
-        eq_(exporter.integration, exporter.called_with[1][2])
+        eq_(the_linked_integration, exporter.called_with[1][2])
         assert exporter.called_with[1][3] < yesterday
         assert exporter.called_with[1][3] > last_week
 

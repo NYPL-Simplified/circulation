@@ -450,6 +450,29 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
 
         eq_(0, self._db.query(Loan).count())
 
+    def test_checkout_when_all_licenses_expired(self):
+        # license expired by expiration date
+        self.pool.licenses_owned = 1
+        self.pool.licenses_available = 1
+        self.license.remaining_checkouts = 1
+        self.license.expires = datetime.datetime.utcnow() - datetime.timedelta(weeks=1)
+
+        assert_raises(
+            NoLicenses, self.api.checkout,
+            self.patron, "pin", self.pool, Representation.EPUB_MEDIA_TYPE,
+        )
+
+        # license expired by no remaining checkouts
+        self.pool.licenses_owned = 1
+        self.pool.licenses_available = 1
+        self.license.remaining_checkouts = 0
+        self.license.expires = datetime.datetime.utcnow() + datetime.timedelta(weeks=1)
+
+        assert_raises(
+            NoLicenses, self.api.checkout,
+            self.patron, "pin", self.pool, Representation.EPUB_MEDIA_TYPE,
+        )
+
     def test_checkout_cannot_loan(self):
         lsd = json.dumps({
             "status": "revoked",
@@ -1563,6 +1586,17 @@ class TestSharedODLAPI(DatabaseTest, BaseODLTest):
     def test_checkout_no_available_copies(self):
         self.api.queue_response(403)
         assert_raises(NoAvailableCopies, self.api.checkout, self.patron, "pin",
+                      self.pool, Representation.EPUB_MEDIA_TYPE)
+        eq_([self.pool.identifier.links[0].resource.url],
+             self.api.requests)
+
+    def test_checkout_no_licenses(self):
+        self.api.queue_response(
+            NO_LICENSES.response[1],
+            headers=NO_LICENSES.response[2],
+            content=NO_LICENSES.response[0],
+        )
+        assert_raises(NoLicenses, self.api.checkout, self.patron, "pin",
                       self.pool, Representation.EPUB_MEDIA_TYPE)
         eq_([self.pool.identifier.links[0].resource.url],
              self.api.requests)
