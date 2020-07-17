@@ -50,12 +50,14 @@ class LibrarySettingsController(SettingsController):
 
             settings = dict()
             for setting in Configuration.LIBRARY_SETTINGS:
+                if setting.get("type") == "announcements":
+                    value = ConfigurationSetting.for_library(setting.get("key"), library).json_value
+                    if value:
+                        value = AnnouncementListValidator().validate_announcements(value)
                 if setting.get("type") == "list":
                     value = ConfigurationSetting.for_library(setting.get("key"), library).json_value
                     if value and setting.get("format") == "geographic":
                         value = self.get_extra_geographic_information(value)
-                    if value and setting.get("format") == "announcements":
-                        value = AnnouncementListValidator().validate_announcements(value)
                 else:
                     value = self.current_value(setting, library)
 
@@ -163,19 +165,24 @@ class LibrarySettingsController(SettingsController):
             )
 
     def check_web_color_contrast(self, settings):
-        """Verify that the web background color and web foreground
-        color go together.
         """
-        background = flask.request.form.get(Configuration.WEB_BACKGROUND_COLOR, Configuration.DEFAULT_WEB_BACKGROUND_COLOR)
-        foreground = flask.request.form.get(Configuration.WEB_FOREGROUND_COLOR, Configuration.DEFAULT_WEB_FOREGROUND_COLOR)
+        Verify that the web primary and secondary color both contrast
+        well on white, as these colors will serve as button backgrounds with
+        white test, as well as text color on white backgrounds.
+        """
+        primary = flask.request.form.get(Configuration.WEB_PRIMARY_COLOR, Configuration.DEFAULT_WEB_PRIMARY_COLOR)
+        secondary = flask.request.form.get(Configuration.WEB_SECONDARY_COLOR, Configuration.DEFAULT_WEB_SECONDARY_COLOR)
         def hex_to_rgb(hex):
             hex = hex.lstrip("#")
             return tuple(int(hex[i:i+2], 16)/255.0 for i in (0, 2 ,4))
-        if not wcag_contrast_ratio.passes_AA(wcag_contrast_ratio.rgb(hex_to_rgb(background), hex_to_rgb(foreground))):
-            contrast_check_url = "https://contrast-ratio.com/#%23" + foreground[1:] + "-on-%23" + background[1:]
+        primary_passes = wcag_contrast_ratio.passes_AA(wcag_contrast_ratio.rgb(hex_to_rgb(primary), hex_to_rgb("#ffffff")))
+        secondary_passes = wcag_contrast_ratio.passes_AA(wcag_contrast_ratio.rgb(hex_to_rgb(secondary), hex_to_rgb("#ffffff")))
+        if not (primary_passes and secondary_passes):
+            primary_check_url = "https://contrast-ratio.com/#%23" + secondary[1:] + "-on-%23" + "#ffffff"[1:] 
+            secondary_check_url = "https://contrast-ratio.com/#%23" + secondary[1:] + "-on-%23" + "#ffffff"[1:]
             return INVALID_CONFIGURATION_OPTION.detailed(
-                _("The web background and foreground colors don't have enough contrast to pass the WCAG 2.0 AA guidelines and will be difficult for some patrons to read. Check contrast <a href='%(contrast_check_url)s' target='_blank'>here</a>.",
-                  contrast_check_url=contrast_check_url))
+                _("The web primary and secondary colors don't have enough contrast to pass the WCAG 2.0 AA guidelines and will be difficult for some patrons to read. Check contrast for primary <a href='%(primary_check_url)s' target='_blank'>here</a> and secondary <a href='%(primary_check_url)s' target='_blank'>here</a>.",
+                  primary_check_url=primary_check_url, secondary_check_url=secondary_check_url))
 
     def check_header_links(self, settings):
         """Verify that header links and labels are the same length."""
@@ -239,6 +246,8 @@ class LibrarySettingsController(SettingsController):
             validator = None
             if 'format' in setting:
                 validator = validators_by_format.get(setting["format"])
+            elif 'type' in setting:
+                validator = validators_by_format.get(setting["type"])
             validated_value = self._validate_setting(library, setting, validator)
 
             if isinstance(validated_value, ProblemDetail):
@@ -246,7 +255,9 @@ class LibrarySettingsController(SettingsController):
                 return validated_value
 
             # Validation succeeded -- set the new value.
-            ConfigurationSetting.for_library(setting['key'], library).value = validated_value
+            ConfigurationSetting.for_library(setting['key'], library).value = self._format_validated_value(
+                validated_value, validator
+            )
 
     def _validate_setting(self, library, setting, validator=None):
         """Validate the incoming value for a single library setting.
@@ -278,9 +289,9 @@ class LibrarySettingsController(SettingsController):
         if format == "geographic":
             value = self.list_setting(setting)
             value = validator.validate_geographic_areas(value, self._db)
-        elif format == "announcements":
+        elif type == "announcements":
             value = self.list_setting(setting, json_objects=True)
-            value = validator.validate(value)
+            value = validator.validate_announcements(value)
         elif type == "list":
             value = self.list_setting(setting)
             if format == "language-code":
@@ -314,13 +325,19 @@ class LibrarySettingsController(SettingsController):
         else:
             # Allow any entered values.
             value = []
-            inputs = flask.request.form.getlist(setting.get("key"))
-            for i in inputs:
-                if not isinstance(i, list):
-                    i = [i]
-                if json_objects:
-                    i = [json.loads(s) for x in i]
-                value.extend(i)
+            if setting.get("type") == "list":
+                inputs = flask.request.form.getlist(setting.get("key"))
+            else:
+                inputs = flask.request.form.get(setting.get("key"))
+
+            if json_objects and inputs:
+                inputs = json.loads(inputs)
+            if inputs:
+                for i in inputs:
+                    if not isinstance(i, list):
+                        i = [i]
+                    value.extend(i)
+
         return json.dumps(filter(None, value))
 
     def image_setting(self, setting):
@@ -339,3 +356,12 @@ class LibrarySettingsController(SettingsController):
     def current_value(self, setting, library):
         """Retrieve the current value of the given setting from the database."""
         return ConfigurationSetting.for_library(setting['key'], library).value
+
+    @classmethod
+    def _format_validated_value(cls, value, validator=None):
+        """Convert a validated value to a string that can be stored in ConfigurationSetting.value
+        """
+        if not validator:
+            # Assume the value is already a string.
+            return value
+        return validator.format_as_string(value)

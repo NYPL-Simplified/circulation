@@ -1,0 +1,12 @@
+{
+  "Status": {
+    "Code": "0000",
+    "Message": "SUCCESS"
+  },
+  "TransactionID": "8812AF28-4E9C-419C-9C65-BC4785EE0C91",
+  "AdobeFullfillmentUrl": "http://axis360apiqa.baker-taylor.com/Services/VendorAPI/GetAxisDownload/v2?src=library&transactionId=CC7817FE-C19A-4840-ADC6-5707574C55D4&isbn=9780547351551&format=F3",
+  "ExternalListnerID": "1c13c37f-8cc2-49bb-9f79-491194c3712d",
+  "BookVaultUUID": "1c11c31f-81c2-41bb-9179-491114c3f121",
+  "ISBN": "9780547351551",
+  "ExpirationDate": "2018-09-29 18:34:00.0001398 +00:00"
+}

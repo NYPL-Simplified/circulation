@@ -158,6 +158,19 @@ class TestCirculationAPI(DatabaseTest):
         loan, hold, is_new = self.borrow()
         eq_(3, self.analytics.count)
 
+    def test_borrowing_of_self_hosted_book_succeeds(self):
+        # Arrange
+        self.pool.self_hosted = True
+
+        # Act
+        loan, hold, is_new = self.borrow()
+
+        # Assert
+        eq_(True, is_new)
+        eq_(self.pool, loan.license_pool)
+        eq_(self.patron, loan.patron)
+        assert hold is None
+
     def test_attempt_borrow_with_existing_remote_loan(self):
         """The patron has a remote loan that the circ manager doesn't know
         about, and they just tried to borrow a book they already have

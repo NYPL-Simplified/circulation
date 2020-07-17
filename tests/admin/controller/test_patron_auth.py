@@ -17,6 +17,7 @@ from api.clever import CleverAuthenticationAPI
 from api.firstbook import FirstBookAuthenticationAPI
 from api.millenium_patron import MilleniumPatronAPI
 from api.problem_details import *
+from api.saml.provider import SAMLWebSSOAuthenticationProvider
 from api.simple_authentication import SimpleAuthenticationProvider
 from api.sip import SIP2AuthenticationProvider
 from core.model import (
@@ -36,7 +37,7 @@ class TestPatronAuth(SettingsControllerTest):
             response = self.manager.admin_patron_auth_services_controller.process_patron_auth_services()
             eq_(response.get("patron_auth_services"), [])
             protocols = response.get("protocols")
-            eq_(7, len(protocols))
+            eq_(8, len(protocols))
             eq_(SimpleAuthenticationProvider.__module__, protocols[0].get("name"))
             assert "settings" in protocols[0]
             assert "library_settings" in protocols[0]
@@ -204,6 +205,23 @@ class TestPatronAuth(SettingsControllerTest):
             [library] = service.get("libraries")
             eq_(self._default_library.short_name, library.get("short_name"))
 
+    def test_patron_auth_services_get_with_saml_auth_service(self):
+        auth_service, ignore = create(
+            self._db, ExternalIntegration,
+            protocol=SAMLWebSSOAuthenticationProvider.__module__,
+            goal=ExternalIntegration.PATRON_AUTH_GOAL
+        )
+        auth_service.libraries += [self._default_library]
+
+        with self.request_context_with_admin("/"):
+            response = self.manager.admin_patron_auth_services_controller.process_patron_auth_services()
+            [service] = response.get("patron_auth_services")
+
+            eq_(auth_service.id, service.get("id"))
+            eq_(SAMLWebSSOAuthenticationProvider.__module__, service.get("protocol"))
+            [library] = service.get("libraries")
+            eq_(self._default_library.short_name, library.get("short_name"))
+
     def _common_basic_auth_arguments(self):
         """We're not really testing these arguments, but a value for them
         is required for all Basic Auth type integrations.
@@ -357,11 +375,13 @@ class TestPatronAuth(SettingsControllerTest):
 
     def _get_mock(self):
         manager = self.manager
+
         class Mock(PatronAuthServicesController):
             def __init__(self, manager):
                 self.validate_formats_call_count = 0
                 super(Mock, self).__init__(manager)
-            def validate_formats(self):
+
+            def validate_formats(self, settings=None, validator=None):
                 self.validate_formats_call_count += 1
                 super(Mock, self).validate_formats()
 

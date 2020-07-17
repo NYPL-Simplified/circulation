@@ -7,7 +7,7 @@ from nose.tools import (
 from contextlib import contextmanager
 import os
 import datetime
-import re
+import urlparse
 from wsgiref.handlers import format_date_time
 from time import mktime
 from decimal import Decimal
@@ -445,7 +445,7 @@ class TestCirculationManager(CirculationControllerTest):
         # We also set up some patron web client settings that will
         # be loaded.
         ConfigurationSetting.sitewide(
-            self._db, Configuration.PATRON_WEB_CLIENT_URL).value = "http://sitewide/1234"
+            self._db, Configuration.PATRON_WEB_HOSTNAMES).value = "http://sitewide/1234"
         registry = self._external_integration(
             protocol="some protocol", goal=ExternalIntegration.DISCOVERY_GOAL
         )
@@ -500,9 +500,15 @@ class TestCirculationManager(CirculationControllerTest):
 
         # The sitewide patron web domain can also be set to *.
         ConfigurationSetting.sitewide(
-            self._db, Configuration.PATRON_WEB_CLIENT_URL).value = "*"
+            self._db, Configuration.PATRON_WEB_HOSTNAMES).value = "*"
         self.manager.load_settings()
         eq_(set(["*", "http://registration"]), manager.patron_web_domains)
+
+        # The sitewide patron web domain can have pipe separated domains, and will get spaces stripped
+        ConfigurationSetting.sitewide(
+            self._db, Configuration.PATRON_WEB_HOSTNAMES).value = "https://1.com|http://2.com |  http://subdomain.3.com|4.com"
+        self.manager.load_settings()
+        eq_(set(["https://1.com", "http://2.com",  "http://subdomain.3.com", "http://registration"]), manager.patron_web_domains)
 
         # Restore the CustomIndexView.for_library implementation
         CustomIndexView.for_library = old_for_library
@@ -976,6 +982,26 @@ class TestBaseController(CirculationControllerTest):
             adobe_licensepool, lpdm.delivery_mechanism.id
         )
         eq_(BAD_DELIVERY_MECHANISM.uri, problem_detail.uri)
+
+    def test_apply_borrowing_policy_succeeds_for_self_hosted_books(self):
+        with self.request_context_with_library("/"):
+            # Arrange
+            patron = self.controller.authenticated_patron(self.valid_credentials)
+            work = self._work(
+                with_license_pool=True,
+                with_open_access_download=False
+            )
+            [pool] = work.license_pools
+            pool.licenses_available = 0
+            pool.licenses_owned = 0
+            pool.open_access = False
+            pool.self_hosted = True
+
+            # Act
+            problem = self.controller.apply_borrowing_policy(patron, pool)
+
+            # Assert
+            assert problem is None
 
     def test_apply_borrowing_policy_when_holds_prohibited(self):
         with self.request_context_with_library("/"):
@@ -1800,6 +1826,7 @@ class TestLoanController(CirculationControllerTest):
 
         controller = self.manager.loans
         mock = MockCirculationAPI()
+        library_short_name = self._default_library.short_name
         controller.manager.circulation_apis[self._default_library.id] = mock
 
         with self.request_context_with_library(
@@ -1829,10 +1856,20 @@ class TestLoanController(CirculationControllerTest):
             # and make sure it gives the result we expect.
             expect = url_for(
                 "fulfill", license_pool_id=self.pool.id,
-                mechanism_id=mechanism.delivery_mechanism.id, part=part,
-                _external=True
+                mechanism_id=mechanism.delivery_mechanism.id,
+                library_short_name=library_short_name,
+                part=part, _external=True
             )
-            eq_(expect, fulfill_part_url(part))
+            part_url = fulfill_part_url(part)
+            eq_(expect, part_url)
+
+            # Ensure that the library short name is the first segment
+            # of the path of the fulfillment url. We cannot perform
+            # patron authentication without it.
+            expected_path = urlparse.urlparse(expect).path
+            part_url_path = urlparse.urlparse(part_url).path
+            assert expected_path.startswith("/{}/".format(library_short_name))
+            assert part_url_path.startswith("/{}/".format(library_short_name))
 
     def test_fulfill_returns_fulfillment_info_implementing_as_response(self):
         # If CirculationAPI.fulfill returns a FulfillmentInfo that
