@@ -241,6 +241,21 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         )
         self.api.queue_response(status_code=200, content=patron_datastr)
 
+    def queue_fetch_patron_bearer_token(self):
+        """Queue responses for the API calls used to obtain a patron
+        bearer token.
+
+        RBDigitalAPI.fetch_patron_bearer_token requires three API calls.
+        This method makes it easier and less error-prone to set up for that.
+        """
+        for filename in (
+            "response_patron_info_found.json",
+            "response_patron_internal_id_found.json",
+            "response_patron_bearer_token_success.json",
+        ):
+            datastr, datadict = self.api.get_data(filename)
+            self.api.queue_response(status_code=200, content=datastr)
+
     def _assert_patron_has_remote_identifier_credential(
             self, patron, external_id
     ):
@@ -1255,6 +1270,10 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         # download. (We know this, because the response to that
         # request has not been queued yet.)
 
+        # We'll need to obtain a patron bearer token for fulfillment
+        # requests, so we'll queue the requisite responses up first.
+        self.queue_fetch_patron_bearer_token()
+
         # Let's queue it up now.
         download_url  = u"http://download_url/"
         epub_manifest = json.dumps({ "url": download_url,
@@ -1372,13 +1391,20 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         # We're going to make two requests this time -- one to get the
         # patron's current loans and one to get the RBdigital access
         # document.
+        #
+        # Before the second request, we'll check the cache for a patron
+        # bearer token, which we need to authenticate access document
+        # fulfillment. But we don't have one. We'll need to obtain if from
+        # the remote, so we'll queue the set of responses for the bearer
+        # token before the response for the fulfillment request.
+        datastr, datadict = self.api.get_data("response_patron_checkouts_with_audiobook.json")
+        self.api.queue_response(status_code=200, content=datastr)
 
-        for filename in (
-            "response_patron_checkouts_with_audiobook.json",
-            "audiobook_chapter_access_document.json"
-        ):
-            datastr, datadict = self.api.get_data(filename)
-            self.api.queue_response(status_code=200, content=datastr)
+        self.queue_fetch_patron_bearer_token()
+
+        datastr, datadict = self.api.get_data("audiobook_chapter_access_document.json")
+        self.api.queue_response(status_code=200, content=datastr)
+
 
         # We end up with a FulfillmentInfo that includes the link
         # mentioned in audiobook_chapter_access_document.json.

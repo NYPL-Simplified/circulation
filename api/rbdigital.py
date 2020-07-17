@@ -428,7 +428,9 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         return resp_obj
 
     def patron_fulfillment_request(self, patron, url):
-        return self._make_request(url, 'GET', {})
+        bearer_token = self.patron_bearer_token(patron)
+        headers = {"Authorization": 'Bearer {}'.format(bearer_token)}
+        return self._make_request(url, 'GET', headers)
 
     def fulfill(
         self, patron, pin, licensepool, internal_format, part=None,
@@ -754,6 +756,82 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
             collection=collection, allow_persistent_token=is_persistent
         )
         return credential.credential
+
+    def fetch_patron_bearer_token(self, patron):
+        """Obtain a patron bearer token for an RBdigital Patron.
+
+        A patron bearer token for an account within an RBdigital collection
+        can be obtained with the patron's RBdigital `userId` for that
+        collection. (An initial bearer token also can also be captured
+        when an RBdigital account is first created, but that is not
+        applicable here.)
+
+        We don't cache `userId's locally, but can retrieve them with the
+        account's `username`. (This usually has the same value as the
+        patron's barcode/authorization_identifier; but, because of the
+        `Barcode+6` technique used to create accounts for patrons who don't
+        have a registered email address, this is not always the case, so we
+        cannot rely on it.) So, we obtain the username by looking it up
+        using the `patronId`, a property that we cache locally.
+
+        So, the process, in summary:
+            - Get `patronId` from cache or RBdigital,
+            - Fetch `username` using `patronId`.
+            - Fetch `userId` using `username`.
+            - Obtain `bearer` token using `userId`.
+
+        :param patron: A Patron.
+        :return: A bearer token associated with the patron.
+        """
+
+        def request_helper(url, method='get', data=None, action='(unspecified action)',
+                           allowed_response_codes=None, transform=None,):
+            if transform is None:
+                transform = lambda body: body
+            if allowed_response_codes is None:
+                allowed_response_codes = [200, 201]
+            message = None
+            result = None
+
+            response = self.request(url, method=method, data=data)
+            if response.text:
+                result = response.json()
+                message = result.get('message', None)
+            self.validate_response(response=response, message=message, action=action)
+            if result and response.status_code in allowed_response_codes:
+                result = transform(result)
+            if result is None:
+                raise PatronAuthorizationFailedException(action +
+                ": http=" + str(response.status_code) + ", response=" + response.text)
+            return result
+
+        # start with a patron_id
+        patron_id = self.patron_credential(self.CACHED_IDENTIFIER_PROPERTY, patron)
+
+        username = request_helper(
+            "%s/libraries/%s/patrons/%s" % (self.base_url, self.library_id, patron_id),
+            action="lookup username",
+            transform=lambda body: body['userName'],
+        )
+
+        user_id = request_helper(
+            "%s/rpc/libraries/%s/patrons/%s" % (self.base_url, self.library_id, username),
+            action="lookup userId",
+            transform=lambda body: body['userId'],
+        )
+
+        bearer_token = request_helper(
+            "%s/libraries/%s/tokens" % (self.base_url, self.library_id),
+            method='post', data=json.dumps({'userId': user_id}),
+            action="obtain patron bearer token",
+            transform=lambda body: body['bearer'],
+        )
+
+        return bearer_token
+
+    def patron_bearer_token(self, patron):
+        return self.patron_credential(self.BEARER_TOKEN_PROPERTY, patron)
+
 
     def patron_remote_identifier(self, patron):
         """Locate the identifier for the given Patron's account on the
