@@ -511,7 +511,7 @@ class TestRBDigitalAPI(RBDigitalAPITest):
                 """This API has never heard of any patron."""
                 return None
 
-            def create_patron(self, *args):
+            def create_patron(self, *args, **kwargs):
                 self.called_with = args
                 return "rbdigital internal id"
 
@@ -552,7 +552,7 @@ class TestRBDigitalAPI(RBDigitalAPITest):
             def patron_remote_identifier_lookup(self, patron):
                 return "i know you"
 
-            def create_patron(self, *args):
+            def create_patron(self, *args, **kwargs):
                 raise Exception("No new patrons!")
 
         api = IKnowYouAPI(self._db, self.collection)
@@ -627,8 +627,9 @@ class TestRBDigitalAPI(RBDigitalAPITest):
                 self.patron_remote_identifier_lookup_called_with = identifier
                 return None
 
-            def create_patron(self, *args):
-                self.create_patron_called_with = args
+            def create_patron(self, *args, **kwargs):
+                self.create_patron_called_with_args = args
+                self.create_patron_called_with_kwargs = kwargs
                 return "an internal ID"
 
             def patron_email_address(self, patron):
@@ -642,7 +643,16 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         eq_("a barcode", api.patron_remote_identifier_lookup_called_with)
         eq_(patron, api.patron_email_address_called_with)
         eq_((patron.library, patron.authorization_identifier,
-             "mock email address"), api.create_patron_called_with)
+             "mock email address"), api.create_patron_called_with_args)
+
+        actual_create_keywords_keys = sorted(api.create_patron_called_with_kwargs.keys())
+        allowed_create_keywords_keys = ["bearer_token_handler"]
+        expected_create_keywords_keys = sorted(["bearer_token_handler"])
+        # allowing kwargs keys
+        for key in api.create_patron_called_with_kwargs.keys():
+            assert key in allowed_create_keywords_keys
+        # expected kwargs keys
+        eq_(actual_create_keywords_keys, expected_create_keywords_keys)
 
         # If a remote lookup fails, and create patron fails with a
         # RemotePatronCreationFailedException we will try to do a patron
@@ -658,7 +668,7 @@ class TestRBDigitalAPI(RBDigitalAPITest):
                 else:
                     return "an internal ID"
 
-            def create_patron(self, *args):
+            def create_patron(self, *args, **kwargs):
                 raise RemotePatronCreationFailedException
 
             def patron_email_address(self, patron):
@@ -685,7 +695,7 @@ class TestRBDigitalAPI(RBDigitalAPITest):
                 self.patron_remote_identifier_lookup_called_with.append(identifier)
                 return None
 
-            def create_patron(self, *args):
+            def create_patron(self, *args, **kwargs):
                 raise RemotePatronCreationFailedException
 
             def patron_email_address(self, patron):
