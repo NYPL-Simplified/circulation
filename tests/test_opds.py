@@ -1558,6 +1558,24 @@ class TestAcquisitionFeed(DatabaseTest):
         assert 'position' not in holds.attrib
         eq_('1', holds.attrib['total'])
 
+    def test_license_tags_show_self_hosted_books(self):
+        # Arrange
+        edition, pool = self._edition(with_license_pool=True)
+        pool.self_hosted = True
+        pool.open_access = False
+        pool.licenses_available = 0
+        pool.licenses_owned = 0
+
+        # Act
+        tags = AcquisitionFeed.license_tags(
+            pool, None, None
+        )
+
+        # Assert
+        eq_(1, len(tags))
+        assert 'status' in tags[0].attrib
+        eq_('available', tags[0].attrib['status'])
+
     def test_single_entry(self):
 
         # Here's a Work with two LicensePools.
