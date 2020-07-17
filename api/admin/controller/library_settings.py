@@ -165,19 +165,24 @@ class LibrarySettingsController(SettingsController):
             )
 
     def check_web_color_contrast(self, settings):
-        """Verify that the web background color and web foreground
-        color go together.
         """
-        background = flask.request.form.get(Configuration.WEB_BACKGROUND_COLOR, Configuration.DEFAULT_WEB_BACKGROUND_COLOR)
-        foreground = flask.request.form.get(Configuration.WEB_FOREGROUND_COLOR, Configuration.DEFAULT_WEB_FOREGROUND_COLOR)
+        Verify that the web primary and secondary color both contrast
+        well on white, as these colors will serve as button backgrounds with
+        white test, as well as text color on white backgrounds.
+        """
+        primary = flask.request.form.get(Configuration.WEB_PRIMARY_COLOR, Configuration.DEFAULT_WEB_PRIMARY_COLOR)
+        secondary = flask.request.form.get(Configuration.WEB_SECONDARY_COLOR, Configuration.DEFAULT_WEB_SECONDARY_COLOR)
         def hex_to_rgb(hex):
             hex = hex.lstrip("#")
             return tuple(int(hex[i:i+2], 16)/255.0 for i in (0, 2 ,4))
-        if not wcag_contrast_ratio.passes_AA(wcag_contrast_ratio.rgb(hex_to_rgb(background), hex_to_rgb(foreground))):
-            contrast_check_url = "https://contrast-ratio.com/#%23" + foreground[1:] + "-on-%23" + background[1:]
+        primary_passes = wcag_contrast_ratio.passes_AA(wcag_contrast_ratio.rgb(hex_to_rgb(primary), hex_to_rgb("#ffffff")))
+        secondary_passes = wcag_contrast_ratio.passes_AA(wcag_contrast_ratio.rgb(hex_to_rgb(secondary), hex_to_rgb("#ffffff")))
+        if not (primary_passes and secondary_passes):
+            primary_check_url = "https://contrast-ratio.com/#%23" + secondary[1:] + "-on-%23" + "#ffffff"[1:] 
+            secondary_check_url = "https://contrast-ratio.com/#%23" + secondary[1:] + "-on-%23" + "#ffffff"[1:]
             return INVALID_CONFIGURATION_OPTION.detailed(
-                _("The web background and foreground colors don't have enough contrast to pass the WCAG 2.0 AA guidelines and will be difficult for some patrons to read. Check contrast <a href='%(contrast_check_url)s' target='_blank'>here</a>.",
-                  contrast_check_url=contrast_check_url))
+                _("The web primary and secondary colors don't have enough contrast to pass the WCAG 2.0 AA guidelines and will be difficult for some patrons to read. Check contrast for primary <a href='%(primary_check_url)s' target='_blank'>here</a> and secondary <a href='%(primary_check_url)s' target='_blank'>here</a>.",
+                  primary_check_url=primary_check_url, secondary_check_url=secondary_check_url))
 
     def check_header_links(self, settings):
         """Verify that header links and labels are the same length."""

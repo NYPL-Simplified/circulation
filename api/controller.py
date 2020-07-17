@@ -24,6 +24,8 @@ from flask import (
 )
 from flask_babel import lazy_gettext as _
 
+from api.saml.auth import SAMLAuthenticationManagerFactory
+from api.saml.controller import SAMLController
 from core.app_server import (
     cdn_url_for,
     url_for,
@@ -281,15 +283,22 @@ class CirculationManager(object):
         patron_web_domains = set()
 
         def get_domain(url):
+            url = url.strip()
             if url == "*":
                 return url
             scheme, netloc, path, parameters, query, fragment = urlparse.urlparse(url)
-            return scheme + "://" + netloc
+            if scheme and netloc:
+                return scheme + "://" + netloc
+            else:
+                return None
 
-        sitewide_patron_web_client_url = ConfigurationSetting.sitewide(
-            self._db, Configuration.PATRON_WEB_CLIENT_URL).value
-        if sitewide_patron_web_client_url:
-            patron_web_domains.add(get_domain(sitewide_patron_web_client_url))
+        sitewide_patron_web_client_urls = ConfigurationSetting.sitewide(
+            self._db, Configuration.PATRON_WEB_HOSTNAMES).value
+        if sitewide_patron_web_client_urls:
+            for url in sitewide_patron_web_client_urls.split('|'):
+                domain = get_domain(url)
+                if domain:
+                    patron_web_domains.add(domain)
 
         from registry import Registration
         for setting in self._db.query(
@@ -426,6 +435,7 @@ class CirculationManager(object):
         configuration changes.
         """
         self.oauth_controller = OAuthController(self.auth)
+        self.saml_controller = SAMLController(self, self.auth)
 
     def setup_adobe_vendor_id(self, _db, library):
         """If this Library has an Adobe Vendor ID integration,
@@ -668,7 +678,8 @@ class CirculationManagerController(BaseCirculationManagerController):
 
         if (not patron.library.allow_holds and
             license_pool.licenses_available == 0 and
-            not license_pool.open_access
+            not license_pool.open_access and
+            not license_pool.self_hosted
         ):
             return FORBIDDEN_BY_POLICY.detailed(
                 _("Library policy prohibits the placement of holds."),
@@ -1402,6 +1413,7 @@ class LoanController(CirculationManagerController):
             return url_for(
                 "fulfill", license_pool_id=requested_license_pool.id,
                 mechanism_id=mechanism.delivery_mechanism.id,
+                library_short_name=library.short_name,
                 part=unicode(part), _external=True
             )
 

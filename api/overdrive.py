@@ -153,6 +153,13 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
     # displayed to a patron, so it doesn't matter much.
     DEFAULT_ERROR_URL = "http://librarysimplified.org/"
 
+    # Map Overdrive's error messages to standard circulation manager
+    # exceptions.
+    ERROR_MESSAGE_TO_EXCEPTION = {
+        "PatronHasExceededCheckoutLimit": PatronLoanLimitReached,
+        "PatronHasExceededCheckoutLimit_ForCPC": PatronLoanLimitReached,
+    }
+
     def __init__(self, _db, collection):
         super(OverdriveAPI, self).__init__(_db, collection)
         self.overdrive_bibliographic_coverage_provider = (
@@ -250,7 +257,9 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
             return self.refresh_patron_access_token(
                 credential, patron, pin)
         return Credential.lookup(
-            self._db, DataSource.OVERDRIVE, "OAuth Token", patron, refresh)
+            self._db, DataSource.OVERDRIVE, "OAuth Token", patron, refresh,
+            collection=self.collection
+        )
 
     def scope_string(self, library):
         """Create the Overdrive scope string for the given library.
@@ -323,37 +332,16 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
 
         response = self.patron_request(
             patron, pin, self.CHECKOUTS_ENDPOINT, extra_headers=headers,
-            data=payload)
+            data=payload
+        )
+        data = response.json()
         if response.status_code == 400:
-            error = response.json()
-            code = error['errorCode']
-            if code == 'NoCopiesAvailable':
-                # Clearly our info is out of date.
-                self.update_licensepool(identifier.identifier)
-                raise NoAvailableCopies()
-            elif code == 'TitleAlreadyCheckedOut':
-                # Client should have used a fulfill link instead, but
-                # we can handle it.
-                loan = self.get_loan(patron, pin, identifier.identifier)
-                expires = self.extract_expiration_date(loan)
-                return LoanInfo(
-                    licensepool.collection,
-                    licensepool.data_source.name,
-                    licensepool.identifier.type,
-                    licensepool.identifier.identifier,
-                    None,
-                    expires,
-                    None
-                )
-            elif code == 'PatronHasExceededCheckoutLimit':
-                raise PatronLoanLimitReached()
-            else:
-                raise CannotLoan(code)
+            return self._process_checkout_error(patron, pin, licensepool, data)
         else:
             # Try to extract the expiration date from the response.
-            expires = self.extract_expiration_date(response.json())
+            expires = self.extract_expiration_date(data)
 
-        # Create the loan info. We don't know the expiration
+        # Create the loan info.
         loan = LoanInfo(
             licensepool.collection,
             licensepool.data_source.name,
@@ -364,6 +352,50 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
             None,
         )
         return loan
+
+    def _process_checkout_error(self, patron, pin, licensepool, error):
+        """Handle an error received by the API checkout endpoint.
+
+        :param patron: The Patron who tried to check out the book.
+        :param pin: The Patron's PIN; used in case follow-up
+            API requests are necessary.
+        :param licensepool: LicensePool for the book that was to be borrowed.
+        :param error: A dictionary representing the error response, parsed as JSON.
+        """
+        code = "Unknown Error"
+        identifier = licensepool.identifier
+        if isinstance(error, dict):
+            code = error.get('errorCode', code)
+        if code == 'NoCopiesAvailable':
+            # Clearly our info is out of date.
+            self.update_licensepool(identifier.identifier)
+            raise NoAvailableCopies()
+
+        if code == 'TitleAlreadyCheckedOut':
+            # Client should have used a fulfill link instead, but
+            # we can handle it.
+            #
+            # NOTE: It's very unlikely this will happen, but it could
+            # happen if the patron borrows a book through Libby and
+            # then immediately borrows the same book through SimplyE.
+            loan = self.get_loan(patron, pin, identifier.identifier)
+            expires = self.extract_expiration_date(loan)
+            return LoanInfo(
+                licensepool.collection,
+                licensepool.data_source.name,
+                identifier.type,
+                identifier.identifier,
+                None,
+                expires,
+                None
+            )
+
+        if code in self.ERROR_MESSAGE_TO_EXCEPTION:
+            exc_class = self.ERROR_MESSAGE_TO_EXCEPTION[code]
+            raise exc_class()
+
+        # All-purpose fallback
+        raise CannotLoan(code)
 
     def checkin(self, patron, pin, licensepool):
 
@@ -642,12 +674,17 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
 
     @classmethod
     def _extract_date(cls, data, field_name):
+        if not isinstance(data, dict):
+            return None
         if not field_name in data:
-            d = None
-        else:
-            d = datetime.datetime.strptime(
-                data[field_name], cls.TIME_FORMAT)
-        return d
+            return None
+        try:
+            return datetime.datetime.strptime(
+                data[field_name], cls.TIME_FORMAT
+            )
+        except ValueError, e:
+            # Wrong format
+            return None
 
     def get_patron_information(self, patron, pin):
         data = self.patron_request(patron, pin, self.ME_ENDPOINT).json()

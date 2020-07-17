@@ -1,37 +1,41 @@
-from nose.tools import set_trace
+import re
+
 import flask
 from flask import Response
 from flask_babel import lazy_gettext as _
-import re
-from . import SettingsController
+
+from api.admin.controller import SettingsController
+from api.admin.problem_details import *
+from api.admin.validator import PatronAuthenticationValidatorFactory
 from api.authenticator import AuthenticationProvider
-from api.simple_authentication import SimpleAuthenticationProvider
-from api.millenium_patron import MilleniumPatronAPI
-from api.kansas_patron import KansasAuthenticationAPI
-from api.sip import SIP2AuthenticationProvider
+from api.clever import CleverAuthenticationAPI
 from api.firstbook import FirstBookAuthenticationAPI as OldFirstBookAuthenticationAPI
 from api.firstbook2 import FirstBookAuthenticationAPI
-from api.clever import CleverAuthenticationAPI
+from api.kansas_patron import KansasAuthenticationAPI
+from api.millenium_patron import MilleniumPatronAPI
+from api.saml.provider import SAMLWebSSOAuthenticationProvider
+from api.simple_authentication import SimpleAuthenticationProvider
+from api.sip import SIP2AuthenticationProvider
 from core.model import (
     ConfigurationSetting,
     ExternalIntegration,
     get_one,
 )
-from api.admin.problem_details import *
 from core.util.problem_detail import ProblemDetail
 
-class PatronAuthServicesController(SettingsController):
 
+class PatronAuthServicesController(SettingsController):
     def __init__(self, manager):
         super(PatronAuthServicesController, self).__init__(manager)
         self.provider_apis = [SimpleAuthenticationProvider,
-                         MilleniumPatronAPI,
-                         SIP2AuthenticationProvider,
-                         FirstBookAuthenticationAPI,
-                         OldFirstBookAuthenticationAPI,
-                         CleverAuthenticationAPI,
-                         KansasAuthenticationAPI
-                        ]
+                              MilleniumPatronAPI,
+                              SIP2AuthenticationProvider,
+                              FirstBookAuthenticationAPI,
+                              OldFirstBookAuthenticationAPI,
+                              CleverAuthenticationAPI,
+                              KansasAuthenticationAPI,
+                              SAMLWebSSOAuthenticationProvider
+                              ]
         self.protocols = self._get_integration_protocols(self.provider_apis)
 
         self.basic_auth_protocols = [SimpleAuthenticationProvider.__module__,
@@ -42,6 +46,7 @@ class PatronAuthServicesController(SettingsController):
                                 KansasAuthenticationAPI.__module__,
                                ]
         self.type = _("patron authentication service")
+        self._validator_factory = PatronAuthenticationValidatorFactory()
 
     def process_patron_auth_services(self):
         self.require_system_admin()
@@ -85,7 +90,8 @@ class PatronAuthServicesController(SettingsController):
             if isinstance(auth_service, ProblemDetail):
                 return auth_service
 
-        format_error = self.validate_formats()
+        validator = self._validator_factory.create(protocol)
+        format_error = self.validate_formats(validator=validator)
         if format_error:
             self._db.rollback()
             return format_error

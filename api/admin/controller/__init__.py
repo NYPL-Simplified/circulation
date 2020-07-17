@@ -1,31 +1,61 @@
-from nose.tools import set_trace
-import logging
-import sys
-import os
 import base64
-import random
+import copy
 import json
-import jwt
-import re
+import logging
+import os
+import sys
 import urllib
 import urlparse
-import copy
+from datetime import date, datetime, timedelta
 
 import flask
+import jwt
 from flask import (
     Response,
     redirect,
 )
 from flask_babel import lazy_gettext as _
-from PIL import Image, ImageDraw, ImageFont
-import textwrap
-from StringIO import StringIO
+from sqlalchemy.sql import func
+from sqlalchemy.sql.expression import desc, nullslast, and_, distinct, select, join
+
+from api.admin.exceptions import *
+from api.admin.google_oauth_admin_authentication_provider import GoogleOAuthAdminAuthenticationProvider
+from api.admin.opds import AdminAnnotator, AdminFeed
+from api.admin.password_admin_authentication_provider import PasswordAdminAuthenticationProvider
+from api.admin.template_styles import *
+from api.admin.templates import admin as admin_template
+from api.admin.validator import Validator
+from api.adobe_vendor_id import AuthdataUtility
 from api.authenticator import (
     CannotCreateLocalPatron,
     PatronData,
 )
-from api.admin.validator import Validator
+from api.authenticator import LibraryAuthenticator
+from api.axis import Axis360API
+from api.bibliotheca import BibliothecaAPI
+from api.config import (
+    Configuration,
+    CannotLoadConfiguration
+)
+from api.controller import CirculationManagerController
+from api.enki import EnkiAPI
+from api.feedbooks import FeedbooksOPDSImporter
+from api.lanes import create_default_lanes
+from api.local_analytics_exporter import LocalAnalyticsExporter
+from api.odilo import OdiloAPI
+from api.odl import ODLAPI, SharedODLAPI
+from api.opds_for_distributors import OPDSForDistributorsAPI
+from api.overdrive import OverdriveAPI
+from api.rbdigital import RBDigitalAPI
+from core.app_server import (
+    load_pagination_from_request,
+)
+from core.classifier import (
+    genres
+)
 from core.external_search import ExternalSearchIndex
+from core.lane import (Lane, WorkList)
+from core.local_analytics_provider import LocalAnalyticsProvider
 from core.model import (
     create,
     get_one,
@@ -33,97 +63,31 @@ from core.model import (
     Admin,
     AdminRole,
     CirculationEvent,
-    Classification,
     Collection,
-    Complaint,
     ConfigurationSetting,
-    Contributor,
     CustomList,
     CustomListEntry,
     DataSource,
     Edition,
     ExternalIntegration,
-    Genre,
     Hold,
-    Hyperlink,
     Identifier,
     Library,
     LicensePool,
     Loan,
-    Measurement,
     Patron,
-    PresentationCalculationPolicy,
-    Representation,
-    RightsStatus,
-    Session,
-    Subject,
     Timestamp,
     Work,
-    WorkGenre,
 )
 from core.model.configuration import ExternalIntegrationLink
-from core.lane import (Lane, WorkList)
-from core.log import (LogConfiguration, SysLogger, Loggly, CloudwatchLogs)
-from core.util.problem_detail import ProblemDetail
-from core.metadata_layer import (
-    Metadata,
-    LinkData,
-    ReplacementPolicy,
-)
-from core.mirror import MirrorUploader
-from core.util.http import HTTP
-from api.problem_details import *
-from api.admin.exceptions import *
-from core.util import LanguageCodes
-from core.util.flask_util import OPDSFeedResponse
-
-from api.config import (
-    Configuration,
-    CannotLoadConfiguration
-)
-from api.lanes import create_default_lanes
-from api.admin.google_oauth_admin_authentication_provider import GoogleOAuthAdminAuthenticationProvider
-from api.admin.password_admin_authentication_provider import PasswordAdminAuthenticationProvider
-
-from api.controller import CirculationManagerController
-from api.metadata_wrangler import MetadataWranglerCollectionRegistrar
-from core.app_server import (
-    load_pagination_from_request,
-)
 from core.opds import AcquisitionFeed
-from api.admin.opds import AdminAnnotator, AdminFeed
-from collections import Counter
-from core.classifier import (
-    genres,
-    SimplifiedGenreClassifier,
-    NO_NUMBER,
-    NO_VALUE
-)
-from datetime import date, datetime, timedelta
-from sqlalchemy.sql import func
-from sqlalchemy.sql.expression import desc, nullslast, or_, and_, distinct, select, join
-
-from api.admin.templates import admin as admin_template
-from api.authenticator import LibraryAuthenticator
-
-from core.opds_import import (MetadataWranglerOPDSLookup, OPDSImporter, OPDSImportMonitor)
-from api.feedbooks import FeedbooksOPDSImporter
-from api.opds_for_distributors import OPDSForDistributorsAPI
-from api.overdrive import OverdriveAPI
-from api.odilo import OdiloAPI
-from api.bibliotheca import BibliothecaAPI
-from api.axis import Axis360API
-from api.rbdigital import RBDigitalAPI
-from api.enki import EnkiAPI
-from api.odl import ODLAPI, SharedODLAPI
-from core.local_analytics_provider import LocalAnalyticsProvider
-
-from api.adobe_vendor_id import AuthdataUtility
-from api.admin.template_styles import *
-
+from core.opds_import import (OPDSImporter, OPDSImportMonitor)
+from core.s3 import S3Uploader
 from core.selftest import HasSelfTests
+from core.util.flask_util import OPDSFeedResponse
+from core.util.http import HTTP
+from core.util.problem_detail import ProblemDetail
 
-from api.local_analytics_exporter import LocalAnalyticsExporter
 
 def setup_admin_controllers(manager):
     """Set up all the controllers that will be used by the admin parts of the web app."""
@@ -955,7 +919,6 @@ class LanesController(AdminCirculationManagerController):
                 lane, is_new = create(
                     self._db, Lane, display_name=display_name,
                     parent=parent, library=library)
-                lane.media = [Edition.BOOK_MEDIUM]
 
                 # Make a new lane the first child of its parent and bump all the siblings down in priority.
                 siblings = self._db.query(Lane).filter(Lane.library==library).filter(Lane.parent==lane.parent).filter(Lane.id!=lane.id)
@@ -1331,7 +1294,7 @@ class SettingsController(AdminCirculationManagerController):
                      ODLAPI,
                      SharedODLAPI,
                      FeedbooksOPDSImporter,
-                    ]
+                     ]
 
     @classmethod
     def _get_integration_protocols(cls, provider_apis, protocol_name_attr="__module__"):
@@ -1529,14 +1492,17 @@ class SettingsController(AdminCirculationManagerController):
         self._db.delete(integration)
         return Response(unicode(_("Deleted")), 200)
 
-
     def _get_collection_protocols(self, provider_apis):
         protocols = self._get_integration_protocols(provider_apis, protocol_name_attr="NAME")
-        protocols.append(dict(name=ExternalIntegration.MANUAL,
-                              label=_("Manual import"),
-                              description=_("Books will be manually added to the circulation manager, not imported automatically through a protocol."),
-                              settings=[],
-                              ))
+        protocols.append(
+            {
+                'name': ExternalIntegration.MANUAL,
+                'label': _('Manual import'),
+                'description': _('Books will be manually added to the circulation manager, '
+                                 'not imported automatically through a protocol.'),
+                'settings': []
+            }
+        )
 
         return protocols
 
@@ -1617,11 +1583,36 @@ class SettingsController(AdminCirculationManagerController):
             return
 
         mirror_integration_settings = copy.deepcopy(ExternalIntegrationLink.COLLECTION_MIRROR_SETTINGS)
-        for setting in mirror_integration_settings:
-            for integration in integrations:
-                setting['options'].append(
-                    dict(key=str(integration.id), label=integration.name)
-                )
+        for integration in integrations:
+            book_covers_bucket = integration.setting(S3Uploader.BOOK_COVERS_BUCKET_KEY).value
+            open_access_bucket = integration.setting(S3Uploader.OA_CONTENT_BUCKET_KEY).value
+            protected_access_bucket = integration.setting(S3Uploader.PROTECTED_CONTENT_BUCKET_KEY).value
+
+            for setting in mirror_integration_settings:
+                if setting['key'] == ExternalIntegrationLink.COVERS_KEY and book_covers_bucket:
+                    setting['options'].append(
+                        {
+                            'key': str(integration.id),
+                            'label': integration.name
+                        }
+                    )
+                elif setting['key'] == ExternalIntegrationLink.OPEN_ACCESS_BOOKS_KEY:
+                    if open_access_bucket:
+                        setting['options'].append(
+                            {
+                                'key': str(integration.id),
+                                'label': integration.name
+                            }
+                        )
+                elif setting['key'] == ExternalIntegrationLink.PROTECTED_ACCESS_BOOKS_KEY:
+                    if protected_access_bucket:
+                        setting['options'].append(
+                            {
+                                'key': str(integration.id),
+                                'label': integration.name
+                            }
+                        )
+
         return mirror_integration_settings
 
     def _create_integration(self, protocol_definitions, protocol, goal):
@@ -1816,6 +1807,7 @@ class SettingsController(AdminCirculationManagerController):
         error = validator.validate(settings, dict(form=form, files=files))
         if error:
             return error
+
 
 class SitewideRegistrationController(SettingsController):
     """A controller for managing a circulation manager's registrations

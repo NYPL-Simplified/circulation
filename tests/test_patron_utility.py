@@ -24,6 +24,15 @@ class TestPatronUtility(DatabaseTest):
         of whether or not a patron needs to have their account
         synced with the remote.
         """
+
+        # Control for borrowing privileges
+        class MockPatronUtility(PatronUtility):
+            mock_has_borrowing_privileges = True
+
+            @classmethod
+            def authorization_is_active(cls, patron):
+                return cls.mock_has_borrowing_privileges
+
         now = datetime.datetime.utcnow()
         one_hour_ago = now - datetime.timedelta(hours=1)
         six_seconds_ago = now - datetime.timedelta(seconds=6)
@@ -32,32 +41,39 @@ class TestPatronUtility(DatabaseTest):
 
         patron = self._patron()
 
+        # Patron has borrowing privileges. For now.
+        MockPatronUtility.mock_has_borrowing_privileges = True
+
         # Patron has never been synced.
         patron.last_external_sync = None
-        eq_(True, PatronUtility.needs_external_sync(patron))
+        eq_(True, MockPatronUtility.needs_external_sync(patron))
 
         # Patron was synced recently.
         patron.last_external_sync = one_hour_ago
-        eq_(False, PatronUtility.needs_external_sync(patron))
+        eq_(False, MockPatronUtility.needs_external_sync(patron))
 
         # Patron was synced more than 12 hours ago.
         patron.last_external_sync = yesterday
-        eq_(True, PatronUtility.needs_external_sync(patron))
+        eq_(True, MockPatronUtility.needs_external_sync(patron))
 
         # Patron was synced recently but has no borrowing
         # privileges. Timeout is five seconds instead of 12 hours.
-        patron.authorization_expires = yesterday
+        MockPatronUtility.mock_has_borrowing_privileges = False
         patron.last_external_sync = three_seconds_ago
-        eq_(False, PatronUtility.needs_external_sync(patron))
+        eq_(False, MockPatronUtility.needs_external_sync(patron))
 
         patron.last_external_sync = six_seconds_ago
-        eq_(True, PatronUtility.needs_external_sync(patron))
+        eq_(True, MockPatronUtility.needs_external_sync(patron))
 
     def test_has_borrowing_privileges(self):
         """Test the methods that encapsulate the determination
         of whether or not a patron can borrow books.
         """
-        now = datetime.datetime.utcnow()
+
+        # Patron expirations checks are done against localtime, rather than
+        # UTC; so `patron.authorization_expires` needs datetimes relative to
+        # `datetime.datetime.now()`, rather than `...utcnow()`.
+        now = datetime.datetime.now()
         one_day_ago = now - datetime.timedelta(days=1)
         patron = self._patron()
 
