@@ -445,10 +445,35 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
 
         return resp_obj
 
-    def patron_fulfillment_request(self, patron, url):
-        bearer_token = self.patron_bearer_token(patron)
-        headers = {"Authorization": 'Bearer {}'.format(bearer_token)}
-        return self._make_request(url, 'GET', headers)
+    def patron_fulfillment_request(self, patron, url, reauthorize=True):
+        """Make a fulfillment request on behalf of a patron, using the
+        a bearer token either previously cached or newly retrieved on
+        behalf of the patron.
+
+        If the `reauthorize` parameter is set to True, then if the request
+        fails with status code 401 (invalid bearer token), then we will
+        attempt to obtain a new bearer token for the patron and repeat
+        the request.
+
+        :param patron: A Patron.
+        :param url: URL for a resource.
+        :param reauthorize: (Optional) Boolean indicating whether to
+            reauthorize the patron bearer token if we receive status code 401.
+        :return: The request response.
+        """
+
+        def perform_request(reauthorize=False):
+            bearer_token = self.patron_bearer_token(patron)
+            headers = {"Authorization": 'Bearer {}'.format(bearer_token)}
+            response = self._make_request(url, 'GET', headers)
+            if response.status_code == 401 and reauthorize:
+                self.reauthorize_patron_bearer_token(patron)
+                response = perform_request(reauthorize=False)
+            return response
+
+        response = perform_request(reauthorize=reauthorize)
+
+        return response
 
     def fulfill(
         self, patron, pin, licensepool, internal_format, part=None,
@@ -841,6 +866,10 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
     def patron_bearer_token(self, patron):
         return self.patron_credential(self.BEARER_TOKEN_PROPERTY, patron)
 
+    def reauthorize_patron_bearer_token(self, patron):
+        return self.cache_patron_bearer_token(
+            patron, value=self.fetch_patron_bearer_token(patron)
+        )
 
     def patron_remote_identifier(self, patron):
         """Locate the identifier for the given Patron's account on the
