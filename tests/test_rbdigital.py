@@ -745,6 +745,44 @@ class TestRBDigitalAPI(RBDigitalAPITest):
             api.create_patron, *args
         )
 
+    def test__find_or_create_create_patron_caches_bearer_token(self):
+        # Test that the method that creates an RBDigital account caches
+        # the patron bearer token, when it is returned in the response.
+
+        class MockAPI(MockRBDigitalAPI):
+            # Simulate no RBdigital account ...
+            def patron_remote_identifier_lookup(self, *args, **kwargs):
+                return None
+            # and an email is needed for the
+            def dummy_email_address(self, library, authorization_identifier):
+                return 'fake_email'
+
+        api = MockAPI(self._db, self.collection, base_path=self.base_path)
+        patron = self._patron("a barcode")
+        patron.authorization_identifier = "a barcode"
+
+        # Create the patron and ensure that the bearer token credential has
+        # been created.
+        datastr, datadict = api.get_data(
+            "response_patron_create_success.json"
+        )
+        api.queue_response(status_code=201, content=datastr)
+        expected_bearer_token = datadict['bearer']
+        expected_patron_rbd_id = datadict['patron']['patronId']
+
+        # Call the method
+        patron_rbdigital_id = api._find_or_create_remote_account(patron)
+        [credential] = patron.credentials
+
+        # Should return the RBdigital `patronId` property from the response.
+        eq_(expected_patron_rbd_id, patron_rbdigital_id)
+        # And we should have a credential with the bearer token.
+        eq_(expected_bearer_token, credential.credential)
+        eq_(api.CREDENTIAL_TYPES[api.BEARER_TOKEN_PROPERTY]['label'], credential.type)
+        eq_(DataSource.RB_DIGITAL, credential.data_source.name)
+        eq_(self.collection.id, credential.collection_id)
+        assert credential.expires is not None
+
     def test_patron_remote_identifier_exception(self):
         # Make sure if there is an exception while creating the patron we don't
         # create empty credentials in the database.
