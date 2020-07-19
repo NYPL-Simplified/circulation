@@ -1434,6 +1434,28 @@ class TestRBDigitalAPI(RBDigitalAPITest):
             eq_(make_part_url(i), alternate['href'])
             eq_("audio/mpeg", alternate['type'])
 
+        # This function will be used to validate the next few
+        # fulfillment requests.
+        def verify_fulfillment():
+            # We end up with a FulfillmentInfo that includes the link
+            # mentioned in audiobook_chapter_access_document.json.
+            chapter = self.api.fulfill(patron, None, pool, None, part=3)
+            assert isinstance(chapter, FulfillmentInfo)
+            eq_("http://book/chapter1.mp3", chapter.content_link)
+            eq_("audio/mpeg", chapter.content_type)
+
+            # We should have a cached bearer token now. And it should be unexpired.
+            data_source = DataSource.lookup(self._db, DataSource.RB_DIGITAL)
+            credential, new = get_one_or_create(
+                self._db, Credential,
+                data_source=data_source,
+                type=self.api.CREDENTIAL_TYPES[self.api.BEARER_TOKEN_PROPERTY]['label'],
+                patron=patron,
+                collection=self.api.collection,
+            )
+            eq_(False, new)
+            assert credential.expires > datetime.datetime.utcnow()
+
         # Now let's try fulfilling one of those parts.
         #
         # We're going to make two requests this time -- one to get the
@@ -1441,10 +1463,10 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         # document.
         #
         # Before the second request, we'll check the cache for a patron
-        # bearer token, which we need to authenticate access document
-        # fulfillment. But we don't have one. We'll need to obtain if from
-        # the remote, so we'll queue the set of responses for the bearer
-        # token before the response for the fulfillment request.
+        # bearer token, which we need in order to authenticate access
+        # document fulfillment. But we don't have one, so we'll need to
+        # get one from the remote. We'll queue the responses for the
+        # bearer token before the response for the fulfillment request.
         datastr, datadict = self.api.get_data("response_patron_checkouts_with_audiobook.json")
         self.api.queue_response(status_code=200, content=datastr)
 
@@ -1453,13 +1475,38 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         datastr, datadict = self.api.get_data("audiobook_chapter_access_document.json")
         self.api.queue_response(status_code=200, content=datastr)
 
+        # And make sure everything went as expected.
+        verify_fulfillment()
 
-        # We end up with a FulfillmentInfo that includes the link
-        # mentioned in audiobook_chapter_access_document.json.
-        chapter = self.api.fulfill(patron, None, pool, None, part=3)
-        assert isinstance(chapter, FulfillmentInfo)
-        eq_("http://book/chapter1.mp3", chapter.content_link)
-        eq_("audio/mpeg", chapter.content_type)
+        # We have a cached bearer token now, so we should be able to make the
+        # same request without queueing the patron bearer token response.
+
+        datastr, datadict = self.api.get_data("response_patron_checkouts_with_audiobook.json")
+        self.api.queue_response(status_code=200, content=datastr)
+
+        datastr, datadict = self.api.get_data("audiobook_chapter_access_document.json")
+        self.api.queue_response(status_code=200, content=datastr)
+
+        verify_fulfillment()
+
+        # Now we simulate having an unexpired cached bearer token that the remote
+        # service has invalidated. When we attempt to fulfill the access document,
+        # we receive a 401 response, which leads to requesting a fresh bearer
+        # token.
+
+        datastr, datadict = self.api.get_data("response_patron_checkouts_with_audiobook.json")
+        self.api.queue_response(status_code=200, content=datastr)
+
+        datastr, datadict = self.api.get_data("response_fullfillment_401_invalid_bearer_token.json")
+        self.api.queue_response(status_code=401, content=datastr)
+
+        self.queue_fetch_patron_bearer_token()
+
+        datastr, datadict = self.api.get_data("audiobook_chapter_access_document.json")
+        self.api.queue_response(status_code=200, content=datastr)
+
+        verify_fulfillment()
+
 
     def test_patron_activity(self):
         # Get patron's current checkouts and holds.
