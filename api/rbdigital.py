@@ -142,6 +142,24 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
     # a complete response returns the json structure with more data fields than a basic response does
     RESPONSE_VERBOSITY = {0:'basic', 1:'compact', 2:'complete', 3:'extended', 4:'hypermedia'}
 
+    CACHED_IDENTIFIER_PROPERTY = 'patronId'
+    BEARER_TOKEN_PROPERTY = 'bearer'
+
+    # Parameterize credentials.
+    # - The `label` property maps to Credential `type`.
+    # - The `lifetime` is used to calculate Credential `expires`. If it
+    #   is None, then the Credential does not expire.
+    CREDENTIAL_TYPES = {
+        CACHED_IDENTIFIER_PROPERTY: dict(
+            label=Credential.IDENTIFIER_FROM_REMOTE_SERVICE,
+            lifetime=None
+        ),
+        BEARER_TOKEN_PROPERTY: dict(
+            label="Patron Bearer Token",
+            lifetime=(23 * 60 + 30) * 60),
+    }
+
+
     log = logging.getLogger("RBDigital Patron API")
 
     def __init__(self, _db, collection):
@@ -674,29 +692,17 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
 
 ### Patron account handling
     # RBdigital identifier property to cache
-    CACHED_IDENTIFIER_PROPERTY = 'patronId'
-    BEARER_TOKEN_PROPERTY = 'bearer'
-
-    CREDENTIAL_TYPES = {
-        CACHED_IDENTIFIER_PROPERTY: dict(
-            label=Credential.IDENTIFIER_FROM_REMOTE_SERVICE,
-            lifetime=None
-        ),
-        BEARER_TOKEN_PROPERTY: dict(
-            label="Patron Bearer Token",
-            lifetime=(23 * 60 + 30) * 60),
-    }
 
     def patron_credential(self, kind, patron, value=None):
         """Provide the credential of the given type for the given Patron,
         either from the cache or by retrieving it from the remote service.
 
         The behavior is as follows:
-        - If a value is specified, we'll cache it.
-        - If no value is specified and no cached credential is present
-          and unexpired, then we'll retrieve a value from the remote
-          service and cache it.
-        - The cached value will be returned.
+            - If a value is specified, we'll cache it.
+            - If no value is specified and no cached credential is present
+              and unexpired, then we'll retrieve a value from the remote
+              service and cache it.
+            - The cached value will be returned.
 
         :param patron: A Patron.
         :param kind: The type of credential.
