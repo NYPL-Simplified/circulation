@@ -1456,6 +1456,9 @@ class TestRBDigitalAPI(RBDigitalAPITest):
             eq_(False, new)
             assert credential.expires > datetime.datetime.utcnow()
 
+            # Ensure that we've consumed all of the queued responses so far
+            eq_(0, len(self.api.responses))
+
         # Now let's try fulfilling one of those parts.
         #
         # We're going to make two requests this time -- one to get the
