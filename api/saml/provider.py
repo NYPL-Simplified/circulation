@@ -144,7 +144,9 @@ class SAMLWebSSOAuthenticationProvider(BaseSAMLAuthenticationProvider, ExternalI
             link = {
                 'rel': 'authenticate',
                 'href': self._create_authenticate_url(db, identity_provider.entity_id),
-                'display_names': self._join_ui_info_items(identity_provider.ui_info.display_names),
+                'display_names': self._join_ui_info_items(
+                    identity_provider.ui_info.display_names,
+                    identity_provider.organization.organization_display_names),
                 'descriptions': self._join_ui_info_items(identity_provider.ui_info.descriptions),
                 'information_urls': self._join_ui_info_items(identity_provider.ui_info.information_urls),
                 'privacy_statement_urls': self._join_ui_info_items(
@@ -233,10 +235,10 @@ class SAMLWebSSOAuthenticationProvider(BaseSAMLAuthenticationProvider, ExternalI
             db, DataSource, name=self.TOKEN_DATA_SOURCE_NAME
         )
 
-    def _join_ui_info_items(self, ui_info_items):
-        """Joins all UIInfo items (like, display names, descriptions, etc.) to a single list of dicts
+    def _join_ui_info_items(self, *ui_info_item_lists):
+        """Joins all UI info items (like, display names, descriptions, etc.) to a single list of dicts
 
-        :param ui_info_items: List of child UIInfo objects
+        :param ui_info_item_lists: List of child LocalizableMetadataInfo objects
         :type: List[LocalizableMetadataItem]
 
         :return: List of dicts containing UI information (display names, descriptions, etc.)
@@ -244,12 +246,14 @@ class SAMLWebSSOAuthenticationProvider(BaseSAMLAuthenticationProvider, ExternalI
         """
         result = []
 
-        if ui_info_items:
-            for ui_info_item in ui_info_items:
-                result.append({
-                    'value': ui_info_item.value,
-                    'language': ui_info_item.language
-                })
+        if ui_info_item_lists:
+            for ui_info_item_list in ui_info_item_lists:
+                if ui_info_item_list:
+                    for ui_info_item in ui_info_item_list:
+                        result.append({
+                            'value': ui_info_item.value,
+                            'language': ui_info_item.language
+                        })
 
         return result
 
