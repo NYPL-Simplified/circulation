@@ -92,6 +92,9 @@ class SAMLConfiguration(object):
 
     IDP_XML_METADATA = 'idp_xml_metadata'
 
+    IDP_DISPLAY_NAME_TEMPLATE = 'idp_display_name_template'
+    IDP_DISPLAY_NAME_DEFAULT_TEMPLATE = 'Identity Provider # {0}'
+
     def __init__(self, configuration_storage, metadata_parser):
         """Initializes a new instance of SAMLConfiguration class
 

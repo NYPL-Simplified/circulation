@@ -8,8 +8,8 @@ from flask_babel import lazy_gettext as _
 from api.authenticator import BaseSAMLAuthenticationProvider, PatronData
 from api.problem_details import *
 from api.saml.auth import SAMLAuthenticationManagerFactory
-from api.saml.configuration import ExternalIntegrationOwner
-from api.saml.metadata import Subject, SubjectUIDExtractor, SubjectJSONEncoder
+from api.saml.configuration import ExternalIntegrationOwner, SAMLConfiguration
+from api.saml.metadata import Subject, SubjectUIDExtractor, SubjectJSONEncoder, LocalizableMetadataItem
 from api.saml.parser import SAMLMetadataParser
 from api.saml.validator import SAMLSettingsValidator
 from core.model import Credential, get_one_or_create, DataSource
@@ -56,6 +56,9 @@ class SAMLWebSSOAuthenticationProvider(BaseSAMLAuthenticationProvider, ExternalI
 
         self._logger = logging.getLogger(__name__)
         self._authentication_manager = None
+        self._idp_display_name_template = integration.setting(
+            SAMLConfiguration.IDP_DISPLAY_NAME_TEMPLATE
+        ).value or SAMLConfiguration.IDP_DISPLAY_NAME_DEFAULT_TEMPLATE
 
     def _authentication_flow_document(self, db):
         """Creates a Authentication Flow object for use in an Authentication for OPDS document.
@@ -140,13 +143,11 @@ class SAMLWebSSOAuthenticationProvider(BaseSAMLAuthenticationProvider, ExternalI
 
         configuration = self.get_authentication_manager(db).configuration
 
-        for identity_provider in configuration.configuration.get_identity_providers(db):
+        for index, identity_provider in enumerate(configuration.configuration.get_identity_providers(db)):
             link = {
                 'rel': 'authenticate',
                 'href': self._create_authenticate_url(db, identity_provider.entity_id),
-                'display_names': self._join_ui_info_items(
-                    identity_provider.ui_info.display_names,
-                    identity_provider.organization.organization_display_names),
+                'display_names': self._join_ui_info_items(self._get_idp_display_names(index + 1, identity_provider)),
                 'descriptions': self._join_ui_info_items(identity_provider.ui_info.descriptions),
                 'information_urls': self._join_ui_info_items(identity_provider.ui_info.information_urls),
                 'privacy_statement_urls': self._join_ui_info_items(
@@ -157,6 +158,31 @@ class SAMLWebSSOAuthenticationProvider(BaseSAMLAuthenticationProvider, ExternalI
             flow_doc['links'].append(link)
 
         return flow_doc
+
+    def _get_idp_display_names(self, identity_provider_index, identity_provider):
+        """Returns a list of IdP's display names:
+        - first, it checks UIInfo.display_names
+        - secondly, it checks Organization.organization_display_names
+        - thirdly, it generates a new name using SAMLConfiguration.IDP_DISPLAY_NAME_TEMPLATE
+
+        :param identity_provider_index: Index of the current IdP
+        :type identity_provider_index: int
+
+        :param identity_provider: IdentityProviderMetadata object
+        :type identity_provider: IdentityProviderMetadata
+
+        :return: List of IdP's display names
+        :rtype: List[LocalizableMetadataItem]
+        """
+        if identity_provider.ui_info.display_names:
+            return identity_provider.ui_info.display_names
+        elif identity_provider.organization.organization_display_names:
+            return identity_provider.organization.organization_display_names
+        else:
+            display_name = self._idp_display_name_template.format(identity_provider_index)
+            return [
+                LocalizableMetadataItem(display_name, language='en')
+            ]
 
     def _create_token(self, db, patron, token, valid_till):
         """Creates a Credential object that ties the given patron to the
