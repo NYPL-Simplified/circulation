@@ -3,13 +3,15 @@ from mock import MagicMock, create_autospec, call
 from nose.tools import eq_
 
 from api.saml.configuration import SAMLConfiguration, SAMLOneLoginConfiguration, SAMLConfigurationStorage
-from api.saml.metadata import ServiceProviderMetadata, UIInfo, Service, NameIDFormat, IdentityProviderMetadata
+from api.saml.metadata import ServiceProviderMetadata, UIInfo, Service, NameIDFormat, IdentityProviderMetadata, \
+    Organization
 from api.saml.parser import SAMLMetadataParser
 from tests.saml import fixtures
 
 SERVICE_PROVIDER = ServiceProviderMetadata(
     fixtures.SP_ENTITY_ID,
     UIInfo(),
+    Organization(),
     NameIDFormat.UNSPECIFIED.value,
     Service(fixtures.SP_ACS_URL, fixtures.SP_ACS_BINDING),
     private_key=fixtures.PRIVATE_KEY
@@ -19,12 +21,14 @@ IDENTITY_PROVIDERS = [
     IdentityProviderMetadata(
         fixtures.IDP_1_ENTITY_ID,
         UIInfo(),
+        Organization(),
         NameIDFormat.UNSPECIFIED.value,
         Service(fixtures.IDP_1_SSO_URL, fixtures.IDP_1_SSO_BINDING)
     ),
     IdentityProviderMetadata(
         fixtures.IDP_2_ENTITY_ID,
         UIInfo(),
+        Organization(),
         NameIDFormat.UNSPECIFIED.value,
         Service(fixtures.IDP_2_SSO_URL, fixtures.IDP_2_SSO_BINDING)
     )

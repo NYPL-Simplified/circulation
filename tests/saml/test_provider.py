@@ -10,7 +10,7 @@ from api.authenticator import PatronData
 from api.saml.auth import SAMLAuthenticationManager, SAMLAuthenticationManagerFactory
 from api.saml.configuration import SAMLConfiguration, SAMLOneLoginConfiguration
 from api.saml.metadata import ServiceProviderMetadata, NameIDFormat, UIInfo, Service, IdentityProviderMetadata, \
-    LocalizableMetadataItem, Subject, AttributeStatement, SAMLAttributes, SubjectJSONEncoder
+    LocalizableMetadataItem, Subject, AttributeStatement, SAMLAttributes, SubjectJSONEncoder, Organization
 from api.saml.provider import SAMLWebSSOAuthenticationProvider, SAML_INVALID_SUBJECT
 from core.util.problem_detail import ProblemDetail
 from tests.saml import fixtures
@@ -19,6 +19,7 @@ from tests.saml.controller_test import ControllerTest
 SERVICE_PROVIDER = ServiceProviderMetadata(
     fixtures.SP_ENTITY_ID,
     UIInfo(),
+    Organization(),
     NameIDFormat.UNSPECIFIED.value,
     Service(fixtures.SP_ACS_URL, fixtures.SP_ACS_BINDING)
 )
@@ -27,6 +28,7 @@ IDENTITY_PROVIDERS = [
     IdentityProviderMetadata(
         fixtures.IDP_1_ENTITY_ID,
         UIInfo(),
+        Organization(),
         NameIDFormat.UNSPECIFIED.value,
         Service(fixtures.IDP_1_SSO_URL, fixtures.IDP_1_SSO_BINDING)
     ),
@@ -42,6 +44,7 @@ IDENTITY_PROVIDERS = [
                 LocalizableMetadataItem('Test Shibboleth IdP', 'es')
             ]
         ),
+        Organization(),
         NameIDFormat.UNSPECIFIED.value,
         Service(fixtures.IDP_2_SSO_URL, fixtures.IDP_2_SSO_BINDING)
     )

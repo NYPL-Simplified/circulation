@@ -56,6 +56,93 @@ class LocalizableMetadataItem(object):
         return self._language
 
 
+class Organization(object):
+    """Represents md:Organization and contains basic information about an organization
+    responsible for a SAML entity or role
+    """
+    def __init__(self, organization_names=None, organization_display_names=None, organization_urls=None):
+        """Initializes a new instance of Organization class
+
+        :param organization_names: (Optional) List of localized organization names that may or may not be
+            suitable for human consumption
+        :type organization_names: Optional[List[LocalizableMetadataItem]]
+
+        :param organization_display_names: (Optional) List of localized organization names that
+            suitable for human consumption
+        :type organization_display_names: Optional[List[LocalizableMetadataItem]]
+
+        :param organization_urls: (Optional) List of localized organization URIs that
+            specify a location to which to direct a user for additional information
+        :type organization_urls: Optional[List[LocalizableMetadataItem]]
+        """
+        if organization_names:
+            for organization_name in organization_names:
+                if not isinstance(organization_name, LocalizableMetadataItem):
+                    raise ValueError('organization_name must have type LocalizableMetadataItem')
+
+        if organization_display_names:
+            for organization_display_name in organization_display_names:
+                if not isinstance(organization_display_name, LocalizableMetadataItem):
+                    raise ValueError('organization_display_name must have type LocalizableMetadataItem')
+
+        if organization_urls:
+            for organization_url in organization_urls:
+                if not isinstance(organization_url, LocalizableMetadataItem):
+                    raise ValueError('organization_url must have type LocalizableMetadataItem')
+
+        self._organization_names = organization_names
+        self._organization_display_names = organization_display_names
+        self._organization_urls = organization_urls
+
+    def __eq__(self, other):
+        """Compares two Organization objects
+
+        :param other: Organization object
+        :type other: Organization
+
+        :return: Boolean value indicating whether two items are equal
+        :rtype: bool
+        """
+        if not isinstance(other, Organization):
+            return False
+
+        return \
+            self.organization_names == other.organization_names and \
+            self.organization_display_names == other.organization_display_names and \
+            self.organization_urls == other.organization_urls
+
+    @property
+    def organization_names(self):
+        """Returns a list of localized organization names that may or may not be
+        suitable for human consumption
+
+        :return: List of localized organization names that may or may not be
+            suitable for human consumption
+        :rtype: Optional[List[LocalizableMetadataItem]]
+        """
+        return self._organization_names
+
+    @property
+    def organization_display_names(self):
+        """Returns a list of localized organization names that suitable for human consumption
+
+        :return: List of localized organization names that suitable for human consumption
+        :rtype: Optional[List[LocalizableMetadataItem]]
+        """
+        return self._organization_display_names
+
+    @property
+    def organization_urls(self):
+        """Returns a list of localized organization URIs that specify a location to which to direct a user for
+        additional information
+
+        :return: List of localized organization URIs that
+            specify a location to which to direct a user for additional information
+        :rtype: Optional[List[LocalizableMetadataItem]]
+        """
+        return self._organization_urls
+
+
 class UIInfo(object):
     """Represents mdui:UIInfoType and contains values that can be shown in the UI to describe IdPs/SPs"""
 
@@ -261,7 +348,7 @@ class Service(object):
 class ProviderMetadata(object):
     """Base class for IdentityProvider and ServiceProvider classes"""
 
-    def __init__(self, entity_id, ui_info, name_id_format=NameIDFormat.UNSPECIFIED):
+    def __init__(self, entity_id, ui_info, organization, name_id_format=NameIDFormat.UNSPECIFIED):
         """Initializes a new instance of ProviderMetadata class
 
         :param entity_id: Provider's entityID
@@ -270,17 +357,25 @@ class ProviderMetadata(object):
         :param ui_info: UIInfo object containing "UI" metadata of the provider
         :type ui_info: UIInfo
 
+        :param organization: Organization object containing basic information about an organization
+            responsible for a SAML entity or role
+        :type organization: Organization
+
         :param name_id_format: String defining the name identifier formats supported by the identity provider
         :type name_id_format: string
         """
         if not isinstance(ui_info, UIInfo):
             raise ValueError('ui_info must have type UIInfo')
 
+        if not isinstance(organization, Organization):
+            raise ValueError('organization must have type UIInfo')
+
         if not isinstance(name_id_format, str):
             raise ValueError('name_id_format must be a string')
 
         self._entity_id = entity_id
         self._ui_info = ui_info
+        self._organization = organization
         self._name_id_format = name_id_format
 
     def __eq__(self, other):
@@ -298,6 +393,7 @@ class ProviderMetadata(object):
         return \
             self.entity_id == other.entity_id and \
             self.ui_info == other.ui_info and \
+            self.organization == other.organization and \
             self.name_id_format == other.name_id_format
 
     @property
@@ -318,6 +414,14 @@ class ProviderMetadata(object):
         return self._ui_info
 
     @property
+    def organization(self):
+        """Returns the provider's Organization object
+        :return: Provider's Organization object
+        :rtype: Organization
+        """
+        return self._organization
+
+    @property
     def name_id_format(self):
         """Returns the name ID format
 
@@ -334,6 +438,7 @@ class IdentityProviderMetadata(ProviderMetadata):
             self,
             entity_id,
             ui_info,
+            organization,
             name_id_format,
             sso_service,
             slo_service=None,
@@ -347,6 +452,10 @@ class IdentityProviderMetadata(ProviderMetadata):
 
         :param ui_info: UIInfo object containing this IdP's description which can be shown the UI
         :type ui_info: UIInfo
+
+        :param organization: Organization object containing basic information about an organization
+            responsible for a SAML entity or role
+        :type organization: Organization
 
         :param name_id_format: String defining the name identifier formats supported by the identity provider
         :type name_id_format: string
@@ -367,7 +476,7 @@ class IdentityProviderMetadata(ProviderMetadata):
         :param encryption_certificates: (Optional) Certificate in X.509 format used for encrypting <AuthnResponse>
         :type encryption_certificates: Optional[List[string]]
         """
-        super(IdentityProviderMetadata, self).__init__(entity_id, ui_info, name_id_format)
+        super(IdentityProviderMetadata, self).__init__(entity_id, ui_info, organization, name_id_format)
 
         if not isinstance(sso_service, Service):
             raise ValueError('sso_service must have type Service')
@@ -459,6 +568,7 @@ class ServiceProviderMetadata(ProviderMetadata):
             self,
             entity_id,
             ui_info,
+            organization,
             name_id_format,
             acs_service,
             authn_requests_signed=False,
@@ -472,6 +582,10 @@ class ServiceProviderMetadata(ProviderMetadata):
 
         :param ui_info: UIInfo object containing this IdP's description which can be shown the UI
         :type ui_info: UIInfo
+
+        :param organization: Organization object containing basic information about an organization
+            responsible for a SAML entity or role
+        :type organization: Organization
 
         :param name_id_format: String defining the name identifier formats supported by the identity provider
         :type name_id_format: string
@@ -494,7 +608,7 @@ class ServiceProviderMetadata(ProviderMetadata):
         :param private_key: (Optional) Private key used for encrypting SAML requests
         :type private_key: string
         """
-        super(ServiceProviderMetadata, self).__init__(entity_id, ui_info, name_id_format)
+        super(ServiceProviderMetadata, self).__init__(entity_id, ui_info, organization, name_id_format)
 
         if not isinstance(acs_service, Service):
             raise ValueError('acs_service must have type Service')
