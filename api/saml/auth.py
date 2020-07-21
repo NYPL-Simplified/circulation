@@ -4,12 +4,21 @@ from urlparse import urlparse
 from flask import request
 from flask_babel import lazy_gettext as _
 from onelogin.saml2.auth import OneLogin_Saml2_Auth
+from onelogin.saml2.errors import OneLogin_Saml2_Error
 
 from api.saml.configuration import SAMLConfigurationStorage, SAMLConfiguration, \
     SAMLOneLoginConfiguration
 from api.saml.metadata import NameID, AttributeStatement, Subject
 from api.saml.parser import SAMLMetadataParser
 from core.problem_details import *
+
+
+SAML_GENERIC_ERROR = pd(
+    'http://librarysimplified.org/terms/problem/saml/generic-error',
+    status_code=500,
+    title=_('SAML error.'),
+    detail=_('SAML error.')
+)
 
 SAML_INCORRECT_RESPONSE = pd(
     'http://librarysimplified.org/terms/problem/saml/incorrect-response',
@@ -118,9 +127,18 @@ class SAMLAuthenticationManager(object):
         :return: Redirection URL
         :rtype: string
         """
-        auth = self._get_auth_object(db, idp_entity_id)
+        try:
+            auth = self._get_auth_object(db, idp_entity_id)
+            redirect_url = auth.login(return_to_url)
 
-        return auth.login(return_to_url)
+            if self._logger.isEnabledFor(logging.DEBUG):
+                self._logger.debug('SAML request: {0}'.format(auth.get_last_request_xml()))
+
+            return redirect_url
+        except OneLogin_Saml2_Error as exception:
+            self._logger.exception('Unexpected exception occurred while initiating a SAML flow')
+
+            return SAML_GENERIC_ERROR.detailed(exception.message)
 
     def finish_authentication(self, db, idp_entity_id):
         """Finishes the SAML authentication workflow by validating AuthnResponse and extracting a SAML assertion from it
@@ -142,6 +160,9 @@ class SAMLAuthenticationManager(object):
 
         auth = self._get_auth_object(db, idp_entity_id)
         auth.process_response()
+
+        if self._logger.isEnabledFor(logging.DEBUG):
+            self._logger.debug('SAML response: {0}'.format(auth.get_last_response_xml()))
 
         authenticated = auth.is_authenticated()
 

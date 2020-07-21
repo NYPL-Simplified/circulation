@@ -368,7 +368,7 @@ class SAMLMetadataParser(object):
             raise SAMLMetadataParsingError(
                 _('There are more than 1 SP certificates'.format(required_acs_binding.value)))
 
-        certificate = next(iter(certificates))
+        certificate = next(iter(certificates)) if certificates else None
 
         sp = ServiceProviderMetadata(
             entity_id,

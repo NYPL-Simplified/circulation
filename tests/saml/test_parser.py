@@ -4,22 +4,10 @@ from api.saml.metadata import IdentityProviderMetadata, UIInfo, LocalizableMetad
     ServiceProviderMetadata, NameIDFormat, Organization
 from api.saml.parser import SAMLMetadataParsingError, SAMLMetadataParser
 from tests.saml import fixtures
+from tests.saml.fixtures import strip_certificate
 
 
 class SAMLMetadataParserTest(object):
-    def _strip_certificate(self, certificate):
-        """
-        Converts certificate to a one-line format
-
-        :param certificate: Certificate in a multi-line format
-        :type certificate: string
-
-        :return: Certificate in a one-line format
-        :rtype: string
-        """
-
-        return certificate.replace('\n', '')
-
     @raises(SAMLMetadataParsingError)
     def test_parse_raises_exception_when_xml_metadata_has_incorrect_format(self):
         # Arrange
@@ -69,8 +57,8 @@ class SAMLMetadataParserTest(object):
                     fixtures.IDP_1_SSO_BINDING
                 ),
                 want_authn_requests_signed=False,
-                signing_certificates=[self._strip_certificate(fixtures.SIGNING_CERTIFICATE)],
-                encryption_certificates=[self._strip_certificate(fixtures.ENCRYPTION_CERTIFICATE)]
+                signing_certificates=[strip_certificate(fixtures.SIGNING_CERTIFICATE)],
+                encryption_certificates=[strip_certificate(fixtures.ENCRYPTION_CERTIFICATE)]
             )
         )
 
@@ -129,8 +117,8 @@ class SAMLMetadataParserTest(object):
                     fixtures.IDP_1_SSO_BINDING
                 ),
                 want_authn_requests_signed=False,
-                signing_certificates=[self._strip_certificate(fixtures.SIGNING_CERTIFICATE)],
-                encryption_certificates=[self._strip_certificate(fixtures.ENCRYPTION_CERTIFICATE)]
+                signing_certificates=[strip_certificate(fixtures.SIGNING_CERTIFICATE)],
+                encryption_certificates=[strip_certificate(fixtures.ENCRYPTION_CERTIFICATE)]
             )
         )
 
@@ -187,8 +175,8 @@ class SAMLMetadataParserTest(object):
                     fixtures.IDP_1_SSO_BINDING
                 ),
                 want_authn_requests_signed=False,
-                signing_certificates=[self._strip_certificate(fixtures.SIGNING_CERTIFICATE)],
-                encryption_certificates=[self._strip_certificate(fixtures.ENCRYPTION_CERTIFICATE)]
+                signing_certificates=[strip_certificate(fixtures.SIGNING_CERTIFICATE)],
+                encryption_certificates=[strip_certificate(fixtures.ENCRYPTION_CERTIFICATE)]
             )
         )
 
@@ -242,8 +230,8 @@ class SAMLMetadataParserTest(object):
                     fixtures.IDP_1_SSO_BINDING
                 ),
                 want_authn_requests_signed=False,
-                signing_certificates=[self._strip_certificate(fixtures.SIGNING_CERTIFICATE)],
-                encryption_certificates=[self._strip_certificate(fixtures.SIGNING_CERTIFICATE)]
+                signing_certificates=[strip_certificate(fixtures.SIGNING_CERTIFICATE)],
+                encryption_certificates=[strip_certificate(fixtures.SIGNING_CERTIFICATE)]
             )
         )
 
@@ -288,8 +276,8 @@ class SAMLMetadataParserTest(object):
                     fixtures.IDP_1_SSO_BINDING
                 ),
                 want_authn_requests_signed=False,
-                signing_certificates=[self._strip_certificate(fixtures.SIGNING_CERTIFICATE)],
-                encryption_certificates=[self._strip_certificate(fixtures.ENCRYPTION_CERTIFICATE)]
+                signing_certificates=[strip_certificate(fixtures.SIGNING_CERTIFICATE)],
+                encryption_certificates=[strip_certificate(fixtures.ENCRYPTION_CERTIFICATE)]
             )
         )
 
@@ -323,8 +311,8 @@ class SAMLMetadataParserTest(object):
                     fixtures.IDP_2_SSO_BINDING
                 ),
                 want_authn_requests_signed=False,
-                signing_certificates=[self._strip_certificate(fixtures.SIGNING_CERTIFICATE)],
-                encryption_certificates=[self._strip_certificate(fixtures.ENCRYPTION_CERTIFICATE)]
+                signing_certificates=[strip_certificate(fixtures.SIGNING_CERTIFICATE)],
+                encryption_certificates=[strip_certificate(fixtures.ENCRYPTION_CERTIFICATE)]
             )
         )
 
@@ -392,6 +380,6 @@ class SAMLMetadataParserTest(object):
                 ),
                 authn_requests_signed=False,
                 want_assertions_signed=False,
-                certificate=self._strip_certificate(fixtures.SIGNING_CERTIFICATE)
+                certificate=strip_certificate(fixtures.SIGNING_CERTIFICATE)
             )
         )

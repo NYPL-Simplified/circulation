@@ -787,3 +787,20 @@ CORRECT_ONE_SP_METADATA = \
         SP_ORGANIZATION_EN_ORGANIZATION_URL,
         SP_ORGANIZATION_ES_ORGANIZATION_URL
     )
+
+
+def strip_certificate(certificate):
+    """
+    Converts certificate to a one-line format
+
+    :param certificate: Certificate in a multi-line format
+    :type certificate: string
+
+    :return: Certificate in a one-line format
+    :rtype: string
+    """
+
+    return certificate\
+        .replace('\n', '')\
+        .replace('-----BEGIN CERTIFICATE-----', '')\
+        .replace('-----END CERTIFICATE-----', '')

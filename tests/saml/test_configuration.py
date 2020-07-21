@@ -1,19 +1,32 @@
+from copy import copy
+
 import sqlalchemy
 from mock import MagicMock, create_autospec, call
 from nose.tools import eq_
+from parameterized import parameterized
 
 from api.saml.configuration import SAMLConfiguration, SAMLOneLoginConfiguration, SAMLConfigurationStorage
 from api.saml.metadata import ServiceProviderMetadata, UIInfo, Service, NameIDFormat, IdentityProviderMetadata, \
     Organization
 from api.saml.parser import SAMLMetadataParser
 from tests.saml import fixtures
+from tests.saml.fixtures import strip_certificate
 
-SERVICE_PROVIDER = ServiceProviderMetadata(
+SERVICE_PROVIDER_WITHOUT_CERTIFICATE = ServiceProviderMetadata(
     fixtures.SP_ENTITY_ID,
     UIInfo(),
     Organization(),
     NameIDFormat.UNSPECIFIED.value,
     Service(fixtures.SP_ACS_URL, fixtures.SP_ACS_BINDING),
+)
+
+SERVICE_PROVIDER_WITH_CERTIFICATE = ServiceProviderMetadata(
+    fixtures.SP_ENTITY_ID,
+    UIInfo(),
+    Organization(),
+    NameIDFormat.UNSPECIFIED.value,
+    Service(fixtures.SP_ACS_URL, fixtures.SP_ACS_BINDING),
+    certificate=fixtures.SIGNING_CERTIFICATE,
     private_key=fixtures.PRIVATE_KEY
 )
 
@@ -39,11 +52,11 @@ class SAMLConfigurationTest(object):
     def test_service_provider_returns_correct_value(self):
         # Arrange
         service_provider_metadata = ''
-        expected_result = SERVICE_PROVIDER
+        expected_result = copy(SERVICE_PROVIDER_WITH_CERTIFICATE)
         configuration_storage = create_autospec(spec=SAMLConfigurationStorage)
         configuration_storage.load = MagicMock(return_value=service_provider_metadata)
         metadata_parser = create_autospec(spec=SAMLMetadataParser)
-        metadata_parser.parse = MagicMock(return_value=[SERVICE_PROVIDER])
+        metadata_parser.parse = MagicMock(return_value=[expected_result])
         configuration = SAMLConfiguration(configuration_storage, metadata_parser)
         db = create_autospec(spec=sqlalchemy.orm.session.Session)
 
@@ -105,32 +118,59 @@ class SAMLOneLoginConfigurationTest(object):
         eq_(result, expected_result)
         configuration.get_identity_providers.assert_called_once_with(db)
 
-    def test_get_service_provider_settings_returns_correct_result(self):
+    @parameterized.expand([
+        (
+            'service_provider_without_certificates',
+            SERVICE_PROVIDER_WITHOUT_CERTIFICATE,
+            {
+                'sp': {
+                    'entityId': SERVICE_PROVIDER_WITH_CERTIFICATE.entity_id,
+                    'assertionConsumerService': {
+                        'url': SERVICE_PROVIDER_WITH_CERTIFICATE.acs_service.url,
+                        'binding': SERVICE_PROVIDER_WITH_CERTIFICATE.acs_service.binding.value
+                    },
+                    'NameIDFormat': SERVICE_PROVIDER_WITH_CERTIFICATE.name_id_format,
+                    'x509cert': '',
+                    'privateKey': ''
+                },
+                'security': {
+                    'authnRequestsSigned': SERVICE_PROVIDER_WITH_CERTIFICATE.authn_requests_signed
+                }
+            }
+        ),
+        (
+            'service_provider_with_certificate',
+            SERVICE_PROVIDER_WITH_CERTIFICATE,
+            {
+                'sp': {
+                    'entityId': SERVICE_PROVIDER_WITH_CERTIFICATE.entity_id,
+                    'assertionConsumerService': {
+                        'url': SERVICE_PROVIDER_WITH_CERTIFICATE.acs_service.url,
+                        'binding': SERVICE_PROVIDER_WITH_CERTIFICATE.acs_service.binding.value
+                    },
+                    'NameIDFormat': SERVICE_PROVIDER_WITH_CERTIFICATE.name_id_format,
+                    'x509cert': strip_certificate(SERVICE_PROVIDER_WITH_CERTIFICATE.certificate),
+                    'privateKey': SERVICE_PROVIDER_WITH_CERTIFICATE.private_key
+                },
+                'security': {
+                    'authnRequestsSigned': SERVICE_PROVIDER_WITH_CERTIFICATE.authn_requests_signed
+                }
+            }
+        )
+    ])
+    def test_get_service_provider_settings_returns_correct_result(self, name, service_provider, expected_result):
         # Arrange
         configuration = create_autospec(spec=SAMLConfiguration)
-        configuration.get_service_provider = MagicMock(return_value=SERVICE_PROVIDER)
+        configuration.get_service_provider = MagicMock(return_value=service_provider)
         onelogin_configuration = SAMLOneLoginConfiguration(configuration)
-        expected_result = {
-            'sp': {
-                'entityId': SERVICE_PROVIDER.entity_id,
-                'assertionConsumerService': {
-                    'url': SERVICE_PROVIDER.acs_service.url,
-                    'binding': SERVICE_PROVIDER.acs_service.binding.value
-                },
-                'NameIDFormat': SERVICE_PROVIDER.name_id_format,
-                'x509cert': SERVICE_PROVIDER.certificate,
-                'privateKey': SERVICE_PROVIDER.private_key
-            },
-            'security': {
-                'authnRequestsSigned': SERVICE_PROVIDER.authn_requests_signed
-            }
-        }
         db = create_autospec(spec=sqlalchemy.orm.session.Session)
 
         # Act
         result = onelogin_configuration.get_service_provider_settings(db)
 
         # Assert
+        result['sp']['x509cert'] = strip_certificate(result['sp']['x509cert'])
+
         eq_(result, expected_result)
         configuration.get_service_provider.assert_called_once_with(db)
 
@@ -141,7 +181,7 @@ class SAMLOneLoginConfigurationTest(object):
         strict = False
         configuration.get_debug = MagicMock(return_value=False)
         configuration.get_strict = MagicMock(return_value=False)
-        configuration.get_service_provider = MagicMock(return_value=SERVICE_PROVIDER)
+        configuration.get_service_provider = MagicMock(return_value=SERVICE_PROVIDER_WITH_CERTIFICATE)
         configuration.get_identity_providers = MagicMock(return_value=IDENTITY_PROVIDERS)
         onelogin_configuration = SAMLOneLoginConfiguration(configuration)
         expected_result = {
@@ -158,25 +198,26 @@ class SAMLOneLoginConfigurationTest(object):
                 'certFingerprintAlgorithm': 'sha1'
             },
             'sp': {
-                'entityId': SERVICE_PROVIDER.entity_id,
+                'entityId': SERVICE_PROVIDER_WITH_CERTIFICATE.entity_id,
                 'assertionConsumerService': {
-                    'url': SERVICE_PROVIDER.acs_service.url,
-                    'binding': SERVICE_PROVIDER.acs_service.binding.value
+                    'url': SERVICE_PROVIDER_WITH_CERTIFICATE.acs_service.url,
+                    'binding': SERVICE_PROVIDER_WITH_CERTIFICATE.acs_service.binding.value
                 },
                 'attributeConsumingService': {},
                 'singleLogoutService': {
                     'binding': 'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect'
                 },
-                'NameIDFormat': SERVICE_PROVIDER.name_id_format,
-                'x509cert': SERVICE_PROVIDER.certificate,
-                'privateKey': ''
+                'NameIDFormat': SERVICE_PROVIDER_WITH_CERTIFICATE.name_id_format,
+                'x509cert': strip_certificate(SERVICE_PROVIDER_WITH_CERTIFICATE.certificate),
+                'privateKey': SERVICE_PROVIDER_WITH_CERTIFICATE.private_key
             },
             'security': {
                 'failOnAuthnContextMismatch': False,
                 'requestedAuthnContextComparison': 'exact',
                 'wantNameIdEncrypted': False,
                 'authnRequestsSigned':
-                    SERVICE_PROVIDER.authn_requests_signed or IDENTITY_PROVIDERS[0].want_authn_requests_signed,
+                    SERVICE_PROVIDER_WITH_CERTIFICATE.authn_requests_signed or
+                    IDENTITY_PROVIDERS[0].want_authn_requests_signed,
                 'logoutResponseSigned': False,
                 'wantMessagesSigned': False,
                 'metadataCacheDuration': None,
@@ -200,6 +241,8 @@ class SAMLOneLoginConfigurationTest(object):
         result = onelogin_configuration.get_settings(db, IDENTITY_PROVIDERS[0].entity_id)
 
         # Assert
+        result['sp']['x509cert'] = strip_certificate(result['sp']['x509cert'])
+
         eq_(result, expected_result)
         configuration.get_debug.assert_called_with(db)
         configuration.get_strict.assert_called_with(db)
