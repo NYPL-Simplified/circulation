@@ -34,6 +34,7 @@
             
   <h1>Source code for api.testing</h1><div class="highlight"><pre>
 <span></span><span class="kn">import</span> <span class="nn">contextlib</span>
+<span class="kn">import</span> <span class="nn">datetime</span>
 <span class="kn">import</span> <span class="nn">json</span>
 <span class="kn">import</span> <span class="nn">logging</span>
 <span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">defaultdict</span>
@@ -151,6 +152,39 @@
 <span class="sd">        This makes it easier to test run_once() in isolation.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">monitor</span><span class="o">.</span><span class="n">timestamp</span><span class="p">()</span><span class="o">.</span><span class="n">to_data</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="AnnouncementTest"><a class="viewcode-back" href="../../api.html#api.testing.AnnouncementTest">[docs]</a><span class="k">class</span> <span class="nc">AnnouncementTest</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A test that needs to create announcements.&quot;&quot;&quot;</span>
+
+    <span class="c1"># Create raw data to be used in tests.</span>
+    <span class="nb">format</span> <span class="o">=</span> <span class="s1">&#39;%Y-%m-</span><span class="si">%d</span><span class="s1">&#39;</span>
+    <span class="n">today</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">date</span><span class="o">.</span><span class="n">today</span><span class="p">()</span>
+    <span class="n">yesterday</span> <span class="o">=</span> <span class="p">(</span><span class="n">today</span> <span class="o">-</span> <span class="n">datetime</span><span class="o">.</span><span class="n">timedelta</span><span class="p">(</span><span class="n">days</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="nb">format</span><span class="p">)</span>
+    <span class="n">tomorrow</span> <span class="o">=</span> <span class="p">(</span><span class="n">today</span> <span class="o">+</span> <span class="n">datetime</span><span class="o">.</span><span class="n">timedelta</span><span class="p">(</span><span class="n">days</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="nb">format</span><span class="p">)</span>
+    <span class="n">a_week_ago</span> <span class="o">=</span> <span class="p">(</span><span class="n">today</span> <span class="o">-</span> <span class="n">datetime</span><span class="o">.</span><span class="n">timedelta</span><span class="p">(</span><span class="n">days</span><span class="o">=</span><span class="mi">7</span><span class="p">))</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="nb">format</span><span class="p">)</span>
+    <span class="n">in_a_week</span> <span class="o">=</span> <span class="p">(</span><span class="n">today</span> <span class="o">+</span> <span class="n">datetime</span><span class="o">.</span><span class="n">timedelta</span><span class="p">(</span><span class="n">days</span><span class="o">=</span><span class="mi">7</span><span class="p">))</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="nb">format</span><span class="p">)</span>
+    <span class="n">today</span> <span class="o">=</span> <span class="n">today</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="nb">format</span><span class="p">)</span>
+
+    <span class="c1"># This announcement is active.</span>
+    <span class="n">active</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span>
+        <span class="nb">id</span><span class="o">=</span><span class="s2">&quot;active&quot;</span><span class="p">,</span>
+        <span class="n">start</span><span class="o">=</span><span class="n">today</span><span class="p">,</span>
+        <span class="n">finish</span><span class="o">=</span><span class="n">tomorrow</span><span class="p">,</span>
+        <span class="n">content</span><span class="o">=</span><span class="s2">&quot;A sample announcement.&quot;</span>
+    <span class="p">)</span>
+
+    <span class="c1"># This announcement expired yesterday.</span>
+    <span class="n">expired</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">active</span><span class="p">)</span>
+    <span class="n">expired</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;expired&#39;</span>
+    <span class="n">expired</span><span class="p">[</span><span class="s1">&#39;start&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">a_week_ago</span>
+    <span class="n">expired</span><span class="p">[</span><span class="s1">&#39;finish&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">yesterday</span>
+
+    <span class="c1"># This announcement should be displayed starting tomorrow.</span>
+    <span class="n">forthcoming</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">active</span><span class="p">)</span>
+    <span class="n">forthcoming</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;forthcoming&#39;</span>
+    <span class="n">forthcoming</span><span class="p">[</span><span class="s1">&#39;start&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">tomorrow</span>
+    <span class="n">forthcoming</span><span class="p">[</span><span class="s1">&#39;finish&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">in_a_week</span></div>
 
 
 <div class="viewcode-block" id="MockRemoteAPI"><a class="viewcode-back" href="../../api.html#api.testing.MockRemoteAPI">[docs]</a><span class="k">class</span> <span class="nc">MockRemoteAPI</span><span class="p">(</span><span class="n">BaseCirculationAPI</span><span class="p">):</span>

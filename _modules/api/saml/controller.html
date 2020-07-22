@@ -293,6 +293,8 @@
             <span class="p">}</span>
         <span class="p">)</span>
         <span class="n">redirect_uri</span> <span class="o">=</span> <span class="n">authentication_manager</span><span class="o">.</span><span class="n">start_authentication</span><span class="p">(</span><span class="n">db</span><span class="p">,</span> <span class="n">idp_entity_id</span><span class="p">,</span> <span class="n">relay_state</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">redirect_uri</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">redirect_uri</span>
 
         <span class="k">return</span> <span class="n">redirect</span><span class="p">(</span><span class="n">redirect_uri</span><span class="p">)</span></div>
 

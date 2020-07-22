@@ -43,7 +43,7 @@
 
 <span class="kn">from</span> <span class="nn">api.saml.exceptions</span> <span class="kn">import</span> <span class="n">SAMLError</span>
 <span class="kn">from</span> <span class="nn">api.saml.metadata</span> <span class="kn">import</span> <span class="n">IdentityProviderMetadata</span><span class="p">,</span> <span class="n">LocalizableMetadataItem</span><span class="p">,</span> <span class="n">UIInfo</span><span class="p">,</span> <span class="n">ServiceProviderMetadata</span><span class="p">,</span> \
-    <span class="n">Binding</span><span class="p">,</span> <span class="n">Service</span><span class="p">,</span> <span class="n">NameIDFormat</span>
+    <span class="n">Binding</span><span class="p">,</span> <span class="n">Service</span><span class="p">,</span> <span class="n">NameIDFormat</span><span class="p">,</span> <span class="n">Organization</span>
 
 
 <div class="viewcode-block" id="SAMLMetadataParsingError"><a class="viewcode-back" href="../../../api.saml.html#api.saml.parser.SAMLMetadataParsingError">[docs]</a><span class="k">class</span> <span class="nc">SAMLMetadataParsingError</span><span class="p">(</span><span class="n">SAMLError</span><span class="p">):</span>
@@ -136,50 +136,54 @@
         <span class="k">for</span> <span class="n">provider_node</span> <span class="ow">in</span> <span class="n">provider_nodes</span><span class="p">:</span>
             <span class="n">entity_id</span> <span class="o">=</span> <span class="n">entity_descriptor_node</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;entityID&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
             <span class="n">ui_info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_ui_info</span><span class="p">(</span><span class="n">provider_node</span><span class="p">)</span>
-            <span class="n">provider</span> <span class="o">=</span> <span class="n">parse_function</span><span class="p">(</span><span class="n">provider_node</span><span class="p">,</span> <span class="n">entity_id</span><span class="p">,</span> <span class="n">ui_info</span><span class="p">)</span>
+            <span class="n">organization</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_organization_metadata</span><span class="p">(</span><span class="n">entity_descriptor_node</span><span class="p">)</span>
+            <span class="n">provider</span> <span class="o">=</span> <span class="n">parse_function</span><span class="p">(</span><span class="n">provider_node</span><span class="p">,</span> <span class="n">entity_id</span><span class="p">,</span> <span class="n">ui_info</span><span class="p">,</span> <span class="n">organization</span><span class="p">)</span>
 
             <span class="n">providers</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">provider</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">providers</span>
 
-    <span class="k">def</span> <span class="nf">_parse_ui_info_item</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">provider_descriptor_node</span><span class="p">,</span> <span class="n">xpath</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">_parse_localizable_metadata_items</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">provider_descriptor_node</span><span class="p">,</span> <span class="n">xpath</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Parses IDPSSODescriptor/SPSSODescriptor&#39;s mdui:UIInfo child elements (for example, mdui:DisplayName)</span>
 
 <span class="sd">        :param provider_descriptor_node: Parent IDPSSODescriptor/SPSSODescriptor XML node</span>
 <span class="sd">        :type provider_descriptor_node: defusedxml.lxml.RestrictedElement</span>
 
-<span class="sd">        :param xpath: XPath expression for a particular mdui:UIInfo child element (for example, mdui:DisplayName)</span>
+<span class="sd">        :param xpath: XPath expression for a particular md:localizedNameType child element</span>
+<span class="sd">            (for example, mdui:DisplayName)</span>
 <span class="sd">        :type xpath: string</span>
 
-<span class="sd">        :param required: Boolean value indicating whether particular mdui:UIInfo child element is required or not</span>
+<span class="sd">        :param required: Boolean value indicating whether particular md:localizedNameType child element</span>
+<span class="sd">            is required or not</span>
 <span class="sd">        :type required: bool</span>
 
-<span class="sd">        :return: List of mdui:UIInfo child elements</span>
-<span class="sd">        :rtype: List[LocalizableMetadataItem]</span>
+<span class="sd">        :return: List of md:localizedNameType child elements</span>
+<span class="sd">        :rtype: Optional[List[LocalizableMetadataItem]]</span>
 
 <span class="sd">        :raise: MetadataParsingError</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">ui_info_item_nodes</span> <span class="o">=</span> <span class="n">OneLogin_Saml2_Utils</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">provider_descriptor_node</span><span class="p">,</span> <span class="n">xpath</span><span class="p">)</span>
+        <span class="n">localizable_metadata_nodes</span> <span class="o">=</span> <span class="n">OneLogin_Saml2_Utils</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">provider_descriptor_node</span><span class="p">,</span> <span class="n">xpath</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">ui_info_item_nodes</span> <span class="ow">and</span> <span class="n">required</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">localizable_metadata_nodes</span> <span class="ow">and</span> <span class="n">required</span><span class="p">:</span>
             <span class="n">last_slash_index</span> <span class="o">=</span> <span class="n">xpath</span><span class="o">.</span><span class="n">rfind</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">)</span>
-            <span class="n">ui_info_item_name</span> <span class="o">=</span> <span class="n">xpath</span><span class="p">[</span><span class="n">last_slash_index</span> <span class="o">+</span> <span class="mi">1</span><span class="p">:]</span>
+            <span class="n">localizable_metadata_tag_name</span> <span class="o">=</span> <span class="n">xpath</span><span class="p">[</span><span class="n">last_slash_index</span> <span class="o">+</span> <span class="mi">1</span><span class="p">:]</span>
 
-            <span class="k">raise</span> <span class="n">SAMLMetadataParsingError</span><span class="p">(</span><span class="n">_</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">{0}</span><span class="s1"> tag is missing&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">ui_info_item_name</span><span class="p">)))</span>
+            <span class="k">raise</span> <span class="n">SAMLMetadataParsingError</span><span class="p">(</span><span class="n">_</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">{0}</span><span class="s1"> tag is missing&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">localizable_metadata_tag_name</span><span class="p">)))</span>
 
-        <span class="n">ui_info_items</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">localizable_items</span> <span class="o">=</span> <span class="kc">None</span>
 
-        <span class="k">if</span> <span class="n">ui_info_item_nodes</span><span class="p">:</span>
-            <span class="n">ui_info_items</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">if</span> <span class="n">localizable_metadata_nodes</span><span class="p">:</span>
+            <span class="n">localizable_items</span> <span class="o">=</span> <span class="p">[]</span>
 
-            <span class="k">for</span> <span class="n">ui_info_item_node</span> <span class="ow">in</span> <span class="n">ui_info_item_nodes</span><span class="p">:</span>
-                <span class="n">ui_info_item_text</span> <span class="o">=</span> <span class="n">ui_info_item_node</span><span class="o">.</span><span class="n">text</span>
-                <span class="n">ui_info_item_language</span> <span class="o">=</span> <span class="n">ui_info_item_node</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;{http://www.w3.org/XML/1998/namespace}lang&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-                <span class="n">ui_info_item</span> <span class="o">=</span> <span class="n">LocalizableMetadataItem</span><span class="p">(</span><span class="n">ui_info_item_text</span><span class="p">,</span> <span class="n">ui_info_item_language</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">localizable_metadata_node</span> <span class="ow">in</span> <span class="n">localizable_metadata_nodes</span><span class="p">:</span>
+                <span class="n">localizable_item_text</span> <span class="o">=</span> <span class="n">localizable_metadata_node</span><span class="o">.</span><span class="n">text</span>
+                <span class="n">localizable_item_language</span> <span class="o">=</span> <span class="n">localizable_metadata_node</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+                    <span class="s1">&#39;{http://www.w3.org/XML/1998/namespace}lang&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+                <span class="n">localizable_item</span> <span class="o">=</span> <span class="n">LocalizableMetadataItem</span><span class="p">(</span><span class="n">localizable_item_text</span><span class="p">,</span> <span class="n">localizable_item_language</span><span class="p">)</span>
 
-                <span class="n">ui_info_items</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ui_info_item</span><span class="p">)</span>
+                <span class="n">localizable_items</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">localizable_item</span><span class="p">)</span>
 
-        <span class="k">return</span> <span class="n">ui_info_items</span>
+        <span class="k">return</span> <span class="n">localizable_items</span>
 
     <span class="k">def</span> <span class="nf">_parse_ui_info</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">provider_node</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Parses IDPSSODescriptor/SPSSODescriptor&#39;s mdui:UIInfo and translates it into UIInfo object</span>
@@ -192,15 +196,15 @@
 
 <span class="sd">        :raise: MetadataParsingError</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">display_names</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_ui_info_item</span><span class="p">(</span>
+        <span class="n">display_names</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_localizable_metadata_items</span><span class="p">(</span>
             <span class="n">provider_node</span><span class="p">,</span> <span class="s1">&#39;./md:Extensions/mdui:UIInfo/mdui:DisplayName&#39;</span><span class="p">)</span>
-        <span class="n">descriptions</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_ui_info_item</span><span class="p">(</span>
+        <span class="n">descriptions</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_localizable_metadata_items</span><span class="p">(</span>
             <span class="n">provider_node</span><span class="p">,</span> <span class="s1">&#39;./md:Extensions/mdui:UIInfo/mdui:Description&#39;</span><span class="p">)</span>
-        <span class="n">information_urls</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_ui_info_item</span><span class="p">(</span>
+        <span class="n">information_urls</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_localizable_metadata_items</span><span class="p">(</span>
             <span class="n">provider_node</span><span class="p">,</span> <span class="s1">&#39;./md:Extensions/mdui:UIInfo/mdui:InformationURL&#39;</span><span class="p">)</span>
-        <span class="n">privacy_statement_urls</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_ui_info_item</span><span class="p">(</span>
+        <span class="n">privacy_statement_urls</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_localizable_metadata_items</span><span class="p">(</span>
             <span class="n">provider_node</span><span class="p">,</span> <span class="s1">&#39;./md:Extensions/mdui:UIInfo/mdui:PrivacyStatementURL&#39;</span><span class="p">)</span>
-        <span class="n">logos</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_ui_info_item</span><span class="p">(</span>
+        <span class="n">logos</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_localizable_metadata_items</span><span class="p">(</span>
             <span class="n">provider_node</span><span class="p">,</span> <span class="s1">&#39;./md:Extensions/mdui:UIInfo/mdui:Logo&#39;</span><span class="p">)</span>
 
         <span class="n">ui_info</span> <span class="o">=</span> <span class="n">UIInfo</span><span class="p">(</span>
@@ -212,6 +216,32 @@
         <span class="p">)</span>
 
         <span class="k">return</span> <span class="n">ui_info</span>
+
+    <span class="k">def</span> <span class="nf">_parse_organization_metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">entity_descriptor_node</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Parses IDPSSODescriptor/SPSSODescriptor&#39;s mdui:Organization and translates it into Organization object</span>
+
+<span class="sd">        :param entity_descriptor_node: Parent EntityDescriptor node</span>
+<span class="sd">        :type entity_descriptor_node: defusedxml.lxml.RestrictedElement</span>
+
+<span class="sd">        :return: Organization object</span>
+<span class="sd">        :rtype: Organization</span>
+
+<span class="sd">        :raise: MetadataParsingError</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">organization_names</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_localizable_metadata_items</span><span class="p">(</span>
+            <span class="n">entity_descriptor_node</span><span class="p">,</span> <span class="s1">&#39;./md:Organization/md:OrganizationName&#39;</span><span class="p">)</span>
+        <span class="n">organization_display_names</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_localizable_metadata_items</span><span class="p">(</span>
+            <span class="n">entity_descriptor_node</span><span class="p">,</span> <span class="s1">&#39;./md:Organization/md:OrganizationDisplayName&#39;</span><span class="p">)</span>
+        <span class="n">organization_urls</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_localizable_metadata_items</span><span class="p">(</span>
+            <span class="n">entity_descriptor_node</span><span class="p">,</span> <span class="s1">&#39;./md:Organization/md:OrganizationURL&#39;</span><span class="p">)</span>
+
+        <span class="n">organization</span> <span class="o">=</span> <span class="n">Organization</span><span class="p">(</span>
+            <span class="n">organization_names</span><span class="p">,</span>
+            <span class="n">organization_display_names</span><span class="p">,</span>
+            <span class="n">organization_urls</span>
+        <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">organization</span>
 
     <span class="k">def</span> <span class="nf">_parse_name_id_format</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">provider_node</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Parses a name ID format</span>
@@ -238,6 +268,7 @@
             <span class="n">provider_node</span><span class="p">,</span>
             <span class="n">entity_id</span><span class="p">,</span>
             <span class="n">ui_info</span><span class="p">,</span>
+            <span class="n">organization</span><span class="p">,</span>
             <span class="n">required_sso_binding</span><span class="o">=</span><span class="n">Binding</span><span class="o">.</span><span class="n">HTTP_REDIRECT</span><span class="p">,</span>
             <span class="n">required_slo_binding</span><span class="o">=</span><span class="n">Binding</span><span class="o">.</span><span class="n">HTTP_REDIRECT</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Parses IDPSSODescriptor node and translates it into an IdentityProviderMetadata object</span>
@@ -250,6 +281,10 @@
 
 <span class="sd">        :param ui_info: UIInfo object containing IdP&#39;s description</span>
 <span class="sd">        :type ui_info: UIInfo</span>
+
+<span class="sd">        :param organization: Organization object containing basic information about an organization</span>
+<span class="sd">            responsible for a SAML entity or role</span>
+<span class="sd">        :type organization: Organization</span>
 
 <span class="sd">        :param required_sso_binding: Required binding for Single Sign-On profile (HTTP-Redirect by default)</span>
 <span class="sd">        :type required_sso_binding: Binding</span>
@@ -302,6 +337,7 @@
         <span class="n">idp</span> <span class="o">=</span> <span class="n">IdentityProviderMetadata</span><span class="p">(</span>
             <span class="n">entity_id</span><span class="p">,</span>
             <span class="n">ui_info</span><span class="p">,</span>
+            <span class="n">organization</span><span class="p">,</span>
             <span class="n">name_id_format</span><span class="p">,</span>
             <span class="n">sso_service</span><span class="p">,</span>
             <span class="n">slo_service</span><span class="p">,</span>
@@ -316,6 +352,7 @@
             <span class="n">provider_node</span><span class="p">,</span>
             <span class="n">entity_id</span><span class="p">,</span>
             <span class="n">ui_info</span><span class="p">,</span>
+            <span class="n">organization</span><span class="p">,</span>
             <span class="n">required_acs_binding</span><span class="o">=</span><span class="n">Binding</span><span class="o">.</span><span class="n">HTTP_POST</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Parses SPSSODescriptor node and translates it into a ServiceProvider object</span>
 
@@ -327,6 +364,10 @@
 
 <span class="sd">        :param ui_info: UIInfo object containing IdP&#39;s description</span>
 <span class="sd">        :type ui_info: UIInfo</span>
+
+<span class="sd">        :param organization: Organization object containing basic information about an organization</span>
+<span class="sd">            responsible for a SAML entity or role</span>
+<span class="sd">        :type organization: Organization</span>
 
 <span class="sd">        :param required_acs_binding: Required binding for Assertion Consumer Service (HTTP-Redirect by default)</span>
 <span class="sd">        :type required_acs_binding: Binding</span>
@@ -362,11 +403,12 @@
             <span class="k">raise</span> <span class="n">SAMLMetadataParsingError</span><span class="p">(</span>
                 <span class="n">_</span><span class="p">(</span><span class="s1">&#39;There are more than 1 SP certificates&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">required_acs_binding</span><span class="o">.</span><span class="n">value</span><span class="p">)))</span>
 
-        <span class="n">certificate</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="n">certificates</span><span class="p">))</span>
+        <span class="n">certificate</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="n">certificates</span><span class="p">))</span> <span class="k">if</span> <span class="n">certificates</span> <span class="k">else</span> <span class="kc">None</span>
 
         <span class="n">sp</span> <span class="o">=</span> <span class="n">ServiceProviderMetadata</span><span class="p">(</span>
             <span class="n">entity_id</span><span class="p">,</span>
             <span class="n">ui_info</span><span class="p">,</span>
+            <span class="n">organization</span><span class="p">,</span>
             <span class="n">name_id_format</span><span class="p">,</span>
             <span class="n">acs_service</span><span class="p">,</span>
             <span class="n">authn_requests_signed</span><span class="p">,</span>

@@ -131,7 +131,7 @@
                         <span class="n">locations</span><span class="p">[</span><span class="n">registry_response</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
                     <span class="k">else</span><span class="p">:</span>
                         <span class="k">return</span> <span class="n">UNKNOWN_LOCATION</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="n">_</span><span class="p">(</span><span class="s1">&#39;Unable to locate &quot;</span><span class="si">%(value)s</span><span class="s1">&quot;.&#39;</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="n">value</span><span class="p">))</span>
-        <span class="k">return</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">locations</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="n">locations</span></div>
 
 <div class="viewcode-block" id="GeographicValidator.is_zip"><a class="viewcode-back" href="../../../api.admin.html#api.admin.geographic_validator.GeographicValidator.is_zip">[docs]</a>    <span class="k">def</span> <span class="nf">is_zip</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">country</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">country</span> <span class="o">==</span> <span class="s2">&quot;US&quot;</span><span class="p">:</span>
@@ -182,7 +182,11 @@
                 <span class="k">if</span> <span class="n">found_place</span><span class="p">:</span>
                     <span class="k">return</span> <span class="kc">True</span>
 
-        <span class="k">return</span> <span class="n">result</span></div></div>
+        <span class="k">return</span> <span class="n">result</span></div>
+
+<div class="viewcode-block" id="GeographicValidator.format_as_string"><a class="viewcode-back" href="../../../api.admin.html#api.admin.geographic_validator.GeographicValidator.format_as_string">[docs]</a>    <span class="k">def</span> <span class="nf">format_as_string</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Format the output of validate_geographic_areas for storage in ConfigurationSetting.value.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">value</span><span class="p">)</span></div></div>
 </pre></div>
 
           </div>

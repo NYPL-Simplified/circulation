@@ -102,6 +102,15 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">finish</span> <span class="o">=</span> <span class="n">AnnouncementListValidator</span><span class="o">.</span><span class="n">validate_date</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;finish&#39;</span><span class="p">))</span>
 
     <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">json_ready</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="nb">format</span> <span class="o">=</span> <span class="n">AnnouncementListValidator</span><span class="o">.</span><span class="n">DATE_FORMAT</span>
+        <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span>
+            <span class="nb">id</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">content</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">content</span><span class="p">,</span>
+            <span class="n">start</span><span class="o">=</span><span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">start</span><span class="p">,</span> <span class="nb">format</span><span class="p">),</span>
+            <span class="n">finish</span><span class="o">=</span><span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">finish</span><span class="p">,</span> <span class="nb">format</span><span class="p">),</span>
+        <span class="p">)</span>
+
+    <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">is_active</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Should this announcement be displayed now?&quot;&quot;&quot;</span>
         <span class="n">today</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">date</span><span class="o">.</span><span class="n">today</span><span class="p">()</span>

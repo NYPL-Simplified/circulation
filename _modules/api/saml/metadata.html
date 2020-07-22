@@ -91,6 +91,93 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_language</span></div>
 
 
+<div class="viewcode-block" id="Organization"><a class="viewcode-back" href="../../../api.saml.html#api.saml.metadata.Organization">[docs]</a><span class="k">class</span> <span class="nc">Organization</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Represents md:Organization and contains basic information about an organization</span>
+<span class="sd">    responsible for a SAML entity or role</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">organization_names</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">organization_display_names</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">organization_urls</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Initializes a new instance of Organization class</span>
+
+<span class="sd">        :param organization_names: (Optional) List of localized organization names that may or may not be</span>
+<span class="sd">            suitable for human consumption</span>
+<span class="sd">        :type organization_names: Optional[List[LocalizableMetadataItem]]</span>
+
+<span class="sd">        :param organization_display_names: (Optional) List of localized organization names that</span>
+<span class="sd">            suitable for human consumption</span>
+<span class="sd">        :type organization_display_names: Optional[List[LocalizableMetadataItem]]</span>
+
+<span class="sd">        :param organization_urls: (Optional) List of localized organization URIs that</span>
+<span class="sd">            specify a location to which to direct a user for additional information</span>
+<span class="sd">        :type organization_urls: Optional[List[LocalizableMetadataItem]]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">organization_names</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">organization_name</span> <span class="ow">in</span> <span class="n">organization_names</span><span class="p">:</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">organization_name</span><span class="p">,</span> <span class="n">LocalizableMetadataItem</span><span class="p">):</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;organization_name must have type LocalizableMetadataItem&#39;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">organization_display_names</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">organization_display_name</span> <span class="ow">in</span> <span class="n">organization_display_names</span><span class="p">:</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">organization_display_name</span><span class="p">,</span> <span class="n">LocalizableMetadataItem</span><span class="p">):</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;organization_display_name must have type LocalizableMetadataItem&#39;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">organization_urls</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">organization_url</span> <span class="ow">in</span> <span class="n">organization_urls</span><span class="p">:</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">organization_url</span><span class="p">,</span> <span class="n">LocalizableMetadataItem</span><span class="p">):</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;organization_url must have type LocalizableMetadataItem&#39;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_organization_names</span> <span class="o">=</span> <span class="n">organization_names</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_organization_display_names</span> <span class="o">=</span> <span class="n">organization_display_names</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_organization_urls</span> <span class="o">=</span> <span class="n">organization_urls</span>
+
+    <span class="k">def</span> <span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Compares two Organization objects</span>
+
+<span class="sd">        :param other: Organization object</span>
+<span class="sd">        :type other: Organization</span>
+
+<span class="sd">        :return: Boolean value indicating whether two items are equal</span>
+<span class="sd">        :rtype: bool</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">Organization</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="k">return</span> \
+            <span class="bp">self</span><span class="o">.</span><span class="n">organization_names</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">organization_names</span> <span class="ow">and</span> \
+            <span class="bp">self</span><span class="o">.</span><span class="n">organization_display_names</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">organization_display_names</span> <span class="ow">and</span> \
+            <span class="bp">self</span><span class="o">.</span><span class="n">organization_urls</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">organization_urls</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">organization_names</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns a list of localized organization names that may or may not be</span>
+<span class="sd">        suitable for human consumption</span>
+
+<span class="sd">        :return: List of localized organization names that may or may not be</span>
+<span class="sd">            suitable for human consumption</span>
+<span class="sd">        :rtype: Optional[List[LocalizableMetadataItem]]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_organization_names</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">organization_display_names</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns a list of localized organization names that suitable for human consumption</span>
+
+<span class="sd">        :return: List of localized organization names that suitable for human consumption</span>
+<span class="sd">        :rtype: Optional[List[LocalizableMetadataItem]]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_organization_display_names</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">organization_urls</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns a list of localized organization URIs that specify a location to which to direct a user for</span>
+<span class="sd">        additional information</span>
+
+<span class="sd">        :return: List of localized organization URIs that</span>
+<span class="sd">            specify a location to which to direct a user for additional information</span>
+<span class="sd">        :rtype: Optional[List[LocalizableMetadataItem]]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_organization_urls</span></div>
+
+
 <div class="viewcode-block" id="UIInfo"><a class="viewcode-back" href="../../../api.saml.html#api.saml.metadata.UIInfo">[docs]</a><span class="k">class</span> <span class="nc">UIInfo</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Represents mdui:UIInfoType and contains values that can be shown in the UI to describe IdPs/SPs&quot;&quot;&quot;</span>
 
@@ -296,7 +383,7 @@
 <div class="viewcode-block" id="ProviderMetadata"><a class="viewcode-back" href="../../../api.saml.html#api.saml.metadata.ProviderMetadata">[docs]</a><span class="k">class</span> <span class="nc">ProviderMetadata</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Base class for IdentityProvider and ServiceProvider classes&quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">entity_id</span><span class="p">,</span> <span class="n">ui_info</span><span class="p">,</span> <span class="n">name_id_format</span><span class="o">=</span><span class="n">NameIDFormat</span><span class="o">.</span><span class="n">UNSPECIFIED</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">entity_id</span><span class="p">,</span> <span class="n">ui_info</span><span class="p">,</span> <span class="n">organization</span><span class="p">,</span> <span class="n">name_id_format</span><span class="o">=</span><span class="n">NameIDFormat</span><span class="o">.</span><span class="n">UNSPECIFIED</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Initializes a new instance of ProviderMetadata class</span>
 
 <span class="sd">        :param entity_id: Provider&#39;s entityID</span>
@@ -305,17 +392,25 @@
 <span class="sd">        :param ui_info: UIInfo object containing &quot;UI&quot; metadata of the provider</span>
 <span class="sd">        :type ui_info: UIInfo</span>
 
+<span class="sd">        :param organization: Organization object containing basic information about an organization</span>
+<span class="sd">            responsible for a SAML entity or role</span>
+<span class="sd">        :type organization: Organization</span>
+
 <span class="sd">        :param name_id_format: String defining the name identifier formats supported by the identity provider</span>
 <span class="sd">        :type name_id_format: string</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ui_info</span><span class="p">,</span> <span class="n">UIInfo</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;ui_info must have type UIInfo&#39;</span><span class="p">)</span>
 
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">organization</span><span class="p">,</span> <span class="n">Organization</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;organization must have type UIInfo&#39;</span><span class="p">)</span>
+
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">name_id_format</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;name_id_format must be a string&#39;</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_entity_id</span> <span class="o">=</span> <span class="n">entity_id</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_ui_info</span> <span class="o">=</span> <span class="n">ui_info</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_organization</span> <span class="o">=</span> <span class="n">organization</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_name_id_format</span> <span class="o">=</span> <span class="n">name_id_format</span>
 
     <span class="k">def</span> <span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
@@ -333,6 +428,7 @@
         <span class="k">return</span> \
             <span class="bp">self</span><span class="o">.</span><span class="n">entity_id</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">entity_id</span> <span class="ow">and</span> \
             <span class="bp">self</span><span class="o">.</span><span class="n">ui_info</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">ui_info</span> <span class="ow">and</span> \
+            <span class="bp">self</span><span class="o">.</span><span class="n">organization</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">organization</span> <span class="ow">and</span> \
             <span class="bp">self</span><span class="o">.</span><span class="n">name_id_format</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">name_id_format</span>
 
     <span class="nd">@property</span>
@@ -353,6 +449,14 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ui_info</span>
 
     <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">organization</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns the provider&#39;s Organization object</span>
+<span class="sd">        :return: Provider&#39;s Organization object</span>
+<span class="sd">        :rtype: Organization</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_organization</span>
+
+    <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">name_id_format</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Returns the name ID format</span>
 
@@ -369,6 +473,7 @@
             <span class="bp">self</span><span class="p">,</span>
             <span class="n">entity_id</span><span class="p">,</span>
             <span class="n">ui_info</span><span class="p">,</span>
+            <span class="n">organization</span><span class="p">,</span>
             <span class="n">name_id_format</span><span class="p">,</span>
             <span class="n">sso_service</span><span class="p">,</span>
             <span class="n">slo_service</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
@@ -382,6 +487,10 @@
 
 <span class="sd">        :param ui_info: UIInfo object containing this IdP&#39;s description which can be shown the UI</span>
 <span class="sd">        :type ui_info: UIInfo</span>
+
+<span class="sd">        :param organization: Organization object containing basic information about an organization</span>
+<span class="sd">            responsible for a SAML entity or role</span>
+<span class="sd">        :type organization: Organization</span>
 
 <span class="sd">        :param name_id_format: String defining the name identifier formats supported by the identity provider</span>
 <span class="sd">        :type name_id_format: string</span>
@@ -402,7 +511,7 @@
 <span class="sd">        :param encryption_certificates: (Optional) Certificate in X.509 format used for encrypting &lt;AuthnResponse&gt;</span>
 <span class="sd">        :type encryption_certificates: Optional[List[string]]</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="nb">super</span><span class="p">(</span><span class="n">IdentityProviderMetadata</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">entity_id</span><span class="p">,</span> <span class="n">ui_info</span><span class="p">,</span> <span class="n">name_id_format</span><span class="p">)</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">IdentityProviderMetadata</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">entity_id</span><span class="p">,</span> <span class="n">ui_info</span><span class="p">,</span> <span class="n">organization</span><span class="p">,</span> <span class="n">name_id_format</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">sso_service</span><span class="p">,</span> <span class="n">Service</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;sso_service must have type Service&#39;</span><span class="p">)</span>
@@ -494,6 +603,7 @@
             <span class="bp">self</span><span class="p">,</span>
             <span class="n">entity_id</span><span class="p">,</span>
             <span class="n">ui_info</span><span class="p">,</span>
+            <span class="n">organization</span><span class="p">,</span>
             <span class="n">name_id_format</span><span class="p">,</span>
             <span class="n">acs_service</span><span class="p">,</span>
             <span class="n">authn_requests_signed</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
@@ -507,6 +617,10 @@
 
 <span class="sd">        :param ui_info: UIInfo object containing this IdP&#39;s description which can be shown the UI</span>
 <span class="sd">        :type ui_info: UIInfo</span>
+
+<span class="sd">        :param organization: Organization object containing basic information about an organization</span>
+<span class="sd">            responsible for a SAML entity or role</span>
+<span class="sd">        :type organization: Organization</span>
 
 <span class="sd">        :param name_id_format: String defining the name identifier formats supported by the identity provider</span>
 <span class="sd">        :type name_id_format: string</span>
@@ -529,7 +643,7 @@
 <span class="sd">        :param private_key: (Optional) Private key used for encrypting SAML requests</span>
 <span class="sd">        :type private_key: string</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="nb">super</span><span class="p">(</span><span class="n">ServiceProviderMetadata</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">entity_id</span><span class="p">,</span> <span class="n">ui_info</span><span class="p">,</span> <span class="n">name_id_format</span><span class="p">)</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">ServiceProviderMetadata</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">entity_id</span><span class="p">,</span> <span class="n">ui_info</span><span class="p">,</span> <span class="n">organization</span><span class="p">,</span> <span class="n">name_id_format</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">acs_service</span><span class="p">,</span> <span class="n">Service</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;acs_service must have type Service&#39;</span><span class="p">)</span>

@@ -39,12 +39,21 @@
 <span class="kn">from</span> <span class="nn">flask</span> <span class="kn">import</span> <span class="n">request</span>
 <span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
 <span class="kn">from</span> <span class="nn">onelogin.saml2.auth</span> <span class="kn">import</span> <span class="n">OneLogin_Saml2_Auth</span>
+<span class="kn">from</span> <span class="nn">onelogin.saml2.errors</span> <span class="kn">import</span> <span class="n">OneLogin_Saml2_Error</span>
 
 <span class="kn">from</span> <span class="nn">api.saml.configuration</span> <span class="kn">import</span> <span class="n">SAMLConfigurationStorage</span><span class="p">,</span> <span class="n">SAMLConfiguration</span><span class="p">,</span> \
     <span class="n">SAMLOneLoginConfiguration</span>
 <span class="kn">from</span> <span class="nn">api.saml.metadata</span> <span class="kn">import</span> <span class="n">NameID</span><span class="p">,</span> <span class="n">AttributeStatement</span><span class="p">,</span> <span class="n">Subject</span>
 <span class="kn">from</span> <span class="nn">api.saml.parser</span> <span class="kn">import</span> <span class="n">SAMLMetadataParser</span>
 <span class="kn">from</span> <span class="nn">core.problem_details</span> <span class="kn">import</span> <span class="o">*</span>
+
+
+<span class="n">SAML_GENERIC_ERROR</span> <span class="o">=</span> <span class="n">pd</span><span class="p">(</span>
+    <span class="s1">&#39;http://librarysimplified.org/terms/problem/saml/generic-error&#39;</span><span class="p">,</span>
+    <span class="n">status_code</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span>
+    <span class="n">title</span><span class="o">=</span><span class="n">_</span><span class="p">(</span><span class="s1">&#39;SAML error.&#39;</span><span class="p">),</span>
+    <span class="n">detail</span><span class="o">=</span><span class="n">_</span><span class="p">(</span><span class="s1">&#39;SAML error.&#39;</span><span class="p">)</span>
+<span class="p">)</span>
 
 <span class="n">SAML_INCORRECT_RESPONSE</span> <span class="o">=</span> <span class="n">pd</span><span class="p">(</span>
     <span class="s1">&#39;http://librarysimplified.org/terms/problem/saml/incorrect-response&#39;</span><span class="p">,</span>
@@ -153,9 +162,18 @@
 <span class="sd">        :return: Redirection URL</span>
 <span class="sd">        :rtype: string</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">auth</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_auth_object</span><span class="p">(</span><span class="n">db</span><span class="p">,</span> <span class="n">idp_entity_id</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">auth</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_auth_object</span><span class="p">(</span><span class="n">db</span><span class="p">,</span> <span class="n">idp_entity_id</span><span class="p">)</span>
+            <span class="n">redirect_url</span> <span class="o">=</span> <span class="n">auth</span><span class="o">.</span><span class="n">login</span><span class="p">(</span><span class="n">return_to_url</span><span class="p">)</span>
 
-        <span class="k">return</span> <span class="n">auth</span><span class="o">.</span><span class="n">login</span><span class="p">(</span><span class="n">return_to_url</span><span class="p">)</span></div>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">isEnabledFor</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s1">&#39;SAML request: </span><span class="si">{0}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">auth</span><span class="o">.</span><span class="n">get_last_request_xml</span><span class="p">()))</span>
+
+            <span class="k">return</span> <span class="n">redirect_url</span>
+        <span class="k">except</span> <span class="n">OneLogin_Saml2_Error</span> <span class="k">as</span> <span class="n">exception</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="s1">&#39;Unexpected exception occurred while initiating a SAML flow&#39;</span><span class="p">)</span>
+
+            <span class="k">return</span> <span class="n">SAML_GENERIC_ERROR</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="n">exception</span><span class="o">.</span><span class="n">message</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="SAMLAuthenticationManager.finish_authentication"><a class="viewcode-back" href="../../../api.saml.html#api.saml.auth.SAMLAuthenticationManager.finish_authentication">[docs]</a>    <span class="k">def</span> <span class="nf">finish_authentication</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">db</span><span class="p">,</span> <span class="n">idp_entity_id</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Finishes the SAML authentication workflow by validating AuthnResponse and extracting a SAML assertion from it</span>
@@ -177,6 +195,9 @@
 
         <span class="n">auth</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_auth_object</span><span class="p">(</span><span class="n">db</span><span class="p">,</span> <span class="n">idp_entity_id</span><span class="p">)</span>
         <span class="n">auth</span><span class="o">.</span><span class="n">process_response</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">isEnabledFor</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s1">&#39;SAML response: </span><span class="si">{0}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">auth</span><span class="o">.</span><span class="n">get_last_response_xml</span><span class="p">()))</span>
 
         <span class="n">authenticated</span> <span class="o">=</span> <span class="n">auth</span><span class="o">.</span><span class="n">is_authenticated</span><span class="p">()</span>
 

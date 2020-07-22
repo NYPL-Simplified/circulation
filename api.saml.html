@@ -178,6 +178,11 @@ or ProblemDetail object otherwise</p>
 <dd></dd></dl>
 
 <dl class="attribute">
+<dt id="api.saml.configuration.SAMLConfiguration.IDP_DISPLAY_NAME_DEFAULT_TEMPLATE">
+<code class="descname">IDP_DISPLAY_NAME_DEFAULT_TEMPLATE</code><em class="property"> = 'Identity Provider #{0}'</em><a class="headerlink" href="#api.saml.configuration.SAMLConfiguration.IDP_DISPLAY_NAME_DEFAULT_TEMPLATE" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
 <dt id="api.saml.configuration.SAMLConfiguration.IDP_XML_METADATA">
 <code class="descname">IDP_XML_METADATA</code><em class="property"> = 'idp_xml_metadata'</em><a class="headerlink" href="#api.saml.configuration.SAMLConfiguration.IDP_XML_METADATA" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -812,7 +817,7 @@ saml_authentication_callback.</p>
 
 <dl class="class">
 <dt id="api.saml.metadata.IdentityProviderMetadata">
-<em class="property">class </em><code class="descclassname">api.saml.metadata.</code><code class="descname">IdentityProviderMetadata</code><span class="sig-paren">(</span><em>entity_id</em>, <em>ui_info</em>, <em>name_id_format</em>, <em>sso_service</em>, <em>slo_service=None</em>, <em>want_authn_requests_signed=False</em>, <em>signing_certificates=None</em>, <em>encryption_certificates=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata.html#IdentityProviderMetadata"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.IdentityProviderMetadata" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="descclassname">api.saml.metadata.</code><code class="descname">IdentityProviderMetadata</code><span class="sig-paren">(</span><em>entity_id</em>, <em>ui_info</em>, <em>organization</em>, <em>name_id_format</em>, <em>sso_service</em>, <em>slo_service=None</em>, <em>want_authn_requests_signed=False</em>, <em>signing_certificates=None</em>, <em>encryption_certificates=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata.html#IdentityProviderMetadata"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.IdentityProviderMetadata" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="#api.saml.metadata.ProviderMetadata" title="api.saml.metadata.ProviderMetadata"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.saml.metadata.ProviderMetadata</span></code></a></p>
 <p>Represents IdP metadata</p>
 <dl class="attribute">
@@ -1066,8 +1071,68 @@ or affiliation of providers which has federated the principal’s identity</td>
 </dd></dl>
 
 <dl class="class">
+<dt id="api.saml.metadata.Organization">
+<em class="property">class </em><code class="descclassname">api.saml.metadata.</code><code class="descname">Organization</code><span class="sig-paren">(</span><em>organization_names=None</em>, <em>organization_display_names=None</em>, <em>organization_urls=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata.html#Organization"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.Organization" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Represents md:Organization and contains basic information about an organization
+responsible for a SAML entity or role</p>
+<dl class="attribute">
+<dt id="api.saml.metadata.Organization.organization_display_names">
+<code class="descname">organization_display_names</code><a class="headerlink" href="#api.saml.metadata.Organization.organization_display_names" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a list of localized organization names that suitable for human consumption</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">List of localized organization names that suitable for human consumption</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">Optional[List[<a class="reference internal" href="#api.saml.metadata.LocalizableMetadataItem" title="api.saml.metadata.LocalizableMetadataItem">LocalizableMetadataItem</a>]]</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="api.saml.metadata.Organization.organization_names">
+<code class="descname">organization_names</code><a class="headerlink" href="#api.saml.metadata.Organization.organization_names" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a list of localized organization names that may or may not be
+suitable for human consumption</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">List of localized organization names that may or may not be
+suitable for human consumption</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">Optional[List[<a class="reference internal" href="#api.saml.metadata.LocalizableMetadataItem" title="api.saml.metadata.LocalizableMetadataItem">LocalizableMetadataItem</a>]]</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="api.saml.metadata.Organization.organization_urls">
+<code class="descname">organization_urls</code><a class="headerlink" href="#api.saml.metadata.Organization.organization_urls" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a list of localized organization URIs that specify a location to which to direct a user for
+additional information</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">List of localized organization URIs that
+specify a location to which to direct a user for additional information</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">Optional[List[<a class="reference internal" href="#api.saml.metadata.LocalizableMetadataItem" title="api.saml.metadata.LocalizableMetadataItem">LocalizableMetadataItem</a>]]</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
 <dt id="api.saml.metadata.ProviderMetadata">
-<em class="property">class </em><code class="descclassname">api.saml.metadata.</code><code class="descname">ProviderMetadata</code><span class="sig-paren">(</span><em>entity_id</em>, <em>ui_info</em>, <em>name_id_format=&lt;NameIDFormat.UNSPECIFIED: 'urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified'&gt;</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata.html#ProviderMetadata"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.ProviderMetadata" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="descclassname">api.saml.metadata.</code><code class="descname">ProviderMetadata</code><span class="sig-paren">(</span><em>entity_id</em>, <em>ui_info</em>, <em>organization</em>, <em>name_id_format=&lt;NameIDFormat.UNSPECIFIED: 'urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified'&gt;</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata.html#ProviderMetadata"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.ProviderMetadata" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>Base class for IdentityProvider and ServiceProvider classes</p>
 <dl class="attribute">
@@ -1100,6 +1165,14 @@ or affiliation of providers which has federated the principal’s identity</td>
 </tr>
 </tbody>
 </table>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="api.saml.metadata.ProviderMetadata.organization">
+<code class="descname">organization</code><a class="headerlink" href="#api.saml.metadata.ProviderMetadata.organization" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns the provider’s Organization object
+:return: Provider’s Organization object
+:rtype: Organization</p>
 </dd></dl>
 
 <dl class="attribute">
@@ -1210,7 +1283,7 @@ or affiliation of providers which has federated the principal’s identity</td>
 
 <dl class="class">
 <dt id="api.saml.metadata.ServiceProviderMetadata">
-<em class="property">class </em><code class="descclassname">api.saml.metadata.</code><code class="descname">ServiceProviderMetadata</code><span class="sig-paren">(</span><em>entity_id</em>, <em>ui_info</em>, <em>name_id_format</em>, <em>acs_service</em>, <em>authn_requests_signed=False</em>, <em>want_assertions_signed=False</em>, <em>certificate=None</em>, <em>private_key=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata.html#ServiceProviderMetadata"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.ServiceProviderMetadata" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="descclassname">api.saml.metadata.</code><code class="descname">ServiceProviderMetadata</code><span class="sig-paren">(</span><em>entity_id</em>, <em>ui_info</em>, <em>organization</em>, <em>name_id_format</em>, <em>acs_service</em>, <em>authn_requests_signed=False</em>, <em>want_assertions_signed=False</em>, <em>certificate=None</em>, <em>private_key=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata.html#ServiceProviderMetadata"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.ServiceProviderMetadata" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="#api.saml.metadata.ProviderMetadata" title="api.saml.metadata.ProviderMetadata"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.saml.metadata.ProviderMetadata</span></code></a></p>
 <p>Represents SP metadata</p>
 <dl class="attribute">

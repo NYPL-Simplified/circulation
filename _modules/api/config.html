@@ -44,6 +44,8 @@
 
 <span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
 
+<span class="kn">from</span> <span class="nn">.announcements</span> <span class="kn">import</span> <span class="n">Announcements</span>
+
 <span class="kn">from</span> <span class="nn">core.config</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Configuration</span> <span class="k">as</span> <span class="n">CoreConfiguration</span><span class="p">,</span>
     <span class="n">CannotLoadConfiguration</span><span class="p">,</span>
@@ -250,6 +252,13 @@
             <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;A short description of this library&quot;</span><span class="p">),</span>
             <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;This will be shown to people who aren&#39;t sure they&#39;ve chosen the right library.&quot;</span><span class="p">),</span>
             <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Basic Information&quot;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">Announcements</span><span class="o">.</span><span class="n">SETTING_NAME</span><span class="p">,</span>
+            <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Scheduled announcements&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Announcements will be displayed to authenticated patrons.&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Announcements&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;announcements&quot;</span>
         <span class="p">},</span>
         <span class="p">{</span>
             <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">HELP_EMAIL</span><span class="p">,</span>

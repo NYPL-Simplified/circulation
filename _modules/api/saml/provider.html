@@ -43,8 +43,8 @@
 <span class="kn">from</span> <span class="nn">api.authenticator</span> <span class="kn">import</span> <span class="n">BaseSAMLAuthenticationProvider</span><span class="p">,</span> <span class="n">PatronData</span>
 <span class="kn">from</span> <span class="nn">api.problem_details</span> <span class="kn">import</span> <span class="o">*</span>
 <span class="kn">from</span> <span class="nn">api.saml.auth</span> <span class="kn">import</span> <span class="n">SAMLAuthenticationManagerFactory</span>
-<span class="kn">from</span> <span class="nn">api.saml.configuration</span> <span class="kn">import</span> <span class="n">ExternalIntegrationOwner</span>
-<span class="kn">from</span> <span class="nn">api.saml.metadata</span> <span class="kn">import</span> <span class="n">Subject</span><span class="p">,</span> <span class="n">SubjectUIDExtractor</span><span class="p">,</span> <span class="n">SubjectJSONEncoder</span>
+<span class="kn">from</span> <span class="nn">api.saml.configuration</span> <span class="kn">import</span> <span class="n">ExternalIntegrationOwner</span><span class="p">,</span> <span class="n">SAMLConfiguration</span>
+<span class="kn">from</span> <span class="nn">api.saml.metadata</span> <span class="kn">import</span> <span class="n">Subject</span><span class="p">,</span> <span class="n">SubjectUIDExtractor</span><span class="p">,</span> <span class="n">SubjectJSONEncoder</span><span class="p">,</span> <span class="n">LocalizableMetadataItem</span>
 <span class="kn">from</span> <span class="nn">api.saml.parser</span> <span class="kn">import</span> <span class="n">SAMLMetadataParser</span>
 <span class="kn">from</span> <span class="nn">api.saml.validator</span> <span class="kn">import</span> <span class="n">SAMLSettingsValidator</span>
 <span class="kn">from</span> <span class="nn">core.model</span> <span class="kn">import</span> <span class="n">Credential</span><span class="p">,</span> <span class="n">get_one_or_create</span><span class="p">,</span> <span class="n">DataSource</span>
@@ -175,11 +175,11 @@
 
         <span class="n">configuration</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_authentication_manager</span><span class="p">(</span><span class="n">db</span><span class="p">)</span><span class="o">.</span><span class="n">configuration</span>
 
-        <span class="k">for</span> <span class="n">identity_provider</span> <span class="ow">in</span> <span class="n">configuration</span><span class="o">.</span><span class="n">configuration</span><span class="o">.</span><span class="n">get_identity_providers</span><span class="p">(</span><span class="n">db</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">index</span><span class="p">,</span> <span class="n">identity_provider</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">configuration</span><span class="o">.</span><span class="n">configuration</span><span class="o">.</span><span class="n">get_identity_providers</span><span class="p">(</span><span class="n">db</span><span class="p">)):</span>
             <span class="n">link</span> <span class="o">=</span> <span class="p">{</span>
                 <span class="s1">&#39;rel&#39;</span><span class="p">:</span> <span class="s1">&#39;authenticate&#39;</span><span class="p">,</span>
                 <span class="s1">&#39;href&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_authenticate_url</span><span class="p">(</span><span class="n">db</span><span class="p">,</span> <span class="n">identity_provider</span><span class="o">.</span><span class="n">entity_id</span><span class="p">),</span>
-                <span class="s1">&#39;display_names&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_join_ui_info_items</span><span class="p">(</span><span class="n">identity_provider</span><span class="o">.</span><span class="n">ui_info</span><span class="o">.</span><span class="n">display_names</span><span class="p">),</span>
+                <span class="s1">&#39;display_names&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_join_ui_info_items</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_get_idp_display_names</span><span class="p">(</span><span class="n">index</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">identity_provider</span><span class="p">)),</span>
                 <span class="s1">&#39;descriptions&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_join_ui_info_items</span><span class="p">(</span><span class="n">identity_provider</span><span class="o">.</span><span class="n">ui_info</span><span class="o">.</span><span class="n">descriptions</span><span class="p">),</span>
                 <span class="s1">&#39;information_urls&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_join_ui_info_items</span><span class="p">(</span><span class="n">identity_provider</span><span class="o">.</span><span class="n">ui_info</span><span class="o">.</span><span class="n">information_urls</span><span class="p">),</span>
                 <span class="s1">&#39;privacy_statement_urls&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_join_ui_info_items</span><span class="p">(</span>
@@ -190,6 +190,31 @@
             <span class="n">flow_doc</span><span class="p">[</span><span class="s1">&#39;links&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">link</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">flow_doc</span>
+
+    <span class="k">def</span> <span class="nf">_get_idp_display_names</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identity_provider_index</span><span class="p">,</span> <span class="n">identity_provider</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns a list of IdP&#39;s display names:</span>
+<span class="sd">        - first, it checks UIInfo.display_names</span>
+<span class="sd">        - secondly, it checks Organization.organization_display_names</span>
+<span class="sd">        - thirdly, it generates a new name using SAMLConfiguration.IDP_DISPLAY_NAME_TEMPLATE</span>
+
+<span class="sd">        :param identity_provider_index: Index of the current IdP</span>
+<span class="sd">        :type identity_provider_index: int</span>
+
+<span class="sd">        :param identity_provider: IdentityProviderMetadata object</span>
+<span class="sd">        :type identity_provider: IdentityProviderMetadata</span>
+
+<span class="sd">        :return: List of IdP&#39;s display names</span>
+<span class="sd">        :rtype: List[LocalizableMetadataItem]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">identity_provider</span><span class="o">.</span><span class="n">ui_info</span><span class="o">.</span><span class="n">display_names</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">identity_provider</span><span class="o">.</span><span class="n">ui_info</span><span class="o">.</span><span class="n">display_names</span>
+        <span class="k">elif</span> <span class="n">identity_provider</span><span class="o">.</span><span class="n">organization</span><span class="o">.</span><span class="n">organization_display_names</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">identity_provider</span><span class="o">.</span><span class="n">organization</span><span class="o">.</span><span class="n">organization_display_names</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">display_name</span> <span class="o">=</span> <span class="n">SAMLConfiguration</span><span class="o">.</span><span class="n">IDP_DISPLAY_NAME_DEFAULT_TEMPLATE</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">identity_provider_index</span><span class="p">)</span>
+            <span class="k">return</span> <span class="p">[</span>
+                <span class="n">LocalizableMetadataItem</span><span class="p">(</span><span class="n">display_name</span><span class="p">,</span> <span class="n">language</span><span class="o">=</span><span class="s1">&#39;en&#39;</span><span class="p">)</span>
+            <span class="p">]</span>
 
     <span class="k">def</span> <span class="nf">_create_token</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">db</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">token</span><span class="p">,</span> <span class="n">valid_till</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Creates a Credential object that ties the given patron to the</span>
@@ -268,10 +293,10 @@
             <span class="n">db</span><span class="p">,</span> <span class="n">DataSource</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">TOKEN_DATA_SOURCE_NAME</span>
         <span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_join_ui_info_items</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ui_info_items</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Joins all UIInfo items (like, display names, descriptions, etc.) to a single list of dicts</span>
+    <span class="k">def</span> <span class="nf">_join_ui_info_items</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">ui_info_item_lists</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Joins all UI info items (like, display names, descriptions, etc.) to a single list of dicts</span>
 
-<span class="sd">        :param ui_info_items: List of child UIInfo objects</span>
+<span class="sd">        :param ui_info_item_lists: List of child LocalizableMetadataInfo objects</span>
 <span class="sd">        :type: List[LocalizableMetadataItem]</span>
 
 <span class="sd">        :return: List of dicts containing UI information (display names, descriptions, etc.)</span>
@@ -279,12 +304,14 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">result</span> <span class="o">=</span> <span class="p">[]</span>
 
-        <span class="k">if</span> <span class="n">ui_info_items</span><span class="p">:</span>
-            <span class="k">for</span> <span class="n">ui_info_item</span> <span class="ow">in</span> <span class="n">ui_info_items</span><span class="p">:</span>
-                <span class="n">result</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
-                    <span class="s1">&#39;value&#39;</span><span class="p">:</span> <span class="n">ui_info_item</span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
-                    <span class="s1">&#39;language&#39;</span><span class="p">:</span> <span class="n">ui_info_item</span><span class="o">.</span><span class="n">language</span>
-                <span class="p">})</span>
+        <span class="k">if</span> <span class="n">ui_info_item_lists</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">ui_info_item_list</span> <span class="ow">in</span> <span class="n">ui_info_item_lists</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">ui_info_item_list</span><span class="p">:</span>
+                    <span class="k">for</span> <span class="n">ui_info_item</span> <span class="ow">in</span> <span class="n">ui_info_item_list</span><span class="p">:</span>
+                        <span class="n">result</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
+                            <span class="s1">&#39;value&#39;</span><span class="p">:</span> <span class="n">ui_info_item</span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
+                            <span class="s1">&#39;language&#39;</span><span class="p">:</span> <span class="n">ui_info_item</span><span class="o">.</span><span class="n">language</span>
+                        <span class="p">})</span>
 
         <span class="k">return</span> <span class="n">result</span>
 
