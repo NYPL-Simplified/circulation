@@ -7,7 +7,7 @@ from api.admin.validator import PatronAuthenticationValidatorFactory
 from api.saml import configuration
 from api.saml.parser import SAMLMetadataParser
 from api.saml.provider import SAMLWebSSOAuthenticationProvider
-from api.saml.validator import SAMLSettingsValidator, INCORRECT_METADATA
+from api.saml.validator import SAMLSettingsValidator, SAML_INCORRECT_METADATA
 from core.util.problem_detail import ProblemDetail
 from tests.saml import fixtures
 from tests.saml.database_test import DatabaseTest
@@ -31,14 +31,14 @@ class SAMLSettingsValidatorTest(DatabaseTest):
             'incorrect_sp_metadata_and_incorrect_idp_metadata',
             fixtures.INCORRECT_ONE_SP_METADATA_WITHOUT_ACS_SERVICE,
             fixtures.INCORRECT_ONE_IDP_METADATA_WITHOUT_SSO_SERVICE,
-            INCORRECT_METADATA.detailed(
+            SAML_INCORRECT_METADATA.detailed(
                 'Missing urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST AssertionConsumerService')
         ),
         (
             'correct_sp_metadata_and_incorrect_idp_metadata',
             fixtures.CORRECT_ONE_SP_METADATA,
             fixtures.INCORRECT_ONE_IDP_METADATA_WITHOUT_SSO_SERVICE,
-            INCORRECT_METADATA.detailed(
+            SAML_INCORRECT_METADATA.detailed(
                 'Missing urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect SingleSignOnService service declaration')
         ),
         (

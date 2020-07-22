@@ -8,7 +8,7 @@ from onelogin.saml2.utils import OneLogin_Saml2_Utils
 
 from api.saml.exceptions import SAMLError
 from api.saml.metadata import IdentityProviderMetadata, LocalizableMetadataItem, UIInfo, ServiceProviderMetadata, \
-    Binding, Service, NameIDFormat
+    Binding, Service, NameIDFormat, Organization
 
 
 class SAMLMetadataParsingError(SAMLError):
@@ -101,50 +101,54 @@ class SAMLMetadataParser(object):
         for provider_node in provider_nodes:
             entity_id = entity_descriptor_node.get('entityID', None)
             ui_info = self._parse_ui_info(provider_node)
-            provider = parse_function(provider_node, entity_id, ui_info)
+            organization = self._parse_organization_metadata(entity_descriptor_node)
+            provider = parse_function(provider_node, entity_id, ui_info, organization)
 
             providers.append(provider)
 
         return providers
 
-    def _parse_ui_info_item(self, provider_descriptor_node, xpath, required=False):
+    def _parse_localizable_metadata_items(self, provider_descriptor_node, xpath, required=False):
         """Parses IDPSSODescriptor/SPSSODescriptor's mdui:UIInfo child elements (for example, mdui:DisplayName)
 
         :param provider_descriptor_node: Parent IDPSSODescriptor/SPSSODescriptor XML node
         :type provider_descriptor_node: defusedxml.lxml.RestrictedElement
 
-        :param xpath: XPath expression for a particular mdui:UIInfo child element (for example, mdui:DisplayName)
+        :param xpath: XPath expression for a particular md:localizedNameType child element
+            (for example, mdui:DisplayName)
         :type xpath: string
 
-        :param required: Boolean value indicating whether particular mdui:UIInfo child element is required or not
+        :param required: Boolean value indicating whether particular md:localizedNameType child element
+            is required or not
         :type required: bool
 
-        :return: List of mdui:UIInfo child elements
-        :rtype: List[LocalizableMetadataItem]
+        :return: List of md:localizedNameType child elements
+        :rtype: Optional[List[LocalizableMetadataItem]]
 
         :raise: MetadataParsingError
         """
-        ui_info_item_nodes = OneLogin_Saml2_Utils.query(provider_descriptor_node, xpath)
+        localizable_metadata_nodes = OneLogin_Saml2_Utils.query(provider_descriptor_node, xpath)
 
-        if not ui_info_item_nodes and required:
+        if not localizable_metadata_nodes and required:
             last_slash_index = xpath.rfind('/')
-            ui_info_item_name = xpath[last_slash_index + 1:]
+            localizable_metadata_tag_name = xpath[last_slash_index + 1:]
 
-            raise SAMLMetadataParsingError(_('{0} tag is missing'.format(ui_info_item_name)))
+            raise SAMLMetadataParsingError(_('{0} tag is missing'.format(localizable_metadata_tag_name)))
 
-        ui_info_items = None
+        localizable_items = None
 
-        if ui_info_item_nodes:
-            ui_info_items = []
+        if localizable_metadata_nodes:
+            localizable_items = []
 
-            for ui_info_item_node in ui_info_item_nodes:
-                ui_info_item_text = ui_info_item_node.text
-                ui_info_item_language = ui_info_item_node.get('{http://www.w3.org/XML/1998/namespace}lang', None)
-                ui_info_item = LocalizableMetadataItem(ui_info_item_text, ui_info_item_language)
+            for localizable_metadata_node in localizable_metadata_nodes:
+                localizable_item_text = localizable_metadata_node.text
+                localizable_item_language = localizable_metadata_node.get(
+                    '{http://www.w3.org/XML/1998/namespace}lang', None)
+                localizable_item = LocalizableMetadataItem(localizable_item_text, localizable_item_language)
 
-                ui_info_items.append(ui_info_item)
+                localizable_items.append(localizable_item)
 
-        return ui_info_items
+        return localizable_items
 
     def _parse_ui_info(self, provider_node):
         """Parses IDPSSODescriptor/SPSSODescriptor's mdui:UIInfo and translates it into UIInfo object
@@ -157,15 +161,15 @@ class SAMLMetadataParser(object):
 
         :raise: MetadataParsingError
         """
-        display_names = self._parse_ui_info_item(
+        display_names = self._parse_localizable_metadata_items(
             provider_node, './md:Extensions/mdui:UIInfo/mdui:DisplayName')
-        descriptions = self._parse_ui_info_item(
+        descriptions = self._parse_localizable_metadata_items(
             provider_node, './md:Extensions/mdui:UIInfo/mdui:Description')
-        information_urls = self._parse_ui_info_item(
+        information_urls = self._parse_localizable_metadata_items(
             provider_node, './md:Extensions/mdui:UIInfo/mdui:InformationURL')
-        privacy_statement_urls = self._parse_ui_info_item(
+        privacy_statement_urls = self._parse_localizable_metadata_items(
             provider_node, './md:Extensions/mdui:UIInfo/mdui:PrivacyStatementURL')
-        logos = self._parse_ui_info_item(
+        logos = self._parse_localizable_metadata_items(
             provider_node, './md:Extensions/mdui:UIInfo/mdui:Logo')
 
         ui_info = UIInfo(
@@ -177,6 +181,32 @@ class SAMLMetadataParser(object):
         )
 
         return ui_info
+
+    def _parse_organization_metadata(self, entity_descriptor_node):
+        """Parses IDPSSODescriptor/SPSSODescriptor's mdui:Organization and translates it into Organization object
+
+        :param entity_descriptor_node: Parent EntityDescriptor node
+        :type entity_descriptor_node: defusedxml.lxml.RestrictedElement
+
+        :return: Organization object
+        :rtype: Organization
+
+        :raise: MetadataParsingError
+        """
+        organization_names = self._parse_localizable_metadata_items(
+            entity_descriptor_node, './md:Organization/md:OrganizationName')
+        organization_display_names = self._parse_localizable_metadata_items(
+            entity_descriptor_node, './md:Organization/md:OrganizationDisplayName')
+        organization_urls = self._parse_localizable_metadata_items(
+            entity_descriptor_node, './md:Organization/md:OrganizationURL')
+
+        organization = Organization(
+            organization_names,
+            organization_display_names,
+            organization_urls
+        )
+
+        return organization
 
     def _parse_name_id_format(self, provider_node):
         """Parses a name ID format
@@ -203,6 +233,7 @@ class SAMLMetadataParser(object):
             provider_node,
             entity_id,
             ui_info,
+            organization,
             required_sso_binding=Binding.HTTP_REDIRECT,
             required_slo_binding=Binding.HTTP_REDIRECT):
         """Parses IDPSSODescriptor node and translates it into an IdentityProviderMetadata object
@@ -215,6 +246,10 @@ class SAMLMetadataParser(object):
 
         :param ui_info: UIInfo object containing IdP's description
         :type ui_info: UIInfo
+
+        :param organization: Organization object containing basic information about an organization
+            responsible for a SAML entity or role
+        :type organization: Organization
 
         :param required_sso_binding: Required binding for Single Sign-On profile (HTTP-Redirect by default)
         :type required_sso_binding: Binding
@@ -267,6 +302,7 @@ class SAMLMetadataParser(object):
         idp = IdentityProviderMetadata(
             entity_id,
             ui_info,
+            organization,
             name_id_format,
             sso_service,
             slo_service,
@@ -281,6 +317,7 @@ class SAMLMetadataParser(object):
             provider_node,
             entity_id,
             ui_info,
+            organization,
             required_acs_binding=Binding.HTTP_POST):
         """Parses SPSSODescriptor node and translates it into a ServiceProvider object
 
@@ -292,6 +329,10 @@ class SAMLMetadataParser(object):
 
         :param ui_info: UIInfo object containing IdP's description
         :type ui_info: UIInfo
+
+        :param organization: Organization object containing basic information about an organization
+            responsible for a SAML entity or role
+        :type organization: Organization
 
         :param required_acs_binding: Required binding for Assertion Consumer Service (HTTP-Redirect by default)
         :type required_acs_binding: Binding
@@ -327,11 +368,12 @@ class SAMLMetadataParser(object):
             raise SAMLMetadataParsingError(
                 _('There are more than 1 SP certificates'.format(required_acs_binding.value)))
 
-        certificate = next(iter(certificates))
+        certificate = next(iter(certificates)) if certificates else None
 
         sp = ServiceProviderMetadata(
             entity_id,
             ui_info,
+            organization,
             name_id_format,
             acs_service,
             authn_requests_signed,

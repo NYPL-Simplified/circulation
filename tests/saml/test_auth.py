@@ -10,7 +10,8 @@ from parameterized import parameterized
 
 from api.saml.auth import SAMLAuthenticationManager, SAMLAuthenticationManagerFactory
 from api.saml.configuration import SAMLOneLoginConfiguration, SAMLConfiguration, ExternalIntegrationOwner
-from api.saml.metadata import ServiceProviderMetadata, UIInfo, NameIDFormat, Service, IdentityProviderMetadata, Subject
+from api.saml.metadata import ServiceProviderMetadata, UIInfo, NameIDFormat, Service, IdentityProviderMetadata, Subject, \
+    Organization
 from tests.saml import fixtures
 from tests.saml.database_test import DatabaseTest
 from tests.test_controller import ControllerTest
@@ -18,6 +19,7 @@ from tests.test_controller import ControllerTest
 SERVICE_PROVIDER_WITH_UNSIGNED_REQUESTS = ServiceProviderMetadata(
     fixtures.SP_ENTITY_ID,
     UIInfo(),
+    Organization(),
     NameIDFormat.UNSPECIFIED.value,
     Service(fixtures.SP_ACS_URL, fixtures.SP_ACS_BINDING)
 )
@@ -25,6 +27,7 @@ SERVICE_PROVIDER_WITH_UNSIGNED_REQUESTS = ServiceProviderMetadata(
 SERVICE_PROVIDER_WITH_SIGNED_REQUESTS = ServiceProviderMetadata(
     fixtures.SP_ENTITY_ID,
     UIInfo(),
+    Organization(),
     NameIDFormat.UNSPECIFIED.value,
     Service(fixtures.SP_ACS_URL, fixtures.SP_ACS_BINDING),
     True,
@@ -37,6 +40,7 @@ IDENTITY_PROVIDERS = [
     IdentityProviderMetadata(
         fixtures.IDP_1_ENTITY_ID,
         UIInfo(),
+        Organization(),
         NameIDFormat.UNSPECIFIED.value,
         Service(fixtures.IDP_1_SSO_URL, fixtures.IDP_1_SSO_BINDING),
         signing_certificates=[
@@ -46,6 +50,7 @@ IDENTITY_PROVIDERS = [
     IdentityProviderMetadata(
         fixtures.IDP_2_ENTITY_ID,
         UIInfo(),
+        Organization(),
         NameIDFormat.UNSPECIFIED.value,
         Service(fixtures.IDP_2_SSO_URL, fixtures.IDP_2_SSO_BINDING)
     )
