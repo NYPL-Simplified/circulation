@@ -147,8 +147,9 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
 
     # Parameterize credentials.
     # - The `label` property maps to Credential `type`.
-    # - The `lifetime` is used to calculate Credential `expires`. If it
-    #   is None, then the Credential does not expire.
+    # - The `lifetime` is used to calculate Credential `expires`
+    #   and is specified in seconds. If it is None, then the
+    #   Credential does not expire.
     CREDENTIAL_TYPES = {
         CACHED_IDENTIFIER_PROPERTY: dict(
             label=Credential.IDENTIFIER_FROM_REMOTE_SERVICE,
@@ -156,7 +157,9 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         ),
         BEARER_TOKEN_PROPERTY: dict(
             label="Patron Bearer Token",
-            lifetime=(23 * 60 + 30) * 60),
+            # RBdigital advertises a 24 hour lifetime, but we'll
+            # cache it for only 23.5 hours, just in case.
+            lifetime=((24*60) - 30) * 60),
     }
 
 
@@ -1866,9 +1869,6 @@ class RBFulfillmentInfo(APIAwareFulfillmentInfo):
         :return: A FulfillmentInfo if the part could be fulfilled;
             a ProblemDetail otherwise.
         """
-        # TODO: This test is needed until we can convert this kwarg into an arg.
-        # if fulfillment_request is None:
-        #     raise ValueError("fulfillment_request parameter must be specified")
 
         if self.content_type != Representation.AUDIOBOOK_MANIFEST_MEDIA_TYPE:
             raise CannotPartiallyFulfill(
