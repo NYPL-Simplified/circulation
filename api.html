@@ -3460,12 +3460,12 @@ changes will be overwritten by run_once().</li>
 
 <dl class="attribute">
 <dt id="api.bibliotheca.ErrorParser.hold_limit_reached">
-<code class="descname">hold_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x3e9f4d0&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.hold_limit_reached" title="Permalink to this definition">¶</a></dt>
+<code class="descname">hold_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x4440a40&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.hold_limit_reached" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="api.bibliotheca.ErrorParser.loan_limit_reached">
-<code class="descname">loan_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x3b95870&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.loan_limit_reached" title="Permalink to this definition">¶</a></dt>
+<code class="descname">loan_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x4440770&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.loan_limit_reached" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -3480,7 +3480,7 @@ changes will be overwritten by run_once().</li>
 
 <dl class="attribute">
 <dt id="api.bibliotheca.ErrorParser.wrong_status">
-<code class="descname">wrong_status</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x3b95520&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.wrong_status" title="Permalink to this definition">¶</a></dt>
+<code class="descname">wrong_status</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x4440420&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.wrong_status" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -8716,7 +8716,7 @@ the patron belongs to the library associated with thie BasicAuthenticationProvid
 
 <dl class="attribute">
 <dt id="api.millenium_patron.MockMilleniumPatronAPI.the_future">
-<code class="descname">the_future</code><em class="property"> = datetime.datetime(2020, 8, 1, 16, 31, 27, 844562)</em><a class="headerlink" href="#api.millenium_patron.MockMilleniumPatronAPI.the_future" title="Permalink to this definition">¶</a></dt>
+<code class="descname">the_future</code><em class="property"> = datetime.datetime(2020, 8, 1, 19, 47, 40, 480484)</em><a class="headerlink" href="#api.millenium_patron.MockMilleniumPatronAPI.the_future" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -11897,7 +11897,7 @@ in our collection.</p>
 <span id="api-rbdigital-module"></span><h2>api.rbdigital module<a class="headerlink" href="#module-api.rbdigital" title="Permalink to this headline">¶</a></h2>
 <dl class="class">
 <dt id="api.rbdigital.AudiobookManifest">
-<em class="property">class </em><code class="descclassname">api.rbdigital.</code><code class="descname">AudiobookManifest</code><span class="sig-paren">(</span><em>content_dict</em>, <em>fulfill_part_url=None</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/rbdigital.html#AudiobookManifest"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.rbdigital.AudiobookManifest" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="descclassname">api.rbdigital.</code><code class="descname">AudiobookManifest</code><span class="sig-paren">(</span><em>content_dict</em>, <em>fulfill_part_url</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/rbdigital.html#AudiobookManifest"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.rbdigital.AudiobookManifest" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="core.util.html#core.util.web_publication_manifest.AudiobookManifest" title="core.util.web_publication_manifest.AudiobookManifest"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.util.web_publication_manifest.AudiobookManifest</span></code></a></p>
 <p>A standard AudiobookManifest derived from an RBdigital audiobook
 manifest.</p>
@@ -11920,7 +11920,7 @@ standard manifest field.</p>
 
 <dl class="method">
 <dt id="api.rbdigital.AudiobookManifest.import_spine">
-<code class="descname">import_spine</code><span class="sig-paren">(</span><em>file_data</em>, <em>alternate_url=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/rbdigital.html#AudiobookManifest.import_spine"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.rbdigital.AudiobookManifest.import_spine" title="Permalink to this definition">¶</a></dt>
+<code class="descname">import_spine</code><span class="sig-paren">(</span><em>file_data</em>, <em>proxy_url</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/rbdigital.html#AudiobookManifest.import_spine"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.rbdigital.AudiobookManifest.import_spine" title="Permalink to this definition">¶</a></dt>
 <dd><p>Import an RBdigital spine item as a Web Publication Manifest
 spine item.</p>
 <table class="docutils field-list" frame="void" rules="none">
@@ -11930,7 +11930,7 @@ spine item.</p>
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
 <li><strong>file_data</strong> – A dictionary of information about this spine
 item, obtained from RBdigital.</li>
-<li><strong>alternate_url</strong> – A URL generated by the circulation manager
+<li><strong>proxy_url</strong> – A URL generated by the circulation manager
 (as opposed to being generated by RBdigital) for fulfilling this
 spine item as an audio file (as opposed to a JSON document that
 links to an audio file).</li>
@@ -11940,6 +11940,11 @@ links to an audio file).</li>
 </tbody>
 </table>
 </dd></dl>
+
+<dl class="method">
+<dt id="api.rbdigital.AudiobookManifest.using_proxy_fulfillment">
+<code class="descname">using_proxy_fulfillment</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/rbdigital.html#AudiobookManifest.using_proxy_fulfillment"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.rbdigital.AudiobookManifest.using_proxy_fulfillment" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
 
 </dd></dl>
 
@@ -11992,6 +11997,21 @@ us live-test as we write.</p>
 <dl class="attribute">
 <dt id="api.rbdigital.RBDigitalAPI.BASE_SETTINGS">
 <code class="descname">BASE_SETTINGS</code><em class="property"> = []</em><a class="headerlink" href="#api.rbdigital.RBDigitalAPI.BASE_SETTINGS" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.rbdigital.RBDigitalAPI.BEARER_TOKEN_PROPERTY">
+<code class="descname">BEARER_TOKEN_PROPERTY</code><em class="property"> = 'bearer'</em><a class="headerlink" href="#api.rbdigital.RBDigitalAPI.BEARER_TOKEN_PROPERTY" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.rbdigital.RBDigitalAPI.CACHED_IDENTIFIER_PROPERTY">
+<code class="descname">CACHED_IDENTIFIER_PROPERTY</code><em class="property"> = 'patronId'</em><a class="headerlink" href="#api.rbdigital.RBDigitalAPI.CACHED_IDENTIFIER_PROPERTY" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.rbdigital.RBDigitalAPI.CREDENTIAL_TYPES">
+<code class="descname">CREDENTIAL_TYPES</code><em class="property"> = {'bearer': {'label': 'Patron Bearer Token', 'lifetime': 84600}, 'patronId': {'label': 'Identifier Received From Remote Service', 'lifetime': None}}</em><a class="headerlink" href="#api.rbdigital.RBDigitalAPI.CREDENTIAL_TYPES" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -12071,6 +12091,11 @@ us live-test as we write.</p>
 <dd></dd></dl>
 
 <dl class="method">
+<dt id="api.rbdigital.RBDigitalAPI.cache_patron_bearer_token">
+<code class="descname">cache_patron_bearer_token</code><span class="sig-paren">(</span><em>patron</em>, <em>value</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/rbdigital.html#RBDigitalAPI.cache_patron_bearer_token"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.rbdigital.RBDigitalAPI.cache_patron_bearer_token" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
 <dt id="api.rbdigital.RBDigitalAPI.checkin">
 <code class="descname">checkin</code><span class="sig-paren">(</span><em>patron</em>, <em>pin</em>, <em>licensepool</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/rbdigital.html#RBDigitalAPI.checkin"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.rbdigital.RBDigitalAPI.checkin" title="Permalink to this definition">¶</a></dt>
 <dd><p>Allow a patron to return an ebook or audio before its due date.</p>
@@ -12135,7 +12160,7 @@ Calling methods are expected to use this dictionary to create XxxInfo objects.</
 
 <dl class="method">
 <dt id="api.rbdigital.RBDigitalAPI.create_patron">
-<code class="descname">create_patron</code><span class="sig-paren">(</span><em>library</em>, <em>authorization_identifier</em>, <em>email_address</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/rbdigital.html#RBDigitalAPI.create_patron"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.rbdigital.RBDigitalAPI.create_patron" title="Permalink to this definition">¶</a></dt>
+<code class="descname">create_patron</code><span class="sig-paren">(</span><em>library</em>, <em>authorization_identifier</em>, <em>email_address</em>, <em>bearer_token_handler=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/rbdigital.html#RBDigitalAPI.create_patron"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.rbdigital.RBDigitalAPI.create_patron" title="Permalink to this definition">¶</a></dt>
 <dd><p>Ask RBdigital to create a new patron record.</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
@@ -12209,6 +12234,44 @@ The status of the self-tests will be stored as a ConfigurationSetting
 on this ExternalIntegration.</p>
 <p>By default, there is no way to get from an object to its
 ExternalIntegration, and self-test status will not be stored.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="api.rbdigital.RBDigitalAPI.fetch_patron_bearer_token">
+<code class="descname">fetch_patron_bearer_token</code><span class="sig-paren">(</span><em>patron</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/rbdigital.html#RBDigitalAPI.fetch_patron_bearer_token"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.rbdigital.RBDigitalAPI.fetch_patron_bearer_token" title="Permalink to this definition">¶</a></dt>
+<dd><p>Obtain a patron bearer token for an RBdigital Patron.</p>
+<p>A patron bearer token for an account within an RBdigital collection
+can be obtained with the patron’s RBdigital <cite>userId</cite> for that
+collection. (An initial bearer token also can also be captured
+when an RBdigital account is first created, but that is not
+applicable here.)</p>
+<p>We don’t cache <cite>userId’s locally, but can retrieve them with the
+account’s `username</cite>. (This usually has the same value as the
+patron’s barcode/authorization_identifier; but, because of the
+<cite>Barcode+6</cite> technique used to create accounts for patrons who don’t
+have a registered email address, this is not always the case, so we
+cannot rely on it.) So, we obtain the username by looking it up
+using the <cite>patronId</cite>, a property that we cache locally.</p>
+<dl class="docutils">
+<dt>So, the process, in summary:</dt>
+<dd><ul class="first last simple">
+<li>Get <cite>patronId</cite> from cache or RBdigital,</li>
+<li>Fetch <cite>username</cite> using <cite>patronId</cite>.</li>
+<li>Fetch <cite>userId</cite> using <cite>username</cite>.</li>
+<li>Obtain <cite>bearer</cite> token using <cite>userId</cite>.</li>
+</ul>
+</dd>
+</dl>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>patron</strong> – A Patron.</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">A bearer token associated with the patron.</td>
+</tr>
+</tbody>
+</table>
 </dd></dl>
 
 <dl class="method">
@@ -12301,7 +12364,7 @@ and we throw an error.</p>
 
 <dl class="method">
 <dt id="api.rbdigital.RBDigitalAPI.get_patron_checkouts">
-<code class="descname">get_patron_checkouts</code><span class="sig-paren">(</span><em>patron_id</em>, <em>fulfill_part_url=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/rbdigital.html#RBDigitalAPI.get_patron_checkouts"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.rbdigital.RBDigitalAPI.get_patron_checkouts" title="Permalink to this definition">¶</a></dt>
+<code class="descname">get_patron_checkouts</code><span class="sig-paren">(</span><em>patron_id</em>, <em>fulfill_part_url=None</em>, <em>request_fulfillment=None</em>, <em>proxy_fulfillment=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/rbdigital.html#RBDigitalAPI.get_patron_checkouts"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.rbdigital.RBDigitalAPI.get_patron_checkouts" title="Permalink to this definition">¶</a></dt>
 <dd><p>Gets the books and audio the patron currently has checked out.
 Obtains fulfillment info for each item – the way to fulfill a book
 is to get this list of possibilities first, and then call individual
@@ -12359,6 +12422,75 @@ format.</p>
 <li><strong>patron</strong> – a Patron object for the patron who wants to return the book.</li>
 <li><strong>pin</strong> – The patron’s password (not used).</li>
 </ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="api.rbdigital.RBDigitalAPI.patron_bearer_token">
+<code class="descname">patron_bearer_token</code><span class="sig-paren">(</span><em>patron</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/rbdigital.html#RBDigitalAPI.patron_bearer_token"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.rbdigital.RBDigitalAPI.patron_bearer_token" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="api.rbdigital.RBDigitalAPI.patron_credential">
+<code class="descname">patron_credential</code><span class="sig-paren">(</span><em>kind</em>, <em>patron</em>, <em>value=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/rbdigital.html#RBDigitalAPI.patron_credential"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.rbdigital.RBDigitalAPI.patron_credential" title="Permalink to this definition">¶</a></dt>
+<dd><p>Provide the credential of the given type for the given Patron,
+either from the cache or by retrieving it from the remote service.</p>
+<dl class="docutils">
+<dt>The behavior is as follows:</dt>
+<dd><ul class="first last simple">
+<li>If a value is specified, we’ll cache it.</li>
+<li>If no value is specified and no cached credential is present
+and unexpired, then we’ll retrieve a value from the remote
+service and cache it.</li>
+<li>The cached value will be returned.</li>
+</ul>
+</dd>
+</dl>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>patron</strong> – A Patron.</li>
+<li><strong>kind</strong> – The type of credential.</li>
+<li><strong>value</strong> – An optional value for the credential, which, if
+provided, will replace replace the value in the cache.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">The credential of type <cite>type</cite> for the patron.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="api.rbdigital.RBDigitalAPI.patron_fulfillment_request">
+<code class="descname">patron_fulfillment_request</code><span class="sig-paren">(</span><em>patron</em>, <em>url</em>, <em>reauthorize=True</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/rbdigital.html#RBDigitalAPI.patron_fulfillment_request"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.rbdigital.RBDigitalAPI.patron_fulfillment_request" title="Permalink to this definition">¶</a></dt>
+<dd><p>Make a fulfillment request on behalf of a patron, using the
+a bearer token either previously cached or newly retrieved on
+behalf of the patron.</p>
+<p>If the <cite>reauthorize</cite> parameter is set to True, then if the request
+fails with status code 401 (invalid bearer token), then we will
+attempt to obtain a new bearer token for the patron and repeat
+the request.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>patron</strong> – A Patron.</li>
+<li><strong>url</strong> – URL for a resource.</li>
+<li><strong>reauthorize</strong> – (Optional) Boolean indicating whether to
+reauthorize the patron bearer token if we receive status code 401.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">The request response.</p>
 </td>
 </tr>
 </tbody>
@@ -12480,6 +12612,11 @@ from RBDigital.  Update Work, Edition, LicensePool objects in our database.</p>
 <dd><p>Allows smoother faster creation of unit tests by letting
 us live-test as we write.</p>
 </dd></dl>
+
+<dl class="method">
+<dt id="api.rbdigital.RBDigitalAPI.reauthorize_patron_bearer_token">
+<code class="descname">reauthorize_patron_bearer_token</code><span class="sig-paren">(</span><em>patron</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/rbdigital.html#RBDigitalAPI.reauthorize_patron_bearer_token"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.rbdigital.RBDigitalAPI.reauthorize_patron_bearer_token" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
 
 <dl class="method">
 <dt id="api.rbdigital.RBDigitalAPI.release_hold">
@@ -12796,7 +12933,7 @@ Assumes the JSON is in the format that comes from the media/{isbn} endpoint.</p>
 
 <dl class="class">
 <dt id="api.rbdigital.RBFulfillmentInfo">
-<em class="property">class </em><code class="descclassname">api.rbdigital.</code><code class="descname">RBFulfillmentInfo</code><span class="sig-paren">(</span><em>fulfill_part_url</em>, <em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/rbdigital.html#RBFulfillmentInfo"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.rbdigital.RBFulfillmentInfo" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="descclassname">api.rbdigital.</code><code class="descname">RBFulfillmentInfo</code><span class="sig-paren">(</span><em>fulfill_part_url</em>, <em>request_fulfillment</em>, <em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/rbdigital.html#RBFulfillmentInfo"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.rbdigital.RBFulfillmentInfo" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="#api.circulation.APIAwareFulfillmentInfo" title="api.circulation.APIAwareFulfillmentInfo"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.circulation.APIAwareFulfillmentInfo</span></code></a></p>
 <p>An RBdigital-specific FulfillmentInfo implementation.</p>
 <p>We use these instead of real FulfillmentInfo objects because
