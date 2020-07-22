@@ -461,10 +461,12 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
             reauthorize the patron bearer token if we receive status code 401.
         :return: The request response.
         """
+        content_type = 'application/json;charset=UTF-8'
 
         def perform_request(reauthorize=False):
             bearer_token = self.patron_bearer_token(patron)
-            headers = {"Authorization": 'Bearer {}'.format(bearer_token)}
+            headers = {"Authorization": 'Bearer {}'.format(bearer_token),
+                       "Content-Type": content_type}
             response = self._make_request(url, 'GET', headers)
             if response.status_code == 401 and reauthorize:
                 self.reauthorize_patron_bearer_token(patron)
@@ -499,9 +501,16 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         patron_rbdigital_id = self.patron_remote_identifier(patron)
         (item_rbdigital_id, item_media) = self.validate_item(licensepool)
 
+        # If we are going to return a manifest to the client, then its
+        # links should proxy through this CM. If we're going to fulfill
+        # an access document for a part, we'll need the need the true
+        # RBdigital access document URL, so that we can fetch and return
+        # the real fulfillment link to the client.
+        manifest_uses_proxy_links = (part is None)
         checkouts_list = self.get_patron_checkouts(patron_id=patron_rbdigital_id,
                                                    fulfill_part_url=fulfill_part_url,
-                                                   request_fulfillment=make_fulfillment_request)
+                                                   request_fulfillment=make_fulfillment_request,
+                                                   proxy_fulfillment=manifest_uses_proxy_links)
 
         # find this licensepool in patron's checkouts
         found_checkout = None
@@ -1121,7 +1130,8 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         internal_patron_id = resp_dict.get('patronId', None)
         return internal_patron_id
 
-    def get_patron_checkouts(self, patron_id, fulfill_part_url=None, request_fulfillment=None):
+    def get_patron_checkouts(self, patron_id, fulfill_part_url=None,
+                             request_fulfillment=None, proxy_fulfillment=False):
         """
         Gets the books and audio the patron currently has checked out.
         Obtains fulfillment info for each item -- the way to fulfill a book
@@ -1159,6 +1169,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
             loan_info = self._make_loan_info(
                 item, fulfill_part_url=fulfill_part_url,
                 request_fulfillment=request_fulfillment,
+                proxy_fulfillment=proxy_fulfillment,
             )
             if loan_info:
                 loans.append(loan_info)
@@ -1166,7 +1177,8 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
 
 
 
-    def _make_loan_info(self, item, fulfill_part_url=None, request_fulfillment=None):
+    def _make_loan_info(self, item, fulfill_part_url=None,
+                        request_fulfillment=None, proxy_fulfillment=False):
         """Convert one of the items returned by a request to /checkouts into a
         LoanInfo with an RBFulfillmentInfo.
 
@@ -1202,6 +1214,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
             identifier.type,
             identifier.identifier,
             item,
+            proxy_fulfillment=proxy_fulfillment,
         )
 
         return LoanInfo(
@@ -1836,6 +1849,9 @@ class RBFulfillmentInfo(APIAwareFulfillmentInfo):
     """
 
     def __init__(self, fulfill_part_url, request_fulfillment, *args, **kwargs):
+        # We should use CM proxy URLs in this manifest, if True.
+        self.proxy_fulfillment = kwargs.pop('proxy_fulfillment', False)
+
         super(RBFulfillmentInfo, self).__init__(*args, **kwargs)
         self.fulfill_part_url = fulfill_part_url
         self.request_fulfillment = request_fulfillment
@@ -1910,7 +1926,10 @@ class RBFulfillmentInfo(APIAwareFulfillmentInfo):
             self.manifest = AudiobookManifest(
                 self.key, self.fulfill_part_url
             )
-            self._content = unicode(self.manifest)
+            if self.proxy_fulfillment:
+                self._content = self.manifest.using_proxy_fulfillment()
+            else:
+                self._content = unicode(self.manifest)
         else:
             # We have some other kind of file. The download link
             # points to an access document for that file.
@@ -2496,7 +2515,7 @@ class AudiobookManifest(CoreAudiobookManifest):
     # with RBFulfillmentInfo.process_access_document.
     INTERMEDIATE_LINK_MEDIA_TYPE = "vnd.librarysimplified/rbdigital-access-document+json"
 
-    def __init__(self, content_dict, fulfill_part_url=None, **kwargs):
+    def __init__(self, content_dict, fulfill_part_url, **kwargs):
         """Create an audiobook manifest from the information provided
         by RBdigital.
 
@@ -2505,6 +2524,7 @@ class AudiobookManifest(CoreAudiobookManifest):
             and returns a URL for fulfilling that part number on this
             circulation manager.
         """
+
         super(AudiobookManifest, self).__init__(**kwargs)
         self.raw = content_dict
 
@@ -2526,10 +2546,8 @@ class AudiobookManifest(CoreAudiobookManifest):
 
         # Spine items.
         for part_number, file_data in enumerate(self.raw.get('files', [])):
-            alternate_url = None
-            if fulfill_part_url:
-                alternate_url = fulfill_part_url(part_number)
-            self.import_spine(file_data, alternate_url)
+            proxy_url = fulfill_part_url(part_number)
+            self.import_spine(file_data, proxy_url)
 
         # Links.
         download_url = self.raw.get('downloadUrl')
@@ -2577,34 +2595,29 @@ class AudiobookManifest(CoreAudiobookManifest):
             value = transform(value)
         self.metadata[standard_field] = value
 
-    def import_spine(self, file_data, alternate_url=None):
+    def import_spine(self, file_data, proxy_url):
         """Import an RBdigital spine item as a Web Publication Manifest
         spine item.
 
         :param file_data: A dictionary of information about this spine
             item, obtained from RBdigital.
 
-        :param alternate_url: A URL generated by the circulation manager
+        :param proxy_url: A URL generated by the circulation manager
             (as opposed to being generated by RBdigital) for fulfilling this
             spine item as an audio file (as opposed to a JSON document that
             links to an audio file).
         """
         href = file_data.get('downloadUrl')
-        duration = file_data.get('minutes') * 60
         title = file_data.get('display')
 
-        id = file_data.get('id')
-        size = file_data.get('size')
         filename = file_data.get('filename')
         type = self.INTERMEDIATE_LINK_MEDIA_TYPE
 
         extra = {}
-        if alternate_url:
-            alternate_link = dict(
-                href=alternate_url,
-                type=Representation.guess_media_type(filename)
-            )
-            extra['alternates'] = [alternate_link]
+        extra['proxy_link'] = dict(
+            href=proxy_url,
+            type=Representation.guess_media_type(filename)
+        )
 
         for k, v, transform in (
                 ('id', 'rbdigital:id', str),
@@ -2614,3 +2627,17 @@ class AudiobookManifest(CoreAudiobookManifest):
             if k in file_data:
                 extra[v] = transform(file_data[k])
         self.add_reading_order(href, type, title, **extra)
+
+    def using_proxy_fulfillment(self):
+        # Replace each part's base properties with those
+        # from its own `proxy_link` dictionary.
+        
+        def use_proxy(part):
+            if 'proxy_link' in part:
+                part.update(part['proxy_link'])
+                del part['proxy_link']
+            return part
+
+        data = self.as_dict
+        data['readingOrder'] = [use_proxy(part) for part in data['readingOrder']]
+        return json.dumps(data)
