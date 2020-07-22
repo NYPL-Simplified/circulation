@@ -2681,16 +2681,6 @@ class BaseSAMLAuthenticationProvider(AuthenticationProvider, BearerTokenSigner):
                             'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect'),
            'category': 'IDP',
            'required': True
-       },
-       {
-           'key': SAMLConfiguration.IDP_DISPLAY_NAME_TEMPLATE,
-           'label': _('Identity Provider\'s display name template'),
-           'type': 'text',
-           'description': _('Template used to generate IdP display name shown in the UI in the case when '
-                            'IdP metadata does not contain neither mduid:DisplayName nor md:OrganizationDisplayName'),
-           'category': 'IDP',
-           'required': False,
-           'default': SAMLConfiguration.IDP_DISPLAY_NAME_DEFAULT_TEMPLATE
        }
     ] + AuthenticationProvider.SETTINGS
 

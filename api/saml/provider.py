@@ -56,9 +56,6 @@ class SAMLWebSSOAuthenticationProvider(BaseSAMLAuthenticationProvider, ExternalI
 
         self._logger = logging.getLogger(__name__)
         self._authentication_manager = None
-        self._idp_display_name_template = integration.setting(
-            SAMLConfiguration.IDP_DISPLAY_NAME_TEMPLATE
-        ).value or SAMLConfiguration.IDP_DISPLAY_NAME_DEFAULT_TEMPLATE
 
     def _authentication_flow_document(self, db):
         """Creates a Authentication Flow object for use in an Authentication for OPDS document.
@@ -179,7 +176,7 @@ class SAMLWebSSOAuthenticationProvider(BaseSAMLAuthenticationProvider, ExternalI
         elif identity_provider.organization.organization_display_names:
             return identity_provider.organization.organization_display_names
         else:
-            display_name = self._idp_display_name_template.format(identity_provider_index)
+            display_name = SAMLConfiguration.IDP_DISPLAY_NAME_DEFAULT_TEMPLATE.format(identity_provider_index)
             return [
                 LocalizableMetadataItem(display_name, language='en')
             ]

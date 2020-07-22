@@ -215,61 +215,14 @@ class SAMLWebSSOAuthenticationProviderTest(ControllerTest):
                 ]
             }
 
-        ),
-        (
-            'identity_provider_without_display_names_and_custom_template',
-            [
-                IDENTITY_PROVIDER_WITHOUT_DISPLAY_NAMES,
-                IDENTITY_PROVIDER_WITHOUT_DISPLAY_NAMES
-            ],
-            {
-                'type': SAMLWebSSOAuthenticationProvider.FLOW_TYPE,
-                'description': SAMLWebSSOAuthenticationProvider.NAME,
-                'links': [
-                    {
-                        'rel': 'authenticate',
-                        'href': 'http://localhost/default/saml_authenticate?idp_entity_id=http%3A%2F%2Fidp1.hilbertteam.net%2Fidp%2Fshibboleth&provider=SAML+2.0+Web+SSO',
-                        'display_names': [
-                            {
-                                'value': 'IdP # 1',
-                                'language': 'en'
-                            }
-                        ],
-                        'descriptions': [],
-                        'information_urls': [],
-                        'privacy_statement_urls': [],
-                        'logo_urls': []
-                    },
-                    {
-                        'rel': 'authenticate',
-                        'href': 'http://localhost/default/saml_authenticate?idp_entity_id=http%3A%2F%2Fidp1.hilbertteam.net%2Fidp%2Fshibboleth&provider=SAML+2.0+Web+SSO',
-                        'display_names': [
-                            {
-                                'value': 'IdP # 2',
-                                'language': 'en'
-                            }
-                        ],
-                        'descriptions': [],
-                        'information_urls': [],
-                        'privacy_statement_urls': [],
-                        'logo_urls': []
-                    }
-                ]
-            },
-            'IdP # {0}'
         )
     ])
     def test_authentication_document(
             self,
             name,
             identity_providers,
-            expected_result,
-            identity_provider_display_name_template=None):
+            expected_result):
         # Arrange
-        if identity_provider_display_name_template:
-            self._integration.setting(SAMLConfiguration.IDP_DISPLAY_NAME_TEMPLATE).value = \
-                identity_provider_display_name_template
-
         provider = SAMLWebSSOAuthenticationProvider(self._default_library, self._integration)
         configuration = create_autospec(spec=SAMLConfiguration)
         configuration.get_debug = MagicMock(return_value=False)
