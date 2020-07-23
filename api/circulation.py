@@ -1,26 +1,24 @@
-from nose.tools import set_trace
-from circulation_exceptions import *
 import datetime
-from collections import defaultdict
-from threading import Thread
-import flask
 import logging
-import re
+import sys
 import time
+from threading import Thread
+
+import flask
 from flask_babel import lazy_gettext as _
 
-from core.config import CannotLoadConfiguration
+from circulation_exceptions import *
+from config import Configuration
 from core.cdn import cdnify
+from core.config import CannotLoadConfiguration
+from core.mirror import MirrorUploader
 from core.model import (
     get_one,
     CirculationEvent,
     Collection,
-    CollectionMissing,
     ConfigurationSetting,
     DeliveryMechanism,
     ExternalIntegration,
-    Identifier,
-    DataSource,
     Library,
     LicensePoolDeliveryMechanism,
     LicensePool,
@@ -29,10 +27,9 @@ from core.model import (
     Patron,
     RightsStatus,
     Session,
-)
+    ExternalIntegrationLink)
 from util.patron import PatronUtility
-from config import Configuration
-import sys
+
 
 class CirculationInfo(object):
 
@@ -467,6 +464,36 @@ class CirculationAPI(object):
             return True
         return False
 
+    def _try_to_sign_fulfillment_link(self, licensepool, fulfillment):
+        """Tries to sign the fulfilment URL (only works in the case when the collection has mirrors set up)
+
+        :param licensepool: License pool
+        :type licensepool: LicensePool
+
+        :param fulfillment: Fulfillment info
+        :type fulfillment: FulfillmentInfo
+
+        :return: Fulfillment info with a possibly signed URL
+        :rtype: FulfillmentInfo
+        """
+        mirror_types = [ExternalIntegrationLink.PROTECTED_ACCESS_BOOKS]
+        mirror = next(iter([
+            MirrorUploader.for_collection(licensepool.collection, mirror_type)
+            for mirror_type in mirror_types
+        ]))
+
+        if mirror:
+            signed_url = mirror.sign_url(fulfillment.content_link)
+
+            self.log.info(
+                'Fulfilment link {0} has been signed and translated into {1}'.format(
+                    fulfillment.content_link, signed_url)
+            )
+
+            fulfillment.content_link = signed_url
+
+        return fulfillment
+
     def _collect_event(self, patron, licensepool, name,
                        include_neighborhood=False):
         """Collect an analytics event.
@@ -540,7 +567,7 @@ class CirculationAPI(object):
         PatronUtility.assert_borrowing_privileges(patron)
 
         now = datetime.datetime.utcnow()
-        if licensepool.open_access:
+        if licensepool.open_access or licensepool.self_hosted:
             # We can 'loan' open-access content ourselves just by
             # putting a row in the database.
             now = datetime.datetime.utcnow()
@@ -885,13 +912,16 @@ class CirculationAPI(object):
                   requested_delivery_mechanism=delivery_mechanism.delivery_mechanism.name)
             )
 
-        if licensepool.open_access:
+        if licensepool.open_access or licensepool.self_hosted:
             # We ignore the vendor-specific arguments when doing
             # open-access fulfillment, because we just don't support
             # partial fulfillment of open-access content.
             fulfillment = self.fulfill_open_access(
                 licensepool, delivery_mechanism.delivery_mechanism,
             )
+
+            if licensepool.self_hosted:
+                fulfillment = self._try_to_sign_fulfillment_link(licensepool, fulfillment)
         else:
             api = self.api_for_license_pool(licensepool)
             internal_format = api.internal_format(delivery_mechanism)

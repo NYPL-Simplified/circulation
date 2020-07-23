@@ -8,8 +8,8 @@ from flask_babel import lazy_gettext as _
 from api.authenticator import BaseSAMLAuthenticationProvider, PatronData
 from api.problem_details import *
 from api.saml.auth import SAMLAuthenticationManagerFactory
-from api.saml.configuration import ExternalIntegrationOwner
-from api.saml.metadata import Subject, SubjectUIDExtractor, SubjectJSONEncoder
+from api.saml.configuration import ExternalIntegrationOwner, SAMLConfiguration
+from api.saml.metadata import Subject, SubjectUIDExtractor, SubjectJSONEncoder, LocalizableMetadataItem
 from api.saml.parser import SAMLMetadataParser
 from api.saml.validator import SAMLSettingsValidator
 from core.model import Credential, get_one_or_create, DataSource
@@ -140,11 +140,11 @@ class SAMLWebSSOAuthenticationProvider(BaseSAMLAuthenticationProvider, ExternalI
 
         configuration = self.get_authentication_manager(db).configuration
 
-        for identity_provider in configuration.configuration.get_identity_providers(db):
+        for index, identity_provider in enumerate(configuration.configuration.get_identity_providers(db)):
             link = {
                 'rel': 'authenticate',
                 'href': self._create_authenticate_url(db, identity_provider.entity_id),
-                'display_names': self._join_ui_info_items(identity_provider.ui_info.display_names),
+                'display_names': self._join_ui_info_items(self._get_idp_display_names(index + 1, identity_provider)),
                 'descriptions': self._join_ui_info_items(identity_provider.ui_info.descriptions),
                 'information_urls': self._join_ui_info_items(identity_provider.ui_info.information_urls),
                 'privacy_statement_urls': self._join_ui_info_items(
@@ -155,6 +155,31 @@ class SAMLWebSSOAuthenticationProvider(BaseSAMLAuthenticationProvider, ExternalI
             flow_doc['links'].append(link)
 
         return flow_doc
+
+    def _get_idp_display_names(self, identity_provider_index, identity_provider):
+        """Returns a list of IdP's display names:
+        - first, it checks UIInfo.display_names
+        - secondly, it checks Organization.organization_display_names
+        - thirdly, it generates a new name using SAMLConfiguration.IDP_DISPLAY_NAME_TEMPLATE
+
+        :param identity_provider_index: Index of the current IdP
+        :type identity_provider_index: int
+
+        :param identity_provider: IdentityProviderMetadata object
+        :type identity_provider: IdentityProviderMetadata
+
+        :return: List of IdP's display names
+        :rtype: List[LocalizableMetadataItem]
+        """
+        if identity_provider.ui_info.display_names:
+            return identity_provider.ui_info.display_names
+        elif identity_provider.organization.organization_display_names:
+            return identity_provider.organization.organization_display_names
+        else:
+            display_name = SAMLConfiguration.IDP_DISPLAY_NAME_DEFAULT_TEMPLATE.format(identity_provider_index)
+            return [
+                LocalizableMetadataItem(display_name, language='en')
+            ]
 
     def _create_token(self, db, patron, token, valid_till):
         """Creates a Credential object that ties the given patron to the
@@ -233,10 +258,10 @@ class SAMLWebSSOAuthenticationProvider(BaseSAMLAuthenticationProvider, ExternalI
             db, DataSource, name=self.TOKEN_DATA_SOURCE_NAME
         )
 
-    def _join_ui_info_items(self, ui_info_items):
-        """Joins all UIInfo items (like, display names, descriptions, etc.) to a single list of dicts
+    def _join_ui_info_items(self, *ui_info_item_lists):
+        """Joins all UI info items (like, display names, descriptions, etc.) to a single list of dicts
 
-        :param ui_info_items: List of child UIInfo objects
+        :param ui_info_item_lists: List of child LocalizableMetadataInfo objects
         :type: List[LocalizableMetadataItem]
 
         :return: List of dicts containing UI information (display names, descriptions, etc.)
@@ -244,12 +269,14 @@ class SAMLWebSSOAuthenticationProvider(BaseSAMLAuthenticationProvider, ExternalI
         """
         result = []
 
-        if ui_info_items:
-            for ui_info_item in ui_info_items:
-                result.append({
-                    'value': ui_info_item.value,
-                    'language': ui_info_item.language
-                })
+        if ui_info_item_lists:
+            for ui_info_item_list in ui_info_item_lists:
+                if ui_info_item_list:
+                    for ui_info_item in ui_info_item_list:
+                        result.append({
+                            'value': ui_info_item.value,
+                            'language': ui_info_item.language
+                        })
 
         return result
 
