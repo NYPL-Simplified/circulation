@@ -1,8 +1,11 @@
+from mock import create_autospec, MagicMock
 from nose.tools import raises, eq_
+from onelogin.saml2.auth import OneLogin_Saml2_Auth
+from parameterized import parameterized
 
 from api.saml.metadata import IdentityProviderMetadata, UIInfo, LocalizableMetadataItem, Service, \
-    ServiceProviderMetadata, NameIDFormat, Organization
-from api.saml.parser import SAMLMetadataParsingError, SAMLMetadataParser
+    ServiceProviderMetadata, NameIDFormat, Organization, Subject, NameID, Attribute, SAMLAttributes, AttributeStatement
+from api.saml.parser import SAMLMetadataParsingError, SAMLMetadataParser, SAMLSubjectParser
 from tests.saml import fixtures
 from tests.saml.fixtures import strip_certificate
 
@@ -383,3 +386,73 @@ class SAMLMetadataParserTest(object):
                 certificate=strip_certificate(fixtures.SIGNING_CERTIFICATE)
             )
         )
+
+
+class SAMLSubjectParserTest(object):
+    @parameterized.expand([
+        (
+            'name_id_and_attributes',
+            NameIDFormat.TRANSIENT.value, fixtures.IDP_1_ENTITY_ID, fixtures.SP_ENTITY_ID, '12345',
+            {
+                SAMLAttributes.eduPersonUniqueId.value: ['12345']
+            },
+            Subject(
+                NameID(
+                    NameIDFormat.TRANSIENT.value,
+                    fixtures.IDP_1_ENTITY_ID,
+                    fixtures.SP_ENTITY_ID,
+                    '12345'
+                ),
+                AttributeStatement(
+                    [
+                        Attribute(SAMLAttributes.eduPersonUniqueId.name, ['12345'])
+                    ]
+                )
+            )
+        ),
+        (
+            'edu_person_targeted_id_as_name_id',
+            None, None, None, None,
+            {
+                SAMLAttributes.eduPersonTargetedID.value: [
+                    {
+                        'NameID': {
+                            'Format': NameIDFormat.PERSISTENT.value,
+                            'NameQualifier': fixtures.IDP_1_ENTITY_ID,
+                            'value': '12345'
+                        }
+                    }
+                ]
+            },
+            Subject(
+                NameID(
+                    None,
+                    None,
+                    None,
+                    None
+                ),
+                AttributeStatement(
+                    [
+                        Attribute(SAMLAttributes.eduPersonTargetedID.name, ['12345'])
+                    ]
+                )
+            )
+        )
+    ])
+    def test_parse(self, name, name_id_format, name_id_nq, name_id_spnq, name_id, attributes, expected_result):
+        # Arrange
+        parser = SAMLSubjectParser()
+        auth = create_autospec(spec=OneLogin_Saml2_Auth)
+        auth.get_nameid_format = MagicMock(return_value=name_id_format)
+        auth.get_nameid_nq = MagicMock(return_value=name_id_nq)
+        auth.get_nameid_spnq = MagicMock(return_value=name_id_spnq)
+        auth.get_nameid = MagicMock(return_value=name_id)
+        auth.get_attributes = MagicMock(return_value=attributes)
+        auth.get_session_expiration = MagicMock(return_value=None)
+        auth.get_last_assertion_not_on_or_after = MagicMock(return_value=None)
+
+        # Act
+        result = parser.parse(auth)
+
+        # Arrange
+        eq_(result, expected_result)
