@@ -12,6 +12,13 @@ IDP_1_UI_INFO_INFORMATION_URL = 'http://idp1.hilbertteam.net'
 IDP_1_UI_INFO_PRIVACY_STATEMENT_URL = 'http://idp1.hilbertteam.net'
 IDP_1_UI_INFO_LOGO_URL = 'http://idp1.hilbertteam.net/logo.png'
 
+IDP_1_ORGANIZATION_EN_ORGANIZATION_NAME = IDP_1_UI_INFO_DISPLAY_NAME
+IDP_1_ORGANIZATION_ES_ORGANIZATION_NAME = IDP_1_ORGANIZATION_EN_ORGANIZATION_NAME
+IDP_1_ORGANIZATION_EN_ORGANIZATION_DISPLAY_NAME = IDP_1_UI_INFO_DISPLAY_NAME
+IDP_1_ORGANIZATION_ES_ORGANIZATION_DISPLAY_NAME = IDP_1_ORGANIZATION_EN_ORGANIZATION_DISPLAY_NAME
+IDP_1_ORGANIZATION_EN_ORGANIZATION_URL = IDP_1_UI_INFO_INFORMATION_URL
+IDP_1_ORGANIZATION_ES_ORGANIZATION_URL = IDP_1_ORGANIZATION_EN_ORGANIZATION_URL
+
 IDP_1_SSO_URL = 'http://idp1.hilbertteam.net/idp/profile/SAML2/Redirect/SSO'
 IDP_1_SSO_BINDING = Binding.HTTP_REDIRECT
 
@@ -24,10 +31,31 @@ IDP_2_UI_INFO_INFORMATION_URL = 'http://idp2.hilbertteam.net'
 IDP_2_UI_INFO_PRIVACY_STATEMENT_URL = 'http://idp2.hilbertteam.net'
 IDP_2_UI_INFO_LOGO_URL = 'http://idp2.hilbertteam.net/logo.png'
 
+IDP_2_ORGANIZATION_EN_ORGANIZATION_NAME = IDP_2_UI_INFO_DISPLAY_NAME
+IDP_2_ORGANIZATION_ES_ORGANIZATION_NAME = IDP_2_ORGANIZATION_EN_ORGANIZATION_NAME
+IDP_2_ORGANIZATION_EN_ORGANIZATION_DISPLAY_NAME = IDP_2_UI_INFO_DISPLAY_NAME
+IDP_2_ORGANIZATION_ES_ORGANIZATION_DISPLAY_NAME = IDP_2_ORGANIZATION_EN_ORGANIZATION_DISPLAY_NAME
+IDP_2_ORGANIZATION_EN_ORGANIZATION_URL = IDP_2_UI_INFO_INFORMATION_URL
+IDP_2_ORGANIZATION_ES_ORGANIZATION_URL = IDP_2_ORGANIZATION_EN_ORGANIZATION_URL
+
 IDP_2_SSO_URL = 'http://idp2.hilbertteam.net/idp/profile/SAML2/Redirect/SSO'
 IDP_2_SSO_BINDING = Binding.HTTP_REDIRECT
 
 SP_ENTITY_ID = 'http://sp.hilbertteam.net/idp/shibboleth'
+SP_UI_INFO_DISPLAY_NAME = 'Shibboleth Test SP'
+SP_UI_INFO_EN_DISPLAY_NAME = SP_UI_INFO_DISPLAY_NAME
+SP_UI_INFO_ES_DISPLAY_NAME = SP_UI_INFO_DISPLAY_NAME
+SP_UI_INFO_DESCRIPTION = 'Shibboleth Test SP'
+SP_UI_INFO_INFORMATION_URL = 'http://sp.hilbertteam.net'
+SP_UI_INFO_PRIVACY_STATEMENT_URL = 'http://sp.hilbertteam.net'
+SP_UI_INFO_LOGO_URL = 'http://sp.hilbertteam.net/logo.png'
+
+SP_ORGANIZATION_EN_ORGANIZATION_NAME = SP_UI_INFO_DISPLAY_NAME
+SP_ORGANIZATION_ES_ORGANIZATION_NAME = SP_ORGANIZATION_EN_ORGANIZATION_NAME
+SP_ORGANIZATION_EN_ORGANIZATION_DISPLAY_NAME = SP_UI_INFO_DISPLAY_NAME
+SP_ORGANIZATION_ES_ORGANIZATION_DISPLAY_NAME = SP_ORGANIZATION_EN_ORGANIZATION_DISPLAY_NAME
+SP_ORGANIZATION_EN_ORGANIZATION_URL = SP_UI_INFO_INFORMATION_URL
+SP_ORGANIZATION_ES_ORGANIZATION_URL = SP_ORGANIZATION_EN_ORGANIZATION_URL
 
 SP_ACS_URL = 'http://sp.hilbertteam.net/idp/profile/SAML2/POST'
 SP_ACS_BINDING = Binding.HTTP_POST
@@ -88,56 +116,6 @@ kF7xgXphcsIlNUxJyp79q30fpwUCCwwTcfimCWBzRCAf
 '''
 
 INCORRECT_XML = ''
-
-INCORRECT_ONE_IDP_METADATA_WITHOUT_DISPLAY_NAME = \
-    '''<?xml version="1.0" encoding="UTF-8"?>
-<!--
-     This is example metadata only. Do *NOT* supply it as is without review,
-     and do *NOT* provide it in real time to your partners.
-
-     This metadata is not dynamic - it will not change as your configuration changes.
--->
-<EntityDescriptor
-  xmlns="urn:oasis:names:tc:SAML:2.0:metadata"
-  xmlns:ds="http://www.w3.org/2000/09/xmldsig#"
-  xmlns:shibmd="urn:mace:shibboleth:metadata:1.0"
-  xmlns:xml="http://www.w3.org/XML/1998/namespace"
-  xmlns:mdui="urn:oasis:names:tc:SAML:metadata:ui"
-  entityID="{0}">
-    <IDPSSODescriptor protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol urn:oasis:names:tc:SAML:1.1:protocol urn:mace:shibboleth:1.0">
-        <KeyDescriptor use="signing">
-            <ds:KeyInfo>
-                    <ds:X509Data>
-                        <ds:X509Certificate>
-{1}
-                        </ds:X509Certificate>
-                    </ds:X509Data>
-            </ds:KeyInfo>
-        </KeyDescriptor>
-        <KeyDescriptor use="encryption">
-            <ds:KeyInfo>
-                    <ds:X509Data>
-                        <ds:X509Certificate>
-{2}
-                        </ds:X509Certificate>
-                    </ds:X509Data>
-            </ds:KeyInfo>
-        </KeyDescriptor>
-        <NameIDFormat>{3}</NameIDFormat>
-        <NameIDFormat>{4}</NameIDFormat>
-        <SingleSignOnService 
-            Binding="{5}" 
-            Location="{6}"/>
-    </IDPSSODescriptor>
-</EntityDescriptor>
-'''.format(
-        IDP_1_ENTITY_ID,
-        SIGNING_CERTIFICATE,
-        ENCRYPTION_CERTIFICATE,
-        NAME_ID_FORMAT_1,
-        NAME_ID_FORMAT_2,
-        IDP_1_SSO_BINDING.value,
-        IDP_1_SSO_URL)
 
 INCORRECT_ONE_IDP_METADATA_WITHOUT_SSO_SERVICE = \
     '''<?xml version="1.0" encoding="UTF-8"?>
@@ -268,6 +246,56 @@ INCORRECT_ONE_IDP_METADATA_WITH_SSO_SERVICE_WITH_WRONG_BINDING = \
         Binding.HTTP_ARTIFACT.value,
         IDP_1_SSO_URL)
 
+CORRECT_ONE_IDP_METADATA_WITHOUT_DISPLAY_NAMES = \
+    '''<?xml version="1.0" encoding="UTF-8"?>
+<!--
+     This is example metadata only. Do *NOT* supply it as is without review,
+     and do *NOT* provide it in real time to your partners.
+
+     This metadata is not dynamic - it will not change as your configuration changes.
+-->
+<EntityDescriptor
+  xmlns="urn:oasis:names:tc:SAML:2.0:metadata"
+  xmlns:ds="http://www.w3.org/2000/09/xmldsig#"
+  xmlns:shibmd="urn:mace:shibboleth:metadata:1.0"
+  xmlns:xml="http://www.w3.org/XML/1998/namespace"
+  xmlns:mdui="urn:oasis:names:tc:SAML:metadata:ui"
+  entityID="{0}">
+    <IDPSSODescriptor protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol urn:oasis:names:tc:SAML:1.1:protocol urn:mace:shibboleth:1.0">
+        <KeyDescriptor use="signing">
+            <ds:KeyInfo>
+                    <ds:X509Data>
+                        <ds:X509Certificate>
+{1}
+                        </ds:X509Certificate>
+                    </ds:X509Data>
+            </ds:KeyInfo>
+        </KeyDescriptor>
+        <KeyDescriptor use="encryption">
+            <ds:KeyInfo>
+                    <ds:X509Data>
+                        <ds:X509Certificate>
+{2}
+                        </ds:X509Certificate>
+                    </ds:X509Data>
+            </ds:KeyInfo>
+        </KeyDescriptor>
+        <NameIDFormat>{3}</NameIDFormat>
+        <NameIDFormat>{4}</NameIDFormat>
+        <SingleSignOnService 
+            Binding="{5}" 
+            Location="{6}"/>
+    </IDPSSODescriptor>
+</EntityDescriptor>
+'''.format(
+        IDP_1_ENTITY_ID,
+        SIGNING_CERTIFICATE,
+        ENCRYPTION_CERTIFICATE,
+        NAME_ID_FORMAT_1,
+        NAME_ID_FORMAT_2,
+        IDP_1_SSO_BINDING.value,
+        IDP_1_SSO_URL)
+
 CORRECT_ONE_IDP_METADATA = \
     '''<?xml version="1.0" encoding="UTF-8"?>
 <!--
@@ -322,6 +350,14 @@ CORRECT_ONE_IDP_METADATA = \
             Binding="{11}" 
             Location="{12}"/>
     </IDPSSODescriptor>
+    <Organization>
+      <OrganizationName xml:lang="en">{13}</OrganizationName>
+      <OrganizationName xml:lang="es">{14}</OrganizationName>
+      <OrganizationDisplayName xml:lang="en">{15}</OrganizationDisplayName>
+      <OrganizationDisplayName xml:lang="es">{16}</OrganizationDisplayName>
+      <OrganizationURL xml:lang="en">{17}</OrganizationURL>
+      <OrganizationURL xml:lang="es">{18}</OrganizationURL>
+    </Organization>
 </EntityDescriptor>
 '''.format(
         IDP_1_ENTITY_ID,
@@ -336,7 +372,14 @@ CORRECT_ONE_IDP_METADATA = \
         NAME_ID_FORMAT_1,
         NAME_ID_FORMAT_2,
         IDP_1_SSO_BINDING.value,
-        IDP_1_SSO_URL)
+        IDP_1_SSO_URL,
+        IDP_1_ORGANIZATION_EN_ORGANIZATION_NAME,
+        IDP_1_ORGANIZATION_ES_ORGANIZATION_NAME,
+        IDP_1_ORGANIZATION_EN_ORGANIZATION_DISPLAY_NAME,
+        IDP_1_ORGANIZATION_ES_ORGANIZATION_DISPLAY_NAME,
+        IDP_1_ORGANIZATION_EN_ORGANIZATION_URL,
+        IDP_1_ORGANIZATION_ES_ORGANIZATION_URL
+    )
 
 CORRECT_ONE_IDP_METADATA_WITHOUT_NAME_ID_FORMAT = \
     '''<?xml version="1.0" encoding="UTF-8"?>
@@ -390,6 +433,14 @@ CORRECT_ONE_IDP_METADATA_WITHOUT_NAME_ID_FORMAT = \
             Binding="{9}" 
             Location="{10}"/>
     </IDPSSODescriptor>
+    <Organization>
+      <OrganizationName xml:lang="en">{11}</OrganizationName>
+      <OrganizationName xml:lang="es">{12}</OrganizationName>
+      <OrganizationDisplayName xml:lang="en">{13}</OrganizationDisplayName>
+      <OrganizationDisplayName xml:lang="es">{14}</OrganizationDisplayName>
+      <OrganizationURL xml:lang="en">{15}</OrganizationURL>
+      <OrganizationURL xml:lang="es">{16}</OrganizationURL>
+    </Organization>
 </EntityDescriptor>
 '''.format(
         IDP_1_ENTITY_ID,
@@ -402,7 +453,14 @@ CORRECT_ONE_IDP_METADATA_WITHOUT_NAME_ID_FORMAT = \
         SIGNING_CERTIFICATE,
         ENCRYPTION_CERTIFICATE,
         IDP_1_SSO_BINDING.value,
-        IDP_1_SSO_URL)
+        IDP_1_SSO_URL,
+        IDP_1_ORGANIZATION_EN_ORGANIZATION_NAME,
+        IDP_1_ORGANIZATION_ES_ORGANIZATION_NAME,
+        IDP_1_ORGANIZATION_EN_ORGANIZATION_DISPLAY_NAME,
+        IDP_1_ORGANIZATION_ES_ORGANIZATION_DISPLAY_NAME,
+        IDP_1_ORGANIZATION_EN_ORGANIZATION_URL,
+        IDP_1_ORGANIZATION_ES_ORGANIZATION_URL
+    )
 
 CORRECT_ONE_IDP_METADATA_WITH_ONE_CERTIFICATE = \
     '''<?xml version="1.0" encoding="UTF-8"?>
@@ -449,6 +507,14 @@ CORRECT_ONE_IDP_METADATA_WITH_ONE_CERTIFICATE = \
             Binding="{10}" 
             Location="{11}"/>
     </IDPSSODescriptor>
+    <Organization>
+      <OrganizationName xml:lang="en">{12}</OrganizationName>
+      <OrganizationName xml:lang="es">{13}</OrganizationName>
+      <OrganizationDisplayName xml:lang="en">{14}</OrganizationDisplayName>
+      <OrganizationDisplayName xml:lang="es">{15}</OrganizationDisplayName>
+      <OrganizationURL xml:lang="en">{16}</OrganizationURL>
+      <OrganizationURL xml:lang="es">{17}</OrganizationURL>
+    </Organization>
 </EntityDescriptor>
 '''.format(
         IDP_1_ENTITY_ID,
@@ -462,7 +528,14 @@ CORRECT_ONE_IDP_METADATA_WITH_ONE_CERTIFICATE = \
         NAME_ID_FORMAT_1,
         NAME_ID_FORMAT_2,
         IDP_1_SSO_BINDING.value,
-        IDP_1_SSO_URL)
+        IDP_1_SSO_URL,
+        IDP_1_ORGANIZATION_EN_ORGANIZATION_NAME,
+        IDP_1_ORGANIZATION_ES_ORGANIZATION_NAME,
+        IDP_1_ORGANIZATION_EN_ORGANIZATION_DISPLAY_NAME,
+        IDP_1_ORGANIZATION_ES_ORGANIZATION_DISPLAY_NAME,
+        IDP_1_ORGANIZATION_EN_ORGANIZATION_URL,
+        IDP_1_ORGANIZATION_ES_ORGANIZATION_URL
+    )
 
 CORRECT_MULTIPLE_IDPS_METADATA = \
     '''<?xml version="1.0" encoding="UTF-8"?>
@@ -514,26 +587,34 @@ CORRECT_MULTIPLE_IDPS_METADATA = \
         Binding="{7}" 
         Location="{8}"/>
     </IDPSSODescriptor>
+    <Organization>
+      <OrganizationName xml:lang="en">{9}</OrganizationName>
+      <OrganizationName xml:lang="es">{10}</OrganizationName>
+      <OrganizationDisplayName xml:lang="en">{11}</OrganizationDisplayName>
+      <OrganizationDisplayName xml:lang="es">{12}</OrganizationDisplayName>
+      <OrganizationURL xml:lang="en">{13}</OrganizationURL>
+      <OrganizationURL xml:lang="es">{14}</OrganizationURL>
+    </Organization>
   </EntityDescriptor>
   <EntityDescriptor xmlns="urn:oasis:names:tc:SAML:2.0:metadata" 
     xmlns:ds="http://www.w3.org/2000/09/xmldsig#" 
     xmlns:shibmd="urn:mace:shibboleth:metadata:1.0" 
     xmlns:xml="http://www.w3.org/XML/1998/namespace" 
     xmlns:mdui="urn:oasis:names:tc:SAML:metadata:ui" 
-    entityID="{9}">
+    entityID="{15}">
     <IDPSSODescriptor protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol urn:oasis:names:tc:SAML:1.1:protocol urn:mace:shibboleth:1.0">
       <Extensions>
         <shibmd:Scope regexp="false">example.org</shibmd:Scope>
         <mdui:UIInfo>
-          <mdui:DisplayName xml:lang="en">{10}</mdui:DisplayName>
-          <mdui:DisplayName xml:lang="es">{11}</mdui:DisplayName>
+          <mdui:DisplayName xml:lang="en">{16}</mdui:DisplayName>
+          <mdui:DisplayName xml:lang="es">{17}</mdui:DisplayName>
         </mdui:UIInfo>
       </Extensions>
       <KeyDescriptor use="signing">
         <ds:KeyInfo>
           <ds:X509Data>
             <ds:X509Certificate>
-{12}
+{18}
             </ds:X509Certificate>
           </ds:X509Data>
         </ds:KeyInfo>
@@ -542,20 +623,28 @@ CORRECT_MULTIPLE_IDPS_METADATA = \
         <ds:KeyInfo>
           <ds:X509Data>
             <ds:X509Certificate>
-{13}
+{19}
             </ds:X509Certificate>
           </ds:X509Data>
         </ds:KeyInfo>
       </KeyDescriptor>
-      <NameIDFormat>{14}</NameIDFormat>
-      <NameIDFormat>{15}</NameIDFormat>
+      <NameIDFormat>{20}</NameIDFormat>
+      <NameIDFormat>{21}</NameIDFormat>
       <SingleSignOnService 
         Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST-SimpleSign" 
         Location="http://idp.hilbertteam.net/idp/profile/SAML2/POST-SimpleSign/SSO"/>
       <SingleSignOnService 
-        Binding="{16}" 
-        Location="{17}"/>
+        Binding="{22}" 
+        Location="{23}"/>
     </IDPSSODescriptor>
+    <Organization>
+      <OrganizationName xml:lang="en">{24}</OrganizationName>
+      <OrganizationName xml:lang="es">{25}</OrganizationName>
+      <OrganizationDisplayName xml:lang="en">{26}</OrganizationDisplayName>
+      <OrganizationDisplayName xml:lang="es">{27}</OrganizationDisplayName>
+      <OrganizationURL xml:lang="en">{28}</OrganizationURL>
+      <OrganizationURL xml:lang="es">{29}</OrganizationURL>
+    </Organization>
   </EntityDescriptor>
 </EntityDescriptors>
 '''.format(
@@ -568,6 +657,12 @@ CORRECT_MULTIPLE_IDPS_METADATA = \
         NAME_ID_FORMAT_2,
         IDP_1_SSO_BINDING.value,
         IDP_1_SSO_URL,
+        IDP_1_ORGANIZATION_EN_ORGANIZATION_NAME,
+        IDP_1_ORGANIZATION_ES_ORGANIZATION_NAME,
+        IDP_1_ORGANIZATION_EN_ORGANIZATION_DISPLAY_NAME,
+        IDP_1_ORGANIZATION_ES_ORGANIZATION_DISPLAY_NAME,
+        IDP_1_ORGANIZATION_EN_ORGANIZATION_URL,
+        IDP_1_ORGANIZATION_ES_ORGANIZATION_URL,
         IDP_2_ENTITY_ID,
         IDP_2_UI_INFO_EN_DISPLAY_NAME,
         IDP_2_UI_INFO_ES_DISPLAY_NAME,
@@ -576,7 +671,14 @@ CORRECT_MULTIPLE_IDPS_METADATA = \
         NAME_ID_FORMAT_1,
         NAME_ID_FORMAT_2,
         IDP_2_SSO_BINDING.value,
-        IDP_2_SSO_URL)
+        IDP_2_SSO_URL,
+        IDP_2_ORGANIZATION_EN_ORGANIZATION_NAME,
+        IDP_2_ORGANIZATION_ES_ORGANIZATION_NAME,
+        IDP_2_ORGANIZATION_EN_ORGANIZATION_DISPLAY_NAME,
+        IDP_2_ORGANIZATION_ES_ORGANIZATION_DISPLAY_NAME,
+        IDP_2_ORGANIZATION_EN_ORGANIZATION_URL,
+        IDP_2_ORGANIZATION_ES_ORGANIZATION_URL
+    )
 
 INCORRECT_ONE_SP_METADATA_WITHOUT_ACS_SERVICE = \
     '''<EntityDescriptor 
@@ -620,11 +722,22 @@ CORRECT_ONE_SP_METADATA = \
     xmlns:mdui="urn:oasis:names:tc:SAML:metadata:ui"
     entityID="{0}">
   <SPSSODescriptor protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol urn:oasis:names:tc:SAML:1.1:protocol urn:oasis:names:tc:SAML:1.0:protocol">
+    <Extensions>
+      <shibmd:Scope regexp="false">example.org</shibmd:Scope>
+      <mdui:UIInfo>
+          <mdui:DisplayName xml:lang="en">{1}</mdui:DisplayName>
+          <mdui:DisplayName xml:lang="es">{2}</mdui:DisplayName>
+          <mdui:Description xml:lang="en">{3}</mdui:Description>
+          <mdui:InformationURL xml:lang="en">{4}</mdui:InformationURL>
+          <mdui:PrivacyStatementURL xml:lang="en">{5}</mdui:PrivacyStatementURL>
+          <mdui:Logo height="10" width="10">{6}</mdui:Logo>
+        </mdui:UIInfo>
+      </Extensions>
     <KeyDescriptor>
       <ds:KeyInfo>
         <ds:X509Data>
           <ds:X509Certificate>
-{1}
+{7}
           </ds:X509Certificate>
         </ds:X509Data>
       </ds:KeyInfo>
@@ -639,17 +752,55 @@ CORRECT_ONE_SP_METADATA = \
       <EncryptionMethod Algorithm="http://www.w3.org/2001/04/xmlenc#rsa-oaep-mgf1p"/>
     </KeyDescriptor>
     <AssertionConsumerService 
-        Binding="{2}" 
-        Location="{3}/" 
+        Binding="{8}" 
+        Location="{9}/" 
         index="1"/>
     <AssertionConsumerService 
-        Binding="{2}" 
-        Location="{3}" 
+        Binding="{8}" 
+        Location="{9}" 
         index="0"/>
   </SPSSODescriptor>
+  <Organization>
+      <OrganizationName xml:lang="en">{10}</OrganizationName>
+      <OrganizationName xml:lang="es">{11}</OrganizationName>
+      <OrganizationDisplayName xml:lang="en">{12}</OrganizationDisplayName>
+      <OrganizationDisplayName xml:lang="es">{13}</OrganizationDisplayName>
+      <OrganizationURL xml:lang="en">{14}</OrganizationURL>
+      <OrganizationURL xml:lang="es">{15}</OrganizationURL>
+    </Organization>
 </EntityDescriptor>
 '''.format(
         SP_ENTITY_ID,
+        SP_UI_INFO_EN_DISPLAY_NAME,
+        SP_UI_INFO_ES_DISPLAY_NAME,
+        SP_UI_INFO_DESCRIPTION,
+        SP_UI_INFO_INFORMATION_URL,
+        SP_UI_INFO_PRIVACY_STATEMENT_URL,
+        SP_UI_INFO_LOGO_URL,
         SIGNING_CERTIFICATE,
         SP_ACS_BINDING.value,
-        SP_ACS_URL)
+        SP_ACS_URL,
+        SP_ORGANIZATION_EN_ORGANIZATION_NAME,
+        SP_ORGANIZATION_ES_ORGANIZATION_NAME,
+        SP_ORGANIZATION_EN_ORGANIZATION_DISPLAY_NAME,
+        SP_ORGANIZATION_ES_ORGANIZATION_DISPLAY_NAME,
+        SP_ORGANIZATION_EN_ORGANIZATION_URL,
+        SP_ORGANIZATION_ES_ORGANIZATION_URL
+    )
+
+
+def strip_certificate(certificate):
+    """
+    Converts certificate to a one-line format
+
+    :param certificate: Certificate in a multi-line format
+    :type certificate: string
+
+    :return: Certificate in a one-line format
+    :rtype: string
+    """
+
+    return certificate\
+        .replace('\n', '')\
+        .replace('-----BEGIN CERTIFICATE-----', '')\
+        .replace('-----END CERTIFICATE-----', '')

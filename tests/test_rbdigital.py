@@ -241,6 +241,21 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         )
         self.api.queue_response(status_code=200, content=patron_datastr)
 
+    def queue_fetch_patron_bearer_token(self):
+        """Queue responses for the API calls used to obtain a patron
+        bearer token.
+
+        RBDigitalAPI.fetch_patron_bearer_token requires three API calls.
+        This method makes it easier and less error-prone to set up for that.
+        """
+        for filename in (
+            "response_patron_info_found.json",
+            "response_patron_internal_id_found.json",
+            "response_patron_bearer_token_success.json",
+        ):
+            datastr, datadict = self.api.get_data(filename)
+            self.api.queue_response(status_code=200, content=datastr)
+
     def _assert_patron_has_remote_identifier_credential(
             self, patron, external_id
     ):
@@ -496,7 +511,7 @@ class TestRBDigitalAPI(RBDigitalAPITest):
                 """This API has never heard of any patron."""
                 return None
 
-            def create_patron(self, *args):
+            def create_patron(self, *args, **kwargs):
                 self.called_with = args
                 return "rbdigital internal id"
 
@@ -537,7 +552,7 @@ class TestRBDigitalAPI(RBDigitalAPITest):
             def patron_remote_identifier_lookup(self, patron):
                 return "i know you"
 
-            def create_patron(self, *args):
+            def create_patron(self, *args, **kwargs):
                 raise Exception("No new patrons!")
 
         api = IKnowYouAPI(self._db, self.collection)
@@ -612,8 +627,9 @@ class TestRBDigitalAPI(RBDigitalAPITest):
                 self.patron_remote_identifier_lookup_called_with = identifier
                 return None
 
-            def create_patron(self, *args):
-                self.create_patron_called_with = args
+            def create_patron(self, *args, **kwargs):
+                self.create_patron_called_with_args = args
+                self.create_patron_called_with_kwargs = kwargs
                 return "an internal ID"
 
             def patron_email_address(self, patron):
@@ -627,7 +643,16 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         eq_("a barcode", api.patron_remote_identifier_lookup_called_with)
         eq_(patron, api.patron_email_address_called_with)
         eq_((patron.library, patron.authorization_identifier,
-             "mock email address"), api.create_patron_called_with)
+             "mock email address"), api.create_patron_called_with_args)
+
+        actual_create_keywords_keys = sorted(api.create_patron_called_with_kwargs.keys())
+        allowed_create_keywords_keys = ["bearer_token_handler"]
+        expected_create_keywords_keys = sorted(["bearer_token_handler"])
+        # allowing kwargs keys
+        for key in api.create_patron_called_with_kwargs.keys():
+            assert key in allowed_create_keywords_keys
+        # expected kwargs keys
+        eq_(actual_create_keywords_keys, expected_create_keywords_keys)
 
         # If a remote lookup fails, and create patron fails with a
         # RemotePatronCreationFailedException we will try to do a patron
@@ -643,7 +668,7 @@ class TestRBDigitalAPI(RBDigitalAPITest):
                 else:
                     return "an internal ID"
 
-            def create_patron(self, *args):
+            def create_patron(self, *args, **kwargs):
                 raise RemotePatronCreationFailedException
 
             def patron_email_address(self, patron):
@@ -670,7 +695,7 @@ class TestRBDigitalAPI(RBDigitalAPITest):
                 self.patron_remote_identifier_lookup_called_with.append(identifier)
                 return None
 
-            def create_patron(self, *args):
+            def create_patron(self, *args, **kwargs):
                 raise RemotePatronCreationFailedException
 
             def patron_email_address(self, patron):
@@ -719,6 +744,44 @@ class TestRBDigitalAPI(RBDigitalAPITest):
             RemotePatronCreationFailedException, 'create_patron: http=409, response={"message":"A patron account with the specified username, email address, or card number already exists for this library."}',
             api.create_patron, *args
         )
+
+    def test__find_or_create_create_patron_caches_bearer_token(self):
+        # Test that the method that creates an RBDigital account caches
+        # the patron bearer token, when it is returned in the response.
+
+        class MockAPI(MockRBDigitalAPI):
+            # Simulate no RBdigital account ...
+            def patron_remote_identifier_lookup(self, *args, **kwargs):
+                return None
+            # and an email is needed for the
+            def dummy_email_address(self, library, authorization_identifier):
+                return 'fake_email'
+
+        api = MockAPI(self._db, self.collection, base_path=self.base_path)
+        patron = self._patron("a barcode")
+        patron.authorization_identifier = "a barcode"
+
+        # Create the patron and ensure that the bearer token credential has
+        # been created.
+        datastr, datadict = api.get_data(
+            "response_patron_create_success.json"
+        )
+        api.queue_response(status_code=201, content=datastr)
+        expected_bearer_token = datadict['bearer']
+        expected_patron_rbd_id = datadict['patron']['patronId']
+
+        # Call the method
+        patron_rbdigital_id = api._find_or_create_remote_account(patron)
+        [credential] = patron.credentials
+
+        # Should return the RBdigital `patronId` property from the response.
+        eq_(expected_patron_rbd_id, patron_rbdigital_id)
+        # And we should have a credential with the bearer token.
+        eq_(expected_bearer_token, credential.credential)
+        eq_(api.CREDENTIAL_TYPES[api.BEARER_TOKEN_PROPERTY]['label'], credential.type)
+        eq_(DataSource.RB_DIGITAL, credential.data_source.name)
+        eq_(self.collection.id, credential.collection_id)
+        assert credential.expires is not None
 
     def test_patron_remote_identifier_exception(self):
         # Make sure if there is an exception while creating the patron we don't
@@ -1255,6 +1318,10 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         # download. (We know this, because the response to that
         # request has not been queued yet.)
 
+        # We'll need to obtain a patron bearer token for fulfillment
+        # requests, so we'll queue the requisite responses up first.
+        self.queue_fetch_patron_bearer_token()
+
         # Let's queue it up now.
         download_url  = u"http://download_url/"
         epub_manifest = json.dumps({ "url": download_url,
@@ -1356,36 +1423,98 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         eq_('http://readium.org/webpub/default.jsonld', output['@context'])
         eq_('http://bib.schema.org/Audiobook', output['metadata']['@type'])
 
-        # Each item in the manifest's readingOrder has an alternate
-        # link generated by calling make_part_url().
+        # Each item in the manifest's readingOrder has a download url
+        # generated by calling make_part_url().
         #
         # This represents a reliable (but slower) way of obtaining an
         # MP3 file directly from the manifest, without having to know
         # how to process an RBdigital access document.
+        #
+        # NB: The faster way is to obtain the access document directly
+        # from RBdigital, which is how we used to do it. But that now
+        # requires a patron bearer token. This href & type used to be
+        # provided as an alternate to that direct request.
         for i, part in enumerate(manifest.readingOrder):
-            [alternate] = part['alternates']
-            eq_(make_part_url(i), alternate['href'])
-            eq_("audio/mpeg", alternate['type'])
+            eq_(make_part_url(i), part['href'])
+            eq_("audio/mpeg", part['type'])
+
+        # This function will be used to validate the next few
+        # fulfillment requests.
+        def verify_fulfillment():
+            # We end up with a FulfillmentInfo that includes the link
+            # mentioned in audiobook_chapter_access_document.json.
+            chapter = self.api.fulfill(patron, None, pool, None, part=3,
+                                       fulfill_part_url=lambda part: "http://does.not/matter")
+            assert isinstance(chapter, FulfillmentInfo)
+            eq_("http://book/chapter1.mp3", chapter.content_link)
+            eq_("audio/mpeg", chapter.content_type)
+
+            # We should have a cached bearer token now. And it should be unexpired.
+            data_source = DataSource.lookup(self._db, DataSource.RB_DIGITAL)
+            credential, new = get_one_or_create(
+                self._db, Credential,
+                data_source=data_source,
+                type=self.api.CREDENTIAL_TYPES[self.api.BEARER_TOKEN_PROPERTY]['label'],
+                patron=patron,
+                collection=self.api.collection,
+            )
+            eq_(False, new)
+            assert credential.expires > datetime.datetime.utcnow()
+
+            # Ensure that we've consumed all of the queued responses so far
+            eq_(0, len(self.api.responses))
 
         # Now let's try fulfilling one of those parts.
         #
         # We're going to make two requests this time -- one to get the
         # patron's current loans and one to get the RBdigital access
         # document.
+        #
+        # Before the second request, we'll check the cache for a patron
+        # bearer token, which we need in order to authenticate access
+        # document fulfillment. But we don't have one, so we'll need to
+        # get one from the remote. We'll queue the responses for the
+        # bearer token before the response for the fulfillment request.
+        datastr, datadict = self.api.get_data("response_patron_checkouts_with_audiobook.json")
+        self.api.queue_response(status_code=200, content=datastr)
 
-        for filename in (
-            "response_patron_checkouts_with_audiobook.json",
-            "audiobook_chapter_access_document.json"
-        ):
-            datastr, datadict = self.api.get_data(filename)
-            self.api.queue_response(status_code=200, content=datastr)
+        self.queue_fetch_patron_bearer_token()
 
-        # We end up with a FulfillmentInfo that includes the link
-        # mentioned in audiobook_chapter_access_document.json.
-        chapter = self.api.fulfill(patron, None, pool, None, part=3)
-        assert isinstance(chapter, FulfillmentInfo)
-        eq_("http://book/chapter1.mp3", chapter.content_link)
-        eq_("audio/mpeg", chapter.content_type)
+        datastr, datadict = self.api.get_data("audiobook_chapter_access_document.json")
+        self.api.queue_response(status_code=200, content=datastr)
+
+        # And make sure everything went as expected.
+        verify_fulfillment()
+
+        # We have a cached bearer token now, so we should be able to make the
+        # same request without queueing the patron bearer token response.
+
+        datastr, datadict = self.api.get_data("response_patron_checkouts_with_audiobook.json")
+        self.api.queue_response(status_code=200, content=datastr)
+
+        datastr, datadict = self.api.get_data("audiobook_chapter_access_document.json")
+        self.api.queue_response(status_code=200, content=datastr)
+
+        verify_fulfillment()
+
+        # Now we simulate having an unexpired cached bearer token that the remote
+        # service has invalidated. When we attempt to fulfill the access document,
+        # we receive a 401 response, which leads to requesting a fresh bearer
+        # token.
+
+        datastr, datadict = self.api.get_data("response_patron_checkouts_with_audiobook.json")
+        self.api.queue_response(status_code=200, content=datastr)
+
+        datastr, datadict = self.api.get_data("response_fullfillment_401_invalid_bearer_token.json")
+        self.api.queue_response(status_code=401, content=datastr)
+
+        self.queue_fetch_patron_bearer_token()
+
+        datastr, datadict = self.api.get_data("audiobook_chapter_access_document.json")
+        self.api.queue_response(status_code=200, content=datastr)
+
+        verify_fulfillment()
+
 
     def test_patron_activity(self):
         # Get patron's current checkouts and holds.
@@ -1629,18 +1758,21 @@ class TestCirculationMonitor(RBDigitalAPITest):
 
 class TestRBFulfillmentInfo(RBDigitalAPITest):
 
-
     def test_fulfill_part(self):
         get_data = self.api.get_data
 
         ignore, [book] = get_data(
             "response_patron_checkouts_with_audiobook.json"
         )
-        manifest = AudiobookManifest(book)
 
-        class Mock(RBFulfillmentInfo):
-            def _raw_request(self, url):
-                self.raw_request_called_with = url
+        proxied_cm_part_url = "a-proxy-url"
+        manifest = AudiobookManifest(book, fulfill_part_url=lambda part: proxied_cm_part_url)
+
+        part_files = book['files']
+
+        class MockFulfillmentRequestTracker():
+            def fulfillment_request(self, url):
+                self.fulfillment_request_last_called_with = url
                 data, ignore = get_data(
                     "audiobook_chapter_access_document.json"
                 )
@@ -1648,13 +1780,18 @@ class TestRBFulfillmentInfo(RBDigitalAPITest):
 
         # We have an RBFulfillmentInfo object and the underlying
         # AudiobookManifest has already been created.
+        # When we're fulfilling a part, we need our manifest to
+        # the real -- not proxy -- fulfillment URLs.
         fulfill_part_url = object()
-        info = Mock(
-            fulfill_part_url, self.api, "data source",
-            "identifier type", "identifier", "key"
+        request_tracker = MockFulfillmentRequestTracker()
+        info = RBFulfillmentInfo(
+            fulfill_part_url, request_tracker.fulfillment_request,
+            self.api, "data source",
+            "identifier type", "identifier", "key",
+            proxy_fulfillment=False,
         )
 
-        # We don't be using fulfill_part_url, since it's only used
+        # We won't be using fulfill_part_url, since it's only used
         # when we're fulfilling the audiobook as a whole, but let's
         # check to make sure it was set correctly.
         eq_(fulfill_part_url, info.fulfill_part_url)
@@ -1692,8 +1829,13 @@ class TestRBFulfillmentInfo(RBDigitalAPITest):
         )
 
         # Finally, let's fulfill a part that does exist.
-        fulfillment = m(10)
+        part_index = 10
+        fulfillment = m(part_index)
         assert isinstance(fulfillment, FulfillmentInfo)
+        # Fulfillment should be requested with the real downloadUrl, not the proxy URL.
+        assert proxied_cm_part_url, request_tracker.fulfillment_request_last_called_with
+        eq_("https://download-piece/{}".format(part_index + 1),
+            request_tracker.fulfillment_request_last_called_with)
         eq_("http://book/chapter1.mp3", fulfillment.content_link)
         eq_("audio/mpeg", fulfillment.content_type)
 
@@ -1711,6 +1853,17 @@ class TestAudiobookManifest(RBDigitalAPITest):
         ignore, [book] = self.api.get_data(
             "response_patron_checkouts_with_audiobook.json"
         )
+
+        # If we don't pass in a `fulfill_part_url` function, then
+        # a CM-proxied access doc URL will not be generated. Now
+        # that clients cannot directly retrieve the access document
+        # from the primary downloadUrl, not providing a function to
+        # generate this alternative is treated as an error.
+        assert_raises_regexp(
+            TypeError, "__init__\(\) takes exactly .* arguments .*",
+            AudiobookManifest, book
+        )
+
         manifest = AudiobookManifest(book, fulfill_part_url)
 
         # We know about a lot of metadata.
@@ -1731,19 +1884,26 @@ class TestAudiobookManifest(RBDigitalAPITest):
 
         # Let's spot check one.
         first = manifest.readingOrder[0]
-        eq_("358456", first['rbdigital:id'])
         eq_("https://download-piece/1", first['href'])
-        eq_(manifest.INTERMEDIATE_LINK_MEDIA_TYPE, first['type'])
+        eq_("vnd.librarysimplified/rbdigital-access-document+json", first['type'])
+        eq_("358456", first['rbdigital:id'])
         eq_(417200, first['schema:contentSize'])
         eq_("Introduction", first['title'])
         eq_(69.0, first['duration'])
 
-        # fulfill_part_url was used to create an alternate link
-        # that goes directly (from the client's perspective) to
-        # an MP3 file.
-        [alternate] = first['alternates']
-        eq_("http://fulfill-part/0", alternate['href'])
-        eq_("audio/mpeg", alternate['type'])
+        # We can ask for a manifest in which the download `type` and
+        # `href` point to resources on this circulation manager, so
+        # that we perform the request for the real access documents.
+        # This is what we do when fulfilling a request for a manifest.
+        # The other properties should remain the same.
+        proxied_manifest_content = manifest.using_proxy_fulfillment()
+        first_proxied = json.loads(proxied_manifest_content)['readingOrder'][0]
+        eq_("http://fulfill-part/0", first_proxied['href'])
+        eq_("audio/mpeg", first_proxied['type'])
+        eq_("358456", first_proxied['rbdigital:id'])
+        eq_(417200, first_proxied['schema:contentSize'])
+        eq_("Introduction", first_proxied['title'])
+        eq_(69.0, first_proxied['duration'])
 
         # An alternate link and a cover link were imported.
         alternate, cover = manifest.links
@@ -1754,29 +1914,6 @@ class TestAudiobookManifest(RBDigitalAPITest):
         eq_("cover", cover['rel'])
         assert "image_512x512" in cover['href']
         eq_("image/png", cover['type'])
-
-        # If we don't pass in a fulfill_part_url function, then
-        # the parts do not have any 'alternate' representations.
-        manifest = AudiobookManifest(book)
-        first = manifest.readingOrder[0]
-        assert 'alternates' not in first
-
-    def test_empty_constructor(self):
-        """An empty RBdigital manifest becomes an empty AudioManifest
-        object.
-
-        The manifest will not be useful -- this is just to test that
-        the constructor can move forward in the absence of any
-        particular input.
-        """
-        manifest = AudiobookManifest({})
-
-        # We know it's an audiobook, and that's it.
-        eq_(
-            {'@context': 'http://readium.org/webpub/default.jsonld',
-             'metadata': {'@type': 'http://bib.schema.org/Audiobook'}},
-            manifest.as_dict
-        )
 
     def test_best_cover(self):
         m = AudiobookManifest.best_cover

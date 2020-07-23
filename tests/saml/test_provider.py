@@ -10,7 +10,7 @@ from api.authenticator import PatronData
 from api.saml.auth import SAMLAuthenticationManager, SAMLAuthenticationManagerFactory
 from api.saml.configuration import SAMLConfiguration, SAMLOneLoginConfiguration
 from api.saml.metadata import ServiceProviderMetadata, NameIDFormat, UIInfo, Service, IdentityProviderMetadata, \
-    LocalizableMetadataItem, Subject, AttributeStatement, SAMLAttributes, SubjectJSONEncoder
+    LocalizableMetadataItem, Subject, AttributeStatement, SAMLAttributes, SubjectJSONEncoder, Organization
 from api.saml.provider import SAMLWebSSOAuthenticationProvider, SAML_INVALID_SUBJECT
 from core.util.problem_detail import ProblemDetail
 from tests.saml import fixtures
@@ -19,86 +19,216 @@ from tests.saml.controller_test import ControllerTest
 SERVICE_PROVIDER = ServiceProviderMetadata(
     fixtures.SP_ENTITY_ID,
     UIInfo(),
+    Organization(),
     NameIDFormat.UNSPECIFIED.value,
     Service(fixtures.SP_ACS_URL, fixtures.SP_ACS_BINDING)
 )
 
-IDENTITY_PROVIDERS = [
-    IdentityProviderMetadata(
-        fixtures.IDP_1_ENTITY_ID,
-        UIInfo(),
-        NameIDFormat.UNSPECIFIED.value,
-        Service(fixtures.IDP_1_SSO_URL, fixtures.IDP_1_SSO_BINDING)
+IDENTITY_PROVIDER_WITH_DISPLAY_NAME = IdentityProviderMetadata(
+    fixtures.IDP_2_ENTITY_ID,
+    UIInfo(
+        display_names=[
+            LocalizableMetadataItem(fixtures.IDP_1_UI_INFO_EN_DISPLAY_NAME, 'en'),
+            LocalizableMetadataItem(fixtures.IDP_1_UI_INFO_ES_DISPLAY_NAME, 'es')
+        ],
+        descriptions=[
+            LocalizableMetadataItem(fixtures.IDP_1_UI_INFO_DESCRIPTION, 'en'),
+            LocalizableMetadataItem(fixtures.IDP_1_UI_INFO_DESCRIPTION, 'es')
+        ],
+        information_urls=[
+            LocalizableMetadataItem(fixtures.IDP_1_UI_INFO_INFORMATION_URL, 'en'),
+            LocalizableMetadataItem(fixtures.IDP_1_UI_INFO_INFORMATION_URL, 'es')
+        ],
+        privacy_statement_urls=[
+            LocalizableMetadataItem(fixtures.IDP_1_UI_INFO_PRIVACY_STATEMENT_URL, 'en'),
+            LocalizableMetadataItem(fixtures.IDP_1_UI_INFO_PRIVACY_STATEMENT_URL, 'es')
+        ],
+        logo_urls=[
+            LocalizableMetadataItem(fixtures.IDP_1_UI_INFO_LOGO_URL, 'en'),
+            LocalizableMetadataItem(fixtures.IDP_1_UI_INFO_LOGO_URL, 'es')
+        ]
     ),
-    IdentityProviderMetadata(
-        fixtures.IDP_2_ENTITY_ID,
-        UIInfo(
-            display_names=[
-                LocalizableMetadataItem('Test Shibboleth IdP', 'en'),
-                LocalizableMetadataItem('Test Shibboleth IdP', 'es')
-            ],
-            descriptions=[
-                LocalizableMetadataItem('Test Shibboleth IdP', 'en'),
-                LocalizableMetadataItem('Test Shibboleth IdP', 'es')
-            ]
-        ),
-        NameIDFormat.UNSPECIFIED.value,
-        Service(fixtures.IDP_2_SSO_URL, fixtures.IDP_2_SSO_BINDING)
-    )
-]
+    Organization(),
+    NameIDFormat.UNSPECIFIED.value,
+    Service(fixtures.IDP_2_SSO_URL, fixtures.IDP_2_SSO_BINDING)
+)
+
+IDENTITY_PROVIDER_WITH_ORGANIZATION_DISPLAY_NAME = IdentityProviderMetadata(
+    fixtures.IDP_2_ENTITY_ID,
+    UIInfo(),
+    Organization(
+        organization_display_names=[
+            LocalizableMetadataItem(fixtures.IDP_1_ORGANIZATION_EN_ORGANIZATION_DISPLAY_NAME, 'en'),
+            LocalizableMetadataItem(fixtures.IDP_1_ORGANIZATION_ES_ORGANIZATION_DISPLAY_NAME, 'es')
+        ]
+    ),
+    NameIDFormat.UNSPECIFIED.value,
+    Service(fixtures.IDP_2_SSO_URL, fixtures.IDP_2_SSO_BINDING)
+)
+
+IDENTITY_PROVIDER_WITHOUT_DISPLAY_NAMES = IdentityProviderMetadata(
+    fixtures.IDP_1_ENTITY_ID,
+    UIInfo(),
+    Organization(),
+    NameIDFormat.UNSPECIFIED.value,
+    Service(fixtures.IDP_1_SSO_URL, fixtures.IDP_1_SSO_BINDING)
+)
 
 
 class SAMLWebSSOAuthenticationProviderTest(ControllerTest):
-    def test_authentication_document(self):
+    @parameterized.expand([
+        (
+            'identity_provider_with_display_name',
+            [
+                IDENTITY_PROVIDER_WITH_DISPLAY_NAME
+            ],
+            {
+                'type': SAMLWebSSOAuthenticationProvider.FLOW_TYPE,
+                'description': SAMLWebSSOAuthenticationProvider.NAME,
+                'links': [
+                    {
+                        'rel': 'authenticate',
+                        'href': 'http://localhost/default/saml_authenticate?idp_entity_id=http%3A%2F%2Fidp2.hilbertteam.net%2Fidp%2Fshibboleth&provider=SAML+2.0+Web+SSO',
+                        'display_names': [
+                            {
+                                'value': fixtures.IDP_1_UI_INFO_EN_DISPLAY_NAME,
+                                'language': 'en'
+                            },
+                            {
+                                'value': fixtures.IDP_1_UI_INFO_ES_DISPLAY_NAME,
+                                'language': 'es'
+                            }
+                        ],
+                        'descriptions': [
+                            {
+                                'value': fixtures.IDP_1_UI_INFO_DESCRIPTION,
+                                'language': 'en'
+                            },
+                            {
+                                'value': fixtures.IDP_1_UI_INFO_DESCRIPTION,
+                                'language': 'es'
+                            }
+                        ],
+                        'information_urls': [
+                            {
+                                'value': fixtures.IDP_1_UI_INFO_INFORMATION_URL,
+                                'language': 'en'
+                            },
+                            {
+                                'value': fixtures.IDP_1_UI_INFO_INFORMATION_URL,
+                                'language': 'es'
+                            }
+                        ],
+                        'privacy_statement_urls': [
+                            {
+                                'value': fixtures.IDP_1_UI_INFO_PRIVACY_STATEMENT_URL,
+                                'language': 'en'
+                            },
+                            {
+                                'value': fixtures.IDP_1_UI_INFO_PRIVACY_STATEMENT_URL,
+                                'language': 'es'
+                            }
+                        ],
+                        'logo_urls': [
+                            {
+                                'value': fixtures.IDP_1_UI_INFO_LOGO_URL,
+                                'language': 'en'
+                            },
+                            {
+                                'value': fixtures.IDP_1_UI_INFO_LOGO_URL,
+                                'language': 'es'
+                            }
+                        ]
+                    }
+                ]
+            }
+        ),
+        (
+            'identity_provider_with_organization_display_name',
+            [
+                IDENTITY_PROVIDER_WITH_ORGANIZATION_DISPLAY_NAME
+            ],
+            {
+                'type': SAMLWebSSOAuthenticationProvider.FLOW_TYPE,
+                'description': SAMLWebSSOAuthenticationProvider.NAME,
+                'links': [
+                    {
+                        'rel': 'authenticate',
+                        'href': 'http://localhost/default/saml_authenticate?idp_entity_id=http%3A%2F%2Fidp2.hilbertteam.net%2Fidp%2Fshibboleth&provider=SAML+2.0+Web+SSO',
+                        'display_names': [
+                            {
+                                'value': fixtures.IDP_1_ORGANIZATION_EN_ORGANIZATION_DISPLAY_NAME,
+                                'language': 'en'
+                            },
+                            {
+                                'value': fixtures.IDP_1_ORGANIZATION_ES_ORGANIZATION_DISPLAY_NAME,
+                                'language': 'es'
+                            }
+                        ],
+                        'descriptions': [],
+                        'information_urls': [],
+                        'privacy_statement_urls': [],
+                        'logo_urls': []
+                    }
+                ]
+            }
+
+        ),
+        (
+            'identity_provider_without_display_names_and_default_template',
+            [
+                IDENTITY_PROVIDER_WITHOUT_DISPLAY_NAMES,
+                IDENTITY_PROVIDER_WITHOUT_DISPLAY_NAMES
+            ],
+            {
+                'type': SAMLWebSSOAuthenticationProvider.FLOW_TYPE,
+                'description': SAMLWebSSOAuthenticationProvider.NAME,
+                'links': [
+                    {
+                        'rel': 'authenticate',
+                        'href': 'http://localhost/default/saml_authenticate?idp_entity_id=http%3A%2F%2Fidp1.hilbertteam.net%2Fidp%2Fshibboleth&provider=SAML+2.0+Web+SSO',
+                        'display_names': [
+                            {
+                                'value': SAMLConfiguration.IDP_DISPLAY_NAME_DEFAULT_TEMPLATE.format(1),
+                                'language': 'en'
+                            }
+                        ],
+                        'descriptions': [],
+                        'information_urls': [],
+                        'privacy_statement_urls': [],
+                        'logo_urls': []
+                    },
+                    {
+                        'rel': 'authenticate',
+                        'href': 'http://localhost/default/saml_authenticate?idp_entity_id=http%3A%2F%2Fidp1.hilbertteam.net%2Fidp%2Fshibboleth&provider=SAML+2.0+Web+SSO',
+                        'display_names': [
+                            {
+                                'value': SAMLConfiguration.IDP_DISPLAY_NAME_DEFAULT_TEMPLATE.format(2),
+                                'language': 'en'
+                            }
+                        ],
+                        'descriptions': [],
+                        'information_urls': [],
+                        'privacy_statement_urls': [],
+                        'logo_urls': []
+                    }
+                ]
+            }
+
+        )
+    ])
+    def test_authentication_document(
+            self,
+            name,
+            identity_providers,
+            expected_result):
         # Arrange
-        expected_result = {
-            'type': SAMLWebSSOAuthenticationProvider.FLOW_TYPE,
-            'description': SAMLWebSSOAuthenticationProvider.NAME,
-            'links': [
-                {
-                    'rel': 'authenticate',
-                    'href': 'http://localhost/default/saml_authenticate?idp_entity_id=http%3A%2F%2Fidp1.hilbertteam.net%2Fidp%2Fshibboleth&provider=SAML+2.0+Web+SSO',
-                    'display_names': [],
-                    'descriptions': [],
-                    'information_urls': [],
-                    'privacy_statement_urls': [],
-                    'logo_urls': []
-                },
-                {
-                    'rel': 'authenticate',
-                    'href': 'http://localhost/default/saml_authenticate?idp_entity_id=http%3A%2F%2Fidp2.hilbertteam.net%2Fidp%2Fshibboleth&provider=SAML+2.0+Web+SSO',
-                    'display_names': [
-                        {
-                            'value': 'Test Shibboleth IdP',
-                            'language': 'en'
-                        },
-                        {
-                            'value': 'Test Shibboleth IdP',
-                            'language': 'es'
-                        }
-                    ],
-                    'descriptions': [
-                        {
-                            'value': 'Test Shibboleth IdP',
-                            'language': 'en'
-                        },
-                        {
-                            'value': 'Test Shibboleth IdP',
-                            'language': 'es'
-                        }
-                    ],
-                    'information_urls': [],
-                    'privacy_statement_urls': [],
-                    'logo_urls': []
-                }
-            ]
-        }
         provider = SAMLWebSSOAuthenticationProvider(self._default_library, self._integration)
         configuration = create_autospec(spec=SAMLConfiguration)
         configuration.get_debug = MagicMock(return_value=False)
         configuration.get_strict = MagicMock(return_value=False)
         configuration.get_service_provider = MagicMock(return_value=SERVICE_PROVIDER)
-        configuration.get_identity_providers = MagicMock(return_value=IDENTITY_PROVIDERS)
+        configuration.get_identity_providers = MagicMock(return_value=identity_providers)
         onelogin_configuration = SAMLOneLoginConfiguration(configuration)
         authentication_manager = SAMLAuthenticationManager(onelogin_configuration)
 
