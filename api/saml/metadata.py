@@ -729,6 +729,24 @@ class NameID(object):
         self._sp_name_qualifier = sp_name_qualifier
         self._name_id = name_id
 
+    def __eq__(self, other):
+        """Compares two NameID objects
+
+        :param other: NameID object
+        :type other: NameID
+
+        :return: Boolean value indicating whether two items are equal
+        :rtype: bool
+        """
+        if not isinstance(other, NameID):
+            return False
+
+        return \
+            self.name_format == other.name_format and \
+            self.name_qualifier == other.name_qualifier and \
+            self.sp_name_qualifier == other.sp_name_qualifier and \
+            self.name_id == other.name_id
+
     @property
     def name_format(self):
         """Returns name ID's format
@@ -778,6 +796,7 @@ class SAMLAttributes(Enum):
     givenName = 'urn:oid:2.5.4.42'
     surname = 'urn:oid:2.5.4.4'
     mail = 'urn:oid:0.9.2342.19200300.100.1.3'
+    displayName = 'urn:oid:2.16.840.1.113730.3.1.241'
 
     eduPersonUniqueId = 'urn:oid:1.3.6.1.4.1.5923.1.1.1.13'
     eduPersonTargetedID = 'urn:oid:1.3.6.1.4.1.5923.1.1.1.10'
@@ -872,31 +891,27 @@ class AttributeStatement(object):
         """Initializes a new instance of AttributeStatement class
 
         :param attributes: Attributes in a form of a list of a dictionary
-        :type attributes: Union[List[Attribute], Dict[string, List[Any]]]
+        :type attributes: List[Attribute]
         """
         self._attributes = {}
 
-        attribute_names = {attribute.value: attribute for attribute in SAMLAttributes}
+        for attribute in attributes:
+            self._attributes[attribute.name] = attribute
 
-        if isinstance(attributes, list):
-            for attribute in attributes:
-                if not isinstance(attribute, Attribute):
-                    raise ValueError('attribute must have type Attribute')
+    def __eq__(self, other):
+        """Compares two AttributeStatement objects
 
-                if attribute.name in attribute_names:
-                    predefined_name = attribute_names[attribute.name].name
-                    attribute = Attribute(predefined_name, attribute.values)
+        :param other: AttributeStatement object
+        :type other: AttributeStatement
 
-                self._attributes[attribute.name] = attribute
-        elif isinstance(attributes, dict):
-            for name, attribute_values in attributes.iteritems():
+        :return: Boolean value indicating whether two items are equal
+        :rtype: bool
+        """
+        if not isinstance(other, AttributeStatement):
+            return False
 
-                if name in attribute_names:
-                    name = attribute_names[name].name
-
-                attribute = Attribute(name=name, values=attribute_values)
-
-                self._attributes[attribute.name] = attribute
+        return \
+            self.attributes == other.attributes
 
     @property
     def attributes(self):
@@ -938,6 +953,23 @@ class Subject(object):
             self._valid_till = valid_till
         else:
             raise ValueError('valid_till is not valid')
+
+    def __eq__(self, other):
+        """Compares two Subject objects
+
+        :param other: Subject object
+        :type other: Subject
+
+        :return: Boolean value indicating whether two items are equal
+        :rtype: bool
+        """
+        if not isinstance(other, Subject):
+            return False
+
+        return \
+            self.name_id == other.name_id and \
+            self.attribute_statement == other.attribute_statement and \
+            self.valid_till == other.valid_till
 
     @property
     def name_id(self):

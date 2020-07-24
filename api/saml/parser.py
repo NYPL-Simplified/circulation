@@ -8,7 +8,7 @@ from onelogin.saml2.utils import OneLogin_Saml2_Utils
 
 from api.saml.exceptions import SAMLError
 from api.saml.metadata import IdentityProviderMetadata, LocalizableMetadataItem, UIInfo, ServiceProviderMetadata, \
-    Binding, Service, NameIDFormat, Organization
+    Binding, Service, NameIDFormat, Organization, NameID, AttributeStatement, Subject, SAMLAttributes, Attribute
 
 
 class SAMLMetadataParsingError(SAMLError):
@@ -467,3 +467,89 @@ class SAMLMetadataParser(object):
         self._logger.info('Finished parsing an XML string containing SAML metadata')
 
         return providers
+
+
+class SAMLSubjectParser(object):
+    """Parses SAML response into Subject object"""
+
+    def _parse_name_id(self, name_id_attributes):
+        """Parses NameID attributes
+
+        :param name_id_attributes: Dictionary containing NameID attributes
+        :type name_id_attributes: Dict
+
+        :return: NameID object
+        :rtype: NameID
+        """
+        name_id = NameID(
+            name_id_attributes['Format'],
+            name_id_attributes['NameQualifier'],
+            None,
+            name_id_attributes['value']
+        )
+
+        return name_id
+
+    def _parse_attribute_values(self, attribute_values):
+        """Parses attribute values
+
+        :param attribute_values: List containing SAML attribute values
+        :type attribute_values: List[Union[str, Dict]]
+
+        :return: List of parsed SAML attribute values
+        :rtype: List[str]
+        """
+        parsed_attribute_values = []
+
+        for attribute_value in attribute_values:
+            if isinstance(attribute_value, dict) and 'NameID' in attribute_value:
+                name_id = self._parse_name_id(attribute_value['NameID'])
+
+                parsed_attribute_values.append(name_id.name_id)
+            else:
+                parsed_attribute_values.append(attribute_value)
+
+        return parsed_attribute_values
+
+    def _parse_attribute_statement(self, attributes):
+        parsed_attributes = []
+        attribute_names = {attribute.value: attribute for attribute in SAMLAttributes}
+
+        for name, attribute_values in attributes.iteritems():
+            if name in attribute_names:
+                name = attribute_names[name].name
+
+            parsed_attribute_values = self._parse_attribute_values(attribute_values)
+            attribute = Attribute(name=name, values=parsed_attribute_values)
+
+            parsed_attributes.append(attribute)
+
+        attribute_statement = AttributeStatement(parsed_attributes)
+
+        return attribute_statement
+
+    def parse(self, auth):
+        """Parses OneLogin_Saml2_Auth object containing SAML response data into Subject
+
+        :param auth: OneLogin_Saml2_Auth object containing SAML response
+        :type auth: OneLogin_Saml2_Auth
+
+        :return: Subject object containing SAML attributes and NameID
+        :rtype: api.saml.metadata.Subject
+        """
+        name_id = NameID(
+            auth.get_nameid_format(),
+            auth.get_nameid_nq(),
+            auth.get_nameid_spnq(),
+            auth.get_nameid()
+        )
+        raw_attributes = auth.get_attributes()
+        attribute_statement = self._parse_attribute_statement(raw_attributes)
+        valid_till = auth.get_session_expiration()
+
+        if not valid_till:
+            valid_till = auth.get_last_assertion_not_on_or_after()
+
+        subject = Subject(name_id, attribute_statement, valid_till)
+
+        return subject

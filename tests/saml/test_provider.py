@@ -10,7 +10,8 @@ from api.authenticator import PatronData
 from api.saml.auth import SAMLAuthenticationManager, SAMLAuthenticationManagerFactory
 from api.saml.configuration import SAMLConfiguration, SAMLOneLoginConfiguration
 from api.saml.metadata import ServiceProviderMetadata, NameIDFormat, UIInfo, Service, IdentityProviderMetadata, \
-    LocalizableMetadataItem, Subject, AttributeStatement, SAMLAttributes, SubjectJSONEncoder, Organization
+    LocalizableMetadataItem, Subject, AttributeStatement, SAMLAttributes, SubjectJSONEncoder, Organization, Attribute
+from api.saml.parser import SAMLSubjectParser
 from api.saml.provider import SAMLWebSSOAuthenticationProvider, SAML_INVALID_SUBJECT
 from core.util.problem_detail import ProblemDetail
 from tests.saml import fixtures
@@ -230,7 +231,7 @@ class SAMLWebSSOAuthenticationProviderTest(ControllerTest):
         configuration.get_service_provider = MagicMock(return_value=SERVICE_PROVIDER)
         configuration.get_identity_providers = MagicMock(return_value=identity_providers)
         onelogin_configuration = SAMLOneLoginConfiguration(configuration)
-        authentication_manager = SAMLAuthenticationManager(onelogin_configuration)
+        authentication_manager = SAMLAuthenticationManager(onelogin_configuration, SAMLSubjectParser())
 
         authentication_manager_factory = create_autospec(spec=SAMLAuthenticationManagerFactory)
         authentication_manager_factory.create = MagicMock(return_value=authentication_manager)
@@ -266,7 +267,9 @@ class SAMLWebSSOAuthenticationProviderTest(ControllerTest):
             'subject_has_unique_id',
             Subject(
                 None,
-                AttributeStatement({SAMLAttributes.eduPersonUniqueId.name: ['12345']})
+                AttributeStatement([
+                    Attribute(name=SAMLAttributes.eduPersonUniqueId.name, values=['12345'])
+                ])
             ),
             PatronData(
                 permanent_id='12345',
@@ -304,9 +307,9 @@ class SAMLWebSSOAuthenticationProviderTest(ControllerTest):
             'subject_has_unique_id',
             Subject(
                 None,
-                AttributeStatement({
-                    SAMLAttributes.eduPersonUniqueId.name: ['12345']
-                })
+                AttributeStatement([
+                    Attribute(name=SAMLAttributes.eduPersonUniqueId.name, values=['12345'])
+                ])
             ),
             PatronData(
                 permanent_id='12345',
@@ -319,9 +322,9 @@ class SAMLWebSSOAuthenticationProviderTest(ControllerTest):
             'subject_has_unique_id_and_non_default_expiration_timeout',
             Subject(
                 None,
-                AttributeStatement({
-                    SAMLAttributes.eduPersonUniqueId.name: ['12345']
-                }),
+                AttributeStatement([
+                    Attribute(name=SAMLAttributes.eduPersonUniqueId.name, values=['12345'])
+                ]),
                 valid_till=datetime.timedelta(days=1)
             ),
             PatronData(
