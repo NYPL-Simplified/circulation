@@ -43,7 +43,7 @@
 
 <span class="kn">from</span> <span class="nn">api.saml.exceptions</span> <span class="kn">import</span> <span class="n">SAMLError</span>
 <span class="kn">from</span> <span class="nn">api.saml.metadata</span> <span class="kn">import</span> <span class="n">IdentityProviderMetadata</span><span class="p">,</span> <span class="n">LocalizableMetadataItem</span><span class="p">,</span> <span class="n">UIInfo</span><span class="p">,</span> <span class="n">ServiceProviderMetadata</span><span class="p">,</span> \
-    <span class="n">Binding</span><span class="p">,</span> <span class="n">Service</span><span class="p">,</span> <span class="n">NameIDFormat</span><span class="p">,</span> <span class="n">Organization</span>
+    <span class="n">Binding</span><span class="p">,</span> <span class="n">Service</span><span class="p">,</span> <span class="n">NameIDFormat</span><span class="p">,</span> <span class="n">Organization</span><span class="p">,</span> <span class="n">NameID</span><span class="p">,</span> <span class="n">AttributeStatement</span><span class="p">,</span> <span class="n">Subject</span><span class="p">,</span> <span class="n">SAMLAttributes</span><span class="p">,</span> <span class="n">Attribute</span>
 
 
 <div class="viewcode-block" id="SAMLMetadataParsingError"><a class="viewcode-back" href="../../../api.saml.html#api.saml.parser.SAMLMetadataParsingError">[docs]</a><span class="k">class</span> <span class="nc">SAMLMetadataParsingError</span><span class="p">(</span><span class="n">SAMLError</span><span class="p">):</span>
@@ -502,6 +502,92 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Finished parsing an XML string containing SAML metadata&#39;</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">providers</span></div></div>
+
+
+<div class="viewcode-block" id="SAMLSubjectParser"><a class="viewcode-back" href="../../../api.saml.html#api.saml.parser.SAMLSubjectParser">[docs]</a><span class="k">class</span> <span class="nc">SAMLSubjectParser</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Parses SAML response into Subject object&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">_parse_name_id</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name_id_attributes</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Parses NameID attributes</span>
+
+<span class="sd">        :param name_id_attributes: Dictionary containing NameID attributes</span>
+<span class="sd">        :type name_id_attributes: Dict</span>
+
+<span class="sd">        :return: NameID object</span>
+<span class="sd">        :rtype: NameID</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">name_id</span> <span class="o">=</span> <span class="n">NameID</span><span class="p">(</span>
+            <span class="n">name_id_attributes</span><span class="p">[</span><span class="s1">&#39;Format&#39;</span><span class="p">],</span>
+            <span class="n">name_id_attributes</span><span class="p">[</span><span class="s1">&#39;NameQualifier&#39;</span><span class="p">],</span>
+            <span class="kc">None</span><span class="p">,</span>
+            <span class="n">name_id_attributes</span><span class="p">[</span><span class="s1">&#39;value&#39;</span><span class="p">]</span>
+        <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">name_id</span>
+
+    <span class="k">def</span> <span class="nf">_parse_attribute_values</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">attribute_values</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Parses attribute values</span>
+
+<span class="sd">        :param attribute_values: List containing SAML attribute values</span>
+<span class="sd">        :type attribute_values: List[Union[str, Dict]]</span>
+
+<span class="sd">        :return: List of parsed SAML attribute values</span>
+<span class="sd">        :rtype: List[str]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">parsed_attribute_values</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">for</span> <span class="n">attribute_value</span> <span class="ow">in</span> <span class="n">attribute_values</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">attribute_value</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="ow">and</span> <span class="s1">&#39;NameID&#39;</span> <span class="ow">in</span> <span class="n">attribute_value</span><span class="p">:</span>
+                <span class="n">name_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_name_id</span><span class="p">(</span><span class="n">attribute_value</span><span class="p">[</span><span class="s1">&#39;NameID&#39;</span><span class="p">])</span>
+
+                <span class="n">parsed_attribute_values</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">name_id</span><span class="o">.</span><span class="n">name_id</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">parsed_attribute_values</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">attribute_value</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">parsed_attribute_values</span>
+
+    <span class="k">def</span> <span class="nf">_parse_attribute_statement</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">attributes</span><span class="p">):</span>
+        <span class="n">parsed_attributes</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">attribute_names</span> <span class="o">=</span> <span class="p">{</span><span class="n">attribute</span><span class="o">.</span><span class="n">value</span><span class="p">:</span> <span class="n">attribute</span> <span class="k">for</span> <span class="n">attribute</span> <span class="ow">in</span> <span class="n">SAMLAttributes</span><span class="p">}</span>
+
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">attribute_values</span> <span class="ow">in</span> <span class="n">attributes</span><span class="o">.</span><span class="n">iteritems</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">attribute_names</span><span class="p">:</span>
+                <span class="n">name</span> <span class="o">=</span> <span class="n">attribute_names</span><span class="p">[</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">name</span>
+
+            <span class="n">parsed_attribute_values</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_attribute_values</span><span class="p">(</span><span class="n">attribute_values</span><span class="p">)</span>
+            <span class="n">attribute</span> <span class="o">=</span> <span class="n">Attribute</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span> <span class="n">values</span><span class="o">=</span><span class="n">parsed_attribute_values</span><span class="p">)</span>
+
+            <span class="n">parsed_attributes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">attribute</span><span class="p">)</span>
+
+        <span class="n">attribute_statement</span> <span class="o">=</span> <span class="n">AttributeStatement</span><span class="p">(</span><span class="n">parsed_attributes</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">attribute_statement</span>
+
+<div class="viewcode-block" id="SAMLSubjectParser.parse"><a class="viewcode-back" href="../../../api.saml.html#api.saml.parser.SAMLSubjectParser.parse">[docs]</a>    <span class="k">def</span> <span class="nf">parse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">auth</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Parses OneLogin_Saml2_Auth object containing SAML response data into Subject</span>
+
+<span class="sd">        :param auth: OneLogin_Saml2_Auth object containing SAML response</span>
+<span class="sd">        :type auth: OneLogin_Saml2_Auth</span>
+
+<span class="sd">        :return: Subject object containing SAML attributes and NameID</span>
+<span class="sd">        :rtype: api.saml.metadata.Subject</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">name_id</span> <span class="o">=</span> <span class="n">NameID</span><span class="p">(</span>
+            <span class="n">auth</span><span class="o">.</span><span class="n">get_nameid_format</span><span class="p">(),</span>
+            <span class="n">auth</span><span class="o">.</span><span class="n">get_nameid_nq</span><span class="p">(),</span>
+            <span class="n">auth</span><span class="o">.</span><span class="n">get_nameid_spnq</span><span class="p">(),</span>
+            <span class="n">auth</span><span class="o">.</span><span class="n">get_nameid</span><span class="p">()</span>
+        <span class="p">)</span>
+        <span class="n">raw_attributes</span> <span class="o">=</span> <span class="n">auth</span><span class="o">.</span><span class="n">get_attributes</span><span class="p">()</span>
+        <span class="n">attribute_statement</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_attribute_statement</span><span class="p">(</span><span class="n">raw_attributes</span><span class="p">)</span>
+        <span class="n">valid_till</span> <span class="o">=</span> <span class="n">auth</span><span class="o">.</span><span class="n">get_session_expiration</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">valid_till</span><span class="p">:</span>
+            <span class="n">valid_till</span> <span class="o">=</span> <span class="n">auth</span><span class="o">.</span><span class="n">get_last_assertion_not_on_or_after</span><span class="p">()</span>
+
+        <span class="n">subject</span> <span class="o">=</span> <span class="n">Subject</span><span class="p">(</span><span class="n">name_id</span><span class="p">,</span> <span class="n">attribute_statement</span><span class="p">,</span> <span class="n">valid_till</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">subject</span></div></div>
 </pre></div>
 
           </div>

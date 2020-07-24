@@ -43,10 +43,8 @@
 
 <span class="kn">from</span> <span class="nn">api.saml.configuration</span> <span class="kn">import</span> <span class="n">SAMLConfigurationStorage</span><span class="p">,</span> <span class="n">SAMLConfiguration</span><span class="p">,</span> \
     <span class="n">SAMLOneLoginConfiguration</span>
-<span class="kn">from</span> <span class="nn">api.saml.metadata</span> <span class="kn">import</span> <span class="n">NameID</span><span class="p">,</span> <span class="n">AttributeStatement</span><span class="p">,</span> <span class="n">Subject</span>
-<span class="kn">from</span> <span class="nn">api.saml.parser</span> <span class="kn">import</span> <span class="n">SAMLMetadataParser</span>
+<span class="kn">from</span> <span class="nn">api.saml.parser</span> <span class="kn">import</span> <span class="n">SAMLMetadataParser</span><span class="p">,</span> <span class="n">SAMLSubjectParser</span>
 <span class="kn">from</span> <span class="nn">core.problem_details</span> <span class="kn">import</span> <span class="o">*</span>
-
 
 <span class="n">SAML_GENERIC_ERROR</span> <span class="o">=</span> <span class="n">pd</span><span class="p">(</span>
     <span class="s1">&#39;http://librarysimplified.org/terms/problem/saml/generic-error&#39;</span><span class="p">,</span>
@@ -74,15 +72,19 @@
 <div class="viewcode-block" id="SAMLAuthenticationManager"><a class="viewcode-back" href="../../../api.saml.html#api.saml.auth.SAMLAuthenticationManager">[docs]</a><span class="k">class</span> <span class="nc">SAMLAuthenticationManager</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Implements SAML authentication process&quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">configuration</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">configuration</span><span class="p">,</span> <span class="n">subject_parser</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Initializes a new instance of SAMLAuthenticationManager</span>
 
 <span class="sd">        :param configuration: OneLoginConfiguration object</span>
 <span class="sd">        :type configuration: SAMLOneLoginConfiguration</span>
+
+<span class="sd">        :param subject_parser: Subject parser</span>
+<span class="sd">        :type subject_parser: SAMLSubjectParser</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_configuration</span> <span class="o">=</span> <span class="n">configuration</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_subject_parser</span> <span class="o">=</span> <span class="n">subject_parser</span>
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">_get_request_data</span><span class="p">():</span>
@@ -202,20 +204,7 @@
         <span class="n">authenticated</span> <span class="o">=</span> <span class="n">auth</span><span class="o">.</span><span class="n">is_authenticated</span><span class="p">()</span>
 
         <span class="k">if</span> <span class="n">authenticated</span><span class="p">:</span>
-            <span class="n">name_id</span> <span class="o">=</span> <span class="n">NameID</span><span class="p">(</span>
-                <span class="n">auth</span><span class="o">.</span><span class="n">get_nameid_format</span><span class="p">(),</span>
-                <span class="n">auth</span><span class="o">.</span><span class="n">get_nameid_nq</span><span class="p">(),</span>
-                <span class="n">auth</span><span class="o">.</span><span class="n">get_nameid_spnq</span><span class="p">(),</span>
-                <span class="n">auth</span><span class="o">.</span><span class="n">get_nameid</span><span class="p">()</span>
-            <span class="p">)</span>
-            <span class="n">attributes</span> <span class="o">=</span> <span class="n">auth</span><span class="o">.</span><span class="n">get_attributes</span><span class="p">()</span>
-            <span class="n">attribute_statement</span> <span class="o">=</span> <span class="n">AttributeStatement</span><span class="p">(</span><span class="n">attributes</span><span class="p">)</span>
-            <span class="n">valid_till</span> <span class="o">=</span> <span class="n">auth</span><span class="o">.</span><span class="n">get_session_expiration</span><span class="p">()</span>
-
-            <span class="k">if</span> <span class="ow">not</span> <span class="n">valid_till</span><span class="p">:</span>
-                <span class="n">valid_till</span> <span class="o">=</span> <span class="n">auth</span><span class="o">.</span><span class="n">get_last_assertion_not_on_or_after</span><span class="p">()</span>
-
-            <span class="n">subject</span> <span class="o">=</span> <span class="n">Subject</span><span class="p">(</span><span class="n">name_id</span><span class="p">,</span> <span class="n">attribute_statement</span><span class="p">,</span> <span class="n">valid_till</span><span class="p">)</span>
+            <span class="n">subject</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_subject_parser</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">auth</span><span class="p">)</span>
 
             <span class="k">return</span> <span class="n">subject</span>
         <span class="k">else</span><span class="p">:</span>
@@ -240,7 +229,8 @@
         <span class="n">configuration_storage</span> <span class="o">=</span> <span class="n">SAMLConfigurationStorage</span><span class="p">(</span><span class="n">integration_owner</span><span class="p">)</span>
         <span class="n">configuration</span> <span class="o">=</span> <span class="n">SAMLConfiguration</span><span class="p">(</span><span class="n">configuration_storage</span><span class="p">,</span> <span class="n">SAMLMetadataParser</span><span class="p">())</span>
         <span class="n">onelogin_configuration</span> <span class="o">=</span> <span class="n">SAMLOneLoginConfiguration</span><span class="p">(</span><span class="n">configuration</span><span class="p">)</span>
-        <span class="n">authentication_manager</span> <span class="o">=</span> <span class="n">SAMLAuthenticationManager</span><span class="p">(</span><span class="n">onelogin_configuration</span><span class="p">)</span>
+        <span class="n">subject_parser</span> <span class="o">=</span> <span class="n">SAMLSubjectParser</span><span class="p">()</span>
+        <span class="n">authentication_manager</span> <span class="o">=</span> <span class="n">SAMLAuthenticationManager</span><span class="p">(</span><span class="n">onelogin_configuration</span><span class="p">,</span> <span class="n">subject_parser</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">authentication_manager</span></div></div>
 </pre></div>

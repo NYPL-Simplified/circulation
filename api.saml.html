@@ -43,7 +43,7 @@
 <span id="api-saml-auth-module"></span><h2>api.saml.auth module<a class="headerlink" href="#module-api.saml.auth" title="Permalink to this headline">¶</a></h2>
 <dl class="class">
 <dt id="api.saml.auth.SAMLAuthenticationManager">
-<em class="property">class </em><code class="descclassname">api.saml.auth.</code><code class="descname">SAMLAuthenticationManager</code><span class="sig-paren">(</span><em>configuration</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/auth.html#SAMLAuthenticationManager"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.auth.SAMLAuthenticationManager" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="descclassname">api.saml.auth.</code><code class="descname">SAMLAuthenticationManager</code><span class="sig-paren">(</span><em>configuration</em>, <em>subject_parser</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/auth.html#SAMLAuthenticationManager"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.auth.SAMLAuthenticationManager" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>Implements SAML authentication process</p>
 <dl class="attribute">
@@ -1191,6 +1191,11 @@ specify a location to which to direct a user for additional information</td>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">enum.Enum</span></code></p>
 <p>Enumeration of different attributes supported by different SAML IdPs</p>
 <dl class="attribute">
+<dt id="api.saml.metadata.SAMLAttributes.displayName">
+<code class="descname">displayName</code><em class="property"> = 'urn:oid:2.16.840.1.113730.3.1.241'</em><a class="headerlink" href="#api.saml.metadata.SAMLAttributes.displayName" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
 <dt id="api.saml.metadata.SAMLAttributes.eduPersonAffiliation">
 <code class="descname">eduPersonAffiliation</code><em class="property"> = 'urn:oid:1.3.6.1.4.1.5923.1.1.1.1'</em><a class="headerlink" href="#api.saml.metadata.SAMLAttributes.eduPersonAffiliation" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -1640,6 +1645,31 @@ IdentityProviderMetadata/ServiceProviderMetadata objects</p>
 <em class="property">exception </em><code class="descclassname">api.saml.parser.</code><code class="descname">SAMLMetadataParsingError</code><span class="sig-paren">(</span><em>message=None</em>, <em>inner_exception=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/parser.html#SAMLMetadataParsingError"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.parser.SAMLMetadataParsingError" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="#api.saml.exceptions.SAMLError" title="api.saml.exceptions.SAMLError"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.saml.exceptions.SAMLError</span></code></a></p>
 <p>Raised in the case of any errors occurred during parsing of SAML metadata</p>
+</dd></dl>
+
+<dl class="class">
+<dt id="api.saml.parser.SAMLSubjectParser">
+<em class="property">class </em><code class="descclassname">api.saml.parser.</code><code class="descname">SAMLSubjectParser</code><a class="reference internal" href="_modules/api/saml/parser.html#SAMLSubjectParser"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.parser.SAMLSubjectParser" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Parses SAML response into Subject object</p>
+<dl class="method">
+<dt id="api.saml.parser.SAMLSubjectParser.parse">
+<code class="descname">parse</code><span class="sig-paren">(</span><em>auth</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/parser.html#SAMLSubjectParser.parse"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.parser.SAMLSubjectParser.parse" title="Permalink to this definition">¶</a></dt>
+<dd><p>Parses OneLogin_Saml2_Auth object containing SAML response data into Subject</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>auth</strong> (<em>OneLogin_Saml2_Auth</em>) – OneLogin_Saml2_Auth object containing SAML response</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">Subject object containing SAML attributes and NameID</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference internal" href="#api.saml.metadata.Subject" title="api.saml.metadata.Subject">api.saml.metadata.Subject</a></td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
 </dd></dl>
 
 </div>
