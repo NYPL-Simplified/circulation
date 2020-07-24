@@ -496,8 +496,8 @@ class SAMLSubjectParser(object):
         :param attribute_values: List containing SAML attribute values
         :type attribute_values: List[Union[str, Dict]]
 
-        :return: 2-tupple containing a NameID and a list of SAML attribute values
-        :rtype: Tuple[Optional[NameID], List[str]]
+        :return: List of parsed SAML attribute values
+        :rtype: List[str]
         """
         parsed_attribute_values = []
 
