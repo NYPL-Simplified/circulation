@@ -2,6 +2,7 @@ import base64
 from collections import defaultdict
 import datetime
 from dateutil.relativedelta import relativedelta
+from flask import Response
 from flask_babel import lazy_gettext as _
 import json
 import logging
@@ -12,6 +13,7 @@ import re
 import requests
 from sqlalchemy.orm.session import Session
 import string
+import urlparse
 import uuid
 
 from circulation import (
@@ -159,9 +161,17 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
             label="Patron Bearer Token",
             # RBdigital advertises a 24 hour lifetime, but we'll
             # cache it for only 23.5 hours, just in case.
-            lifetime=((24*60) - 30) * 60),
+            lifetime=((24 * 60) - 30) * 60
+        ),
     }
-
+    # Because we don't allow proxied requests to refresh the bearer
+    # token, we need to ensure that there is enough time to complete
+    # those requests before the token expires. If there's not then
+    # we'll refresh it before returning the proxied URLs. This
+    # property specifies (in seconds) the length of time we allocate
+    # to complete those requests. It must be shorter than the Patron
+    # Bearer Token lifetime and is currently set to 30 minutes.
+    PROXY_BEARER_GRACE_PERIOD = 30 * 60
 
     log = logging.getLogger("RBDigital Patron API")
 
@@ -498,22 +508,20 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
 
         :return a FulfillmentInfo object.
         """
-        def make_fulfillment_request(url):
-            return self.patron_fulfillment_request(patron, url)
 
         patron_rbdigital_id = self.patron_remote_identifier(patron)
         (item_rbdigital_id, item_media) = self.validate_item(licensepool)
 
         # If we are going to return a manifest to the client, then its
         # links should proxy through this CM. If we're going to fulfill
-        # an access document for a part, we'll need the need the true
-        # RBdigital access document URL, so that we can fetch and return
-        # the real fulfillment link to the client.
-        manifest_uses_proxy_links = (part is None)
+        # an access document for a part, we'll need the true RBdigital
+        # access document URL, so that we can fetch and return the real
+        # fulfillment link to the client.
+        fulfillment_proxy = RBDigitalFulfillmentProxy(patron, api=self, for_part=part)
         checkouts_list = self.get_patron_checkouts(patron_id=patron_rbdigital_id,
                                                    fulfill_part_url=fulfill_part_url,
-                                                   request_fulfillment=make_fulfillment_request,
-                                                   proxy_fulfillment=manifest_uses_proxy_links)
+                                                   request_fulfillment=fulfillment_proxy.make_request,
+                                                   fulfillment_proxy=fulfillment_proxy)
 
         # find this licensepool in patron's checkouts
         found_checkout = None
@@ -728,7 +736,6 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         return delivery_mechanism
 
 ### Patron account handling
-    # RBdigital identifier property to cache
 
     def patron_credential(self, kind, patron, value=None):
         """Provide the credential of the given type for the given Patron,
@@ -745,7 +752,28 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         :param kind: The type of credential.
         :param value: An optional value for the credential, which, if
             provided, will replace replace the value in the cache.
-        :return: The credential of type `type` for the patron.
+        :return: The credential value for type `type` for the patron.
+        """
+        credential = self._patron_credential(kind, patron, value=value)
+        value = credential.credential if credential else None
+        return value
+
+    def _patron_credential(self, kind, patron, value=None):
+        """Provide the credential of the given type for the given Patron,
+        either from the cache or by retrieving it from the remote service.
+
+        The behavior is as follows:
+            - If a value is specified, we'll cache it.
+            - If no value is specified and no cached credential is present
+              and unexpired, then we'll retrieve a value from the remote
+              service and cache it.
+            - The cached value will be returned.
+
+        :param patron: A Patron.
+        :param kind: The type of credential.
+        :param value: An optional value for the credential, which, if
+            provided, will replace replace the value in the cache.
+        :return: The `Credential` of type `type` for the patron.
         """
 
         credential_type = self.CREDENTIAL_TYPES[kind].get('label', None)
@@ -798,7 +826,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
             refresh_credential, force_refresh=force_refresh,
             collection=collection, allow_persistent_token=is_persistent
         )
-        return credential.credential
+        return credential
 
     def fetch_patron_bearer_token(self, patron):
         """Obtain a patron bearer token for an RBdigital Patron.
@@ -1134,7 +1162,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         return internal_patron_id
 
     def get_patron_checkouts(self, patron_id, fulfill_part_url=None,
-                             request_fulfillment=None, proxy_fulfillment=False):
+                             request_fulfillment=None, fulfillment_proxy=None):
         """
         Gets the books and audio the patron currently has checked out.
         Obtains fulfillment info for each item -- the way to fulfill a book
@@ -1172,7 +1200,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
             loan_info = self._make_loan_info(
                 item, fulfill_part_url=fulfill_part_url,
                 request_fulfillment=request_fulfillment,
-                proxy_fulfillment=proxy_fulfillment,
+                fulfillment_proxy=fulfillment_proxy,
             )
             if loan_info:
                 loans.append(loan_info)
@@ -1181,7 +1209,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
 
 
     def _make_loan_info(self, item, fulfill_part_url=None,
-                        request_fulfillment=None, proxy_fulfillment=False):
+                        request_fulfillment=None, fulfillment_proxy=False):
         """Convert one of the items returned by a request to /checkouts into a
         LoanInfo with an RBFulfillmentInfo.
 
@@ -1217,7 +1245,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
             identifier.type,
             identifier.identifier,
             item,
-            proxy_fulfillment=proxy_fulfillment,
+            fulfillment_proxy=fulfillment_proxy,
         )
 
         return LoanInfo(
@@ -1852,8 +1880,8 @@ class RBFulfillmentInfo(APIAwareFulfillmentInfo):
     """
 
     def __init__(self, fulfill_part_url, request_fulfillment, *args, **kwargs):
-        # We should use CM proxy URLs in this manifest, if True.
-        self.proxy_fulfillment = kwargs.pop('proxy_fulfillment', False)
+        # Grab properties used to support proxy fulfillment.
+        self.fulfillment_proxy = kwargs.pop('fulfillment_proxy', None)
 
         super(RBFulfillmentInfo, self).__init__(*args, **kwargs)
         self.fulfill_part_url = fulfill_part_url
@@ -1926,8 +1954,12 @@ class RBFulfillmentInfo(APIAwareFulfillmentInfo):
             self.manifest = AudiobookManifest(
                 self.key, self.fulfill_part_url
             )
-            if self.proxy_fulfillment:
-                self._content = self.manifest.using_proxy_fulfillment()
+            # An upstream caller knows whether we need a proxied manifest
+            # and, if so, how to structure its URLs, so we'll defer to
+            # them when instructed.
+            fulfillment_proxy = self.fulfillment_proxy
+            if self.fulfillment_proxy and fulfillment_proxy.use_proxy_links:
+                self._content = fulfillment_proxy.proxied_manifest(self.manifest)
             else:
                 self._content = unicode(self.manifest)
         else:
@@ -2616,7 +2648,6 @@ class AudiobookManifest(CoreAudiobookManifest):
         extra = {}
         extra['proxy_link'] = dict(
             href=proxy_url,
-            type=Representation.guess_media_type(filename)
         )
 
         for k, v, transform in (
@@ -2628,16 +2659,109 @@ class AudiobookManifest(CoreAudiobookManifest):
                 extra[v] = transform(file_data[k])
         self.add_reading_order(href, type, title, **extra)
 
-    def using_proxy_fulfillment(self):
+
+class RBDProxyException(Exception):
+    pass
+
+
+class RBDigitalFulfillmentProxy(object):
+
+    def __init__(self, patron, api, for_part=None):
+        self.api = api
+        self.patron = patron
+        self.part = for_part
+
+    @property
+    def use_proxy_links(self):
+        # If no `part` was specified, then we're returning a full manifest
+        # and should rewrite the links to use the proxy service.
+        return self.part is None
+
+    @classmethod
+    def proxy(cls, _db, bearer, url):
+        # This method supports retrieval of resources that (a) require
+        # a patron bearer token for fulfillment and (b) cannot be
+        # fulfilled in a request authenticated by the usual patron
+        # credentials.
+        #
+        # The overall flow is as follows, given a URL and a bearer token:
+        # - Look up the `Credential` for the bearer token. If it does not
+        #   exist or is expired, then return 403 Forbidden.
+        # - We use the credential's `Collection` to create an instance of
+        #   `RBDigitalAPI`, which we use to fulfill the request.
+
+        if not url:
+            raise RBDProxyException(dict(status=400, message="No proxy URL was supplied."))
+
+        # If we the bearer token is cached and unexpired, then we'll allow it.
+        credential_type = RBDigitalAPI.CREDENTIAL_TYPES[RBDigitalAPI.BEARER_TOKEN_PROPERTY]['label']
+        data_source = DataSource.lookup(_db, DataSource.RB_DIGITAL)
+        credential = Credential.lookup_by_token(_db, data_source, credential_type, bearer)
+        if not credential:
+            raise RBDProxyException(dict(status=403, message="Token not found or expired."))
+
+        api = RBDigitalAPI(_db, credential.collection)
+        # We don't want someone who sniffed this bearer token to be able
+        # to generate another one, which could cause DOS to patron.
+        response = api.patron_fulfillment_request(credential.patron, url, reauthorize=False)
+        return Response(
+            response=response.content,
+            status=response.status_code,
+            headers=response.headers.items()
+        )
+
+    def make_request(self, url):
+        return self.api.patron_fulfillment_request(self.patron, url)
+
+    @staticmethod
+    def _make_proxy_url(url, token):
+        # Transform a fulfillment URL to its proxy form
+        url_components = urlparse.urlsplit(url)
+        new_path = '{}/rbdproxy/{}'.format(url_components.path, token)
+        url = urlparse.urlunparse((
+            url_components.scheme,
+            url_components.netloc,
+            new_path,
+            '',
+            url_components.query,
+            url_components.fragment,
+        ))
+        return url
+
+    @classmethod
+    def _rewrite_manifest(cls, manifest, token):
         # Replace each part's base properties with those
         # from its own `proxy_link` dictionary.
-        
+
+        req = requests.models.PreparedRequest()
+
         def use_proxy(part):
             if 'proxy_link' in part:
-                part.update(part['proxy_link'])
-                del part['proxy_link']
+                proxy_link = part.pop('proxy_link')
+                if 'href' in proxy_link:
+                    proxy_url = cls._make_proxy_url(proxy_link['href'], token)
+                    params = {'url': part['href']}
+                    req.prepare_url(proxy_url, params)
+                    proxy_link['href'] = req.url
+                part.update(proxy_link)
             return part
 
-        data = self.as_dict
+        data = manifest.as_dict
         data['readingOrder'] = [use_proxy(part) for part in data['readingOrder']]
         return json.dumps(data)
+
+    def proxied_manifest(self, manifest):
+        # Ensure that we have a token with enough time to allow
+        # upcoming proxy requests to be completed.
+        proxy_expires = (datetime.datetime.utcnow() +
+                         datetime.timedelta(seconds=self.api.PROXY_BEARER_GRACE_PERIOD))
+        credential = self.api._patron_credential(self.api.BEARER_TOKEN_PROPERTY, self.patron)
+        token = credential.credential if credential else None
+        if not token or credential.expires < proxy_expires:
+            token = self.api.reauthorize_patron_bearer_token(self.patron)
+            if not token:
+                raise CirculationException("Unable to refresh patron bearer token.")
+
+        # Transform manifest links for proxying
+        manifest = self._rewrite_manifest(manifest, token)
+        return manifest
