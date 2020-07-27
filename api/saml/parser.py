@@ -491,14 +491,16 @@ class SAMLSubjectParser(object):
         return name_id
 
     def _parse_attribute_values(self, attribute_values):
-        """Parses attribute values
+        """Parses SAML attribute values
 
         :param attribute_values: List containing SAML attribute values
         :type attribute_values: List[Union[str, Dict]]
 
-        :return: List of parsed SAML attribute values
-        :rtype: List[str]
+        :return: 2-tuple containing an optional name ID from the attribute list and
+            a list of parsed SAML attribute values
+        :rtype: Tuple[Optional[NameID, List[str]]
         """
+        name_id = None
         parsed_attribute_values = []
 
         for attribute_value in attribute_values:
@@ -509,9 +511,19 @@ class SAMLSubjectParser(object):
             else:
                 parsed_attribute_values.append(attribute_value)
 
-        return parsed_attribute_values
+        return name_id, parsed_attribute_values
 
-    def _parse_attribute_statement(self, attributes):
+    def _parse_attributes(self, attributes):
+        """Parses SAML attributes
+
+        :param attributes: Dictionary containing SAML attributes
+        :type attributes: Dict
+
+        :return: 2-tuple containing an optional name ID from the attribute list and
+            an attribute statement object
+        :rtype: Tuple[Optional[NameID, AttributeStatement]
+        """
+        name_id = None
         parsed_attributes = []
         attribute_names = {attribute.value: attribute for attribute in SAMLAttributes}
 
@@ -519,14 +531,14 @@ class SAMLSubjectParser(object):
             if name in attribute_names:
                 name = attribute_names[name].name
 
-            parsed_attribute_values = self._parse_attribute_values(attribute_values)
+            name_id, parsed_attribute_values = self._parse_attribute_values(attribute_values)
             attribute = Attribute(name=name, values=parsed_attribute_values)
 
             parsed_attributes.append(attribute)
 
         attribute_statement = AttributeStatement(parsed_attributes)
 
-        return attribute_statement
+        return name_id, attribute_statement
 
     def parse(self, auth):
         """Parses OneLogin_Saml2_Auth object containing SAML response data into Subject
@@ -544,8 +556,11 @@ class SAMLSubjectParser(object):
             auth.get_nameid()
         )
         raw_attributes = auth.get_attributes()
-        attribute_statement = self._parse_attribute_statement(raw_attributes)
+        attribute_name_id, attribute_statement = self._parse_attributes(raw_attributes)
         valid_till = auth.get_session_expiration()
+
+        if attribute_name_id:
+            name_id = attribute_name_id
 
         if not valid_till:
             valid_till = auth.get_last_assertion_not_on_or_after()
