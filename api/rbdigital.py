@@ -2703,12 +2703,34 @@ class RBDigitalFulfillmentProxy(object):
         api = RBDigitalAPI(_db, credential.collection)
         # We don't want someone who sniffed this bearer token to be able
         # to generate another one, which could cause DOS to patron.
-        response = api.patron_fulfillment_request(credential.patron, url, reauthorize=False)
+        endpoint = cls._add_api_base_url(api, url)
+        response = api.patron_fulfillment_request(credential.patron, endpoint, reauthorize=False)
         return Response(
             response=response.content,
             status=response.status_code,
             headers=response.headers.items()
         )
+
+    # The `_remove_api_base_url` and `_add_api_base_url` methods are used
+    # in the construction and fulfillment of proxy URLs, respectively. They
+    # are used to increase security in two ways:
+    # - There is not enough context in the proxy URLs to fullfill content
+    #   outside of this system.
+    # - If an arbitrary URL is submitted to the service, it will have the
+    #   API base URL prepended to it, rendering it useless, in practice.
+    @staticmethod
+    def _remove_api_base_url(api, url):
+        # Strip off the API's base URL, if present. Otherwise, do nothing.
+        prefix = api.PRODUCTION_BASE_URL
+        prefix_matches = url.startswith(prefix)
+        if prefix_matches:
+            url = url[len(prefix):]
+        return url, prefix_matches
+
+    @staticmethod
+    def _add_api_base_url(api, url):
+        # Add the API's base URL to this one, no matter what.
+        return "{}{}".format(api.PRODUCTION_BASE_URL, url)
 
     def make_request(self, url):
         return self.api.patron_fulfillment_request(self.patron, url)
@@ -2728,19 +2750,21 @@ class RBDigitalFulfillmentProxy(object):
         ))
         return url
 
-    @classmethod
-    def _rewrite_manifest(cls, manifest, token):
+    def _rewrite_manifest(self, manifest, token):
         # Replace each part's base properties with those
         # from its own `proxy_link` dictionary.
 
         req = requests.models.PreparedRequest()
 
         def use_proxy(part):
-            if 'proxy_link' in part:
+            # We'll only do the replacement if the true download URL is
+            # served by RBdigital and we have a proxy url.
+            downloadUrl, is_api_link = self._remove_api_base_url(self.api, part['href'])
+            if is_api_link and 'proxy_link' in part:
                 proxy_link = part.pop('proxy_link')
                 if 'href' in proxy_link:
-                    proxy_url = cls._make_proxy_url(proxy_link['href'], token)
-                    params = {'url': part['href']}
+                    proxy_url = self._make_proxy_url(proxy_link['href'], token)
+                    params = {'url': downloadUrl}
                     req.prepare_url(proxy_url, params)
                     proxy_link['href'] = req.url
                 part.update(proxy_link)
