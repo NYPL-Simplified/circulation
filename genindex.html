@@ -5752,6 +5752,8 @@
 </li>
       <li><a href="core.html#core.opds_import.MetadataWranglerOPDSLookup.get_collection_url">get_collection_url() (core.opds_import.MetadataWranglerOPDSLookup method)</a>
 </li>
+      <li><a href="api.html#api.rbdigital.RBDigitalAPI.get_credential_by_token">get_credential_by_token() (api.rbdigital.RBDigitalAPI static method)</a>
+</li>
       <li><a href="api.html#api.authenticator.AuthenticationProvider.get_credential_from_header">get_credential_from_header() (api.authenticator.AuthenticationProvider method)</a>
 
       <ul>
@@ -8044,8 +8046,12 @@
         <li><a href="core.html#core.scripts.WorkProcessingScript.make_query">(core.scripts.WorkProcessingScript class method)</a>
 </li>
       </ul></li>
-      <li><a href="api.sip.html#api.sip.client.SIPClient.make_request">make_request() (api.sip.client.SIPClient method)</a>
+      <li><a href="api.html#api.rbdigital.RBDigitalFulfillmentProxy.make_request">make_request() (api.rbdigital.RBDigitalFulfillmentProxy method)</a>
+
+      <ul>
+        <li><a href="api.sip.html#api.sip.client.SIPClient.make_request">(api.sip.client.SIPClient method)</a>
 </li>
+      </ul></li>
       <li><a href="api.sip.html#api.sip.client.SIPClient.make_secure_connection">make_secure_connection() (api.sip.client.SIPClient method)</a>
 </li>
       <li><a href="core.html#core.external_search.SearchBase.make_target_age_query">make_target_age_query() (core.external_search.SearchBase class method)</a>
@@ -10270,14 +10276,14 @@
 </li>
       <li><a href="core.html#core.testing.DatabaseTest.print_database_instance">print_database_instance() (core.testing.DatabaseTest method)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.sip.html#api.sip.client.named.print_line">print_line (api.sip.client.named attribute)</a>
 </li>
       <li><a href="core.html#core.selftest.HasSelfTests.prior_test_results">prior_test_results() (core.selftest.HasSelfTests class method)</a>
 </li>
       <li><a href="core.html#core.lane.Lane.priority">priority (core.lane.Lane attribute)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.html#api.config.Configuration.PRIVACY_POLICY">PRIVACY_POLICY (api.config.Configuration attribute)</a>
 
       <ul>
@@ -10820,6 +10826,18 @@
 </li>
       <li><a href="api.html#api.authenticator.LibraryAuthenticator.providers">providers (api.authenticator.LibraryAuthenticator attribute)</a>
 </li>
+      <li><a href="api.html#api.rbdigital.RBDigitalFulfillmentProxy.proxied_manifest">proxied_manifest() (api.rbdigital.RBDigitalFulfillmentProxy method)</a>
+</li>
+      <li><a href="api.html#api.controller.RBDFulfillmentProxyController.proxy">proxy() (api.controller.RBDFulfillmentProxyController method)</a>
+
+      <ul>
+        <li><a href="api.html#api.rbdigital.RBDigitalFulfillmentProxy.proxy">(api.rbdigital.RBDigitalFulfillmentProxy class method)</a>
+</li>
+      </ul></li>
+      <li><a href="api.html#api.rbdigital.RBDigitalAPI.PROXY_BEARER_GRACE_PERIOD">PROXY_BEARER_GRACE_PERIOD (api.rbdigital.RBDigitalAPI attribute)</a>
+</li>
+      <li><a href="api.html#api.routes.proxy_rbdigital_patron_requests">proxy_rbdigital_patron_requests() (in module api.routes)</a>
+</li>
       <li><a href="api.html#api.feedbooks.RehostingPolicy.PUBLIC_DOMAIN_CUTOFF">PUBLIC_DOMAIN_CUTOFF (api.feedbooks.RehostingPolicy attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.licensing.RightsStatus.PUBLIC_DOMAIN_UNKNOWN">PUBLIC_DOMAIN_UNKNOWN (core.model.licensing.RightsStatus attribute)</a>
@@ -11064,6 +11082,8 @@
       </ul></li>
       <li><a href="core.model.html#core.model.constants.IdentifierConstants.RB_DIGITAL_ID">RB_DIGITAL_ID (core.model.constants.IdentifierConstants attribute)</a>
 </li>
+      <li><a href="api.html#api.controller.RBDFulfillmentProxyController">RBDFulfillmentProxyController (class in api.controller)</a>
+</li>
       <li><a href="core.classifier.html#core.classifier.Classifier.RBDIGITAL">RBDIGITAL (core.classifier.Classifier attribute)</a>
 
       <ul>
@@ -11090,6 +11110,8 @@
 </li>
       <li><a href="api.html#api.rbdigital.RBDigitalDeltaMonitor">RBDigitalDeltaMonitor (class in api.rbdigital)</a>
 </li>
+      <li><a href="api.html#api.rbdigital.RBDigitalFulfillmentProxy">RBDigitalFulfillmentProxy (class in api.rbdigital)</a>
+</li>
       <li><a href="api.html#api.rbdigital.RBDigitalImportMonitor">RBDigitalImportMonitor (class in api.rbdigital)</a>
 </li>
       <li><a href="api.html#api.rbdigital.RBDigitalRepresentationExtractor">RBDigitalRepresentationExtractor (class in api.rbdigital)</a>
@@ -11097,6 +11119,8 @@
       <li><a href="core.classifier.html#core.classifier.rbdigital.RBDigitalSubjectClassifier">RBDigitalSubjectClassifier (class in core.classifier.rbdigital)</a>
 </li>
       <li><a href="api.html#api.rbdigital.RBDigitalSyncMonitor">RBDigitalSyncMonitor (class in api.rbdigital)</a>
+</li>
+      <li><a href="api.html#api.rbdigital.RBDProxyException">RBDProxyException</a>
 </li>
       <li><a href="api.html#api.rbdigital.RBFulfillmentInfo">RBFulfillmentInfo (class in api.rbdigital)</a>
 </li>
@@ -11442,10 +11466,10 @@
 </li>
       <li><a href="api.html#api.feedbooks.FeedbooksOPDSImporter.replace_css">replace_css() (api.feedbooks.FeedbooksOPDSImporter method)</a>
 </li>
-      <li><a href="api.html#api.custom_patron_catalog.CustomPatronCatalog.replace_link">replace_link() (api.custom_patron_catalog.CustomPatronCatalog class method)</a>
-</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api.html#api.custom_patron_catalog.CustomPatronCatalog.replace_link">replace_link() (api.custom_patron_catalog.CustomPatronCatalog class method)</a>
+</li>
       <li><a href="core.html#core.external_search.CurrentMapping.replacement">replacement (core.external_search.CurrentMapping attribute)</a>
 </li>
       <li><a href="api.html#api.feedbooks.FeedbooksOPDSImporter.REPLACEMENT_CSS_KEY">REPLACEMENT_CSS_KEY (api.feedbooks.FeedbooksOPDSImporter attribute)</a>
@@ -14202,6 +14226,8 @@
 </li>
       <li><a href="api.html#api.feedbooks.RehostingPolicy.US_SITES">US_SITES (api.feedbooks.RehostingPolicy attribute)</a>
 </li>
+      <li><a href="api.html#api.rbdigital.RBDigitalFulfillmentProxy.use_proxy_links">use_proxy_links (api.rbdigital.RBDigitalFulfillmentProxy attribute)</a>
+</li>
       <li><a href="api.sip.html#api.sip.SIP2AuthenticationProvider.USE_SSL">USE_SSL (api.sip.SIP2AuthenticationProvider attribute)</a>
 </li>
       <li><a href="core.html#core.log.Loggly.USER">USER (core.log.Loggly attribute)</a>
@@ -14236,8 +14262,6 @@
         <li><a href="core.html#core.lane.WorkList.uses_customlists">(core.lane.WorkList attribute)</a>
 </li>
       </ul></li>
-      <li><a href="api.html#api.rbdigital.AudiobookManifest.using_proxy_fulfillment">using_proxy_fulfillment() (api.rbdigital.AudiobookManifest method)</a>
-</li>
       <li><a href="core.model.html#core.model.library.Library.uuid">uuid (core.model.library.Library attribute)</a>
 </li>
       <li><a href="api.html#api.adobe_vendor_id.AdobeVendorIDModel.uuid">uuid() (api.adobe_vendor_id.AdobeVendorIDModel method)</a>

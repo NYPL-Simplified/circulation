@@ -37,6 +37,7 @@
 <span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">defaultdict</span>
 <span class="kn">import</span> <span class="nn">datetime</span>
 <span class="kn">from</span> <span class="nn">dateutil.relativedelta</span> <span class="kn">import</span> <span class="n">relativedelta</span>
+<span class="kn">from</span> <span class="nn">flask</span> <span class="kn">import</span> <span class="n">Response</span>
 <span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
 <span class="kn">import</span> <span class="nn">json</span>
 <span class="kn">import</span> <span class="nn">logging</span>
@@ -47,6 +48,7 @@
 <span class="kn">import</span> <span class="nn">requests</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="kn">import</span> <span class="n">Session</span>
 <span class="kn">import</span> <span class="nn">string</span>
+<span class="kn">import</span> <span class="nn">urlparse</span>
 <span class="kn">import</span> <span class="nn">uuid</span>
 
 <span class="kn">from</span> <span class="nn">circulation</span> <span class="kn">import</span> <span class="p">(</span>
@@ -194,9 +196,17 @@
             <span class="n">label</span><span class="o">=</span><span class="s2">&quot;Patron Bearer Token&quot;</span><span class="p">,</span>
             <span class="c1"># RBdigital advertises a 24 hour lifetime, but we&#39;ll</span>
             <span class="c1"># cache it for only 23.5 hours, just in case.</span>
-            <span class="n">lifetime</span><span class="o">=</span><span class="p">((</span><span class="mi">24</span><span class="o">*</span><span class="mi">60</span><span class="p">)</span> <span class="o">-</span> <span class="mi">30</span><span class="p">)</span> <span class="o">*</span> <span class="mi">60</span><span class="p">),</span>
+            <span class="n">lifetime</span><span class="o">=</span><span class="p">((</span><span class="mi">24</span> <span class="o">*</span> <span class="mi">60</span><span class="p">)</span> <span class="o">-</span> <span class="mi">30</span><span class="p">)</span> <span class="o">*</span> <span class="mi">60</span>
+        <span class="p">),</span>
     <span class="p">}</span>
-
+    <span class="c1"># Because we don&#39;t allow proxied requests to refresh the bearer</span>
+    <span class="c1"># token, we need to ensure that there is enough time to complete</span>
+    <span class="c1"># those requests before the token expires. If there&#39;s not then</span>
+    <span class="c1"># we&#39;ll refresh it before returning the proxied URLs. This</span>
+    <span class="c1"># property specifies (in seconds) the length of time we allocate</span>
+    <span class="c1"># to complete those requests. It must be shorter than the Patron</span>
+    <span class="c1"># Bearer Token lifetime and is currently set to 30 minutes.</span>
+    <span class="n">PROXY_BEARER_GRACE_PERIOD</span> <span class="o">=</span> <span class="mi">30</span> <span class="o">*</span> <span class="mi">60</span>
 
     <span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">&quot;RBDigital Patron API&quot;</span><span class="p">)</span>
 
@@ -533,22 +543,20 @@
 
 <span class="sd">        :return a FulfillmentInfo object.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">def</span> <span class="nf">make_fulfillment_request</span><span class="p">(</span><span class="n">url</span><span class="p">):</span>
-            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">patron_fulfillment_request</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">url</span><span class="p">)</span>
 
         <span class="n">patron_rbdigital_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">patron_remote_identifier</span><span class="p">(</span><span class="n">patron</span><span class="p">)</span>
         <span class="p">(</span><span class="n">item_rbdigital_id</span><span class="p">,</span> <span class="n">item_media</span><span class="p">)</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">validate_item</span><span class="p">(</span><span class="n">licensepool</span><span class="p">)</span>
 
         <span class="c1"># If we are going to return a manifest to the client, then its</span>
         <span class="c1"># links should proxy through this CM. If we&#39;re going to fulfill</span>
-        <span class="c1"># an access document for a part, we&#39;ll need the need the true</span>
-        <span class="c1"># RBdigital access document URL, so that we can fetch and return</span>
-        <span class="c1"># the real fulfillment link to the client.</span>
-        <span class="n">manifest_uses_proxy_links</span> <span class="o">=</span> <span class="p">(</span><span class="n">part</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="c1"># an access document for a part, we&#39;ll need the true RBdigital</span>
+        <span class="c1"># access document URL, so that we can fetch and return the real</span>
+        <span class="c1"># fulfillment link to the client.</span>
+        <span class="n">fulfillment_proxy</span> <span class="o">=</span> <span class="n">RBDigitalFulfillmentProxy</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">api</span><span class="o">=</span><span class="bp">self</span><span class="p">,</span> <span class="n">for_part</span><span class="o">=</span><span class="n">part</span><span class="p">)</span>
         <span class="n">checkouts_list</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_patron_checkouts</span><span class="p">(</span><span class="n">patron_id</span><span class="o">=</span><span class="n">patron_rbdigital_id</span><span class="p">,</span>
                                                    <span class="n">fulfill_part_url</span><span class="o">=</span><span class="n">fulfill_part_url</span><span class="p">,</span>
-                                                   <span class="n">request_fulfillment</span><span class="o">=</span><span class="n">make_fulfillment_request</span><span class="p">,</span>
-                                                   <span class="n">proxy_fulfillment</span><span class="o">=</span><span class="n">manifest_uses_proxy_links</span><span class="p">)</span>
+                                                   <span class="n">request_fulfillment</span><span class="o">=</span><span class="n">fulfillment_proxy</span><span class="o">.</span><span class="n">make_request</span><span class="p">,</span>
+                                                   <span class="n">fulfillment_proxy</span><span class="o">=</span><span class="n">fulfillment_proxy</span><span class="p">)</span>
 
         <span class="c1"># find this licensepool in patron&#39;s checkouts</span>
         <span class="n">found_checkout</span> <span class="o">=</span> <span class="kc">None</span>
@@ -763,7 +771,6 @@
         <span class="k">return</span> <span class="n">delivery_mechanism</span></div>
 
 <span class="c1">### Patron account handling</span>
-    <span class="c1"># RBdigital identifier property to cache</span>
 
 <div class="viewcode-block" id="RBDigitalAPI.patron_credential"><a class="viewcode-back" href="../../api.html#api.rbdigital.RBDigitalAPI.patron_credential">[docs]</a>    <span class="k">def</span> <span class="nf">patron_credential</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kind</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Provide the credential of the given type for the given Patron,</span>
@@ -780,7 +787,28 @@
 <span class="sd">        :param kind: The type of credential.</span>
 <span class="sd">        :param value: An optional value for the credential, which, if</span>
 <span class="sd">            provided, will replace replace the value in the cache.</span>
-<span class="sd">        :return: The credential of type `type` for the patron.</span>
+<span class="sd">        :return: The credential value for type `type` for the patron.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">credential</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_patron_credential</span><span class="p">(</span><span class="n">kind</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="n">value</span><span class="p">)</span>
+        <span class="n">value</span> <span class="o">=</span> <span class="n">credential</span><span class="o">.</span><span class="n">credential</span> <span class="k">if</span> <span class="n">credential</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="n">value</span></div>
+
+    <span class="k">def</span> <span class="nf">_patron_credential</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kind</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Provide the credential of the given type for the given Patron,</span>
+<span class="sd">        either from the cache or by retrieving it from the remote service.</span>
+
+<span class="sd">        The behavior is as follows:</span>
+<span class="sd">            - If a value is specified, we&#39;ll cache it.</span>
+<span class="sd">            - If no value is specified and no cached credential is present</span>
+<span class="sd">              and unexpired, then we&#39;ll retrieve a value from the remote</span>
+<span class="sd">              service and cache it.</span>
+<span class="sd">            - The cached value will be returned.</span>
+
+<span class="sd">        :param patron: A Patron.</span>
+<span class="sd">        :param kind: The type of credential.</span>
+<span class="sd">        :param value: An optional value for the credential, which, if</span>
+<span class="sd">            provided, will replace replace the value in the cache.</span>
+<span class="sd">        :return: The `Credential` of type `type` for the patron.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="n">credential_type</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">CREDENTIAL_TYPES</span><span class="p">[</span><span class="n">kind</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;label&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
@@ -833,7 +861,11 @@
             <span class="n">refresh_credential</span><span class="p">,</span> <span class="n">force_refresh</span><span class="o">=</span><span class="n">force_refresh</span><span class="p">,</span>
             <span class="n">collection</span><span class="o">=</span><span class="n">collection</span><span class="p">,</span> <span class="n">allow_persistent_token</span><span class="o">=</span><span class="n">is_persistent</span>
         <span class="p">)</span>
-        <span class="k">return</span> <span class="n">credential</span><span class="o">.</span><span class="n">credential</span></div>
+        <span class="k">return</span> <span class="n">credential</span>
+
+<div class="viewcode-block" id="RBDigitalAPI.get_credential_by_token"><a class="viewcode-back" href="../../api.html#api.rbdigital.RBDigitalAPI.get_credential_by_token">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">get_credential_by_token</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">data_source</span><span class="p">,</span> <span class="n">credential_type</span><span class="p">,</span> <span class="n">token</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">Credential</span><span class="o">.</span><span class="n">lookup_by_token</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">data_source</span><span class="p">,</span> <span class="n">credential_type</span><span class="p">,</span> <span class="n">token</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="RBDigitalAPI.fetch_patron_bearer_token"><a class="viewcode-back" href="../../api.html#api.rbdigital.RBDigitalAPI.fetch_patron_bearer_token">[docs]</a>    <span class="k">def</span> <span class="nf">fetch_patron_bearer_token</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Obtain a patron bearer token for an RBdigital Patron.</span>
@@ -1169,7 +1201,7 @@
         <span class="k">return</span> <span class="n">internal_patron_id</span></div>
 
 <div class="viewcode-block" id="RBDigitalAPI.get_patron_checkouts"><a class="viewcode-back" href="../../api.html#api.rbdigital.RBDigitalAPI.get_patron_checkouts">[docs]</a>    <span class="k">def</span> <span class="nf">get_patron_checkouts</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron_id</span><span class="p">,</span> <span class="n">fulfill_part_url</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-                             <span class="n">request_fulfillment</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">proxy_fulfillment</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+                             <span class="n">request_fulfillment</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">fulfillment_proxy</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Gets the books and audio the patron currently has checked out.</span>
 <span class="sd">        Obtains fulfillment info for each item -- the way to fulfill a book</span>
@@ -1207,7 +1239,7 @@
             <span class="n">loan_info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_make_loan_info</span><span class="p">(</span>
                 <span class="n">item</span><span class="p">,</span> <span class="n">fulfill_part_url</span><span class="o">=</span><span class="n">fulfill_part_url</span><span class="p">,</span>
                 <span class="n">request_fulfillment</span><span class="o">=</span><span class="n">request_fulfillment</span><span class="p">,</span>
-                <span class="n">proxy_fulfillment</span><span class="o">=</span><span class="n">proxy_fulfillment</span><span class="p">,</span>
+                <span class="n">fulfillment_proxy</span><span class="o">=</span><span class="n">fulfillment_proxy</span><span class="p">,</span>
             <span class="p">)</span>
             <span class="k">if</span> <span class="n">loan_info</span><span class="p">:</span>
                 <span class="n">loans</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">loan_info</span><span class="p">)</span>
@@ -1216,7 +1248,7 @@
 
 
     <span class="k">def</span> <span class="nf">_make_loan_info</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">item</span><span class="p">,</span> <span class="n">fulfill_part_url</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-                        <span class="n">request_fulfillment</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">proxy_fulfillment</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+                        <span class="n">request_fulfillment</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">fulfillment_proxy</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Convert one of the items returned by a request to /checkouts into a</span>
 <span class="sd">        LoanInfo with an RBFulfillmentInfo.</span>
 
@@ -1252,7 +1284,7 @@
             <span class="n">identifier</span><span class="o">.</span><span class="n">type</span><span class="p">,</span>
             <span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span>
             <span class="n">item</span><span class="p">,</span>
-            <span class="n">proxy_fulfillment</span><span class="o">=</span><span class="n">proxy_fulfillment</span><span class="p">,</span>
+            <span class="n">fulfillment_proxy</span><span class="o">=</span><span class="n">fulfillment_proxy</span><span class="p">,</span>
         <span class="p">)</span>
 
         <span class="k">return</span> <span class="n">LoanInfo</span><span class="p">(</span>
@@ -1887,8 +1919,8 @@
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fulfill_part_url</span><span class="p">,</span> <span class="n">request_fulfillment</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-        <span class="c1"># We should use CM proxy URLs in this manifest, if True.</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">proxy_fulfillment</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;proxy_fulfillment&#39;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+        <span class="c1"># Grab properties used to support proxy fulfillment.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fulfillment_proxy</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;fulfillment_proxy&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
 
         <span class="nb">super</span><span class="p">(</span><span class="n">RBFulfillmentInfo</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">fulfill_part_url</span> <span class="o">=</span> <span class="n">fulfill_part_url</span>
@@ -1961,8 +1993,12 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">manifest</span> <span class="o">=</span> <span class="n">AudiobookManifest</span><span class="p">(</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">key</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fulfill_part_url</span>
             <span class="p">)</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">proxy_fulfillment</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_content</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">manifest</span><span class="o">.</span><span class="n">using_proxy_fulfillment</span><span class="p">()</span>
+            <span class="c1"># An upstream caller knows whether we need a proxied manifest</span>
+            <span class="c1"># and, if so, how to structure its URLs, so we&#39;ll defer to</span>
+            <span class="c1"># them when instructed.</span>
+            <span class="n">fulfillment_proxy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fulfillment_proxy</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fulfillment_proxy</span> <span class="ow">and</span> <span class="n">fulfillment_proxy</span><span class="o">.</span><span class="n">use_proxy_links</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_content</span> <span class="o">=</span> <span class="n">fulfillment_proxy</span><span class="o">.</span><span class="n">proxied_manifest</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">manifest</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_content</span> <span class="o">=</span> <span class="n">unicode</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">manifest</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
@@ -2651,7 +2687,6 @@
         <span class="n">extra</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="n">extra</span><span class="p">[</span><span class="s1">&#39;proxy_link&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span>
             <span class="n">href</span><span class="o">=</span><span class="n">proxy_url</span><span class="p">,</span>
-            <span class="nb">type</span><span class="o">=</span><span class="n">Representation</span><span class="o">.</span><span class="n">guess_media_type</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
         <span class="p">)</span>
 
         <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">transform</span> <span class="ow">in</span> <span class="p">(</span>
@@ -2661,21 +2696,140 @@
         <span class="p">):</span>
             <span class="k">if</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">file_data</span><span class="p">:</span>
                 <span class="n">extra</span><span class="p">[</span><span class="n">v</span><span class="p">]</span> <span class="o">=</span> <span class="n">transform</span><span class="p">(</span><span class="n">file_data</span><span class="p">[</span><span class="n">k</span><span class="p">])</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">add_reading_order</span><span class="p">(</span><span class="n">href</span><span class="p">,</span> <span class="nb">type</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="o">**</span><span class="n">extra</span><span class="p">)</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">add_reading_order</span><span class="p">(</span><span class="n">href</span><span class="p">,</span> <span class="nb">type</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="o">**</span><span class="n">extra</span><span class="p">)</span></div></div>
 
-<div class="viewcode-block" id="AudiobookManifest.using_proxy_fulfillment"><a class="viewcode-back" href="../../api.html#api.rbdigital.AudiobookManifest.using_proxy_fulfillment">[docs]</a>    <span class="k">def</span> <span class="nf">using_proxy_fulfillment</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+
+<div class="viewcode-block" id="RBDProxyException"><a class="viewcode-back" href="../../api.html#api.rbdigital.RBDProxyException">[docs]</a><span class="k">class</span> <span class="nc">RBDProxyException</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+    <span class="k">pass</span></div>
+
+
+<div class="viewcode-block" id="RBDigitalFulfillmentProxy"><a class="viewcode-back" href="../../api.html#api.rbdigital.RBDigitalFulfillmentProxy">[docs]</a><span class="k">class</span> <span class="nc">RBDigitalFulfillmentProxy</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">api</span><span class="p">,</span> <span class="n">for_part</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">api</span> <span class="o">=</span> <span class="n">api</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">patron</span> <span class="o">=</span> <span class="n">patron</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">part</span> <span class="o">=</span> <span class="n">for_part</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">use_proxy_links</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># If no `part` was specified, then we&#39;re returning a full manifest</span>
+        <span class="c1"># and should rewrite the links to use the proxy service.</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">part</span> <span class="ow">is</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="RBDigitalFulfillmentProxy.proxy"><a class="viewcode-back" href="../../api.html#api.rbdigital.RBDigitalFulfillmentProxy.proxy">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">proxy</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">bearer</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">api_class</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="c1"># This method supports retrieval of resources that (a) require</span>
+        <span class="c1"># a patron bearer token for fulfillment and (b) cannot be</span>
+        <span class="c1"># fulfilled in a request authenticated by the usual patron</span>
+        <span class="c1"># credentials.</span>
+        <span class="c1">#</span>
+        <span class="c1"># The overall flow is as follows, given a URL and a bearer token:</span>
+        <span class="c1"># - Look up the `Credential` for the bearer token. If it does not</span>
+        <span class="c1">#   exist or is expired, then return 403 Forbidden.</span>
+        <span class="c1"># - We use the credential&#39;s `Collection` to create an instance of</span>
+        <span class="c1">#   `RBDigitalAPI`, which we use to fulfill the request.</span>
+
+        <span class="n">api_class</span> <span class="o">=</span> <span class="n">api_class</span> <span class="ow">or</span> <span class="n">RBDigitalAPI</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">url</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">RBDProxyException</span><span class="p">(</span><span class="nb">dict</span><span class="p">(</span><span class="n">status</span><span class="o">=</span><span class="mi">400</span><span class="p">,</span> <span class="n">message</span><span class="o">=</span><span class="s2">&quot;No proxy URL was supplied.&quot;</span><span class="p">))</span>
+
+        <span class="c1"># If we the bearer token is cached and unexpired, then we&#39;ll allow it.</span>
+        <span class="n">credential_type</span> <span class="o">=</span> <span class="n">api_class</span><span class="o">.</span><span class="n">CREDENTIAL_TYPES</span><span class="p">[</span><span class="n">api_class</span><span class="o">.</span><span class="n">BEARER_TOKEN_PROPERTY</span><span class="p">][</span><span class="s1">&#39;label&#39;</span><span class="p">]</span>
+        <span class="n">data_source</span> <span class="o">=</span> <span class="n">DataSource</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">DataSource</span><span class="o">.</span><span class="n">RB_DIGITAL</span><span class="p">)</span>
+        <span class="n">credential</span> <span class="o">=</span> <span class="n">api_class</span><span class="o">.</span><span class="n">get_credential_by_token</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">data_source</span><span class="p">,</span> <span class="n">credential_type</span><span class="p">,</span> <span class="n">bearer</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">credential</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">RBDProxyException</span><span class="p">(</span><span class="nb">dict</span><span class="p">(</span><span class="n">status</span><span class="o">=</span><span class="mi">403</span><span class="p">,</span> <span class="n">message</span><span class="o">=</span><span class="s2">&quot;Token not found or expired.&quot;</span><span class="p">))</span>
+
+        <span class="n">api</span> <span class="o">=</span> <span class="n">api_class</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">credential</span><span class="o">.</span><span class="n">collection</span><span class="p">)</span>
+        <span class="c1"># We don&#39;t want someone who sniffed this bearer token to be able</span>
+        <span class="c1"># to generate another one, which could cause DOS to patron.</span>
+        <span class="n">endpoint</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_add_api_base_url</span><span class="p">(</span><span class="n">api</span><span class="p">,</span> <span class="n">url</span><span class="p">)</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="n">api</span><span class="o">.</span><span class="n">patron_fulfillment_request</span><span class="p">(</span><span class="n">credential</span><span class="o">.</span><span class="n">patron</span><span class="p">,</span> <span class="n">endpoint</span><span class="p">,</span> <span class="n">reauthorize</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">Response</span><span class="p">(</span>
+            <span class="n">response</span><span class="o">=</span><span class="n">response</span><span class="o">.</span><span class="n">content</span><span class="p">,</span>
+            <span class="n">status</span><span class="o">=</span><span class="n">response</span><span class="o">.</span><span class="n">status_code</span><span class="p">,</span>
+            <span class="n">headers</span><span class="o">=</span><span class="n">response</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+        <span class="p">)</span></div>
+
+    <span class="c1"># The `_remove_api_base_url` and `_add_api_base_url` methods are used</span>
+    <span class="c1"># in the construction and fulfillment of proxy URLs, respectively. They</span>
+    <span class="c1"># are used to increase security in two ways:</span>
+    <span class="c1"># - There is not enough context in the proxy URLs to fullfill content</span>
+    <span class="c1">#   outside of this system.</span>
+    <span class="c1"># - If an arbitrary URL is submitted to the service, it will have the</span>
+    <span class="c1">#   API base URL prepended to it, rendering it useless, in practice.</span>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_remove_api_base_url</span><span class="p">(</span><span class="n">api</span><span class="p">,</span> <span class="n">url</span><span class="p">):</span>
+        <span class="c1"># Strip off the API&#39;s base URL, if present. Otherwise, do nothing.</span>
+        <span class="n">prefix</span> <span class="o">=</span> <span class="n">api</span><span class="o">.</span><span class="n">PRODUCTION_BASE_URL</span>
+        <span class="n">prefix_matches</span> <span class="o">=</span> <span class="n">url</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">prefix</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">prefix_matches</span><span class="p">:</span>
+            <span class="n">url</span> <span class="o">=</span> <span class="n">url</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">prefix</span><span class="p">):]</span>
+        <span class="k">return</span> <span class="n">url</span><span class="p">,</span> <span class="n">prefix_matches</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_add_api_base_url</span><span class="p">(</span><span class="n">api</span><span class="p">,</span> <span class="n">url</span><span class="p">):</span>
+        <span class="c1"># Add the API&#39;s base URL to this one, no matter what.</span>
+        <span class="k">return</span> <span class="s2">&quot;</span><span class="si">{}{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">api</span><span class="o">.</span><span class="n">PRODUCTION_BASE_URL</span><span class="p">,</span> <span class="n">url</span><span class="p">)</span>
+
+<div class="viewcode-block" id="RBDigitalFulfillmentProxy.make_request"><a class="viewcode-back" href="../../api.html#api.rbdigital.RBDigitalFulfillmentProxy.make_request">[docs]</a>    <span class="k">def</span> <span class="nf">make_request</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">patron_fulfillment_request</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">patron</span><span class="p">,</span> <span class="n">url</span><span class="p">)</span></div>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_make_proxy_url</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">token</span><span class="p">):</span>
+        <span class="c1"># Transform a fulfillment URL to its proxy form</span>
+        <span class="n">url_components</span> <span class="o">=</span> <span class="n">urlparse</span><span class="o">.</span><span class="n">urlsplit</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+        <span class="n">new_path</span> <span class="o">=</span> <span class="s1">&#39;</span><span class="si">{}</span><span class="s1">/rbdproxy/</span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">url_components</span><span class="o">.</span><span class="n">path</span><span class="p">,</span> <span class="n">token</span><span class="p">)</span>
+        <span class="n">url</span> <span class="o">=</span> <span class="n">urlparse</span><span class="o">.</span><span class="n">urlunparse</span><span class="p">((</span>
+            <span class="n">url_components</span><span class="o">.</span><span class="n">scheme</span><span class="p">,</span>
+            <span class="n">url_components</span><span class="o">.</span><span class="n">netloc</span><span class="p">,</span>
+            <span class="n">new_path</span><span class="p">,</span>
+            <span class="s1">&#39;&#39;</span><span class="p">,</span>
+            <span class="n">url_components</span><span class="o">.</span><span class="n">query</span><span class="p">,</span>
+            <span class="n">url_components</span><span class="o">.</span><span class="n">fragment</span><span class="p">,</span>
+        <span class="p">))</span>
+        <span class="k">return</span> <span class="n">url</span>
+
+    <span class="k">def</span> <span class="nf">_rewrite_manifest</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">manifest</span><span class="p">,</span> <span class="n">token</span><span class="p">):</span>
         <span class="c1"># Replace each part&#39;s base properties with those</span>
         <span class="c1"># from its own `proxy_link` dictionary.</span>
-        
+
+        <span class="n">req</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">models</span><span class="o">.</span><span class="n">PreparedRequest</span><span class="p">()</span>
+
         <span class="k">def</span> <span class="nf">use_proxy</span><span class="p">(</span><span class="n">part</span><span class="p">):</span>
-            <span class="k">if</span> <span class="s1">&#39;proxy_link&#39;</span> <span class="ow">in</span> <span class="n">part</span><span class="p">:</span>
-                <span class="n">part</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">part</span><span class="p">[</span><span class="s1">&#39;proxy_link&#39;</span><span class="p">])</span>
-                <span class="k">del</span> <span class="n">part</span><span class="p">[</span><span class="s1">&#39;proxy_link&#39;</span><span class="p">]</span>
+            <span class="c1"># We&#39;ll only do the replacement if the true download URL is</span>
+            <span class="c1"># served by RBdigital and we have a proxy url.</span>
+            <span class="n">downloadUrl</span><span class="p">,</span> <span class="n">is_api_link</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_remove_api_base_url</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="p">,</span> <span class="n">part</span><span class="p">[</span><span class="s1">&#39;href&#39;</span><span class="p">])</span>
+            <span class="k">if</span> <span class="n">is_api_link</span> <span class="ow">and</span> <span class="s1">&#39;proxy_link&#39;</span> <span class="ow">in</span> <span class="n">part</span><span class="p">:</span>
+                <span class="n">proxy_link</span> <span class="o">=</span> <span class="n">part</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;proxy_link&#39;</span><span class="p">)</span>
+                <span class="k">if</span> <span class="s1">&#39;href&#39;</span> <span class="ow">in</span> <span class="n">proxy_link</span><span class="p">:</span>
+                    <span class="n">proxy_url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_make_proxy_url</span><span class="p">(</span><span class="n">proxy_link</span><span class="p">[</span><span class="s1">&#39;href&#39;</span><span class="p">],</span> <span class="n">token</span><span class="p">)</span>
+                    <span class="n">params</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;url&#39;</span><span class="p">:</span> <span class="n">downloadUrl</span><span class="p">}</span>
+                    <span class="n">req</span><span class="o">.</span><span class="n">prepare_url</span><span class="p">(</span><span class="n">proxy_url</span><span class="p">,</span> <span class="n">params</span><span class="p">)</span>
+                    <span class="n">proxy_link</span><span class="p">[</span><span class="s1">&#39;href&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">req</span><span class="o">.</span><span class="n">url</span>
+                <span class="n">part</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">proxy_link</span><span class="p">)</span>
             <span class="k">return</span> <span class="n">part</span>
 
-        <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">as_dict</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">manifest</span><span class="o">.</span><span class="n">as_dict</span>
         <span class="n">data</span><span class="p">[</span><span class="s1">&#39;readingOrder&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">use_proxy</span><span class="p">(</span><span class="n">part</span><span class="p">)</span> <span class="k">for</span> <span class="n">part</span> <span class="ow">in</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;readingOrder&#39;</span><span class="p">]]</span>
-        <span class="k">return</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">data</span><span class="p">)</span></div></div>
+        <span class="k">return</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+
+<div class="viewcode-block" id="RBDigitalFulfillmentProxy.proxied_manifest"><a class="viewcode-back" href="../../api.html#api.rbdigital.RBDigitalFulfillmentProxy.proxied_manifest">[docs]</a>    <span class="k">def</span> <span class="nf">proxied_manifest</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">manifest</span><span class="p">):</span>
+        <span class="c1"># Ensure that we have a token with enough time to allow</span>
+        <span class="c1"># upcoming proxy requests to be completed.</span>
+        <span class="n">proxy_expires</span> <span class="o">=</span> <span class="p">(</span><span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span> <span class="o">+</span>
+                         <span class="n">datetime</span><span class="o">.</span><span class="n">timedelta</span><span class="p">(</span><span class="n">seconds</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">PROXY_BEARER_GRACE_PERIOD</span><span class="p">))</span>
+        <span class="n">credential</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">_patron_credential</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">BEARER_TOKEN_PROPERTY</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">patron</span><span class="p">)</span>
+        <span class="n">token</span> <span class="o">=</span> <span class="n">credential</span><span class="o">.</span><span class="n">credential</span> <span class="k">if</span> <span class="n">credential</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">token</span> <span class="ow">or</span> <span class="n">credential</span><span class="o">.</span><span class="n">expires</span> <span class="o">&lt;</span> <span class="n">proxy_expires</span><span class="p">:</span>
+            <span class="n">token</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">reauthorize_patron_bearer_token</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">patron</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">token</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">CirculationException</span><span class="p">(</span><span class="s2">&quot;Unable to refresh patron bearer token.&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Transform manifest links for proxying</span>
+        <span class="n">manifest</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rewrite_manifest</span><span class="p">(</span><span class="n">manifest</span><span class="p">,</span> <span class="n">token</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">manifest</span></div></div>
 </pre></div>
 
           </div>

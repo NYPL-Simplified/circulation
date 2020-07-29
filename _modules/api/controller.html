@@ -59,6 +59,11 @@
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
 
+<span class="kn">from</span> <span class="nn">api.rbdigital</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">RBDigitalFulfillmentProxy</span><span class="p">,</span>
+    <span class="n">RBDProxyException</span><span class="p">,</span>
+<span class="p">)</span>
+
 <span class="kn">from</span> <span class="nn">api.saml.auth</span> <span class="kn">import</span> <span class="n">SAMLAuthenticationManagerFactory</span>
 <span class="kn">from</span> <span class="nn">api.saml.controller</span> <span class="kn">import</span> <span class="n">SAMLController</span>
 <span class="kn">from</span> <span class="nn">core.app_server</span> <span class="kn">import</span> <span class="p">(</span>
@@ -460,7 +465,8 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">heartbeat</span> <span class="o">=</span> <span class="n">HeartbeatController</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">odl_notification_controller</span> <span class="o">=</span> <span class="n">ODLNotificationController</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">shared_collection_controller</span> <span class="o">=</span> <span class="n">SharedCollectionController</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">static_files</span> <span class="o">=</span> <span class="n">StaticFileController</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">static_files</span> <span class="o">=</span> <span class="n">StaticFileController</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rbdproxy</span> <span class="o">=</span> <span class="n">RBDFulfillmentProxyController</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="CirculationManager.setup_configuration_dependent_controllers"><a class="viewcode-back" href="../../api.html#api.controller.CirculationManager.setup_configuration_dependent_controllers">[docs]</a>    <span class="k">def</span> <span class="nf">setup_configuration_dependent_controllers</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Set up all the controllers that depend on the</span>
@@ -2268,6 +2274,31 @@
 <div class="viewcode-block" id="StaticFileController.image"><a class="viewcode-back" href="../../api.html#api.controller.StaticFileController.image">[docs]</a>    <span class="k">def</span> <span class="nf">image</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">):</span>
         <span class="n">directory</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)),</span> <span class="s2">&quot;..&quot;</span><span class="p">,</span> <span class="s2">&quot;resources&quot;</span><span class="p">,</span> <span class="s2">&quot;images&quot;</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">static_file</span><span class="p">(</span><span class="n">directory</span><span class="p">,</span> <span class="n">filename</span><span class="p">)</span></div></div>
+
+<div class="viewcode-block" id="RBDFulfillmentProxyController"><a class="viewcode-back" href="../../api.html#api.controller.RBDFulfillmentProxyController">[docs]</a><span class="k">class</span> <span class="nc">RBDFulfillmentProxyController</span><span class="p">(</span><span class="n">CirculationManagerController</span><span class="p">):</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">RBDFulfillmentProxyController</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">&quot;RBDigital fulfillment proxy&quot;</span><span class="p">)</span>
+
+<div class="viewcode-block" id="RBDFulfillmentProxyController.proxy"><a class="viewcode-back" href="../../api.html#api.controller.RBDFulfillmentProxyController.proxy">[docs]</a>    <span class="k">def</span> <span class="nf">proxy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bearer</span><span class="p">,</span> <span class="n">api_class</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="c1"># This method expects a proxy URL with a &quot;url&quot; query parameter.</span>
+        <span class="c1"># It returns a Flask response.</span>
+        <span class="n">fulfillment_url</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;url&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">response</span> <span class="o">=</span> <span class="n">RBDigitalFulfillmentProxy</span><span class="o">.</span><span class="n">proxy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">bearer</span><span class="p">,</span> <span class="n">fulfillment_url</span><span class="p">,</span>
+                                                       <span class="n">api_class</span><span class="o">=</span><span class="n">api_class</span><span class="p">)</span>
+        <span class="k">except</span> <span class="n">RBDProxyException</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">status</span> <span class="o">=</span> <span class="n">e</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;status&#39;</span><span class="p">,</span> <span class="mi">500</span><span class="p">)</span>
+            <span class="n">message</span> <span class="o">=</span> <span class="n">e</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;message&#39;</span><span class="p">,</span> <span class="s1">&#39;unspecified error&#39;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s1">&#39;RBDProxyException: </span><span class="si">{}</span><span class="s1"> </span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">status</span><span class="p">,</span> <span class="n">message</span><span class="p">))</span>
+            <span class="n">response</span> <span class="o">=</span> <span class="n">Response</span><span class="p">(</span>
+                <span class="n">response</span><span class="o">=</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">({</span><span class="s2">&quot;message&quot;</span><span class="p">:</span> <span class="n">message</span><span class="p">}),</span>
+                <span class="n">status</span><span class="o">=</span><span class="n">status</span><span class="p">,</span> <span class="n">content_type</span><span class="o">=</span><span class="s1">&#39;application/json;charset=UTF-8&#39;</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">response</span></div></div>
 </pre></div>
 
           </div>
