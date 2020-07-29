@@ -2246,14 +2246,14 @@ class RBDFulfillmentProxyController(CirculationManagerController):
         super(RBDFulfillmentProxyController, self).__init__(*args, **kwargs)
         self.log = logging.getLogger("RBDigital fulfillment proxy")
 
-
-    def proxy(self, bearer):
+    def proxy(self, bearer, api_class=None):
         # This method expects a proxy URL with a "url" query parameter.
         # It returns a Flask response.
         fulfillment_url = flask.request.values.get('url', None)
 
         try:
-            response = RBDigitalFulfillmentProxy.proxy(self._db, bearer, fulfillment_url)
+            response = RBDigitalFulfillmentProxy.proxy(self._db, bearer, fulfillment_url,
+                                                       api_class=api_class)
         except RBDProxyException as e:
             status = e.message.get('status', 500)
             message = e.message.get('message', 'unspecified error')

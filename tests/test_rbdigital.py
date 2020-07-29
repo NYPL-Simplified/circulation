@@ -90,6 +90,9 @@ from . import (
     DatabaseTest,
 )
 
+from .test_routes import RouteTest
+from .test_controller import ControllerTest
+
 class RBDigitalAPITest(DatabaseTest):
 
     def setup(self):
@@ -2256,3 +2259,82 @@ class TestRBDigitalDeltaMonitor(RBDigitalAPITest):
         monitor.invoke()
         eq_(True, api.called)
 
+# NB: These tests would normally be distributed into other test files
+# (e.g., `test_controller.py`), but because RBdigital is being phased
+# out, I have chosen to capture them here, in order to make the code
+# clean up easier when the time soon comes.
+
+class TestRBDProxyRoutes(RouteTest):
+
+    CONTROLLER_NAME = "rbdproxy"
+
+    def test_rbdproxy_bearer(self):
+        url = '/works/<license_pool_id>/fulfill/<mechanism_id>/<part>/rbdproxy/<bearer>'
+        self.assert_request_calls(
+            url, self.controller.proxy, '<bearer>'
+        )
+
+
+class TestRBDProxyController(ControllerTest):
+    def test_proxy(self):
+
+        patron = self.default_patron
+        collection = MockRBDigitalAPI.mock_collection(self._db)
+        downloadUrl = 'unprefixed/download/url'
+        valid_bearer_token = 'valid_bearer_token'
+        invalid_bearer_token = 'invalid_bearer_token'
+
+        class MockAPI(MockRBDigitalAPI):
+
+            PRODUCTION_BASE_URL = 'https://my_base_url/'
+
+            @staticmethod
+            def get_credential_by_token(_db, data_source, credential_type, token):
+                # In normal operation, we would lookup the credential by its token
+                # to ensure that it is authorized and so we can instantiate a new
+                # RBDigitalAPI. Here we construct and return a fake credential with
+                # the collection we need to instantiate an RBDigitalAPI instance.
+                # But we only do this if our token is valid.
+                if token != valid_bearer_token:
+                    return None
+                credential = Credential.lookup(_db, data_source, credential_type, patron,
+                                               None, allow_persistent_token=True,
+                                               collection=collection, allow_empty_token=True)
+                credential.credential = token
+                credential.expires = datetime.datetime.utcnow()+datetime.timedelta(minutes=30)
+                return credential
+
+            def patron_fulfillment_request(self, patron, url, reauthorize=None):
+                class Response:
+                    def __init__(self, **kwargs):
+                        self.__dict__.update(kwargs)
+
+                response = Response(**dict(
+                    content=json.dumps({"request_url": url, "reauthorize": reauthorize}),
+                    status_code=200, headers={'Content-Type': 'application/json'},
+                ))
+                return response
+
+        # No URL parameter, but valid token
+        with self.app.test_request_context("/"):
+            response = self.app.manager.rbdproxy.proxy(valid_bearer_token)
+        eq_(400, response.status_code)
+
+        # No token, but valid URL parameter
+        with self.app.test_request_context('/?url={}'.format(downloadUrl)):
+            response = self.app.manager.rbdproxy.proxy(invalid_bearer_token)
+        assert len(downloadUrl) > 0
+        eq_(403, response.status_code)
+
+        # Valid URL and valid token. We need our mock api for this one.
+        with self.app.test_request_context('/?url={}'.format(downloadUrl)):
+            response = self.app.manager.rbdproxy.proxy(valid_bearer_token, api_class=MockAPI)
+
+        expected_url = '{}{}'.format(MockAPI.PRODUCTION_BASE_URL, downloadUrl)
+        assert len(downloadUrl) > 0
+        assert len(MockAPI.PRODUCTION_BASE_URL) > 0
+        eq_(200, response.status_code)
+        # We should prepend the downloadUrl with the API prefix.
+        eq_(expected_url, response.json.get('request_url'))
+        # We should not allow token reauthorization when proxying.
+        eq_(False, response.json.get('reauthorize'))

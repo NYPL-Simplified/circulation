@@ -828,6 +828,10 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         )
         return credential
 
+    @staticmethod
+    def get_credential_by_token(_db, data_source, credential_type, token):
+        return Credential.lookup_by_token(_db, data_source, credential_type, token)
+
     def fetch_patron_bearer_token(self, patron):
         """Obtain a patron bearer token for an RBdigital Patron.
 
@@ -2678,7 +2682,7 @@ class RBDigitalFulfillmentProxy(object):
         return self.part is None
 
     @classmethod
-    def proxy(cls, _db, bearer, url):
+    def proxy(cls, _db, bearer, url, api_class=None):
         # This method supports retrieval of resources that (a) require
         # a patron bearer token for fulfillment and (b) cannot be
         # fulfilled in a request authenticated by the usual patron
@@ -2690,17 +2694,19 @@ class RBDigitalFulfillmentProxy(object):
         # - We use the credential's `Collection` to create an instance of
         #   `RBDigitalAPI`, which we use to fulfill the request.
 
+        api_class = api_class or RBDigitalAPI
+
         if not url:
             raise RBDProxyException(dict(status=400, message="No proxy URL was supplied."))
 
         # If we the bearer token is cached and unexpired, then we'll allow it.
-        credential_type = RBDigitalAPI.CREDENTIAL_TYPES[RBDigitalAPI.BEARER_TOKEN_PROPERTY]['label']
+        credential_type = api_class.CREDENTIAL_TYPES[api_class.BEARER_TOKEN_PROPERTY]['label']
         data_source = DataSource.lookup(_db, DataSource.RB_DIGITAL)
-        credential = Credential.lookup_by_token(_db, data_source, credential_type, bearer)
+        credential = api_class.get_credential_by_token(_db, data_source, credential_type, bearer)
         if not credential:
             raise RBDProxyException(dict(status=403, message="Token not found or expired."))
 
-        api = RBDigitalAPI(_db, credential.collection)
+        api = api_class(_db, credential.collection)
         # We don't want someone who sniffed this bearer token to be able
         # to generate another one, which could cause DOS to patron.
         endpoint = cls._add_api_base_url(api, url)
