@@ -614,7 +614,7 @@ class CirculationAPI(object):
 
             # TODO: This would be a great place to pass in only the
             # single API that needs to be synced.
-            self.sync_bookshelf(patron, pin)
+            self.sync_bookshelf(patron, pin, max_age=0)
             existing_loan = get_one(
                 self._db, Loan, patron=patron, license_pool=licensepool,
                 on_multiple='interchangeable'
@@ -896,7 +896,7 @@ class CirculationAPI(object):
                 # Sync and try again.
                 # TODO: Pass in only the single collection or LicensePool
                 # that needs to be synced.
-                self.sync_bookshelf(patron, pin)
+                self.sync_bookshelf(patron, pin, max_age=0)
                 return self.fulfill(
                     patron, pin, licensepool=licensepool,
                     delivery_mechanism=delivery_mechanism,
@@ -1148,15 +1148,22 @@ class CirculationAPI(object):
             Hold.patron==patron
         )
 
-    def sync_bookshelf(self, patron, pin):
-
-        # Get the external view of the patron's current state.
-        remote_loans, remote_holds, complete = self.patron_activity(patron, pin)
+    def sync_bookshelf(self, patron, pin, max_age=None):
 
         # Get our internal view of the patron's current state.
-        __transaction = self._db.begin_nested()
         local_loans = self.local_loans(patron)
         local_holds = self.local_holds(patron)
+
+        fresh = patron.loan_activity_fresher_than(max_age)
+
+        if fresh:
+            # Our local data is considered fresh, so we can return it
+            # without calling out to the vendor APIs.
+            return local_loans, local_holds
+
+        # Update the external view of the patron's current state.
+        remote_loans, remote_holds, complete = self.patron_activity(patron, pin)
+        __transaction = self._db.begin_nested()
 
         now = datetime.datetime.utcnow()
         local_loans_by_identifier = {}

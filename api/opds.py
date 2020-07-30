@@ -1422,7 +1422,9 @@ class LibraryLoanAndHoldAnnotator(LibraryAnnotator):
 
         feed_obj = AcquisitionFeed(db, "Active loans and holds", url, works, annotator)
         annotator.annotate_feed(feed_obj, None)
-        return feed_obj.as_response(max_age=60*30, private=True)
+        return feed_obj.as_response(
+            max_age=patron.seconds_until_loan_activity_stale(), private=True
+        )
 
     @classmethod
     def single_item_feed(cls, circulation, item, fulfillment=None, test_mode=False,
