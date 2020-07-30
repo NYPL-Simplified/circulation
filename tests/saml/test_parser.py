@@ -439,6 +439,38 @@ class SAMLSubjectParserTest(object):
             )
         ),
         (
+            'edu_person_targeted_id_as_name_id_and_other_attributes',
+            None, None, None, None,
+            {
+                SAMLAttributes.eduPersonTargetedID.value: [
+                    {
+                        'NameID': {
+                            'Format': NameIDFormat.PERSISTENT.value,
+                            'NameQualifier': fixtures.IDP_1_ENTITY_ID,
+                            'value': '12345'
+                        }
+                    }
+                ],
+                SAMLAttributes.eduPersonPrincipalName.value: [
+                    '12345'
+                ]
+            },
+            Subject(
+                NameID(
+                    NameIDFormat.PERSISTENT.value,
+                    fixtures.IDP_1_ENTITY_ID,
+                    None,
+                    '12345'
+                ),
+                AttributeStatement(
+                    [
+                        Attribute(SAMLAttributes.eduPersonTargetedID.name, ['12345']),
+                        Attribute(SAMLAttributes.eduPersonPrincipalName.name, ['12345'])
+                    ]
+                )
+            )
+        ),
+        (
             'edu_person_principal_name_as_name_id',
             None, None, None, None,
             {

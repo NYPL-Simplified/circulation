@@ -531,7 +531,11 @@ class SAMLSubjectParser(object):
             if name in attribute_names:
                 name = attribute_names[name].name
 
-            name_id, parsed_attribute_values = self._parse_attribute_values(attribute_values)
+            current_name_id, parsed_attribute_values = self._parse_attribute_values(attribute_values)
+
+            if current_name_id:
+                name_id = current_name_id
+
             attribute = Attribute(name=name, values=parsed_attribute_values)
 
             parsed_attributes.append(attribute)
