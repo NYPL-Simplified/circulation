@@ -89,8 +89,13 @@ class Patron(Base):
     username = Column(Unicode)
 
     # The last time this record was synced up with an external library
-    # system.
+    # system such as an ILS.
     last_external_sync = Column(DateTime)
+
+    # The last time this record was synced with the corresponding
+    # records managed by the vendors who provide the library with
+    # ebooks.
+    last_loan_activity_sync = Column(DateTime)
 
     # The time, if any, at which the user's authorization to borrow
     # books expires.
@@ -227,6 +232,39 @@ class Patron(Base):
         if work.audience in allowed:
             return True
         return False
+
+    @property
+    def loan_activity_max_age(self):
+        """How long should loan activity be considered 'fresh' for this
+        patron?
+
+        This is currently a constant, but in the future it could become
+        a per-library setting.
+        """
+        return 30 * 60
+
+    def seconds_until_loan_activity_stale(self, max_age=None):
+        if max_age is None:
+            max_age = self.loan_activity_max_age
+
+        if not self.last_loan_activity_sync:
+            # We don't know about any loan activity at all, so
+            # we're stale right now.
+            return 0
+
+        now = datetime.datetime.utcnow()
+        difference = max_age - (
+            now - self.last_loan_activity_sync
+        ).total_seconds
+        return max(difference, 0)
+
+    def loan_activity_fresher_than(self, max_age=None):
+        """Was the patron's loan activity refreshed more recently than
+        the given number of seconds?
+
+        :param max_age: An integer number of seconds.
+        """
+        return self.seconds_until_loan_activity_stale(max_age) > 0
 
     @hybrid_property
     def synchronize_annotations(self):
