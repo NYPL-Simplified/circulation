@@ -394,6 +394,11 @@ def annotations_for_work(identifier_type, identifier):
 def borrow(identifier_type, identifier, mechanism_id=None):
     return app.manager.loans.borrow(identifier_type, identifier, mechanism_id)
 
+@library_route('/works/<license_pool_id>/fulfill/<mechanism_id>/<part>/rbdproxy/<bearer>')
+@has_library
+def proxy_rbdigital_patron_requests(license_pool_id, mechanism_id, part, bearer):
+    return app.manager.rbdproxy.proxy(bearer)
+
 @library_route('/works/<license_pool_id>/fulfill')
 @library_route('/works/<license_pool_id>/fulfill/<mechanism_id>')
 @library_route('/works/<license_pool_id>/fulfill/<mechanism_id>/<part>')
