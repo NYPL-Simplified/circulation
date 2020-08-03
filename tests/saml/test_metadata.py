@@ -69,7 +69,7 @@ class SubjectUIDExtractorTest(object):
             Subject(
                 NameID(NameIDFormat.UNSPECIFIED, '', '', '12345'),
                 AttributeStatement([
-                    Attribute(name=SAMLAttributes.eduPersonOrgUnitDN.name, values=['12345'])
+                    Attribute(name=SAMLAttributes.eduPersonPrincipalName.name, values=['12345'])
                 ])
             ),
             '12345'
