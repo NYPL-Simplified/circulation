@@ -1262,11 +1262,18 @@ class TestCirculationAPI(DatabaseTest):
         # Once that happens, patron.last_loan_activity_sync is updated to
         # the current time.
         updated = self.patron.last_loan_activity_sync
-        assert (updated-now).total_seconds < 2
+        assert (updated-now).total_seconds() < 2
 
         # It's also possible to force a sync even when one wouldn't
         # normally happen, by passing force=True into sync_bookshelf.
         self.circulation.remote_loans = []
+
+        # A hack to work around the rule that loans not found on
+        # remote don't get deleted if they were created in the last 60
+        # seconds.
+        self.patron.loans[0].start = long_ago
+        self._db.commit()
+
         self.circulation.sync_bookshelf(self.patron, "1234", force=True)
         eq_([], self.patron.loans)
         assert self.patron.last_loan_activity_sync > updated

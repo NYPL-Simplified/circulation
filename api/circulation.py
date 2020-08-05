@@ -1177,7 +1177,6 @@ class CirculationAPI(object):
 
         # Update the external view of the patron's current state.
         remote_loans, remote_holds, complete = self.patron_activity(patron, pin)
-        from nose.tools import set_trace; set_trace()
         __transaction = self._db.begin_nested()
 
         if not complete:
@@ -1186,8 +1185,6 @@ class CirculationAPI(object):
             # should never assume that our internal model of the
             # patron's loans is good enough to cache.
             last_loan_activity_sync = None
-
-        patron.last_loan_activity_sync = last_loan_activity_sync
 
         now = datetime.datetime.utcnow()
         local_loans_by_identifier = {}
@@ -1308,6 +1305,10 @@ class CirculationAPI(object):
             for hold in local_holds_by_identifier.values():
                 if hold.license_pool.collection_id in self.collection_ids_for_sync:
                     self._db.delete(hold)
+
+        # Now that we're in sync (or not), set last_loan_activity_sync
+        # to the conservative value obtained earlier.
+        patron.last_loan_activity_sync = last_loan_activity_sync
 
         __transaction.commit()
         return active_loans, active_holds
