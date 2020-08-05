@@ -596,7 +596,7 @@ class CirculationManagerController(BaseCirculationManagerController):
         return search_engine
 
     def handle_conditional_request(self, last_modified=None):
-        """Handle conditional HTTP requests.
+        """Handle a conditional HTTP request.
 
         :param last_modified: A datetime representing the time this
            resource was last modified.
@@ -1182,12 +1182,18 @@ class LoanController(CirculationManagerController):
         """
         patron = flask.request.patron
 
+        # Save some time if we don't believe the patron's loans or holds have
+        # changed since the last time the client requested this feed.
         response = self.handle_conditional_request(
             patron.last_loan_activity_sync
         )
         if isinstance(response, Response):
             return response
 
+        # TODO: SimplyE used to make a HEAD request to the bookshelf feed
+        # as a quick way of checking authentication. Does this still happen?
+        # It shouldn't -- the patron profile feed should be used instead.
+        # If it's not used, we can take this out.
         if flask.request.method=='HEAD':
             return Response()
 

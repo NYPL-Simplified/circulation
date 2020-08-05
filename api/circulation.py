@@ -1177,13 +1177,14 @@ class CirculationAPI(object):
 
         # Update the external view of the patron's current state.
         remote_loans, remote_holds, complete = self.patron_activity(patron, pin)
+        from nose.tools import set_trace; set_trace()
         __transaction = self._db.begin_nested()
 
         if not complete:
             # We were not able to get a complete picture of the
             # patron's loan activity. Until we are able to do that, we
-            # should never rely on our internal model of the patron's
-            # loans.
+            # should never assume that our internal model of the
+            # patron's loans is good enough to cache.
             last_loan_activity_sync = None
 
         patron.last_loan_activity_sync = last_loan_activity_sync

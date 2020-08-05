@@ -349,6 +349,7 @@ class ODLAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
         if not any(unexpired_licenses):
             raise NoLicenses()
 
+        set_trace()
         # Make sure pool info is updated.
         self.update_hold_queue(licensepool)
 
