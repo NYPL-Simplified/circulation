@@ -614,7 +614,7 @@ class CirculationAPI(object):
 
             # TODO: This would be a great place to pass in only the
             # single API that needs to be synced.
-            self.sync_bookshelf(patron, pin, max_age=0)
+            self.sync_bookshelf(patron, pin, force=True)
             existing_loan = get_one(
                 self._db, Loan, patron=patron, license_pool=licensepool,
                 on_multiple='interchangeable'
@@ -896,7 +896,7 @@ class CirculationAPI(object):
                 # Sync and try again.
                 # TODO: Pass in only the single collection or LicensePool
                 # that needs to be synced.
-                self.sync_bookshelf(patron, pin, max_age=0)
+                self.sync_bookshelf(patron, pin, force=True)
                 return self.fulfill(
                     patron, pin, licensepool=licensepool,
                     delivery_mechanism=delivery_mechanism,
@@ -1150,13 +1150,22 @@ class CirculationAPI(object):
             Hold.patron==patron
         )
 
-    def sync_bookshelf(self, patron, pin, max_age=None):
+    def sync_bookshelf(self, patron, pin, force=False):
+        """Sync our internal model of a patron's bookshelf with any external
+        vendors that provide books to the patron's library.
 
+        :param patron: A Patron.
+        :param pin: The password authenticating the patron; used by some vendors
+           that perform a cross-check against the library ILS.
+        :param force: If this is True, the method will call out to external
+           vendors even if it looks like the system has up-to-date information
+           about the patron.
+        """
         # Get our internal view of the patron's current state.
         local_loans = self.local_loans(patron)
         local_holds = self.local_holds(patron)
 
-        if patron.last_loan_activity_sync:
+        if patron.last_loan_activity_sync and not force:
             # Our local data is considered fresh, so we can return it
             # without calling out to the vendor APIs.
             return local_loans, local_holds
