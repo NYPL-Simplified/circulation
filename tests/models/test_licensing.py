@@ -22,9 +22,11 @@ from ...model.edition import Edition
 from ...model.identifier import Identifier
 from ...model.licensing import (
     DeliveryMechanism,
+    Hold,
     License,
     LicensePool,
     LicensePoolDeliveryMechanism,
+    Loan,
     RightsStatus,
 )
 from ...model.resource import (
@@ -253,10 +255,12 @@ class TestLicense(DatabaseTest):
         pool = self.pool
         license = self.perpetual
         patron = self._patron()
+        patron.last_loan_activity_sync = datetime.datetime.utcnow()
         loan, is_new = license.loan_to(patron)
         eq_(license, loan.license)
         eq_(pool, loan.license_pool)
         eq_(True, is_new)
+        eq_(None, patron.last_loan_activity_sync)
 
         loan2, is_new = license.loan_to(patron)
         eq_(loan, loan2)
@@ -1005,6 +1009,105 @@ class TestLicensePool(DatabaseTest):
         # patrons in the hold queue.
         eq_((6,0,1,3), calc(CE.DISTRIBUTOR_LICENSE_ADD, 1))
 
+    def test_loan_to_patron(self):
+        # Test our ability to loan LicensePools to Patrons.
+        #
+        # TODO: The path where the LicensePool is loaned to an
+        # IntegrationClient rather than a Patron is currently not
+        # directly tested.
+
+        pool = self._licensepool(None)
+        patron = self._patron()
+        now = datetime.datetime.utcnow()
+        patron.last_loan_activity_sync = now
+
+        yesterday = now - datetime.timedelta(days=1)
+        tomorrow = now + datetime.timedelta(days=1)
+
+        fulfillment = pool.delivery_mechanisms[0]
+        external_identifier = self._str
+        loan, is_new = pool.loan_to(
+            patron, start=yesterday, end=tomorrow, 
+            fulfillment=fulfillment, external_identifier=external_identifier
+        )
+
+        eq_(True, is_new)
+        assert isinstance(loan, Loan)
+        eq_(pool, loan.license_pool)
+        eq_(patron, loan.patron)
+        eq_(yesterday, loan.start)
+        eq_(tomorrow, loan.end)
+        eq_(fulfillment, loan.fulfillment)
+        eq_(external_identifier, loan.external_identifier)
+
+        # Issuing a loan locally created uncertainty about a patron's
+        # loans, since we don't know how the external vendor dealt
+        # with the request. The last_loan_activity_sync has been
+        # cleared out so we know to check back with the source of
+        # truth.
+        eq_(None, patron.last_loan_activity_sync)
+
+        # 'Creating' a loan that already exists does not create any
+        # uncertainty.
+        patron.last_loan_activity_sync = now
+        loan2, is_new = pool.loan_to(
+            patron, start=yesterday, end=tomorrow, 
+            fulfillment=fulfillment, external_identifier=external_identifier
+        )
+        eq_(False, is_new)
+        eq_(loan, loan2)
+        eq_(now, patron.last_loan_activity_sync)
+
+
+    def test_on_hold_to_patron(self):
+        # Test our ability to put a Patron in the holds queue for a LicensePool.
+        #
+        # TODO: The path where the 'patron' is an IntegrationClient
+        # rather than a Patron is currently not directly tested.
+
+        pool = self._licensepool(None)
+        patron = self._patron()
+        now = datetime.datetime.utcnow()
+        patron.last_loan_activity_sync = now
+
+        yesterday = now - datetime.timedelta(days=1)
+        tomorrow = now + datetime.timedelta(days=1)
+
+        fulfillment = pool.delivery_mechanisms[0]
+        position = 99
+        external_identifier = self._str
+        hold, is_new = pool.on_hold_to(
+            patron, start=yesterday, end=tomorrow, 
+            position=position, external_identifier=external_identifier
+        )
+
+        eq_(True, is_new)
+        assert isinstance(hold, Hold)
+        eq_(pool, hold.license_pool)
+        eq_(patron, hold.patron)
+        eq_(yesterday, hold.start)
+        eq_(tomorrow, hold.end)
+        eq_(position, hold.position)
+        eq_(external_identifier, hold.external_identifier)
+
+        # Issuing a hold locally created uncertainty about a patron's
+        # loans, since we don't know how the external vendor dealt
+        # with the request. The last_loan_activity_sync has been
+        # cleared out so we know to check back with the source of
+        # truth.
+        eq_(None, patron.last_loan_activity_sync)
+
+        # 'Creating' a hold that already exists does not create any
+        # uncertainty.
+        patron.last_loan_activity_sync = now
+        hold2, is_new = pool.on_hold_to(
+            patron, start=yesterday, end=tomorrow, 
+            position=position, external_identifier=external_identifier
+        )
+        eq_(False, is_new)
+        eq_(hold, hold2)
+        eq_(now, patron.last_loan_activity_sync)
+        
 
 class TestLicensePoolDeliveryMechanism(DatabaseTest):
 
