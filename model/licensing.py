@@ -806,7 +806,7 @@ class LicensePool(Base):
             # This action creates uncertainty about what the patron's
             # loan activity actually is. We'll need to sync with the
             # vendor APIs.
-            patron.last_loan_activity_sync = None
+            patron_or_client.last_loan_activity_sync = None
         else:
             # An IntegrationClient can have multiple loans, so this always creates
             # a new loan rather than returning an existing loan.
@@ -831,7 +831,7 @@ class LicensePool(Base):
             # This action creates uncertainty about what the patron's
             # loan activity actually is. We'll need to sync with the
             # vendor APIs.
-            patron.last_loan_activity_sync = None
+            patron_or_client.last_loan_activity_sync = None
         else:
             # An IntegrationClient can have multiple holds, so this always creates
             # a new hold rather than returning an existing loan.
