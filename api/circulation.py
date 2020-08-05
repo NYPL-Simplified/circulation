@@ -1170,9 +1170,23 @@ class CirculationAPI(object):
             # without calling out to the vendor APIs.
             return local_loans, local_holds
 
+        # Assuming everything goes well, we will set
+        # Patron.last_loan_activity_sync to this value -- immediately
+        # before we started contacting the vendor APIs.
+        last_loan_activity_sync = datetime.datetime.utcnow()
+
         # Update the external view of the patron's current state.
         remote_loans, remote_holds, complete = self.patron_activity(patron, pin)
         __transaction = self._db.begin_nested()
+
+        if not complete:
+            # We were not able to get a complete picture of the
+            # patron's loan activity. Until we are able to do that, we
+            # should never rely on our internal model of the patron's
+            # loans.
+            last_loan_activity_sync = None
+
+        patron.last_loan_activity_sync = last_loan_activity_sync
 
         now = datetime.datetime.utcnow()
         local_loans_by_identifier = {}
