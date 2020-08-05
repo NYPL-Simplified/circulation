@@ -898,26 +898,32 @@ class TestCirculationAPI(DatabaseTest):
         result = try_to_fulfill()
         eq_(fulfillment, result)
 
-    def test_revoke_loan_sends_analytics_event(self):
+    def test_revoke_loan(self):
+        self.patron.last_loan_activity_sync = datetime.utcnow()
         self.pool.loan_to(self.patron)
         self.remote.queue_checkin(True)
 
         result = self.circulation.revoke_loan(self.patron, '1234', self.pool)
-
         eq_(True, result)
+
+        # The patron's loan activity is now out of sync.
+        eq_(None, self.patron.last_loan_activity_sync)
 
         # An analytics event was created.
         eq_(1, self.analytics.count)
         eq_(CirculationEvent.CM_CHECKIN,
             self.analytics.event_type)
 
-    def test_release_hold_sends_analytics_event(self):
+    def test_release_hold(self):
+        self.patron.last_loan_activity_sync = datetime.utcnow()
         self.pool.on_hold_to(self.patron)
         self.remote.queue_release_hold(True)
 
         result = self.circulation.release_hold(self.patron, '1234', self.pool)
-
         eq_(True, result)
+
+        # The patron's loan activity is now out of sync.
+        eq_(None, self.patron.last_loan_activity_sync)
 
         # An analytics event was created.
         eq_(1, self.analytics.count)
