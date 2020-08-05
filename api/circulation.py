@@ -1017,6 +1017,7 @@ class CirculationAPI(object):
             __transaction = self._db.begin_nested()
             logging.info("In revoke_loan(), deleting loan #%d" % loan.id)
             self._db.delete(loan)
+            patron.last_loan_activity_sync = None
             __transaction.commit()
 
             # Send out an analytics event to record the fact that
@@ -1049,6 +1050,7 @@ class CirculationAPI(object):
         if hold:
             __transaction = self._db.begin_nested()
             self._db.delete(hold)
+            patron.last_loan_activity_sync = None
             __transaction.commit()
 
             # Send out an analytics event to record the fact that
@@ -1154,9 +1156,7 @@ class CirculationAPI(object):
         local_loans = self.local_loans(patron)
         local_holds = self.local_holds(patron)
 
-        fresh = patron.loan_activity_fresher_than(max_age)
-
-        if fresh:
+        if patron.last_loan_activity_sync:
             # Our local data is considered fresh, so we can return it
             # without calling out to the vendor APIs.
             return local_loans, local_holds

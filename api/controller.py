@@ -595,6 +595,29 @@ class CirculationManagerController(BaseCirculationManagerController):
             )
         return search_engine
 
+    def handle_conditional_request(self, last_modified=None):
+        """Handle conditional HTTP requests.
+
+        :param last_modified: A datetime representing the time this
+           resource was last modified.
+
+        :return: a Response, if the incoming request can be handled
+            conditionally. Otherwise, None.
+        """
+        if not last_modified:
+            return None
+
+        if_modified_since = flask.request.headers.get('If-Modified-Since')
+        parsed_if_modified_since = email.utils.parsedate_to_datetime(
+            if_modified_since
+        )
+        if not parsed_if_modified_since:
+            return None
+
+        if parsed_if_modified_since >= last_modified:
+            return Response(status_code=304)
+        return None
+
     def load_lane(self, lane_identifier):
         """Turn user input into a Lane object."""
         library_id = flask.request.library.id
@@ -1157,10 +1180,16 @@ class LoanController(CirculationManagerController):
 
         :return: A Response containing an OPDS feed with up-to-date information.
         """
+        patron = flask.request.patron
+
+        response = self.handle_conditional_request(
+            patron.last_loan_activity_sync
+        )
+        if isinstance(response, Response):
+            return response
+
         if flask.request.method=='HEAD':
             return Response()
-
-        patron = flask.request.patron
 
         # First synchronize our local list of loans and holds with all
         # third-party loan providers.
