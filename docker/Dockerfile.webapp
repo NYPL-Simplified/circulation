@@ -1,4 +1,4 @@
-FROM phusion/baseimage
+FROM phusion/baseimage:latest-amd64
 MAINTAINER Library Simplified <info@librarysimplified.org>
 
 ARG version
