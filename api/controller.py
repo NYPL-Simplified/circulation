@@ -1,4 +1,5 @@
 from nose.tools import set_trace
+import email
 import json
 import logging
 import sys
@@ -607,15 +608,19 @@ class CirculationManagerController(BaseCirculationManagerController):
         if not last_modified:
             return None
 
+        # TODO: This can be cleaned up significantly in Python 3.
         if_modified_since = flask.request.headers.get('If-Modified-Since')
-        parsed_if_modified_since = email.utils.parsedate_to_datetime(
+        if_modified_since_tuple = email.utils.parsedate(
             if_modified_since
+        )
+        parsed_if_modified_since = datetime.datetime.fromtimestamp(
+            mktime(if_modified_since_tuple)
         )
         if not parsed_if_modified_since:
             return None
 
         if parsed_if_modified_since >= last_modified:
-            return Response(status_code=304)
+            return Response(status=304)
         return None
 
     def load_lane(self, lane_identifier):

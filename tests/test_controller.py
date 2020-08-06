@@ -5,8 +5,10 @@ from nose.tools import (
     set_trace,
 )
 from contextlib import contextmanager
+import email
 import os
 import datetime
+import time
 import urlparse
 from wsgiref.handlers import format_date_time
 from time import mktime
@@ -840,6 +842,35 @@ class TestBaseController(CirculationControllerTest):
         with self.request_context_with_library("/", headers={"X-Requested-With": "XMLHttpRequest"}):
             response = self.controller.authenticate()
             eq_(None, response.headers.get("WWW-Authenticate"))
+
+    def test_handle_conditional_request(self):
+        
+        # First, test success: the client provides If-Modified-Since
+        # and it is not earlier than the 'last modified' date known by
+        # the server.
+        now_int = time.mktime(time.gmtime())
+        now_string = email.utils.formatdate(now_int)
+        now_datetime = datetime.datetime.fromtimestamp(now_int)
+        with self.app.test_request_context(
+            headers={"If-Modified-Since": now_string}
+        ):
+            response = self.controller.handle_conditional_request(now_datetime)
+            eq_(304, response.status_code)
+        
+        # All remaining test cases are failures: for whatever reason,
+        # the request is not a valid conditional request and the
+        # method returns None.
+
+        # This request _would_ be a conditional request, but the
+        # precondition fails.
+        with self.app.test_request_context(
+            headers={"If-Modified-Since": now_string}
+        ):
+            newer = now_datetime + datetime.timedelta(seconds=10)
+            response = self.controller.handle_conditional_request(newer)
+            eq_(None, response)
+
+        # No last-modified date is available
 
     def test_load_licensepools(self):
 
