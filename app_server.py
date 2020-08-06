@@ -169,8 +169,7 @@ def compressible(f):
             response.data = buffer.getvalue()
 
             response.headers['Content-Encoding'] = 'gzip'
-            # TODO: This is bad if Vary is already set.
-            response.headers['Vary'] = 'Accept-Encoding'
+            response.vary.add('Accept-Encoding')
             response.headers['Content-Length'] = len(response.data)
 
             return response
