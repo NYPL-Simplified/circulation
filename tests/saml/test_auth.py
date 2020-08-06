@@ -9,10 +9,11 @@ from onelogin.saml2.utils import OneLogin_Saml2_Utils
 from parameterized import parameterized
 
 from api.saml.auth import SAMLAuthenticationManager, SAMLAuthenticationManagerFactory
-from api.saml.configuration import SAMLOneLoginConfiguration, SAMLConfiguration, ExternalIntegrationOwner
-from api.saml.metadata import ServiceProviderMetadata, UIInfo, NameIDFormat, Service, IdentityProviderMetadata, Subject, \
-    Organization
+from api.saml.configuration import SAMLOneLoginConfiguration, SAMLConfiguration
+from api.saml.metadata import ServiceProviderMetadata, UIInfo, NameIDFormat, Service, IdentityProviderMetadata, \
+    Subject, Organization
 from api.saml.parser import SAMLSubjectParser
+from core.model.configuration import HasExternalIntegration
 from tests.saml import fixtures
 from tests.saml.database_test import DatabaseTest
 from tests.test_controller import ControllerTest
@@ -214,7 +215,7 @@ class TestSAMLAuthenticationManager(ControllerTest):
             real_validate_sign = OneLogin_Saml2_Utils.validate_sign
             validate_mock = MagicMock(
                 side_effect=lambda *args, **kwargs:
-                    real_validate_sign(*args, **kwargs)
+                real_validate_sign(*args, **kwargs)
             )
         configuration = create_autospec(spec=SAMLConfiguration)
         configuration.get_debug = MagicMock(return_value=False)
@@ -240,7 +241,7 @@ class TestSAMLAuthenticationManagerFactory(DatabaseTest):
     def test_create(self):
         # Arrange
         factory = SAMLAuthenticationManagerFactory()
-        integration_owner = create_autospec(spec=ExternalIntegrationOwner)
+        integration_owner = create_autospec(spec=HasExternalIntegration)
         integration_owner.external_integration = MagicMock(return_value=self._integration)
 
         # Act

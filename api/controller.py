@@ -1,37 +1,54 @@
-from nose.tools import set_trace
+import base64
+import datetime
 import email
 import json
 import logging
+import os
 import sys
 import urllib
 import urlparse
-import datetime
-import base64
-from wsgiref.handlers import format_date_time
-from time import mktime
-import os
 from collections import defaultdict
+from time import mktime
+from wsgiref.handlers import format_date_time
 
-from expiringdict import ExpiringDict
-from lxml import etree
-from sqlalchemy.orm import eagerload
-
-from functools import wraps
 import flask
+from expiringdict import ExpiringDict
 from flask import (
     make_response,
     Response,
     redirect,
 )
 from flask_babel import lazy_gettext as _
+from lxml import etree
+from sqlalchemy.orm import eagerload
 
+from adobe_vendor_id import (
+    AdobeVendorIDController,
+    DeviceManagementProtocolController,
+    AuthdataUtility,
+)
+from annotations import (
+    AnnotationWriter,
+    AnnotationParser,
+)
 from api.rbdigital import (
     RBDigitalFulfillmentProxy,
     RBDProxyException,
 )
-
-from api.saml.auth import SAMLAuthenticationManagerFactory
 from api.saml.controller import SAMLController
+from authenticator import (
+    Authenticator,
+    CirculationPatronProfileStorage,
+    OAuthController,
+)
+from base_controller import BaseCirculationManagerController
+from circulation import CirculationAPI
+from circulation_exceptions import *
+from config import (
+    Configuration,
+    CannotLoadConfiguration,
+)
+from core.analytics import Analytics
 from core.app_server import (
     cdn_url_for,
     url_for,
@@ -48,26 +65,22 @@ from core.external_search import (
     MockExternalSearchIndex,
     SortKeyPagination,
 )
-from core.facets import FacetConfig
-from core.log import LogConfiguration
 from core.lane import (
-    DatabaseBackedFacets,
-    Facets,
+    BaseFacets,
     FeaturedFacets,
     Pagination,
     Lane,
     SearchFacets,
     WorkList,
 )
+from core.log import LogConfiguration
+from core.marc import MARCExporter
 from core.metadata_layer import ContributorData
 from core.model import (
     get_one,
-    get_one_or_create,
-    production_session,
     Admin,
     Annotation,
     CachedFeed,
-    CachedMARCFile,
     CirculationEvent,
     Collection,
     Complaint,
@@ -75,7 +88,6 @@ from core.model import (
     CustomList,
     DataSource,
     DeliveryMechanism,
-    Edition,
     ExternalIntegration,
     Hold,
     Identifier,
@@ -87,55 +99,24 @@ from core.model import (
     Patron,
     Representation,
     Session,
-    Work,
 )
 from core.opds import (
     AcquisitionFeed,
     NavigationFacets,
     NavigationFeed,
 )
-from core.util.opds_writer import (
-     OPDSFeed,
-)
 from core.opensearch import OpenSearchDocument
 from core.user_profile import ProfileController as CoreProfileController
-from core.util.flask_util import (
-    problem,
-    OPDSFeedResponse
-)
 from core.util.authentication_for_opds import AuthenticationForOPDSDocument
-from core.util.problem_detail import ProblemDetail
 from core.util.http import (
     HTTP,
     RemoteIntegrationException,
 )
-
-from circulation_exceptions import *
+from core.util.opds_writer import (
+    OPDSFeed,
+)
+from core.util.problem_detail import ProblemDetail
 from custom_index import CustomIndexView
-
-from opds import (
-    CirculationManagerAnnotator,
-    LibraryAnnotator,
-    SharedCollectionAnnotator,
-    LibraryLoanAndHoldAnnotator,
-    SharedCollectionLoanAndHoldAnnotator,
-)
-from annotations import (
-  AnnotationWriter,
-  AnnotationParser,
-)
-from problem_details import *
-
-from authenticator import (
-    Authenticator,
-    CirculationPatronProfileStorage,
-    OAuthController,
-)
-from config import (
-    Configuration,
-    CannotLoadConfiguration,
-)
-
 from lanes import (
     load_lanes,
     ContributorFacets,
@@ -148,24 +129,18 @@ from lanes import (
     CrawlableCustomListBasedLane,
     CrawlableFacets,
 )
-
-from adobe_vendor_id import (
-    AdobeVendorIDController,
-    DeviceManagementProtocolController,
-    AuthdataUtility,
-)
-from circulation import CirculationAPI
-from shared_collection import SharedCollectionAPI
 from odl import ODLAPI
-from novelist import (
-    NoveListAPI,
-    MockNoveListAPI,
+from opds import (
+    CirculationManagerAnnotator,
+    LibraryAnnotator,
+    SharedCollectionAnnotator,
+    LibraryLoanAndHoldAnnotator,
+    SharedCollectionLoanAndHoldAnnotator,
 )
-from base_controller import BaseCirculationManagerController
+from problem_details import *
+from shared_collection import SharedCollectionAPI
 from testing import MockCirculationAPI, MockSharedCollectionAPI
-from core.analytics import Analytics
-from core.lane import BaseFacets
-from core.marc import MARCExporter
+
 
 class CirculationManager(object):
 
@@ -433,6 +408,9 @@ class CirculationManager(object):
         self.shared_collection_controller = SharedCollectionController(self)
         self.static_files = StaticFileController(self)
         self.rbdproxy = RBDFulfillmentProxyController(self)
+
+        from api.lcp.controller import LCPController
+        self.lcp_controller = LCPController(self)
 
     def setup_configuration_dependent_controllers(self):
         """Set up all the controllers that depend on the
@@ -725,6 +703,7 @@ class CirculationManagerController(BaseCirculationManagerController):
         if (not patron.library.allow_holds and
             license_pool.licenses_available == 0 and
             not license_pool.open_access and
+            not license_pool.unlimited_access and
             not license_pool.self_hosted
         ):
             return FORBIDDEN_BY_POLICY.detailed(

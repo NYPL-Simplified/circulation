@@ -1,0 +1,186 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ONIXmessage release="3.0">
+    <product>
+        <a001>001043-32582478</a001>
+        <a002>03</a002>
+        <productidentifier>
+            <b221>02</b221>
+            <b244>0262343665</b244>
+        </productidentifier>
+        <productidentifier>
+            <b221>03</b221>
+            <b244>9780262343664</b244>
+        </productidentifier>
+        <productidentifier>
+            <b221>15</b221>
+            <b244>9780262343664</b244>
+        </productidentifier>
+        <productidentifier>
+            <b221>01</b221>
+            <b233>MIT Press Title ID</b233>
+            <b244>11245</b244>
+        </productidentifier>
+        <descriptivedetail>
+            <x314>00</x314>
+            <b012>EA</b012>
+            <b014>Open Ebook Format</b014>
+            <measure>
+                <x315>01</x315>
+                <c094>8</c094>
+                <c095>in</c095>
+            </measure>
+            <measure>
+                <x315>01</x315>
+                <c094>203.2</c094>
+                <c095>mm</c095>
+            </measure>
+            <measure>
+                <x315>02</x315>
+                <c094>5.375</c094>
+                <c095>in</c095>
+            </measure>
+            <measure>
+                <x315>02</x315>
+                <c094>136.52</c094>
+                <c095>mm</c095>
+            </measure>
+            <measure>
+                <x315>03</x315>
+                <c094>0.5</c094>
+                <c095>in</c095>
+            </measure>
+            <measure>
+                <x315>03</x315>
+                <c094>12.7</c094>
+                <c095>mm</c095>
+            </measure>
+            <x316>US</x316>
+            <collection>
+                <x329>10</x329>
+                <titledetail>
+                    <b202>01</b202>
+                    <titleelement>
+                        <x409>02</x409>
+                        <b203>MIT Press</b203>
+                    </titleelement>
+                </titledetail>
+            </collection>
+            <titledetail>
+                <b202>01</b202>
+                <titleelement>
+                    <x409>01</x409>
+                    <b203>Safe Spaces, Brave Spaces</b203>
+                    <b029>Diversity and Free Expression in Education</b029>
+                </titleelement>
+            </titledetail>
+            <contributor>
+                <b034>1</b034>
+                <b035>A01</b035>
+                <b036>John Palfrey</b036>
+                <b037>Palfrey, John</b037>
+                <b039>John</b039>
+                <b040>Palfrey</b040>
+                <professionalaffiliation>
+                    <b046>Phillips Academy</b046>
+                </professionalaffiliation>
+                <b044>
+                    <![CDATA[<DIV>John Palfrey is Head of School at Phillips Academy, Andover, coauthor of<I> Born Digital: How Children Grow Up in a Digital Age</I>, and author of the MIT Press Essential Knowledge volume <I>Intellectual Property Strategy</I>.</DIV>]]></b044>
+                <contributorplace>
+                    <x418>04</x418>
+                    <b251>US</b251>
+                    <b398>US-MA</b398>
+                </contributorplace>
+            </contributor>
+            <contributor>
+                <b034>2</b034>
+                <b035>A23</b035>
+                <b036>Alberto Ibarg&#252;en</b036>
+                <b037>Ibarg&#252;en, Alberto</b037>
+                <b039>Alberto</b039>
+                <b040>Ibarg&#252;en</b040>
+                <professionalaffiliation>
+                    <b045>President and CEO</b045>
+                    <b046>John S. and James L. Knight Foundation</b046>
+                </professionalaffiliation>
+            </contributor>
+            <b049>John Palfrey. foreword by Alberto Ibarg&#252;en</b049>
+            <n386/>
+            <language>
+                <b253>01</b253>
+                <b252>eng</b252>
+            </language>
+            <extent>
+                <b218>00</b218>
+                <b219>192</b219>
+                <b220>03</b220>
+            </extent>
+            <b125>2</b125>
+            <b062><![CDATA[1 b&amp;w illus.]]></b062>
+            <subject>
+                <x425/>
+                <b067>10</b067>
+                <b069>EDU015000</b069>
+            </subject>
+            <subject>
+                <b067>10</b067>
+                <b069>POL035000</b069>
+            </subject>
+            <subject>
+                <b067>10</b067>
+                <b069>POL039000</b069>
+            </subject>
+            <subject>
+                <x425/>
+                <b067>12</b067>
+                <b069>JNMN</b069>
+            </subject>
+            <subject>
+                <b067>12</b067>
+                <b069>JPWS</b069>
+            </subject>
+            <subject>
+                <b067>12</b067>
+                <b069>JFMD</b069>
+            </subject>
+            <subject>
+                <b067>20</b067>
+                <b070>free speech;freedom of speech;free expression;freedom of expression;diversity in
+                    education;equity;inclusion;racial diversity;students;campus;universities;schools;colleges;student
+                    activism;student protests;1st Amendment;1st Amendment protections;United States Constitution;Supreme
+                    Court;safe zones;safe spaces;microaggressions;stereotypes;trigger warnings;speech
+                    codes;policies;harassment;hate
+                    speech;bullying;race;discrimination;minorities;intolerance;tolerance;religious freedom;freedom of
+                    assembly;academic freedom;student journalism;free press;student surveys;Knight Foundation;Black
+                    Lives Matter;Adams;Justice Holmes;Fisher I;Fisher II
+                </b070>
+            </subject>
+            <subject>
+                <b067>24</b067>
+                <b171>Proprietary Category</b171>
+                <b070>Education/General</b070>
+            </subject>
+            <subject>
+                <b067>24</b067>
+                <b171>Proprietary Category</b171>
+                <b070>Social Sciences/Political Science/Public Policy &amp; Law</b070>
+            </subject>
+            <audience>
+                <b204>01</b204>
+                <b206>01</b206>
+            </audience>
+            <audiencerange>
+                <b074>11</b074>
+                <b075>03</b075>
+                <b076>17</b076>
+            </audiencerange>
+            <epubusageconstraint>
+                <x318>01</x318>
+                <x319>02</x319>
+                <epubusagelimit>
+                    <x320>20</x320>
+                    <x321>01</x321>
+                </epubusagelimit>
+            </epubusageconstraint>
+        </descriptivedetail>
+    </product>
+</ONIXmessage>

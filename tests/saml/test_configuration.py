@@ -5,10 +5,11 @@ from mock import MagicMock, create_autospec, call
 from nose.tools import eq_
 from parameterized import parameterized
 
-from api.saml.configuration import SAMLConfiguration, SAMLOneLoginConfiguration, SAMLConfigurationStorage
+from api.saml.configuration import SAMLConfiguration, SAMLOneLoginConfiguration
 from api.saml.metadata import ServiceProviderMetadata, UIInfo, Service, NameIDFormat, IdentityProviderMetadata, \
     Organization
 from api.saml.parser import SAMLMetadataParser
+from core.model.configuration import ConfigurationStorage
 from tests.saml import fixtures
 from tests.saml.fixtures import strip_certificate
 
@@ -53,7 +54,7 @@ class TestSAMLConfiguration(object):
         # Arrange
         service_provider_metadata = ''
         expected_result = copy(SERVICE_PROVIDER_WITH_CERTIFICATE)
-        configuration_storage = create_autospec(spec=SAMLConfigurationStorage)
+        configuration_storage = create_autospec(spec=ConfigurationStorage)
         configuration_storage.load = MagicMock(return_value=service_provider_metadata)
         metadata_parser = create_autospec(spec=SAMLMetadataParser)
         metadata_parser.parse = MagicMock(return_value=[expected_result])
@@ -75,7 +76,7 @@ class TestSAMLConfiguration(object):
         # Arrange
         identity_providers_metadata = ''
         expected_result = IDENTITY_PROVIDERS
-        configuration_storage = create_autospec(spec=SAMLConfigurationStorage)
+        configuration_storage = create_autospec(spec=ConfigurationStorage)
         configuration_storage.load = MagicMock(return_value=identity_providers_metadata)
         metadata_parser = create_autospec(spec=SAMLMetadataParser)
         metadata_parser.parse = MagicMock(return_value=expected_result)

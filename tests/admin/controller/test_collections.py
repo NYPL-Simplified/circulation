@@ -19,7 +19,7 @@ from core.model import (
     Library,
 )
 from core.model.configuration import ExternalIntegrationLink
-from core.s3 import S3Uploader
+from core.s3 import S3UploaderConfiguration
 from core.selftest import HasSelfTests
 from test_controller import SettingsControllerTest
 
@@ -62,9 +62,9 @@ class TestCollectionSettings(SettingsControllerTest):
             protocol=ExternalIntegration.S3,
             goal=ExternalIntegration.STORAGE_GOAL,
             settings={
-                S3Uploader.BOOK_COVERS_BUCKET_KEY: 'covers',
-                S3Uploader.OA_CONTENT_BUCKET_KEY: 'open-access-books',
-                S3Uploader.PROTECTED_CONTENT_BUCKET_KEY: 'protected-access-books'
+                S3UploaderConfiguration.BOOK_COVERS_BUCKET_KEY: 'covers',
+                S3UploaderConfiguration.OA_CONTENT_BUCKET_KEY: 'open-access-books',
+                S3UploaderConfiguration.PROTECTED_CONTENT_BUCKET_KEY: 'protected-access-books'
             }
         )
         storage2 = self._external_integration(
@@ -72,9 +72,9 @@ class TestCollectionSettings(SettingsControllerTest):
             protocol="Some other protocol",
             goal=ExternalIntegration.STORAGE_GOAL,
             settings={
-                S3Uploader.BOOK_COVERS_BUCKET_KEY: 'covers',
-                S3Uploader.OA_CONTENT_BUCKET_KEY: 'open-access-books',
-                S3Uploader.PROTECTED_CONTENT_BUCKET_KEY: 'protected-access-books'
+                S3UploaderConfiguration.BOOK_COVERS_BUCKET_KEY: 'covers',
+                S3UploaderConfiguration.OA_CONTENT_BUCKET_KEY: 'open-access-books',
+                S3UploaderConfiguration.PROTECTED_CONTENT_BUCKET_KEY: 'protected-access-books'
             }
         )
 

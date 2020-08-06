@@ -1,16 +1,18 @@
-from nose.tools import set_trace
-from . import SettingsController
 import flask
 from flask import Response
-from flask_babel import lazy_gettext as _
+
 from api.admin.problem_details import *
+from core.mirror import MirrorUploader
 from core.model import (
     ExternalIntegration,
     get_one
 )
-from core.model.configuration import ExternalIntegrationLink
-from core.mirror import MirrorUploader
 from core.util.problem_detail import ProblemDetail
+from . import SettingsController
+
+# NOTE: We need to import it explicitly to initialize MirrorUploader.IMPLEMENTATION_REGISTRY
+from api.lcp import mirror
+
 
 class StorageServicesController(SettingsController):
 

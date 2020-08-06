@@ -1062,6 +1062,25 @@ class TestBaseController(CirculationControllerTest):
         )
         eq_(BAD_DELIVERY_MECHANISM.uri, problem_detail.uri)
 
+    def test_apply_borrowing_policy_succeeds_for_unlimited_access_books(self):
+        with self.request_context_with_library("/"):
+            # Arrange
+            patron = self.controller.authenticated_patron(self.valid_credentials)
+            work = self._work(
+                with_license_pool=True,
+                with_open_access_download=False
+            )
+            [pool] = work.license_pools
+            pool.open_access = False
+            pool.self_hosted = False
+            pool.unlimited_access = True
+
+            # Act
+            problem = self.controller.apply_borrowing_policy(patron, pool)
+
+            # Assert
+            assert problem is None
+
     def test_apply_borrowing_policy_succeeds_for_self_hosted_books(self):
         with self.request_context_with_library("/"):
             # Arrange

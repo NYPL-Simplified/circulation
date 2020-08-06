@@ -1268,7 +1268,7 @@ class DirectoryImportScript(TimestampScript):
         )
         parser.add_argument(
             '--collection-type',
-            help=u'Collection type. Valid values are: OPEN_ACCESS (default), PROTECTED_ACCESS.',
+            help=u'Collection type. Valid values are: OPEN_ACCESS (default), PROTECTED_ACCESS, LCP.',
             type=CollectionType,
             choices=list(CollectionType),
             default=CollectionType.OPEN_ACCESS
@@ -1363,8 +1363,9 @@ class DirectoryImportScript(TimestampScript):
                 rights_uri
             )
 
-            for licensepool in collection.licensepools:
-                licensepool.self_hosted = True
+            if collection_type in [CollectionType.OPEN_ACCESS, CollectionType.PROTECTED_ACCESS]:
+                for licensepool in collection.licensepools:
+                    licensepool.self_hosted = True
 
             if not dry_run:
                 self._db.commit()
@@ -1391,7 +1392,7 @@ class DirectoryImportScript(TimestampScript):
         :rtype: Tuple[Collection, List[MirrorUploader]]
         """
         collection, is_new = Collection.by_name_and_protocol(
-            self._db, collection_name, ExternalIntegration.MANUAL
+            self._db, collection_name, ExternalIntegration.LCP if collection_type == CollectionType.LCP else ExternalIntegration.MANUAL
         )
 
         if is_new:
@@ -1527,6 +1528,14 @@ class DirectoryImportScript(TimestampScript):
         if not circulation_data:
             # There is no point in contining.
             return
+
+        if metadata.circulation:
+            circulation_data.licenses_owned = metadata.circulation.licenses_owned
+            circulation_data.licenses_available = metadata.circulation.licenses_available
+            circulation_data.licenses_reserved = metadata.circulation.licenses_reserved
+            circulation_data.patrons_in_hold_queue = metadata.circulation.patrons_in_hold_queue
+            circulation_data.licenses = metadata.circulation.licenses
+
         metadata.circulation = circulation_data
 
         # If a cover image is available, add it to the Metadata
@@ -1622,7 +1631,7 @@ class DirectoryImportScript(TimestampScript):
         formats = [
             FormatData(
                 content_type=book_media_type,
-                drm_scheme=DeliveryMechanism.NO_DRM,
+                drm_scheme=DeliveryMechanism.LCP_DRM if collection_type == CollectionType.LCP else DeliveryMechanism.NO_DRM,
                 link=book_link,
             )
         ]
