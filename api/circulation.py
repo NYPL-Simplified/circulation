@@ -1308,7 +1308,8 @@ class CirculationAPI(object):
 
         # Now that we're in sync (or not), set last_loan_activity_sync
         # to the conservative value obtained earlier.
-        patron.last_loan_activity_sync = last_loan_activity_sync
+        if patron:
+            patron.last_loan_activity_sync = last_loan_activity_sync
 
         __transaction.commit()
         return active_loans, active_holds

@@ -1165,7 +1165,7 @@ class TestCirculationAPI(DatabaseTest):
 
         # Since we know our picture of the patron's bookshelf is up-to-date,
         # patron.last_loan_activity_sync has been set to the current time.
-        now = datetime.datetime.utcnow()
+        now = datetime.utcnow()
         assert (now-self.patron.last_loan_activity_sync).total_seconds() < 2
 
     def test_sync_bookshelf_updates_local_loan_and_hold_with_modified_timestamps(self):
