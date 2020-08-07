@@ -1171,8 +1171,8 @@ class CirculationAPI(object):
             return local_loans, local_holds
 
         # Assuming everything goes well, we will set
-        # Patron.last_loan_activity_sync to this value -- immediately
-        # before we started contacting the vendor APIs.
+        # Patron.last_loan_activity_sync to this value -- the moment
+        # just before we started contacting the vendor APIs.
         last_loan_activity_sync = datetime.datetime.utcnow()
 
         # Update the external view of the patron's current state.
