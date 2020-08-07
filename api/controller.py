@@ -610,9 +610,15 @@ class CirculationManagerController(BaseCirculationManagerController):
 
         # TODO: This can be cleaned up significantly in Python 3.
         if_modified_since = flask.request.headers.get('If-Modified-Since')
+        if not if_modified_since:
+            return None
+
         if_modified_since_tuple = email.utils.parsedate(
             if_modified_since
         )
+        if not if_modified_since_tuple:
+            return None
+
         parsed_if_modified_since = datetime.datetime.fromtimestamp(
             mktime(if_modified_since_tuple)
         )

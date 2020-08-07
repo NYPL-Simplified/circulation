@@ -4,6 +4,7 @@ from nose.tools import (
     eq_,
     set_trace,
 )
+import calendar
 from contextlib import contextmanager
 import email
 import os
@@ -844,33 +845,77 @@ class TestBaseController(CirculationControllerTest):
             eq_(None, response.headers.get("WWW-Authenticate"))
 
     def test_handle_conditional_request(self):
-        
+
         # First, test success: the client provides If-Modified-Since
-        # and it is not earlier than the 'last modified' date known by
+        # and it is _not_ earlier than the 'last modified' date known by
         # the server.
-        now_int = time.mktime(time.gmtime())
+
+        # We need to do a lot of Python manipulation get the
+        # current time UTC as an int, an HTTP-compatible string, and a
+        # datetime.
+        #
+        # TODO: This can be cleaned up significantly in Python 3.
+        now_int = calendar.timegm(time.gmtime())
         now_string = email.utils.formatdate(now_int)
-        now_datetime = datetime.datetime.fromtimestamp(now_int)
+        now_datetime = datetime.datetime.utcfromtimestamp(now_int)
+
+        # If all of that was correct, we ended up with a datetime
+        # that's very close to the one we can get with
+        # datetime.datetime.utcnow(). If it's off (due to a
+        # localtime/GMT confusion) it'll be significantly off.
+        cross_check = datetime.datetime.utcnow()
+        assert abs(now_datetime - cross_check).total_seconds() < 5
+
         with self.app.test_request_context(
             headers={"If-Modified-Since": now_string}
         ):
             response = self.controller.handle_conditional_request(now_datetime)
             eq_(304, response.status_code)
-        
+
+        # Try with a few specific values that comply to a greater or lesser
+        # extent with the date-format spec.
+        very_old = datetime.datetime(2000, 1, 1)
+        for value in [
+                "Thu, 01 Aug 2019 10:00:40 -0000",
+                "Thu, 01 Aug 2019 10:00:40",
+                "01 Aug 2019 10:00:40",
+        ]:
+            with self.app.test_request_context(
+                    headers={"If-Modified-Since": value}
+            ):
+                response = self.controller.handle_conditional_request(very_old)
+                eq_(304, response.status_code)
+
         # All remaining test cases are failures: for whatever reason,
         # the request is not a valid conditional request and the
         # method returns None.
 
-        # This request _would_ be a conditional request, but the
-        # precondition fails.
         with self.app.test_request_context(
             headers={"If-Modified-Since": now_string}
         ):
+            # This request _would_ be a conditional request, but the
+            # precondition fails: If-Modified-Since is earlier than
+            # the 'last modified' date known by the server.
             newer = now_datetime + datetime.timedelta(seconds=10)
             response = self.controller.handle_conditional_request(newer)
             eq_(None, response)
 
-        # No last-modified date is available
+            # Here, the server doesn't know what the 'last modified' date is,
+            # so it can't evaluate the precondition.
+            response = self.controller.handle_conditional_request(None)
+            eq_(None, response)
+
+        # Here, the precondition string is not parseable as a datetime.
+        with self.app.test_request_context(
+            headers={"If-Modified-Since": "01 Aug 2019"}
+        ):
+            response = self.controller.handle_conditional_request(very_old)
+            eq_(None, response)
+
+        # Here, the client doesn't provide a precondition at all.
+        with self.app.test_request_context():
+            response = self.controller.handle_conditional_request(very_old)
+            eq_(None, response)
 
     def test_load_licensepools(self):
 
