@@ -1122,7 +1122,7 @@ class TestCirculationAPI(DatabaseTest):
         eq_([loan], loans)
 
     def test_sync_bookshelf_with_incomplete_remotes_keeps_local_loan(self):
-        self.patron.last_loan_activity_sync = datetime.datetime.utcnow()
+        self.patron.last_loan_activity_sync = datetime.utcnow()
         loan, ignore = self.pool.loan_to(self.patron)
         loan.start = self.YESTERDAY
 
@@ -1146,7 +1146,7 @@ class TestCirculationAPI(DatabaseTest):
         # Since we don't have complete loan data,
         # patron.last_loan_activity_sync has been cleared out -- we know
         # the data we have is unreliable.
-        eq_(None, patron.last_loan_activity_sync)
+        eq_(None, self.patron.last_loan_activity_sync)
 
         class CompleteCirculationAPI(MockCirculationAPI):
             def patron_activity(self, patron, pin):

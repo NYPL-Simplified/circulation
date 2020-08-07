@@ -238,7 +238,7 @@ class SAMLControllerTest(ControllerTest):
                 })
             },
             None,
-            (create_autospec(spec=Credential), create_autospec(spec=Patron), create_patron_data_mock()),
+            (create_autospec(spec=Credential), object(), create_patron_data_mock()),
             'ABCDEFG',
             'http://localhost?access_token=ABCDEFG&patron_info=%22%22',
             None

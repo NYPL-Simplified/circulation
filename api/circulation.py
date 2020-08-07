@@ -1165,7 +1165,7 @@ class CirculationAPI(object):
         local_loans = self.local_loans(patron)
         local_holds = self.local_holds(patron)
 
-        if patron.last_loan_activity_sync and not force:
+        if patron and patron.last_loan_activity_sync and not force:
             # Our local data is considered fresh, so we can return it
             # without calling out to the vendor APIs.
             return local_loans, local_holds
