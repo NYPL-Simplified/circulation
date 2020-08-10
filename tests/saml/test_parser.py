@@ -10,7 +10,7 @@ from tests.saml import fixtures
 from tests.saml.fixtures import strip_certificate
 
 
-class SAMLMetadataParserTest(object):
+class TestSAMLMetadataParser(object):
     @raises(SAMLMetadataParsingError)
     def test_parse_raises_exception_when_xml_metadata_has_incorrect_format(self):
         # Arrange
@@ -388,7 +388,7 @@ class SAMLMetadataParserTest(object):
         )
 
 
-class SAMLSubjectParserTest(object):
+class TestSAMLSubjectParser(object):
     @parameterized.expand([
         (
             'name_id_and_attributes',
@@ -426,14 +426,74 @@ class SAMLSubjectParserTest(object):
             },
             Subject(
                 NameID(
+                    NameIDFormat.PERSISTENT.value,
+                    fixtures.IDP_1_ENTITY_ID,
                     None,
-                    None,
-                    None,
-                    None
+                    '12345'
                 ),
                 AttributeStatement(
                     [
                         Attribute(SAMLAttributes.eduPersonTargetedID.name, ['12345'])
+                    ]
+                )
+            )
+        ),
+        (
+            'edu_person_targeted_id_as_name_id_and_other_attributes',
+            None, None, None, None,
+            {
+                SAMLAttributes.eduPersonTargetedID.value: [
+                    {
+                        'NameID': {
+                            'Format': NameIDFormat.PERSISTENT.value,
+                            'NameQualifier': fixtures.IDP_1_ENTITY_ID,
+                            'value': '12345'
+                        }
+                    }
+                ],
+                SAMLAttributes.eduPersonPrincipalName.value: [
+                    '12345'
+                ]
+            },
+            Subject(
+                NameID(
+                    NameIDFormat.PERSISTENT.value,
+                    fixtures.IDP_1_ENTITY_ID,
+                    None,
+                    '12345'
+                ),
+                AttributeStatement(
+                    [
+                        Attribute(SAMLAttributes.eduPersonTargetedID.name, ['12345']),
+                        Attribute(SAMLAttributes.eduPersonPrincipalName.name, ['12345'])
+                    ]
+                )
+            )
+        ),
+        (
+            'edu_person_principal_name_as_name_id',
+            None, None, None, None,
+            {
+                SAMLAttributes.eduPersonPrincipalName.value: [
+                    {
+                        'NameID': {
+                            'Format': NameIDFormat.PERSISTENT.value,
+                            'NameQualifier': fixtures.IDP_1_ENTITY_ID,
+                            'value': '12345'
+                        }
+                    }
+                ]
+            },
+            Subject(
+                NameID(
+                    NameIDFormat.PERSISTENT.value,
+                    fixtures.IDP_1_ENTITY_ID,
+                    None,
+                    '12345'
+                ),
+                AttributeStatement(
+                    [
+                        Attribute(SAMLAttributes.eduPersonPrincipalName.name, ['12345'])
                     ]
                 )
             )

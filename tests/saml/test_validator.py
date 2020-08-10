@@ -13,7 +13,7 @@ from tests.saml import fixtures
 from tests.saml.database_test import DatabaseTest
 
 
-class SAMLSettingsValidatorTest(DatabaseTest):
+class TestSAMLSettingsValidator(DatabaseTest):
     @parameterized.expand([
         (
             'missing_sp_metadata_and_missing_idp_metadata',
@@ -77,7 +77,7 @@ class SAMLSettingsValidatorTest(DatabaseTest):
             eq_(result, expected_validation_result)
 
 
-class SAMLSettingsValidatorFactoryTest(object):
+class TestSAMLSettingsValidatorFactory(object):
     @parameterized.expand([
         ('validator_using_factory_method', 'api.saml.provider')
     ])

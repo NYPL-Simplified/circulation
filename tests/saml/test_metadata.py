@@ -5,7 +5,7 @@ from api.saml.metadata import Attribute, SAMLAttributes, AttributeStatement, Sub
     NameIDFormat
 
 
-class AttributeStatementTest(object):
+class TestAttributeStatement(object):
     def test_init_accepts_list_of_attributes(self):
         # Arrange
         attributes = [
@@ -24,7 +24,7 @@ class AttributeStatementTest(object):
         eq_(attribute_statement.attributes[SAMLAttributes.eduPersonTargetedID.name].values, attributes[1].values)
 
 
-class SubjectUIDExtractorTest(object):
+class TestSubjectUIDExtractor(object):
     @parameterized.expand([
         (
             'subject_without_unique_id',
@@ -69,7 +69,7 @@ class SubjectUIDExtractorTest(object):
             Subject(
                 NameID(NameIDFormat.UNSPECIFIED, '', '', '12345'),
                 AttributeStatement([
-                    Attribute(name=SAMLAttributes.eduPersonOrgUnitDN.name, values=['12345'])
+                    Attribute(name=SAMLAttributes.eduPersonPrincipalName.name, values=['12345'])
                 ])
             ),
             '12345'
