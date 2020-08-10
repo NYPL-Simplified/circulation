@@ -528,7 +528,7 @@ class TestPatron(DatabaseTest):
     def test_loan_activity_max_age(self):
         # Currently, patron.loan_activity_max_age is a constant
         # and cannot be changed.
-        eq_(30*60, self._patron().loan_activity_max_age)
+        eq_(15*60, self._patron().loan_activity_max_age)
 
     def test_last_loan_activity_sync(self):
         # Verify that last_loan_activity_sync is cleared out

@@ -248,7 +248,7 @@ class Patron(Base):
         TODO: This is currently a constant, but in the future it could become
         a per-library setting.
         """
-        return 30 * 60
+        return 15 * 60
 
     @hybrid_property
     def last_loan_activity_sync(self):
