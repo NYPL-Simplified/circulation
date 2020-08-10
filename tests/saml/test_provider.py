@@ -76,7 +76,7 @@ IDENTITY_PROVIDER_WITHOUT_DISPLAY_NAMES = IdentityProviderMetadata(
 )
 
 
-class SAMLWebSSOAuthenticationProviderTest(ControllerTest):
+class TestSAMLWebSSOAuthenticationProvider(ControllerTest):
     @parameterized.expand([
         (
             'identity_provider_with_display_name',

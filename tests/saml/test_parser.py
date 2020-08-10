@@ -10,7 +10,7 @@ from tests.saml import fixtures
 from tests.saml.fixtures import strip_certificate
 
 
-class SAMLMetadataParserTest(object):
+class TestSAMLMetadataParser(object):
     @raises(SAMLMetadataParsingError)
     def test_parse_raises_exception_when_xml_metadata_has_incorrect_format(self):
         # Arrange
@@ -388,7 +388,7 @@ class SAMLMetadataParserTest(object):
         )
 
 
-class SAMLSubjectParserTest(object):
+class TestSAMLSubjectParser(object):
     @parameterized.expand([
         (
             'name_id_and_attributes',

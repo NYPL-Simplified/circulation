@@ -5,7 +5,7 @@ from api.saml.loader import SAMLMetadataLoadingError, SAMLMetadataLoader
 from tests.saml import fixtures
 
 
-class SAMLMetadataLoaderTest(object):
+class TestSAMLMetadataLoader(object):
     @patch('urllib2.urlopen')
     @raises(SAMLMetadataLoadingError)
     def test_load_idp_metadata_raises_error_when_xml_is_incorrect(self, urlopen_mock):

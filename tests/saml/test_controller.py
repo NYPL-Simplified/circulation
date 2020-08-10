@@ -54,7 +54,7 @@ def create_patron_data_mock():
     return patron_data_mock
 
 
-class SAMLControllerTest(ControllerTest):
+class TestSAMLController(ControllerTest):
     @parameterized.expand([
         (
             'with_missing_provider_name',

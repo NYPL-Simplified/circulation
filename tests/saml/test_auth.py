@@ -146,7 +146,7 @@ SAML_COLUMBIA_RESPONSE = \
 '''
 
 
-class SAMLAuthenticationManagerTest(ControllerTest):
+class TestSAMLAuthenticationManager(ControllerTest):
     @parameterized.expand([
         ('with_unsigned_authentication_request', SERVICE_PROVIDER_WITH_UNSIGNED_REQUESTS, IDENTITY_PROVIDERS),
         ('with_signed_authentication_request', SERVICE_PROVIDER_WITH_SIGNED_REQUESTS, IDENTITY_PROVIDERS)
@@ -236,7 +236,7 @@ class SAMLAuthenticationManagerTest(ControllerTest):
                 assert isinstance(result, Subject)
 
 
-class SAMLAuthenticationManagerFactoryTest(DatabaseTest):
+class TestSAMLAuthenticationManagerFactory(DatabaseTest):
     def test_create(self):
         # Arrange
         factory = SAMLAuthenticationManagerFactory()

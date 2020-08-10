@@ -48,7 +48,7 @@ IDENTITY_PROVIDERS = [
 ]
 
 
-class SAMLConfigurationTest(object):
+class TestSAMLConfiguration(object):
     def test_service_provider_returns_correct_value(self):
         # Arrange
         service_provider_metadata = ''
@@ -91,7 +91,7 @@ class SAMLConfigurationTest(object):
         metadata_parser.parse.assert_called_once_with(identity_providers_metadata)
 
 
-class SAMLOneLoginConfigurationTest(object):
+class TestSAMLOneLoginConfiguration(object):
     def test_get_identity_provider_settings_returns_correct_result(self):
         # Arrange
         configuration = create_autospec(spec=SAMLConfiguration)
