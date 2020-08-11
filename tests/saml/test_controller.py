@@ -10,7 +10,8 @@ from parameterized import parameterized
 from api.authenticator import Authenticator, PatronData
 from api.saml.auth import SAMLAuthenticationManager, SAML_INCORRECT_RESPONSE
 from api.saml.controller import SAMLController, SAML_INVALID_REQUEST, SAML_INVALID_RESPONSE
-from api.saml.metadata import ServiceProviderMetadata, UIInfo, NameIDFormat, Service, IdentityProviderMetadata
+from api.saml.metadata import ServiceProviderMetadata, UIInfo, NameIDFormat, Service, IdentityProviderMetadata, \
+    Organization
 from api.saml.provider import SAMLWebSSOAuthenticationProvider, SAML_INVALID_SUBJECT
 from core.model import Credential, Patron
 from core.util.problem_detail import ProblemDetail
@@ -20,6 +21,7 @@ from tests.saml.controller_test import ControllerTest
 SERVICE_PROVIDER = ServiceProviderMetadata(
     fixtures.SP_ENTITY_ID,
     UIInfo(),
+    Organization(),
     NameIDFormat.UNSPECIFIED.value,
     Service(fixtures.SP_ACS_URL, fixtures.SP_ACS_BINDING)
 )
@@ -28,6 +30,7 @@ IDENTITY_PROVIDERS = [
     IdentityProviderMetadata(
         fixtures.IDP_1_ENTITY_ID,
         UIInfo(),
+        Organization(),
         NameIDFormat.UNSPECIFIED.value,
         Service(fixtures.IDP_1_SSO_URL, fixtures.IDP_1_SSO_BINDING),
         signing_certificates=[
@@ -37,6 +40,7 @@ IDENTITY_PROVIDERS = [
     IdentityProviderMetadata(
         fixtures.IDP_2_ENTITY_ID,
         UIInfo(),
+        Organization(),
         NameIDFormat.UNSPECIFIED.value,
         Service(fixtures.IDP_2_SSO_URL, fixtures.IDP_2_SSO_BINDING)
     )
@@ -50,7 +54,7 @@ def create_patron_data_mock():
     return patron_data_mock
 
 
-class SAMLControllerTest(ControllerTest):
+class TestSAMLController(ControllerTest):
     @parameterized.expand([
         (
             'with_missing_provider_name',
@@ -234,7 +238,7 @@ class SAMLControllerTest(ControllerTest):
                 })
             },
             None,
-            (create_autospec(spec=Credential), create_autospec(spec=Patron), create_patron_data_mock()),
+            (create_autospec(spec=Credential), object(), create_patron_data_mock()),
             'ABCDEFG',
             'http://localhost?access_token=ABCDEFG&patron_info=%22%22',
             None

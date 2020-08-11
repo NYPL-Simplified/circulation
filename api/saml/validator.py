@@ -1,3 +1,5 @@
+import logging
+
 from flask_babel import lazy_gettext as _
 
 from api.admin.problem_details import INCOMPLETE_CONFIGURATION
@@ -7,15 +9,15 @@ from api.saml.parser import SAMLMetadataParsingError
 from core.problem_details import *
 from core.util.problem_detail import ProblemDetail
 
-INCORRECT_METADATA = pd(
+SAML_INCORRECT_METADATA = pd(
     'http://librarysimplified.org/terms/problem/saml/metadata-incorrect-format',
     status_code=400,
     title=_('SAML metadata has incorrect format.'),
     detail=_('SAML metadata has incorrect format.')
 )
 
-GENERIC_ERROR = pd(
-    'http://librarysimplified.org/terms/problem/saml/parsing-error',
+SAML_GENERIC_PARSING_ERROR = pd(
+    'http://librarysimplified.org/terms/problem/saml/generic-parsing-error',
     status_code=500,
     title=_('Unexpected error.'),
     detail=_('An unexpected error occurred during validation of SAML authentication settings.')
@@ -31,7 +33,7 @@ class SAMLSettingsValidator(Validator):
         :param metadata_parser: SAML metadata parser
         :type metadata_parser: MetadataParser
         """
-
+        self._logger = logging.getLogger(__name__)
         self._metadata_parser = metadata_parser
 
     def _get_setting_value(self, settings, content, setting_name):
@@ -72,9 +74,13 @@ class SAMLSettingsValidator(Validator):
 
             return result
         except SAMLMetadataParsingError as exception:
-            return INCORRECT_METADATA.detailed(exception.message)
+            self._logger.exception('An unexpected exception occurred duing parsing SAML metadata')
+
+            return SAML_INCORRECT_METADATA.detailed(exception.message)
         except Exception as exception:
-            return GENERIC_ERROR.detailed(exception.message)
+            self._logger.exception('An unexpected exception occurred duing parsing SAML metadata')
+
+            return SAML_GENERIC_PARSING_ERROR.detailed(exception.message)
 
     def _get_providers(self, settings, content, setting_name):
         """Fetches provider definition from the SAML metadata submitted by the user
@@ -122,7 +128,7 @@ class SAMLSettingsValidator(Validator):
             return sp_providers
 
         if len(sp_providers) != 1:
-            return INCORRECT_METADATA.detailed(
+            return SAML_INCORRECT_METADATA.detailed(
                 'Service Provider\'s XML metadata must contain exactly one declaration of SPSSODescriptor')
 
         return sp_providers[0]
@@ -148,7 +154,7 @@ class SAMLSettingsValidator(Validator):
             return idp_providers
 
         if len(idp_providers) < 0:
-            return INCORRECT_METADATA.detailed(
+            return SAML_INCORRECT_METADATA.detailed(
                 'Identity Provider\'s XML metadata must contain at least one declaration of IDPSSODescriptor')
 
         return idp_providers

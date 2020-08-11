@@ -1,4 +1,5 @@
 from nose.tools import set_trace
+import email
 import json
 import logging
 import sys
@@ -23,6 +24,11 @@ from flask import (
     redirect,
 )
 from flask_babel import lazy_gettext as _
+
+from api.rbdigital import (
+    RBDigitalFulfillmentProxy,
+    RBDProxyException,
+)
 
 from api.saml.auth import SAMLAuthenticationManagerFactory
 from api.saml.controller import SAMLController
@@ -426,6 +432,7 @@ class CirculationManager(object):
         self.odl_notification_controller = ODLNotificationController(self)
         self.shared_collection_controller = SharedCollectionController(self)
         self.static_files = StaticFileController(self)
+        self.rbdproxy = RBDFulfillmentProxyController(self)
 
     def setup_configuration_dependent_controllers(self):
         """Set up all the controllers that depend on the
@@ -589,6 +596,39 @@ class CirculationManagerController(BaseCirculationManagerController):
             )
         return search_engine
 
+    def handle_conditional_request(self, last_modified=None):
+        """Handle a conditional HTTP request.
+
+        :param last_modified: A datetime representing the time this
+           resource was last modified.
+
+        :return: a Response, if the incoming request can be handled
+            conditionally. Otherwise, None.
+        """
+        if not last_modified:
+            return None
+
+        # TODO: This can be cleaned up significantly in Python 3.
+        if_modified_since = flask.request.headers.get('If-Modified-Since')
+        if not if_modified_since:
+            return None
+
+        if_modified_since_tuple = email.utils.parsedate(
+            if_modified_since
+        )
+        if not if_modified_since_tuple:
+            return None
+
+        parsed_if_modified_since = datetime.datetime.fromtimestamp(
+            mktime(if_modified_since_tuple)
+        )
+        if not parsed_if_modified_since:
+            return None
+
+        if parsed_if_modified_since >= last_modified:
+            return Response(status=304)
+        return None
+
     def load_lane(self, lane_identifier):
         """Turn user input into a Lane object."""
         library_id = flask.request.library.id
@@ -678,7 +718,8 @@ class CirculationManagerController(BaseCirculationManagerController):
 
         if (not patron.library.allow_holds and
             license_pool.licenses_available == 0 and
-            not license_pool.open_access
+            not license_pool.open_access and
+            not license_pool.self_hosted
         ):
             return FORBIDDEN_BY_POLICY.detailed(
                 _("Library policy prohibits the placement of holds."),
@@ -1150,10 +1191,22 @@ class LoanController(CirculationManagerController):
 
         :return: A Response containing an OPDS feed with up-to-date information.
         """
+        patron = flask.request.patron
+
+        # Save some time if we don't believe the patron's loans or holds have
+        # changed since the last time the client requested this feed.
+        response = self.handle_conditional_request(
+            patron.last_loan_activity_sync
+        )
+        if isinstance(response, Response):
+            return response
+
+        # TODO: SimplyE used to make a HEAD request to the bookshelf feed
+        # as a quick way of checking authentication. Does this still happen?
+        # It shouldn't -- the patron profile feed should be used instead.
+        # If it's not used, we can take this out.
         if flask.request.method=='HEAD':
             return Response()
-
-        patron = flask.request.patron
 
         # First synchronize our local list of loans and holds with all
         # third-party loan providers.
@@ -1412,6 +1465,7 @@ class LoanController(CirculationManagerController):
             return url_for(
                 "fulfill", license_pool_id=requested_license_pool.id,
                 mechanism_id=mechanism.delivery_mechanism.id,
+                library_short_name=library.short_name,
                 part=unicode(part), _external=True
             )
 
@@ -2231,3 +2285,28 @@ class StaticFileController(CirculationManagerController):
     def image(self, filename):
         directory = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..", "resources", "images")
         return self.static_file(directory, filename)
+
+class RBDFulfillmentProxyController(CirculationManagerController):
+
+    def __init__(self, *args, **kwargs):
+        super(RBDFulfillmentProxyController, self).__init__(*args, **kwargs)
+        self.log = logging.getLogger("RBDigital fulfillment proxy")
+
+    def proxy(self, bearer, api_class=None):
+        # This method expects a proxy URL with a "url" query parameter.
+        # It returns a Flask response.
+        fulfillment_url = flask.request.values.get('url', None)
+
+        try:
+            response = RBDigitalFulfillmentProxy.proxy(self._db, bearer, fulfillment_url,
+                                                       api_class=api_class)
+        except RBDProxyException as e:
+            status = e.message.get('status', 500)
+            message = e.message.get('message', 'unspecified error')
+            self.log.error('RBDProxyException: {} {}'.format(status, message))
+            response = Response(
+                response=json.dumps({"message": message}),
+                status=status, content_type='application/json;charset=UTF-8',
+            )
+
+        return response

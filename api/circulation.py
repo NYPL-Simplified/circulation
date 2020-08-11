@@ -1,26 +1,24 @@
-from nose.tools import set_trace
-from circulation_exceptions import *
 import datetime
-from collections import defaultdict
-from threading import Thread
-import flask
 import logging
-import re
+import sys
 import time
+from threading import Thread
+
+import flask
 from flask_babel import lazy_gettext as _
 
-from core.config import CannotLoadConfiguration
+from circulation_exceptions import *
+from config import Configuration
 from core.cdn import cdnify
+from core.config import CannotLoadConfiguration
+from core.mirror import MirrorUploader
 from core.model import (
     get_one,
     CirculationEvent,
     Collection,
-    CollectionMissing,
     ConfigurationSetting,
     DeliveryMechanism,
     ExternalIntegration,
-    Identifier,
-    DataSource,
     Library,
     LicensePoolDeliveryMechanism,
     LicensePool,
@@ -29,10 +27,9 @@ from core.model import (
     Patron,
     RightsStatus,
     Session,
-)
+    ExternalIntegrationLink)
 from util.patron import PatronUtility
-from config import Configuration
-import sys
+
 
 class CirculationInfo(object):
 
@@ -467,6 +464,36 @@ class CirculationAPI(object):
             return True
         return False
 
+    def _try_to_sign_fulfillment_link(self, licensepool, fulfillment):
+        """Tries to sign the fulfilment URL (only works in the case when the collection has mirrors set up)
+
+        :param licensepool: License pool
+        :type licensepool: LicensePool
+
+        :param fulfillment: Fulfillment info
+        :type fulfillment: FulfillmentInfo
+
+        :return: Fulfillment info with a possibly signed URL
+        :rtype: FulfillmentInfo
+        """
+        mirror_types = [ExternalIntegrationLink.PROTECTED_ACCESS_BOOKS]
+        mirror = next(iter([
+            MirrorUploader.for_collection(licensepool.collection, mirror_type)
+            for mirror_type in mirror_types
+        ]))
+
+        if mirror:
+            signed_url = mirror.sign_url(fulfillment.content_link)
+
+            self.log.info(
+                'Fulfilment link {0} has been signed and translated into {1}'.format(
+                    fulfillment.content_link, signed_url)
+            )
+
+            fulfillment.content_link = signed_url
+
+        return fulfillment
+
     def _collect_event(self, patron, licensepool, name,
                        include_neighborhood=False):
         """Collect an analytics event.
@@ -540,7 +567,7 @@ class CirculationAPI(object):
         PatronUtility.assert_borrowing_privileges(patron)
 
         now = datetime.datetime.utcnow()
-        if licensepool.open_access:
+        if licensepool.open_access or licensepool.self_hosted:
             # We can 'loan' open-access content ourselves just by
             # putting a row in the database.
             now = datetime.datetime.utcnow()
@@ -587,7 +614,7 @@ class CirculationAPI(object):
 
             # TODO: This would be a great place to pass in only the
             # single API that needs to be synced.
-            self.sync_bookshelf(patron, pin)
+            self.sync_bookshelf(patron, pin, force=True)
             existing_loan = get_one(
                 self._db, Loan, patron=patron, license_pool=licensepool,
                 on_multiple='interchangeable'
@@ -869,7 +896,7 @@ class CirculationAPI(object):
                 # Sync and try again.
                 # TODO: Pass in only the single collection or LicensePool
                 # that needs to be synced.
-                self.sync_bookshelf(patron, pin)
+                self.sync_bookshelf(patron, pin, force=True)
                 return self.fulfill(
                     patron, pin, licensepool=licensepool,
                     delivery_mechanism=delivery_mechanism,
@@ -885,13 +912,16 @@ class CirculationAPI(object):
                   requested_delivery_mechanism=delivery_mechanism.delivery_mechanism.name)
             )
 
-        if licensepool.open_access:
+        if licensepool.open_access or licensepool.self_hosted:
             # We ignore the vendor-specific arguments when doing
             # open-access fulfillment, because we just don't support
             # partial fulfillment of open-access content.
             fulfillment = self.fulfill_open_access(
                 licensepool, delivery_mechanism.delivery_mechanism,
             )
+
+            if licensepool.self_hosted:
+                fulfillment = self._try_to_sign_fulfillment_link(licensepool, fulfillment)
         else:
             api = self.api_for_license_pool(licensepool)
             internal_format = api.internal_format(delivery_mechanism)
@@ -987,6 +1017,7 @@ class CirculationAPI(object):
             __transaction = self._db.begin_nested()
             logging.info("In revoke_loan(), deleting loan #%d" % loan.id)
             self._db.delete(loan)
+            patron.last_loan_activity_sync = None
             __transaction.commit()
 
             # Send out an analytics event to record the fact that
@@ -1019,6 +1050,7 @@ class CirculationAPI(object):
         if hold:
             __transaction = self._db.begin_nested()
             self._db.delete(hold)
+            patron.last_loan_activity_sync = None
             __transaction.commit()
 
             # Send out an analytics event to record the fact that
@@ -1118,15 +1150,41 @@ class CirculationAPI(object):
             Hold.patron==patron
         )
 
-    def sync_bookshelf(self, patron, pin):
+    def sync_bookshelf(self, patron, pin, force=False):
+        """Sync our internal model of a patron's bookshelf with any external
+        vendors that provide books to the patron's library.
 
-        # Get the external view of the patron's current state.
-        remote_loans, remote_holds, complete = self.patron_activity(patron, pin)
-
+        :param patron: A Patron.
+        :param pin: The password authenticating the patron; used by some vendors
+           that perform a cross-check against the library ILS.
+        :param force: If this is True, the method will call out to external
+           vendors even if it looks like the system has up-to-date information
+           about the patron.
+        """
         # Get our internal view of the patron's current state.
-        __transaction = self._db.begin_nested()
         local_loans = self.local_loans(patron)
         local_holds = self.local_holds(patron)
+
+        if patron and patron.last_loan_activity_sync and not force:
+            # Our local data is considered fresh, so we can return it
+            # without calling out to the vendor APIs.
+            return local_loans, local_holds
+
+        # Assuming everything goes well, we will set
+        # Patron.last_loan_activity_sync to this value -- the moment
+        # just before we started contacting the vendor APIs.
+        last_loan_activity_sync = datetime.datetime.utcnow()
+
+        # Update the external view of the patron's current state.
+        remote_loans, remote_holds, complete = self.patron_activity(patron, pin)
+        __transaction = self._db.begin_nested()
+
+        if not complete:
+            # We were not able to get a complete picture of the
+            # patron's loan activity. Until we are able to do that, we
+            # should never assume that our internal model of the
+            # patron's loans is good enough to cache.
+            last_loan_activity_sync = None
 
         now = datetime.datetime.utcnow()
         local_loans_by_identifier = {}
@@ -1247,6 +1305,11 @@ class CirculationAPI(object):
             for hold in local_holds_by_identifier.values():
                 if hold.license_pool.collection_id in self.collection_ids_for_sync:
                     self._db.delete(hold)
+
+        # Now that we're in sync (or not), set last_loan_activity_sync
+        # to the conservative value obtained earlier.
+        if patron:
+            patron.last_loan_activity_sync = last_loan_activity_sync
 
         __transaction.commit()
         return active_loans, active_holds

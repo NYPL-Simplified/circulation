@@ -258,6 +258,8 @@ class SAMLController(object):
             }
         )
         redirect_uri = authentication_manager.start_authentication(db, idp_entity_id, relay_state)
+        if isinstance(redirect_uri, ProblemDetail):
+            return redirect_uri
 
         return redirect(redirect_uri)
 

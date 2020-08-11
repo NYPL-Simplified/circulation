@@ -1,50 +1,16 @@
+from mock import create_autospec, MagicMock
 from nose.tools import raises, eq_
+from onelogin.saml2.auth import OneLogin_Saml2_Auth
+from parameterized import parameterized
 
 from api.saml.metadata import IdentityProviderMetadata, UIInfo, LocalizableMetadataItem, Service, \
-    ServiceProviderMetadata, NameIDFormat
-from api.saml.parser import SAMLMetadataParsingError, SAMLMetadataParser
+    ServiceProviderMetadata, NameIDFormat, Organization, Subject, NameID, Attribute, SAMLAttributes, AttributeStatement
+from api.saml.parser import SAMLMetadataParsingError, SAMLMetadataParser, SAMLSubjectParser
 from tests.saml import fixtures
+from tests.saml.fixtures import strip_certificate
 
 
-class SAMLMetadataParserTest(object):
-    def _strip_certificate(self, certificate):
-        """
-        Converts certificate to a one-line format
-
-        :param certificate: Certificate in a multi-line format
-        :type certificate: string
-
-        :return: Certificate in a one-line format
-        :rtype: string
-        """
-
-        return certificate.replace('\n', '')
-
-    def _check_idp_metadata(
-            self,
-            idp_metadata,
-            entity_id,
-            ui_info,
-            name_id_format,
-            sso_service,
-            want_authn_requests_signed,
-            signing_certificates,
-            encryption_certificates):
-        assert isinstance(idp_metadata, IdentityProviderMetadata)
-        assert idp_metadata.entity_id == entity_id
-
-        assert isinstance(idp_metadata.ui_info, UIInfo)
-        assert idp_metadata.ui_info == ui_info
-
-        assert idp_metadata.name_id_format == name_id_format
-
-        assert idp_metadata.sso_service == sso_service
-
-        assert idp_metadata.want_authn_requests_signed == want_authn_requests_signed
-
-        assert idp_metadata.signing_certificates == signing_certificates
-        assert idp_metadata.encryption_certificates == encryption_certificates
-
+class TestSAMLMetadataParser(object):
     @raises(SAMLMetadataParsingError)
     def test_parse_raises_exception_when_xml_metadata_has_incorrect_format(self):
         # Arrange
@@ -68,6 +34,36 @@ class SAMLMetadataParserTest(object):
 
         # Act
         metadata_parser.parse(fixtures.INCORRECT_ONE_IDP_METADATA_WITH_SSO_SERVICE_WITH_WRONG_BINDING)
+
+    def test_parse_does_not_raise_exception_when_xml_metadata_does_not_have_display_names(self):
+        # Arrange
+        metadata_parser = SAMLMetadataParser()
+
+        # Act
+        result = metadata_parser.parse(fixtures.CORRECT_ONE_IDP_METADATA_WITHOUT_DISPLAY_NAMES)
+
+        # Assert
+        assert isinstance(result, list)
+        eq_(len(result), 1)
+
+        [result] = result
+
+        eq_(
+            result,
+            IdentityProviderMetadata(
+                entity_id=fixtures.IDP_1_ENTITY_ID,
+                ui_info=UIInfo(),
+                organization=Organization(),
+                name_id_format=fixtures.NAME_ID_FORMAT_1,
+                sso_service=Service(
+                    fixtures.IDP_1_SSO_URL,
+                    fixtures.IDP_1_SSO_BINDING
+                ),
+                want_authn_requests_signed=False,
+                signing_certificates=[strip_certificate(fixtures.SIGNING_CERTIFICATE)],
+                encryption_certificates=[strip_certificate(fixtures.ENCRYPTION_CERTIFICATE)]
+            )
+        )
 
     def test_parse_correctly_parses_one_idp_metadata(self):
         # Arrange
@@ -104,14 +100,28 @@ class SAMLMetadataParserTest(object):
                         LocalizableMetadataItem(fixtures.IDP_1_UI_INFO_LOGO_URL)
                     ]
                 ),
+                organization=Organization(
+                    [
+                        LocalizableMetadataItem(fixtures.IDP_1_ORGANIZATION_EN_ORGANIZATION_NAME, 'en'),
+                        LocalizableMetadataItem(fixtures.IDP_1_ORGANIZATION_ES_ORGANIZATION_NAME, 'es')
+                    ],
+                    [
+                        LocalizableMetadataItem(fixtures.IDP_1_ORGANIZATION_EN_ORGANIZATION_DISPLAY_NAME, 'en'),
+                        LocalizableMetadataItem(fixtures.IDP_1_ORGANIZATION_ES_ORGANIZATION_DISPLAY_NAME, 'es')
+                    ],
+                    [
+                        LocalizableMetadataItem(fixtures.IDP_1_ORGANIZATION_EN_ORGANIZATION_URL, 'en'),
+                        LocalizableMetadataItem(fixtures.IDP_1_ORGANIZATION_ES_ORGANIZATION_URL, 'es')
+                    ],
+                ),
                 name_id_format=fixtures.NAME_ID_FORMAT_1,
                 sso_service=Service(
                     fixtures.IDP_1_SSO_URL,
                     fixtures.IDP_1_SSO_BINDING
                 ),
                 want_authn_requests_signed=False,
-                signing_certificates=[self._strip_certificate(fixtures.SIGNING_CERTIFICATE)],
-                encryption_certificates=[self._strip_certificate(fixtures.ENCRYPTION_CERTIFICATE)]
+                signing_certificates=[strip_certificate(fixtures.SIGNING_CERTIFICATE)],
+                encryption_certificates=[strip_certificate(fixtures.ENCRYPTION_CERTIFICATE)]
             )
         )
 
@@ -148,14 +158,28 @@ class SAMLMetadataParserTest(object):
                         LocalizableMetadataItem(fixtures.IDP_1_UI_INFO_LOGO_URL, 'en')
                     ]
                 ),
+                organization=Organization(
+                    [
+                        LocalizableMetadataItem(fixtures.IDP_1_ORGANIZATION_EN_ORGANIZATION_NAME, 'en'),
+                        LocalizableMetadataItem(fixtures.IDP_1_ORGANIZATION_ES_ORGANIZATION_NAME, 'es')
+                    ],
+                    [
+                        LocalizableMetadataItem(fixtures.IDP_1_ORGANIZATION_EN_ORGANIZATION_DISPLAY_NAME, 'en'),
+                        LocalizableMetadataItem(fixtures.IDP_1_ORGANIZATION_ES_ORGANIZATION_DISPLAY_NAME, 'es')
+                    ],
+                    [
+                        LocalizableMetadataItem(fixtures.IDP_1_ORGANIZATION_EN_ORGANIZATION_URL, 'en'),
+                        LocalizableMetadataItem(fixtures.IDP_1_ORGANIZATION_ES_ORGANIZATION_URL, 'es')
+                    ],
+                ),
                 name_id_format=NameIDFormat.UNSPECIFIED.value,
                 sso_service=Service(
                     fixtures.IDP_1_SSO_URL,
                     fixtures.IDP_1_SSO_BINDING
                 ),
                 want_authn_requests_signed=False,
-                signing_certificates=[self._strip_certificate(fixtures.SIGNING_CERTIFICATE)],
-                encryption_certificates=[self._strip_certificate(fixtures.ENCRYPTION_CERTIFICATE)]
+                signing_certificates=[strip_certificate(fixtures.SIGNING_CERTIFICATE)],
+                encryption_certificates=[strip_certificate(fixtures.ENCRYPTION_CERTIFICATE)]
             )
         )
 
@@ -189,18 +213,32 @@ class SAMLMetadataParserTest(object):
                         LocalizableMetadataItem(fixtures.IDP_1_UI_INFO_LOGO_URL, 'en')
                     ]
                 ),
+                organization=Organization(
+                    [
+                        LocalizableMetadataItem(fixtures.IDP_1_ORGANIZATION_EN_ORGANIZATION_NAME, 'en'),
+                        LocalizableMetadataItem(fixtures.IDP_1_ORGANIZATION_ES_ORGANIZATION_NAME, 'es')
+                    ],
+                    [
+                        LocalizableMetadataItem(fixtures.IDP_1_ORGANIZATION_EN_ORGANIZATION_DISPLAY_NAME, 'en'),
+                        LocalizableMetadataItem(fixtures.IDP_1_ORGANIZATION_ES_ORGANIZATION_DISPLAY_NAME, 'es')
+                    ],
+                    [
+                        LocalizableMetadataItem(fixtures.IDP_1_ORGANIZATION_EN_ORGANIZATION_URL, 'en'),
+                        LocalizableMetadataItem(fixtures.IDP_1_ORGANIZATION_ES_ORGANIZATION_URL, 'es')
+                    ],
+                ),
                 name_id_format=fixtures.NAME_ID_FORMAT_1,
                 sso_service=Service(
                     fixtures.IDP_1_SSO_URL,
                     fixtures.IDP_1_SSO_BINDING
                 ),
                 want_authn_requests_signed=False,
-                signing_certificates=[self._strip_certificate(fixtures.SIGNING_CERTIFICATE)],
-                encryption_certificates=[self._strip_certificate(fixtures.SIGNING_CERTIFICATE)]
+                signing_certificates=[strip_certificate(fixtures.SIGNING_CERTIFICATE)],
+                encryption_certificates=[strip_certificate(fixtures.SIGNING_CERTIFICATE)]
             )
         )
 
-    def test_parse_correctly_parses_metadata_with_multiple_descriptors_(self):
+    def test_parse_correctly_parses_metadata_with_multiple_descriptors(self):
         # Arrange
         metadata_parser = SAMLMetadataParser()
 
@@ -221,14 +259,28 @@ class SAMLMetadataParserTest(object):
                         LocalizableMetadataItem(fixtures.IDP_1_UI_INFO_ES_DISPLAY_NAME, 'es')
                     ]
                 ),
+                organization=Organization(
+                    [
+                        LocalizableMetadataItem(fixtures.IDP_1_ORGANIZATION_EN_ORGANIZATION_NAME, 'en'),
+                        LocalizableMetadataItem(fixtures.IDP_1_ORGANIZATION_ES_ORGANIZATION_NAME, 'es')
+                    ],
+                    [
+                        LocalizableMetadataItem(fixtures.IDP_1_ORGANIZATION_EN_ORGANIZATION_DISPLAY_NAME, 'en'),
+                        LocalizableMetadataItem(fixtures.IDP_1_ORGANIZATION_ES_ORGANIZATION_DISPLAY_NAME, 'es')
+                    ],
+                    [
+                        LocalizableMetadataItem(fixtures.IDP_1_ORGANIZATION_EN_ORGANIZATION_URL, 'en'),
+                        LocalizableMetadataItem(fixtures.IDP_1_ORGANIZATION_ES_ORGANIZATION_URL, 'es')
+                    ],
+                ),
                 name_id_format=fixtures.NAME_ID_FORMAT_1,
                 sso_service=Service(
                     fixtures.IDP_1_SSO_URL,
                     fixtures.IDP_1_SSO_BINDING
                 ),
                 want_authn_requests_signed=False,
-                signing_certificates=[self._strip_certificate(fixtures.SIGNING_CERTIFICATE)],
-                encryption_certificates=[self._strip_certificate(fixtures.ENCRYPTION_CERTIFICATE)]
+                signing_certificates=[strip_certificate(fixtures.SIGNING_CERTIFICATE)],
+                encryption_certificates=[strip_certificate(fixtures.ENCRYPTION_CERTIFICATE)]
             )
         )
 
@@ -242,14 +294,28 @@ class SAMLMetadataParserTest(object):
                         LocalizableMetadataItem(fixtures.IDP_2_UI_INFO_ES_DISPLAY_NAME, 'es')
                     ]
                 ),
+                organization=Organization(
+                    [
+                        LocalizableMetadataItem(fixtures.IDP_2_ORGANIZATION_EN_ORGANIZATION_NAME, 'en'),
+                        LocalizableMetadataItem(fixtures.IDP_2_ORGANIZATION_ES_ORGANIZATION_NAME, 'es')
+                    ],
+                    [
+                        LocalizableMetadataItem(fixtures.IDP_2_ORGANIZATION_EN_ORGANIZATION_DISPLAY_NAME, 'en'),
+                        LocalizableMetadataItem(fixtures.IDP_2_ORGANIZATION_ES_ORGANIZATION_DISPLAY_NAME, 'es')
+                    ],
+                    [
+                        LocalizableMetadataItem(fixtures.IDP_2_ORGANIZATION_EN_ORGANIZATION_URL, 'en'),
+                        LocalizableMetadataItem(fixtures.IDP_2_ORGANIZATION_ES_ORGANIZATION_URL, 'es')
+                    ],
+                ),
                 name_id_format=fixtures.NAME_ID_FORMAT_1,
                 sso_service=Service(
                     fixtures.IDP_2_SSO_URL,
                     fixtures.IDP_2_SSO_BINDING
                 ),
                 want_authn_requests_signed=False,
-                signing_certificates=[self._strip_certificate(fixtures.SIGNING_CERTIFICATE)],
-                encryption_certificates=[self._strip_certificate(fixtures.ENCRYPTION_CERTIFICATE)]
+                signing_certificates=[strip_certificate(fixtures.SIGNING_CERTIFICATE)],
+                encryption_certificates=[strip_certificate(fixtures.ENCRYPTION_CERTIFICATE)]
             )
         )
 
@@ -278,7 +344,38 @@ class SAMLMetadataParserTest(object):
             result,
             ServiceProviderMetadata(
                 entity_id=fixtures.SP_ENTITY_ID,
-                ui_info=UIInfo(),
+                ui_info=UIInfo(
+                    [
+                        LocalizableMetadataItem(fixtures.SP_UI_INFO_EN_DISPLAY_NAME, 'en'),
+                        LocalizableMetadataItem(fixtures.SP_UI_INFO_ES_DISPLAY_NAME, 'es')
+                    ],
+                    [
+                        LocalizableMetadataItem(fixtures.SP_UI_INFO_DESCRIPTION, 'en')
+                    ],
+                    [
+                        LocalizableMetadataItem(fixtures.SP_UI_INFO_INFORMATION_URL, 'en')
+                    ],
+                    [
+                        LocalizableMetadataItem(fixtures.SP_UI_INFO_PRIVACY_STATEMENT_URL, 'en')
+                    ],
+                    [
+                        LocalizableMetadataItem(fixtures.SP_UI_INFO_LOGO_URL)
+                    ]
+                ),
+                organization=Organization(
+                    [
+                        LocalizableMetadataItem(fixtures.SP_ORGANIZATION_EN_ORGANIZATION_NAME, 'en'),
+                        LocalizableMetadataItem(fixtures.SP_ORGANIZATION_ES_ORGANIZATION_NAME, 'es')
+                    ],
+                    [
+                        LocalizableMetadataItem(fixtures.SP_ORGANIZATION_EN_ORGANIZATION_DISPLAY_NAME, 'en'),
+                        LocalizableMetadataItem(fixtures.SP_ORGANIZATION_ES_ORGANIZATION_DISPLAY_NAME, 'es')
+                    ],
+                    [
+                        LocalizableMetadataItem(fixtures.SP_ORGANIZATION_EN_ORGANIZATION_URL, 'en'),
+                        LocalizableMetadataItem(fixtures.SP_ORGANIZATION_ES_ORGANIZATION_URL, 'es')
+                    ],
+                ),
                 name_id_format=NameIDFormat.UNSPECIFIED.value,
                 acs_service=Service(
                     fixtures.SP_ACS_URL,
@@ -286,6 +383,136 @@ class SAMLMetadataParserTest(object):
                 ),
                 authn_requests_signed=False,
                 want_assertions_signed=False,
-                certificate=[self._strip_certificate(fixtures.SIGNING_CERTIFICATE)]
+                certificate=strip_certificate(fixtures.SIGNING_CERTIFICATE)
             )
         )
+
+
+class TestSAMLSubjectParser(object):
+    @parameterized.expand([
+        (
+            'name_id_and_attributes',
+            NameIDFormat.TRANSIENT.value, fixtures.IDP_1_ENTITY_ID, fixtures.SP_ENTITY_ID, '12345',
+            {
+                SAMLAttributes.eduPersonUniqueId.value: ['12345']
+            },
+            Subject(
+                NameID(
+                    NameIDFormat.TRANSIENT.value,
+                    fixtures.IDP_1_ENTITY_ID,
+                    fixtures.SP_ENTITY_ID,
+                    '12345'
+                ),
+                AttributeStatement(
+                    [
+                        Attribute(SAMLAttributes.eduPersonUniqueId.name, ['12345'])
+                    ]
+                )
+            )
+        ),
+        (
+            'edu_person_targeted_id_as_name_id',
+            None, None, None, None,
+            {
+                SAMLAttributes.eduPersonTargetedID.value: [
+                    {
+                        'NameID': {
+                            'Format': NameIDFormat.PERSISTENT.value,
+                            'NameQualifier': fixtures.IDP_1_ENTITY_ID,
+                            'value': '12345'
+                        }
+                    }
+                ]
+            },
+            Subject(
+                NameID(
+                    NameIDFormat.PERSISTENT.value,
+                    fixtures.IDP_1_ENTITY_ID,
+                    None,
+                    '12345'
+                ),
+                AttributeStatement(
+                    [
+                        Attribute(SAMLAttributes.eduPersonTargetedID.name, ['12345'])
+                    ]
+                )
+            )
+        ),
+        (
+            'edu_person_targeted_id_as_name_id_and_other_attributes',
+            None, None, None, None,
+            {
+                SAMLAttributes.eduPersonTargetedID.value: [
+                    {
+                        'NameID': {
+                            'Format': NameIDFormat.PERSISTENT.value,
+                            'NameQualifier': fixtures.IDP_1_ENTITY_ID,
+                            'value': '12345'
+                        }
+                    }
+                ],
+                SAMLAttributes.eduPersonPrincipalName.value: [
+                    '12345'
+                ]
+            },
+            Subject(
+                NameID(
+                    NameIDFormat.PERSISTENT.value,
+                    fixtures.IDP_1_ENTITY_ID,
+                    None,
+                    '12345'
+                ),
+                AttributeStatement(
+                    [
+                        Attribute(SAMLAttributes.eduPersonTargetedID.name, ['12345']),
+                        Attribute(SAMLAttributes.eduPersonPrincipalName.name, ['12345'])
+                    ]
+                )
+            )
+        ),
+        (
+            'edu_person_principal_name_as_name_id',
+            None, None, None, None,
+            {
+                SAMLAttributes.eduPersonPrincipalName.value: [
+                    {
+                        'NameID': {
+                            'Format': NameIDFormat.PERSISTENT.value,
+                            'NameQualifier': fixtures.IDP_1_ENTITY_ID,
+                            'value': '12345'
+                        }
+                    }
+                ]
+            },
+            Subject(
+                NameID(
+                    NameIDFormat.PERSISTENT.value,
+                    fixtures.IDP_1_ENTITY_ID,
+                    None,
+                    '12345'
+                ),
+                AttributeStatement(
+                    [
+                        Attribute(SAMLAttributes.eduPersonPrincipalName.name, ['12345'])
+                    ]
+                )
+            )
+        )
+    ])
+    def test_parse(self, name, name_id_format, name_id_nq, name_id_spnq, name_id, attributes, expected_result):
+        # Arrange
+        parser = SAMLSubjectParser()
+        auth = create_autospec(spec=OneLogin_Saml2_Auth)
+        auth.get_nameid_format = MagicMock(return_value=name_id_format)
+        auth.get_nameid_nq = MagicMock(return_value=name_id_nq)
+        auth.get_nameid_spnq = MagicMock(return_value=name_id_spnq)
+        auth.get_nameid = MagicMock(return_value=name_id)
+        auth.get_attributes = MagicMock(return_value=attributes)
+        auth.get_session_expiration = MagicMock(return_value=None)
+        auth.get_last_assertion_not_on_or_after = MagicMock(return_value=None)
+
+        # Act
+        result = parser.parse(auth)
+
+        # Arrange
+        eq_(result, expected_result)

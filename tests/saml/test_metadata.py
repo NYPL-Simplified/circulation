@@ -5,12 +5,12 @@ from api.saml.metadata import Attribute, SAMLAttributes, AttributeStatement, Sub
     NameIDFormat
 
 
-class AttributeStatementTest(object):
+class TestAttributeStatement(object):
     def test_init_accepts_list_of_attributes(self):
         # Arrange
         attributes = [
-            Attribute(SAMLAttributes.uid.value, [12345]),
-            Attribute(SAMLAttributes.eduPersonTargetedID.value, [12345])
+            Attribute(SAMLAttributes.uid.name, [12345]),
+            Attribute(SAMLAttributes.eduPersonTargetedID.name, [12345])
         ]
 
         # Act
@@ -23,29 +23,8 @@ class AttributeStatementTest(object):
         assert SAMLAttributes.eduPersonTargetedID.name in attribute_statement.attributes
         eq_(attribute_statement.attributes[SAMLAttributes.eduPersonTargetedID.name].values, attributes[1].values)
 
-    def test_init_accepts_dictionary_of_attributes(self):
-        # Arrange
-        attributes = {
-            SAMLAttributes.uid.value: [12345],
-            SAMLAttributes.eduPersonTargetedID.value: [12345]
-        }
 
-        # Act
-        attribute_statement = AttributeStatement(attributes)
-
-        # Assert
-        assert SAMLAttributes.uid.name in attribute_statement.attributes
-        eq_(
-            attribute_statement.attributes[SAMLAttributes.uid.name].values,
-            attributes[SAMLAttributes.uid.value])
-
-        assert SAMLAttributes.eduPersonTargetedID.name in attribute_statement.attributes
-        eq_(
-            attribute_statement.attributes[SAMLAttributes.eduPersonTargetedID.name].values,
-            attributes[SAMLAttributes.eduPersonTargetedID.value])
-
-
-class SubjectUIDExtractorTest(object):
+class TestSubjectUIDExtractor(object):
     @parameterized.expand([
         (
             'subject_without_unique_id',
@@ -56,11 +35,11 @@ class SubjectUIDExtractorTest(object):
             'subject_with_eduPersonTargetedID_attribute',
             Subject(
                 NameID(NameIDFormat.UNSPECIFIED, '', '', '12345'),
-                AttributeStatement({
-                    SAMLAttributes.eduPersonTargetedID.name: ['12345'],
-                    SAMLAttributes.eduPersonUniqueId.name: ['12345'],
-                    SAMLAttributes.uid.name: ['12345']
-                })
+                AttributeStatement([
+                    Attribute(name=SAMLAttributes.eduPersonTargetedID.name, values=['12345']),
+                    Attribute(name=SAMLAttributes.eduPersonUniqueId.name, values=['12345']),
+                    Attribute(name=SAMLAttributes.uid.name, values=['12345'])
+                ])
             ),
             '12345'
         ),
@@ -68,10 +47,10 @@ class SubjectUIDExtractorTest(object):
             'subject_with_eduPersonUniqueId_attribute',
             Subject(
                 NameID(NameIDFormat.UNSPECIFIED, '', '', '12345'),
-                AttributeStatement({
-                    SAMLAttributes.eduPersonUniqueId.name: ['12345'],
-                    SAMLAttributes.uid.name: ['12345']
-                })
+                AttributeStatement([
+                    Attribute(name=SAMLAttributes.eduPersonUniqueId.name, values=['12345']),
+                    Attribute(name=SAMLAttributes.uid.name, values=['12345'])
+                ])
             ),
             '12345'
         ),
@@ -79,9 +58,9 @@ class SubjectUIDExtractorTest(object):
             'subject_with_uid_attribute',
             Subject(
                 NameID(NameIDFormat.UNSPECIFIED, '', '', '12345'),
-                AttributeStatement({
-                    SAMLAttributes.uid.name: ['12345']
-                })
+                AttributeStatement([
+                    Attribute(name=SAMLAttributes.uid.name, values=['12345'])
+                ])
             ),
             '12345'
         ),
@@ -89,9 +68,9 @@ class SubjectUIDExtractorTest(object):
             'subject_with_name_id',
             Subject(
                 NameID(NameIDFormat.UNSPECIFIED, '', '', '12345'),
-                AttributeStatement({
-                    SAMLAttributes.eduPersonOrgUnitDN.name: ['12345']
-                })
+                AttributeStatement([
+                    Attribute(name=SAMLAttributes.eduPersonPrincipalName.name, values=['12345'])
+                ])
             ),
             '12345'
         ),

@@ -92,6 +92,8 @@ class SAMLConfiguration(object):
 
     IDP_XML_METADATA = 'idp_xml_metadata'
 
+    IDP_DISPLAY_NAME_DEFAULT_TEMPLATE = 'Identity Provider #{0}'
+
     def __init__(self, configuration_storage, metadata_parser):
         """Initializes a new instance of SAMLConfiguration class
 
@@ -173,6 +175,9 @@ class SAMLConfiguration(object):
 
         if not isinstance(sp_provider, ServiceProviderMetadata):
             raise SAMLConfigurationError(_('SAML SP configuration is not correct'))
+
+        sp_provider_private_key = self._configuration_storage.load(db, self.SP_PRIVATE_KEY)
+        sp_provider.private_key = sp_provider_private_key
 
         return sp_provider
 

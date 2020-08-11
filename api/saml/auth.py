@@ -4,12 +4,19 @@ from urlparse import urlparse
 from flask import request
 from flask_babel import lazy_gettext as _
 from onelogin.saml2.auth import OneLogin_Saml2_Auth
+from onelogin.saml2.errors import OneLogin_Saml2_Error
 
 from api.saml.configuration import SAMLConfigurationStorage, SAMLConfiguration, \
     SAMLOneLoginConfiguration
-from api.saml.metadata import NameID, AttributeStatement, Subject
-from api.saml.parser import SAMLMetadataParser
+from api.saml.parser import SAMLMetadataParser, SAMLSubjectParser
 from core.problem_details import *
+
+SAML_GENERIC_ERROR = pd(
+    'http://librarysimplified.org/terms/problem/saml/generic-error',
+    status_code=500,
+    title=_('SAML error.'),
+    detail=_('SAML error.')
+)
 
 SAML_INCORRECT_RESPONSE = pd(
     'http://librarysimplified.org/terms/problem/saml/incorrect-response',
@@ -30,15 +37,19 @@ SAML_AUTHENTICATION_ERROR = pd(
 class SAMLAuthenticationManager(object):
     """Implements SAML authentication process"""
 
-    def __init__(self, configuration):
+    def __init__(self, configuration, subject_parser):
         """Initializes a new instance of SAMLAuthenticationManager
 
         :param configuration: OneLoginConfiguration object
         :type configuration: SAMLOneLoginConfiguration
+
+        :param subject_parser: Subject parser
+        :type subject_parser: SAMLSubjectParser
         """
         self._logger = logging.getLogger(__name__)
 
         self._configuration = configuration
+        self._subject_parser = subject_parser
 
     @staticmethod
     def _get_request_data():
@@ -118,9 +129,18 @@ class SAMLAuthenticationManager(object):
         :return: Redirection URL
         :rtype: string
         """
-        auth = self._get_auth_object(db, idp_entity_id)
+        try:
+            auth = self._get_auth_object(db, idp_entity_id)
+            redirect_url = auth.login(return_to_url)
 
-        return auth.login(return_to_url)
+            if self._logger.isEnabledFor(logging.DEBUG):
+                self._logger.debug('SAML request: {0}'.format(auth.get_last_request_xml()))
+
+            return redirect_url
+        except OneLogin_Saml2_Error as exception:
+            self._logger.exception('Unexpected exception occurred while initiating a SAML flow')
+
+            return SAML_GENERIC_ERROR.detailed(exception.message)
 
     def finish_authentication(self, db, idp_entity_id):
         """Finishes the SAML authentication workflow by validating AuthnResponse and extracting a SAML assertion from it
@@ -143,23 +163,13 @@ class SAMLAuthenticationManager(object):
         auth = self._get_auth_object(db, idp_entity_id)
         auth.process_response()
 
+        if self._logger.isEnabledFor(logging.DEBUG):
+            self._logger.debug('SAML response: {0}'.format(auth.get_last_response_xml()))
+
         authenticated = auth.is_authenticated()
 
         if authenticated:
-            name_id = NameID(
-                auth.get_nameid_format(),
-                auth.get_nameid_nq(),
-                auth.get_nameid_spnq(),
-                auth.get_nameid()
-            )
-            attributes = auth.get_attributes()
-            attribute_statement = AttributeStatement(attributes)
-            valid_till = auth.get_session_expiration()
-
-            if not valid_till:
-                valid_till = auth.get_last_assertion_not_on_or_after()
-
-            subject = Subject(name_id, attribute_statement, valid_till)
+            subject = self._subject_parser.parse(auth)
 
             return subject
         else:
@@ -184,6 +194,7 @@ class SAMLAuthenticationManagerFactory(object):
         configuration_storage = SAMLConfigurationStorage(integration_owner)
         configuration = SAMLConfiguration(configuration_storage, SAMLMetadataParser())
         onelogin_configuration = SAMLOneLoginConfiguration(configuration)
-        authentication_manager = SAMLAuthenticationManager(onelogin_configuration)
+        subject_parser = SAMLSubjectParser()
+        authentication_manager = SAMLAuthenticationManager(onelogin_configuration, subject_parser)
 
         return authentication_manager
