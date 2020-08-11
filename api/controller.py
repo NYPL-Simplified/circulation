@@ -608,6 +608,12 @@ class CirculationManagerController(BaseCirculationManagerController):
         if not last_modified:
             return None
 
+        # If-Modified-Since values have resolution of one second. If
+        # last_modified has millisecond resolution, change its
+        # resolution to one second.
+        if last_modified.microsecond:
+            last_modified = last_modified.replace(microsecond=0)
+
         # TODO: This can be cleaned up significantly in Python 3.
         if_modified_since = flask.request.headers.get('If-Modified-Since')
         if not if_modified_since:
