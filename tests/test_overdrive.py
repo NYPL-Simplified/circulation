@@ -1736,6 +1736,7 @@ class TestSyncBookshelf(OverdriveAPITest):
         eq_([], holds)
 
         # Running the sync again leaves all four loans in place.
+        patron.last_loan_activity_sync = None
         self.api.queue_response(200, content=loans_data)
         self.api.queue_response(200, content=holds_data)
         loans, holds = self.circulation.sync_bookshelf(patron, "dummy pin")
@@ -1801,6 +1802,7 @@ class TestSyncBookshelf(OverdriveAPITest):
         eq_(sorted(holds), sorted(patron.holds))
 
         # Running the sync again leaves all four holds in place.
+        patron.last_loan_activity_sync = None
         self.api.queue_response(200, content=loans_data)
         self.api.queue_response(200, content=holds_data)
         loans, holds = self.circulation.sync_bookshelf(patron, "dummy pin")

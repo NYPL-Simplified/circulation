@@ -4,9 +4,12 @@ from nose.tools import (
     eq_,
     set_trace,
 )
+import calendar
 from contextlib import contextmanager
+import email
 import os
 import datetime
+import time
 import urlparse
 from wsgiref.handlers import format_date_time
 from time import mktime
@@ -840,6 +843,79 @@ class TestBaseController(CirculationControllerTest):
         with self.request_context_with_library("/", headers={"X-Requested-With": "XMLHttpRequest"}):
             response = self.controller.authenticate()
             eq_(None, response.headers.get("WWW-Authenticate"))
+
+    def test_handle_conditional_request(self):
+
+        # First, test success: the client provides If-Modified-Since
+        # and it is _not_ earlier than the 'last modified' date known by
+        # the server.
+
+        # We need to do a lot of Python manipulation get the
+        # current time UTC as an int, an HTTP-compatible string, and a
+        # datetime.
+        #
+        # TODO: This can be cleaned up significantly in Python 3.
+        now_int = calendar.timegm(time.gmtime())
+        now_string = email.utils.formatdate(now_int)
+        now_datetime = datetime.datetime.utcfromtimestamp(now_int)
+
+        # If all of that was correct, we ended up with a datetime
+        # that's very close to the one we can get with
+        # datetime.datetime.utcnow(). If it's off (due to a
+        # localtime/GMT confusion) it'll be significantly off.
+        cross_check = datetime.datetime.utcnow()
+        assert abs(now_datetime - cross_check).total_seconds() < 5
+
+        with self.app.test_request_context(
+            headers={"If-Modified-Since": now_string}
+        ):
+            response = self.controller.handle_conditional_request(now_datetime)
+            eq_(304, response.status_code)
+
+        # Try with a few specific values that comply to a greater or lesser
+        # extent with the date-format spec.
+        very_old = datetime.datetime(2000, 1, 1)
+        for value in [
+                "Thu, 01 Aug 2019 10:00:40 -0000",
+                "Thu, 01 Aug 2019 10:00:40",
+                "01 Aug 2019 10:00:40",
+        ]:
+            with self.app.test_request_context(
+                    headers={"If-Modified-Since": value}
+            ):
+                response = self.controller.handle_conditional_request(very_old)
+                eq_(304, response.status_code)
+
+        # All remaining test cases are failures: for whatever reason,
+        # the request is not a valid conditional request and the
+        # method returns None.
+
+        with self.app.test_request_context(
+            headers={"If-Modified-Since": now_string}
+        ):
+            # This request _would_ be a conditional request, but the
+            # precondition fails: If-Modified-Since is earlier than
+            # the 'last modified' date known by the server.
+            newer = now_datetime + datetime.timedelta(seconds=10)
+            response = self.controller.handle_conditional_request(newer)
+            eq_(None, response)
+
+            # Here, the server doesn't know what the 'last modified' date is,
+            # so it can't evaluate the precondition.
+            response = self.controller.handle_conditional_request(None)
+            eq_(None, response)
+
+        # Here, the precondition string is not parseable as a datetime.
+        with self.app.test_request_context(
+            headers={"If-Modified-Since": "01 Aug 2019"}
+        ):
+            response = self.controller.handle_conditional_request(very_old)
+            eq_(None, response)
+
+        # Here, the client doesn't provide a precondition at all.
+        with self.app.test_request_context():
+            response = self.controller.handle_conditional_request(very_old)
+            eq_(None, response)
 
     def test_load_licensepools(self):
 
@@ -2096,13 +2172,71 @@ class TestLoanController(CirculationControllerTest):
             eq_("Cannot release a hold once it enters reserved state.", response.detail)
 
     def test_active_loans(self):
+
+        # First, verify that this controller supports conditional HTTP
+        # GET by calling handle_conditional_request and propagating
+        # any Response it returns.
+        response_304 = Response(status=304)
+        def handle_conditional_request(last_modified=None):
+            return response_304
+        original_handle_conditional_request = self.controller.handle_conditional_request
+        self.manager.loans.handle_conditional_request = handle_conditional_request
+
+        # Before making any requests, set the patron's last_loan_activity_sync
+        # to a known value.
+        patron = None
+        with self.request_context_with_library("/"):
+            patron = self.controller.authenticated_patron(
+                self.valid_credentials
+            )
+        now = datetime.datetime.utcnow()
+        patron.last_loan_activity_sync = now
+
+        # Make a request -- it doesn't have If-Modified-Since, but our
+        # mocked handle_conditional_request will treat it as a
+        # successful conditional request.
         with self.request_context_with_library(
-                "/", headers=dict(Authorization=self.valid_auth)):
+            "/", headers=dict(Authorization=self.valid_auth)
+        ):
+            patron = self.manager.loans.authenticated_patron_from_request()
+            response = self.manager.loans.sync()
+            assert response is response_304
+
+        # Since the conditional request succeeded, we did not call out
+        # to the vendor APIs, and patron.last_loan_activity_sync was
+        # not updated.
+        eq_(now, patron.last_loan_activity_sync)
+
+        # Leaving patron.last_loan_activity_sync alone will stop the
+        # circulation manager from calling out to the external APIs,
+        # since it was set to a recent time. We test this explicitly
+        # later, but for now, clear it out.
+        patron.last_loan_activity_sync = None
+
+        # Un-mock handle_conditional_request. It will be called over
+        # the course of this test, but it will not notice any more
+        # conditional requests -- the detailed behavior of
+        # handle_conditional_request is tested elsewhere.
+        self.manager.loans.handle_conditional_request = (
+            original_handle_conditional_request
+        )
+
+        # If the request is not conditional, an OPDS feed is returned.
+        # This feed is empty because the patron has no loans.
+        with self.request_context_with_library(
+            "/", headers=dict(Authorization=self.valid_auth)
+        ):
             patron = self.manager.loans.authenticated_patron_from_request()
             response = self.manager.loans.sync()
             assert not "<entry>" in response.data
             assert response.headers['Cache-Control'].startswith('private,')
 
+            # patron.last_loan_activity_sync was set to the moment the
+            # LoanController started calling out to the remote APIs.
+            new_sync_time = patron.last_loan_activity_sync
+            assert new_sync_time > now
+
+        # Set up a bunch of loans on the remote APIs.
         overdrive_edition, overdrive_pool = self._edition(
             with_open_access_download=False,
             data_source_name=DataSource.OVERDRIVE,
@@ -2142,11 +2276,33 @@ class TestLoanController(CirculationControllerTest):
             0,
         )
 
+        # Making a new request so soon after the last one means the
+        # circulation manager won't actually call out to the vendor
+        # APIs. The resulting feed won't reflect what we know to be
+        # the reality.
+        with self.request_context_with_library(
+                "/", headers=dict(Authorization=self.valid_auth)):
+            patron = self.manager.loans.authenticated_patron_from_request()
+            response = self.manager.loans.sync()
+            assert '<entry>' not in response.data
+
+        # patron.last_loan_activity_sync was not changed as the result
+        # of this request, since we didn't go to the vendor APIs.
+        eq_(patron.last_loan_activity_sync, new_sync_time)
+
+        # Change it now, to a timestamp far in the past.
+        long_ago = datetime.datetime(2000, 1, 1)
+        patron.last_loan_activity_sync = long_ago
+
+        # This ensures that when we request the loans feed again, the
+        # LoanController actually goes out to the vendor APIs for new
+        # information.
         with self.request_context_with_library(
                 "/", headers=dict(Authorization=self.valid_auth)):
             patron = self.manager.loans.authenticated_patron_from_request()
             response = self.manager.loans.sync()
 
+            # This time, the feed contains entries.
             feed = feedparser.parse(response.data)
             entries = feed['entries']
 
@@ -2168,6 +2324,9 @@ class TestLoanController(CirculationControllerTest):
             assert urllib.quote("%s/%s/borrow" % (bibliotheca_pool.identifier.type, bibliotheca_pool.identifier.identifier)) in borrow_link
             eq_(0, len(bibliotheca_revoke_links))
 
+            # Since we went out the the vendor APIs,
+            # patron.last_loan_activity_sync was updated.
+            assert patron.last_loan_activity_sync > new_sync_time
 
 class TestAnnotationController(CirculationControllerTest):
     def setup(self):

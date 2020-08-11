@@ -614,7 +614,7 @@ class CirculationAPI(object):
 
             # TODO: This would be a great place to pass in only the
             # single API that needs to be synced.
-            self.sync_bookshelf(patron, pin)
+            self.sync_bookshelf(patron, pin, force=True)
             existing_loan = get_one(
                 self._db, Loan, patron=patron, license_pool=licensepool,
                 on_multiple='interchangeable'
@@ -896,7 +896,7 @@ class CirculationAPI(object):
                 # Sync and try again.
                 # TODO: Pass in only the single collection or LicensePool
                 # that needs to be synced.
-                self.sync_bookshelf(patron, pin)
+                self.sync_bookshelf(patron, pin, force=True)
                 return self.fulfill(
                     patron, pin, licensepool=licensepool,
                     delivery_mechanism=delivery_mechanism,
@@ -1017,6 +1017,7 @@ class CirculationAPI(object):
             __transaction = self._db.begin_nested()
             logging.info("In revoke_loan(), deleting loan #%d" % loan.id)
             self._db.delete(loan)
+            patron.last_loan_activity_sync = None
             __transaction.commit()
 
             # Send out an analytics event to record the fact that
@@ -1049,6 +1050,7 @@ class CirculationAPI(object):
         if hold:
             __transaction = self._db.begin_nested()
             self._db.delete(hold)
+            patron.last_loan_activity_sync = None
             __transaction.commit()
 
             # Send out an analytics event to record the fact that
@@ -1148,15 +1150,41 @@ class CirculationAPI(object):
             Hold.patron==patron
         )
 
-    def sync_bookshelf(self, patron, pin):
+    def sync_bookshelf(self, patron, pin, force=False):
+        """Sync our internal model of a patron's bookshelf with any external
+        vendors that provide books to the patron's library.
 
-        # Get the external view of the patron's current state.
-        remote_loans, remote_holds, complete = self.patron_activity(patron, pin)
-
+        :param patron: A Patron.
+        :param pin: The password authenticating the patron; used by some vendors
+           that perform a cross-check against the library ILS.
+        :param force: If this is True, the method will call out to external
+           vendors even if it looks like the system has up-to-date information
+           about the patron.
+        """
         # Get our internal view of the patron's current state.
-        __transaction = self._db.begin_nested()
         local_loans = self.local_loans(patron)
         local_holds = self.local_holds(patron)
+
+        if patron and patron.last_loan_activity_sync and not force:
+            # Our local data is considered fresh, so we can return it
+            # without calling out to the vendor APIs.
+            return local_loans, local_holds
+
+        # Assuming everything goes well, we will set
+        # Patron.last_loan_activity_sync to this value -- the moment
+        # just before we started contacting the vendor APIs.
+        last_loan_activity_sync = datetime.datetime.utcnow()
+
+        # Update the external view of the patron's current state.
+        remote_loans, remote_holds, complete = self.patron_activity(patron, pin)
+        __transaction = self._db.begin_nested()
+
+        if not complete:
+            # We were not able to get a complete picture of the
+            # patron's loan activity. Until we are able to do that, we
+            # should never assume that our internal model of the
+            # patron's loans is good enough to cache.
+            last_loan_activity_sync = None
 
         now = datetime.datetime.utcnow()
         local_loans_by_identifier = {}
@@ -1277,6 +1305,11 @@ class CirculationAPI(object):
             for hold in local_holds_by_identifier.values():
                 if hold.license_pool.collection_id in self.collection_ids_for_sync:
                     self._db.delete(hold)
+
+        # Now that we're in sync (or not), set last_loan_activity_sync
+        # to the conservative value obtained earlier.
+        if patron:
+            patron.last_loan_activity_sync = last_loan_activity_sync
 
         __transaction.commit()
         return active_loans, active_holds

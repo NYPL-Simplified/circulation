@@ -1,4 +1,5 @@
 from nose.tools import set_trace
+import email
 import json
 import logging
 import sys
@@ -595,6 +596,39 @@ class CirculationManagerController(BaseCirculationManagerController):
             )
         return search_engine
 
+    def handle_conditional_request(self, last_modified=None):
+        """Handle a conditional HTTP request.
+
+        :param last_modified: A datetime representing the time this
+           resource was last modified.
+
+        :return: a Response, if the incoming request can be handled
+            conditionally. Otherwise, None.
+        """
+        if not last_modified:
+            return None
+
+        # TODO: This can be cleaned up significantly in Python 3.
+        if_modified_since = flask.request.headers.get('If-Modified-Since')
+        if not if_modified_since:
+            return None
+
+        if_modified_since_tuple = email.utils.parsedate(
+            if_modified_since
+        )
+        if not if_modified_since_tuple:
+            return None
+
+        parsed_if_modified_since = datetime.datetime.fromtimestamp(
+            mktime(if_modified_since_tuple)
+        )
+        if not parsed_if_modified_since:
+            return None
+
+        if parsed_if_modified_since >= last_modified:
+            return Response(status=304)
+        return None
+
     def load_lane(self, lane_identifier):
         """Turn user input into a Lane object."""
         library_id = flask.request.library.id
@@ -1157,10 +1191,22 @@ class LoanController(CirculationManagerController):
 
         :return: A Response containing an OPDS feed with up-to-date information.
         """
+        patron = flask.request.patron
+
+        # Save some time if we don't believe the patron's loans or holds have
+        # changed since the last time the client requested this feed.
+        response = self.handle_conditional_request(
+            patron.last_loan_activity_sync
+        )
+        if isinstance(response, Response):
+            return response
+
+        # TODO: SimplyE used to make a HEAD request to the bookshelf feed
+        # as a quick way of checking authentication. Does this still happen?
+        # It shouldn't -- the patron profile feed should be used instead.
+        # If it's not used, we can take this out.
         if flask.request.method=='HEAD':
             return Response()
-
-        patron = flask.request.patron
 
         # First synchronize our local list of loans and holds with all
         # third-party loan providers.

@@ -998,14 +998,26 @@ class TestLibraryAnnotator(VendorIDTest):
     def test_active_loan_feed(self):
         self.initialize_adobe(self._default_library)
         patron = self._patron()
+        patron.last_loan_activity_sync = datetime.datetime.utcnow()
         cls = LibraryLoanAndHoldAnnotator
 
         response = cls.active_loans_for(None, patron, test_mode=True)
 
-        # The feed is cacheable but private.
+        # The feed is private and should not be cached.
         assert isinstance(response, OPDSFeedResponse)
-        eq_(60*30, response.max_age)
+        eq_(0, response.max_age)
         eq_(True, response.private)
+
+        # Instead, the Last-Modified header is set to the last time
+        # we successfully brought the patron's bookshelf in sync with
+        # the vendor APIs.
+        #
+        # (The timestamps aren't exactly the same because
+        # last_loan_activity_sync is tracked at the millisecond level
+        # and Last-Modified is tracked at the second level.)
+        assert (
+            patron.last_loan_activity_sync - response.last_modified
+        ).total_seconds() < 1
 
         # No entries in the feed...
         raw = unicode(response)
