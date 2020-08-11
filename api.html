@@ -3460,12 +3460,12 @@ changes will be overwritten by run_once().</li>
 
 <dl class="attribute">
 <dt id="api.bibliotheca.ErrorParser.hold_limit_reached">
-<code class="descname">hold_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x4c7f8c0&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.hold_limit_reached" title="Permalink to this definition">¶</a></dt>
+<code class="descname">hold_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x3d216d0&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.hold_limit_reached" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="api.bibliotheca.ErrorParser.loan_limit_reached">
-<code class="descname">loan_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x4c7f5f0&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.loan_limit_reached" title="Permalink to this definition">¶</a></dt>
+<code class="descname">loan_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x3d20550&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.loan_limit_reached" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -3480,7 +3480,7 @@ changes will be overwritten by run_once().</li>
 
 <dl class="attribute">
 <dt id="api.bibliotheca.ErrorParser.wrong_status">
-<code class="descname">wrong_status</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x4c4cee0&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.wrong_status" title="Permalink to this definition">¶</a></dt>
+<code class="descname">wrong_status</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x3d20e70&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.wrong_status" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -4165,8 +4165,26 @@ Of course, Patron itself isn’t really core functionality…</p>
 
 <dl class="method">
 <dt id="api.circulation.CirculationAPI.sync_bookshelf">
-<code class="descname">sync_bookshelf</code><span class="sig-paren">(</span><em>patron</em>, <em>pin</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/circulation.html#CirculationAPI.sync_bookshelf"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.circulation.CirculationAPI.sync_bookshelf" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
+<code class="descname">sync_bookshelf</code><span class="sig-paren">(</span><em>patron</em>, <em>pin</em>, <em>force=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/circulation.html#CirculationAPI.sync_bookshelf"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.circulation.CirculationAPI.sync_bookshelf" title="Permalink to this definition">¶</a></dt>
+<dd><p>Sync our internal model of a patron’s bookshelf with any external
+vendors that provide books to the patron’s library.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>patron</strong> – A Patron.</li>
+<li><strong>pin</strong> – The password authenticating the patron; used by some vendors
+that perform a cross-check against the library ILS.</li>
+<li><strong>force</strong> – If this is True, the method will call out to external
+vendors even if it looks like the system has up-to-date information
+about the patron.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
 
 </dd></dl>
 
@@ -5480,6 +5498,24 @@ site configuration changes.</p>
 <dt id="api.controller.CirculationManagerController.circulation">
 <code class="descname">circulation</code><a class="headerlink" href="#api.controller.CirculationManagerController.circulation" title="Permalink to this definition">¶</a></dt>
 <dd><p>Return the appropriate CirculationAPI for the request Library.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="api.controller.CirculationManagerController.handle_conditional_request">
+<code class="descname">handle_conditional_request</code><span class="sig-paren">(</span><em>last_modified=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/controller.html#CirculationManagerController.handle_conditional_request"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.controller.CirculationManagerController.handle_conditional_request" title="Permalink to this definition">¶</a></dt>
+<dd><p>Handle a conditional HTTP request.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>last_modified</strong> – A datetime representing the time this
+resource was last modified.</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">a Response, if the incoming request can be handled
+conditionally. Otherwise, None.</td>
+</tr>
+</tbody>
+</table>
 </dd></dl>
 
 <dl class="method">
@@ -8727,7 +8763,7 @@ the patron belongs to the library associated with thie BasicAuthenticationProvid
 
 <dl class="attribute">
 <dt id="api.millenium_patron.MockMilleniumPatronAPI.the_future">
-<code class="descname">the_future</code><em class="property"> = datetime.datetime(2020, 8, 21, 0, 15, 20, 563518)</em><a class="headerlink" href="#api.millenium_patron.MockMilleniumPatronAPI.the_future" title="Permalink to this definition">¶</a></dt>
+<code class="descname">the_future</code><em class="property"> = datetime.datetime(2020, 8, 21, 10, 51, 44, 954841)</em><a class="headerlink" href="#api.millenium_patron.MockMilleniumPatronAPI.the_future" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">

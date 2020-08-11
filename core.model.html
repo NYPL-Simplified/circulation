@@ -6971,9 +6971,38 @@ DataSource) corresponding to the remote service.</p>
 <dd></dd></dl>
 
 <dl class="attribute">
+<dt id="core.model.patron.Patron.last_loan_activity_sync">
+<code class="descname">last_loan_activity_sync</code><a class="headerlink" href="#core.model.patron.Patron.last_loan_activity_sync" title="Permalink to this definition">¶</a></dt>
+<dd><p>When was the last time we asked the vendors about
+this patron’s loan activity?</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">A datetime, or None if we know our loan data is
+stale.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="attribute">
 <dt id="core.model.patron.Patron.library_id">
 <code class="descname">library_id</code><a class="headerlink" href="#core.model.patron.Patron.library_id" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.model.patron.Patron.loan_activity_max_age">
+<code class="descname">loan_activity_max_age</code><a class="headerlink" href="#core.model.patron.Patron.loan_activity_max_age" title="Permalink to this definition">¶</a></dt>
+<dd><p>In the absence of any other information, how long should loan
+activity be considered ‘fresh’ for this patron?</p>
+<p>We reset Patron.last_loan_activity_sync immediately if we hear
+about a change to a patron’s loans or holds. This handles
+cases where patron activity happens where we can’t see it,
+e.g. on a vendor website or mobile app.</p>
+<p>TODO: This is currently a constant, but in the future it could become
+a per-library setting.</p>
+</dd></dl>
 
 <dl class="attribute">
 <dt id="core.model.patron.Patron.loans">

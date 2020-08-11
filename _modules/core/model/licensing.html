@@ -835,7 +835,14 @@
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">patron_or_client</span><span class="p">,</span> <span class="n">Patron</span><span class="p">):</span>
             <span class="n">loan</span><span class="p">,</span> <span class="n">is_new</span> <span class="o">=</span> <span class="n">get_one_or_create</span><span class="p">(</span>
                 <span class="n">_db</span><span class="p">,</span> <span class="n">Loan</span><span class="p">,</span> <span class="n">patron</span><span class="o">=</span><span class="n">patron_or_client</span><span class="p">,</span> <span class="n">license_pool</span><span class="o">=</span><span class="bp">self</span><span class="p">,</span>
-                <span class="n">create_method_kwargs</span><span class="o">=</span><span class="n">kwargs</span><span class="p">)</span>
+                <span class="n">create_method_kwargs</span><span class="o">=</span><span class="n">kwargs</span>
+            <span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">is_new</span><span class="p">:</span>
+                <span class="c1"># This action creates uncertainty about what the patron&#39;s</span>
+                <span class="c1"># loan activity actually is. We&#39;ll need to sync with the</span>
+                <span class="c1"># vendor APIs.</span>
+                <span class="n">patron_or_client</span><span class="o">.</span><span class="n">last_loan_activity_sync</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="c1"># An IntegrationClient can have multiple loans, so this always creates</span>
             <span class="c1"># a new loan rather than returning an existing loan.</span>
@@ -855,7 +862,13 @@
         <span class="n">start</span> <span class="o">=</span> <span class="n">start</span> <span class="ow">or</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">patron_or_client</span><span class="p">,</span> <span class="n">Patron</span><span class="p">):</span>
             <span class="n">hold</span><span class="p">,</span> <span class="n">new</span> <span class="o">=</span> <span class="n">get_one_or_create</span><span class="p">(</span>
-                <span class="n">_db</span><span class="p">,</span> <span class="n">Hold</span><span class="p">,</span> <span class="n">patron</span><span class="o">=</span><span class="n">patron_or_client</span><span class="p">,</span> <span class="n">license_pool</span><span class="o">=</span><span class="bp">self</span><span class="p">)</span>
+                <span class="n">_db</span><span class="p">,</span> <span class="n">Hold</span><span class="p">,</span> <span class="n">patron</span><span class="o">=</span><span class="n">patron_or_client</span><span class="p">,</span> <span class="n">license_pool</span><span class="o">=</span><span class="bp">self</span>
+            <span class="p">)</span>
+            <span class="c1"># This action creates uncertainty about what the patron&#39;s</span>
+            <span class="c1"># loan activity actually is. We&#39;ll need to sync with the</span>
+            <span class="c1"># vendor APIs.</span>
+            <span class="k">if</span> <span class="n">new</span><span class="p">:</span>
+                <span class="n">patron_or_client</span><span class="o">.</span><span class="n">last_loan_activity_sync</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="c1"># An IntegrationClient can have multiple holds, so this always creates</span>
             <span class="c1"># a new hold rather than returning an existing loan.</span>

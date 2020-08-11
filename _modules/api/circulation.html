@@ -649,7 +649,7 @@
 
             <span class="c1"># TODO: This would be a great place to pass in only the</span>
             <span class="c1"># single API that needs to be synced.</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">sync_bookshelf</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">sync_bookshelf</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">force</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
             <span class="n">existing_loan</span> <span class="o">=</span> <span class="n">get_one</span><span class="p">(</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">Loan</span><span class="p">,</span> <span class="n">patron</span><span class="o">=</span><span class="n">patron</span><span class="p">,</span> <span class="n">license_pool</span><span class="o">=</span><span class="n">licensepool</span><span class="p">,</span>
                 <span class="n">on_multiple</span><span class="o">=</span><span class="s1">&#39;interchangeable&#39;</span>
@@ -931,7 +931,7 @@
                 <span class="c1"># Sync and try again.</span>
                 <span class="c1"># TODO: Pass in only the single collection or LicensePool</span>
                 <span class="c1"># that needs to be synced.</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">sync_bookshelf</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">sync_bookshelf</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">force</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
                 <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">fulfill</span><span class="p">(</span>
                     <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">licensepool</span><span class="o">=</span><span class="n">licensepool</span><span class="p">,</span>
                     <span class="n">delivery_mechanism</span><span class="o">=</span><span class="n">delivery_mechanism</span><span class="p">,</span>
@@ -1052,6 +1052,7 @@
             <span class="n">__transaction</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">begin_nested</span><span class="p">()</span>
             <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;In revoke_loan(), deleting loan #</span><span class="si">%d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">loan</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">loan</span><span class="p">)</span>
+            <span class="n">patron</span><span class="o">.</span><span class="n">last_loan_activity_sync</span> <span class="o">=</span> <span class="kc">None</span>
             <span class="n">__transaction</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
 
             <span class="c1"># Send out an analytics event to record the fact that</span>
@@ -1084,6 +1085,7 @@
         <span class="k">if</span> <span class="n">hold</span><span class="p">:</span>
             <span class="n">__transaction</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">begin_nested</span><span class="p">()</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">hold</span><span class="p">)</span>
+            <span class="n">patron</span><span class="o">.</span><span class="n">last_loan_activity_sync</span> <span class="o">=</span> <span class="kc">None</span>
             <span class="n">__transaction</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
 
             <span class="c1"># Send out an analytics event to record the fact that</span>
@@ -1183,15 +1185,41 @@
             <span class="n">Hold</span><span class="o">.</span><span class="n">patron</span><span class="o">==</span><span class="n">patron</span>
         <span class="p">)</span></div>
 
-<div class="viewcode-block" id="CirculationAPI.sync_bookshelf"><a class="viewcode-back" href="../../api.html#api.circulation.CirculationAPI.sync_bookshelf">[docs]</a>    <span class="k">def</span> <span class="nf">sync_bookshelf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">):</span>
+<div class="viewcode-block" id="CirculationAPI.sync_bookshelf"><a class="viewcode-back" href="../../api.html#api.circulation.CirculationAPI.sync_bookshelf">[docs]</a>    <span class="k">def</span> <span class="nf">sync_bookshelf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">force</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Sync our internal model of a patron&#39;s bookshelf with any external</span>
+<span class="sd">        vendors that provide books to the patron&#39;s library.</span>
 
-        <span class="c1"># Get the external view of the patron&#39;s current state.</span>
-        <span class="n">remote_loans</span><span class="p">,</span> <span class="n">remote_holds</span><span class="p">,</span> <span class="n">complete</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">patron_activity</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">)</span>
-
+<span class="sd">        :param patron: A Patron.</span>
+<span class="sd">        :param pin: The password authenticating the patron; used by some vendors</span>
+<span class="sd">           that perform a cross-check against the library ILS.</span>
+<span class="sd">        :param force: If this is True, the method will call out to external</span>
+<span class="sd">           vendors even if it looks like the system has up-to-date information</span>
+<span class="sd">           about the patron.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># Get our internal view of the patron&#39;s current state.</span>
-        <span class="n">__transaction</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">begin_nested</span><span class="p">()</span>
         <span class="n">local_loans</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">local_loans</span><span class="p">(</span><span class="n">patron</span><span class="p">)</span>
         <span class="n">local_holds</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">local_holds</span><span class="p">(</span><span class="n">patron</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">patron</span> <span class="ow">and</span> <span class="n">patron</span><span class="o">.</span><span class="n">last_loan_activity_sync</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">force</span><span class="p">:</span>
+            <span class="c1"># Our local data is considered fresh, so we can return it</span>
+            <span class="c1"># without calling out to the vendor APIs.</span>
+            <span class="k">return</span> <span class="n">local_loans</span><span class="p">,</span> <span class="n">local_holds</span>
+
+        <span class="c1"># Assuming everything goes well, we will set</span>
+        <span class="c1"># Patron.last_loan_activity_sync to this value -- the moment</span>
+        <span class="c1"># just before we started contacting the vendor APIs.</span>
+        <span class="n">last_loan_activity_sync</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+
+        <span class="c1"># Update the external view of the patron&#39;s current state.</span>
+        <span class="n">remote_loans</span><span class="p">,</span> <span class="n">remote_holds</span><span class="p">,</span> <span class="n">complete</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">patron_activity</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">)</span>
+        <span class="n">__transaction</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">begin_nested</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">complete</span><span class="p">:</span>
+            <span class="c1"># We were not able to get a complete picture of the</span>
+            <span class="c1"># patron&#39;s loan activity. Until we are able to do that, we</span>
+            <span class="c1"># should never assume that our internal model of the</span>
+            <span class="c1"># patron&#39;s loans is good enough to cache.</span>
+            <span class="n">last_loan_activity_sync</span> <span class="o">=</span> <span class="kc">None</span>
 
         <span class="n">now</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
         <span class="n">local_loans_by_identifier</span> <span class="o">=</span> <span class="p">{}</span>
@@ -1312,6 +1340,11 @@
             <span class="k">for</span> <span class="n">hold</span> <span class="ow">in</span> <span class="n">local_holds_by_identifier</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
                 <span class="k">if</span> <span class="n">hold</span><span class="o">.</span><span class="n">license_pool</span><span class="o">.</span><span class="n">collection_id</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">collection_ids_for_sync</span><span class="p">:</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">hold</span><span class="p">)</span>
+
+        <span class="c1"># Now that we&#39;re in sync (or not), set last_loan_activity_sync</span>
+        <span class="c1"># to the conservative value obtained earlier.</span>
+        <span class="k">if</span> <span class="n">patron</span><span class="p">:</span>
+            <span class="n">patron</span><span class="o">.</span><span class="n">last_loan_activity_sync</span> <span class="o">=</span> <span class="n">last_loan_activity_sync</span>
 
         <span class="n">__transaction</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
         <span class="k">return</span> <span class="n">active_loans</span><span class="p">,</span> <span class="n">active_holds</span></div></div>

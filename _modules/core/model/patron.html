@@ -124,8 +124,15 @@
     <span class="n">username</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">)</span>
 
     <span class="c1"># The last time this record was synced up with an external library</span>
-    <span class="c1"># system.</span>
+    <span class="c1"># system such as an ILS.</span>
     <span class="n">last_external_sync</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">DateTime</span><span class="p">)</span>
+
+    <span class="c1"># The last time this record was synced with the corresponding</span>
+    <span class="c1"># records managed by the vendors who provide the library with</span>
+    <span class="c1"># ebooks.</span>
+    <span class="n">_last_loan_activity_sync</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span>
+        <span class="n">DateTime</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;last_loan_activity_sync&quot;</span>
+    <span class="p">)</span>
 
     <span class="c1"># The time, if any, at which the user&#39;s authorization to borrow</span>
     <span class="c1"># books expires.</span>
@@ -262,6 +269,49 @@
         <span class="k">if</span> <span class="n">work</span><span class="o">.</span><span class="n">audience</span> <span class="ow">in</span> <span class="n">allowed</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">True</span>
         <span class="k">return</span> <span class="kc">False</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">loan_activity_max_age</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;In the absence of any other information, how long should loan</span>
+<span class="sd">        activity be considered &#39;fresh&#39; for this patron?</span>
+
+<span class="sd">        We reset Patron.last_loan_activity_sync immediately if we hear</span>
+<span class="sd">        about a change to a patron&#39;s loans or holds. This handles</span>
+<span class="sd">        cases where patron activity happens where we can&#39;t see it,</span>
+<span class="sd">        e.g. on a vendor website or mobile app.</span>
+
+<span class="sd">        TODO: This is currently a constant, but in the future it could become</span>
+<span class="sd">        a per-library setting.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="mi">15</span> <span class="o">*</span> <span class="mi">60</span>
+
+    <span class="nd">@hybrid_property</span>
+    <span class="k">def</span> <span class="nf">last_loan_activity_sync</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;When was the last time we asked the vendors about</span>
+<span class="sd">        this patron&#39;s loan activity?</span>
+
+<span class="sd">        :return: A datetime, or None if we know our loan data is</span>
+<span class="sd">            stale.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_loan_activity_sync</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">value</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">value</span>
+
+        <span class="c1"># We have an answer, but it may be so old that we should clear</span>
+        <span class="c1"># it out.</span>
+        <span class="n">now</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+        <span class="n">expires</span> <span class="o">=</span> <span class="n">value</span> <span class="o">+</span> <span class="n">datetime</span><span class="o">.</span><span class="n">timedelta</span><span class="p">(</span>
+            <span class="n">seconds</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">loan_activity_max_age</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">now</span> <span class="o">&gt;</span> <span class="n">expires</span><span class="p">:</span>
+            <span class="c1"># The value has expired. Clear it out.</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_last_loan_activity_sync</span> <span class="o">=</span> <span class="n">value</span>
+        <span class="k">return</span> <span class="n">value</span>
+
+    <span class="nd">@last_loan_activity_sync</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">last_loan_activity_sync</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_last_loan_activity_sync</span> <span class="o">=</span> <span class="n">value</span>
 
     <span class="nd">@hybrid_property</span>
     <span class="k">def</span> <span class="nf">synchronize_annotations</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>

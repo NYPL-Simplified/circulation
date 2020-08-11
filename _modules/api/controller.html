@@ -34,6 +34,7 @@
             
   <h1>Source code for api.controller</h1><div class="highlight"><pre>
 <span></span><span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
+<span class="kn">import</span> <span class="nn">email</span>
 <span class="kn">import</span> <span class="nn">json</span>
 <span class="kn">import</span> <span class="nn">logging</span>
 <span class="kn">import</span> <span class="nn">sys</span>
@@ -630,6 +631,39 @@
             <span class="p">)</span>
         <span class="k">return</span> <span class="n">search_engine</span>
 
+<div class="viewcode-block" id="CirculationManagerController.handle_conditional_request"><a class="viewcode-back" href="../../api.html#api.controller.CirculationManagerController.handle_conditional_request">[docs]</a>    <span class="k">def</span> <span class="nf">handle_conditional_request</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">last_modified</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Handle a conditional HTTP request.</span>
+
+<span class="sd">        :param last_modified: A datetime representing the time this</span>
+<span class="sd">           resource was last modified.</span>
+
+<span class="sd">        :return: a Response, if the incoming request can be handled</span>
+<span class="sd">            conditionally. Otherwise, None.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">last_modified</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="c1"># TODO: This can be cleaned up significantly in Python 3.</span>
+        <span class="n">if_modified_since</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;If-Modified-Since&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">if_modified_since</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="n">if_modified_since_tuple</span> <span class="o">=</span> <span class="n">email</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">parsedate</span><span class="p">(</span>
+            <span class="n">if_modified_since</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">if_modified_since_tuple</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="n">parsed_if_modified_since</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">fromtimestamp</span><span class="p">(</span>
+            <span class="n">mktime</span><span class="p">(</span><span class="n">if_modified_since_tuple</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">parsed_if_modified_since</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="k">if</span> <span class="n">parsed_if_modified_since</span> <span class="o">&gt;=</span> <span class="n">last_modified</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">status</span><span class="o">=</span><span class="mi">304</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
+
 <div class="viewcode-block" id="CirculationManagerController.load_lane"><a class="viewcode-back" href="../../api.html#api.controller.CirculationManagerController.load_lane">[docs]</a>    <span class="k">def</span> <span class="nf">load_lane</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">lane_identifier</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Turn user input into a Lane object.&quot;&quot;&quot;</span>
         <span class="n">library_id</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">library</span><span class="o">.</span><span class="n">id</span>
@@ -1192,10 +1226,22 @@
 
 <span class="sd">        :return: A Response containing an OPDS feed with up-to-date information.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">patron</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">patron</span>
+
+        <span class="c1"># Save some time if we don&#39;t believe the patron&#39;s loans or holds have</span>
+        <span class="c1"># changed since the last time the client requested this feed.</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">handle_conditional_request</span><span class="p">(</span>
+            <span class="n">patron</span><span class="o">.</span><span class="n">last_loan_activity_sync</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">response</span><span class="p">,</span> <span class="n">Response</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">response</span>
+
+        <span class="c1"># TODO: SimplyE used to make a HEAD request to the bookshelf feed</span>
+        <span class="c1"># as a quick way of checking authentication. Does this still happen?</span>
+        <span class="c1"># It shouldn&#39;t -- the patron profile feed should be used instead.</span>
+        <span class="c1"># If it&#39;s not used, we can take this out.</span>
         <span class="k">if</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">method</span><span class="o">==</span><span class="s1">&#39;HEAD&#39;</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">Response</span><span class="p">()</span>
-
-        <span class="n">patron</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">patron</span>
 
         <span class="c1"># First synchronize our local list of loans and holds with all</span>
         <span class="c1"># third-party loan providers.</span>
