@@ -643,6 +643,12 @@
         <span class="k">if</span> <span class="ow">not</span> <span class="n">last_modified</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">None</span>
 
+        <span class="c1"># If-Modified-Since values have resolution of one second. If</span>
+        <span class="c1"># last_modified has millisecond resolution, change its</span>
+        <span class="c1"># resolution to one second.</span>
+        <span class="k">if</span> <span class="n">last_modified</span><span class="o">.</span><span class="n">microsecond</span><span class="p">:</span>
+            <span class="n">last_modified</span> <span class="o">=</span> <span class="n">last_modified</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">microsecond</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
         <span class="c1"># TODO: This can be cleaned up significantly in Python 3.</span>
         <span class="n">if_modified_since</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;If-Modified-Since&#39;</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">if_modified_since</span><span class="p">:</span>
