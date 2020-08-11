@@ -89,8 +89,15 @@ class Patron(Base):
     username = Column(Unicode)
 
     # The last time this record was synced up with an external library
-    # system.
+    # system such as an ILS.
     last_external_sync = Column(DateTime)
+
+    # The last time this record was synced with the corresponding
+    # records managed by the vendors who provide the library with
+    # ebooks.
+    _last_loan_activity_sync = Column(
+        DateTime, default=None, name="last_loan_activity_sync"
+    )
 
     # The time, if any, at which the user's authorization to borrow
     # books expires.
@@ -227,6 +234,49 @@ class Patron(Base):
         if work.audience in allowed:
             return True
         return False
+
+    @property
+    def loan_activity_max_age(self):
+        """In the absence of any other information, how long should loan
+        activity be considered 'fresh' for this patron?
+
+        We reset Patron.last_loan_activity_sync immediately if we hear
+        about a change to a patron's loans or holds. This handles
+        cases where patron activity happens where we can't see it,
+        e.g. on a vendor website or mobile app.
+
+        TODO: This is currently a constant, but in the future it could become
+        a per-library setting.
+        """
+        return 15 * 60
+
+    @hybrid_property
+    def last_loan_activity_sync(self):
+        """When was the last time we asked the vendors about
+        this patron's loan activity?
+
+        :return: A datetime, or None if we know our loan data is
+            stale.
+        """
+        value = self._last_loan_activity_sync
+        if not value:
+            return value
+
+        # We have an answer, but it may be so old that we should clear
+        # it out.
+        now = datetime.datetime.utcnow()
+        expires = value + datetime.timedelta(
+            seconds=self.loan_activity_max_age
+        )
+        if now > expires:
+            # The value has expired. Clear it out.
+            value = None
+            self._last_loan_activity_sync = value
+        return value
+
+    @last_loan_activity_sync.setter
+    def last_loan_activity_sync(self, value):
+        self._last_loan_activity_sync = value
 
     @hybrid_property
     def synchronize_annotations(self):

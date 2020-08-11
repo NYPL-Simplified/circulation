@@ -800,7 +800,14 @@ class LicensePool(Base):
         if isinstance(patron_or_client, Patron):
             loan, is_new = get_one_or_create(
                 _db, Loan, patron=patron_or_client, license_pool=self,
-                create_method_kwargs=kwargs)
+                create_method_kwargs=kwargs
+            )
+
+            if is_new:
+                # This action creates uncertainty about what the patron's
+                # loan activity actually is. We'll need to sync with the
+                # vendor APIs.
+                patron_or_client.last_loan_activity_sync = None
         else:
             # An IntegrationClient can have multiple loans, so this always creates
             # a new loan rather than returning an existing loan.
@@ -820,7 +827,13 @@ class LicensePool(Base):
         start = start or datetime.datetime.utcnow()
         if isinstance(patron_or_client, Patron):
             hold, new = get_one_or_create(
-                _db, Hold, patron=patron_or_client, license_pool=self)
+                _db, Hold, patron=patron_or_client, license_pool=self
+            )
+            # This action creates uncertainty about what the patron's
+            # loan activity actually is. We'll need to sync with the
+            # vendor APIs.
+            if new:
+                patron_or_client.last_loan_activity_sync = None
         else:
             # An IntegrationClient can have multiple holds, so this always creates
             # a new hold rather than returning an existing loan.

@@ -525,6 +525,34 @@ class TestPatron(DatabaseTest):
         eq_(self._db.query(Annotation).all(), [])
         eq_(self._db.query(Credential).all(), [])
 
+    def test_loan_activity_max_age(self):
+        # Currently, patron.loan_activity_max_age is a constant
+        # and cannot be changed.
+        eq_(15*60, self._patron().loan_activity_max_age)
+
+    def test_last_loan_activity_sync(self):
+        # Verify that last_loan_activity_sync is cleared out
+        # beyond a certain point.
+        patron = self._patron()
+        now = datetime.datetime.utcnow()
+        max_age = patron.loan_activity_max_age
+        recently = now - datetime.timedelta(seconds=max_age/2)
+        long_ago = now - datetime.timedelta(seconds=max_age*2)
+
+        # So long as last_loan_activity_sync is relatively recent,
+        # it's treated as a normal piece of data.
+        patron.last_loan_activity_sync = recently
+        eq_(recently, patron._last_loan_activity_sync)
+        eq_(recently, patron.last_loan_activity_sync)
+        
+        # If it's _not_ relatively recent, attempting to access it
+        # clears it out.
+        patron.last_loan_activity_sync = long_ago
+        eq_(long_ago, patron._last_loan_activity_sync)
+        eq_(None, patron.last_loan_activity_sync)
+        eq_(None, patron._last_loan_activity_sync)
+
+
 class TestPatronProfileStorage(DatabaseTest):
 
     def setup(self):
