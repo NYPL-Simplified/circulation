@@ -859,6 +859,9 @@ class TestBaseController(CirculationControllerTest):
         now_string = email.utils.formatdate(now_int)
         now_datetime = datetime.datetime.utcfromtimestamp(now_int)
 
+        # To make the test more realistic, set the microseconds value of 'now'.
+        now_datetime = now_datetime.replace(microsecond=random.randint(0, 999999))
+
         # If all of that was correct, we ended up with a datetime
         # that's very close to the one we can get with
         # datetime.datetime.utcnow(). If it's off (due to a
