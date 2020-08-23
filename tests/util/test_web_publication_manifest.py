@@ -74,6 +74,22 @@ class TestManifest(object):
             dict['resources']
         )
 
+    def test_null_properties_not_propagated(self):
+        manifest = Manifest()
+        additional_properties = dict(extra="value", missing=None)
+
+        manifest.add_link("http://foo/", "self", **additional_properties)
+        manifest.add_reading_order("http://foo/", "text/html", "Chapter 1", **additional_properties)
+        manifest.add_resource("http://foo/", "text/html", **additional_properties)
+
+        manifest_dict = manifest.as_dict
+        top_level_properties = ["links", "readingOrder", "resources"]
+        for prop in top_level_properties:
+            [entry] = manifest_dict["links"]
+            assert "extra" in entry
+            eq_("value", entry["extra"])
+            assert "missing" not in entry
+
 
 class TestUpdateBibliographicMetadata(DatabaseTest):
 

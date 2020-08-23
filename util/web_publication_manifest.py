@@ -67,7 +67,8 @@ class Manifest(JSONable):
         return 'links', 'readingOrder', 'resources'
 
     def _append(self, append_to, **kwargs):
-        append_to.append(kwargs)
+        # Omit properties with None values, rather than propagating nulls to manifest.
+        append_to.append(dict((k, v) for k, v in kwargs.items() if v is not None))
 
     def add_link(self, href, rel, **kwargs):
         self._append(self.links, href=href, rel=rel, **kwargs)
