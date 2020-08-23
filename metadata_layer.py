@@ -521,7 +521,7 @@ class LinkData(object):
 
         if self.href:
             # Take a guess.
-            return Representation.guess_media_type(self.href)
+            return Representation.guess_url_media_type_from_path(self.href)
 
         # No idea.
         # TODO: We might be able to take a further guess based on the
