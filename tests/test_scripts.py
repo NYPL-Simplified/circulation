@@ -56,7 +56,7 @@ from ..monitor import (
     CollectionMonitor,
     ReaperMonitor,
 )
-from ..s3 import S3Uploader, MinIOUploader
+from ..s3 import S3Uploader, MinIOUploader, MinIOUploaderConfiguration
 from ..scripts import (
     AddClassificationScript,
     CheckContributorNamesInDB,
@@ -2589,7 +2589,7 @@ class TestMirrorResourcesScript(DatabaseTest):
             ExternalIntegrationLink.OPEN_ACCESS_BOOKS,
             ExternalIntegration.MINIO,
             MinIOUploader,
-            {MinIOUploader.ENDPOINT_URL: 'http://localhost'}
+            {MinIOUploaderConfiguration.ENDPOINT_URL: 'http://localhost'}
         ),
         (
             'containing_protected_access_books_with_minio_uploader',
@@ -2597,7 +2597,7 @@ class TestMirrorResourcesScript(DatabaseTest):
             ExternalIntegrationLink.PROTECTED_ACCESS_BOOKS,
             ExternalIntegration.MINIO,
             MinIOUploader,
-            {MinIOUploader.ENDPOINT_URL: 'http://localhost'}
+            {MinIOUploaderConfiguration.ENDPOINT_URL: 'http://localhost'}
         )
     ])
     def test_collections(self, name, collection_type, book_mirror_type, protocol, uploader_class, settings=None):

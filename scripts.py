@@ -1774,6 +1774,7 @@ class CustomListManagementScript(Script):
 class CollectionType(Enum):
     OPEN_ACCESS = 'OPEN_ACCESS'
     PROTECTED_ACCESS = 'PROTECTED_ACCESS'
+    LCP = 'LCP'
 
     def __str__(self):
         return self.name

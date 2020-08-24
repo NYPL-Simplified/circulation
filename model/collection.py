@@ -1,5 +1,6 @@
 # encoding: utf-8
 # Collection, CollectionIdentifier, CollectionMissing
+from abc import ABCMeta, abstractmethod
 
 from sqlalchemy import (
     Column,
@@ -30,7 +31,7 @@ from sqlalchemy.sql.expression import (
 from configuration import (
     ConfigurationSetting,
     ExternalIntegration,
-)
+    BaseConfigurationStorage)
 from constants import EditionConstants
 from coverage import (
     CoverageRecord,
@@ -744,7 +745,12 @@ class Collection(Base, HasFullTableCache):
 
         # Only find books with available licenses or books from self-hosted collections using MirrorUploader
         query = query.filter(
-            or_(LicensePool.licenses_owned > 0, LicensePool.open_access, LicensePool.self_hosted)
+            or_(
+                LicensePool.licenses_owned > 0,
+                LicensePool.open_access,
+                LicensePool.unlimited_access,
+                LicensePool.self_hosted
+            )
         )
 
         # Only find books in an appropriate collection.
@@ -848,3 +854,74 @@ collections_customlists = Table(
     ),
     UniqueConstraint('collection_id', 'customlist_id'),
 )
+
+
+class HasExternalIntegrationPerCollection(object):
+    """Interface allowing to get access to an external integration"""
+
+    __metaclass__ = ABCMeta
+
+    @abstractmethod
+    def collection_external_integration(self, collection):
+        """Returns an external integration associated with the collection
+
+        :param collection: Collection
+        :type collection: core.model.Collection
+
+        :return: External integration associated with the collection
+        :rtype: core.model.configuration.ExternalIntegration
+        """
+        raise NotImplementedError()
+
+
+class CollectionConfigurationStorage(BaseConfigurationStorage):
+    """Serializes and deserializes values as library's configuration settings"""
+
+    def __init__(self, external_integration_association, collection):
+        """Initializes a new instance of ConfigurationStorage class
+
+        :param external_integration_association: Association with an external integtation
+        :type external_integration_association: HasExternalIntegrationPerCollection
+
+        :param collection: Collection object
+        :type collection: Collection
+        """
+        self._integration_owner = external_integration_association
+        self._collection_id = collection.id
+
+    def save(self, db, setting_name, value):
+        """Save the value as as a new configuration setting
+
+        :param db: Database session
+        :type db: sqlalchemy.orm.session.Session
+
+        :param setting_name: Name of the library's configuration setting
+        :type setting_name: string
+
+        :param value: Value to be saved
+        :type value: Any
+        """
+        collection = Collection.by_id(db, self._collection_id)
+        integration = self._integration_owner.collection_external_integration(collection)
+        ConfigurationSetting.for_externalintegration(
+            setting_name,
+            integration).value = value
+
+    def load(self, db, setting_name):
+        """Loads and returns the library's configuration setting
+
+        :param db: Database session
+        :type db: sqlalchemy.orm.session.Session
+
+        :param setting_name: Name of the library's configuration setting
+        :type setting_name: string
+
+        :return: Any
+        """
+        collection = Collection.by_id(db, self._collection_id)
+        integration = self._integration_owner.collection_external_integration(collection)
+        value = ConfigurationSetting.for_externalintegration(
+            setting_name,
+            integration).value
+
+        return value

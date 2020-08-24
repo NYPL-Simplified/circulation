@@ -16,6 +16,8 @@ from flask_babel import lazy_gettext as _
 
 from mirror import MirrorUploader
 from model import ExternalIntegration
+from model.configuration import ConfigurationOption, ConfigurationGrouping, ConfigurationMetadata, \
+    ConfigurationAttributeType
 
 
 class MultipartS3Upload():
@@ -87,7 +89,7 @@ def _get_available_region_options():
     :rtype: List[Dict]
     """
     available_regions = sorted(_get_available_regions())
-    options = [{'key': region, 'label': region} for region in available_regions]
+    options = [ConfigurationOption(region, region) for region in available_regions]
 
     return options
 
@@ -100,12 +102,7 @@ class S3AddressingStyle(Enum):
     AUTO = 'auto'
 
 
-class S3Uploader(MirrorUploader):
-    NAME = ExternalIntegration.S3
-
-    # AWS S3 host
-    S3_HOST = 'amazonaws.com'
-
+class S3UploaderConfiguration(ConfigurationGrouping):
     S3_REGION = u's3_region'
     S3_DEFAULT_REGION = u'us-east-1'
 
@@ -131,82 +128,147 @@ class S3Uploader(MirrorUploader):
         URL_TEMPLATE_DEFAULT: u'https://%(bucket)s.s3.%(region)s/%(key)s'
     }
 
-    SETTINGS = [
-        {"key": ExternalIntegration.USERNAME, "label": _("Access Key")
-         },
-        {"key": ExternalIntegration.PASSWORD, "label": _("Secret Key"),
-         "description": _(
-             "If the <em>Access Key</em> and <em>Secret Key</em> are not given here credentials will be used as outlined in the <a href='https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html#configuring-credentials'>Boto3 documenation</a>. If <em>Access Key</em> is given, <em>Secrent Key</em> must also be given.")
-         },
-        {"key": BOOK_COVERS_BUCKET_KEY, "label": _("Book Covers Bucket"),
-         "description": _(
-             "All book cover images encountered will be mirrored to this S3 bucket. Large images will be scaled down, and the scaled-down copies will also be uploaded to this bucket. <p>The bucket must already exist&mdash;it will not be created automatically.</p>")
-         },
-        {"key": OA_CONTENT_BUCKET_KEY, "label": _("Open Access Content Bucket"),
-         "description": _(
-             "All open-access books encountered will be uploaded to this S3 bucket. <p>The bucket must already exist&mdash;it will not be created automatically.</p>")
-         },
-        {"key": PROTECTED_CONTENT_BUCKET_KEY, "label": _("Protected Access Content Bucket"),
-         "description": _(
-             "Self-hosted books will be uploaded to this S3 bucket. <p>The bucket must already exist&mdash;it will not be created automatically.</p>")
-         },
-        {"key": MARC_BUCKET_KEY, "label": _("MARC File Bucket"),
-         "description": _(
-             "All generated MARC files will be uploaded to this S3 bucket. <p>The bucket must already exist&mdash;it will not be created automatically.</p>")
-         },
-        {"key": S3_REGION, "label": _("S3 region"),
-         "type": "select",
-         "options": _get_available_region_options(),
-         "description": _("S3 region which will be used for storing the content."),
-         "default": S3_DEFAULT_REGION,
-         },
-        {"key": S3_ADDRESSING_STYLE, "label": _("S3 addressing style"),
-         "type": "select",
-         "options": [
-             {
-                 "key": S3AddressingStyle.VIRTUAL.value,
-                 "label": _("Virtual")
-             },
-             {
-                 "key": S3AddressingStyle.PATH.value,
-                 "label": _("Path")
-             },
-             {
-                 "key": S3AddressingStyle.AUTO.value,
-                 "label": _("Auto")
-             }
-         ],
-         "description":
-             _("Buckets created after September 30, 2020, will support only virtual hosted-style requests. "
-               "Path-style requests will continue to be supported for buckets created on or before this date. "
-               "For more information, "
-               "see <a href='https://aws.amazon.com/blogs/aws/amazon-s3-path-deprecation-plan-the-rest-of-the-story/'>"
-               "Amazon S3 Path Deprecation Plan - The Rest of the Story</a>."),
-         "default": S3_DEFAULT_ADDRESSING_STYLE,
-         },
-        {"key": S3_PRESIGNED_URL_EXPIRATION, "label": _("S3 presigned URL expiration"),
-         "type": "number",
-         "description": _("Time in seconds for the presigned URL to remain valid"),
-         "default": S3_DEFAULT_PRESIGNED_URL_EXPIRATION,
-         },
-        {"key": URL_TEMPLATE_KEY, "label": _("URL format"),
-         "type": "select",
-         "options": [
-             {"key": URL_TEMPLATE_DEFAULT,
-              "label": _("S3 Default: https://{bucket}.s3.{region}.amazonaws.com/{file}"),
-              },
-             {"key": URL_TEMPLATE_HTTPS,
-              "label": _("HTTPS: https://{bucket}/{file}"),
-              },
-             {"key": URL_TEMPLATE_HTTP,
-              "label": _("HTTP: http://{bucket}/{file}"),
-              },
-         ],
-         "default": URL_TEMPLATE_DEFAULT,
-         "description": _(
-             "A file mirrored to S3 is available at <code>http://{bucket}.s3.{region}.amazonaws.com/{filename}</code>. If you've set up your DNS so that http://[bucket]/ or https://[bucket]/ points to the appropriate S3 bucket, you can configure this S3 integration to shorten the URLs. <p>If you haven't set up your S3 buckets, don't change this from the default -- you'll get URLs that don't work.</p>")
-         },
-    ]
+    access_key = ConfigurationMetadata(
+        key=ExternalIntegration.USERNAME,
+        label=_('Access Key'),
+        description='',
+        type=ConfigurationAttributeType.TEXT,
+        required=False
+    )
+
+    secret_key = ConfigurationMetadata(
+        key=ExternalIntegration.PASSWORD,
+        label=_('Secret Key'),
+        description=_(
+            'If the <em>Access Key</em> and <em>Secret Key</em> are not given here credentials '
+            'will be used as outlined in the '
+            '<a href="https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html'
+            '#configuring-credentials">Boto3 documenation</a>. '
+            'If <em>Access Key</em> is given, <em>Secrent Key</em> must also be given.'
+        ),
+        type=ConfigurationAttributeType.TEXT,
+        required=False
+    )
+
+    book_covers_bucket = ConfigurationMetadata(
+        key=BOOK_COVERS_BUCKET_KEY,
+        label=_('Book Covers Bucket'),
+        description=_(
+            'All book cover images encountered will be mirrored to this S3 bucket. '
+            'Large images will be scaled down, and the scaled-down copies will also be uploaded to this bucket. '
+            '<p>The bucket must already exist&mdash;it will not be created automatically.</p>'
+        ),
+        type=ConfigurationAttributeType.TEXT,
+        required=False
+    )
+
+    open_access_content_bucket = ConfigurationMetadata(
+        key=OA_CONTENT_BUCKET_KEY,
+        label=_('Open Access Content Bucket'),
+        description=_(
+            'All open-access books encountered will be uploaded to this S3 bucket. '
+            '<p>The bucket must already exist&mdash;it will not be created automatically.</p>'
+        ),
+        type=ConfigurationAttributeType.TEXT,
+        required=False
+    )
+
+    protected_access_content_bucket = ConfigurationMetadata(
+        key=PROTECTED_CONTENT_BUCKET_KEY,
+        label=_('Protected Access Content Bucket'),
+        description=_(
+            'Self-hosted books will be uploaded to this S3 bucket. '
+            '<p>The bucket must already exist&mdash;it will not be created automatically.</p>'
+        ),
+        type=ConfigurationAttributeType.TEXT,
+        required=False
+    )
+
+    marc_file_bucket = ConfigurationMetadata(
+        key=MARC_BUCKET_KEY,
+        label=_('MARC File Bucket'),
+        description=_(
+            'All generated MARC files will be uploaded to this S3 bucket. '
+            '<p>The bucket must already exist&mdash;it will not be created automatically.</p>'
+        ),
+        type=ConfigurationAttributeType.TEXT,
+        required=False
+    )
+
+    s3_region = ConfigurationMetadata(
+        key=S3_REGION,
+        label=_('S3 region'),
+        description=_(
+            'S3 region which will be used for storing the content.'
+        ),
+        type=ConfigurationAttributeType.SELECT,
+        required=False,
+        default=S3_DEFAULT_REGION,
+        options=_get_available_region_options()
+    )
+
+    s3_addressing_style = ConfigurationMetadata(
+        key=S3_ADDRESSING_STYLE,
+        label=_('S3 addressing style'),
+        description=_(
+            'Buckets created after September 30, 2020, will support only virtual hosted-style requests. '
+            'Path-style requests will continue to be supported for buckets created on or before this date. '
+            'For more information, '
+            'see <a href="https://aws.amazon.com/blogs/aws/amazon-s3-path-deprecation-plan-the-rest-of-the-story/">'
+            'Amazon S3 Path Deprecation Plan - The Rest of the Story</a>.'
+        ),
+        type=ConfigurationAttributeType.SELECT,
+        required=False,
+        default=S3_DEFAULT_REGION,
+        options=[
+            ConfigurationOption(S3AddressingStyle.VIRTUAL.value, _('Virtual')),
+            ConfigurationOption(S3AddressingStyle.PATH.value, _('Path')),
+            ConfigurationOption(S3AddressingStyle.AUTO.value, _('Auto'))
+        ]
+    )
+
+    s3_presigned_url_expiration = ConfigurationMetadata(
+        key=S3_PRESIGNED_URL_EXPIRATION,
+        label=_('S3 presigned URL expiration'),
+        description=_(
+            'Time in seconds for the presigned URL to remain valid'
+        ),
+        type=ConfigurationAttributeType.NUMBER,
+        required=False,
+        default=S3_DEFAULT_PRESIGNED_URL_EXPIRATION,
+    )
+
+    url_template = ConfigurationMetadata(
+        key=URL_TEMPLATE_KEY,
+        label=_('URL format'),
+        description=_(
+            'A file mirrored to S3 is available at <code>http://{bucket}.s3.{region}.amazonaws.com/{filename}</code>. '
+            'If you\'ve set up your DNS so that http://[bucket]/ or https://[bucket]/ points to the appropriate '
+            'S3 bucket, you can configure this S3 integration to shorten the URLs. '
+            '<p>If you haven\'t set up your S3 buckets, don\'t change this from the default -- '
+            'you\'ll get URLs that don\'t work.</p>'
+        ),
+        type=ConfigurationAttributeType.SELECT,
+        required=False,
+        default=URL_TEMPLATE_DEFAULT,
+        options=[
+            ConfigurationOption(
+                URL_TEMPLATE_DEFAULT, _('S3 Default: https://{bucket}.s3.{region}.amazonaws.com/{file}')),
+            ConfigurationOption(
+                URL_TEMPLATE_HTTPS, _('HTTPS: https://{bucket}/{file}')),
+            ConfigurationOption(
+                URL_TEMPLATE_HTTP, _('HTTP: http://{bucket}/{file}'))
+        ]
+    )
+
+
+class S3Uploader(MirrorUploader):
+    NAME = ExternalIntegration.S3
+
+    # AWS S3 host
+    S3_HOST = 'amazonaws.com'
+
+    SETTINGS = S3UploaderConfiguration.to_settings()
 
     SITEWIDE = True
 
@@ -229,16 +291,16 @@ class S3Uploader(MirrorUploader):
             client_class = boto3.client
 
         self._s3_region = integration.setting(
-            self.S3_REGION).value_or_default(
-            self.S3_DEFAULT_REGION)
+            S3UploaderConfiguration.S3_REGION).value_or_default(
+            S3UploaderConfiguration.S3_DEFAULT_REGION)
 
         self._s3_addressing_style = integration.setting(
-            self.S3_ADDRESSING_STYLE).value_or_default(
-            self.S3_DEFAULT_ADDRESSING_STYLE)
+            S3UploaderConfiguration.S3_ADDRESSING_STYLE).value_or_default(
+            S3UploaderConfiguration.S3_DEFAULT_ADDRESSING_STYLE)
 
         self._s3_presigned_url_expiration = integration.setting(
-            self.S3_PRESIGNED_URL_EXPIRATION).value_or_default(
-            self.S3_DEFAULT_PRESIGNED_URL_EXPIRATION)
+            S3UploaderConfiguration.S3_PRESIGNED_URL_EXPIRATION).value_or_default(
+            S3UploaderConfiguration.S3_DEFAULT_PRESIGNED_URL_EXPIRATION)
 
         if callable(client_class):
             # Pass None into boto3 if we get an empty string.
@@ -270,8 +332,8 @@ class S3Uploader(MirrorUploader):
             self.client = client_class
 
         self.url_transform = integration.setting(
-            self.URL_TEMPLATE_KEY).value_or_default(
-            self.URL_TEMPLATE_DEFAULT)
+            S3UploaderConfiguration.URL_TEMPLATE_KEY).value_or_default(
+            S3UploaderConfiguration.URL_TEMPLATE_DEFAULT)
 
         # Transfer information about bucket names from the
         # ExternalIntegration to the S3Uploader object, so we don't
@@ -432,7 +494,9 @@ class S3Uploader(MirrorUploader):
     def book_url(self, identifier, extension='.epub', open_access=True,
                  data_source=None, title=None):
         """The path to the hosted EPUB file for the given identifier."""
-        bucket = self.get_bucket(self.OA_CONTENT_BUCKET_KEY if open_access else self.PROTECTED_CONTENT_BUCKET_KEY)
+        bucket = self.get_bucket(
+            S3UploaderConfiguration.OA_CONTENT_BUCKET_KEY if open_access
+            else S3UploaderConfiguration.PROTECTED_CONTENT_BUCKET_KEY)
         root = self.content_root(bucket)
 
         if not extension.startswith('.'):
@@ -455,7 +519,7 @@ class S3Uploader(MirrorUploader):
     def cover_image_url(self, data_source, identifier, filename,
                         scaled_size=None):
         """The path to the hosted cover image for the given identifier."""
-        bucket = self.get_bucket(self.BOOK_COVERS_BUCKET_KEY)
+        bucket = self.get_bucket(S3UploaderConfiguration.BOOK_COVERS_BUCKET_KEY)
         root = self.cover_image_root(bucket, data_source, scaled_size)
         parts = [identifier.type, identifier.identifier, filename]
         return root + self.key_join(parts)
@@ -463,7 +527,7 @@ class S3Uploader(MirrorUploader):
     def marc_file_url(self, library, lane, end_time, start_time=None):
         """The path to the hosted MARC file for the given library, lane,
         and date range."""
-        bucket = self.get_bucket(self.MARC_BUCKET_KEY)
+        bucket = self.get_bucket(S3UploaderConfiguration.MARC_BUCKET_KEY)
         root = self.marc_file_root(bucket, library)
         if start_time:
             time_part = str(start_time) + "-" + str(end_time)
@@ -532,8 +596,8 @@ class S3Uploader(MirrorUploader):
         http://{bucket}/{key}
         https://{bucket}/{key}
         """
-        templates = self.URL_TEMPLATES_BY_TEMPLATE
-        default = templates[self.URL_TEMPLATE_DEFAULT]
+        templates = S3UploaderConfiguration.URL_TEMPLATES_BY_TEMPLATE
+        default = templates[S3UploaderConfiguration.URL_TEMPLATE_DEFAULT]
         template = templates.get(self.url_transform, default)
 
         if template == default:
@@ -543,9 +607,18 @@ class S3Uploader(MirrorUploader):
 
         return link
 
-    def mirror_one(self, representation, mirror_to):
-        """Mirror a single representation to the given URL."""
+    def mirror_one(self, representation, mirror_to, collection=None):
+        """Mirror a single representation to the given URL.
 
+        :param representation: Book's representation
+        :type representation: Representation
+
+        :param mirror_to: Mirror URL
+        :type mirror_to: string
+
+        :param collection: Collection
+        :type collection: Optional[Collection]
+        """
         # Turn the original URL into an s3.amazonaws.com URL.
         media_type = representation.external_media_type
         bucket, remote_filename = self.split_url(mirror_to)
@@ -603,19 +676,24 @@ class S3Uploader(MirrorUploader):
 MirrorUploader.IMPLEMENTATION_REGISTRY[S3Uploader.NAME] = S3Uploader
 
 
+class MinIOUploaderConfiguration(ConfigurationGrouping):
+    ENDPOINT_URL = 'ENDPOINT_URL'
+
+    endpoint_url = ConfigurationMetadata(
+        key=ENDPOINT_URL,
+        label=_('Endpoint URL'),
+        description=_(
+            'MinIO\'s endpoint URL'
+        ),
+        type=ConfigurationAttributeType.TEXT,
+        required=True
+    )
+
+
 class MinIOUploader(S3Uploader):
     NAME = ExternalIntegration.MINIO
 
-    ENDPOINT_URL = 'ENDPOINT_URL'
-
-    SETTINGS = [
-        {
-            'key': ENDPOINT_URL,
-            'label': _('Endpoint URL'),
-            'description': _('MinIO\'s endpoint URL'),
-            'required': True
-        }
-    ] + S3Uploader.SETTINGS
+    SETTINGS = S3Uploader.SETTINGS + [MinIOUploaderConfiguration.endpoint_url.to_settings()]
 
     def __init__(self, integration, client_class=None):
         """Instantiate an S3Uploader from an ExternalIntegration.
@@ -626,7 +704,7 @@ class MinIOUploader(S3Uploader):
             instead of boto3.client.
         """
         endpoint_url = integration.setting(
-            self.ENDPOINT_URL).value
+            MinIOUploaderConfiguration.ENDPOINT_URL).value
 
         _, host, _, _, _ = urlsplit(endpoint_url)
 
@@ -650,10 +728,10 @@ class MockS3Uploader(S3Uploader):
     """A dummy uploader for use in tests."""
 
     buckets = {
-        S3Uploader.BOOK_COVERS_BUCKET_KEY: 'test-cover-bucket',
-        S3Uploader.OA_CONTENT_BUCKET_KEY: 'test-content-bucket',
-        S3Uploader.PROTECTED_CONTENT_BUCKET_KEY: 'test-content-bucket',
-        S3Uploader.MARC_BUCKET_KEY: 'test-marc-bucket',
+        S3UploaderConfiguration.BOOK_COVERS_BUCKET_KEY: 'test-cover-bucket',
+        S3UploaderConfiguration.OA_CONTENT_BUCKET_KEY: 'test-content-bucket',
+        S3UploaderConfiguration.PROTECTED_CONTENT_BUCKET_KEY: 'test-content-bucket',
+        S3UploaderConfiguration.MARC_BUCKET_KEY: 'test-marc-bucket',
     }
 
     def __init__(self, fail=False, *args, **kwargs):
@@ -661,8 +739,8 @@ class MockS3Uploader(S3Uploader):
         self.content = []
         self.destinations = []
         self.fail = fail
-        self._s3_region = S3Uploader.S3_DEFAULT_REGION
-        self._s3_addressing_style = S3Uploader.S3_DEFAULT_ADDRESSING_STYLE
+        self._s3_region = S3UploaderConfiguration.S3_DEFAULT_REGION
+        self._s3_addressing_style = S3UploaderConfiguration.S3_DEFAULT_ADDRESSING_STYLE
         config = Config(
             signature_version=botocore.UNSIGNED,
             s3={'addressing_style': self._s3_addressing_style}
@@ -681,7 +759,8 @@ class MockS3Uploader(S3Uploader):
             aws_secret_access_key=None,
         )
 
-    def mirror_one(self, representation, mirror_to):
+    def mirror_one(self, representation, **kwargs):
+        mirror_to = kwargs['mirror_to']
         self.uploaded.append(representation)
         self.destinations.append(mirror_to)
         self.content.append(representation.content)

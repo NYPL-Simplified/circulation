@@ -39,6 +39,8 @@ class AtomFeed(object):
     BIBFRAME_NS = "http://bibframe.org/vocab/"
     BIB_SCHEMA_NS = "http://bib.schema.org/"
 
+    LCP_NS = 'http://readium.org/lcp-specs/ns'
+
     nsmap = {
         None: ATOM_NS,
         'app': APP_NS,
@@ -51,6 +53,7 @@ class AtomFeed(object):
         'bibframe' : BIBFRAME_NS,
         'bib': BIB_SCHEMA_NS,
         'opensearch': OPENSEARCH_NS,
+        'lcp': LCP_NS
     }
 
     default_typemap = {datetime: lambda e, v: _strftime(v)}

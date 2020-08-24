@@ -1,4 +1,5 @@
 # encoding: utf-8
+from mock import create_autospec, MagicMock
 from nose.tools import (
     assert_raises,
     assert_raises_regexp,
@@ -18,7 +19,7 @@ from ...model.coverage import (
     WorkCoverageRecord,
 )
 from ...model.circulationevent import CirculationEvent
-from ...model.collection import Collection
+from ...model.collection import Collection, HasExternalIntegrationPerCollection, CollectionConfigurationStorage
 from ...model.complaint import Complaint
 from ...model.configuration import (
     ConfigurationSetting,
@@ -881,6 +882,7 @@ class TestCollection(DatabaseTest):
         eq_(0, self._db.query(LicensePool).count())
         eq_([], work2.license_pools)
 
+
 class TestCollectionForMetadataWrangler(DatabaseTest):
 
     """Tests that requirements to the metadata wrangler's use of Collection
@@ -898,3 +900,21 @@ class TestCollectionForMetadataWrangler(DatabaseTest):
             self._db, Collection, name='banana'
         )[0]
         eq_(True, isinstance(collection, Collection))
+
+
+class TestCollectionConfigurationStorage(DatabaseTest):
+    def test_load(self):
+        # Arrange
+        lcp_collection = self._collection('Test Collection', DataSource.LCP)
+        external_integration = lcp_collection.external_integration
+        external_integration_association = create_autospec(spec=HasExternalIntegrationPerCollection)
+        external_integration_association.collection_external_integration = MagicMock(return_value=external_integration)
+        storage = CollectionConfigurationStorage(external_integration_association, lcp_collection)
+        setting_name = 'Test'
+        expected_result = 'Test'
+
+        # Act
+        storage.save(self._db, setting_name, expected_result)
+        result = storage.load(self._db, setting_name)
+
+        eq_(result, expected_result)

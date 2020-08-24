@@ -34,7 +34,7 @@ from ..s3 import (
     S3Uploader,
     MockS3Client,
     MultipartS3Upload,
-    S3AddressingStyle, MinIOUploader)
+    S3AddressingStyle, MinIOUploader, S3UploaderConfiguration, MinIOUploaderConfiguration)
 
 
 class S3UploaderTest(DatabaseTest):
@@ -102,8 +102,8 @@ class S3UploaderTest(DatabaseTest):
         :return: New intance of S3 uploader
         :rtype: S3Uploader
         """
-        settings = self._add_settings_value(settings, S3Uploader.S3_REGION, region)
-        settings = self._add_settings_value(settings, S3Uploader.S3_ADDRESSING_STYLE, addressing_style)
+        settings = self._add_settings_value(settings, S3UploaderConfiguration.S3_REGION, region)
+        settings = self._add_settings_value(settings, S3UploaderConfiguration.S3_ADDRESSING_STYLE, addressing_style)
         integration = self._integration(**settings)
         uploader_class = uploader_class or S3Uploader
 
@@ -215,7 +215,7 @@ class TestS3Uploader(S3UploaderTest):
         )
         integration.username = 'your-access-key'
         integration.password = 'your-secret-key'
-        integration.setting(S3Uploader.URL_TEMPLATE_KEY).value = 'a transform'
+        integration.setting(S3UploaderConfiguration.URL_TEMPLATE_KEY).value = 'a transform'
         uploader = MirrorUploader.implementation(integration)
         eq_(True, isinstance(uploader, S3Uploader))
 
@@ -260,18 +260,18 @@ class TestS3Uploader(S3UploaderTest):
         aws_secret_access_key = client_class.call_args_list[0].kwargs['aws_secret_access_key']
         config = client_class.call_args_list[0].kwargs['config']
         eq_(service_name, 's3')
-        eq_(region_name, S3Uploader.S3_DEFAULT_REGION)
+        eq_(region_name, S3UploaderConfiguration.S3_DEFAULT_REGION)
         eq_(aws_access_key_id, None)
         eq_(aws_secret_access_key, None)
         eq_(config.signature_version, botocore.UNSIGNED)
-        eq_(config.s3['addressing_style'], S3Uploader.S3_DEFAULT_ADDRESSING_STYLE)
+        eq_(config.s3['addressing_style'], S3UploaderConfiguration.S3_DEFAULT_ADDRESSING_STYLE)
 
         service_name = client_class.call_args_list[1].args[0]
         region_name = client_class.call_args_list[1].kwargs['region_name']
         aws_access_key_id = client_class.call_args_list[1].kwargs['aws_access_key_id']
         aws_secret_access_key = client_class.call_args_list[1].kwargs['aws_secret_access_key']
         eq_(service_name, 's3')
-        eq_(region_name, S3Uploader.S3_DEFAULT_REGION)
+        eq_(region_name, S3UploaderConfiguration.S3_DEFAULT_REGION)
         eq_(aws_access_key_id, username if username != '' else None)
         eq_(aws_secret_access_key, password if password != '' else None)
         assert 'config' not in client_class.call_args_list[1].kwargs
@@ -284,8 +284,8 @@ class TestS3Uploader(S3UploaderTest):
 
     def test_get_bucket(self):
         buckets = {
-            S3Uploader.OA_CONTENT_BUCKET_KEY: 'banana',
-            S3Uploader.BOOK_COVERS_BUCKET_KEY: 'bucket'
+            S3UploaderConfiguration.OA_CONTENT_BUCKET_KEY: 'banana',
+            S3UploaderConfiguration.BOOK_COVERS_BUCKET_KEY: 'bucket'
         }
         buckets_plus_irrelevant_setting = dict(buckets)
         buckets_plus_irrelevant_setting['not-a-bucket-at-all'] = "value"
@@ -436,14 +436,14 @@ class TestS3Uploader(S3UploaderTest):
             'bucket',
             'the key',
             'https://bucket.s3.amazonaws.com/the%20key',
-            S3Uploader.URL_TEMPLATE_DEFAULT
+            S3UploaderConfiguration.URL_TEMPLATE_DEFAULT
         ),
         (
             'explicit_s3_url_template_with_custom_region',
             'bucket',
             'the key',
             'https://bucket.s3.us-east-2.amazonaws.com/the%20key',
-            S3Uploader.URL_TEMPLATE_DEFAULT,
+            S3UploaderConfiguration.URL_TEMPLATE_DEFAULT,
             'us-east-2'
         ),
         (
@@ -451,14 +451,14 @@ class TestS3Uploader(S3UploaderTest):
             'bucket',
             'the këy',
             'http://bucket/the%20k%C3%ABy',
-            S3Uploader.URL_TEMPLATE_HTTP
+            S3UploaderConfiguration.URL_TEMPLATE_HTTP
         ),
         (
             'https_url_template',
             'bucket',
             'the këy',
             'https://bucket/the%20k%C3%ABy',
-            S3Uploader.URL_TEMPLATE_HTTPS
+            S3UploaderConfiguration.URL_TEMPLATE_HTTPS
         )
     ])
     def test_final_mirror_url(self, name, bucket, key, expected_result, url_transform=None, region=None):
@@ -473,7 +473,7 @@ class TestS3Uploader(S3UploaderTest):
 
         # Assert
         if not url_transform:
-            eq_(S3Uploader.URL_TEMPLATE_DEFAULT, uploader.url_transform)
+            eq_(S3UploaderConfiguration.URL_TEMPLATE_DEFAULT, uploader.url_transform)
 
         eq_(result, expected_result)
 
@@ -603,27 +603,27 @@ class TestS3Uploader(S3UploaderTest):
     @parameterized.expand([
         (
             'with_identifier',
-            {S3Uploader.OA_CONTENT_BUCKET_KEY: 'thebooks'},
+            {S3UploaderConfiguration.OA_CONTENT_BUCKET_KEY: 'thebooks'},
             'ABOOK',
             'https://thebooks.s3.amazonaws.com/Gutenberg%20ID/ABOOK.epub'
         ),
         (
             'with_custom_extension',
-            {S3Uploader.OA_CONTENT_BUCKET_KEY: 'thebooks'},
+            {S3UploaderConfiguration.OA_CONTENT_BUCKET_KEY: 'thebooks'},
             'ABOOK',
             'https://thebooks.s3.amazonaws.com/Gutenberg%20ID/ABOOK.pdf',
             'pdf'
         ),
         (
             'with_custom_dotted_extension',
-            {S3Uploader.OA_CONTENT_BUCKET_KEY: 'thebooks'},
+            {S3UploaderConfiguration.OA_CONTENT_BUCKET_KEY: 'thebooks'},
             'ABOOK',
             'https://thebooks.s3.amazonaws.com/Gutenberg%20ID/ABOOK.pdf',
             '.pdf'
         ),
         (
             'with_custom_data_source',
-            {S3Uploader.OA_CONTENT_BUCKET_KEY: 'thebooks'},
+            {S3UploaderConfiguration.OA_CONTENT_BUCKET_KEY: 'thebooks'},
             'ABOOK',
             'https://thebooks.s3.amazonaws.com/unglue.it/Gutenberg%20ID/ABOOK.epub',
             None,
@@ -631,7 +631,7 @@ class TestS3Uploader(S3UploaderTest):
         ),
         (
             'with_custom_title',
-            {S3Uploader.OA_CONTENT_BUCKET_KEY: 'thebooks'},
+            {S3UploaderConfiguration.OA_CONTENT_BUCKET_KEY: 'thebooks'},
             'ABOOK',
             'https://thebooks.s3.amazonaws.com/Gutenberg%20ID/ABOOK/On%20Books.epub',
             None,
@@ -640,7 +640,7 @@ class TestS3Uploader(S3UploaderTest):
         ),
         (
             'with_custom_extension_and_title_and_data_source',
-            {S3Uploader.OA_CONTENT_BUCKET_KEY: 'thebooks'},
+            {S3UploaderConfiguration.OA_CONTENT_BUCKET_KEY: 'thebooks'},
             'ABOOK',
             'https://thebooks.s3.amazonaws.com/unglue.it/Gutenberg%20ID/ABOOK/On%20Books.pdf',
             '.pdf',
@@ -649,7 +649,7 @@ class TestS3Uploader(S3UploaderTest):
         ),
         (
             'with_custom_extension_and_title_and_data_source_and_region',
-            {S3Uploader.OA_CONTENT_BUCKET_KEY: 'thebooks'},
+            {S3UploaderConfiguration.OA_CONTENT_BUCKET_KEY: 'thebooks'},
             'ABOOK',
             'https://thebooks.s3.us-east-3.amazonaws.com/unglue.it/Gutenberg%20ID/ABOOK/On%20Books.pdf',
             '.pdf',
@@ -659,7 +659,7 @@ class TestS3Uploader(S3UploaderTest):
         ),
         (
             'with_protected_access_and_custom_extension_and_title_and_data_source_and_region',
-            {S3Uploader.PROTECTED_CONTENT_BUCKET_KEY: 'thebooks'},
+            {S3UploaderConfiguration.PROTECTED_CONTENT_BUCKET_KEY: 'thebooks'},
             'ABOOK',
             'https://thebooks.s3.us-east-3.amazonaws.com/unglue.it/Gutenberg%20ID/ABOOK/On%20Books.pdf',
             '.pdf',
@@ -704,7 +704,7 @@ class TestS3Uploader(S3UploaderTest):
     @parameterized.expand([
         (
             'without_scaled_size',
-            {S3Uploader.BOOK_COVERS_BUCKET_KEY: 'thecovers'},
+            {S3UploaderConfiguration.BOOK_COVERS_BUCKET_KEY: 'thecovers'},
             DataSource.UNGLUE_IT,
             'ABOOK',
             'filename',
@@ -712,7 +712,7 @@ class TestS3Uploader(S3UploaderTest):
         ),
         (
             'without_scaled_size_and_with_custom_region',
-            {S3Uploader.BOOK_COVERS_BUCKET_KEY: 'thecovers'},
+            {S3UploaderConfiguration.BOOK_COVERS_BUCKET_KEY: 'thecovers'},
             DataSource.UNGLUE_IT,
             'ABOOK',
             'filename',
@@ -722,7 +722,7 @@ class TestS3Uploader(S3UploaderTest):
         ),
         (
             'with_scaled_size',
-            {S3Uploader.BOOK_COVERS_BUCKET_KEY: 'thecovers'},
+            {S3UploaderConfiguration.BOOK_COVERS_BUCKET_KEY: 'thecovers'},
             DataSource.UNGLUE_IT,
             'ABOOK',
             'filename',
@@ -731,7 +731,7 @@ class TestS3Uploader(S3UploaderTest):
         ),
         (
             'with_scaled_size_and_custom_region',
-            {S3Uploader.BOOK_COVERS_BUCKET_KEY: 'thecovers'},
+            {S3UploaderConfiguration.BOOK_COVERS_BUCKET_KEY: 'thecovers'},
             DataSource.UNGLUE_IT,
             'ABOOK',
             'filename',
@@ -831,7 +831,7 @@ class TestS3Uploader(S3UploaderTest):
         # Arrange
         library = self._library(short_name=library_name)
         lane = self._lane(display_name=lane_name)
-        buckets = {S3Uploader.MARC_BUCKET_KEY: bucket}
+        buckets = {S3UploaderConfiguration.MARC_BUCKET_KEY: bucket}
         uploader = self._create_s3_uploader(region=region, **buckets)
 
         # Act
@@ -1097,8 +1097,8 @@ class TestS3Uploader(S3UploaderTest):
         eq_("Error!", rep.mirror_exception)
 
     @parameterized.expand([
-        ('default_expiration_parameter', None, int(S3Uploader.S3_DEFAULT_PRESIGNED_URL_EXPIRATION)),
-        ('empty_expiration_parameter', {S3Uploader.S3_PRESIGNED_URL_EXPIRATION: 100}, 100)
+        ('default_expiration_parameter', None, int(S3UploaderConfiguration.S3_DEFAULT_PRESIGNED_URL_EXPIRATION)),
+        ('empty_expiration_parameter', {S3UploaderConfiguration.S3_PRESIGNED_URL_EXPIRATION: 100}, 100)
     ])
     def test_sign_url(self, name, expiration_settings, expected_expiration):
         # Arrange
@@ -1191,35 +1191,35 @@ class TestS3UploaderIntegration(S3UploaderIntegrationTest):
         (
             'using_s3_uploader_and_open_access_bucket',
             functools.partial(S3Uploader, host=S3UploaderIntegrationTest.SIMPLIFIED_TEST_MINIO_HOST),
-            S3Uploader.OA_CONTENT_BUCKET_KEY,
+            S3UploaderConfiguration.OA_CONTENT_BUCKET_KEY,
             'test-bucket',
             True
         ),
         (
             'using_s3_uploader_and_protected_access_bucket',
             functools.partial(S3Uploader, host=S3UploaderIntegrationTest.SIMPLIFIED_TEST_MINIO_HOST),
-            S3Uploader.PROTECTED_CONTENT_BUCKET_KEY,
+            S3UploaderConfiguration.PROTECTED_CONTENT_BUCKET_KEY,
             'test-bucket',
             False
         ),
         (
             'using_minio_uploader_and_open_access_bucket',
             MinIOUploader,
-            S3Uploader.OA_CONTENT_BUCKET_KEY,
+            S3UploaderConfiguration.OA_CONTENT_BUCKET_KEY,
             'test-bucket',
             True,
             {
-                MinIOUploader.ENDPOINT_URL: S3UploaderIntegrationTest.SIMPLIFIED_TEST_MINIO_ENDPOINT_URL
+                MinIOUploaderConfiguration.ENDPOINT_URL: S3UploaderIntegrationTest.SIMPLIFIED_TEST_MINIO_ENDPOINT_URL
             }
         ),
         (
             'using_minio_uploader_and_protected_access_bucket',
             MinIOUploader,
-            S3Uploader.PROTECTED_CONTENT_BUCKET_KEY,
+            S3UploaderConfiguration.PROTECTED_CONTENT_BUCKET_KEY,
             'test-bucket',
             False,
             {
-                MinIOUploader.ENDPOINT_URL: S3UploaderIntegrationTest.SIMPLIFIED_TEST_MINIO_ENDPOINT_URL
+                MinIOUploaderConfiguration.ENDPOINT_URL: S3UploaderIntegrationTest.SIMPLIFIED_TEST_MINIO_ENDPOINT_URL
             }
         )
     ])

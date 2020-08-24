@@ -1,19 +1,26 @@
-from collections import defaultdict
-import feedparser
 import datetime
-from lxml import etree
+import re
+import xml.etree.ElementTree as ET
 from StringIO import StringIO
+
+import feedparser
+from flask_babel import lazy_gettext as _
+from lxml import etree
 from nose.tools import (
     eq_,
-    set_trace,
-    assert_raises,
 )
+from psycopg2.extras import NumericRange
 
 from . import (
     DatabaseTest,
 )
-
-from psycopg2.extras import NumericRange
+from ..classifier import (
+    Classifier,
+    Contemporary_Romance,
+    Epic_Fantasy,
+    Fantasy,
+    History,
+)
 from ..config import (
     Configuration,
     temp_config,
@@ -24,51 +31,44 @@ from ..entrypoint import (
     EntryPoint,
     EverythingEntryPoint,
 )
+from ..external_search import MockExternalSearchIndex
 from ..facets import FacetConstants
+from ..lane import (
+    Facets,
+    FeaturedFacets,
+    Pagination,
+    SearchFacets,
+    WorkList,
+)
+from ..lcp.credential import LCPCredentialFactory
 from ..model import (
     CachedFeed,
-    ConfigurationSetting,
     Contributor,
     CustomList,
     CustomListEntry,
     DataSource,
     DeliveryMechanism,
-    Edition,
     ExternalIntegration,
     Genre,
     Measurement,
     Representation,
-    SessionManager,
     Subject,
     Work,
     get_one,
     create,
 )
-from ..facets import FacetConstants
-
-from ..lane import (
-    Facets,
-    FeaturedFacets,
-    Lane,
-    Pagination,
-    SearchFacets,
-    WorkList,
-)
-
 from ..opds import (
     AcquisitionFeed,
     Annotator,
     LookupAcquisitionFeed,
     NavigationFacets,
     NavigationFeed,
-    OPDSFeed,
-    UnfulfillableWork,
     VerboseAnnotator,
     TestAnnotator,
     TestAnnotatorWithGroup,
     TestUnfulfillableAnnotator
 )
-
+from ..opds_import import OPDSXMLParser
 from ..util.flask_util import (
     OPDSEntryResponse,
     OPDSFeedResponse,
@@ -79,21 +79,7 @@ from ..util.opds_writer import (
     OPDSFeed,
     OPDSMessage,
 )
-from ..opds_import import OPDSXMLParser
 
-from ..classifier import (
-    Classifier,
-    Contemporary_Romance,
-    Epic_Fantasy,
-    Fantasy,
-    Urban_Fantasy,
-    History,
-    Mystery,
-)
-
-from ..external_search import MockExternalSearchIndex
-import xml.etree.ElementTree as ET
-from flask_babel import lazy_gettext as _
 
 class TestBaseAnnotator(DatabaseTest):
 
@@ -527,7 +513,6 @@ class TestOPDS(DatabaseTest):
                                [work])
         assert '<bibframe:distribution' not in unicode(feed)
 
-
     def test_acquisition_feed_includes_author_tag_even_when_no_author(self):
         work = self._work(with_open_access_download=True)
         feed = AcquisitionFeed(self._db, "test", "http://the-url.com/",
@@ -544,6 +529,39 @@ class TestOPDS(DatabaseTest):
         entry = parsed['entries'][0]
         eq_(work.presentation_edition.permanent_work_id,
             entry['simplified_pwid'])
+
+    def test_lcp_acquisition_link_contains_hashed_passphrase(self):
+        # Arrange
+        lcp_collection = self._collection(protocol=ExternalIntegration.LCP)
+        data_source = DataSource.lookup(self._db, DataSource.LCP, autocreate=True)
+        data_source_name = data_source.name
+        license_pool = self._licensepool(
+            edition=None, data_source_name=data_source_name, collection=lcp_collection)
+        hashed_passphrase = '12345'
+        patron = self._patron()
+        lcp_credential_factory = LCPCredentialFactory()
+        loan, _ = license_pool.loan_to(patron)
+        rel = AcquisitionFeed.ACQUISITION_REL
+        href = self._url
+        types = [DeliveryMechanism.LCP_DRM, Representation.EPUB_MEDIA_TYPE]
+        expected_result = re.sub(
+            r'\s{2,}|\n+',
+            '',
+            '''
+            <link href="{0}" rel="http://opds-spec.org/acquisition" type="application/vnd.readium.lcp.license.v1.0+json">
+                <ns0:hashed_passphrase xmlns:ns0="http://readium.org/lcp-specs/ns">{1}</ns0:hashed_passphrase>
+                <ns0:indirectAcquisition xmlns:ns0="http://opds-spec.org/2010/catalog" type="application/epub+zip"/>
+            </link>
+            '''.format(href, hashed_passphrase)
+        )
+
+        # Act
+        lcp_credential_factory.set_hashed_passphrase(self._db, patron, hashed_passphrase)
+        acquisition_link = AcquisitionFeed.acquisition_link(rel, href, types, loan)
+        result = etree.tostring(acquisition_link)
+
+        # Assert
+        eq_(result, expected_result)
 
     def test_lane_feed_contains_facet_links(self):
         work = self._work(with_open_access_download=True)
@@ -1557,6 +1575,28 @@ class TestAcquisitionFeed(DatabaseTest):
         )
         assert 'position' not in holds.attrib
         eq_('1', holds.attrib['total'])
+
+    def test_license_tags_show_unlimited_access_books(self):
+        # Arrange
+        edition, pool = self._edition(with_license_pool=True)
+        pool.open_access = False
+        pool.self_hosted = False
+        pool.unlimited_access = True
+
+        # Act
+        tags = AcquisitionFeed.license_tags(
+            pool, None, None
+        )
+
+        # Assert
+        eq_(1, len(tags))
+
+        [tag] = tags
+
+        eq_('status' in tag.attrib, True)
+        eq_('available', tag.attrib['status'])
+        eq_('holds' in tag.attrib, False)
+        eq_('copies' in tag.attrib, False)
 
     def test_license_tags_show_self_hosted_books(self):
         # Arrange
