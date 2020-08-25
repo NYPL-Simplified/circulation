@@ -650,6 +650,14 @@ class Representation(Base, MediaTypes):
         ])
 
     @classmethod
+    def guess_url_media_type_from_path(cls, url):
+        """Guess a likely media type from the URL's path component."""
+        if not url:
+            return None
+        path = urlparse.urlparse(url).path
+        return cls.guess_media_type(path)
+
+    @classmethod
     def guess_media_type(cls, filename):
         """Guess a likely media type from a filename."""
         if not filename:
@@ -898,7 +906,7 @@ class Representation(Base, MediaTypes):
         the default value. If there's no default value, we'll try to
         derive one from the URL extension.
         """
-        default = default or cls.guess_media_type(url)
+        default = default or cls.guess_url_media_type_from_path(url)
         if not headers or not 'content-type' in headers:
             return default
         headers_type = headers['content-type'].lower()
