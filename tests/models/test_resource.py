@@ -195,18 +195,46 @@ class TestRepresentation(DatabaseTest):
         eq_(False, representation.mirrorable_media_type)
 
     def test_guess_media_type(self):
-        m = Representation.guess_media_type
+        m_file = Representation.guess_media_type
+        m_url = Representation.guess_url_media_type_from_path
+        jpg_file = "file.jpg"
+        zip_file = "file.ZIP"
+        zip_file_rel_path = "relatively/pathed/file.zip"
+        zip_file_abs_path = "/absolutely/pathed/file.zIp"
 
-        eq_(Representation.JPEG_MEDIA_TYPE, m("file.jpg"))
-        eq_(Representation.ZIP_MEDIA_TYPE, m("file.ZIP"))
+        eq_(Representation.JPEG_MEDIA_TYPE, m_file(jpg_file))
+        eq_(Representation.ZIP_MEDIA_TYPE, m_file(zip_file))
 
         for extension, media_type in Representation.MEDIA_TYPE_FOR_EXTENSION.items():
             filename = "file" + extension
-            eq_(media_type, m(filename))
+            eq_(media_type, m_file(filename))
 
-        eq_(None, m(None))
-        eq_(None, m("file"))
-        eq_(None, m("file.unknown-extension"))
+        eq_(None, m_file(None))
+        eq_(None, m_file("file"))
+        eq_(None, m_file("file.unknown-extension"))
+
+        # URLs should be handled differently
+        # Simple file-based guess will get this right, ...
+        zip_url = "https://some_url/path/file.zip"
+        eq_(Representation.ZIP_MEDIA_TYPE, m_file(zip_url))
+        # ... but will get these wrong.
+        zip_url_with_query = "https://some_url/path/file.zip?Policy=xyz123&Key-Pair-Id=xxx"
+        zip_url_misleading = "https://some_url/path/file.zip?Policy=xyz123&associated_cover=image.jpg"
+        eq_(None, m_file(zip_url_with_query))  # We get None, but want Zip
+        eq_(Representation.JPEG_MEDIA_TYPE, m_file(zip_url_misleading))  # We get JPEG, but want Zip
+
+        # Taking URL structure into account should get them all right.
+        eq_(Representation.ZIP_MEDIA_TYPE, m_url(zip_url))
+        #   ... but will get these wrong.
+        eq_(Representation.ZIP_MEDIA_TYPE, m_url(zip_url_with_query))
+        eq_(Representation.ZIP_MEDIA_TYPE, m_url(zip_url_misleading))
+
+        # And we can handle local file cases
+        eq_(Representation.ZIP_MEDIA_TYPE, m_url(zip_file))
+        eq_(Representation.ZIP_MEDIA_TYPE, m_url(zip_file_rel_path))
+        eq_(Representation.ZIP_MEDIA_TYPE, m_url(zip_file_abs_path))
+
+
 
     def test_external_media_type_and_extension(self):
         """Test the various transformations that might happen to media type
