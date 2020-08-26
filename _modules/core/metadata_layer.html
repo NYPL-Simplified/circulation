@@ -556,7 +556,7 @@
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">href</span><span class="p">:</span>
             <span class="c1"># Take a guess.</span>
-            <span class="k">return</span> <span class="n">Representation</span><span class="o">.</span><span class="n">guess_media_type</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">href</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">Representation</span><span class="o">.</span><span class="n">guess_url_media_type_from_path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">href</span><span class="p">)</span>
 
         <span class="c1"># No idea.</span>
         <span class="c1"># TODO: We might be able to take a further guess based on the</span>

@@ -684,6 +684,14 @@
                    <span class="s1">&#39;video/&#39;</span>
         <span class="p">])</span></div>
 
+<div class="viewcode-block" id="Representation.guess_url_media_type_from_path"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Representation.guess_url_media_type_from_path">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">guess_url_media_type_from_path</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">url</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Guess a likely media type from the URL&#39;s path component.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">url</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="n">path</span> <span class="o">=</span> <span class="n">urlparse</span><span class="o">.</span><span class="n">urlparse</span><span class="p">(</span><span class="n">url</span><span class="p">)</span><span class="o">.</span><span class="n">path</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">guess_media_type</span><span class="p">(</span><span class="n">path</span><span class="p">)</span></div>
+
 <div class="viewcode-block" id="Representation.guess_media_type"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Representation.guess_media_type">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">guess_media_type</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">filename</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Guess a likely media type from a filename.&quot;&quot;&quot;</span>
@@ -933,7 +941,7 @@
 <span class="sd">        the default value. If there&#39;s no default value, we&#39;ll try to</span>
 <span class="sd">        derive one from the URL extension.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">default</span> <span class="o">=</span> <span class="n">default</span> <span class="ow">or</span> <span class="bp">cls</span><span class="o">.</span><span class="n">guess_media_type</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+        <span class="n">default</span> <span class="o">=</span> <span class="n">default</span> <span class="ow">or</span> <span class="bp">cls</span><span class="o">.</span><span class="n">guess_url_media_type_from_path</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">headers</span> <span class="ow">or</span> <span class="ow">not</span> <span class="s1">&#39;content-type&#39;</span> <span class="ow">in</span> <span class="n">headers</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">default</span>
         <span class="n">headers_type</span> <span class="o">=</span> <span class="n">headers</span><span class="p">[</span><span class="s1">&#39;content-type&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>

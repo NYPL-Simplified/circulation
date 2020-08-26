@@ -2625,13 +2625,13 @@
         <span class="k">if</span> <span class="n">download_url</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">add_link</span><span class="p">(</span>
                 <span class="n">download_url</span><span class="p">,</span> <span class="s1">&#39;alternate&#39;</span><span class="p">,</span>
-                <span class="nb">type</span><span class="o">=</span><span class="n">Representation</span><span class="o">.</span><span class="n">guess_media_type</span><span class="p">(</span><span class="n">download_url</span><span class="p">)</span>
+                <span class="nb">type</span><span class="o">=</span><span class="n">Representation</span><span class="o">.</span><span class="n">guess_url_media_type_from_path</span><span class="p">(</span><span class="n">download_url</span><span class="p">)</span>
             <span class="p">)</span>
 
         <span class="n">cover</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">best_cover</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">raw</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;images&#39;</span><span class="p">,</span> <span class="p">[]))</span>
         <span class="k">if</span> <span class="n">cover</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">add_link</span><span class="p">(</span>
-                <span class="n">cover</span><span class="p">,</span> <span class="s2">&quot;cover&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="n">Representation</span><span class="o">.</span><span class="n">guess_media_type</span><span class="p">(</span><span class="n">cover</span><span class="p">)</span>
+                <span class="n">cover</span><span class="p">,</span> <span class="s2">&quot;cover&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="n">Representation</span><span class="o">.</span><span class="n">guess_url_media_type_from_path</span><span class="p">(</span><span class="n">cover</span><span class="p">)</span>
             <span class="p">)</span>
 
 <div class="viewcode-block" id="AudiobookManifest.best_cover"><a class="viewcode-back" href="../../api.html#api.rbdigital.AudiobookManifest.best_cover">[docs]</a>    <span class="nd">@classmethod</span>
