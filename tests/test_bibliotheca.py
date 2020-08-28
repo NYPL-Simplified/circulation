@@ -600,7 +600,7 @@ class TestBibliothecaAPI(BibliothecaAPITest):
         # part #0. Within that part, the items have been sorted by
         # their sequence.
         for i, item in enumerate(reading_order):
-            eq_(None, item['href'])
+            eq_(None, item.get('href', None))
             eq_(Representation.MP3_MEDIA_TYPE, item['type'])
             eq_(0, item['findaway:part'])
             eq_(i+1, item['findaway:sequence'])
