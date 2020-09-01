@@ -111,8 +111,18 @@ class MirrorUploader(object):
     def do_upload(self, representation):
         raise NotImplementedError()
 
-    def mirror_one(self, representation):
-        """Mirror a single Representation."""
+    def mirror_one(self, representation, mirror_to, collection=None):
+        """Mirror a single Representation.
+
+        :param representation: Book's representation
+        :type representation: Representation
+
+        :param mirror_to: Mirror URL
+        :type mirror_to: string
+
+        :param collection: Collection
+        :type collection: Optional[Collection]
+        """
         now = datetime.datetime.utcnow()
         exception = self.do_upload(representation)
         representation.mirror_exception = exception
@@ -125,7 +135,7 @@ class MirrorUploader(object):
         """Mirror a batch of Representations at once."""
 
         for representation in representations:
-            self.mirror_one(representation)
+            self.mirror_one(representation, '')
 
     def book_url(self, identifier, extension='.epub', open_access=True,
                  data_source=None, title=None):

@@ -163,11 +163,12 @@ class Credential(Base):
         return credential, is_new
 
     @classmethod
-    def persistent_token_create(self, _db, data_source, type, patron):
+    def persistent_token_create(self, _db, data_source, type, patron, token_string=None):
         """Create or retrieve a persistent token for the given
         data_source/type/patron.
         """
-        token_string = str(uuid.uuid1())
+        if token_string is None:
+            token_string = str(uuid.uuid1())
         credential, is_new = get_one_or_create(
             _db, Credential, data_source=data_source, type=type, patron=patron,
             create_method_kwargs=dict(credential=token_string)
@@ -193,6 +194,24 @@ class Credential(Base):
         )
         if device_id_obj:
             _db.delete(device_id_obj)
+
+    def __repr__(self):
+        return \
+            '<Credential(' \
+            'data_source_id={0}, ' \
+            'patron_id={1}, ' \
+            'collection_id={2}, ' \
+            'type={3}, ' \
+            'credential={4}, ' \
+            'expires={5}>)'.format(
+                    self.data_source_id,
+                    self.patron_id,
+                    self.collection_id,
+                    self.type,
+                    self.credential,
+                    self.expires
+                )
+
 
 class DRMDeviceIdentifier(Base):
     """A device identifier for a particular DRM scheme.

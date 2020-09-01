@@ -866,7 +866,8 @@ class MetaToModelUtility(object):
             )
 
         # Mirror it.
-        mirror.mirror_one(representation, mirror_url)
+        collection = pools[0].collection if pools else None
+        mirror.mirror_one(representation, mirror_to=mirror_url, collection=collection)
 
         # If we couldn't mirror an open/protected access link representation, suppress
         # the license pool until someone fixes it manually.
@@ -896,7 +897,7 @@ class MetaToModelUtility(object):
             if is_new:
                 # A thumbnail was created distinct from the original
                 # image. Mirror it as well.
-                mirror.mirror_one(thumbnail, thumbnail_url)
+                mirror.mirror_one(thumbnail, mirror_to=thumbnail_url, collection=collection)
 
         if link_obj.rel in Hyperlink.SELF_HOSTED_BOOKS:
             # If we mirrored book content successfully, remove it from

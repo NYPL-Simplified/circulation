@@ -10,7 +10,7 @@ from ..config import CannotLoadConfiguration
 from ..mirror import MirrorUploader
 from ..model import ExternalIntegration
 from ..model.configuration import ExternalIntegrationLink
-from ..s3 import S3Uploader, MinIOUploader
+from ..s3 import S3Uploader, MinIOUploader, MinIOUploaderConfiguration, S3UploaderConfiguration
 
 
 class DummySuccessUploader(MirrorUploader):
@@ -69,7 +69,12 @@ class TestInitialization(DatabaseTest):
 
     @parameterized.expand([
         ('s3_uploader', ExternalIntegration.S3, S3Uploader),
-        ('minio_uploader', ExternalIntegration.MINIO, MinIOUploader, {MinIOUploader.ENDPOINT_URL: 'http://localhost'})
+        (
+                'minio_uploader',
+                ExternalIntegration.MINIO,
+                MinIOUploader,
+                {MinIOUploaderConfiguration.ENDPOINT_URL: 'http://localhost'}
+        )
     ])
     def test_mirror(self, name, protocol, uploader_class, settings=None):
         storage_name = "some storage"
@@ -119,7 +124,7 @@ class TestInitialization(DatabaseTest):
         integration = self._external_integration(
             ExternalIntegration.S3, ExternalIntegration.STORAGE_GOAL,
             username="username", password="password",
-            settings = {S3Uploader.BOOK_COVERS_BUCKET_KEY : "some-covers"}
+            settings={S3UploaderConfiguration.BOOK_COVERS_BUCKET_KEY: "some-covers"}
         )
         integration_link = self._external_integration_link(
             integration=collection._external_integration,
@@ -131,8 +136,16 @@ class TestInitialization(DatabaseTest):
         assert isinstance(uploader, MirrorUploader)
 
     @parameterized.expand([
-        ('s3_uploader', ExternalIntegration.S3, S3Uploader),
-        ('minio_uploader', ExternalIntegration.MINIO, MinIOUploader, {MinIOUploader.ENDPOINT_URL: 'http://localhost'})
+        (
+                's3_uploader',
+                ExternalIntegration.S3, S3Uploader
+        ),
+        (
+                'minio_uploader',
+                ExternalIntegration.MINIO,
+                MinIOUploader,
+                {MinIOUploaderConfiguration.ENDPOINT_URL: 'http://localhost'}
+        )
     ])
     def test_constructor(self, name, protocol, uploader_class, settings=None):
         # You can't create a MirrorUploader with an integration
@@ -177,13 +190,13 @@ class TestMirrorUploader(DatabaseTest):
     def test_success_and_then_failure(self):
         r, ignore = self._representation()
         now = datetime.datetime.utcnow()
-        DummySuccessUploader().mirror_one(r)
+        DummySuccessUploader().mirror_one(r, '')
         assert r.mirrored_at > now
         eq_(None, r.mirror_exception)
 
         # Even if the original upload succeeds, a subsequent upload
         # may fail in a way that leaves the image in an inconsistent
         # state.
-        DummyFailureUploader().mirror_one(r)
+        DummyFailureUploader().mirror_one(r, '')
         eq_(None, r.mirrored_at)
         eq_("I always fail.", r.mirror_exception)

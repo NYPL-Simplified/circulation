@@ -66,7 +66,7 @@ from ..coverage import CoverageFailure
 from ..s3 import (
     S3Uploader,
     MockS3Uploader,
-)
+    S3UploaderConfiguration)
 from ..selftest import SelfTestResult
 from ..testing import (
     DummyHTTPClient,
@@ -1887,7 +1887,7 @@ class TestMirroring(OPDSImporterTest):
         integration = self._external_integration(
             ExternalIntegration.S3, ExternalIntegration.STORAGE_GOAL,
             username="username", password="password",
-            settings = {S3Uploader.BOOK_COVERS_BUCKET_KEY : "some-covers"}
+            settings = {S3UploaderConfiguration.BOOK_COVERS_BUCKET_KEY : "some-covers"}
         )
         # Associate the collection's integration with the storage integration
         # for the purpose of 'covers'.
@@ -1904,7 +1904,8 @@ class TestMirroring(OPDSImporterTest):
         mirrors = importer.mirrors
 
         assert isinstance(mirrors[ExternalIntegrationLink.COVERS], S3Uploader)
-        eq_("some-covers", mirrors[ExternalIntegrationLink.COVERS].get_bucket(S3Uploader.BOOK_COVERS_BUCKET_KEY))
+        eq_("some-covers", mirrors[ExternalIntegrationLink.COVERS].get_bucket(
+            S3UploaderConfiguration.BOOK_COVERS_BUCKET_KEY))
         eq_(mirrors[ExternalIntegrationLink.OPEN_ACCESS_BOOKS], None)
 
 
@@ -1912,7 +1913,7 @@ class TestMirroring(OPDSImporterTest):
         integration = self._external_integration(
             ExternalIntegration.S3, ExternalIntegration.STORAGE_GOAL,
             username="username", password="password",
-            settings = {S3Uploader.OA_CONTENT_BUCKET_KEY : "some-books"}
+            settings={S3UploaderConfiguration.OA_CONTENT_BUCKET_KEY : "some-books"}
         )
         # Associate the collection's integration with the storage integration
         # for the purpose of 'covers'.
@@ -1926,8 +1927,10 @@ class TestMirroring(OPDSImporterTest):
         mirrors = importer.mirrors
 
         assert isinstance(mirrors[ExternalIntegrationLink.OPEN_ACCESS_BOOKS], S3Uploader)
-        eq_("some-books", mirrors[ExternalIntegrationLink.OPEN_ACCESS_BOOKS].get_bucket(S3Uploader.OA_CONTENT_BUCKET_KEY))
-        eq_("some-covers", mirrors[ExternalIntegrationLink.COVERS].get_bucket(S3Uploader.BOOK_COVERS_BUCKET_KEY))
+        eq_("some-books", mirrors[ExternalIntegrationLink.OPEN_ACCESS_BOOKS].get_bucket(
+            S3UploaderConfiguration.OA_CONTENT_BUCKET_KEY))
+        eq_("some-covers", mirrors[ExternalIntegrationLink.COVERS].get_bucket(
+            S3UploaderConfiguration.BOOK_COVERS_BUCKET_KEY))
 
     def test_resources_are_mirrored_on_import(self):
 

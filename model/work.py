@@ -1166,7 +1166,7 @@ class Work(Base):
                     # We have an unlimited source for this book.
                     # There's no need to keep looking.
                     break
-            elif p.self_hosted:
+            elif p.unlimited_access or p.self_hosted:
                 active_license_pool = p
             elif edition and edition.title and p.licenses_owned > 0:
                 active_license_pool = p
@@ -1529,10 +1529,12 @@ class Work(Base):
                 LicensePool.open_access.label('open_access'),
                 LicensePool.suppressed,
                 or_(
+                    LicensePool.unlimited_access,
                     LicensePool.self_hosted,
                     LicensePool.licenses_available > 0,
                 ).label('available'),
                 or_(
+                    LicensePool.unlimited_access,
                     LicensePool.self_hosted,
                     LicensePool.licenses_owned > 0
                 ).label('licensed'),
@@ -1549,6 +1551,7 @@ class Work(Base):
                 work_presentation_edition_id_column==Edition.id,
                 or_(
                     LicensePool.open_access,
+                    LicensePool.unlimited_access,
                     LicensePool.self_hosted,
                     LicensePool.licenses_owned>0,
                 ),

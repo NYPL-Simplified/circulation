@@ -560,11 +560,13 @@ class MARCExporter(object):
         for integration in integrations:
             # Only add an integration to choose from if it has a 
             # MARC File Bucket field in its settings.
-            [configuration_setting] = [s for s in integration.settings if s.key=="marc_bucket"]
-            if configuration_setting.value:
-                cls.SETTING['options'].append(
-                    dict(key=str(integration.id), label=integration.name)
-                )
+            configuration_settings = [s for s in integration.settings if s.key=="marc_bucket"]
+
+            if configuration_settings:
+                if configuration_settings[0].value:
+                    cls.SETTING['options'].append(
+                        dict(key=str(integration.id), label=integration.name)
+                    )
         
         return cls.SETTING
 

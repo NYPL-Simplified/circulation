@@ -40,6 +40,7 @@ class DataSourceConstants(object):
     FEEDBOOKS = u"FeedBooks"
     BIBBLIO = u"Bibblio"
     ENKI = u"Enki"
+    LCP = u"LCP"
 
     DEPRECATED_NAMES = {
         u"3M" : BIBLIOTHECA,

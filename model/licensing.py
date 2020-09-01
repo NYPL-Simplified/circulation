@@ -1,15 +1,25 @@
 # encoding: utf-8
 # PolicyException LicensePool, LicensePoolDeliveryMechanism, DeliveryMechanism,
 # RightsStatus
-from nose.tools import set_trace
+import datetime
+import logging
 
-from . import (
-    Base,
-    create,
-    flush,
-    get_one,
-    get_one_or_create,
+from sqlalchemy import (
+    Boolean,
+    Column,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Unicode,
+    UniqueConstraint,
 )
+from sqlalchemy.ext.hybrid import hybrid_property
+from sqlalchemy.orm import relationship
+from sqlalchemy.orm.session import Session
+from sqlalchemy.sql.functions import func
+
 from circulationevent import CirculationEvent
 from complaint import Complaint
 from constants import (
@@ -24,24 +34,14 @@ from patron import (
     Loan,
     Hold,
 )
-
-import datetime
-import logging
-from sqlalchemy import (
-    Boolean,
-    Column,
-    DateTime,
-    ForeignKey,
-    Index,
-    Integer,
-    func,
-    String,
-    Unicode,
-    UniqueConstraint,
+from . import (
+    Base,
+    create,
+    flush,
+    get_one,
+    get_one_or_create,
 )
-from sqlalchemy.orm import relationship
-from sqlalchemy.orm.session import Session
-from sqlalchemy.sql.functions import func
+
 
 class PolicyException(Exception):
     pass
@@ -101,8 +101,10 @@ class License(Base):
 
 
 class LicensePool(Base):
-    """A pool of undifferentiated licenses for a work from a given source.
-    """
+    """A pool of undifferentiated licenses for a work from a given source."""
+
+    UNLIMITED_ACCESS = -1
+
     __tablename__ = 'licensepools'
     id = Column(Integer, primary_key=True)
 
@@ -205,6 +207,31 @@ class LicensePool(Base):
             self.id, identifier, self.licenses_owned, self.licenses_available,
             self.licenses_reserved, self.patrons_in_hold_queue
         )
+
+    @hybrid_property
+    def unlimited_access(self):
+        """Returns a Boolean value indicating whether this LicensePool allows unlimited access.
+        For example, in the case of LCP books without explicit licensing information
+
+        :return: Boolean value indicating whether this LicensePool allows unlimited access
+        :rtype: bool
+        """
+        return self.licenses_owned == self.UNLIMITED_ACCESS
+
+    @unlimited_access.setter
+    def unlimited_access(self, value):
+        """Sets value of unlimited_access property.
+        If you set it to False, license_owned and license_available will be reset to 0
+
+        :param value: Boolean value indicating whether this LicensePool allows unlimited access
+        :type value: bool
+        """
+        if value:
+            self.licenses_owned = self.UNLIMITED_ACCESS
+            self.licenses_available = self.UNLIMITED_ACCESS
+        else:
+            self.licenses_owned = 0
+            self.licenses_available = 0
 
     @classmethod
     def for_foreign_id(self, _db, data_source, foreign_id_type, foreign_id,
@@ -886,7 +913,6 @@ class LicensePool(Base):
     @classmethod
     def consolidate_works(cls, _db, batch_size=10):
         """Assign a (possibly new) Work to every unassigned LicensePool."""
-        from edition import Edition
         a = 0
         lps = cls.with_no_work(_db)
         logging.info(
@@ -1418,6 +1444,7 @@ class DeliveryMechanism(Base, HasFullTableCache):
     KINDLE_DRM = u"Kindle DRM"
     NOOK_DRM = u"Nook DRM"
     STREAMING_DRM = u"Streaming"
+    LCP_DRM = u"application/vnd.readium.lcp.license.v1.0+json"
 
     # This represents the DRM system used by the app called 'Overdrive'
     # and associated with the application/x-od-media media type.

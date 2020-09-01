@@ -1,26 +1,36 @@
 # encoding: utf-8
+import sqlalchemy
+from enum import Enum
+from flask_babel import lazy_gettext as _
+from mock import create_autospec, MagicMock
 from nose.tools import (
     assert_raises,
     assert_raises_regexp,
     eq_,
-    set_trace,
 )
-import json
+from parameterized import parameterized
 from sqlalchemy.exc import IntegrityError
+
 from .. import DatabaseTest
 from ...config import (
     CannotLoadConfiguration,
     Configuration,
 )
-from ...model import (create, get_one)
+from ...model import (create)
 from ...model.collection import Collection
 from ...model.configuration import (
     ConfigurationSetting,
     ExternalIntegration,
-    ExternalIntegrationLink
+    ExternalIntegrationLink,
+    ConfigurationStorage,
+    ConfigurationAttribute,
+    ConfigurationMetadata,
+    ConfigurationGrouping,
+    ConfigurationOption,
+    ConfigurationAttributeType
 )
 from ...model.datasource import DataSource
-from flask_babel import lazy_gettext as _
+
 
 class TestConfigurationSetting(DatabaseTest):
 
@@ -569,3 +579,190 @@ username='someuser'""" % integration.id
         # If we pass in True for include_secrets, we see the passwords.
         with_secrets = integration.explain(include_secrets=True)
         assert "password='somepass'" in with_secrets
+
+
+SETTING1_KEY = 'setting1'
+SETTING1_LABEL = 'Setting 1\'s label'
+SETTING1_DESCRIPTION = 'Setting 1\'s description'
+SETTING1_TYPE = ConfigurationAttributeType.TEXT
+SETTING1_REQUIRED = False
+SETTING1_DEFAULT = '12345'
+SETTING1_CATEGORY = 'Settings'
+
+SETTING2_KEY = 'setting2'
+SETTING2_LABEL = 'Setting 2\'s label'
+SETTING2_DESCRIPTION = 'Setting 2\'s description'
+SETTING2_TYPE = ConfigurationAttributeType.SELECT
+SETTING2_REQUIRED = False
+SETTING2_DEFAULT = 'value1'
+SETTING2_OPTIONS = [
+    ConfigurationOption('key1', 'value1'),
+    ConfigurationOption('key2', 'value2'),
+    ConfigurationOption('key3', 'value3')
+]
+SETTING2_CATEGORY = 'Settings'
+
+
+class TestConfiguration(ConfigurationGrouping):
+    setting1 = ConfigurationMetadata(
+        key='setting1',
+        label=SETTING1_LABEL,
+        description=SETTING1_DESCRIPTION,
+        type=SETTING1_TYPE,
+        required=SETTING1_REQUIRED,
+        default=SETTING1_DEFAULT,
+        category=SETTING1_CATEGORY
+    )
+
+    setting2 = ConfigurationMetadata(
+        key='setting2',
+        label=SETTING2_LABEL,
+        description=SETTING2_DESCRIPTION,
+        type=SETTING2_TYPE,
+        required=SETTING2_REQUIRED,
+        default=SETTING2_DEFAULT,
+        options=SETTING2_OPTIONS,
+        category=SETTING2_CATEGORY
+    )
+
+
+class TestConfiguration2(ConfigurationGrouping):
+    setting1 = ConfigurationMetadata(
+        key='setting1',
+        label=SETTING1_LABEL,
+        description=SETTING1_DESCRIPTION,
+        type=SETTING1_TYPE,
+        required=SETTING1_REQUIRED,
+        default=SETTING1_DEFAULT,
+        category=SETTING1_CATEGORY,
+        index=1
+    )
+
+    setting2 = ConfigurationMetadata(
+        key='setting2',
+        label=SETTING2_LABEL,
+        description=SETTING2_DESCRIPTION,
+        type=SETTING2_TYPE,
+        required=SETTING2_REQUIRED,
+        default=SETTING2_DEFAULT,
+        options=SETTING2_OPTIONS,
+        category=SETTING2_CATEGORY,
+        index=0
+    )
+
+
+class TestConfigurationOption(object):
+    def test_to_settings(self):
+        # Arrange
+        option = ConfigurationOption('key1', 'value1')
+        expected_result = {
+            'key': 'key1',
+            'label': 'value1'
+        }
+
+        # Act
+        result = option.to_settings()
+
+        # Assert
+        eq_(result, expected_result)
+
+    def test_from_enum(self):
+        # Arrange
+        class TestEnum(Enum):
+            LABEL1 = 'KEY1'
+            LABEL2 = 'KEY2'
+        expected_result = [
+            ConfigurationOption('KEY1', 'LABEL1'),
+            ConfigurationOption('KEY2', 'LABEL2')
+        ]
+
+        # Act
+        result = ConfigurationOption.from_enum(TestEnum)
+
+        # Assert
+        eq_(result, expected_result)
+
+
+class TestConfigurationGrouping(object):
+    @parameterized.expand([
+        ('setting1', 'setting1', 12345),
+        ('setting2', 'setting2', '12345')
+    ])
+    def test_getters(self, _, setting_name, expected_value):
+        # Arrange
+        configuration_storage = create_autospec(spec=ConfigurationStorage)
+        configuration_storage.load = MagicMock(return_value=expected_value)
+        db = create_autospec(spec=sqlalchemy.orm.session.Session)
+        configuration = TestConfiguration(configuration_storage, db)
+
+        # Act
+        setting_value = getattr(configuration, setting_name)
+
+        # Assert
+        eq_(setting_value, expected_value)
+        configuration_storage.load.assert_called_once_with(db, setting_name)
+
+    @parameterized.expand([
+        ('setting1', 'setting1', 12345),
+        ('setting2', 'setting2', '12345')
+    ])
+    def test_setters(self, _, setting_name, expected_value):
+        # Arrange
+        configuration_storage = create_autospec(spec=ConfigurationStorage)
+        configuration_storage.save = MagicMock(return_value=expected_value)
+        db = create_autospec(spec=sqlalchemy.orm.session.Session)
+        configuration = TestConfiguration(configuration_storage, db)
+
+        # Act
+        setattr(configuration, setting_name, expected_value)
+
+        # Assert
+        configuration_storage.save.assert_called_once_with(db, setting_name, expected_value)
+
+    def test_to_settings_considers_default_indices(self):
+        # Act
+        settings = TestConfiguration.to_settings()
+
+        # Assert
+        eq_(len(settings), 2)
+
+        eq_(settings[0][ConfigurationAttribute.KEY.value], SETTING1_KEY)
+        eq_(settings[0][ConfigurationAttribute.LABEL.value], SETTING1_LABEL)
+        eq_(settings[0][ConfigurationAttribute.DESCRIPTION.value], SETTING1_DESCRIPTION)
+        eq_(settings[0][ConfigurationAttribute.TYPE.value], None)
+        eq_(settings[0][ConfigurationAttribute.REQUIRED.value], SETTING1_REQUIRED)
+        eq_(settings[0][ConfigurationAttribute.DEFAULT.value], SETTING1_DEFAULT)
+        eq_(settings[0][ConfigurationAttribute.CATEGORY.value], SETTING1_CATEGORY)
+
+        eq_(settings[1][ConfigurationAttribute.KEY.value], SETTING2_KEY)
+        eq_(settings[1][ConfigurationAttribute.LABEL.value], SETTING2_LABEL)
+        eq_(settings[1][ConfigurationAttribute.DESCRIPTION.value], SETTING2_DESCRIPTION)
+        eq_(settings[1][ConfigurationAttribute.TYPE.value], SETTING2_TYPE.value)
+        eq_(settings[1][ConfigurationAttribute.REQUIRED.value], SETTING2_REQUIRED)
+        eq_(settings[1][ConfigurationAttribute.DEFAULT.value], SETTING2_DEFAULT)
+        eq_(settings[1][ConfigurationAttribute.OPTIONS.value], [option.to_settings() for option in SETTING2_OPTIONS])
+        eq_(settings[1][ConfigurationAttribute.CATEGORY.value], SETTING2_CATEGORY)
+
+    def test_to_settings_considers_explicit_indices(self):
+        # Act
+        settings = TestConfiguration2.to_settings()
+
+        # Assert
+        eq_(len(settings), 2)
+
+        eq_(settings[0][ConfigurationAttribute.KEY.value], SETTING2_KEY)
+        eq_(settings[0][ConfigurationAttribute.LABEL.value], SETTING2_LABEL)
+        eq_(settings[0][ConfigurationAttribute.DESCRIPTION.value], SETTING2_DESCRIPTION)
+        eq_(settings[0][ConfigurationAttribute.TYPE.value], SETTING2_TYPE.value)
+        eq_(settings[0][ConfigurationAttribute.REQUIRED.value], SETTING2_REQUIRED)
+        eq_(settings[0][ConfigurationAttribute.DEFAULT.value], SETTING2_DEFAULT)
+        eq_(settings[0][ConfigurationAttribute.OPTIONS.value], [option.to_settings() for option in SETTING2_OPTIONS])
+        eq_(settings[0][ConfigurationAttribute.CATEGORY.value], SETTING2_CATEGORY)
+
+        eq_(settings[1][ConfigurationAttribute.KEY.value], SETTING1_KEY)
+        eq_(settings[1][ConfigurationAttribute.LABEL.value], SETTING1_LABEL)
+        eq_(settings[1][ConfigurationAttribute.DESCRIPTION.value], SETTING1_DESCRIPTION)
+        eq_(settings[1][ConfigurationAttribute.TYPE.value], None)
+        eq_(settings[1][ConfigurationAttribute.REQUIRED.value], SETTING1_REQUIRED)
+        eq_(settings[1][ConfigurationAttribute.DEFAULT.value], SETTING1_DEFAULT)
+        eq_(settings[1][ConfigurationAttribute.CATEGORY.value], SETTING1_CATEGORY)

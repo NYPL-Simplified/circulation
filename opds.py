@@ -1,53 +1,17 @@
-
+import datetime
+import logging
+import urllib
 from collections import (
     defaultdict,
 )
 
-from urlparse import urlparse, urljoin
-import copy
-import datetime
-import feedparser
-import logging
-import os
-import random
-import re
-import site
-import sys
-import time
-import urllib
-
-from nose.tools import set_trace
-
-from sqlalchemy.orm.query import Query
-from sqlalchemy.sql.expression import func
+from lxml import etree
 from sqlalchemy.orm.session import Session
 
-import requests
-
-from lxml import etree
-
 from cdn import cdnify
-from config import Configuration
 from classifier import Classifier
 from entrypoint import EntryPoint
 from facets import FacetConstants
-from model import (
-    CachedFeed,
-    ConfigurationSetting,
-    Contributor,
-    CustomList,
-    CustomListEntry,
-    DataSource,
-    DeliveryMechanism,
-    Hyperlink,
-    PresentationCalculationPolicy,
-    Resource,
-    Identifier,
-    Edition,
-    Measurement,
-    Subject,
-    Work,
-)
 from lane import (
     Facets,
     FacetsWithEntryPoint,
@@ -55,19 +19,31 @@ from lane import (
     Lane,
     Pagination,
     SearchFacets,
-    WorkList,
 )
-
+from lcp.credential import LCPCredentialFactory
+from model import (
+    CachedFeed,
+    Contributor,
+    DataSource,
+    Hyperlink,
+    PresentationCalculationPolicy,
+    Identifier,
+    Edition,
+    Measurement,
+    Subject,
+    Work,
+    ExternalIntegration
+)
 from util.flask_util import (
     OPDSEntryResponse,
     OPDSFeedResponse,
-    Response,
 )
 from util.opds_writer import (
     AtomFeed,
     OPDSFeed,
     OPDSMessage,
 )
+
 
 class UnfulfillableWork(Exception):
     """Raise this exception when it turns out a Work currently cannot be
@@ -1529,7 +1505,7 @@ class AcquisitionFeed(OPDSFeed):
         return AtomFeed.makeelement("link", type=type, rel=rel, href=href)
 
     @classmethod
-    def acquisition_link(cls, rel, href, types):
+    def acquisition_link(cls, rel, href, types, active_loan=None):
         if types:
             initial_type = types[0]
             indirect_types = types[1:]
@@ -1538,6 +1514,23 @@ class AcquisitionFeed(OPDSFeed):
             indirect_types = []
         link = cls.link(rel, href, initial_type)
         indirect = cls.indirect_acquisition(indirect_types)
+
+        # In the case of LCP we have to include a patron's hashed passphrase
+        # inside the acquisition link so client applications can use it to bypass authentication
+        # and will not ask patrons to enter their passphrases
+        # For more information please look here:
+        # https://readium.org/lcp-specs/notes/lcp-key-retrieval.html#including-a-hashed-passphrase-in-an-opds-1-catalog
+        if active_loan and active_loan.license_pool.collection.protocol == ExternalIntegration.LCP:
+            db = Session.object_session(active_loan)
+            lcp_credential_factory = LCPCredentialFactory()
+            hashed_passphrase = lcp_credential_factory.get_hashed_passphrase(db, active_loan.patron)
+
+            hashed_passphrase_element = AtomFeed.makeelement(
+                "{%s}hashed_passphrase" % AtomFeed.LCP_NS)
+            hashed_passphrase_element.text = hashed_passphrase
+
+            link.append(hashed_passphrase_element)
+
         if indirect is not None:
             link.append(indirect)
         return link
@@ -1595,7 +1588,7 @@ class AcquisitionFeed(OPDSFeed):
             else:
                 status = 'reserved'
                 since = hold.start
-        elif (license_pool.open_access or license_pool.self_hosted or (
+        elif (license_pool.open_access or license_pool.unlimited_access or license_pool.self_hosted or (
                 license_pool.licenses_available > 0 and
                 license_pool.licenses_owned > 0)
           ):
@@ -1613,7 +1606,7 @@ class AcquisitionFeed(OPDSFeed):
         tags.append(availability_tag)
 
         # Open-access pools do not need to display <opds:holds> or <opds:copies>.
-        if license_pool.open_access or license_pool.self_hosted:
+        if license_pool.open_access or license_pool.unlimited_access or license_pool.self_hosted:
             return tags
 
         holds_kw = dict()
