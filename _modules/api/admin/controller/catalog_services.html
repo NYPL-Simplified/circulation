@@ -33,24 +33,22 @@
           <div class="body" role="main">
             
   <h1>Source code for api.admin.controller.catalog_services</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
-<span class="kn">import</span> <span class="nn">flask</span>
+<span></span><span class="kn">import</span> <span class="nn">flask</span>
 <span class="kn">from</span> <span class="nn">flask</span> <span class="kn">import</span> <span class="n">Response</span>
 <span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
 
-<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">SettingsController</span>
+<span class="kn">from</span> <span class="nn">api.admin.problem_details</span> <span class="kn">import</span> <span class="o">*</span>
 <span class="kn">from</span> <span class="nn">core.marc</span> <span class="kn">import</span> <span class="n">MARCExporter</span>
 <span class="kn">from</span> <span class="nn">core.model</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">ExternalIntegration</span><span class="p">,</span>
-    <span class="n">ConfigurationSetting</span><span class="p">,</span>
-    <span class="n">Session</span><span class="p">,</span>
     <span class="n">get_one</span><span class="p">,</span>
     <span class="n">get_one_or_create</span>
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">core.model.configuration</span> <span class="kn">import</span> <span class="n">ExternalIntegrationLink</span>
-<span class="kn">from</span> <span class="nn">api.admin.problem_details</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">core.s3</span> <span class="kn">import</span> <span class="n">S3UploaderConfiguration</span>
 <span class="kn">from</span> <span class="nn">core.util.problem_detail</span> <span class="kn">import</span> <span class="n">ProblemDetail</span>
-<span class="kn">from</span> <span class="nn">core.s3</span> <span class="kn">import</span> <span class="n">S3Uploader</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">SettingsController</span>
+
 
 <div class="viewcode-block" id="CatalogServicesController"><a class="viewcode-back" href="../../../../api.admin.controller.html#api.admin.controller.catalog_services.CatalogServicesController">[docs]</a><span class="k">class</span> <span class="nc">CatalogServicesController</span><span class="p">(</span><span class="n">SettingsController</span><span class="p">):</span>
 
@@ -152,7 +150,8 @@
                 <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">ExternalIntegration</span><span class="p">,</span> <span class="nb">id</span><span class="o">=</span><span class="n">mirror_integration_id</span>
             <span class="p">)</span>
             <span class="c1"># Only get storage integrations that have a MARC file option set</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="n">storage_integration</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">storage_integration</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="n">S3Uploader</span><span class="o">.</span><span class="n">MARC_BUCKET_KEY</span><span class="p">)</span><span class="o">.</span><span class="n">value</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">storage_integration</span> <span class="ow">or</span> \
+                    <span class="ow">not</span> <span class="n">storage_integration</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="n">S3UploaderConfiguration</span><span class="o">.</span><span class="n">MARC_BUCKET_KEY</span><span class="p">)</span><span class="o">.</span><span class="n">value</span><span class="p">:</span>
                 <span class="k">return</span> <span class="n">MISSING_INTEGRATION</span>
             <span class="n">current_integration_link</span><span class="o">.</span><span class="n">other_integration_id</span><span class="o">=</span><span class="n">storage_integration</span><span class="o">.</span><span class="n">id</span>
 

@@ -35,10 +35,13 @@
   <h1>Source code for core.model.configuration</h1><div class="highlight"><pre>
 <span></span><span class="c1"># encoding: utf-8</span>
 <span class="c1"># ExternalIntegration, ExternalIntegrationLink, ConfigurationSetting</span>
-
+<span class="kn">import</span> <span class="nn">inspect</span>
 <span class="kn">import</span> <span class="nn">json</span>
 <span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">from</span> <span class="nn">abc</span> <span class="kn">import</span> <span class="n">abstractmethod</span><span class="p">,</span> <span class="n">ABCMeta</span>
+<span class="kn">from</span> <span class="nn">contextlib</span> <span class="kn">import</span> <span class="n">contextmanager</span>
 
+<span class="kn">from</span> <span class="nn">enum</span> <span class="kn">import</span> <span class="n">Enum</span>
 <span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Column</span><span class="p">,</span>
@@ -67,7 +70,7 @@
 <span class="kn">from</span> <span class="nn">..util.string_helpers</span> <span class="kn">import</span> <span class="n">random_string</span>
 
 
-<div class="viewcode-block" id="ExternalIntegrationLink"><a class="viewcode-back" href="../../../core.model.html#core.model.configuration.ExternalIntegrationLink">[docs]</a><span class="k">class</span> <span class="nc">ExternalIntegrationLink</span><span class="p">(</span><span class="n">Base</span><span class="p">,</span> <span class="n">HasFullTableCache</span><span class="p">):</span>
+<div class="viewcode-block" id="ExternalIntegrationLink"><a class="viewcode-back" href="../../../core.model.html#api.lcp.encrypt.ExternalIntegrationLink">[docs]</a><span class="k">class</span> <span class="nc">ExternalIntegrationLink</span><span class="p">(</span><span class="n">Base</span><span class="p">,</span> <span class="n">HasFullTableCache</span><span class="p">):</span>
 
     <span class="n">__tablename__</span> <span class="o">=</span> <span class="s1">&#39;externalintegrationslinks&#39;</span>
 
@@ -142,7 +145,7 @@
     <span class="n">COLLECTION_MIRROR_SETTINGS</span> <span class="o">=</span> <span class="n">settings</span></div>
 
 
-<div class="viewcode-block" id="ExternalIntegration"><a class="viewcode-back" href="../../../core.model.html#core.model.configuration.ExternalIntegration">[docs]</a><span class="k">class</span> <span class="nc">ExternalIntegration</span><span class="p">(</span><span class="n">Base</span><span class="p">,</span> <span class="n">HasFullTableCache</span><span class="p">):</span>
+<div class="viewcode-block" id="ExternalIntegration"><a class="viewcode-back" href="../../../core.model.html#api.lcp.encrypt.ExternalIntegration">[docs]</a><span class="k">class</span> <span class="nc">ExternalIntegration</span><span class="p">(</span><span class="n">Base</span><span class="p">,</span> <span class="n">HasFullTableCache</span><span class="p">):</span>
 
     <span class="sd">&quot;&quot;&quot;An external integration contains configuration for connecting</span>
 <span class="sd">    to a third-party API.</span>
@@ -211,6 +214,7 @@
     <span class="n">OPDS_FOR_DISTRIBUTORS</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;OPDS for Distributors&#39;</span>
     <span class="n">ENKI</span> <span class="o">=</span> <span class="n">DataSourceConstants</span><span class="o">.</span><span class="n">ENKI</span>
     <span class="n">FEEDBOOKS</span> <span class="o">=</span> <span class="n">DataSourceConstants</span><span class="o">.</span><span class="n">FEEDBOOKS</span>
+    <span class="n">LCP</span> <span class="o">=</span> <span class="n">DataSourceConstants</span><span class="o">.</span><span class="n">LCP</span>
     <span class="n">MANUAL</span> <span class="o">=</span> <span class="n">DataSourceConstants</span><span class="o">.</span><span class="n">MANUAL</span>
 
     <span class="c1"># These protocols were used on the Content Server when mirroring</span>
@@ -250,6 +254,7 @@
     <span class="c1"># Integrations with STORAGE_GOAL</span>
     <span class="n">S3</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;Amazon S3&#39;</span>
     <span class="n">MINIO</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;MinIO&#39;</span>
+    <span class="n">LCP</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;LCP&#39;</span>
 
     <span class="c1"># Integrations with CDN_GOAL</span>
     <span class="n">CDN</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;CDN&#39;</span>
@@ -336,7 +341,7 @@
         <span class="k">return</span> <span class="sa">u</span><span class="s2">&quot;&lt;ExternalIntegration: protocol=</span><span class="si">%s</span><span class="s2"> goal=&#39;</span><span class="si">%s</span><span class="s2">&#39; settings=</span><span class="si">%d</span><span class="s2"> ID=</span><span class="si">%d</span><span class="s2">&gt;&quot;</span> <span class="o">%</span> <span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">protocol</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">goal</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">settings</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
 
-<div class="viewcode-block" id="ExternalIntegration.cache_key"><a class="viewcode-back" href="../../../core.model.html#core.model.configuration.ExternalIntegration.cache_key">[docs]</a>    <span class="k">def</span> <span class="nf">cache_key</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="ExternalIntegration.cache_key"><a class="viewcode-back" href="../../../core.model.html#api.lcp.encrypt.ExternalIntegration.cache_key">[docs]</a>    <span class="k">def</span> <span class="nf">cache_key</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="c1"># TODO: This is not ideal, but the lookup method isn&#39;t like</span>
         <span class="c1"># other HasFullTableCache lookup methods, so for now we use</span>
         <span class="c1"># the unique ID as the cache key. This means that</span>
@@ -346,7 +351,7 @@
         <span class="c1"># bit and by_cache_key() not as much.</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">id</span></div>
 
-<div class="viewcode-block" id="ExternalIntegration.for_goal"><a class="viewcode-back" href="../../../core.model.html#core.model.configuration.ExternalIntegration.for_goal">[docs]</a>    <span class="nd">@classmethod</span>
+<div class="viewcode-block" id="ExternalIntegration.for_goal"><a class="viewcode-back" href="../../../core.model.html#api.lcp.encrypt.ExternalIntegration.for_goal">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">for_goal</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">goal</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Return all external integrations by goal type.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -358,7 +363,7 @@
 
         <span class="k">return</span> <span class="n">integrations</span></div>
 
-<div class="viewcode-block" id="ExternalIntegration.for_collection_and_purpose"><a class="viewcode-back" href="../../../core.model.html#core.model.configuration.ExternalIntegration.for_collection_and_purpose">[docs]</a>    <span class="nd">@classmethod</span>
+<div class="viewcode-block" id="ExternalIntegration.for_collection_and_purpose"><a class="viewcode-back" href="../../../core.model.html#api.lcp.encrypt.ExternalIntegration.for_collection_and_purpose">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">for_collection_and_purpose</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">purpose</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Find the ExternalIntegration for the collection.</span>
 
@@ -386,7 +391,7 @@
         <span class="p">[</span><span class="n">integration</span><span class="p">]</span> <span class="o">=</span> <span class="n">integrations</span>
         <span class="k">return</span> <span class="n">integration</span></div>
 
-<div class="viewcode-block" id="ExternalIntegration.lookup"><a class="viewcode-back" href="../../../core.model.html#core.model.configuration.ExternalIntegration.lookup">[docs]</a>    <span class="nd">@classmethod</span>
+<div class="viewcode-block" id="ExternalIntegration.lookup"><a class="viewcode-back" href="../../../core.model.html#api.lcp.encrypt.ExternalIntegration.lookup">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">lookup</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">protocol</span><span class="p">,</span> <span class="n">goal</span><span class="p">,</span> <span class="n">library</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 
         <span class="n">integrations</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span><span class="o">.</span><span class="n">outerjoin</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">libraries</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
@@ -409,7 +414,7 @@
             <span class="k">return</span> <span class="kc">None</span>
         <span class="k">return</span> <span class="n">integrations</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span></div>
 
-<div class="viewcode-block" id="ExternalIntegration.with_setting_value"><a class="viewcode-back" href="../../../core.model.html#core.model.configuration.ExternalIntegration.with_setting_value">[docs]</a>    <span class="nd">@classmethod</span>
+<div class="viewcode-block" id="ExternalIntegration.with_setting_value"><a class="viewcode-back" href="../../../core.model.html#api.lcp.encrypt.ExternalIntegration.with_setting_value">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">with_setting_value</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">protocol</span><span class="p">,</span> <span class="n">goal</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Find ExternalIntegrations with the given protocol, goal, and with a</span>
 <span class="sd">        particular ConfigurationSetting key/value pair.</span>
@@ -440,12 +445,12 @@
             <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">value</span><span class="o">==</span><span class="n">value</span>
         <span class="p">)</span></div>
 
-<div class="viewcode-block" id="ExternalIntegration.admin_authentication"><a class="viewcode-back" href="../../../core.model.html#core.model.configuration.ExternalIntegration.admin_authentication">[docs]</a>    <span class="nd">@classmethod</span>
+<div class="viewcode-block" id="ExternalIntegration.admin_authentication"><a class="viewcode-back" href="../../../core.model.html#api.lcp.encrypt.ExternalIntegration.admin_authentication">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">admin_authentication</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">):</span>
         <span class="n">admin_auth</span> <span class="o">=</span> <span class="n">get_one</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="bp">cls</span><span class="p">,</span> <span class="n">goal</span><span class="o">=</span><span class="bp">cls</span><span class="o">.</span><span class="n">ADMIN_AUTH_GOAL</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">admin_auth</span></div>
 
-<div class="viewcode-block" id="ExternalIntegration.for_library_and_goal"><a class="viewcode-back" href="../../../core.model.html#core.model.configuration.ExternalIntegration.for_library_and_goal">[docs]</a>    <span class="nd">@classmethod</span>
+<div class="viewcode-block" id="ExternalIntegration.for_library_and_goal"><a class="viewcode-back" href="../../../core.model.html#api.lcp.encrypt.ExternalIntegration.for_library_and_goal">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">for_library_and_goal</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">goal</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Find all ExternalIntegrations associated with the given</span>
 <span class="sd">        Library and the given goal.</span>
@@ -459,7 +464,7 @@
             <span class="n">Library</span><span class="o">.</span><span class="n">id</span><span class="o">==</span><span class="n">library</span><span class="o">.</span><span class="n">id</span>
         <span class="p">)</span></div>
 
-<div class="viewcode-block" id="ExternalIntegration.one_for_library_and_goal"><a class="viewcode-back" href="../../../core.model.html#core.model.configuration.ExternalIntegration.one_for_library_and_goal">[docs]</a>    <span class="nd">@classmethod</span>
+<div class="viewcode-block" id="ExternalIntegration.one_for_library_and_goal"><a class="viewcode-back" href="../../../core.model.html#api.lcp.encrypt.ExternalIntegration.one_for_library_and_goal">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">one_for_library_and_goal</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">goal</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Find the ExternalIntegration associated with the given</span>
 <span class="sd">        Library and the given goal.</span>
@@ -477,13 +482,13 @@
             <span class="p">)</span>
         <span class="k">return</span> <span class="n">integrations</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span></div>
 
-<div class="viewcode-block" id="ExternalIntegration.set_setting"><a class="viewcode-back" href="../../../core.model.html#core.model.configuration.ExternalIntegration.set_setting">[docs]</a>    <span class="k">def</span> <span class="nf">set_setting</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+<div class="viewcode-block" id="ExternalIntegration.set_setting"><a class="viewcode-back" href="../../../core.model.html#api.lcp.encrypt.ExternalIntegration.set_setting">[docs]</a>    <span class="k">def</span> <span class="nf">set_setting</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Create or update a key-value setting for this ExternalIntegration.&quot;&quot;&quot;</span>
         <span class="n">setting</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
         <span class="n">setting</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="n">value</span>
         <span class="k">return</span> <span class="n">setting</span></div>
 
-<div class="viewcode-block" id="ExternalIntegration.setting"><a class="viewcode-back" href="../../../core.model.html#core.model.configuration.ExternalIntegration.setting">[docs]</a>    <span class="k">def</span> <span class="nf">setting</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
+<div class="viewcode-block" id="ExternalIntegration.setting"><a class="viewcode-back" href="../../../core.model.html#api.lcp.encrypt.ExternalIntegration.setting">[docs]</a>    <span class="k">def</span> <span class="nf">setting</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Find or create a ConfigurationSetting on this ExternalIntegration.</span>
 <span class="sd">        :param key: Name of the setting.</span>
 <span class="sd">        :return: A ConfigurationSetting</span>
@@ -516,7 +521,7 @@
     <span class="k">def</span> <span class="nf">password</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">new_password</span><span class="p">):</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">set_setting</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">PASSWORD</span><span class="p">,</span> <span class="n">new_password</span><span class="p">)</span>
 
-<div class="viewcode-block" id="ExternalIntegration.explain"><a class="viewcode-back" href="../../../core.model.html#core.model.configuration.ExternalIntegration.explain">[docs]</a>    <span class="k">def</span> <span class="nf">explain</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">library</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">include_secrets</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<div class="viewcode-block" id="ExternalIntegration.explain"><a class="viewcode-back" href="../../../core.model.html#api.lcp.encrypt.ExternalIntegration.explain">[docs]</a>    <span class="k">def</span> <span class="nf">explain</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">library</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">include_secrets</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Create a series of human-readable strings to explain an</span>
 <span class="sd">        ExternalIntegration&#39;s settings.</span>
 
@@ -553,7 +558,7 @@
                 <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">explanation</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">lines</span></div></div>
 
-<div class="viewcode-block" id="ConfigurationSetting"><a class="viewcode-back" href="../../../core.model.html#core.model.configuration.ConfigurationSetting">[docs]</a><span class="k">class</span> <span class="nc">ConfigurationSetting</span><span class="p">(</span><span class="n">Base</span><span class="p">,</span> <span class="n">HasFullTableCache</span><span class="p">):</span>
+<div class="viewcode-block" id="ConfigurationSetting"><a class="viewcode-back" href="../../../core.model.html#api.lcp.encrypt.ConfigurationSetting">[docs]</a><span class="k">class</span> <span class="nc">ConfigurationSetting</span><span class="p">(</span><span class="n">Base</span><span class="p">,</span> <span class="n">HasFullTableCache</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;An extra piece of site configuration.</span>
 <span class="sd">    A ConfigurationSetting may be associated with an</span>
 <span class="sd">    ExternalIntegration, a Library, both, or neither.</span>
@@ -592,7 +597,7 @@
         <span class="k">return</span> <span class="sa">u</span><span class="s1">&#39;&lt;ConfigurationSetting: key=</span><span class="si">%s</span><span class="s1">, ID=</span><span class="si">%d</span><span class="s1">&gt;&#39;</span> <span class="o">%</span> <span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">key</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
 
-<div class="viewcode-block" id="ConfigurationSetting.sitewide_secret"><a class="viewcode-back" href="../../../core.model.html#core.model.configuration.ConfigurationSetting.sitewide_secret">[docs]</a>    <span class="nd">@classmethod</span>
+<div class="viewcode-block" id="ConfigurationSetting.sitewide_secret"><a class="viewcode-back" href="../../../core.model.html#api.lcp.encrypt.ConfigurationSetting.sitewide_secret">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">sitewide_secret</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Find or create a sitewide shared secret.</span>
 <span class="sd">        The value of this setting doesn&#39;t matter, only that it&#39;s</span>
@@ -605,7 +610,7 @@
             <span class="n">_db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
         <span class="k">return</span> <span class="n">secret</span><span class="o">.</span><span class="n">value</span></div>
 
-<div class="viewcode-block" id="ConfigurationSetting.explain"><a class="viewcode-back" href="../../../core.model.html#core.model.configuration.ConfigurationSetting.explain">[docs]</a>    <span class="nd">@classmethod</span>
+<div class="viewcode-block" id="ConfigurationSetting.explain"><a class="viewcode-back" href="../../../core.model.html#api.lcp.encrypt.ConfigurationSetting.explain">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">explain</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">include_secrets</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Explain all site-wide ConfigurationSettings.&quot;&quot;&quot;</span>
         <span class="n">lines</span> <span class="o">=</span> <span class="p">[]</span>
@@ -626,18 +631,18 @@
             <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2">=&#39;</span><span class="si">%s</span><span class="s2">&#39;&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">setting</span><span class="o">.</span><span class="n">key</span><span class="p">,</span> <span class="n">setting</span><span class="o">.</span><span class="n">value</span><span class="p">))</span>
         <span class="k">return</span> <span class="n">lines</span></div>
 
-<div class="viewcode-block" id="ConfigurationSetting.sitewide"><a class="viewcode-back" href="../../../core.model.html#core.model.configuration.ConfigurationSetting.sitewide">[docs]</a>    <span class="nd">@classmethod</span>
+<div class="viewcode-block" id="ConfigurationSetting.sitewide"><a class="viewcode-back" href="../../../core.model.html#api.lcp.encrypt.ConfigurationSetting.sitewide">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">sitewide</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Find or create a sitewide ConfigurationSetting.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">for_library_and_externalintegration</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="ConfigurationSetting.for_library"><a class="viewcode-back" href="../../../core.model.html#core.model.configuration.ConfigurationSetting.for_library">[docs]</a>    <span class="nd">@classmethod</span>
+<div class="viewcode-block" id="ConfigurationSetting.for_library"><a class="viewcode-back" href="../../../core.model.html#api.lcp.encrypt.ConfigurationSetting.for_library">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">for_library</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">library</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Find or create a ConfigurationSetting for the given Library.&quot;&quot;&quot;</span>
         <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="n">library</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">for_library_and_externalintegration</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="ConfigurationSetting.for_externalintegration"><a class="viewcode-back" href="../../../core.model.html#core.model.configuration.ConfigurationSetting.for_externalintegration">[docs]</a>    <span class="nd">@classmethod</span>
+<div class="viewcode-block" id="ConfigurationSetting.for_externalintegration"><a class="viewcode-back" href="../../../core.model.html#api.lcp.encrypt.ConfigurationSetting.for_externalintegration">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">for_externalintegration</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">externalintegration</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Find or create a ConfigurationSetting for the given</span>
 <span class="sd">        ExternalIntegration.</span>
@@ -659,10 +664,10 @@
             <span class="n">external_integration_id</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">return</span> <span class="p">(</span><span class="n">library_id</span><span class="p">,</span> <span class="n">external_integration_id</span><span class="p">,</span> <span class="n">key</span><span class="p">)</span>
 
-<div class="viewcode-block" id="ConfigurationSetting.cache_key"><a class="viewcode-back" href="../../../core.model.html#core.model.configuration.ConfigurationSetting.cache_key">[docs]</a>    <span class="k">def</span> <span class="nf">cache_key</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="ConfigurationSetting.cache_key"><a class="viewcode-back" href="../../../core.model.html#api.lcp.encrypt.ConfigurationSetting.cache_key">[docs]</a>    <span class="k">def</span> <span class="nf">cache_key</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache_key</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">library</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">external_integration</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">key</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="ConfigurationSetting.for_library_and_externalintegration"><a class="viewcode-back" href="../../../core.model.html#core.model.configuration.ConfigurationSetting.for_library_and_externalintegration">[docs]</a>    <span class="nd">@classmethod</span>
+<div class="viewcode-block" id="ConfigurationSetting.for_library_and_externalintegration"><a class="viewcode-back" href="../../../core.model.html#api.lcp.encrypt.ConfigurationSetting.for_library_and_externalintegration">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">for_library_and_externalintegration</span><span class="p">(</span>
             <span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">external_integration</span>
     <span class="p">):</span>
@@ -733,7 +738,7 @@
         <span class="sd">&quot;&quot;&quot;Should the value of this key be treated as secret?&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_secret</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">key</span><span class="p">)</span>
 
-<div class="viewcode-block" id="ConfigurationSetting.value_or_default"><a class="viewcode-back" href="../../../core.model.html#core.model.configuration.ConfigurationSetting.value_or_default">[docs]</a>    <span class="k">def</span> <span class="nf">value_or_default</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">default</span><span class="p">):</span>
+<div class="viewcode-block" id="ConfigurationSetting.value_or_default"><a class="viewcode-back" href="../../../core.model.html#api.lcp.encrypt.ConfigurationSetting.value_or_default">[docs]</a>    <span class="k">def</span> <span class="nf">value_or_default</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">default</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Return the value of this setting. If the value is None,</span>
 <span class="sd">        set it to `default` and return that instead.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -790,7 +795,7 @@
         <span class="n">DataSourceConstants</span><span class="o">.</span><span class="n">OVERDRIVE</span>
     <span class="p">]</span>
 
-<div class="viewcode-block" id="ConfigurationSetting.excluded_audio_data_sources"><a class="viewcode-back" href="../../../core.model.html#core.model.configuration.ConfigurationSetting.excluded_audio_data_sources">[docs]</a>    <span class="nd">@classmethod</span>
+<div class="viewcode-block" id="ConfigurationSetting.excluded_audio_data_sources"><a class="viewcode-back" href="../../../core.model.html#api.lcp.encrypt.ConfigurationSetting.excluded_audio_data_sources">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">excluded_audio_data_sources</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;List the data sources whose audiobooks should not be published in</span>
 <span class="sd">        feeds, either because this server can&#39;t fulfill them or the</span>
@@ -804,6 +809,560 @@
         <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">value</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">EXCLUDED_AUDIO_DATA_SOURCES_DEFAULT</span>
         <span class="k">return</span> <span class="n">value</span></div></div>
+
+
+<div class="viewcode-block" id="HasExternalIntegration"><a class="viewcode-back" href="../../../core.model.html#api.lcp.encrypt.HasExternalIntegration">[docs]</a><span class="k">class</span> <span class="nc">HasExternalIntegration</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Interface allowing to get access to an external integration&quot;&quot;&quot;</span>
+
+    <span class="n">__metaclass__</span> <span class="o">=</span> <span class="n">ABCMeta</span>
+
+<div class="viewcode-block" id="HasExternalIntegration.external_integration"><a class="viewcode-back" href="../../../core.model.html#api.lcp.encrypt.HasExternalIntegration.external_integration">[docs]</a>    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">external_integration</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">db</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns an external integration associated with this object</span>
+
+<span class="sd">        :param db: Database session</span>
+<span class="sd">        :type db: sqlalchemy.orm.session.Session</span>
+
+<span class="sd">        :return: External integration associated with this object</span>
+<span class="sd">        :rtype: core.model.configuration.ExternalIntegration</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div></div>
+
+
+<div class="viewcode-block" id="BaseConfigurationStorage"><a class="viewcode-back" href="../../../core.model.html#api.lcp.encrypt.BaseConfigurationStorage">[docs]</a><span class="k">class</span> <span class="nc">BaseConfigurationStorage</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Serializes and deserializes values as configuration settings&quot;&quot;&quot;</span>
+
+    <span class="n">__metaclass__</span> <span class="o">=</span> <span class="n">ABCMeta</span>
+
+<div class="viewcode-block" id="BaseConfigurationStorage.save"><a class="viewcode-back" href="../../../core.model.html#api.lcp.encrypt.BaseConfigurationStorage.save">[docs]</a>    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">db</span><span class="p">,</span> <span class="n">setting_name</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Save the value as as a new configuration setting</span>
+
+<span class="sd">        :param db: Database session</span>
+<span class="sd">        :type db: sqlalchemy.orm.session.Session</span>
+
+<span class="sd">        :param setting_name: Name of the configuration setting</span>
+<span class="sd">        :type setting_name: string</span>
+
+<span class="sd">        :param value: Value to be saved</span>
+<span class="sd">        :type value: Any</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="BaseConfigurationStorage.load"><a class="viewcode-back" href="../../../core.model.html#api.lcp.encrypt.BaseConfigurationStorage.load">[docs]</a>    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">load</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">db</span><span class="p">,</span> <span class="n">setting_name</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Loads and returns the library&#39;s configuration setting</span>
+
+<span class="sd">        :param db: Database session</span>
+<span class="sd">        :type db: sqlalchemy.orm.session.Session</span>
+
+<span class="sd">        :param setting_name: Name of the configuration setting</span>
+<span class="sd">        :type setting_name: string</span>
+
+<span class="sd">        :return: Any</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div></div>
+
+
+<div class="viewcode-block" id="ConfigurationStorage"><a class="viewcode-back" href="../../../core.model.html#api.lcp.encrypt.ConfigurationStorage">[docs]</a><span class="k">class</span> <span class="nc">ConfigurationStorage</span><span class="p">(</span><span class="n">BaseConfigurationStorage</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Serializes and deserializes values as configuration settings&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">integration_association</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Initializes a new instance of ConfigurationStorage class</span>
+
+<span class="sd">        :param integration_association: Association with an external integration</span>
+<span class="sd">        :type integration_association: HasExternalIntegration</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_integration_association</span> <span class="o">=</span> <span class="n">integration_association</span>
+
+<div class="viewcode-block" id="ConfigurationStorage.save"><a class="viewcode-back" href="../../../core.model.html#api.lcp.encrypt.ConfigurationStorage.save">[docs]</a>    <span class="k">def</span> <span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">db</span><span class="p">,</span> <span class="n">setting_name</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Save the value as as a new configuration setting</span>
+
+<span class="sd">        :param db: Database session</span>
+<span class="sd">        :type db: sqlalchemy.orm.session.Session</span>
+
+<span class="sd">        :param setting_name: Name of the configuration setting</span>
+<span class="sd">        :type setting_name: string</span>
+
+<span class="sd">        :param value: Value to be saved</span>
+<span class="sd">        :type value: Any</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">integration</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_integration_association</span><span class="o">.</span><span class="n">external_integration</span><span class="p">(</span><span class="n">db</span><span class="p">)</span>
+        <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">for_externalintegration</span><span class="p">(</span>
+            <span class="n">setting_name</span><span class="p">,</span>
+            <span class="n">integration</span><span class="p">)</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="n">value</span></div>
+
+<div class="viewcode-block" id="ConfigurationStorage.load"><a class="viewcode-back" href="../../../core.model.html#api.lcp.encrypt.ConfigurationStorage.load">[docs]</a>    <span class="k">def</span> <span class="nf">load</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">db</span><span class="p">,</span> <span class="n">setting_name</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Loads and returns the library&#39;s configuration setting</span>
+
+<span class="sd">        :param db: Database session</span>
+<span class="sd">        :type db: sqlalchemy.orm.session.Session</span>
+
+<span class="sd">        :param setting_name: Name of the library&#39;s configuration setting</span>
+<span class="sd">        :type setting_name: string</span>
+
+<span class="sd">        :return: Any</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">integration</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_integration_association</span><span class="o">.</span><span class="n">external_integration</span><span class="p">(</span><span class="n">db</span><span class="p">)</span>
+        <span class="n">value</span> <span class="o">=</span> <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">for_externalintegration</span><span class="p">(</span>
+            <span class="n">setting_name</span><span class="p">,</span>
+            <span class="n">integration</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+
+        <span class="k">return</span> <span class="n">value</span></div></div>
+
+
+<div class="viewcode-block" id="ConfigurationAttributeType"><a class="viewcode-back" href="../../../core.model.html#api.lcp.encrypt.ConfigurationAttributeType">[docs]</a><span class="k">class</span> <span class="nc">ConfigurationAttributeType</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Enumeration of configuration setting types&quot;&quot;&quot;</span>
+
+    <span class="n">TEXT</span> <span class="o">=</span> <span class="s1">&#39;text&#39;</span>
+    <span class="n">TEXTAREA</span> <span class="o">=</span> <span class="s1">&#39;textarea&#39;</span>
+    <span class="n">SELECT</span> <span class="o">=</span> <span class="s1">&#39;select&#39;</span>
+    <span class="n">NUMBER</span> <span class="o">=</span> <span class="s1">&#39;number&#39;</span>
+
+<div class="viewcode-block" id="ConfigurationAttributeType.to_control_type"><a class="viewcode-back" href="../../../core.model.html#api.lcp.encrypt.ConfigurationAttributeType.to_control_type">[docs]</a>    <span class="k">def</span> <span class="nf">to_control_type</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Converts the value to a attribute type understandable by circulation-web</span>
+
+<span class="sd">        :return: String representation of attribute&#39;s type</span>
+<span class="sd">        :rtype: string</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># NOTE: For some reason, circulation-web converts &quot;text&quot; into &lt;text&gt; so we have to turn it into None</span>
+        <span class="c1"># In this case circulation-web will use &lt;input&gt;</span>
+        <span class="c1"># TODO: To be fixed in https://jira.nypl.org/browse/SIMPLY-3008</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">value</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">TEXT</span><span class="o">.</span><span class="n">value</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">value</span></div></div>
+
+
+<div class="viewcode-block" id="ConfigurationAttribute"><a class="viewcode-back" href="../../../core.model.html#api.lcp.encrypt.ConfigurationAttribute">[docs]</a><span class="k">class</span> <span class="nc">ConfigurationAttribute</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Enumeration of configuration setting attributes&quot;&quot;&quot;</span>
+
+    <span class="n">KEY</span> <span class="o">=</span> <span class="s1">&#39;key&#39;</span>
+    <span class="n">LABEL</span> <span class="o">=</span> <span class="s1">&#39;label&#39;</span>
+    <span class="n">DESCRIPTION</span> <span class="o">=</span> <span class="s1">&#39;description&#39;</span>
+    <span class="n">TYPE</span> <span class="o">=</span> <span class="s1">&#39;type&#39;</span>
+    <span class="n">REQUIRED</span> <span class="o">=</span> <span class="s1">&#39;required&#39;</span>
+    <span class="n">DEFAULT</span> <span class="o">=</span> <span class="s1">&#39;default&#39;</span>
+    <span class="n">OPTIONS</span> <span class="o">=</span> <span class="s1">&#39;options&#39;</span>
+    <span class="n">CATEGORY</span> <span class="o">=</span> <span class="s1">&#39;category&#39;</span></div>
+
+
+<div class="viewcode-block" id="ConfigurationOption"><a class="viewcode-back" href="../../../core.model.html#api.lcp.encrypt.ConfigurationOption">[docs]</a><span class="k">class</span> <span class="nc">ConfigurationOption</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Key-value pair containing information about configuration attribute option&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">label</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Initializes a new instance of ConfigurationOption class</span>
+
+<span class="sd">        :param key: Key</span>
+<span class="sd">        :type key: string</span>
+
+<span class="sd">        :param label: Label</span>
+<span class="sd">        :type label: string</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_key</span> <span class="o">=</span> <span class="n">key</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_label</span> <span class="o">=</span> <span class="n">label</span>
+
+    <span class="k">def</span> <span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Compares two ConfigurationOption objects</span>
+
+<span class="sd">        :param other: ConfigurationOption object</span>
+<span class="sd">        :type other: ConfigurationOption</span>
+
+<span class="sd">        :return: Boolean value indicating whether two items are equal</span>
+<span class="sd">        :rtype: bool</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">ConfigurationOption</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="k">return</span> \
+            <span class="bp">self</span><span class="o">.</span><span class="n">key</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">key</span> <span class="ow">and</span> \
+            <span class="bp">self</span><span class="o">.</span><span class="n">label</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">label</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">key</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns option&#39;s key</span>
+
+<span class="sd">        :return: Option&#39;s key</span>
+<span class="sd">        :rtype: string</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_key</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">label</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns option&#39;s label</span>
+
+<span class="sd">        :return: Option&#39;s label</span>
+<span class="sd">        :rtype: string</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_label</span>
+
+<div class="viewcode-block" id="ConfigurationOption.to_settings"><a class="viewcode-back" href="../../../core.model.html#api.lcp.encrypt.ConfigurationOption.to_settings">[docs]</a>    <span class="k">def</span> <span class="nf">to_settings</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns a dictionary containing option metadata in the SETTINGS format</span>
+
+<span class="sd">        :return: Dictionary containing option metadata in the SETTINGS format</span>
+<span class="sd">        :rtype: Dict</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s1">&#39;key&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">key</span><span class="p">,</span>
+            <span class="s1">&#39;label&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">label</span>
+        <span class="p">}</span></div>
+
+<div class="viewcode-block" id="ConfigurationOption.from_enum"><a class="viewcode-back" href="../../../core.model.html#api.lcp.encrypt.ConfigurationOption.from_enum">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">from_enum</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Convers Enum to a list of options in the SETTINGS format</span>
+
+<span class="sd">        :param cls: Enum type</span>
+<span class="sd">        :type cls: type</span>
+
+<span class="sd">        :return: List of options in the SETTINGS format</span>
+<span class="sd">        :rtype: List[Dict]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">issubclass</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">Enum</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Class should be descendant of Enum&#39;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="p">[</span>
+            <span class="n">ConfigurationOption</span><span class="p">(</span><span class="n">element</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">element</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">element</span> <span class="ow">in</span> <span class="bp">cls</span>
+        <span class="p">]</span></div></div>
+
+
+<div class="viewcode-block" id="HasConfigurationSettings"><a class="viewcode-back" href="../../../core.model.html#api.lcp.encrypt.HasConfigurationSettings">[docs]</a><span class="k">class</span> <span class="nc">HasConfigurationSettings</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Interface representing class containing ConfigurationMetadata properties&quot;&quot;&quot;</span>
+
+    <span class="n">__metaclass__</span> <span class="o">=</span> <span class="n">ABCMeta</span>
+
+<div class="viewcode-block" id="HasConfigurationSettings.get_setting_value"><a class="viewcode-back" href="../../../core.model.html#api.lcp.encrypt.HasConfigurationSettings.get_setting_value">[docs]</a>    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">get_setting_value</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">setting_name</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns a settings&#39;value</span>
+
+<span class="sd">        :param setting_name: Name of the setting</span>
+<span class="sd">        :type setting_name: string</span>
+
+<span class="sd">        :return: Setting&#39;s value</span>
+<span class="sd">        :rtype: Any</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="HasConfigurationSettings.set_setting_value"><a class="viewcode-back" href="../../../core.model.html#api.lcp.encrypt.HasConfigurationSettings.set_setting_value">[docs]</a>    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">set_setting_value</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">setting_name</span><span class="p">,</span> <span class="n">setting_value</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Sets setting&#39;s value</span>
+
+<span class="sd">        :param setting_name: Name of the setting</span>
+<span class="sd">        :type setting_name: string</span>
+
+<span class="sd">        :param setting_value: New value of the setting</span>
+<span class="sd">        :type setting_value: Any</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div></div>
+
+
+<div class="viewcode-block" id="ConfigurationMetadata"><a class="viewcode-back" href="../../../core.model.html#api.lcp.encrypt.ConfigurationMetadata">[docs]</a><span class="k">class</span> <span class="nc">ConfigurationMetadata</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Contains configuration metadata&quot;&quot;&quot;</span>
+
+    <span class="n">_counter</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">key</span><span class="p">,</span>
+            <span class="n">label</span><span class="p">,</span>
+            <span class="n">description</span><span class="p">,</span>
+            <span class="nb">type</span><span class="p">,</span>
+            <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">options</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">category</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">index</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Initializes a new instance of ConfigurationMetadata class</span>
+
+<span class="sd">        :param key: Setting&#39;s key</span>
+<span class="sd">        :type key: string</span>
+
+<span class="sd">        :param label: Setting&#39;s label</span>
+<span class="sd">        :type label: string</span>
+
+<span class="sd">        :param description: Setting&#39;s description</span>
+<span class="sd">        :type description: string</span>
+
+<span class="sd">        :param type: Setting&#39;s type</span>
+<span class="sd">        :type type: ConfigurationAttributeType</span>
+
+<span class="sd">        :param required: Boolean value indicating whether the setting is required or not</span>
+<span class="sd">        :type required: bool</span>
+
+<span class="sd">        :param default: Setting&#39;s default value</span>
+<span class="sd">        :type default: Any</span>
+
+<span class="sd">        :param options: Setting&#39;s options (used in the case of select)</span>
+<span class="sd">        :type options: List[ConfigurationSettingAttributeOption]</span>
+
+<span class="sd">        :param category: Setting&#39;s category</span>
+<span class="sd">        :type category: string</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_key</span> <span class="o">=</span> <span class="n">key</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_label</span> <span class="o">=</span> <span class="n">label</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_description</span> <span class="o">=</span> <span class="n">description</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_type</span> <span class="o">=</span> <span class="nb">type</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_required</span> <span class="o">=</span> <span class="n">required</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_default</span> <span class="o">=</span> <span class="n">default</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_options</span> <span class="o">=</span> <span class="n">options</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_category</span> <span class="o">=</span> <span class="n">category</span>
+
+        <span class="k">if</span> <span class="n">index</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_index</span> <span class="o">=</span> <span class="n">index</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">ConfigurationMetadata</span><span class="o">.</span><span class="n">_counter</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_index</span> <span class="o">=</span> <span class="n">ConfigurationMetadata</span><span class="o">.</span><span class="n">_counter</span>
+
+    <span class="k">def</span> <span class="fm">__get__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">owner_instance</span><span class="p">,</span> <span class="n">owner_type</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns a value of the setting</span>
+
+<span class="sd">        :param owner_instance: Instance of the owner, class having instance of ConfigurationMetadata as an attribute</span>
+<span class="sd">        :type owner_instance: Optional[ConfigurationMetadataOwner]</span>
+
+<span class="sd">        :param owner_type: Owner&#39;s class</span>
+<span class="sd">        :type owner_type: Optional[Type]</span>
+
+<span class="sd">        :return: ConfigurationMetadata instance (when called via a static method) or</span>
+<span class="sd">            the setting&#39;s value (when called via an instance method)</span>
+<span class="sd">        :rtype: Union[ConfigurationMetadata, Any]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># If owner_instance is empty, it means that this method was called</span>
+        <span class="c1"># via a static method of ConfigurationMetadataOwner (for example, ConfigurationBucket.to_settings).</span>
+        <span class="c1"># In this case we need to return the metadata instance itself</span>
+        <span class="k">if</span> <span class="n">owner_instance</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">owner_instance</span><span class="p">,</span> <span class="n">HasConfigurationSettings</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s1">&#39;owner must be an instance of ConfigurationSettingsMetadataOwner type&#39;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">owner_instance</span><span class="o">.</span><span class="n">get_setting_value</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_key</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__set__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">owner_instance</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Updates the setting&#39;s value</span>
+
+<span class="sd">        :param owner_instance: Instance of the owner, class having instance of ConfigurationMetadata as an attribute</span>
+<span class="sd">        :type owner_instance: Optional[ConfigurationMetadataOwner]</span>
+
+<span class="sd">        :param value: New setting&#39;s value</span>
+<span class="sd">        :type value: Any</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">owner_instance</span><span class="p">,</span> <span class="n">HasConfigurationSettings</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s1">&#39;owner must be an instance ConfigurationSettingsMetadataOwner type&#39;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">owner_instance</span><span class="o">.</span><span class="n">set_setting_value</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">key</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns the setting&#39;s key</span>
+
+<span class="sd">        :return: Setting&#39;s key</span>
+<span class="sd">        :rtype: string</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_key</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">label</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns the setting&#39;s label</span>
+
+<span class="sd">        :return: Setting&#39;s label</span>
+<span class="sd">        :rtype: string</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_label</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">description</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns the setting&#39;s description</span>
+
+<span class="sd">        :return: Setting&#39;s description</span>
+<span class="sd">        :rtype: string</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_description</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">type</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns the setting&#39;s type</span>
+
+<span class="sd">        :return: Setting&#39;s type</span>
+<span class="sd">        :rtype: string</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_type</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">required</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns the boolean value indicating whether the setting is required or not</span>
+
+<span class="sd">        :return: Boolean value indicating whether the setting is required or not</span>
+<span class="sd">        :rtype: string</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_required</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">default</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns the setting&#39;s default value</span>
+
+<span class="sd">        :return: Setting&#39;s default value</span>
+<span class="sd">        :rtype: string</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_default</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">options</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns the setting&#39;s options (used in the case of select)</span>
+
+<span class="sd">        :return: Setting&#39;s options (used in the case of select)</span>
+<span class="sd">        :rtype: string</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_options</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">category</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns the setting&#39;s category</span>
+
+<span class="sd">        :return: Setting&#39;s category</span>
+<span class="sd">        :rtype: string</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_category</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">index</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_index</span>
+
+<div class="viewcode-block" id="ConfigurationMetadata.get_configuration_metadata"><a class="viewcode-back" href="../../../core.model.html#api.lcp.encrypt.ConfigurationMetadata.get_configuration_metadata">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">get_configuration_metadata</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns a list of 2-tuples containing information ConfigurationMetadata properties in the specified class</span>
+
+<span class="sd">        :param cls: Class</span>
+<span class="sd">        :type cls: type</span>
+
+<span class="sd">        :return: List of 2-tuples containing information ConfigurationMetadata properties in the specified class</span>
+<span class="sd">        :rtype: List[Tuple[string, ConfigurationMetadata]]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">members</span> <span class="o">=</span> <span class="n">inspect</span><span class="o">.</span><span class="n">getmembers</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span>
+        <span class="n">configuration_metadata</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">member</span> <span class="ow">in</span> <span class="n">members</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">member</span><span class="p">,</span> <span class="n">ConfigurationMetadata</span><span class="p">):</span>
+                <span class="n">configuration_metadata</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">name</span><span class="p">,</span> <span class="n">member</span><span class="p">))</span>
+
+        <span class="n">configuration_metadata</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">pair</span><span class="p">:</span> <span class="n">pair</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">configuration_metadata</span></div>
+
+<div class="viewcode-block" id="ConfigurationMetadata.to_settings"><a class="viewcode-back" href="../../../core.model.html#api.lcp.encrypt.ConfigurationMetadata.to_settings">[docs]</a>    <span class="k">def</span> <span class="nf">to_settings</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="n">ConfigurationAttribute</span><span class="o">.</span><span class="n">KEY</span><span class="o">.</span><span class="n">value</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">key</span><span class="p">,</span>
+            <span class="n">ConfigurationAttribute</span><span class="o">.</span><span class="n">LABEL</span><span class="o">.</span><span class="n">value</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">label</span><span class="p">,</span>
+            <span class="n">ConfigurationAttribute</span><span class="o">.</span><span class="n">DESCRIPTION</span><span class="o">.</span><span class="n">value</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">description</span><span class="p">,</span>
+            <span class="n">ConfigurationAttribute</span><span class="o">.</span><span class="n">TYPE</span><span class="o">.</span><span class="n">value</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">type</span><span class="o">.</span><span class="n">to_control_type</span><span class="p">(),</span>
+            <span class="n">ConfigurationAttribute</span><span class="o">.</span><span class="n">REQUIRED</span><span class="o">.</span><span class="n">value</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">required</span><span class="p">,</span>
+            <span class="n">ConfigurationAttribute</span><span class="o">.</span><span class="n">DEFAULT</span><span class="o">.</span><span class="n">value</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">default</span><span class="p">,</span>
+            <span class="n">ConfigurationAttribute</span><span class="o">.</span><span class="n">OPTIONS</span><span class="o">.</span><span class="n">value</span><span class="p">:</span>
+                <span class="p">[</span><span class="n">option</span><span class="o">.</span><span class="n">to_settings</span><span class="p">()</span> <span class="k">for</span> <span class="n">option</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="p">]</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span>
+                <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">ConfigurationAttribute</span><span class="o">.</span><span class="n">CATEGORY</span><span class="o">.</span><span class="n">value</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">category</span>
+        <span class="p">}</span></div></div>
+
+
+<div class="viewcode-block" id="ConfigurationGrouping"><a class="viewcode-back" href="../../../core.model.html#api.lcp.encrypt.ConfigurationGrouping">[docs]</a><span class="k">class</span> <span class="nc">ConfigurationGrouping</span><span class="p">(</span><span class="n">HasConfigurationSettings</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Base class for all classes containing configuration settings</span>
+
+<span class="sd">    NOTE: Be aware that it&#39;s valid only while a database session is valid and must not be stored between requests</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">configuration_storage</span><span class="p">,</span> <span class="n">db</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Initializes a new instance of ConfigurationGrouping</span>
+
+<span class="sd">        :param configuration_storage: ConfigurationStorage object</span>
+<span class="sd">        :type configuration_storage: BaseConfigurationStorage</span>
+
+<span class="sd">        :param db: Database session</span>
+<span class="sd">        :type db: sqlalchemy.orm.session.Session</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_configuration_storage</span> <span class="o">=</span> <span class="n">configuration_storage</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_db</span> <span class="o">=</span> <span class="n">db</span>
+
+    <span class="k">def</span> <span class="fm">__enter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span>
+
+    <span class="k">def</span> <span class="fm">__exit__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">exc_type</span><span class="p">,</span> <span class="n">exc_val</span><span class="p">,</span> <span class="n">exc_tb</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_db</span> <span class="o">=</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="ConfigurationGrouping.get_setting_value"><a class="viewcode-back" href="../../../core.model.html#api.lcp.encrypt.ConfigurationGrouping.get_setting_value">[docs]</a>    <span class="k">def</span> <span class="nf">get_setting_value</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">setting_name</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns a settings&#39;value</span>
+
+<span class="sd">        :param setting_name: Name of the setting</span>
+<span class="sd">        :type setting_name: string</span>
+
+<span class="sd">        :return: Setting&#39;s value</span>
+<span class="sd">        :rtype: Any</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_configuration_storage</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">setting_name</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="ConfigurationGrouping.set_setting_value"><a class="viewcode-back" href="../../../core.model.html#api.lcp.encrypt.ConfigurationGrouping.set_setting_value">[docs]</a>    <span class="k">def</span> <span class="nf">set_setting_value</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">setting_name</span><span class="p">,</span> <span class="n">setting_value</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Sets setting&#39;s value</span>
+
+<span class="sd">        :param setting_name: Name of the setting</span>
+<span class="sd">        :type setting_name: string</span>
+
+<span class="sd">        :param setting_value: New value of the setting</span>
+<span class="sd">        :type setting_value: Any</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_configuration_storage</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">setting_name</span><span class="p">,</span> <span class="n">setting_value</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="ConfigurationGrouping.to_settings"><a class="viewcode-back" href="../../../core.model.html#api.lcp.encrypt.ConfigurationGrouping.to_settings">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">to_settings</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
+        <span class="n">settings</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">member</span> <span class="ow">in</span> <span class="n">ConfigurationMetadata</span><span class="o">.</span><span class="n">get_configuration_metadata</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
+            <span class="n">key_attribute</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">member</span><span class="p">,</span> <span class="n">ConfigurationAttribute</span><span class="o">.</span><span class="n">KEY</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="n">label_attribute</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">member</span><span class="p">,</span> <span class="n">ConfigurationAttribute</span><span class="o">.</span><span class="n">LABEL</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="n">description_attribute</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">member</span><span class="p">,</span> <span class="n">ConfigurationAttribute</span><span class="o">.</span><span class="n">DESCRIPTION</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="n">type_attribute</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">member</span><span class="p">,</span> <span class="n">ConfigurationAttribute</span><span class="o">.</span><span class="n">TYPE</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="n">required_attribute</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">member</span><span class="p">,</span> <span class="n">ConfigurationAttribute</span><span class="o">.</span><span class="n">REQUIRED</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="n">default_attribute</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">member</span><span class="p">,</span> <span class="n">ConfigurationAttribute</span><span class="o">.</span><span class="n">DEFAULT</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="n">options_attribute</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">member</span><span class="p">,</span> <span class="n">ConfigurationAttribute</span><span class="o">.</span><span class="n">OPTIONS</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="n">category_attribute</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">member</span><span class="p">,</span> <span class="n">ConfigurationAttribute</span><span class="o">.</span><span class="n">CATEGORY</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
+            <span class="n">settings</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
+                <span class="n">ConfigurationAttribute</span><span class="o">.</span><span class="n">KEY</span><span class="o">.</span><span class="n">value</span><span class="p">:</span> <span class="n">key_attribute</span><span class="p">,</span>
+                <span class="n">ConfigurationAttribute</span><span class="o">.</span><span class="n">LABEL</span><span class="o">.</span><span class="n">value</span><span class="p">:</span> <span class="n">label_attribute</span><span class="p">,</span>
+                <span class="n">ConfigurationAttribute</span><span class="o">.</span><span class="n">DESCRIPTION</span><span class="o">.</span><span class="n">value</span><span class="p">:</span> <span class="n">description_attribute</span><span class="p">,</span>
+                <span class="n">ConfigurationAttribute</span><span class="o">.</span><span class="n">TYPE</span><span class="o">.</span><span class="n">value</span><span class="p">:</span> <span class="n">type_attribute</span><span class="o">.</span><span class="n">to_control_type</span><span class="p">(),</span>
+                <span class="n">ConfigurationAttribute</span><span class="o">.</span><span class="n">REQUIRED</span><span class="o">.</span><span class="n">value</span><span class="p">:</span> <span class="n">required_attribute</span><span class="p">,</span>
+                <span class="n">ConfigurationAttribute</span><span class="o">.</span><span class="n">DEFAULT</span><span class="o">.</span><span class="n">value</span><span class="p">:</span> <span class="n">default_attribute</span><span class="p">,</span>
+                <span class="n">ConfigurationAttribute</span><span class="o">.</span><span class="n">OPTIONS</span><span class="o">.</span><span class="n">value</span><span class="p">:</span>
+                    <span class="p">[</span><span class="n">option</span><span class="o">.</span><span class="n">to_settings</span><span class="p">()</span> <span class="k">for</span> <span class="n">option</span> <span class="ow">in</span> <span class="n">options_attribute</span><span class="p">]</span>
+                    <span class="k">if</span> <span class="n">options_attribute</span>
+                    <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+                <span class="n">ConfigurationAttribute</span><span class="o">.</span><span class="n">CATEGORY</span><span class="o">.</span><span class="n">value</span><span class="p">:</span> <span class="n">category_attribute</span>
+            <span class="p">})</span>
+
+        <span class="k">return</span> <span class="n">settings</span></div></div>
+
+
+<div class="viewcode-block" id="ConfigurationFactory"><a class="viewcode-back" href="../../../core.model.html#api.lcp.encrypt.ConfigurationFactory">[docs]</a><span class="k">class</span> <span class="nc">ConfigurationFactory</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Factory creating new instances of ConfigurationBucket class descendants&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="ConfigurationFactory.create"><a class="viewcode-back" href="../../../core.model.html#api.lcp.encrypt.ConfigurationFactory.create">[docs]</a>    <span class="nd">@contextmanager</span>
+    <span class="k">def</span> <span class="nf">create</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">configuration_storage</span><span class="p">,</span> <span class="n">db</span><span class="p">,</span> <span class="n">configuration_bucket_class</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Creates a new instance of ConfigurationFactory</span>
+
+<span class="sd">        :param configuration_storage: ConfigurationStorage object</span>
+<span class="sd">        :type configuration_storage: ConfigurationStorage</span>
+
+<span class="sd">        :param db: Database session</span>
+<span class="sd">        :type db: sqlalchemy.orm.session.Session</span>
+
+<span class="sd">        :param configuration_bucket_class: Configuration bucket&#39;s class</span>
+<span class="sd">        :type configuration_bucket_class: type</span>
+
+<span class="sd">        :return: Configuration bucket instance</span>
+<span class="sd">        :rtype: ConfigurationGrouping</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="n">configuration_bucket_class</span><span class="p">(</span><span class="n">configuration_storage</span><span class="p">,</span> <span class="n">db</span><span class="p">)</span> <span class="k">as</span> <span class="n">configuration_bucket</span><span class="p">:</span>
+            <span class="k">yield</span> <span class="n">configuration_bucket</span></div></div>
 </pre></div>
 
           </div>

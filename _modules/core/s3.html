@@ -51,6 +51,8 @@
 
 <span class="kn">from</span> <span class="nn">mirror</span> <span class="kn">import</span> <span class="n">MirrorUploader</span>
 <span class="kn">from</span> <span class="nn">model</span> <span class="kn">import</span> <span class="n">ExternalIntegration</span>
+<span class="kn">from</span> <span class="nn">model.configuration</span> <span class="kn">import</span> <span class="n">ConfigurationOption</span><span class="p">,</span> <span class="n">ConfigurationGrouping</span><span class="p">,</span> <span class="n">ConfigurationMetadata</span><span class="p">,</span> \
+    <span class="n">ConfigurationAttributeType</span>
 
 
 <div class="viewcode-block" id="MultipartS3Upload"><a class="viewcode-back" href="../../core.html#core.s3.MultipartS3Upload">[docs]</a><span class="k">class</span> <span class="nc">MultipartS3Upload</span><span class="p">():</span>
@@ -122,7 +124,7 @@
 <span class="sd">    :rtype: List[Dict]</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">available_regions</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">_get_available_regions</span><span class="p">())</span>
-    <span class="n">options</span> <span class="o">=</span> <span class="p">[{</span><span class="s1">&#39;key&#39;</span><span class="p">:</span> <span class="n">region</span><span class="p">,</span> <span class="s1">&#39;label&#39;</span><span class="p">:</span> <span class="n">region</span><span class="p">}</span> <span class="k">for</span> <span class="n">region</span> <span class="ow">in</span> <span class="n">available_regions</span><span class="p">]</span>
+    <span class="n">options</span> <span class="o">=</span> <span class="p">[</span><span class="n">ConfigurationOption</span><span class="p">(</span><span class="n">region</span><span class="p">,</span> <span class="n">region</span><span class="p">)</span> <span class="k">for</span> <span class="n">region</span> <span class="ow">in</span> <span class="n">available_regions</span><span class="p">]</span>
 
     <span class="k">return</span> <span class="n">options</span>
 
@@ -135,12 +137,7 @@
     <span class="n">AUTO</span> <span class="o">=</span> <span class="s1">&#39;auto&#39;</span></div>
 
 
-<div class="viewcode-block" id="S3Uploader"><a class="viewcode-back" href="../../core.html#core.s3.S3Uploader">[docs]</a><span class="k">class</span> <span class="nc">S3Uploader</span><span class="p">(</span><span class="n">MirrorUploader</span><span class="p">):</span>
-    <span class="n">NAME</span> <span class="o">=</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">S3</span>
-
-    <span class="c1"># AWS S3 host</span>
-    <span class="n">S3_HOST</span> <span class="o">=</span> <span class="s1">&#39;amazonaws.com&#39;</span>
-
+<div class="viewcode-block" id="S3UploaderConfiguration"><a class="viewcode-back" href="../../core.html#core.s3.S3UploaderConfiguration">[docs]</a><span class="k">class</span> <span class="nc">S3UploaderConfiguration</span><span class="p">(</span><span class="n">ConfigurationGrouping</span><span class="p">):</span>
     <span class="n">S3_REGION</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;s3_region&#39;</span>
     <span class="n">S3_DEFAULT_REGION</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;us-east-1&#39;</span>
 
@@ -166,82 +163,147 @@
         <span class="n">URL_TEMPLATE_DEFAULT</span><span class="p">:</span> <span class="sa">u</span><span class="s1">&#39;https://</span><span class="si">%(bucket)s</span><span class="s1">.s3.</span><span class="si">%(region)s</span><span class="s1">/</span><span class="si">%(key)s</span><span class="s1">&#39;</span>
     <span class="p">}</span>
 
-    <span class="n">SETTINGS</span> <span class="o">=</span> <span class="p">[</span>
-        <span class="p">{</span><span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">USERNAME</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Access Key&quot;</span><span class="p">)</span>
-         <span class="p">},</span>
-        <span class="p">{</span><span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">PASSWORD</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Secret Key&quot;</span><span class="p">),</span>
-         <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span>
-             <span class="s2">&quot;If the &lt;em&gt;Access Key&lt;/em&gt; and &lt;em&gt;Secret Key&lt;/em&gt; are not given here credentials will be used as outlined in the &lt;a href=&#39;https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html#configuring-credentials&#39;&gt;Boto3 documenation&lt;/a&gt;. If &lt;em&gt;Access Key&lt;/em&gt; is given, &lt;em&gt;Secrent Key&lt;/em&gt; must also be given.&quot;</span><span class="p">)</span>
-         <span class="p">},</span>
-        <span class="p">{</span><span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">BOOK_COVERS_BUCKET_KEY</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Book Covers Bucket&quot;</span><span class="p">),</span>
-         <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span>
-             <span class="s2">&quot;All book cover images encountered will be mirrored to this S3 bucket. Large images will be scaled down, and the scaled-down copies will also be uploaded to this bucket. &lt;p&gt;The bucket must already exist&amp;mdash;it will not be created automatically.&lt;/p&gt;&quot;</span><span class="p">)</span>
-         <span class="p">},</span>
-        <span class="p">{</span><span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">OA_CONTENT_BUCKET_KEY</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Open Access Content Bucket&quot;</span><span class="p">),</span>
-         <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span>
-             <span class="s2">&quot;All open-access books encountered will be uploaded to this S3 bucket. &lt;p&gt;The bucket must already exist&amp;mdash;it will not be created automatically.&lt;/p&gt;&quot;</span><span class="p">)</span>
-         <span class="p">},</span>
-        <span class="p">{</span><span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">PROTECTED_CONTENT_BUCKET_KEY</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Protected Access Content Bucket&quot;</span><span class="p">),</span>
-         <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span>
-             <span class="s2">&quot;Self-hosted books will be uploaded to this S3 bucket. &lt;p&gt;The bucket must already exist&amp;mdash;it will not be created automatically.&lt;/p&gt;&quot;</span><span class="p">)</span>
-         <span class="p">},</span>
-        <span class="p">{</span><span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">MARC_BUCKET_KEY</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;MARC File Bucket&quot;</span><span class="p">),</span>
-         <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span>
-             <span class="s2">&quot;All generated MARC files will be uploaded to this S3 bucket. &lt;p&gt;The bucket must already exist&amp;mdash;it will not be created automatically.&lt;/p&gt;&quot;</span><span class="p">)</span>
-         <span class="p">},</span>
-        <span class="p">{</span><span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">S3_REGION</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;S3 region&quot;</span><span class="p">),</span>
-         <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;select&quot;</span><span class="p">,</span>
-         <span class="s2">&quot;options&quot;</span><span class="p">:</span> <span class="n">_get_available_region_options</span><span class="p">(),</span>
-         <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;S3 region which will be used for storing the content.&quot;</span><span class="p">),</span>
-         <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="n">S3_DEFAULT_REGION</span><span class="p">,</span>
-         <span class="p">},</span>
-        <span class="p">{</span><span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">S3_ADDRESSING_STYLE</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;S3 addressing style&quot;</span><span class="p">),</span>
-         <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;select&quot;</span><span class="p">,</span>
-         <span class="s2">&quot;options&quot;</span><span class="p">:</span> <span class="p">[</span>
-             <span class="p">{</span>
-                 <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">S3AddressingStyle</span><span class="o">.</span><span class="n">VIRTUAL</span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
-                 <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Virtual&quot;</span><span class="p">)</span>
-             <span class="p">},</span>
-             <span class="p">{</span>
-                 <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">S3AddressingStyle</span><span class="o">.</span><span class="n">PATH</span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
-                 <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Path&quot;</span><span class="p">)</span>
-             <span class="p">},</span>
-             <span class="p">{</span>
-                 <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">S3AddressingStyle</span><span class="o">.</span><span class="n">AUTO</span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
-                 <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Auto&quot;</span><span class="p">)</span>
-             <span class="p">}</span>
-         <span class="p">],</span>
-         <span class="s2">&quot;description&quot;</span><span class="p">:</span>
-             <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Buckets created after September 30, 2020, will support only virtual hosted-style requests. &quot;</span>
-               <span class="s2">&quot;Path-style requests will continue to be supported for buckets created on or before this date. &quot;</span>
-               <span class="s2">&quot;For more information, &quot;</span>
-               <span class="s2">&quot;see &lt;a href=&#39;https://aws.amazon.com/blogs/aws/amazon-s3-path-deprecation-plan-the-rest-of-the-story/&#39;&gt;&quot;</span>
-               <span class="s2">&quot;Amazon S3 Path Deprecation Plan - The Rest of the Story&lt;/a&gt;.&quot;</span><span class="p">),</span>
-         <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="n">S3_DEFAULT_ADDRESSING_STYLE</span><span class="p">,</span>
-         <span class="p">},</span>
-        <span class="p">{</span><span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">S3_PRESIGNED_URL_EXPIRATION</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;S3 presigned URL expiration&quot;</span><span class="p">),</span>
-         <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;number&quot;</span><span class="p">,</span>
-         <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Time in seconds for the presigned URL to remain valid&quot;</span><span class="p">),</span>
-         <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="n">S3_DEFAULT_PRESIGNED_URL_EXPIRATION</span><span class="p">,</span>
-         <span class="p">},</span>
-        <span class="p">{</span><span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">URL_TEMPLATE_KEY</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;URL format&quot;</span><span class="p">),</span>
-         <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;select&quot;</span><span class="p">,</span>
-         <span class="s2">&quot;options&quot;</span><span class="p">:</span> <span class="p">[</span>
-             <span class="p">{</span><span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">URL_TEMPLATE_DEFAULT</span><span class="p">,</span>
-              <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;S3 Default: https://</span><span class="si">{bucket}</span><span class="s2">.s3.</span><span class="si">{region}</span><span class="s2">.amazonaws.com/</span><span class="si">{file}</span><span class="s2">&quot;</span><span class="p">),</span>
-              <span class="p">},</span>
-             <span class="p">{</span><span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">URL_TEMPLATE_HTTPS</span><span class="p">,</span>
-              <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;HTTPS: https://</span><span class="si">{bucket}</span><span class="s2">/</span><span class="si">{file}</span><span class="s2">&quot;</span><span class="p">),</span>
-              <span class="p">},</span>
-             <span class="p">{</span><span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">URL_TEMPLATE_HTTP</span><span class="p">,</span>
-              <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;HTTP: http://</span><span class="si">{bucket}</span><span class="s2">/</span><span class="si">{file}</span><span class="s2">&quot;</span><span class="p">),</span>
-              <span class="p">},</span>
-         <span class="p">],</span>
-         <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="n">URL_TEMPLATE_DEFAULT</span><span class="p">,</span>
-         <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span>
-             <span class="s2">&quot;A file mirrored to S3 is available at &lt;code&gt;http://</span><span class="si">{bucket}</span><span class="s2">.s3.</span><span class="si">{region}</span><span class="s2">.amazonaws.com/</span><span class="si">{filename}</span><span class="s2">&lt;/code&gt;. If you&#39;ve set up your DNS so that http://[bucket]/ or https://[bucket]/ points to the appropriate S3 bucket, you can configure this S3 integration to shorten the URLs. &lt;p&gt;If you haven&#39;t set up your S3 buckets, don&#39;t change this from the default -- you&#39;ll get URLs that don&#39;t work.&lt;/p&gt;&quot;</span><span class="p">)</span>
-         <span class="p">},</span>
-    <span class="p">]</span>
+    <span class="n">access_key</span> <span class="o">=</span> <span class="n">ConfigurationMetadata</span><span class="p">(</span>
+        <span class="n">key</span><span class="o">=</span><span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">USERNAME</span><span class="p">,</span>
+        <span class="n">label</span><span class="o">=</span><span class="n">_</span><span class="p">(</span><span class="s1">&#39;Access Key&#39;</span><span class="p">),</span>
+        <span class="n">description</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="n">ConfigurationAttributeType</span><span class="o">.</span><span class="n">TEXT</span><span class="p">,</span>
+        <span class="n">required</span><span class="o">=</span><span class="kc">False</span>
+    <span class="p">)</span>
+
+    <span class="n">secret_key</span> <span class="o">=</span> <span class="n">ConfigurationMetadata</span><span class="p">(</span>
+        <span class="n">key</span><span class="o">=</span><span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">PASSWORD</span><span class="p">,</span>
+        <span class="n">label</span><span class="o">=</span><span class="n">_</span><span class="p">(</span><span class="s1">&#39;Secret Key&#39;</span><span class="p">),</span>
+        <span class="n">description</span><span class="o">=</span><span class="n">_</span><span class="p">(</span>
+            <span class="s1">&#39;If the &lt;em&gt;Access Key&lt;/em&gt; and &lt;em&gt;Secret Key&lt;/em&gt; are not given here credentials &#39;</span>
+            <span class="s1">&#39;will be used as outlined in the &#39;</span>
+            <span class="s1">&#39;&lt;a href=&quot;https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html&#39;</span>
+            <span class="s1">&#39;#configuring-credentials&quot;&gt;Boto3 documenation&lt;/a&gt;. &#39;</span>
+            <span class="s1">&#39;If &lt;em&gt;Access Key&lt;/em&gt; is given, &lt;em&gt;Secrent Key&lt;/em&gt; must also be given.&#39;</span>
+        <span class="p">),</span>
+        <span class="nb">type</span><span class="o">=</span><span class="n">ConfigurationAttributeType</span><span class="o">.</span><span class="n">TEXT</span><span class="p">,</span>
+        <span class="n">required</span><span class="o">=</span><span class="kc">False</span>
+    <span class="p">)</span>
+
+    <span class="n">book_covers_bucket</span> <span class="o">=</span> <span class="n">ConfigurationMetadata</span><span class="p">(</span>
+        <span class="n">key</span><span class="o">=</span><span class="n">BOOK_COVERS_BUCKET_KEY</span><span class="p">,</span>
+        <span class="n">label</span><span class="o">=</span><span class="n">_</span><span class="p">(</span><span class="s1">&#39;Book Covers Bucket&#39;</span><span class="p">),</span>
+        <span class="n">description</span><span class="o">=</span><span class="n">_</span><span class="p">(</span>
+            <span class="s1">&#39;All book cover images encountered will be mirrored to this S3 bucket. &#39;</span>
+            <span class="s1">&#39;Large images will be scaled down, and the scaled-down copies will also be uploaded to this bucket. &#39;</span>
+            <span class="s1">&#39;&lt;p&gt;The bucket must already exist&amp;mdash;it will not be created automatically.&lt;/p&gt;&#39;</span>
+        <span class="p">),</span>
+        <span class="nb">type</span><span class="o">=</span><span class="n">ConfigurationAttributeType</span><span class="o">.</span><span class="n">TEXT</span><span class="p">,</span>
+        <span class="n">required</span><span class="o">=</span><span class="kc">False</span>
+    <span class="p">)</span>
+
+    <span class="n">open_access_content_bucket</span> <span class="o">=</span> <span class="n">ConfigurationMetadata</span><span class="p">(</span>
+        <span class="n">key</span><span class="o">=</span><span class="n">OA_CONTENT_BUCKET_KEY</span><span class="p">,</span>
+        <span class="n">label</span><span class="o">=</span><span class="n">_</span><span class="p">(</span><span class="s1">&#39;Open Access Content Bucket&#39;</span><span class="p">),</span>
+        <span class="n">description</span><span class="o">=</span><span class="n">_</span><span class="p">(</span>
+            <span class="s1">&#39;All open-access books encountered will be uploaded to this S3 bucket. &#39;</span>
+            <span class="s1">&#39;&lt;p&gt;The bucket must already exist&amp;mdash;it will not be created automatically.&lt;/p&gt;&#39;</span>
+        <span class="p">),</span>
+        <span class="nb">type</span><span class="o">=</span><span class="n">ConfigurationAttributeType</span><span class="o">.</span><span class="n">TEXT</span><span class="p">,</span>
+        <span class="n">required</span><span class="o">=</span><span class="kc">False</span>
+    <span class="p">)</span>
+
+    <span class="n">protected_access_content_bucket</span> <span class="o">=</span> <span class="n">ConfigurationMetadata</span><span class="p">(</span>
+        <span class="n">key</span><span class="o">=</span><span class="n">PROTECTED_CONTENT_BUCKET_KEY</span><span class="p">,</span>
+        <span class="n">label</span><span class="o">=</span><span class="n">_</span><span class="p">(</span><span class="s1">&#39;Protected Access Content Bucket&#39;</span><span class="p">),</span>
+        <span class="n">description</span><span class="o">=</span><span class="n">_</span><span class="p">(</span>
+            <span class="s1">&#39;Self-hosted books will be uploaded to this S3 bucket. &#39;</span>
+            <span class="s1">&#39;&lt;p&gt;The bucket must already exist&amp;mdash;it will not be created automatically.&lt;/p&gt;&#39;</span>
+        <span class="p">),</span>
+        <span class="nb">type</span><span class="o">=</span><span class="n">ConfigurationAttributeType</span><span class="o">.</span><span class="n">TEXT</span><span class="p">,</span>
+        <span class="n">required</span><span class="o">=</span><span class="kc">False</span>
+    <span class="p">)</span>
+
+    <span class="n">marc_file_bucket</span> <span class="o">=</span> <span class="n">ConfigurationMetadata</span><span class="p">(</span>
+        <span class="n">key</span><span class="o">=</span><span class="n">MARC_BUCKET_KEY</span><span class="p">,</span>
+        <span class="n">label</span><span class="o">=</span><span class="n">_</span><span class="p">(</span><span class="s1">&#39;MARC File Bucket&#39;</span><span class="p">),</span>
+        <span class="n">description</span><span class="o">=</span><span class="n">_</span><span class="p">(</span>
+            <span class="s1">&#39;All generated MARC files will be uploaded to this S3 bucket. &#39;</span>
+            <span class="s1">&#39;&lt;p&gt;The bucket must already exist&amp;mdash;it will not be created automatically.&lt;/p&gt;&#39;</span>
+        <span class="p">),</span>
+        <span class="nb">type</span><span class="o">=</span><span class="n">ConfigurationAttributeType</span><span class="o">.</span><span class="n">TEXT</span><span class="p">,</span>
+        <span class="n">required</span><span class="o">=</span><span class="kc">False</span>
+    <span class="p">)</span>
+
+    <span class="n">s3_region</span> <span class="o">=</span> <span class="n">ConfigurationMetadata</span><span class="p">(</span>
+        <span class="n">key</span><span class="o">=</span><span class="n">S3_REGION</span><span class="p">,</span>
+        <span class="n">label</span><span class="o">=</span><span class="n">_</span><span class="p">(</span><span class="s1">&#39;S3 region&#39;</span><span class="p">),</span>
+        <span class="n">description</span><span class="o">=</span><span class="n">_</span><span class="p">(</span>
+            <span class="s1">&#39;S3 region which will be used for storing the content.&#39;</span>
+        <span class="p">),</span>
+        <span class="nb">type</span><span class="o">=</span><span class="n">ConfigurationAttributeType</span><span class="o">.</span><span class="n">SELECT</span><span class="p">,</span>
+        <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="n">S3_DEFAULT_REGION</span><span class="p">,</span>
+        <span class="n">options</span><span class="o">=</span><span class="n">_get_available_region_options</span><span class="p">()</span>
+    <span class="p">)</span>
+
+    <span class="n">s3_addressing_style</span> <span class="o">=</span> <span class="n">ConfigurationMetadata</span><span class="p">(</span>
+        <span class="n">key</span><span class="o">=</span><span class="n">S3_ADDRESSING_STYLE</span><span class="p">,</span>
+        <span class="n">label</span><span class="o">=</span><span class="n">_</span><span class="p">(</span><span class="s1">&#39;S3 addressing style&#39;</span><span class="p">),</span>
+        <span class="n">description</span><span class="o">=</span><span class="n">_</span><span class="p">(</span>
+            <span class="s1">&#39;Buckets created after September 30, 2020, will support only virtual hosted-style requests. &#39;</span>
+            <span class="s1">&#39;Path-style requests will continue to be supported for buckets created on or before this date. &#39;</span>
+            <span class="s1">&#39;For more information, &#39;</span>
+            <span class="s1">&#39;see &lt;a href=&quot;https://aws.amazon.com/blogs/aws/amazon-s3-path-deprecation-plan-the-rest-of-the-story/&quot;&gt;&#39;</span>
+            <span class="s1">&#39;Amazon S3 Path Deprecation Plan - The Rest of the Story&lt;/a&gt;.&#39;</span>
+        <span class="p">),</span>
+        <span class="nb">type</span><span class="o">=</span><span class="n">ConfigurationAttributeType</span><span class="o">.</span><span class="n">SELECT</span><span class="p">,</span>
+        <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="n">S3_DEFAULT_REGION</span><span class="p">,</span>
+        <span class="n">options</span><span class="o">=</span><span class="p">[</span>
+            <span class="n">ConfigurationOption</span><span class="p">(</span><span class="n">S3AddressingStyle</span><span class="o">.</span><span class="n">VIRTUAL</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">_</span><span class="p">(</span><span class="s1">&#39;Virtual&#39;</span><span class="p">)),</span>
+            <span class="n">ConfigurationOption</span><span class="p">(</span><span class="n">S3AddressingStyle</span><span class="o">.</span><span class="n">PATH</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">_</span><span class="p">(</span><span class="s1">&#39;Path&#39;</span><span class="p">)),</span>
+            <span class="n">ConfigurationOption</span><span class="p">(</span><span class="n">S3AddressingStyle</span><span class="o">.</span><span class="n">AUTO</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">_</span><span class="p">(</span><span class="s1">&#39;Auto&#39;</span><span class="p">))</span>
+        <span class="p">]</span>
+    <span class="p">)</span>
+
+    <span class="n">s3_presigned_url_expiration</span> <span class="o">=</span> <span class="n">ConfigurationMetadata</span><span class="p">(</span>
+        <span class="n">key</span><span class="o">=</span><span class="n">S3_PRESIGNED_URL_EXPIRATION</span><span class="p">,</span>
+        <span class="n">label</span><span class="o">=</span><span class="n">_</span><span class="p">(</span><span class="s1">&#39;S3 presigned URL expiration&#39;</span><span class="p">),</span>
+        <span class="n">description</span><span class="o">=</span><span class="n">_</span><span class="p">(</span>
+            <span class="s1">&#39;Time in seconds for the presigned URL to remain valid&#39;</span>
+        <span class="p">),</span>
+        <span class="nb">type</span><span class="o">=</span><span class="n">ConfigurationAttributeType</span><span class="o">.</span><span class="n">NUMBER</span><span class="p">,</span>
+        <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="n">S3_DEFAULT_PRESIGNED_URL_EXPIRATION</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">url_template</span> <span class="o">=</span> <span class="n">ConfigurationMetadata</span><span class="p">(</span>
+        <span class="n">key</span><span class="o">=</span><span class="n">URL_TEMPLATE_KEY</span><span class="p">,</span>
+        <span class="n">label</span><span class="o">=</span><span class="n">_</span><span class="p">(</span><span class="s1">&#39;URL format&#39;</span><span class="p">),</span>
+        <span class="n">description</span><span class="o">=</span><span class="n">_</span><span class="p">(</span>
+            <span class="s1">&#39;A file mirrored to S3 is available at &lt;code&gt;http://</span><span class="si">{bucket}</span><span class="s1">.s3.</span><span class="si">{region}</span><span class="s1">.amazonaws.com/</span><span class="si">{filename}</span><span class="s1">&lt;/code&gt;. &#39;</span>
+            <span class="s1">&#39;If you</span><span class="se">\&#39;</span><span class="s1">ve set up your DNS so that http://[bucket]/ or https://[bucket]/ points to the appropriate &#39;</span>
+            <span class="s1">&#39;S3 bucket, you can configure this S3 integration to shorten the URLs. &#39;</span>
+            <span class="s1">&#39;&lt;p&gt;If you haven</span><span class="se">\&#39;</span><span class="s1">t set up your S3 buckets, don</span><span class="se">\&#39;</span><span class="s1">t change this from the default -- &#39;</span>
+            <span class="s1">&#39;you</span><span class="se">\&#39;</span><span class="s1">ll get URLs that don</span><span class="se">\&#39;</span><span class="s1">t work.&lt;/p&gt;&#39;</span>
+        <span class="p">),</span>
+        <span class="nb">type</span><span class="o">=</span><span class="n">ConfigurationAttributeType</span><span class="o">.</span><span class="n">SELECT</span><span class="p">,</span>
+        <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="n">URL_TEMPLATE_DEFAULT</span><span class="p">,</span>
+        <span class="n">options</span><span class="o">=</span><span class="p">[</span>
+            <span class="n">ConfigurationOption</span><span class="p">(</span>
+                <span class="n">URL_TEMPLATE_DEFAULT</span><span class="p">,</span> <span class="n">_</span><span class="p">(</span><span class="s1">&#39;S3 Default: https://</span><span class="si">{bucket}</span><span class="s1">.s3.</span><span class="si">{region}</span><span class="s1">.amazonaws.com/</span><span class="si">{file}</span><span class="s1">&#39;</span><span class="p">)),</span>
+            <span class="n">ConfigurationOption</span><span class="p">(</span>
+                <span class="n">URL_TEMPLATE_HTTPS</span><span class="p">,</span> <span class="n">_</span><span class="p">(</span><span class="s1">&#39;HTTPS: https://</span><span class="si">{bucket}</span><span class="s1">/</span><span class="si">{file}</span><span class="s1">&#39;</span><span class="p">)),</span>
+            <span class="n">ConfigurationOption</span><span class="p">(</span>
+                <span class="n">URL_TEMPLATE_HTTP</span><span class="p">,</span> <span class="n">_</span><span class="p">(</span><span class="s1">&#39;HTTP: http://</span><span class="si">{bucket}</span><span class="s1">/</span><span class="si">{file}</span><span class="s1">&#39;</span><span class="p">))</span>
+        <span class="p">]</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="S3Uploader"><a class="viewcode-back" href="../../core.html#core.s3.S3Uploader">[docs]</a><span class="k">class</span> <span class="nc">S3Uploader</span><span class="p">(</span><span class="n">MirrorUploader</span><span class="p">):</span>
+    <span class="n">NAME</span> <span class="o">=</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">S3</span>
+
+    <span class="c1"># AWS S3 host</span>
+    <span class="n">S3_HOST</span> <span class="o">=</span> <span class="s1">&#39;amazonaws.com&#39;</span>
+
+    <span class="n">SETTINGS</span> <span class="o">=</span> <span class="n">S3UploaderConfiguration</span><span class="o">.</span><span class="n">to_settings</span><span class="p">()</span>
 
     <span class="n">SITEWIDE</span> <span class="o">=</span> <span class="kc">True</span>
 
@@ -264,16 +326,16 @@
             <span class="n">client_class</span> <span class="o">=</span> <span class="n">boto3</span><span class="o">.</span><span class="n">client</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_s3_region</span> <span class="o">=</span> <span class="n">integration</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">S3_REGION</span><span class="p">)</span><span class="o">.</span><span class="n">value_or_default</span><span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">S3_DEFAULT_REGION</span><span class="p">)</span>
+            <span class="n">S3UploaderConfiguration</span><span class="o">.</span><span class="n">S3_REGION</span><span class="p">)</span><span class="o">.</span><span class="n">value_or_default</span><span class="p">(</span>
+            <span class="n">S3UploaderConfiguration</span><span class="o">.</span><span class="n">S3_DEFAULT_REGION</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_s3_addressing_style</span> <span class="o">=</span> <span class="n">integration</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">S3_ADDRESSING_STYLE</span><span class="p">)</span><span class="o">.</span><span class="n">value_or_default</span><span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">S3_DEFAULT_ADDRESSING_STYLE</span><span class="p">)</span>
+            <span class="n">S3UploaderConfiguration</span><span class="o">.</span><span class="n">S3_ADDRESSING_STYLE</span><span class="p">)</span><span class="o">.</span><span class="n">value_or_default</span><span class="p">(</span>
+            <span class="n">S3UploaderConfiguration</span><span class="o">.</span><span class="n">S3_DEFAULT_ADDRESSING_STYLE</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_s3_presigned_url_expiration</span> <span class="o">=</span> <span class="n">integration</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">S3_PRESIGNED_URL_EXPIRATION</span><span class="p">)</span><span class="o">.</span><span class="n">value_or_default</span><span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">S3_DEFAULT_PRESIGNED_URL_EXPIRATION</span><span class="p">)</span>
+            <span class="n">S3UploaderConfiguration</span><span class="o">.</span><span class="n">S3_PRESIGNED_URL_EXPIRATION</span><span class="p">)</span><span class="o">.</span><span class="n">value_or_default</span><span class="p">(</span>
+            <span class="n">S3UploaderConfiguration</span><span class="o">.</span><span class="n">S3_DEFAULT_PRESIGNED_URL_EXPIRATION</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">callable</span><span class="p">(</span><span class="n">client_class</span><span class="p">):</span>
             <span class="c1"># Pass None into boto3 if we get an empty string.</span>
@@ -305,8 +367,8 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">client</span> <span class="o">=</span> <span class="n">client_class</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">url_transform</span> <span class="o">=</span> <span class="n">integration</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">URL_TEMPLATE_KEY</span><span class="p">)</span><span class="o">.</span><span class="n">value_or_default</span><span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">URL_TEMPLATE_DEFAULT</span><span class="p">)</span>
+            <span class="n">S3UploaderConfiguration</span><span class="o">.</span><span class="n">URL_TEMPLATE_KEY</span><span class="p">)</span><span class="o">.</span><span class="n">value_or_default</span><span class="p">(</span>
+            <span class="n">S3UploaderConfiguration</span><span class="o">.</span><span class="n">URL_TEMPLATE_DEFAULT</span><span class="p">)</span>
 
         <span class="c1"># Transfer information about bucket names from the</span>
         <span class="c1"># ExternalIntegration to the S3Uploader object, so we don&#39;t</span>
@@ -467,7 +529,9 @@
 <div class="viewcode-block" id="S3Uploader.book_url"><a class="viewcode-back" href="../../core.html#core.s3.S3Uploader.book_url">[docs]</a>    <span class="k">def</span> <span class="nf">book_url</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">extension</span><span class="o">=</span><span class="s1">&#39;.epub&#39;</span><span class="p">,</span> <span class="n">open_access</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
                  <span class="n">data_source</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;The path to the hosted EPUB file for the given identifier.&quot;&quot;&quot;</span>
-        <span class="n">bucket</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_bucket</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">OA_CONTENT_BUCKET_KEY</span> <span class="k">if</span> <span class="n">open_access</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">PROTECTED_CONTENT_BUCKET_KEY</span><span class="p">)</span>
+        <span class="n">bucket</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_bucket</span><span class="p">(</span>
+            <span class="n">S3UploaderConfiguration</span><span class="o">.</span><span class="n">OA_CONTENT_BUCKET_KEY</span> <span class="k">if</span> <span class="n">open_access</span>
+            <span class="k">else</span> <span class="n">S3UploaderConfiguration</span><span class="o">.</span><span class="n">PROTECTED_CONTENT_BUCKET_KEY</span><span class="p">)</span>
         <span class="n">root</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">content_root</span><span class="p">(</span><span class="n">bucket</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="n">extension</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;.&#39;</span><span class="p">):</span>
@@ -490,7 +554,7 @@
 <div class="viewcode-block" id="S3Uploader.cover_image_url"><a class="viewcode-back" href="../../core.html#core.s3.S3Uploader.cover_image_url">[docs]</a>    <span class="k">def</span> <span class="nf">cover_image_url</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data_source</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">filename</span><span class="p">,</span>
                         <span class="n">scaled_size</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;The path to the hosted cover image for the given identifier.&quot;&quot;&quot;</span>
-        <span class="n">bucket</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_bucket</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">BOOK_COVERS_BUCKET_KEY</span><span class="p">)</span>
+        <span class="n">bucket</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_bucket</span><span class="p">(</span><span class="n">S3UploaderConfiguration</span><span class="o">.</span><span class="n">BOOK_COVERS_BUCKET_KEY</span><span class="p">)</span>
         <span class="n">root</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cover_image_root</span><span class="p">(</span><span class="n">bucket</span><span class="p">,</span> <span class="n">data_source</span><span class="p">,</span> <span class="n">scaled_size</span><span class="p">)</span>
         <span class="n">parts</span> <span class="o">=</span> <span class="p">[</span><span class="n">identifier</span><span class="o">.</span><span class="n">type</span><span class="p">,</span> <span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span> <span class="n">filename</span><span class="p">]</span>
         <span class="k">return</span> <span class="n">root</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">key_join</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span></div>
@@ -498,7 +562,7 @@
 <div class="viewcode-block" id="S3Uploader.marc_file_url"><a class="viewcode-back" href="../../core.html#core.s3.S3Uploader.marc_file_url">[docs]</a>    <span class="k">def</span> <span class="nf">marc_file_url</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">lane</span><span class="p">,</span> <span class="n">end_time</span><span class="p">,</span> <span class="n">start_time</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;The path to the hosted MARC file for the given library, lane,</span>
 <span class="sd">        and date range.&quot;&quot;&quot;</span>
-        <span class="n">bucket</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_bucket</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">MARC_BUCKET_KEY</span><span class="p">)</span>
+        <span class="n">bucket</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_bucket</span><span class="p">(</span><span class="n">S3UploaderConfiguration</span><span class="o">.</span><span class="n">MARC_BUCKET_KEY</span><span class="p">)</span>
         <span class="n">root</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">marc_file_root</span><span class="p">(</span><span class="n">bucket</span><span class="p">,</span> <span class="n">library</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">start_time</span><span class="p">:</span>
             <span class="n">time_part</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">start_time</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;-&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">end_time</span><span class="p">)</span>
@@ -567,8 +631,8 @@
 <span class="sd">        http://{bucket}/{key}</span>
 <span class="sd">        https://{bucket}/{key}</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">templates</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">URL_TEMPLATES_BY_TEMPLATE</span>
-        <span class="n">default</span> <span class="o">=</span> <span class="n">templates</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">URL_TEMPLATE_DEFAULT</span><span class="p">]</span>
+        <span class="n">templates</span> <span class="o">=</span> <span class="n">S3UploaderConfiguration</span><span class="o">.</span><span class="n">URL_TEMPLATES_BY_TEMPLATE</span>
+        <span class="n">default</span> <span class="o">=</span> <span class="n">templates</span><span class="p">[</span><span class="n">S3UploaderConfiguration</span><span class="o">.</span><span class="n">URL_TEMPLATE_DEFAULT</span><span class="p">]</span>
         <span class="n">template</span> <span class="o">=</span> <span class="n">templates</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">url_transform</span><span class="p">,</span> <span class="n">default</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">template</span> <span class="o">==</span> <span class="n">default</span><span class="p">:</span>
@@ -578,9 +642,18 @@
 
         <span class="k">return</span> <span class="n">link</span></div>
 
-<div class="viewcode-block" id="S3Uploader.mirror_one"><a class="viewcode-back" href="../../core.html#core.s3.S3Uploader.mirror_one">[docs]</a>    <span class="k">def</span> <span class="nf">mirror_one</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">representation</span><span class="p">,</span> <span class="n">mirror_to</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Mirror a single representation to the given URL.&quot;&quot;&quot;</span>
+<div class="viewcode-block" id="S3Uploader.mirror_one"><a class="viewcode-back" href="../../core.html#core.s3.S3Uploader.mirror_one">[docs]</a>    <span class="k">def</span> <span class="nf">mirror_one</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">representation</span><span class="p">,</span> <span class="n">mirror_to</span><span class="p">,</span> <span class="n">collection</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Mirror a single representation to the given URL.</span>
 
+<span class="sd">        :param representation: Book&#39;s representation</span>
+<span class="sd">        :type representation: Representation</span>
+
+<span class="sd">        :param mirror_to: Mirror URL</span>
+<span class="sd">        :type mirror_to: string</span>
+
+<span class="sd">        :param collection: Collection</span>
+<span class="sd">        :type collection: Optional[Collection]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># Turn the original URL into an s3.amazonaws.com URL.</span>
         <span class="n">media_type</span> <span class="o">=</span> <span class="n">representation</span><span class="o">.</span><span class="n">external_media_type</span>
         <span class="n">bucket</span><span class="p">,</span> <span class="n">remote_filename</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">split_url</span><span class="p">(</span><span class="n">mirror_to</span><span class="p">)</span>
@@ -638,19 +711,24 @@
 <span class="n">MirrorUploader</span><span class="o">.</span><span class="n">IMPLEMENTATION_REGISTRY</span><span class="p">[</span><span class="n">S3Uploader</span><span class="o">.</span><span class="n">NAME</span><span class="p">]</span> <span class="o">=</span> <span class="n">S3Uploader</span>
 
 
+<div class="viewcode-block" id="MinIOUploaderConfiguration"><a class="viewcode-back" href="../../core.html#core.s3.MinIOUploaderConfiguration">[docs]</a><span class="k">class</span> <span class="nc">MinIOUploaderConfiguration</span><span class="p">(</span><span class="n">ConfigurationGrouping</span><span class="p">):</span>
+    <span class="n">ENDPOINT_URL</span> <span class="o">=</span> <span class="s1">&#39;ENDPOINT_URL&#39;</span>
+
+    <span class="n">endpoint_url</span> <span class="o">=</span> <span class="n">ConfigurationMetadata</span><span class="p">(</span>
+        <span class="n">key</span><span class="o">=</span><span class="n">ENDPOINT_URL</span><span class="p">,</span>
+        <span class="n">label</span><span class="o">=</span><span class="n">_</span><span class="p">(</span><span class="s1">&#39;Endpoint URL&#39;</span><span class="p">),</span>
+        <span class="n">description</span><span class="o">=</span><span class="n">_</span><span class="p">(</span>
+            <span class="s1">&#39;MinIO</span><span class="se">\&#39;</span><span class="s1">s endpoint URL&#39;</span>
+        <span class="p">),</span>
+        <span class="nb">type</span><span class="o">=</span><span class="n">ConfigurationAttributeType</span><span class="o">.</span><span class="n">TEXT</span><span class="p">,</span>
+        <span class="n">required</span><span class="o">=</span><span class="kc">True</span>
+    <span class="p">)</span></div>
+
+
 <div class="viewcode-block" id="MinIOUploader"><a class="viewcode-back" href="../../core.html#core.s3.MinIOUploader">[docs]</a><span class="k">class</span> <span class="nc">MinIOUploader</span><span class="p">(</span><span class="n">S3Uploader</span><span class="p">):</span>
     <span class="n">NAME</span> <span class="o">=</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">MINIO</span>
 
-    <span class="n">ENDPOINT_URL</span> <span class="o">=</span> <span class="s1">&#39;ENDPOINT_URL&#39;</span>
-
-    <span class="n">SETTINGS</span> <span class="o">=</span> <span class="p">[</span>
-        <span class="p">{</span>
-            <span class="s1">&#39;key&#39;</span><span class="p">:</span> <span class="n">ENDPOINT_URL</span><span class="p">,</span>
-            <span class="s1">&#39;label&#39;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s1">&#39;Endpoint URL&#39;</span><span class="p">),</span>
-            <span class="s1">&#39;description&#39;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s1">&#39;MinIO</span><span class="se">\&#39;</span><span class="s1">s endpoint URL&#39;</span><span class="p">),</span>
-            <span class="s1">&#39;required&#39;</span><span class="p">:</span> <span class="kc">True</span>
-        <span class="p">}</span>
-    <span class="p">]</span> <span class="o">+</span> <span class="n">S3Uploader</span><span class="o">.</span><span class="n">SETTINGS</span>
+    <span class="n">SETTINGS</span> <span class="o">=</span> <span class="n">S3Uploader</span><span class="o">.</span><span class="n">SETTINGS</span> <span class="o">+</span> <span class="p">[</span><span class="n">MinIOUploaderConfiguration</span><span class="o">.</span><span class="n">endpoint_url</span><span class="o">.</span><span class="n">to_settings</span><span class="p">()]</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">integration</span><span class="p">,</span> <span class="n">client_class</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Instantiate an S3Uploader from an ExternalIntegration.</span>
@@ -661,7 +739,7 @@
 <span class="sd">            instead of boto3.client.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">endpoint_url</span> <span class="o">=</span> <span class="n">integration</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">ENDPOINT_URL</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+            <span class="n">MinIOUploaderConfiguration</span><span class="o">.</span><span class="n">ENDPOINT_URL</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
 
         <span class="n">_</span><span class="p">,</span> <span class="n">host</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">urlsplit</span><span class="p">(</span><span class="n">endpoint_url</span><span class="p">)</span>
 
@@ -685,10 +763,10 @@
     <span class="sd">&quot;&quot;&quot;A dummy uploader for use in tests.&quot;&quot;&quot;</span>
 
     <span class="n">buckets</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="n">S3Uploader</span><span class="o">.</span><span class="n">BOOK_COVERS_BUCKET_KEY</span><span class="p">:</span> <span class="s1">&#39;test-cover-bucket&#39;</span><span class="p">,</span>
-        <span class="n">S3Uploader</span><span class="o">.</span><span class="n">OA_CONTENT_BUCKET_KEY</span><span class="p">:</span> <span class="s1">&#39;test-content-bucket&#39;</span><span class="p">,</span>
-        <span class="n">S3Uploader</span><span class="o">.</span><span class="n">PROTECTED_CONTENT_BUCKET_KEY</span><span class="p">:</span> <span class="s1">&#39;test-content-bucket&#39;</span><span class="p">,</span>
-        <span class="n">S3Uploader</span><span class="o">.</span><span class="n">MARC_BUCKET_KEY</span><span class="p">:</span> <span class="s1">&#39;test-marc-bucket&#39;</span><span class="p">,</span>
+        <span class="n">S3UploaderConfiguration</span><span class="o">.</span><span class="n">BOOK_COVERS_BUCKET_KEY</span><span class="p">:</span> <span class="s1">&#39;test-cover-bucket&#39;</span><span class="p">,</span>
+        <span class="n">S3UploaderConfiguration</span><span class="o">.</span><span class="n">OA_CONTENT_BUCKET_KEY</span><span class="p">:</span> <span class="s1">&#39;test-content-bucket&#39;</span><span class="p">,</span>
+        <span class="n">S3UploaderConfiguration</span><span class="o">.</span><span class="n">PROTECTED_CONTENT_BUCKET_KEY</span><span class="p">:</span> <span class="s1">&#39;test-content-bucket&#39;</span><span class="p">,</span>
+        <span class="n">S3UploaderConfiguration</span><span class="o">.</span><span class="n">MARC_BUCKET_KEY</span><span class="p">:</span> <span class="s1">&#39;test-marc-bucket&#39;</span><span class="p">,</span>
     <span class="p">}</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fail</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
@@ -696,8 +774,8 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">content</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">destinations</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">fail</span> <span class="o">=</span> <span class="n">fail</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_s3_region</span> <span class="o">=</span> <span class="n">S3Uploader</span><span class="o">.</span><span class="n">S3_DEFAULT_REGION</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_s3_addressing_style</span> <span class="o">=</span> <span class="n">S3Uploader</span><span class="o">.</span><span class="n">S3_DEFAULT_ADDRESSING_STYLE</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_s3_region</span> <span class="o">=</span> <span class="n">S3UploaderConfiguration</span><span class="o">.</span><span class="n">S3_DEFAULT_REGION</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_s3_addressing_style</span> <span class="o">=</span> <span class="n">S3UploaderConfiguration</span><span class="o">.</span><span class="n">S3_DEFAULT_ADDRESSING_STYLE</span>
         <span class="n">config</span> <span class="o">=</span> <span class="n">Config</span><span class="p">(</span>
             <span class="n">signature_version</span><span class="o">=</span><span class="n">botocore</span><span class="o">.</span><span class="n">UNSIGNED</span><span class="p">,</span>
             <span class="n">s3</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;addressing_style&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_s3_addressing_style</span><span class="p">}</span>
@@ -716,7 +794,8 @@
             <span class="n">aws_secret_access_key</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
         <span class="p">)</span>
 
-<div class="viewcode-block" id="MockS3Uploader.mirror_one"><a class="viewcode-back" href="../../core.html#core.s3.MockS3Uploader.mirror_one">[docs]</a>    <span class="k">def</span> <span class="nf">mirror_one</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">representation</span><span class="p">,</span> <span class="n">mirror_to</span><span class="p">):</span>
+<div class="viewcode-block" id="MockS3Uploader.mirror_one"><a class="viewcode-back" href="../../core.html#core.s3.MockS3Uploader.mirror_one">[docs]</a>    <span class="k">def</span> <span class="nf">mirror_one</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">representation</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">mirror_to</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;mirror_to&#39;</span><span class="p">]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">uploaded</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">representation</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">destinations</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">mirror_to</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">content</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">representation</span><span class="o">.</span><span class="n">content</span><span class="p">)</span>

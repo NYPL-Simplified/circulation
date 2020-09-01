@@ -36,15 +36,25 @@
 <span></span><span class="c1"># encoding: utf-8</span>
 <span class="c1"># PolicyException LicensePool, LicensePoolDeliveryMechanism, DeliveryMechanism,</span>
 <span class="c1"># RightsStatus</span>
-<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
+<span class="kn">import</span> <span class="nn">datetime</span>
+<span class="kn">import</span> <span class="nn">logging</span>
 
-<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">Base</span><span class="p">,</span>
-    <span class="n">create</span><span class="p">,</span>
-    <span class="n">flush</span><span class="p">,</span>
-    <span class="n">get_one</span><span class="p">,</span>
-    <span class="n">get_one_or_create</span><span class="p">,</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Boolean</span><span class="p">,</span>
+    <span class="n">Column</span><span class="p">,</span>
+    <span class="n">DateTime</span><span class="p">,</span>
+    <span class="n">ForeignKey</span><span class="p">,</span>
+    <span class="n">Index</span><span class="p">,</span>
+    <span class="n">Integer</span><span class="p">,</span>
+    <span class="n">String</span><span class="p">,</span>
+    <span class="n">Unicode</span><span class="p">,</span>
+    <span class="n">UniqueConstraint</span><span class="p">,</span>
 <span class="p">)</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.ext.hybrid</span> <span class="kn">import</span> <span class="n">hybrid_property</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="kn">import</span> <span class="n">relationship</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="kn">import</span> <span class="n">Session</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.sql.functions</span> <span class="kn">import</span> <span class="n">func</span>
+
 <span class="kn">from</span> <span class="nn">circulationevent</span> <span class="kn">import</span> <span class="n">CirculationEvent</span>
 <span class="kn">from</span> <span class="nn">complaint</span> <span class="kn">import</span> <span class="n">Complaint</span>
 <span class="kn">from</span> <span class="nn">constants</span> <span class="kn">import</span> <span class="p">(</span>
@@ -59,24 +69,14 @@
     <span class="n">Loan</span><span class="p">,</span>
     <span class="n">Hold</span><span class="p">,</span>
 <span class="p">)</span>
-
-<span class="kn">import</span> <span class="nn">datetime</span>
-<span class="kn">import</span> <span class="nn">logging</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">Boolean</span><span class="p">,</span>
-    <span class="n">Column</span><span class="p">,</span>
-    <span class="n">DateTime</span><span class="p">,</span>
-    <span class="n">ForeignKey</span><span class="p">,</span>
-    <span class="n">Index</span><span class="p">,</span>
-    <span class="n">Integer</span><span class="p">,</span>
-    <span class="n">func</span><span class="p">,</span>
-    <span class="n">String</span><span class="p">,</span>
-    <span class="n">Unicode</span><span class="p">,</span>
-    <span class="n">UniqueConstraint</span><span class="p">,</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Base</span><span class="p">,</span>
+    <span class="n">create</span><span class="p">,</span>
+    <span class="n">flush</span><span class="p">,</span>
+    <span class="n">get_one</span><span class="p">,</span>
+    <span class="n">get_one_or_create</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="kn">import</span> <span class="n">relationship</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="kn">import</span> <span class="n">Session</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.sql.functions</span> <span class="kn">import</span> <span class="n">func</span>
+
 
 <div class="viewcode-block" id="PolicyException"><a class="viewcode-back" href="../../../core.model.html#core.model.licensing.PolicyException">[docs]</a><span class="k">class</span> <span class="nc">PolicyException</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
     <span class="k">pass</span></div>
@@ -136,8 +136,10 @@
 
 
 <div class="viewcode-block" id="LicensePool"><a class="viewcode-back" href="../../../core.model.html#core.model.licensing.LicensePool">[docs]</a><span class="k">class</span> <span class="nc">LicensePool</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;A pool of undifferentiated licenses for a work from a given source.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="sd">&quot;&quot;&quot;A pool of undifferentiated licenses for a work from a given source.&quot;&quot;&quot;</span>
+
+    <span class="n">UNLIMITED_ACCESS</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
+
     <span class="n">__tablename__</span> <span class="o">=</span> <span class="s1">&#39;licensepools&#39;</span>
     <span class="nb">id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">primary_key</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
@@ -240,6 +242,31 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">licenses_owned</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">licenses_available</span><span class="p">,</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">licenses_reserved</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">patrons_in_hold_queue</span>
         <span class="p">)</span>
+
+    <span class="nd">@hybrid_property</span>
+    <span class="k">def</span> <span class="nf">unlimited_access</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns a Boolean value indicating whether this LicensePool allows unlimited access.</span>
+<span class="sd">        For example, in the case of LCP books without explicit licensing information</span>
+
+<span class="sd">        :return: Boolean value indicating whether this LicensePool allows unlimited access</span>
+<span class="sd">        :rtype: bool</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">licenses_owned</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">UNLIMITED_ACCESS</span>
+
+    <span class="nd">@unlimited_access</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">unlimited_access</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Sets value of unlimited_access property.</span>
+<span class="sd">        If you set it to False, license_owned and license_available will be reset to 0</span>
+
+<span class="sd">        :param value: Boolean value indicating whether this LicensePool allows unlimited access</span>
+<span class="sd">        :type value: bool</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">value</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">licenses_owned</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">UNLIMITED_ACCESS</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">licenses_available</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">UNLIMITED_ACCESS</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">licenses_owned</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">licenses_available</span> <span class="o">=</span> <span class="mi">0</span>
 
 <div class="viewcode-block" id="LicensePool.for_foreign_id"><a class="viewcode-back" href="../../../core.model.html#core.model.licensing.LicensePool.for_foreign_id">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">for_foreign_id</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">data_source</span><span class="p">,</span> <span class="n">foreign_id_type</span><span class="p">,</span> <span class="n">foreign_id</span><span class="p">,</span>
@@ -921,7 +948,6 @@
 <div class="viewcode-block" id="LicensePool.consolidate_works"><a class="viewcode-back" href="../../../core.model.html#core.model.licensing.LicensePool.consolidate_works">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">consolidate_works</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="mi">10</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Assign a (possibly new) Work to every unassigned LicensePool.&quot;&quot;&quot;</span>
-        <span class="kn">from</span> <span class="nn">edition</span> <span class="kn">import</span> <span class="n">Edition</span>
         <span class="n">a</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="n">lps</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">with_no_work</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
         <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
@@ -1453,6 +1479,7 @@
     <span class="n">KINDLE_DRM</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Kindle DRM&quot;</span>
     <span class="n">NOOK_DRM</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Nook DRM&quot;</span>
     <span class="n">STREAMING_DRM</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Streaming&quot;</span>
+    <span class="n">LCP_DRM</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;application/vnd.readium.lcp.license.v1.0+json&quot;</span>
 
     <span class="c1"># This represents the DRM system used by the app called &#39;Overdrive&#39;</span>
     <span class="c1"># and associated with the application/x-od-media media type.</span>

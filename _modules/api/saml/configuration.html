@@ -33,86 +33,14 @@
           <div class="body" role="main">
             
   <h1>Source code for api.saml.configuration</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">abc</span> <span class="kn">import</span> <span class="n">ABCMeta</span><span class="p">,</span> <span class="n">abstractmethod</span>
-
-<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
+<span></span><span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
 <span class="kn">from</span> <span class="nn">onelogin.saml2.settings</span> <span class="kn">import</span> <span class="n">OneLogin_Saml2_Settings</span>
 
-<span class="kn">from</span> <span class="nn">api.saml.exceptions</span> <span class="kn">import</span> <span class="n">SAMLError</span>
 <span class="kn">from</span> <span class="nn">api.saml.metadata</span> <span class="kn">import</span> <span class="n">ServiceProviderMetadata</span><span class="p">,</span> <span class="n">IdentityProviderMetadata</span>
-<span class="kn">from</span> <span class="nn">core.model</span> <span class="kn">import</span> <span class="n">ConfigurationSetting</span>
+<span class="kn">from</span> <span class="nn">core.exceptions</span> <span class="kn">import</span> <span class="n">BaseError</span>
 
 
-<div class="viewcode-block" id="ExternalIntegrationOwner"><a class="viewcode-back" href="../../../api.saml.html#api.saml.configuration.ExternalIntegrationOwner">[docs]</a><span class="k">class</span> <span class="nc">ExternalIntegrationOwner</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Interface allowing to get access to an external integration&quot;&quot;&quot;</span>
-
-    <span class="n">__metaclass__</span> <span class="o">=</span> <span class="n">ABCMeta</span>
-
-<div class="viewcode-block" id="ExternalIntegrationOwner.external_integration"><a class="viewcode-back" href="../../../api.saml.html#api.saml.configuration.ExternalIntegrationOwner.external_integration">[docs]</a>    <span class="nd">@abstractmethod</span>
-    <span class="k">def</span> <span class="nf">external_integration</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">db</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Returns an external integration owned by this object</span>
-
-<span class="sd">        :param db: Database session</span>
-<span class="sd">        :type db: sqlalchemy.orm.session.Session</span>
-
-<span class="sd">        :return: External integration owned by this object</span>
-<span class="sd">        :rtype: core.model.configuration.ExternalIntegration</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div></div>
-
-
-<div class="viewcode-block" id="SAMLConfigurationStorageError"><a class="viewcode-back" href="../../../api.saml.html#api.saml.configuration.SAMLConfigurationStorageError">[docs]</a><span class="k">class</span> <span class="nc">SAMLConfigurationStorageError</span><span class="p">(</span><span class="n">SAMLError</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Raised in the case of any errors during saving/loading configuration values&quot;&quot;&quot;</span></div>
-
-
-<div class="viewcode-block" id="SAMLConfigurationStorage"><a class="viewcode-back" href="../../../api.saml.html#api.saml.configuration.SAMLConfigurationStorage">[docs]</a><span class="k">class</span> <span class="nc">SAMLConfigurationStorage</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Serializes and deserializes values as library&#39;s configuration settings&quot;&quot;&quot;</span>
-
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">integration_owner</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Initializes a new instance of SAMLConfigurationStorage class</span>
-
-<span class="sd">        :param integration_owner: External integration owner</span>
-<span class="sd">        :type integration_owner: ExternalIntegrationOwner</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_integration_owner</span> <span class="o">=</span> <span class="n">integration_owner</span>
-
-<div class="viewcode-block" id="SAMLConfigurationStorage.save"><a class="viewcode-back" href="../../../api.saml.html#api.saml.configuration.SAMLConfigurationStorage.save">[docs]</a>    <span class="k">def</span> <span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">db</span><span class="p">,</span> <span class="n">setting_name</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Save the value as as a new configuration setting</span>
-
-<span class="sd">        :param db: Database session</span>
-<span class="sd">        :type db: sqlalchemy.orm.session.Session</span>
-
-<span class="sd">        :param setting_name: Name of the library&#39;s configuration setting</span>
-<span class="sd">        :type setting_name: string</span>
-
-<span class="sd">        :param value: Value to be saved</span>
-<span class="sd">        :type value: Any</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">integration</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_integration_owner</span><span class="o">.</span><span class="n">external_integration</span><span class="p">(</span><span class="n">db</span><span class="p">)</span>
-        <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">for_externalintegration</span><span class="p">(</span>
-            <span class="n">setting_name</span><span class="p">,</span>
-            <span class="n">integration</span><span class="p">)</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="n">value</span></div>
-
-<div class="viewcode-block" id="SAMLConfigurationStorage.load"><a class="viewcode-back" href="../../../api.saml.html#api.saml.configuration.SAMLConfigurationStorage.load">[docs]</a>    <span class="k">def</span> <span class="nf">load</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">db</span><span class="p">,</span> <span class="n">setting_name</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Loads and returns the library&#39;s configuration setting</span>
-
-<span class="sd">        :param db: Database session</span>
-<span class="sd">        :type db: sqlalchemy.orm.session.Session</span>
-
-<span class="sd">        :param setting_name: Name of the library&#39;s configuration setting</span>
-<span class="sd">        :type setting_name: string</span>
-
-<span class="sd">        :return: Any</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">integration</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_integration_owner</span><span class="o">.</span><span class="n">external_integration</span><span class="p">(</span><span class="n">db</span><span class="p">)</span>
-        <span class="n">value</span> <span class="o">=</span> <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">for_externalintegration</span><span class="p">(</span>
-            <span class="n">setting_name</span><span class="p">,</span>
-            <span class="n">integration</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
-
-        <span class="k">return</span> <span class="n">value</span></div></div>
-
-
-<div class="viewcode-block" id="SAMLConfigurationError"><a class="viewcode-back" href="../../../api.saml.html#api.saml.configuration.SAMLConfigurationError">[docs]</a><span class="k">class</span> <span class="nc">SAMLConfigurationError</span><span class="p">(</span><span class="n">SAMLError</span><span class="p">):</span>
+<div class="viewcode-block" id="SAMLConfigurationError"><a class="viewcode-back" href="../../../api.saml.html#api.saml.configuration.SAMLConfigurationError">[docs]</a><span class="k">class</span> <span class="nc">SAMLConfigurationError</span><span class="p">(</span><span class="n">BaseError</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Raised in the case of any configuration errors&quot;&quot;&quot;</span></div>
 
 
@@ -132,8 +60,8 @@
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">configuration_storage</span><span class="p">,</span> <span class="n">metadata_parser</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Initializes a new instance of SAMLConfiguration class</span>
 
-<span class="sd">        :param configuration_storage: SAML configuration serializer</span>
-<span class="sd">        :type configuration_storage: SAMLConfigurationStorage</span>
+<span class="sd">        :param configuration_storage: SAML configuration storage</span>
+<span class="sd">        :type configuration_storage: ConfigurationStorage</span>
 
 <span class="sd">        :param metadata_parser: SAML metadata parser</span>
 <span class="sd">        :type metadata_parser: SAMLMetadataParser</span>

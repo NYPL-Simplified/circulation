@@ -17,7 +17,7 @@
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="next" title="core.resources package" href="core.resources.html" />
-    <link rel="prev" title="core.classifier package" href="core.classifier.html" />
+    <link rel="prev" title="core.lcp package" href="core.lcp.html" />
    
   <link rel="stylesheet" href="_static/custom.css" type="text/css" />
   
@@ -1503,6 +1503,53 @@ metadata wrangler.</p>
 </dd></dl>
 
 <dl class="class">
+<dt id="core.model.collection.CollectionConfigurationStorage">
+<em class="property">class </em><code class="descclassname">core.model.collection.</code><code class="descname">CollectionConfigurationStorage</code><span class="sig-paren">(</span><em>external_integration_association</em>, <em>collection</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/model/collection.html#CollectionConfigurationStorage"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.collection.CollectionConfigurationStorage" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#core.model.configuration.BaseConfigurationStorage" title="core.model.configuration.BaseConfigurationStorage"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.model.configuration.BaseConfigurationStorage</span></code></a></p>
+<p>Serializes and deserializes values as library’s configuration settings</p>
+<dl class="method">
+<dt id="core.model.collection.CollectionConfigurationStorage.load">
+<code class="descname">load</code><span class="sig-paren">(</span><em>db</em>, <em>setting_name</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/model/collection.html#CollectionConfigurationStorage.load"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.collection.CollectionConfigurationStorage.load" title="Permalink to this definition">¶</a></dt>
+<dd><p>Loads and returns the library’s configuration setting</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>db</strong> (<em>sqlalchemy.orm.session.Session</em>) – Database session</li>
+<li><strong>setting_name</strong> (<em>string</em>) – Name of the library’s configuration setting</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">Any</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="core.model.collection.CollectionConfigurationStorage.save">
+<code class="descname">save</code><span class="sig-paren">(</span><em>db</em>, <em>setting_name</em>, <em>value</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/model/collection.html#CollectionConfigurationStorage.save"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.collection.CollectionConfigurationStorage.save" title="Permalink to this definition">¶</a></dt>
+<dd><p>Save the value as as a new configuration setting</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>db</strong> (<em>sqlalchemy.orm.session.Session</em>) – Database session</li>
+<li><strong>setting_name</strong> (<em>string</em>) – Name of the library’s configuration setting</li>
+<li><strong>value</strong> (<em>Any</em>) – Value to be saved</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
 <dt id="core.model.collection.CollectionIdentifier">
 <em class="property">class </em><code class="descclassname">core.model.collection.</code><code class="descname">CollectionIdentifier</code><a class="reference internal" href="_modules/core/model/collection.html#CollectionIdentifier"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.collection.CollectionIdentifier" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
@@ -1524,6 +1571,31 @@ metadata wrangler.</p>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">exceptions.Exception</span></code></p>
 <p>An operation was attempted that can only happen within the context
 of a Collection, but there was no Collection available.</p>
+</dd></dl>
+
+<dl class="class">
+<dt id="core.model.collection.HasExternalIntegrationPerCollection">
+<em class="property">class </em><code class="descclassname">core.model.collection.</code><code class="descname">HasExternalIntegrationPerCollection</code><a class="reference internal" href="_modules/core/model/collection.html#HasExternalIntegrationPerCollection"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.collection.HasExternalIntegrationPerCollection" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Interface allowing to get access to an external integration</p>
+<dl class="method">
+<dt id="core.model.collection.HasExternalIntegrationPerCollection.collection_external_integration">
+<code class="descname">collection_external_integration</code><span class="sig-paren">(</span><em>collection</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/model/collection.html#HasExternalIntegrationPerCollection.collection_external_integration"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.collection.HasExternalIntegrationPerCollection.collection_external_integration" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns an external integration associated with the collection</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>collection</strong> (<em>core.model.Collection</em>) – Collection</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">External integration associated with the collection</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference internal" href="#core.model.configuration.ExternalIntegration" title="core.model.configuration.ExternalIntegration">core.model.configuration.ExternalIntegration</a></td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
 </dd></dl>
 
 </div>
@@ -1606,6 +1678,460 @@ given LicensePool.</p>
 </div>
 <div class="section" id="module-core.model.configuration">
 <span id="core-model-configuration-module"></span><h2>core.model.configuration module<a class="headerlink" href="#module-core.model.configuration" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="core.model.configuration.BaseConfigurationStorage">
+<em class="property">class </em><code class="descclassname">core.model.configuration.</code><code class="descname">BaseConfigurationStorage</code><a class="reference internal" href="_modules/core/model/configuration.html#BaseConfigurationStorage"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.configuration.BaseConfigurationStorage" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Serializes and deserializes values as configuration settings</p>
+<dl class="method">
+<dt id="core.model.configuration.BaseConfigurationStorage.load">
+<code class="descname">load</code><span class="sig-paren">(</span><em>db</em>, <em>setting_name</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/model/configuration.html#BaseConfigurationStorage.load"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.configuration.BaseConfigurationStorage.load" title="Permalink to this definition">¶</a></dt>
+<dd><p>Loads and returns the library’s configuration setting</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>db</strong> (<em>sqlalchemy.orm.session.Session</em>) – Database session</li>
+<li><strong>setting_name</strong> (<em>string</em>) – Name of the configuration setting</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">Any</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="core.model.configuration.BaseConfigurationStorage.save">
+<code class="descname">save</code><span class="sig-paren">(</span><em>db</em>, <em>setting_name</em>, <em>value</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/model/configuration.html#BaseConfigurationStorage.save"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.configuration.BaseConfigurationStorage.save" title="Permalink to this definition">¶</a></dt>
+<dd><p>Save the value as as a new configuration setting</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>db</strong> (<em>sqlalchemy.orm.session.Session</em>) – Database session</li>
+<li><strong>setting_name</strong> (<em>string</em>) – Name of the configuration setting</li>
+<li><strong>value</strong> (<em>Any</em>) – Value to be saved</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="core.model.configuration.ConfigurationAttribute">
+<em class="property">class </em><code class="descclassname">core.model.configuration.</code><code class="descname">ConfigurationAttribute</code><a class="reference internal" href="_modules/core/model/configuration.html#ConfigurationAttribute"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.configuration.ConfigurationAttribute" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">enum.Enum</span></code></p>
+<p>Enumeration of configuration setting attributes</p>
+<dl class="attribute">
+<dt id="core.model.configuration.ConfigurationAttribute.CATEGORY">
+<code class="descname">CATEGORY</code><em class="property"> = 'category'</em><a class="headerlink" href="#core.model.configuration.ConfigurationAttribute.CATEGORY" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.model.configuration.ConfigurationAttribute.DEFAULT">
+<code class="descname">DEFAULT</code><em class="property"> = 'default'</em><a class="headerlink" href="#core.model.configuration.ConfigurationAttribute.DEFAULT" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.model.configuration.ConfigurationAttribute.DESCRIPTION">
+<code class="descname">DESCRIPTION</code><em class="property"> = 'description'</em><a class="headerlink" href="#core.model.configuration.ConfigurationAttribute.DESCRIPTION" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.model.configuration.ConfigurationAttribute.KEY">
+<code class="descname">KEY</code><em class="property"> = 'key'</em><a class="headerlink" href="#core.model.configuration.ConfigurationAttribute.KEY" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.model.configuration.ConfigurationAttribute.LABEL">
+<code class="descname">LABEL</code><em class="property"> = 'label'</em><a class="headerlink" href="#core.model.configuration.ConfigurationAttribute.LABEL" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.model.configuration.ConfigurationAttribute.OPTIONS">
+<code class="descname">OPTIONS</code><em class="property"> = 'options'</em><a class="headerlink" href="#core.model.configuration.ConfigurationAttribute.OPTIONS" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.model.configuration.ConfigurationAttribute.REQUIRED">
+<code class="descname">REQUIRED</code><em class="property"> = 'required'</em><a class="headerlink" href="#core.model.configuration.ConfigurationAttribute.REQUIRED" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.model.configuration.ConfigurationAttribute.TYPE">
+<code class="descname">TYPE</code><em class="property"> = 'type'</em><a class="headerlink" href="#core.model.configuration.ConfigurationAttribute.TYPE" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="core.model.configuration.ConfigurationAttributeType">
+<em class="property">class </em><code class="descclassname">core.model.configuration.</code><code class="descname">ConfigurationAttributeType</code><a class="reference internal" href="_modules/core/model/configuration.html#ConfigurationAttributeType"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.configuration.ConfigurationAttributeType" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">enum.Enum</span></code></p>
+<p>Enumeration of configuration setting types</p>
+<dl class="attribute">
+<dt id="core.model.configuration.ConfigurationAttributeType.NUMBER">
+<code class="descname">NUMBER</code><em class="property"> = 'number'</em><a class="headerlink" href="#core.model.configuration.ConfigurationAttributeType.NUMBER" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.model.configuration.ConfigurationAttributeType.SELECT">
+<code class="descname">SELECT</code><em class="property"> = 'select'</em><a class="headerlink" href="#core.model.configuration.ConfigurationAttributeType.SELECT" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.model.configuration.ConfigurationAttributeType.TEXT">
+<code class="descname">TEXT</code><em class="property"> = 'text'</em><a class="headerlink" href="#core.model.configuration.ConfigurationAttributeType.TEXT" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.model.configuration.ConfigurationAttributeType.TEXTAREA">
+<code class="descname">TEXTAREA</code><em class="property"> = 'textarea'</em><a class="headerlink" href="#core.model.configuration.ConfigurationAttributeType.TEXTAREA" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="core.model.configuration.ConfigurationAttributeType.to_control_type">
+<code class="descname">to_control_type</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/model/configuration.html#ConfigurationAttributeType.to_control_type"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.configuration.ConfigurationAttributeType.to_control_type" title="Permalink to this definition">¶</a></dt>
+<dd><p>Converts the value to a attribute type understandable by circulation-web</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">String representation of attribute’s type</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">string</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="core.model.configuration.ConfigurationFactory">
+<em class="property">class </em><code class="descclassname">core.model.configuration.</code><code class="descname">ConfigurationFactory</code><a class="reference internal" href="_modules/core/model/configuration.html#ConfigurationFactory"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.configuration.ConfigurationFactory" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Factory creating new instances of ConfigurationBucket class descendants</p>
+<dl class="method">
+<dt id="core.model.configuration.ConfigurationFactory.create">
+<code class="descname">create</code><span class="sig-paren">(</span><em>**kwds</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/model/configuration.html#ConfigurationFactory.create"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.configuration.ConfigurationFactory.create" title="Permalink to this definition">¶</a></dt>
+<dd><p>Creates a new instance of ConfigurationFactory</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>configuration_storage</strong> (<a class="reference internal" href="#core.model.configuration.ConfigurationStorage" title="core.model.configuration.ConfigurationStorage"><em>ConfigurationStorage</em></a>) – ConfigurationStorage object</li>
+<li><strong>db</strong> (<em>sqlalchemy.orm.session.Session</em>) – Database session</li>
+<li><strong>configuration_bucket_class</strong> (<em>type</em>) – Configuration bucket’s class</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">Configuration bucket instance</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last"><a class="reference internal" href="#core.model.configuration.ConfigurationGrouping" title="core.model.configuration.ConfigurationGrouping">ConfigurationGrouping</a></p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="core.model.configuration.ConfigurationGrouping">
+<em class="property">class </em><code class="descclassname">core.model.configuration.</code><code class="descname">ConfigurationGrouping</code><span class="sig-paren">(</span><em>configuration_storage</em>, <em>db</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/model/configuration.html#ConfigurationGrouping"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.configuration.ConfigurationGrouping" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#core.model.configuration.HasConfigurationSettings" title="core.model.configuration.HasConfigurationSettings"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.model.configuration.HasConfigurationSettings</span></code></a></p>
+<p>Base class for all classes containing configuration settings</p>
+<p>NOTE: Be aware that it’s valid only while a database session is valid and must not be stored between requests</p>
+<dl class="method">
+<dt id="core.model.configuration.ConfigurationGrouping.get_setting_value">
+<code class="descname">get_setting_value</code><span class="sig-paren">(</span><em>setting_name</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/model/configuration.html#ConfigurationGrouping.get_setting_value"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.configuration.ConfigurationGrouping.get_setting_value" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a settings’value</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>setting_name</strong> (<em>string</em>) – Name of the setting</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">Setting’s value</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body">Any</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="core.model.configuration.ConfigurationGrouping.set_setting_value">
+<code class="descname">set_setting_value</code><span class="sig-paren">(</span><em>setting_name</em>, <em>setting_value</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/model/configuration.html#ConfigurationGrouping.set_setting_value"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.configuration.ConfigurationGrouping.set_setting_value" title="Permalink to this definition">¶</a></dt>
+<dd><p>Sets setting’s value</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>setting_name</strong> (<em>string</em>) – Name of the setting</li>
+<li><strong>setting_value</strong> (<em>Any</em>) – New value of the setting</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="classmethod">
+<dt id="core.model.configuration.ConfigurationGrouping.to_settings">
+<em class="property">classmethod </em><code class="descname">to_settings</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/model/configuration.html#ConfigurationGrouping.to_settings"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.configuration.ConfigurationGrouping.to_settings" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="core.model.configuration.ConfigurationMetadata">
+<em class="property">class </em><code class="descclassname">core.model.configuration.</code><code class="descname">ConfigurationMetadata</code><span class="sig-paren">(</span><em>key</em>, <em>label</em>, <em>description</em>, <em>type</em>, <em>required=False</em>, <em>default=None</em>, <em>options=None</em>, <em>category=None</em>, <em>index=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/model/configuration.html#ConfigurationMetadata"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.configuration.ConfigurationMetadata" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Contains configuration metadata</p>
+<dl class="attribute">
+<dt id="core.model.configuration.ConfigurationMetadata.category">
+<code class="descname">category</code><a class="headerlink" href="#core.model.configuration.ConfigurationMetadata.category" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns the setting’s category</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Setting’s category</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">string</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="core.model.configuration.ConfigurationMetadata.default">
+<code class="descname">default</code><a class="headerlink" href="#core.model.configuration.ConfigurationMetadata.default" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns the setting’s default value</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Setting’s default value</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">string</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="core.model.configuration.ConfigurationMetadata.description">
+<code class="descname">description</code><a class="headerlink" href="#core.model.configuration.ConfigurationMetadata.description" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns the setting’s description</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Setting’s description</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">string</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="staticmethod">
+<dt id="core.model.configuration.ConfigurationMetadata.get_configuration_metadata">
+<em class="property">static </em><code class="descname">get_configuration_metadata</code><span class="sig-paren">(</span><em>cls</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/model/configuration.html#ConfigurationMetadata.get_configuration_metadata"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.configuration.ConfigurationMetadata.get_configuration_metadata" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a list of 2-tuples containing information ConfigurationMetadata properties in the specified class</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>cls</strong> (<em>type</em>) – Class</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">List of 2-tuples containing information ConfigurationMetadata properties in the specified class</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body">List[Tuple[string, <a class="reference internal" href="#core.model.configuration.ConfigurationMetadata" title="core.model.configuration.ConfigurationMetadata">ConfigurationMetadata</a>]]</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="core.model.configuration.ConfigurationMetadata.index">
+<code class="descname">index</code><a class="headerlink" href="#core.model.configuration.ConfigurationMetadata.index" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.model.configuration.ConfigurationMetadata.key">
+<code class="descname">key</code><a class="headerlink" href="#core.model.configuration.ConfigurationMetadata.key" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns the setting’s key</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Setting’s key</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">string</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="core.model.configuration.ConfigurationMetadata.label">
+<code class="descname">label</code><a class="headerlink" href="#core.model.configuration.ConfigurationMetadata.label" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns the setting’s label</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Setting’s label</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">string</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="core.model.configuration.ConfigurationMetadata.options">
+<code class="descname">options</code><a class="headerlink" href="#core.model.configuration.ConfigurationMetadata.options" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns the setting’s options (used in the case of select)</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Setting’s options (used in the case of select)</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">string</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="core.model.configuration.ConfigurationMetadata.required">
+<code class="descname">required</code><a class="headerlink" href="#core.model.configuration.ConfigurationMetadata.required" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns the boolean value indicating whether the setting is required or not</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Boolean value indicating whether the setting is required or not</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">string</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="core.model.configuration.ConfigurationMetadata.to_settings">
+<code class="descname">to_settings</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/model/configuration.html#ConfigurationMetadata.to_settings"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.configuration.ConfigurationMetadata.to_settings" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.model.configuration.ConfigurationMetadata.type">
+<code class="descname">type</code><a class="headerlink" href="#core.model.configuration.ConfigurationMetadata.type" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns the setting’s type</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Setting’s type</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">string</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="core.model.configuration.ConfigurationOption">
+<em class="property">class </em><code class="descclassname">core.model.configuration.</code><code class="descname">ConfigurationOption</code><span class="sig-paren">(</span><em>key</em>, <em>label</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/model/configuration.html#ConfigurationOption"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.configuration.ConfigurationOption" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Key-value pair containing information about configuration attribute option</p>
+<dl class="staticmethod">
+<dt id="core.model.configuration.ConfigurationOption.from_enum">
+<em class="property">static </em><code class="descname">from_enum</code><span class="sig-paren">(</span><em>cls</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/model/configuration.html#ConfigurationOption.from_enum"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.configuration.ConfigurationOption.from_enum" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convers Enum to a list of options in the SETTINGS format</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>cls</strong> (<em>type</em>) – Enum type</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">List of options in the SETTINGS format</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body">List[Dict]</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="core.model.configuration.ConfigurationOption.key">
+<code class="descname">key</code><a class="headerlink" href="#core.model.configuration.ConfigurationOption.key" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns option’s key</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Option’s key</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">string</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="core.model.configuration.ConfigurationOption.label">
+<code class="descname">label</code><a class="headerlink" href="#core.model.configuration.ConfigurationOption.label" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns option’s label</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Option’s label</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">string</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="core.model.configuration.ConfigurationOption.to_settings">
+<code class="descname">to_settings</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/model/configuration.html#ConfigurationOption.to_settings"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.configuration.ConfigurationOption.to_settings" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a dictionary containing option metadata in the SETTINGS format</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Dictionary containing option metadata in the SETTINGS format</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">Dict</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
 <dl class="class">
 <dt id="core.model.configuration.ConfigurationSetting">
 <em class="property">class </em><code class="descclassname">core.model.configuration.</code><code class="descname">ConfigurationSetting</code><span class="sig-paren">(</span><em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/model/configuration.html#ConfigurationSetting"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.configuration.ConfigurationSetting" title="Permalink to this definition">¶</a></dt>
@@ -1765,6 +2291,53 @@ set it to <cite>default</cite> and return that instead.</p>
 </dd></dl>
 
 <dl class="class">
+<dt id="core.model.configuration.ConfigurationStorage">
+<em class="property">class </em><code class="descclassname">core.model.configuration.</code><code class="descname">ConfigurationStorage</code><span class="sig-paren">(</span><em>integration_association</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/model/configuration.html#ConfigurationStorage"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.configuration.ConfigurationStorage" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#core.model.configuration.BaseConfigurationStorage" title="core.model.configuration.BaseConfigurationStorage"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.model.configuration.BaseConfigurationStorage</span></code></a></p>
+<p>Serializes and deserializes values as configuration settings</p>
+<dl class="method">
+<dt id="core.model.configuration.ConfigurationStorage.load">
+<code class="descname">load</code><span class="sig-paren">(</span><em>db</em>, <em>setting_name</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/model/configuration.html#ConfigurationStorage.load"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.configuration.ConfigurationStorage.load" title="Permalink to this definition">¶</a></dt>
+<dd><p>Loads and returns the library’s configuration setting</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>db</strong> (<em>sqlalchemy.orm.session.Session</em>) – Database session</li>
+<li><strong>setting_name</strong> (<em>string</em>) – Name of the library’s configuration setting</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">Any</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="core.model.configuration.ConfigurationStorage.save">
+<code class="descname">save</code><span class="sig-paren">(</span><em>db</em>, <em>setting_name</em>, <em>value</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/model/configuration.html#ConfigurationStorage.save"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.configuration.ConfigurationStorage.save" title="Permalink to this definition">¶</a></dt>
+<dd><p>Save the value as as a new configuration setting</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>db</strong> (<em>sqlalchemy.orm.session.Session</em>) – Database session</li>
+<li><strong>setting_name</strong> (<em>string</em>) – Name of the configuration setting</li>
+<li><strong>value</strong> (<em>Any</em>) – Value to be saved</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
 <dt id="core.model.configuration.ExternalIntegration">
 <em class="property">class </em><code class="descclassname">core.model.configuration.</code><code class="descname">ExternalIntegration</code><span class="sig-paren">(</span><em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/model/configuration.html#ExternalIntegration"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.configuration.ExternalIntegration" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">sqlalchemy.ext.declarative.api.Base</span></code>, <a class="reference internal" href="#core.model.hasfulltablecache.HasFullTableCache" title="core.model.hasfulltablecache.HasFullTableCache"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.model.hasfulltablecache.HasFullTableCache</span></code></a></p>
@@ -1888,6 +2461,11 @@ to a third-party API.</p>
 <dl class="attribute">
 <dt id="core.model.configuration.ExternalIntegration.INTERNAL_LOGGING">
 <code class="descname">INTERNAL_LOGGING</code><em class="property"> = u'Internal logging'</em><a class="headerlink" href="#core.model.configuration.ExternalIntegration.INTERNAL_LOGGING" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.model.configuration.ExternalIntegration.LCP">
+<code class="descname">LCP</code><em class="property"> = u'LCP'</em><a class="headerlink" href="#core.model.configuration.ExternalIntegration.LCP" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -2302,6 +2880,74 @@ has this value.</li>
 
 </dd></dl>
 
+<dl class="class">
+<dt id="core.model.configuration.HasConfigurationSettings">
+<em class="property">class </em><code class="descclassname">core.model.configuration.</code><code class="descname">HasConfigurationSettings</code><a class="reference internal" href="_modules/core/model/configuration.html#HasConfigurationSettings"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.configuration.HasConfigurationSettings" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Interface representing class containing ConfigurationMetadata properties</p>
+<dl class="method">
+<dt id="core.model.configuration.HasConfigurationSettings.get_setting_value">
+<code class="descname">get_setting_value</code><span class="sig-paren">(</span><em>setting_name</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/model/configuration.html#HasConfigurationSettings.get_setting_value"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.configuration.HasConfigurationSettings.get_setting_value" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a settings’value</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>setting_name</strong> (<em>string</em>) – Name of the setting</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">Setting’s value</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body">Any</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="core.model.configuration.HasConfigurationSettings.set_setting_value">
+<code class="descname">set_setting_value</code><span class="sig-paren">(</span><em>setting_name</em>, <em>setting_value</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/model/configuration.html#HasConfigurationSettings.set_setting_value"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.configuration.HasConfigurationSettings.set_setting_value" title="Permalink to this definition">¶</a></dt>
+<dd><p>Sets setting’s value</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>setting_name</strong> (<em>string</em>) – Name of the setting</li>
+<li><strong>setting_value</strong> (<em>Any</em>) – New value of the setting</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="core.model.configuration.HasExternalIntegration">
+<em class="property">class </em><code class="descclassname">core.model.configuration.</code><code class="descname">HasExternalIntegration</code><a class="reference internal" href="_modules/core/model/configuration.html#HasExternalIntegration"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.configuration.HasExternalIntegration" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Interface allowing to get access to an external integration</p>
+<dl class="method">
+<dt id="core.model.configuration.HasExternalIntegration.external_integration">
+<code class="descname">external_integration</code><span class="sig-paren">(</span><em>db</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/model/configuration.html#HasExternalIntegration.external_integration"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.configuration.HasExternalIntegration.external_integration" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns an external integration associated with this object</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>db</strong> (<em>sqlalchemy.orm.session.Session</em>) – Database session</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">External integration associated with this object</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference internal" href="#core.model.configuration.ExternalIntegration" title="core.model.configuration.ExternalIntegration">core.model.configuration.ExternalIntegration</a></td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
 </div>
 <div class="section" id="module-core.model.constants">
 <span id="core-model-constants-module"></span><h2>core.model.constants module<a class="headerlink" href="#module-core.model.constants" title="Permalink to this headline">¶</a></h2>
@@ -2382,6 +3028,11 @@ has this value.</li>
 <dl class="attribute">
 <dt id="core.model.constants.DataSourceConstants.INTERNAL_PROCESSING">
 <code class="descname">INTERNAL_PROCESSING</code><em class="property"> = u'Library Simplified Internal Process'</em><a class="headerlink" href="#core.model.constants.DataSourceConstants.INTERNAL_PROCESSING" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.model.constants.DataSourceConstants.LCP">
+<code class="descname">LCP</code><em class="property"> = u'LCP'</em><a class="headerlink" href="#core.model.constants.DataSourceConstants.LCP" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -3864,7 +4515,7 @@ are specifically allowed, lookup will fail on persistent tokens.</p>
 
 <dl class="classmethod">
 <dt id="core.model.credential.Credential.persistent_token_create">
-<em class="property">classmethod </em><code class="descname">persistent_token_create</code><span class="sig-paren">(</span><em>_db</em>, <em>data_source</em>, <em>type</em>, <em>patron</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/model/credential.html#Credential.persistent_token_create"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.credential.Credential.persistent_token_create" title="Permalink to this definition">¶</a></dt>
+<em class="property">classmethod </em><code class="descname">persistent_token_create</code><span class="sig-paren">(</span><em>_db</em>, <em>data_source</em>, <em>type</em>, <em>patron</em>, <em>token_string=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/model/credential.html#Credential.persistent_token_create"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.credential.Credential.persistent_token_create" title="Permalink to this definition">¶</a></dt>
 <dd><p>Create or retrieve a persistent token for the given
 data_source/type/patron.</p>
 </dd></dl>
@@ -5534,6 +6185,11 @@ informal name (“Kindle via Amazon”).</p>
 <dd></dd></dl>
 
 <dl class="attribute">
+<dt id="core.model.licensing.DeliveryMechanism.LCP_DRM">
+<code class="descname">LCP_DRM</code><em class="property"> = u'application/vnd.readium.lcp.license.v1.0+json'</em><a class="headerlink" href="#core.model.licensing.DeliveryMechanism.LCP_DRM" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
 <dt id="core.model.licensing.DeliveryMechanism.LIBBY_DRM">
 <code class="descname">LIBBY_DRM</code><em class="property"> = u'Libby DRM'</em><a class="headerlink" href="#core.model.licensing.DeliveryMechanism.LIBBY_DRM" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -5782,6 +6438,11 @@ delivery mechanisms, which may not always be true.</p>
 <em class="property">class </em><code class="descclassname">core.model.licensing.</code><code class="descname">LicensePool</code><span class="sig-paren">(</span><em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/model/licensing.html#LicensePool"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.licensing.LicensePool" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">sqlalchemy.ext.declarative.api.Base</span></code></p>
 <p>A pool of undifferentiated licenses for a work from a given source.</p>
+<dl class="attribute">
+<dt id="core.model.licensing.LicensePool.UNLIMITED_ACCESS">
+<code class="descname">UNLIMITED_ACCESS</code><em class="property"> = -1</em><a class="headerlink" href="#core.model.licensing.LicensePool.UNLIMITED_ACCESS" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
 <dl class="method">
 <dt id="core.model.licensing.LicensePool.add_link">
 <code class="descname">add_link</code><span class="sig-paren">(</span><em>rel</em>, <em>href</em>, <em>data_source</em>, <em>media_type=None</em>, <em>content=None</em>, <em>content_path=None</em>, <em>rights_status_uri=None</em>, <em>rights_explanation=None</em>, <em>original_resource=None</em>, <em>transformation_settings=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/model/licensing.html#LicensePool.add_link"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.licensing.LicensePool.add_link" title="Permalink to this definition">¶</a></dt>
@@ -6088,6 +6749,23 @@ information associated with this LicensePool actually changed.</p>
 <dt id="core.model.licensing.LicensePool.suppressed">
 <code class="descname">suppressed</code><a class="headerlink" href="#core.model.licensing.LicensePool.suppressed" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.model.licensing.LicensePool.unlimited_access">
+<code class="descname">unlimited_access</code><a class="headerlink" href="#core.model.licensing.LicensePool.unlimited_access" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a Boolean value indicating whether this LicensePool allows unlimited access.
+For example, in the case of LCP books without explicit licensing information</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Boolean value indicating whether this LicensePool allows unlimited access</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">bool</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
 
 <dl class="method">
 <dt id="core.model.licensing.LicensePool.update_availability">
@@ -9341,7 +10019,7 @@ initial content.</p>
   <li><a href="index.html">Documentation overview</a><ul>
   <li><a href="modules.html">circulation</a><ul>
   <li><a href="core.html">core package</a><ul>
-      <li>Previous: <a href="core.classifier.html" title="previous chapter">core.classifier package</a></li>
+      <li>Previous: <a href="core.lcp.html" title="previous chapter">core.lcp package</a></li>
       <li>Next: <a href="core.resources.html" title="next chapter">core.resources package</a></li>
   </ul></li>
   </ul></li>

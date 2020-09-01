@@ -901,7 +901,8 @@
             <span class="p">)</span>
 
         <span class="c1"># Mirror it.</span>
-        <span class="n">mirror</span><span class="o">.</span><span class="n">mirror_one</span><span class="p">(</span><span class="n">representation</span><span class="p">,</span> <span class="n">mirror_url</span><span class="p">)</span>
+        <span class="n">collection</span> <span class="o">=</span> <span class="n">pools</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">collection</span> <span class="k">if</span> <span class="n">pools</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="n">mirror</span><span class="o">.</span><span class="n">mirror_one</span><span class="p">(</span><span class="n">representation</span><span class="p">,</span> <span class="n">mirror_to</span><span class="o">=</span><span class="n">mirror_url</span><span class="p">,</span> <span class="n">collection</span><span class="o">=</span><span class="n">collection</span><span class="p">)</span>
 
         <span class="c1"># If we couldn&#39;t mirror an open/protected access link representation, suppress</span>
         <span class="c1"># the license pool until someone fixes it manually.</span>
@@ -931,7 +932,7 @@
             <span class="k">if</span> <span class="n">is_new</span><span class="p">:</span>
                 <span class="c1"># A thumbnail was created distinct from the original</span>
                 <span class="c1"># image. Mirror it as well.</span>
-                <span class="n">mirror</span><span class="o">.</span><span class="n">mirror_one</span><span class="p">(</span><span class="n">thumbnail</span><span class="p">,</span> <span class="n">thumbnail_url</span><span class="p">)</span>
+                <span class="n">mirror</span><span class="o">.</span><span class="n">mirror_one</span><span class="p">(</span><span class="n">thumbnail</span><span class="p">,</span> <span class="n">mirror_to</span><span class="o">=</span><span class="n">thumbnail_url</span><span class="p">,</span> <span class="n">collection</span><span class="o">=</span><span class="n">collection</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">link_obj</span><span class="o">.</span><span class="n">rel</span> <span class="ow">in</span> <span class="n">Hyperlink</span><span class="o">.</span><span class="n">SELF_HOSTED_BOOKS</span><span class="p">:</span>
             <span class="c1"># If we mirrored book content successfully, remove it from</span>

@@ -76,6 +76,7 @@
 <span class="kn">from</span> <span class="nn">api.enki</span> <span class="kn">import</span> <span class="n">EnkiAPI</span>
 <span class="kn">from</span> <span class="nn">api.feedbooks</span> <span class="kn">import</span> <span class="n">FeedbooksOPDSImporter</span>
 <span class="kn">from</span> <span class="nn">api.lanes</span> <span class="kn">import</span> <span class="n">create_default_lanes</span>
+<span class="kn">from</span> <span class="nn">api.lcp.collection</span> <span class="kn">import</span> <span class="n">LCPAPI</span>
 <span class="kn">from</span> <span class="nn">api.local_analytics_exporter</span> <span class="kn">import</span> <span class="n">LocalAnalyticsExporter</span>
 <span class="kn">from</span> <span class="nn">api.odilo</span> <span class="kn">import</span> <span class="n">OdiloAPI</span>
 <span class="kn">from</span> <span class="nn">api.odl</span> <span class="kn">import</span> <span class="n">ODLAPI</span><span class="p">,</span> <span class="n">SharedODLAPI</span>
@@ -103,7 +104,6 @@
     <span class="n">CustomList</span><span class="p">,</span>
     <span class="n">CustomListEntry</span><span class="p">,</span>
     <span class="n">DataSource</span><span class="p">,</span>
-    <span class="n">Edition</span><span class="p">,</span>
     <span class="n">ExternalIntegration</span><span class="p">,</span>
     <span class="n">Hold</span><span class="p">,</span>
     <span class="n">Identifier</span><span class="p">,</span>
@@ -117,7 +117,7 @@
 <span class="kn">from</span> <span class="nn">core.model.configuration</span> <span class="kn">import</span> <span class="n">ExternalIntegrationLink</span>
 <span class="kn">from</span> <span class="nn">core.opds</span> <span class="kn">import</span> <span class="n">AcquisitionFeed</span>
 <span class="kn">from</span> <span class="nn">core.opds_import</span> <span class="kn">import</span> <span class="p">(</span><span class="n">OPDSImporter</span><span class="p">,</span> <span class="n">OPDSImportMonitor</span><span class="p">)</span>
-<span class="kn">from</span> <span class="nn">core.s3</span> <span class="kn">import</span> <span class="n">S3Uploader</span>
+<span class="kn">from</span> <span class="nn">core.s3</span> <span class="kn">import</span> <span class="n">S3UploaderConfiguration</span>
 <span class="kn">from</span> <span class="nn">core.selftest</span> <span class="kn">import</span> <span class="n">HasSelfTests</span>
 <span class="kn">from</span> <span class="nn">core.util.flask_util</span> <span class="kn">import</span> <span class="n">OPDSFeedResponse</span>
 <span class="kn">from</span> <span class="nn">core.util.http</span> <span class="kn">import</span> <span class="n">HTTP</span>
@@ -1329,6 +1329,7 @@
                      <span class="n">ODLAPI</span><span class="p">,</span>
                      <span class="n">SharedODLAPI</span><span class="p">,</span>
                      <span class="n">FeedbooksOPDSImporter</span><span class="p">,</span>
+                     <span class="n">LCPAPI</span>
                      <span class="p">]</span>
 
     <span class="nd">@classmethod</span>
@@ -1619,9 +1620,9 @@
 
         <span class="n">mirror_integration_settings</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">ExternalIntegrationLink</span><span class="o">.</span><span class="n">COLLECTION_MIRROR_SETTINGS</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">integration</span> <span class="ow">in</span> <span class="n">integrations</span><span class="p">:</span>
-            <span class="n">book_covers_bucket</span> <span class="o">=</span> <span class="n">integration</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="n">S3Uploader</span><span class="o">.</span><span class="n">BOOK_COVERS_BUCKET_KEY</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
-            <span class="n">open_access_bucket</span> <span class="o">=</span> <span class="n">integration</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="n">S3Uploader</span><span class="o">.</span><span class="n">OA_CONTENT_BUCKET_KEY</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
-            <span class="n">protected_access_bucket</span> <span class="o">=</span> <span class="n">integration</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="n">S3Uploader</span><span class="o">.</span><span class="n">PROTECTED_CONTENT_BUCKET_KEY</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+            <span class="n">book_covers_bucket</span> <span class="o">=</span> <span class="n">integration</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="n">S3UploaderConfiguration</span><span class="o">.</span><span class="n">BOOK_COVERS_BUCKET_KEY</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+            <span class="n">open_access_bucket</span> <span class="o">=</span> <span class="n">integration</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="n">S3UploaderConfiguration</span><span class="o">.</span><span class="n">OA_CONTENT_BUCKET_KEY</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+            <span class="n">protected_access_bucket</span> <span class="o">=</span> <span class="n">integration</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="n">S3UploaderConfiguration</span><span class="o">.</span><span class="n">PROTECTED_CONTENT_BUCKET_KEY</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
 
             <span class="k">for</span> <span class="n">setting</span> <span class="ow">in</span> <span class="n">mirror_integration_settings</span><span class="p">:</span>
                 <span class="k">if</span> <span class="n">setting</span><span class="p">[</span><span class="s1">&#39;key&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="n">ExternalIntegrationLink</span><span class="o">.</span><span class="n">COVERS_KEY</span> <span class="ow">and</span> <span class="n">book_covers_bucket</span><span class="p">:</span>

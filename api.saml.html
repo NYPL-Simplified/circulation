@@ -17,7 +17,7 @@
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="next" title="api.sip package" href="api.sip.html" />
-    <link rel="prev" title="api.clever package" href="api.clever.html" />
+    <link rel="prev" title="api.lcp package" href="api.lcp.html" />
    
   <link rel="stylesheet" href="_static/custom.css" type="text/css" />
   
@@ -127,7 +127,7 @@ or ProblemDetail object otherwise</p>
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>integration_owner</strong> (<a class="reference internal" href="#api.saml.configuration.ExternalIntegrationOwner" title="api.saml.configuration.ExternalIntegrationOwner"><em>api.saml.configuration.ExternalIntegrationOwner</em></a>) – External integration owner</td>
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>integration_owner</strong> (<em>api.saml.configuration.ExternalIntegrationOwner</em>) – External integration owner</td>
 </tr>
 <tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">SAML authentication manager</td>
 </tr>
@@ -142,31 +142,6 @@ or ProblemDetail object otherwise</p>
 </div>
 <div class="section" id="module-api.saml.configuration">
 <span id="api-saml-configuration-module"></span><h2>api.saml.configuration module<a class="headerlink" href="#module-api.saml.configuration" title="Permalink to this headline">¶</a></h2>
-<dl class="class">
-<dt id="api.saml.configuration.ExternalIntegrationOwner">
-<em class="property">class </em><code class="descclassname">api.saml.configuration.</code><code class="descname">ExternalIntegrationOwner</code><a class="reference internal" href="_modules/api/saml/configuration.html#ExternalIntegrationOwner"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.configuration.ExternalIntegrationOwner" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
-<p>Interface allowing to get access to an external integration</p>
-<dl class="method">
-<dt id="api.saml.configuration.ExternalIntegrationOwner.external_integration">
-<code class="descname">external_integration</code><span class="sig-paren">(</span><em>db</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/configuration.html#ExternalIntegrationOwner.external_integration"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.configuration.ExternalIntegrationOwner.external_integration" title="Permalink to this definition">¶</a></dt>
-<dd><p>Returns an external integration owned by this object</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>db</strong> (<em>sqlalchemy.orm.session.Session</em>) – Database session</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">External integration owned by this object</td>
-</tr>
-<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference internal" href="core.model.html#core.model.configuration.ExternalIntegration" title="core.model.configuration.ExternalIntegration">core.model.configuration.ExternalIntegration</a></td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-</dd></dl>
-
 <dl class="class">
 <dt id="api.saml.configuration.SAMLConfiguration">
 <em class="property">class </em><code class="descclassname">api.saml.configuration.</code><code class="descname">SAMLConfiguration</code><span class="sig-paren">(</span><em>configuration_storage</em>, <em>metadata_parser</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/configuration.html#SAMLConfiguration"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.configuration.SAMLConfiguration" title="Permalink to this definition">¶</a></dt>
@@ -283,62 +258,8 @@ or ProblemDetail object otherwise</p>
 <dl class="exception">
 <dt id="api.saml.configuration.SAMLConfigurationError">
 <em class="property">exception </em><code class="descclassname">api.saml.configuration.</code><code class="descname">SAMLConfigurationError</code><span class="sig-paren">(</span><em>message=None</em>, <em>inner_exception=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/configuration.html#SAMLConfigurationError"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.configuration.SAMLConfigurationError" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="#api.saml.exceptions.SAMLError" title="api.saml.exceptions.SAMLError"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.saml.exceptions.SAMLError</span></code></a></p>
+<dd><p>Bases: <a class="reference internal" href="core.html#core.exceptions.BaseError" title="core.exceptions.BaseError"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.exceptions.BaseError</span></code></a></p>
 <p>Raised in the case of any configuration errors</p>
-</dd></dl>
-
-<dl class="class">
-<dt id="api.saml.configuration.SAMLConfigurationStorage">
-<em class="property">class </em><code class="descclassname">api.saml.configuration.</code><code class="descname">SAMLConfigurationStorage</code><span class="sig-paren">(</span><em>integration_owner</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/configuration.html#SAMLConfigurationStorage"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.configuration.SAMLConfigurationStorage" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
-<p>Serializes and deserializes values as library’s configuration settings</p>
-<dl class="method">
-<dt id="api.saml.configuration.SAMLConfigurationStorage.load">
-<code class="descname">load</code><span class="sig-paren">(</span><em>db</em>, <em>setting_name</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/configuration.html#SAMLConfigurationStorage.load"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.configuration.SAMLConfigurationStorage.load" title="Permalink to this definition">¶</a></dt>
-<dd><p>Loads and returns the library’s configuration setting</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
-<li><strong>db</strong> (<em>sqlalchemy.orm.session.Session</em>) – Database session</li>
-<li><strong>setting_name</strong> (<em>string</em>) – Name of the library’s configuration setting</li>
-</ul>
-</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">Any</p>
-</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="method">
-<dt id="api.saml.configuration.SAMLConfigurationStorage.save">
-<code class="descname">save</code><span class="sig-paren">(</span><em>db</em>, <em>setting_name</em>, <em>value</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/configuration.html#SAMLConfigurationStorage.save"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.configuration.SAMLConfigurationStorage.save" title="Permalink to this definition">¶</a></dt>
-<dd><p>Save the value as as a new configuration setting</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
-<li><strong>db</strong> (<em>sqlalchemy.orm.session.Session</em>) – Database session</li>
-<li><strong>setting_name</strong> (<em>string</em>) – Name of the library’s configuration setting</li>
-<li><strong>value</strong> (<em>Any</em>) – Value to be saved</li>
-</ul>
-</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-</dd></dl>
-
-<dl class="exception">
-<dt id="api.saml.configuration.SAMLConfigurationStorageError">
-<em class="property">exception </em><code class="descclassname">api.saml.configuration.</code><code class="descname">SAMLConfigurationStorageError</code><span class="sig-paren">(</span><em>message=None</em>, <em>inner_exception=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/configuration.html#SAMLConfigurationStorageError"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.configuration.SAMLConfigurationStorageError" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="#api.saml.exceptions.SAMLError" title="api.saml.exceptions.SAMLError"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.saml.exceptions.SAMLError</span></code></a></p>
-<p>Raised in the case of any errors during saving/loading configuration values</p>
 </dd></dl>
 
 <dl class="class">
@@ -619,32 +540,6 @@ saml_authentication_callback.</p>
 </dd></dl>
 
 </div>
-<div class="section" id="module-api.saml.exceptions">
-<span id="api-saml-exceptions-module"></span><h2>api.saml.exceptions module<a class="headerlink" href="#module-api.saml.exceptions" title="Permalink to this headline">¶</a></h2>
-<dl class="exception">
-<dt id="api.saml.exceptions.SAMLError">
-<em class="property">exception </em><code class="descclassname">api.saml.exceptions.</code><code class="descname">SAMLError</code><span class="sig-paren">(</span><em>message=None</em>, <em>inner_exception=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/exceptions.html#SAMLError"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.exceptions.SAMLError" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">exceptions.Exception</span></code></p>
-<p>Base class for all SAML-related errors</p>
-<dl class="attribute">
-<dt id="api.saml.exceptions.SAMLError.inner_exception">
-<code class="descname">inner_exception</code><a class="headerlink" href="#api.saml.exceptions.SAMLError.inner_exception" title="Permalink to this definition">¶</a></dt>
-<dd><p>Returns an inner exception</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Inner exception</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">Exception</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-</dd></dl>
-
-</div>
 <div class="section" id="module-api.saml.loader">
 <span id="api-saml-loader-module"></span><h2>api.saml.loader module<a class="headerlink" href="#module-api.saml.loader" title="Permalink to this headline">¶</a></h2>
 <dl class="class">
@@ -682,7 +577,7 @@ saml_authentication_callback.</p>
 <dl class="exception">
 <dt id="api.saml.loader.SAMLMetadataLoadingError">
 <em class="property">exception </em><code class="descclassname">api.saml.loader.</code><code class="descname">SAMLMetadataLoadingError</code><span class="sig-paren">(</span><em>message=None</em>, <em>inner_exception=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/loader.html#SAMLMetadataLoadingError"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.loader.SAMLMetadataLoadingError" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="#api.saml.exceptions.SAMLError" title="api.saml.exceptions.SAMLError"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.saml.exceptions.SAMLError</span></code></a></p>
+<dd><p>Bases: <a class="reference internal" href="core.html#core.exceptions.BaseError" title="core.exceptions.BaseError"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.exceptions.BaseError</span></code></a></p>
 <p>Raised in the case of any errors occurred during loading of SAML metadata from a remote source</p>
 </dd></dl>
 
@@ -1643,7 +1538,7 @@ IdentityProviderMetadata/ServiceProviderMetadata objects</p>
 <dl class="exception">
 <dt id="api.saml.parser.SAMLMetadataParsingError">
 <em class="property">exception </em><code class="descclassname">api.saml.parser.</code><code class="descname">SAMLMetadataParsingError</code><span class="sig-paren">(</span><em>message=None</em>, <em>inner_exception=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/parser.html#SAMLMetadataParsingError"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.parser.SAMLMetadataParsingError" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="#api.saml.exceptions.SAMLError" title="api.saml.exceptions.SAMLError"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.saml.exceptions.SAMLError</span></code></a></p>
+<dd><p>Bases: <a class="reference internal" href="core.html#core.exceptions.BaseError" title="core.exceptions.BaseError"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.exceptions.BaseError</span></code></a></p>
 <p>Raised in the case of any errors occurred during parsing of SAML metadata</p>
 </dd></dl>
 
@@ -1684,7 +1579,7 @@ IdentityProviderMetadata/ServiceProviderMetadata objects</p>
 <dl class="class">
 <dt id="api.saml.provider.SAMLWebSSOAuthenticationProvider">
 <em class="property">class </em><code class="descclassname">api.saml.provider.</code><code class="descname">SAMLWebSSOAuthenticationProvider</code><span class="sig-paren">(</span><em>library</em>, <em>integration</em>, <em>analytics=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/provider.html#SAMLWebSSOAuthenticationProvider"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.provider.SAMLWebSSOAuthenticationProvider" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="api.html#api.authenticator.BaseSAMLAuthenticationProvider" title="api.authenticator.BaseSAMLAuthenticationProvider"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.authenticator.BaseSAMLAuthenticationProvider</span></code></a>, <a class="reference internal" href="#api.saml.configuration.ExternalIntegrationOwner" title="api.saml.configuration.ExternalIntegrationOwner"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.saml.configuration.ExternalIntegrationOwner</span></code></a></p>
+<dd><p>Bases: <a class="reference internal" href="api.html#api.authenticator.BaseSAMLAuthenticationProvider" title="api.authenticator.BaseSAMLAuthenticationProvider"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.authenticator.BaseSAMLAuthenticationProvider</span></code></a>, <a class="reference internal" href="core.model.html#core.model.configuration.HasExternalIntegration" title="core.model.configuration.HasExternalIntegration"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.model.configuration.HasExternalIntegration</span></code></a></p>
 <p>SAML authentication provider implementing Web Browser SSO profile using the following bindings:
 - HTTP-Redirect Binding for requests
 - HTTP-POST Binding for responses</p>
@@ -1891,7 +1786,7 @@ to the client.</p>
   <li><a href="index.html">Documentation overview</a><ul>
   <li><a href="modules.html">circulation</a><ul>
   <li><a href="api.html">api package</a><ul>
-      <li>Previous: <a href="api.clever.html" title="previous chapter">api.clever package</a></li>
+      <li>Previous: <a href="api.lcp.html" title="previous chapter">api.lcp package</a></li>
       <li>Next: <a href="api.sip.html" title="next chapter">api.sip package</a></li>
   </ul></li>
   </ul></li>

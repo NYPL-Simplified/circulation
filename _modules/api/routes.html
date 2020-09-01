@@ -604,6 +604,22 @@
 <span class="k">def</span> <span class="nf">saml_callback</span><span class="p">():</span>
     <span class="k">return</span> <span class="n">app</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">saml_controller</span><span class="o">.</span><span class="n">saml_authentication_callback</span><span class="p">(</span><span class="n">request</span><span class="p">,</span> <span class="n">app</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">_db</span><span class="p">)</span></div>
 
+
+<div class="viewcode-block" id="lcp_passphrase"><a class="viewcode-back" href="../../api.html#api.routes.lcp_passphrase">[docs]</a><span class="nd">@library_route</span><span class="p">(</span><span class="s1">&#39;/lcp/hint&#39;</span><span class="p">)</span>
+<span class="nd">@has_library</span>
+<span class="nd">@requires_auth</span>
+<span class="nd">@returns_problem_detail</span>
+<span class="k">def</span> <span class="nf">lcp_passphrase</span><span class="p">():</span>
+    <span class="k">return</span> <span class="n">app</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">lcp_controller</span><span class="o">.</span><span class="n">get_lcp_passphrase</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="lcp_license"><a class="viewcode-back" href="../../api.html#api.routes.lcp_license">[docs]</a><span class="nd">@library_route</span><span class="p">(</span><span class="s1">&#39;/lcp/licenses/&lt;license_id&gt;&#39;</span><span class="p">)</span>
+<span class="nd">@has_library</span>
+<span class="nd">@requires_auth</span>
+<span class="nd">@returns_problem_detail</span>
+<span class="k">def</span> <span class="nf">lcp_license</span><span class="p">(</span><span class="n">license_id</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">app</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">lcp_controller</span><span class="o">.</span><span class="n">get_lcp_license</span><span class="p">(</span><span class="n">license_id</span><span class="p">)</span></div>
+
 <span class="c1"># Loan notifications for ODL distributors, eg. Feedbooks</span>
 <div class="viewcode-block" id="odl_notify"><a class="viewcode-back" href="../../api.html#api.routes.odl_notify">[docs]</a><span class="nd">@library_route</span><span class="p">(</span><span class="s1">&#39;/odl_notify/&lt;loan_id&gt;&#39;</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;GET&#39;</span><span class="p">,</span> <span class="s1">&#39;POST&#39;</span><span class="p">])</span>
 <span class="nd">@has_library</span>

@@ -1,0 +1,218 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>api.lcp.controller &#8212; Library Simplified Circulation Manager  documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for api.lcp.controller</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">logging</span>
+
+<span class="kn">import</span> <span class="nn">flask</span>
+<span class="kn">from</span> <span class="nn">flask</span> <span class="kn">import</span> <span class="n">Response</span>
+
+<span class="kn">from</span> <span class="nn">api.controller</span> <span class="kn">import</span> <span class="n">CirculationManagerController</span>
+<span class="kn">from</span> <span class="nn">api.lcp.factory</span> <span class="kn">import</span> <span class="n">LCPServerFactory</span>
+<span class="kn">from</span> <span class="nn">core.lcp.credential</span> <span class="kn">import</span> <span class="n">LCPCredentialFactory</span>
+<span class="kn">from</span> <span class="nn">core.model</span> <span class="kn">import</span> <span class="n">Session</span><span class="p">,</span> <span class="n">ExternalIntegration</span>
+
+
+<div class="viewcode-block" id="LCPController"><a class="viewcode-back" href="../../../api.lcp.html#api.lcp.controller.LCPController">[docs]</a><span class="k">class</span> <span class="nc">LCPController</span><span class="p">(</span><span class="n">CirculationManagerController</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Contains API endpoints related to LCP workflow&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">manager</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Initializes a new instance of LCPController class</span>
+
+<span class="sd">        :param manager: CirculationManager object</span>
+<span class="sd">        :type manager: CirculationManager</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">LCPController</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">manager</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_credential_factory</span> <span class="o">=</span> <span class="n">LCPCredentialFactory</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_lcp_server_factory</span> <span class="o">=</span> <span class="n">LCPServerFactory</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">_get_patron</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns a patron associated with the request (if any)</span>
+
+<span class="sd">        :return: Patron associated with the request (if any)</span>
+<span class="sd">        :rtype: core.model.patron.Patron</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Started fetching an authenticated patron associated with the request&#39;</span><span class="p">)</span>
+
+        <span class="n">patron</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">authenticated_patron_from_request</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Finished fetching an authenticated patron associated with the request: </span><span class="si">{0}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">patron</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="n">patron</span>
+
+    <span class="k">def</span> <span class="nf">_get_lcp_passphrase</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns a patron&#39;s LCP passphrase</span>
+
+<span class="sd">        :return: Patron&#39;s LCP passphrase</span>
+<span class="sd">        :rtype: string</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="n">patron</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Started fetching a patron</span><span class="se">\&#39;</span><span class="s1">s LCP passphrase&#39;</span><span class="p">)</span>
+
+        <span class="n">lcp_passphrase</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_credential_factory</span><span class="o">.</span><span class="n">get_patron_passphrase</span><span class="p">(</span><span class="n">db</span><span class="p">,</span> <span class="n">patron</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Finished fetching a patron</span><span class="se">\&#39;</span><span class="s1">s LCP passphrase: </span><span class="si">{0}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">lcp_passphrase</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="n">lcp_passphrase</span>
+
+    <span class="k">def</span> <span class="nf">_get_lcp_collection</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">library</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns an LCP collection for a specified library</span>
+<span class="sd">        NOTE: We assume that there is only ONE LCP collection per library</span>
+
+<span class="sd">        :param library: Library</span>
+<span class="sd">        :type library: core.model.library.Library</span>
+
+<span class="sd">        :return: LCP collection</span>
+<span class="sd">        :rtype: core.model.collection.Collection</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">lcp_collection</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">([</span>
+            <span class="n">collection</span>
+            <span class="k">for</span> <span class="n">collection</span> <span class="ow">in</span> <span class="n">library</span><span class="o">.</span><span class="n">collections</span>
+            <span class="k">if</span> <span class="n">collection</span><span class="o">.</span><span class="n">protocol</span> <span class="o">==</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">LCP</span>
+        <span class="p">]))</span>
+
+        <span class="k">return</span> <span class="n">lcp_collection</span>
+
+<div class="viewcode-block" id="LCPController.get_lcp_passphrase"><a class="viewcode-back" href="../../../api.lcp.html#api.lcp.controller.LCPController.get_lcp_passphrase">[docs]</a>    <span class="k">def</span> <span class="nf">get_lcp_passphrase</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns an LCP passphrase for the authenticated patron</span>
+
+<span class="sd">        :return: Flask response containing the LCP passphrase for the authenticated patron</span>
+<span class="sd">        :rtype: Response</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Started fetching a patron</span><span class="se">\&#39;</span><span class="s1">s LCP passphrase&#39;</span><span class="p">)</span>
+
+        <span class="n">patron</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_patron</span><span class="p">()</span>
+        <span class="n">lcp_passphrase</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_lcp_passphrase</span><span class="p">(</span><span class="n">patron</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Finished fetching a patron</span><span class="se">\&#39;</span><span class="s1">s LCP passphrase: </span><span class="si">{0}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">lcp_passphrase</span><span class="p">))</span>
+
+        <span class="n">response</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">jsonify</span><span class="p">({</span>
+            <span class="s1">&#39;passphrase&#39;</span><span class="p">:</span> <span class="n">lcp_passphrase</span>
+        <span class="p">})</span>
+
+        <span class="k">return</span> <span class="n">response</span></div>
+
+<div class="viewcode-block" id="LCPController.get_lcp_license"><a class="viewcode-back" href="../../../api.lcp.html#api.lcp.controller.LCPController.get_lcp_license">[docs]</a>    <span class="k">def</span> <span class="nf">get_lcp_license</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">license_id</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns an LCP license with the specified ID</span>
+
+<span class="sd">        :return: Flask response containing the LCP license with the specified ID</span>
+<span class="sd">        :rtype: string</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Started fetching license # </span><span class="si">{0}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">license_id</span><span class="p">))</span>
+
+        <span class="n">patron</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_patron</span><span class="p">()</span>
+
+        <span class="n">library</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">library</span>
+        <span class="n">lcp_collection</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_lcp_collection</span><span class="p">(</span><span class="n">library</span><span class="p">)</span>
+        <span class="n">lcp_api</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">circulation</span><span class="o">.</span><span class="n">api_for_collection</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">lcp_collection</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+        <span class="n">lcp_server</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lcp_server_factory</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">lcp_api</span><span class="p">)</span>
+
+        <span class="n">db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="n">patron</span><span class="p">)</span>
+        <span class="n">lcp_license</span> <span class="o">=</span> <span class="n">lcp_server</span><span class="o">.</span><span class="n">get_license</span><span class="p">(</span><span class="n">db</span><span class="p">,</span> <span class="n">license_id</span><span class="p">,</span> <span class="n">patron</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Finished fetching license # </span><span class="si">{0}</span><span class="s1">: </span><span class="si">{1}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">license_id</span><span class="p">,</span> <span class="n">lcp_license</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="n">flask</span><span class="o">.</span><span class="n">jsonify</span><span class="p">(</span><span class="n">lcp_license</span><span class="p">)</span></div></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">Library Simplified Circulation Manager</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../modules.html">circulation</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

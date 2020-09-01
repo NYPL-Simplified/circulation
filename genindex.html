@@ -82,6 +82,8 @@
       </ul></li>
       <li><a href="scripts.html#scripts.CacheRepresentationPerLane.ACCEPT_HEADER">ACCEPT_HEADER (scripts.CacheRepresentationPerLane attribute)</a>
 </li>
+      <li><a href="core.html#core.s3.S3UploaderConfiguration.access_key">access_key (core.s3.S3UploaderConfiguration attribute)</a>
+</li>
       <li><a href="api.saml.html#api.saml.controller.SAMLController.ACCESS_TOKEN">ACCESS_TOKEN (api.saml.controller.SAMLController attribute)</a>
 </li>
       <li><a href="api.html#api.axis.Axis360API.access_token_endpoint">access_token_endpoint (api.axis.Axis360API attribute)</a>
@@ -185,6 +187,8 @@
       <li><a href="core.html#core.opds.AcquisitionFeed.add_breadcrumbs">add_breadcrumbs() (core.opds.AcquisitionFeed method)</a>
 </li>
       <li><a href="api.html#api.opds.LibraryAnnotator.add_configuration_links">add_configuration_links() (api.opds.LibraryAnnotator method)</a>
+</li>
+      <li><a href="api.lcp.html#api.lcp.server.LCPServer.add_content">add_content() (api.lcp.server.LCPServer method)</a>
 </li>
       <li><a href="core.model.html#core.model.edition.Edition.add_contributor">add_contributor() (core.model.edition.Edition method)</a>
 </li>
@@ -788,10 +792,30 @@
 </li>
       <li><a href="api.html#module-api.lanes">api.lanes (module)</a>
 </li>
-      <li><a href="api.html#module-api.local_analytics_exporter">api.local_analytics_exporter (module)</a>
+      <li><a href="api.lcp.html#module-api.lcp">api.lcp (module)</a>
+</li>
+      <li><a href="api.lcp.html#module-api.lcp.collection">api.lcp.collection (module)</a>
+</li>
+      <li><a href="api.lcp.html#module-api.lcp.controller">api.lcp.controller (module)</a>
+</li>
+      <li><a href="api.lcp.html#module-api.lcp.encrypt">api.lcp.encrypt (module)</a>
+</li>
+      <li><a href="api.lcp.html#module-api.lcp.factory">api.lcp.factory (module)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api.lcp.html#module-api.lcp.hash">api.lcp.hash (module)</a>
+</li>
+      <li><a href="api.lcp.html#module-api.lcp.importer">api.lcp.importer (module)</a>
+</li>
+      <li><a href="api.lcp.html#module-api.lcp.mirror">api.lcp.mirror (module)</a>
+</li>
+      <li><a href="api.lcp.html#module-api.lcp.server">api.lcp.server (module)</a>
+</li>
+      <li><a href="api.lcp.html#module-api.lcp.utils">api.lcp.utils (module)</a>
+</li>
+      <li><a href="api.html#module-api.local_analytics_exporter">api.local_analytics_exporter (module)</a>
+</li>
       <li><a href="api.html#module-api.marc">api.marc (module)</a>
 </li>
       <li><a href="api.html#module-api.metadata_wrangler">api.metadata_wrangler (module)</a>
@@ -831,8 +855,6 @@
       <li><a href="api.saml.html#module-api.saml.configuration">api.saml.configuration (module)</a>
 </li>
       <li><a href="api.saml.html#module-api.saml.controller">api.saml.controller (module)</a>
-</li>
-      <li><a href="api.saml.html#module-api.saml.exceptions">api.saml.exceptions (module)</a>
 </li>
       <li><a href="api.saml.html#module-api.saml.loader">api.saml.loader (module)</a>
 </li>
@@ -1067,6 +1089,8 @@
       <li><a href="api.html#api.circulation.FulfillmentInfo.as_response">as_response (api.circulation.FulfillmentInfo attribute)</a>
 
       <ul>
+        <li><a href="api.lcp.html#api.lcp.collection.LCPFulfilmentInfo.as_response">(api.lcp.collection.LCPFulfilmentInfo attribute)</a>
+</li>
         <li><a href="api.html#api.overdrive.OverdriveManifestFulfillmentInfo.as_response">(api.overdrive.OverdriveManifestFulfillmentInfo attribute)</a>
 </li>
       </ul></li>
@@ -1574,9 +1598,13 @@
 </li>
       <li><a href="api.html#api.base_controller.BaseCirculationManagerController">BaseCirculationManagerController (class in api.base_controller)</a>
 </li>
+      <li><a href="core.model.html#core.model.configuration.BaseConfigurationStorage">BaseConfigurationStorage (class in core.model.configuration)</a>
+</li>
       <li><a href="core.html#core.coverage.BaseCoverageProvider">BaseCoverageProvider (class in core.coverage)</a>
 </li>
       <li><a href="core.model.html#core.model.coverage.BaseCoverageRecord">BaseCoverageRecord (class in core.model.coverage)</a>
+</li>
+      <li><a href="core.html#core.exceptions.BaseError">BaseError</a>
 </li>
       <li><a href="core.html#core.lane.BaseFacets">BaseFacets (class in core.lane)</a>
 </li>
@@ -1680,10 +1708,10 @@
         <li><a href="core.model.html#core.model.constants.DataSourceConstants.BIBLIOTHECA">(core.model.constants.DataSourceConstants attribute)</a>
 </li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="core.model.html#core.model.constants.IdentifierConstants.BIBLIOTHECA_ID">BIBLIOTHECA_ID (core.model.constants.IdentifierConstants attribute)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.html#api.bibliotheca.BibliothecaAPI">BibliothecaAPI (class in api.bibliotheca)</a>
 </li>
       <li><a href="api.html#api.bibliotheca.BibliothecaBibliographicCoverageProvider">BibliothecaBibliographicCoverageProvider (class in api.bibliotheca)</a>
@@ -1705,6 +1733,8 @@
       <li><a href="core.classifier.html#core.classifier.bic.BICClassifier">BICClassifier (class in core.classifier.bic)</a>
 </li>
       <li><a href="core.util.html#core.util.Bigrams">Bigrams (class in core.util)</a>
+</li>
+      <li><a href="api.lcp.html#api.lcp.utils.bind_method">bind_method() (in module api.lcp.utils)</a>
 </li>
       <li><a href="api.saml.html#api.saml.configuration.SAMLOneLoginConfiguration.BINDING">BINDING (api.saml.configuration.SAMLOneLoginConfiguration attribute)</a>
 </li>
@@ -1732,7 +1762,9 @@
 </li>
       <li><a href="core.html#core.external_search.Mapping.body">body() (core.external_search.Mapping method)</a>
 </li>
-      <li><a href="core.html#core.s3.S3Uploader.BOOK_COVERS_BUCKET_KEY">BOOK_COVERS_BUCKET_KEY (core.s3.S3Uploader attribute)</a>
+      <li><a href="core.html#core.s3.S3UploaderConfiguration.book_covers_bucket">book_covers_bucket (core.s3.S3UploaderConfiguration attribute)</a>
+</li>
+      <li><a href="core.html#core.s3.S3UploaderConfiguration.BOOK_COVERS_BUCKET_KEY">BOOK_COVERS_BUCKET_KEY (core.s3.S3UploaderConfiguration attribute)</a>
 </li>
       <li><a href="core.html#core.overdrive.OverdriveRepresentationExtractor.book_info_to_circulation">book_info_to_circulation() (core.overdrive.OverdriveRepresentationExtractor class method)</a>
 </li>
@@ -1744,9 +1776,11 @@
 </li>
       <li><a href="core.util.html#core.util.web_publication_manifest.Manifest.BOOK_TYPE">BOOK_TYPE (core.util.web_publication_manifest.Manifest attribute)</a>
 </li>
-      <li><a href="core.html#core.mirror.MirrorUploader.book_url">book_url() (core.mirror.MirrorUploader method)</a>
+      <li><a href="api.lcp.html#api.lcp.mirror.LCPMirror.book_url">book_url() (api.lcp.mirror.LCPMirror method)</a>
 
       <ul>
+        <li><a href="core.html#core.mirror.MirrorUploader.book_url">(core.mirror.MirrorUploader method)</a>
+</li>
         <li><a href="core.html#core.s3.S3Uploader.book_url">(core.s3.S3Uploader method)</a>
 </li>
       </ul></li>
@@ -2096,6 +2130,10 @@
         <li><a href="core.html#core.opds.VerboseAnnotator.categories">(core.opds.VerboseAnnotator class method)</a>
 </li>
       </ul></li>
+      <li><a href="core.model.html#core.model.configuration.ConfigurationAttribute.CATEGORY">CATEGORY (core.model.configuration.ConfigurationAttribute attribute)</a>
+</li>
+      <li><a href="core.model.html#core.model.configuration.ConfigurationMetadata.category">category (core.model.configuration.ConfigurationMetadata attribute)</a>
+</li>
       <li><a href="core.util.html#core.util.opds_writer.AtomFeed.category">category() (core.util.opds_writer.AtomFeed class method)</a>
 </li>
       <li><a href="core.model.html#core.model.resource.Representation.cautious_http_get">cautious_http_get() (core.model.resource.Representation class method)</a>
@@ -2162,6 +2200,8 @@
         <li><a href="core.model.html#core.model.work.Work.CHARACTER_APPEAL">(core.model.work.Work attribute)</a>
 </li>
       </ul></li>
+      <li><a href="api.html#api.onix.UsageUnit.CHARACTERS">CHARACTERS (api.onix.UsageUnit attribute)</a>
+</li>
       <li><a href="api.sip.html#api.sip.client.SIPClient.CHARGE_PRIVILEGES_DENIED">CHARGE_PRIVILEGES_DENIED (api.sip.client.SIPClient attribute)</a>
 </li>
       <li><a href="api.sip.html#api.sip.client.named.charged_items">charged_items (api.sip.client.named attribute)</a>
@@ -2258,6 +2298,8 @@
         <li><a href="api.html#api.circulation.BaseCirculationAPI.checkout">(api.circulation.BaseCirculationAPI method)</a>
 </li>
         <li><a href="api.html#api.enki.EnkiAPI.checkout">(api.enki.EnkiAPI method)</a>
+</li>
+        <li><a href="api.lcp.html#api.lcp.collection.LCPAPI.checkout">(api.lcp.collection.LCPAPI method)</a>
 </li>
         <li><a href="api.html#api.odilo.OdiloAPI.checkout">(api.odilo.OdiloAPI method)</a>
 </li>
@@ -2457,6 +2499,8 @@
 </li>
         <li><a href="api.html#api.enki.EnkiImport.collection">(api.enki.EnkiImport attribute)</a>
 </li>
+        <li><a href="api.lcp.html#api.lcp.collection.LCPAPI.collection">(api.lcp.collection.LCPAPI attribute)</a>
+</li>
         <li><a href="api.html#api.odilo.OdiloAPI.collection">(api.odilo.OdiloAPI attribute)</a>
 </li>
         <li><a href="api.html#api.rbdigital.MockRBDigitalAPI.collection">(api.rbdigital.MockRBDigitalAPI attribute)</a>
@@ -2488,6 +2532,12 @@
       </ul></li>
       <li><a href="api.html#api.novelist.NoveListAPI.COLLECTION_DATA_API">COLLECTION_DATA_API (api.novelist.NoveListAPI attribute)</a>
 </li>
+      <li><a href="api.lcp.html#api.lcp.mirror.LCPMirror.collection_external_integration">collection_external_integration() (api.lcp.mirror.LCPMirror method)</a>
+
+      <ul>
+        <li><a href="core.model.html#core.model.collection.HasExternalIntegrationPerCollection.collection_external_integration">(core.model.collection.HasExternalIntegrationPerCollection method)</a>
+</li>
+      </ul></li>
       <li><a href="core.html#core.facets.FacetConstants.COLLECTION_FACET_GROUP_NAME">COLLECTION_FACET_GROUP_NAME (core.facets.FacetConstants attribute)</a>
 </li>
       <li><a href="core.html#core.facets.FacetConstants.COLLECTION_FACETS">COLLECTION_FACETS (core.facets.FacetConstants attribute)</a>
@@ -2528,6 +2578,8 @@
         <li><a href="core.html#core.overdrive.OverdriveAPI.collection_token">(core.overdrive.OverdriveAPI attribute)</a>
 </li>
       </ul></li>
+      <li><a href="core.model.html#core.model.collection.CollectionConfigurationStorage">CollectionConfigurationStorage (class in core.model.collection)</a>
+</li>
       <li><a href="core.html#core.coverage.CollectionCoverageProvider">CollectionCoverageProvider (class in core.coverage)</a>
 </li>
       <li><a href="core.html#core.coverage.CollectionCoverageProviderJob">CollectionCoverageProviderJob (class in core.coverage)</a>
@@ -2584,8 +2636,6 @@
 </li>
       <li><a href="core.util.html#core.util.permanent_work_id.WorkIDCalculator.commonAuthorSuffixPattern">commonAuthorSuffixPattern (core.util.permanent_work_id.WorkIDCalculator attribute)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="core.util.html#core.util.permanent_work_id.WorkIDCalculator.commonSubtitlesPattern">commonSubtitlesPattern (core.util.permanent_work_id.WorkIDCalculator attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.licensing.DeliveryMechanism.compatible_with">compatible_with() (core.model.licensing.DeliveryMechanism method)</a>
@@ -2604,6 +2654,8 @@
 </li>
       <li><a href="core.html#core.scripts.CheckContributorNamesInDB.COMPLAINT_TYPE">COMPLAINT_TYPE (core.scripts.CheckContributorNamesInDB attribute)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="core.html#core.app_server.ComplaintController">ComplaintController (class in core.app_server)</a>
 </li>
       <li><a href="core.model.html#core.model.licensing.LicensePool.complaints">complaints (core.model.licensing.LicensePool attribute)</a>
@@ -2640,6 +2692,8 @@
 </li>
       <li><a href="core.model.html#core.model.licensing.License.concurrent_checkouts">concurrent_checkouts (core.model.licensing.License attribute)</a>
 </li>
+      <li><a href="api.html#api.onix.UsageUnit.CONCURRENT_USERS">CONCURRENT_USERS (api.onix.UsageUnit attribute)</a>
+</li>
       <li><a href="api.saml.html#api.saml.auth.SAMLAuthenticationManager.configuration">configuration (api.saml.auth.SAMLAuthenticationManager attribute)</a>
 
       <ul>
@@ -2672,11 +2726,25 @@
         <li><a href="core.model.html#core.model.listeners.configuration_relevant_update">(in module core.model.listeners)</a>
 </li>
       </ul></li>
+      <li><a href="core.model.html#core.model.configuration.ConfigurationAttribute">ConfigurationAttribute (class in core.model.configuration)</a>
+</li>
+      <li><a href="core.model.html#core.model.configuration.ConfigurationAttributeType">ConfigurationAttributeType (class in core.model.configuration)</a>
+</li>
       <li><a href="core.html#core.config.ConfigurationConstants">ConfigurationConstants (class in core.config)</a>
+</li>
+      <li><a href="core.model.html#core.model.configuration.ConfigurationFactory">ConfigurationFactory (class in core.model.configuration)</a>
+</li>
+      <li><a href="core.model.html#core.model.configuration.ConfigurationGrouping">ConfigurationGrouping (class in core.model.configuration)</a>
+</li>
+      <li><a href="core.model.html#core.model.configuration.ConfigurationMetadata">ConfigurationMetadata (class in core.model.configuration)</a>
+</li>
+      <li><a href="core.model.html#core.model.configuration.ConfigurationOption">ConfigurationOption (class in core.model.configuration)</a>
 </li>
       <li><a href="core.model.html#core.model.configuration.ConfigurationSetting">ConfigurationSetting (class in core.model.configuration)</a>
 </li>
       <li><a href="core.html#core.scripts.ConfigurationSettingScript">ConfigurationSettingScript (class in core.scripts)</a>
+</li>
+      <li><a href="core.model.html#core.model.configuration.ConfigurationStorage">ConfigurationStorage (class in core.model.configuration)</a>
 </li>
       <li><a href="core.html#core.scripts.ConfigureCollectionScript">ConfigureCollectionScript (class in core.scripts)</a>
 </li>
@@ -2740,10 +2808,22 @@
         <li><a href="core.model.html#core.model.constants.DataSourceConstants.CONTENT_CAFE">(core.model.constants.DataSourceConstants attribute)</a>
 </li>
       </ul></li>
+      <li><a href="api.lcp.html#api.lcp.encrypt.LCPEncryptionResult.CONTENT_ENCRYPTION_KEY">CONTENT_ENCRYPTION_KEY (api.lcp.encrypt.LCPEncryptionResult attribute)</a>
+</li>
+      <li><a href="api.lcp.html#api.lcp.encrypt.LCPEncryptionResult.content_encryption_key">content_encryption_key (api.lcp.encrypt.LCPEncryptionResult attribute)</a>
+</li>
       <li><a href="api.html#api.circulation.APIAwareFulfillmentInfo.content_expires">content_expires (api.circulation.APIAwareFulfillmentInfo attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.resource.Representation.content_fh">content_fh() (core.model.resource.Representation method)</a>
 </li>
+      <li><a href="api.lcp.html#api.lcp.encrypt.LCPEncryptionResult.CONTENT_ID">CONTENT_ID (api.lcp.encrypt.LCPEncryptionResult attribute)</a>
+</li>
+      <li><a href="api.lcp.html#api.lcp.encrypt.LCPEncryptionResult.content_id">content_id (api.lcp.encrypt.LCPEncryptionResult attribute)</a>
+
+      <ul>
+        <li><a href="api.lcp.html#api.lcp.encrypt.LCPEncryptor.Parameters.content_id">(api.lcp.encrypt.LCPEncryptor.Parameters attribute)</a>
+</li>
+      </ul></li>
       <li><a href="api.html#api.circulation.APIAwareFulfillmentInfo.content_link">content_link (api.circulation.APIAwareFulfillmentInfo attribute)</a>
 </li>
       <li><a href="core.html#core.s3.S3Uploader.content_root">content_root() (core.s3.S3Uploader method)</a>
@@ -2802,6 +2882,8 @@
 </li>
       <li><a href="api.html#api.bibliotheca.ItemListParser.contributors_from_string">contributors_from_string() (api.bibliotheca.ItemListParser class method)</a>
 </li>
+      <li><a href="api.html#api.onix.UsageUnit.COPIES">COPIES (api.onix.UsageUnit attribute)</a>
+</li>
       <li><a href="api.html#api.custom_index.COPPAGate">COPPAGate (class in api.custom_index)</a>
 
       <ul>
@@ -2858,6 +2940,8 @@
 </li>
       <li><a href="core.html#module-core.entrypoint">core.entrypoint (module)</a>
 </li>
+      <li><a href="core.html#module-core.exceptions">core.exceptions (module)</a>
+</li>
       <li><a href="core.html#module-core.external_list">core.external_list (module)</a>
 </li>
       <li><a href="core.html#module-core.external_search">core.external_search (module)</a>
@@ -2865,6 +2949,12 @@
       <li><a href="core.html#module-core.facets">core.facets (module)</a>
 </li>
       <li><a href="core.html#module-core.lane">core.lane (module)</a>
+</li>
+      <li><a href="core.lcp.html#module-core.lcp">core.lcp (module)</a>
+</li>
+      <li><a href="core.lcp.html#module-core.lcp.credential">core.lcp.credential (module)</a>
+</li>
+      <li><a href="core.lcp.html#module-core.lcp.exceptions">core.lcp.exceptions (module)</a>
 </li>
       <li><a href="core.html#module-core.local_analytics_provider">core.local_analytics_provider (module)</a>
 </li>
@@ -3018,11 +3108,17 @@
 </li>
       <li><a href="core.model.html#core.model.constants.DataSourceConstants.COVER_IMAGE_PRIORITY">COVER_IMAGE_PRIORITY (core.model.constants.DataSourceConstants attribute)</a>
 </li>
-      <li><a href="core.html#core.s3.S3Uploader.cover_image_root">cover_image_root() (core.s3.S3Uploader method)</a>
-</li>
-      <li><a href="core.html#core.mirror.MirrorUploader.cover_image_url">cover_image_url() (core.mirror.MirrorUploader method)</a>
+      <li><a href="api.lcp.html#api.lcp.mirror.LCPMirror.cover_image_root">cover_image_root() (api.lcp.mirror.LCPMirror method)</a>
 
       <ul>
+        <li><a href="core.html#core.s3.S3Uploader.cover_image_root">(core.s3.S3Uploader method)</a>
+</li>
+      </ul></li>
+      <li><a href="api.lcp.html#api.lcp.mirror.LCPMirror.cover_image_url">cover_image_url() (api.lcp.mirror.LCPMirror method)</a>
+
+      <ul>
+        <li><a href="core.html#core.mirror.MirrorUploader.cover_image_url">(core.mirror.MirrorUploader method)</a>
+</li>
         <li><a href="core.html#core.s3.S3Uploader.cover_image_url">(core.s3.S3Uploader method)</a>
 </li>
       </ul></li>
@@ -3103,9 +3199,15 @@
       <li><a href="api.admin.html#api.admin.validator.PatronAuthenticationValidatorFactory.create">create() (api.admin.validator.PatronAuthenticationValidatorFactory method)</a>
 
       <ul>
+        <li><a href="api.lcp.html#api.lcp.factory.LCPServerFactory.create">(api.lcp.factory.LCPServerFactory method)</a>
+</li>
+        <li><a href="api.lcp.html#api.lcp.hash.HasherFactory.create">(api.lcp.hash.HasherFactory method)</a>
+</li>
         <li><a href="api.saml.html#api.saml.auth.SAMLAuthenticationManagerFactory.create">(api.saml.auth.SAMLAuthenticationManagerFactory method)</a>
 </li>
         <li><a href="core.html#core.external_search.Mapping.create">(core.external_search.Mapping method)</a>
+</li>
+        <li><a href="core.model.html#core.model.configuration.ConfigurationFactory.create">(core.model.configuration.ConfigurationFactory method)</a>
 </li>
         <li><a href="core.model.html#core.model.create">(in module core.model)</a>
 </li>
@@ -3496,6 +3598,8 @@
 </li>
       <li><a href="api.html#api.bibliotheca.BibliothecaAPI.DATETIME_HEADER">DATETIME_HEADER (api.bibliotheca.BibliothecaAPI attribute)</a>
 </li>
+      <li><a href="api.html#api.onix.UsageUnit.DAYS">DAYS (api.onix.UsageUnit attribute)</a>
+</li>
       <li><a href="core.util.html#core.util.opds_writer.AtomFeed.DCTERMS_NS">DCTERMS_NS (core.util.opds_writer.AtomFeed attribute)</a>
 </li>
       <li><a href="core.classifier.html#core.classifier.Classifier.DDC">DDC (core.classifier.Classifier attribute)</a>
@@ -3540,9 +3644,15 @@
 </li>
       <li><a href="core.util.html#core.util.string_helpers.UnicodeAwareBase64.decodestring">decodestring() (core.util.string_helpers.UnicodeAwareBase64 method)</a>
 </li>
-      <li><a href="api.saml.html#api.saml.metadata.SubjectJSONEncoder.default">default() (api.saml.metadata.SubjectJSONEncoder method)</a>
+      <li><a href="core.model.html#core.model.configuration.ConfigurationAttribute.DEFAULT">DEFAULT (core.model.configuration.ConfigurationAttribute attribute)</a>
+</li>
+      <li><a href="core.model.html#core.model.configuration.ConfigurationMetadata.default">default (core.model.configuration.ConfigurationMetadata attribute)</a>
+</li>
+      <li><a href="api.lcp.html#api.lcp.encrypt.LCPEncryptorResultJSONEncoder.default">default() (api.lcp.encrypt.LCPEncryptorResultJSONEncoder method)</a>
 
       <ul>
+        <li><a href="api.saml.html#api.saml.metadata.SubjectJSONEncoder.default">(api.saml.metadata.SubjectJSONEncoder method)</a>
+</li>
         <li><a href="core.html#core.lane.Facets.default">(core.lane.Facets class method)</a>
 </li>
         <li><a href="core.html#core.lane.FeaturedFacets.default">(core.lane.FeaturedFacets class method)</a>
@@ -3650,6 +3760,8 @@
 </li>
       <li><a href="core.html#core.facets.FacetConstants.DEFAULT_ENABLED_FACETS">DEFAULT_ENABLED_FACETS (core.facets.FacetConstants attribute)</a>
 </li>
+      <li><a href="api.lcp.html#api.lcp.server.LCPServerConfiguration.DEFAULT_ENCRYPTION_ALGORITHM">DEFAULT_ENCRYPTION_ALGORITHM (api.lcp.server.LCPServerConfiguration attribute)</a>
+</li>
       <li><a href="api.html#api.overdrive.OverdriveAPI.DEFAULT_ERROR_URL">DEFAULT_ERROR_URL (api.overdrive.OverdriveAPI attribute)</a>
 </li>
       <li><a href="core.html#core.facets.FacetConstants.DEFAULT_FACET">DEFAULT_FACET (core.facets.FacetConstants attribute)</a>
@@ -3722,6 +3834,10 @@
         <li><a href="core.html#core.opds.TestAnnotator.default_lane_url">(core.opds.TestAnnotator class method)</a>
 </li>
       </ul></li>
+      <li><a href="api.lcp.html#api.lcp.encrypt.LCPEncryptionConfiguration.DEFAULT_LCPENCRYPT_DOCKER_IMAGE">DEFAULT_LCPENCRYPT_DOCKER_IMAGE (api.lcp.encrypt.LCPEncryptionConfiguration attribute)</a>
+</li>
+      <li><a href="api.lcp.html#api.lcp.encrypt.LCPEncryptionConfiguration.DEFAULT_LCPENCRYPT_LOCATION">DEFAULT_LCPENCRYPT_LOCATION (api.lcp.encrypt.LCPEncryptionConfiguration attribute)</a>
+</li>
       <li><a href="core.model.html#core.model.PresentationCalculationPolicy.DEFAULT_LEVELS">DEFAULT_LEVELS (core.model.PresentationCalculationPolicy attribute)</a>
 </li>
       <li><a href="api.html#api.registry.RemoteRegistry.DEFAULT_LIBRARY_REGISTRY_URL">DEFAULT_LIBRARY_REGISTRY_URL (api.registry.RemoteRegistry attribute)</a>
@@ -3764,6 +3880,10 @@
         <li><a href="core.html#core.config.Configuration.DEFAULT_OPDS_FORMAT">(core.config.Configuration attribute)</a>
 </li>
       </ul></li>
+      <li><a href="api.lcp.html#api.lcp.server.LCPServerConfiguration.DEFAULT_PAGE_SIZE">DEFAULT_PAGE_SIZE (api.lcp.server.LCPServerConfiguration attribute)</a>
+</li>
+      <li><a href="api.lcp.html#api.lcp.server.LCPServerConfiguration.DEFAULT_PASSPHRASE_HINT">DEFAULT_PASSPHRASE_HINT (api.lcp.server.LCPServerConfiguration attribute)</a>
+</li>
       <li><a href="api.html#api.authenticator.BasicAuthenticationProvider.DEFAULT_PASSWORD_LABEL">DEFAULT_PASSWORD_LABEL (api.authenticator.BasicAuthenticationProvider attribute)</a>
 </li>
       <li><a href="api.html#api.authenticator.BasicAuthenticationProvider.DEFAULT_PASSWORD_REGULAR_EXPRESSION">DEFAULT_PASSWORD_REGULAR_EXPRESSION (api.authenticator.BasicAuthenticationProvider attribute)</a>
@@ -3842,10 +3962,10 @@
         <li><a href="core.util.html#core.util.web_publication_manifest.Manifest.DEFAULT_TYPE">(core.util.web_publication_manifest.Manifest attribute)</a>
 </li>
       </ul></li>
-      <li><a href="core.util.html#core.util.opds_writer.AtomFeed.default_typemap">default_typemap (core.util.opds_writer.AtomFeed attribute)</a>
-</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="core.util.html#core.util.opds_writer.AtomFeed.default_typemap">default_typemap (core.util.opds_writer.AtomFeed attribute)</a>
+</li>
       <li><a href="core.html#core.marc.MARCExporter.DEFAULT_UPDATE_FREQUENCY">DEFAULT_UPDATE_FREQUENCY (core.marc.MARCExporter attribute)</a>
 </li>
       <li><a href="api.html#api.google_analytics_provider.GoogleAnalyticsProvider.DEFAULT_URL">DEFAULT_URL (api.google_analytics_provider.GoogleAnalyticsProvider attribute)</a>
@@ -3975,6 +4095,8 @@
 </li>
         <li><a href="api.html#api.kansas_patron.KansasAuthenticationAPI.DESCRIPTION">(api.kansas_patron.KansasAuthenticationAPI attribute)</a>
 </li>
+        <li><a href="api.lcp.html#api.lcp.collection.LCPAPI.DESCRIPTION">(api.lcp.collection.LCPAPI attribute)</a>
+</li>
         <li><a href="api.html#api.odilo.OdiloAPI.DESCRIPTION">(api.odilo.OdiloAPI attribute)</a>
 </li>
         <li><a href="api.html#api.odl.ODLAPI.DESCRIPTION">(api.odl.ODLAPI attribute)</a>
@@ -3997,9 +4119,13 @@
       <ul>
         <li><a href="core.html#core.marc.MARCExporter.DESCRIPTION">(core.marc.MARCExporter attribute)</a>
 </li>
-        <li><a href="core.model.html#core.model.constants.LinkRelations.DESCRIPTION">(core.model.constants.LinkRelations attribute)</a>
+        <li><a href="core.model.html#core.model.configuration.ConfigurationAttribute.DESCRIPTION">(core.model.configuration.ConfigurationAttribute attribute)</a>
 </li>
       </ul></li>
+      <li><a href="core.model.html#core.model.configuration.ConfigurationMetadata.description">description (core.model.configuration.ConfigurationMetadata attribute)</a>
+</li>
+      <li><a href="core.model.html#core.model.constants.LinkRelations.DESCRIPTION">DESCRIPTION (core.model.constants.LinkRelations attribute)</a>
+</li>
       <li><a href="core.model.html#core.model.customlist.CustomList.description">description (core.model.customlist.CustomList attribute)</a>
 </li>
       <li><a href="core.html#core.opds_import.OPDSImporter.DESCRIPTION">DESCRIPTION (core.opds_import.OPDSImporter attribute)</a>
@@ -4057,6 +4183,8 @@
       <li><a href="api.html#api.adobe_vendor_id.DeviceManagementProtocolController">DeviceManagementProtocolController (class in api.adobe_vendor_id)</a>
 </li>
       <li><a href="api.html#api.adobe_vendor_id.DeviceManagementRequestHandler">DeviceManagementRequestHandler (class in api.adobe_vendor_id)</a>
+</li>
+      <li><a href="api.html#api.onix.UsageUnit.DEVICES">DEVICES (api.onix.UsageUnit attribute)</a>
 </li>
       <li><a href="core.classifier.html#core.classifier.ddc.DeweyDecimalClassifier">DeweyDecimalClassifier (class in core.classifier.ddc)</a>
 </li>
@@ -4274,8 +4402,12 @@
         <li><a href="api.sip.html#api.sip.client.SIPClient.do_send">(api.sip.client.SIPClient method)</a>
 </li>
       </ul></li>
-      <li><a href="core.html#core.mirror.MirrorUploader.do_upload">do_upload() (core.mirror.MirrorUploader method)</a>
+      <li><a href="api.lcp.html#api.lcp.mirror.LCPMirror.do_upload">do_upload() (api.lcp.mirror.LCPMirror method)</a>
+
+      <ul>
+        <li><a href="core.html#core.mirror.MirrorUploader.do_upload">(core.mirror.MirrorUploader method)</a>
 </li>
+      </ul></li>
       <li><a href="core.util.html#core.util.http.BadResponseException.document_debug_message">document_debug_message() (core.util.http.BadResponseException method)</a>
 
       <ul>
@@ -4474,9 +4606,13 @@
 </li>
       <li><a href="core.util.html#core.util.string_helpers.UnicodeAwareBase64.encodestring">encodestring() (core.util.string_helpers.UnicodeAwareBase64 method)</a>
 </li>
+      <li><a href="api.lcp.html#api.lcp.encrypt.LCPEncryptor.encrypt">encrypt() (api.lcp.encrypt.LCPEncryptor method)</a>
+</li>
       <li><a href="api.saml.html#api.saml.metadata.NameIDFormat.ENCRYPTED">ENCRYPTED (api.saml.metadata.NameIDFormat attribute)</a>
 </li>
       <li><a href="api.saml.html#api.saml.configuration.SAMLOneLoginConfiguration.ENCRYPTION">ENCRYPTION (api.saml.configuration.SAMLOneLoginConfiguration attribute)</a>
+</li>
+      <li><a href="api.lcp.html#api.lcp.server.LCPServerConfiguration.encryption_algorithm">encryption_algorithm (api.lcp.server.LCPServerConfiguration attribute)</a>
 </li>
       <li><a href="api.saml.html#api.saml.metadata.IdentityProviderMetadata.encryption_certificates">encryption_certificates (api.saml.metadata.IdentityProviderMetadata attribute)</a>
 </li>
@@ -4510,7 +4646,11 @@
         <li><a href="core.html#core.overdrive.OverdriveAPI.endpoint">(core.overdrive.OverdriveAPI method)</a>
 </li>
       </ul></li>
-      <li><a href="core.html#core.s3.MinIOUploader.ENDPOINT_URL">ENDPOINT_URL (core.s3.MinIOUploader attribute)</a>
+      <li><a href="api.lcp.html#api.lcp.mirror.LCPMirrorConfiguration.endpoint_url">endpoint_url (api.lcp.mirror.LCPMirrorConfiguration attribute)</a>
+</li>
+      <li><a href="core.html#core.s3.MinIOUploaderConfiguration.ENDPOINT_URL">ENDPOINT_URL (core.s3.MinIOUploaderConfiguration attribute)</a>
+</li>
+      <li><a href="core.html#core.s3.MinIOUploaderConfiguration.endpoint_url">endpoint_url (core.s3.MinIOUploaderConfiguration attribute)</a>
 </li>
       <li><a href="core.html#core.testing.EndToEndSearchTest">EndToEndSearchTest (class in core.testing)</a>
 </li>
@@ -4642,14 +4782,14 @@
 </li>
       <li><a href="api.admin.controller.html#api.admin.controller.SignInController.error_response">error_response() (api.admin.controller.SignInController method)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.admin.controller.html#api.admin.controller.SignInController.ERROR_RESPONSE_TEMPLATE">ERROR_RESPONSE_TEMPLATE (api.admin.controller.SignInController attribute)</a>
 
       <ul>
         <li><a href="api.html#api.adobe_vendor_id.AdobeVendorIDRequestHandler.ERROR_RESPONSE_TEMPLATE">(api.adobe_vendor_id.AdobeVendorIDRequestHandler attribute)</a>
 </li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.html#api.odilo.OdiloAPI.error_to_exception">error_to_exception (api.odilo.OdiloAPI attribute)</a>
 
       <ul>
@@ -4829,6 +4969,8 @@
 </li>
         <li><a href="api.html#api.enki.EnkiAPI.external_integration">(api.enki.EnkiAPI method)</a>
 </li>
+        <li><a href="api.lcp.html#api.lcp.collection.LCPAPI.external_integration">(api.lcp.collection.LCPAPI method)</a>
+</li>
         <li><a href="api.html#api.nyt.NYTBestSellerAPI.external_integration">(api.nyt.NYTBestSellerAPI class method)</a>
 </li>
         <li><a href="api.html#api.odilo.OdiloAPI.external_integration">(api.odilo.OdiloAPI method)</a>
@@ -4839,7 +4981,7 @@
 </li>
         <li><a href="api.html#api.rbdigital.RBDigitalAPI.external_integration">(api.rbdigital.RBDigitalAPI method)</a>
 </li>
-        <li><a href="api.saml.html#api.saml.configuration.ExternalIntegrationOwner.external_integration">(api.saml.configuration.ExternalIntegrationOwner method)</a>
+        <li><a href="core.model.html#core.model.configuration.HasExternalIntegration.external_integration">(core.model.configuration.HasExternalIntegration method)</a>
 </li>
         <li><a href="core.html#core.opds_import.MetadataWranglerOPDSLookup.external_integration">(core.opds_import.MetadataWranglerOPDSLookup class method)</a>
 </li>
@@ -4875,8 +5017,6 @@
       <li><a href="core.model.html#core.model.configuration.ExternalIntegration">ExternalIntegration (class in core.model.configuration)</a>
 </li>
       <li><a href="core.model.html#core.model.configuration.ExternalIntegrationLink">ExternalIntegrationLink (class in core.model.configuration)</a>
-</li>
-      <li><a href="api.saml.html#api.saml.configuration.ExternalIntegrationOwner">ExternalIntegrationOwner (class in api.saml.configuration)</a>
 </li>
       <li><a href="core.html#core.external_search.ExternalSearchIndex">ExternalSearchIndex (class in core.external_search)</a>
 </li>
@@ -5276,8 +5416,6 @@
 </li>
       <li><a href="core.model.html#core.model.customlist.CustomListEntry.first_appearance">first_appearance (core.model.customlist.CustomListEntry attribute)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="core.html#core.lane.Pagination.first_page">first_page (core.lane.Pagination attribute)</a>
 </li>
       <li><a href="api.html#api.firstbook.FirstBookAuthenticationAPI">FirstBookAuthenticationAPI (class in api.firstbook)</a>
@@ -5286,6 +5424,8 @@
         <li><a href="api.html#api.firstbook2.FirstBookAuthenticationAPI">(class in api.firstbook2)</a>
 </li>
       </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.html#api.enki.EnkiImport.FIVE_MINUTES">FIVE_MINUTES (api.enki.EnkiImport attribute)</a>
 </li>
       <li><a href="api.sip.html#api.sip.client.fixed">fixed (class in api.sip.client)</a>
@@ -5392,6 +5532,8 @@
 </li>
       <li><a href="core.html#core.overdrive.OverdriveRepresentationExtractor.format_data_for_overdrive_format">format_data_for_overdrive_format (core.overdrive.OverdriveRepresentationExtractor attribute)</a>
 </li>
+      <li><a href="api.lcp.html#api.lcp.utils.format_datetime">format_datetime() (in module api.lcp.utils)</a>
+</li>
       <li><a href="api.admin.html#api.admin.geographic_validator.GeographicValidator.format_place">format_place() (api.admin.geographic_validator.GeographicValidator method)</a>
 </li>
       <li><a href="core.html#core.marc.Annotator.FORMAT_TERMS">FORMAT_TERMS (core.marc.Annotator attribute)</a>
@@ -5454,7 +5596,11 @@
       </ul></li>
       <li><a href="core.html#core.metadata_layer.ContributorData.from_contribution">from_contribution() (core.metadata_layer.ContributorData class method)</a>
 </li>
+      <li><a href="api.lcp.html#api.lcp.encrypt.LCPEncryptionResult.from_dict">from_dict() (api.lcp.encrypt.LCPEncryptionResult class method)</a>
+</li>
       <li><a href="core.html#core.metadata_layer.Metadata.from_edition">from_edition() (core.metadata_layer.Metadata class method)</a>
+</li>
+      <li><a href="core.model.html#core.model.configuration.ConfigurationOption.from_enum">from_enum() (core.model.configuration.ConfigurationOption static method)</a>
 </li>
       <li><a href="core.html#core.lane.LaneGenre.from_genre">from_genre() (core.lane.LaneGenre class method)</a>
 
@@ -5520,6 +5666,8 @@
         <li><a href="api.html#api.controller.SharedCollectionController.fulfill">(api.controller.SharedCollectionController method)</a>
 </li>
         <li><a href="api.html#api.enki.EnkiAPI.fulfill">(api.enki.EnkiAPI method)</a>
+</li>
+        <li><a href="api.lcp.html#api.lcp.collection.LCPAPI.fulfill">(api.lcp.collection.LCPAPI method)</a>
 </li>
         <li><a href="api.html#api.odilo.OdiloAPI.fulfill">(api.odilo.OdiloAPI method)</a>
 </li>
@@ -5599,6 +5747,8 @@
       <li><a href="api.admin.controller.html#api.admin.controller.work_editor.WorkController.generate_cover_image">generate_cover_image() (api.admin.controller.work_editor.WorkController method)</a>
 </li>
       <li><a href="api.admin.controller.html#api.admin.controller.AdminController.generate_csrf_token">generate_csrf_token() (api.admin.controller.AdminController method)</a>
+</li>
+      <li><a href="api.lcp.html#api.lcp.server.LCPServer.generate_license">generate_license() (api.lcp.server.LCPServer method)</a>
 </li>
       <li><a href="core.model.html#core.model.coverage.WorkCoverageRecord.GENERATE_MARC_OPERATION">GENERATE_MARC_OPERATION (core.model.coverage.WorkCoverageRecord attribute)</a>
 </li>
@@ -5752,6 +5902,8 @@
 </li>
       <li><a href="core.html#core.opds_import.MetadataWranglerOPDSLookup.get_collection_url">get_collection_url() (core.opds_import.MetadataWranglerOPDSLookup method)</a>
 </li>
+      <li><a href="core.model.html#core.model.configuration.ConfigurationMetadata.get_configuration_metadata">get_configuration_metadata() (core.model.configuration.ConfigurationMetadata static method)</a>
+</li>
       <li><a href="api.html#api.rbdigital.RBDigitalAPI.get_credential_by_token">get_credential_by_token() (api.rbdigital.RBDigitalAPI static method)</a>
 </li>
       <li><a href="api.html#api.authenticator.AuthenticationProvider.get_credential_from_header">get_credential_from_header() (api.authenticator.AuthenticationProvider method)</a>
@@ -5804,6 +5956,8 @@
 </li>
       <li><a href="core.html#core.log.CloudwatchLogs.get_handler">get_handler() (core.log.CloudwatchLogs class method)</a>
 </li>
+      <li><a href="core.lcp.html#core.lcp.credential.LCPCredentialFactory.get_hashed_passphrase">get_hashed_passphrase() (core.lcp.credential.LCPCredentialFactory method)</a>
+</li>
       <li><a href="api.html#api.odilo.OdiloAPI.get_hold">get_hold() (api.odilo.OdiloAPI method)</a>
 
       <ul>
@@ -5824,11 +5978,15 @@
         <li><a href="api.admin.controller.html#api.admin.controller.self_tests.SelfTestsController.get_info">(api.admin.controller.self_tests.SelfTestsController method)</a>
 </li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.html#api.enki.EnkiAPI.get_item">get_item() (api.enki.EnkiAPI method)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.html#api.novelist.NoveListAPI.get_items_from_query">get_items_from_query() (api.novelist.NoveListAPI method)</a>
+</li>
+      <li><a href="api.lcp.html#api.lcp.controller.LCPController.get_lcp_license">get_lcp_license() (api.lcp.controller.LCPController method)</a>
+</li>
+      <li><a href="api.lcp.html#api.lcp.controller.LCPController.get_lcp_passphrase">get_lcp_passphrase() (api.lcp.controller.LCPController method)</a>
 </li>
       <li><a href="core.html#core.lane.Lane.get_library">get_library() (core.lane.Lane method)</a>
 
@@ -5846,6 +6004,8 @@
         <li><a href="api.admin.controller.html#api.admin.controller.discovery_service_library_registrations.DiscoveryServiceLibraryRegistrationsController.get_library_info">(api.admin.controller.discovery_service_library_registrations.DiscoveryServiceLibraryRegistrationsController method)</a>
 </li>
       </ul></li>
+      <li><a href="api.lcp.html#api.lcp.server.LCPServer.get_license">get_license() (api.lcp.server.LCPServer method)</a>
+</li>
       <li><a href="api.html#api.odl.ODLAPI.get_license_status_document">get_license_status_document() (api.odl.ODLAPI method)</a>
 </li>
       <li><a href="api.html#api.overdrive.OverdriveAPI.get_loan">get_loan() (api.overdrive.OverdriveAPI method)</a>
@@ -5904,9 +6064,13 @@
         <li><a href="api.html#api.rbdigital.RBDigitalAPI.get_patron_holds">(api.rbdigital.RBDigitalAPI method)</a>
 </li>
       </ul></li>
+      <li><a href="core.lcp.html#core.lcp.credential.LCPCredentialFactory.get_patron_id">get_patron_id() (core.lcp.credential.LCPCredentialFactory method)</a>
+</li>
       <li><a href="api.html#api.overdrive.OverdriveAPI.get_patron_information">get_patron_information() (api.overdrive.OverdriveAPI method)</a>
 </li>
       <li><a href="api.html#api.controller.LoanController.get_patron_loan">get_patron_loan() (api.controller.LoanController method)</a>
+</li>
+      <li><a href="core.lcp.html#core.lcp.credential.LCPCredentialFactory.get_patron_passphrase">get_patron_passphrase() (core.lcp.credential.LCPCredentialFactory method)</a>
 </li>
       <li><a href="core.html#core.scripts.RunCollectionCoverageProviderScript.get_providers">get_providers() (core.scripts.RunCollectionCoverageProviderScript method)</a>
 
@@ -5928,6 +6092,12 @@
 </li>
       <li><a href="api.saml.html#api.saml.configuration.SAMLOneLoginConfiguration.get_service_provider_settings">get_service_provider_settings() (api.saml.configuration.SAMLOneLoginConfiguration method)</a>
 </li>
+      <li><a href="core.model.html#core.model.configuration.ConfigurationGrouping.get_setting_value">get_setting_value() (core.model.configuration.ConfigurationGrouping method)</a>
+
+      <ul>
+        <li><a href="core.model.html#core.model.configuration.HasConfigurationSettings.get_setting_value">(core.model.configuration.HasConfigurationSettings method)</a>
+</li>
+      </ul></li>
       <li><a href="api.saml.html#api.saml.configuration.SAMLOneLoginConfiguration.get_settings">get_settings() (api.saml.configuration.SAMLOneLoginConfiguration method)</a>
 </li>
       <li><a href="api.admin.controller.html#api.admin.controller.SitewideRegistrationController.get_shared_secret">get_shared_secret() (api.admin.controller.SitewideRegistrationController method)</a>
@@ -5935,6 +6105,8 @@
       <li><a href="core.html#core.marc.MARCExporter.get_storage_settings">get_storage_settings() (core.marc.MARCExporter class method)</a>
 </li>
       <li><a href="api.saml.html#api.saml.configuration.SAMLConfiguration.get_strict">get_strict() (api.saml.configuration.SAMLConfiguration method)</a>
+</li>
+      <li><a href="api.lcp.html#api.lcp.utils.get_target_extension">get_target_extension() (in module api.lcp.utils)</a>
 </li>
       <li><a href="api.html#api.odilo.OdiloCirculationMonitor.get_url">get_url() (api.odilo.OdiloCirculationMonitor method)</a>
 </li>
@@ -6116,7 +6288,27 @@
 </li>
       <li><a href="api.html#api.selftest.HasCollectionSelfTests">HasCollectionSelfTests (class in api.selftest)</a>
 </li>
+      <li><a href="core.model.html#core.model.configuration.HasConfigurationSettings">HasConfigurationSettings (class in core.model.configuration)</a>
+</li>
+      <li><a href="core.model.html#core.model.configuration.HasExternalIntegration">HasExternalIntegration (class in core.model.configuration)</a>
+</li>
+      <li><a href="core.model.html#core.model.collection.HasExternalIntegrationPerCollection">HasExternalIntegrationPerCollection (class in core.model.collection)</a>
+</li>
       <li><a href="core.model.html#core.model.hasfulltablecache.HasFullTableCache">HasFullTableCache (class in core.model.hasfulltablecache)</a>
+</li>
+      <li><a href="api.lcp.html#api.lcp.hash.Hasher.hash">hash() (api.lcp.hash.Hasher method)</a>
+
+      <ul>
+        <li><a href="api.lcp.html#api.lcp.hash.UniversalHasher.hash">(api.lcp.hash.UniversalHasher method)</a>
+</li>
+      </ul></li>
+      <li><a href="api.lcp.html#api.lcp.hash.Hasher">Hasher (class in api.lcp.hash)</a>
+</li>
+      <li><a href="api.lcp.html#api.lcp.hash.HasherFactory">HasherFactory (class in api.lcp.hash)</a>
+</li>
+      <li><a href="api.lcp.html#api.lcp.hash.HashingAlgorithm">HashingAlgorithm (class in api.lcp.hash)</a>
+</li>
+      <li><a href="api.lcp.html#api.lcp.hash.HashingError">HashingError</a>
 </li>
       <li><a href="api.html#api.selftest.HasSelfTests">HasSelfTests (class in api.selftest)</a>
 
@@ -6142,6 +6334,8 @@
 </li>
       <li><a href="api.html#api.config.Configuration.HELP_EMAIL">HELP_EMAIL (api.config.Configuration attribute)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.html#api.config.Configuration.HELP_LINKS">HELP_LINKS (api.config.Configuration attribute)</a>
 
       <ul>
@@ -6154,8 +6348,6 @@
 </li>
       <li><a href="api.html#api.config.Configuration.HELP_WEB">HELP_WEB (api.config.Configuration attribute)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.html#api.config.Configuration.HIDDEN_CONTENT_TYPES">HIDDEN_CONTENT_TYPES (api.config.Configuration attribute)</a>
 </li>
       <li><a href="api.admin.controller.html#api.admin.controller.LanesController.hide_lane">hide_lane() (api.admin.controller.LanesController method)</a>
@@ -6494,6 +6686,8 @@
 </li>
       <li><a href="core.model.html#core.model.licensing.DeliveryMechanism.implicit_medium">implicit_medium (core.model.licensing.DeliveryMechanism attribute)</a>
 </li>
+      <li><a href="api.lcp.html#api.lcp.importer.LCPImporter.import_book">import_book() (api.lcp.importer.LCPImporter method)</a>
+</li>
       <li><a href="core.html#core.opds_import.OPDSImporter.import_edition_from_metadata">import_edition_from_metadata() (core.opds_import.OPDSImporter method)</a>
 </li>
       <li><a href="api.html#api.coverage.OPDSImportCoverageProvider.import_feed_response">import_feed_response() (api.coverage.OPDSImportCoverageProvider method)</a>
@@ -6557,6 +6751,8 @@
       <li><a href="core.html#core.overdrive.OverdriveAPI.INCOMPATIBLE_PLATFORM_FORMATS">INCOMPATIBLE_PLATFORM_FORMATS (core.overdrive.OverdriveAPI attribute)</a>
 </li>
       <li><a href="api.html#api.enki.EnkiImport.incremental_import">incremental_import() (api.enki.EnkiImport method)</a>
+</li>
+      <li><a href="core.model.html#core.model.configuration.ConfigurationMetadata.index">index (core.model.configuration.ConfigurationMetadata attribute)</a>
 </li>
       <li><a href="core.html#core.external_search.MockExternalSearchIndex.index">index() (core.external_search.MockExternalSearchIndex method)</a>
 
@@ -6626,9 +6822,11 @@
 </li>
       <li><a href="core.util.html#core.util.permanent_work_id.WorkIDCalculator.initialsFix">initialsFix (core.util.permanent_work_id.WorkIDCalculator attribute)</a>
 </li>
-      <li><a href="api.saml.html#api.saml.exceptions.SAMLError.inner_exception">inner_exception (api.saml.exceptions.SAMLError attribute)</a>
+      <li><a href="core.html#core.exceptions.BaseError.inner_exception">inner_exception (core.exceptions.BaseError attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.identifier.Equivalency.input">input (core.model.identifier.Equivalency attribute)</a>
+</li>
+      <li><a href="api.lcp.html#api.lcp.encrypt.LCPEncryptor.Parameters.input_file_path">input_file_path (api.lcp.encrypt.LCPEncryptor.Parameters attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.identifier.Equivalency.input_id">input_id (core.model.identifier.Equivalency attribute)</a>
 </li>
@@ -6721,6 +6919,8 @@
       <li><a href="api.html#api.circulation.BaseCirculationAPI.internal_format">internal_format() (api.circulation.BaseCirculationAPI method)</a>
 
       <ul>
+        <li><a href="api.lcp.html#api.lcp.collection.LCPAPI.internal_format">(api.lcp.collection.LCPAPI method)</a>
+</li>
         <li><a href="api.html#api.odl.ODLAPI.internal_format">(api.odl.ODLAPI method)</a>
 </li>
         <li><a href="api.html#api.odl.SharedODLAPI.internal_format">(api.odl.SharedODLAPI method)</a>
@@ -7007,17 +7207,23 @@
       <li><a href="api.saml.html#api.saml.metadata.NameIDFormat.KERBEROS">KERBEROS (api.saml.metadata.NameIDFormat attribute)</a>
 </li>
       <li><a href="core.html#core.metadata_layer.SubjectData.key">key (core.metadata_layer.SubjectData attribute)</a>
+</li>
+      <li><a href="core.model.html#core.model.configuration.ConfigurationAttribute.KEY">KEY (core.model.configuration.ConfigurationAttribute attribute)</a>
+</li>
+      <li><a href="core.model.html#core.model.configuration.ConfigurationMetadata.key">key (core.model.configuration.ConfigurationMetadata attribute)</a>
 
       <ul>
+        <li><a href="core.model.html#core.model.configuration.ConfigurationOption.key">(core.model.configuration.ConfigurationOption attribute)</a>
+</li>
         <li><a href="core.model.html#core.model.configuration.ConfigurationSetting.key">(core.model.configuration.ConfigurationSetting attribute)</a>
 </li>
       </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="core.html#core.s3.S3Uploader.key_join">key_join() (core.s3.S3Uploader class method)</a>
 </li>
       <li><a href="api.html#api.authenticator.LibraryAuthenticator.key_pair">key_pair (api.authenticator.LibraryAuthenticator attribute)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.html#api.config.Configuration.KEY_PAIR">KEY_PAIR (api.config.Configuration attribute)</a>
 </li>
       <li><a href="api.html#api.config.Configuration.key_pair">key_pair() (api.config.Configuration class method)</a>
@@ -7040,6 +7246,14 @@
 <h2 id="L">L</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="core.model.html#core.model.configuration.ConfigurationAttribute.LABEL">LABEL (core.model.configuration.ConfigurationAttribute attribute)</a>
+</li>
+      <li><a href="core.model.html#core.model.configuration.ConfigurationMetadata.label">label (core.model.configuration.ConfigurationMetadata attribute)</a>
+
+      <ul>
+        <li><a href="core.model.html#core.model.configuration.ConfigurationOption.label">(core.model.configuration.ConfigurationOption attribute)</a>
+</li>
+      </ul></li>
       <li><a href="api.html#api.custom_patron_catalog.CustomRootLane.LANE">LANE (api.custom_patron_catalog.CustomRootLane attribute)</a>
 </li>
       <li><a href="core.html#core.lane.Lane">Lane (class in core.lane)</a>
@@ -7207,6 +7421,80 @@
 </li>
       </ul></li>
       <li><a href="core.classifier.html#core.classifier.lcc.LCCClassifier">LCCClassifier (class in core.classifier.lcc)</a>
+</li>
+      <li><a href="core.model.html#core.model.configuration.ExternalIntegration.LCP">LCP (core.model.configuration.ExternalIntegration attribute)</a>
+
+      <ul>
+        <li><a href="core.model.html#core.model.constants.DataSourceConstants.LCP">(core.model.constants.DataSourceConstants attribute)</a>
+</li>
+        <li><a href="core.html#core.scripts.CollectionType.LCP">(core.scripts.CollectionType attribute)</a>
+</li>
+      </ul></li>
+      <li><a href="core.model.html#core.model.licensing.DeliveryMechanism.LCP_DRM">LCP_DRM (core.model.licensing.DeliveryMechanism attribute)</a>
+</li>
+      <li><a href="core.lcp.html#core.lcp.credential.LCPCredentialType.LCP_HASHED_PASSPHRASE">LCP_HASHED_PASSPHRASE (core.lcp.credential.LCPCredentialType attribute)</a>
+</li>
+      <li><a href="api.html#api.routes.lcp_license">lcp_license() (in module api.routes)</a>
+</li>
+      <li><a href="core.util.html#core.util.opds_writer.AtomFeed.LCP_NS">LCP_NS (core.util.opds_writer.AtomFeed attribute)</a>
+</li>
+      <li><a href="core.lcp.html#core.lcp.credential.LCPCredentialType.LCP_PASSPHRASE">LCP_PASSPHRASE (core.lcp.credential.LCPCredentialType attribute)</a>
+</li>
+      <li><a href="api.html#api.routes.lcp_passphrase">lcp_passphrase() (in module api.routes)</a>
+</li>
+      <li><a href="api.lcp.html#api.lcp.collection.LCPAPI">LCPAPI (class in api.lcp.collection)</a>
+</li>
+      <li><a href="api.lcp.html#api.lcp.controller.LCPController">LCPController (class in api.lcp.controller)</a>
+</li>
+      <li><a href="core.lcp.html#core.lcp.credential.LCPCredentialFactory">LCPCredentialFactory (class in core.lcp.credential)</a>
+</li>
+      <li><a href="core.lcp.html#core.lcp.credential.LCPCredentialType">LCPCredentialType (class in core.lcp.credential)</a>
+</li>
+      <li><a href="api.lcp.html#api.lcp.encrypt.LCPEncryptionConfiguration.lcpencrypt_location">lcpencrypt_location (api.lcp.encrypt.LCPEncryptionConfiguration attribute)</a>
+
+      <ul>
+        <li><a href="api.lcp.html#api.lcp.encrypt.LCPEncryptor.Parameters.lcpencrypt_location">(api.lcp.encrypt.LCPEncryptor.Parameters attribute)</a>
+</li>
+      </ul></li>
+      <li><a href="api.lcp.html#api.lcp.encrypt.LCPEncryptionConfiguration.lcpencrypt_output_directory">lcpencrypt_output_directory (api.lcp.encrypt.LCPEncryptionConfiguration attribute)</a>
+</li>
+      <li><a href="api.lcp.html#api.lcp.encrypt.LCPEncryptionConfiguration">LCPEncryptionConfiguration (class in api.lcp.encrypt)</a>
+</li>
+      <li><a href="api.lcp.html#api.lcp.encrypt.LCPEncryptionException">LCPEncryptionException</a>
+</li>
+      <li><a href="api.lcp.html#api.lcp.encrypt.LCPEncryptionResult">LCPEncryptionResult (class in api.lcp.encrypt)</a>
+</li>
+      <li><a href="api.lcp.html#api.lcp.encrypt.LCPEncryptor">LCPEncryptor (class in api.lcp.encrypt)</a>
+</li>
+      <li><a href="api.lcp.html#api.lcp.encrypt.LCPEncryptor.Parameters">LCPEncryptor.Parameters (class in api.lcp.encrypt)</a>
+</li>
+      <li><a href="api.lcp.html#api.lcp.encrypt.LCPEncryptorResultJSONEncoder">LCPEncryptorResultJSONEncoder (class in api.lcp.encrypt)</a>
+</li>
+      <li><a href="core.lcp.html#core.lcp.exceptions.LCPError">LCPError</a>
+</li>
+      <li><a href="api.lcp.html#api.lcp.collection.LCPFulfilmentInfo">LCPFulfilmentInfo (class in api.lcp.collection)</a>
+</li>
+      <li><a href="api.lcp.html#api.lcp.importer.LCPImporter">LCPImporter (class in api.lcp.importer)</a>
+</li>
+      <li><a href="api.lcp.html#api.lcp.mirror.LCPMirror">LCPMirror (class in api.lcp.mirror)</a>
+</li>
+      <li><a href="api.lcp.html#api.lcp.mirror.LCPMirrorConfiguration">LCPMirrorConfiguration (class in api.lcp.mirror)</a>
+</li>
+      <li><a href="api.lcp.html#api.lcp.server.LCPServer">LCPServer (class in api.lcp.server)</a>
+</li>
+      <li><a href="api.lcp.html#api.lcp.server.LCPServerConfiguration.lcpserver_input_directory">lcpserver_input_directory (api.lcp.server.LCPServerConfiguration attribute)</a>
+</li>
+      <li><a href="api.lcp.html#api.lcp.server.LCPServerConfiguration.lcpserver_page_size">lcpserver_page_size (api.lcp.server.LCPServerConfiguration attribute)</a>
+</li>
+      <li><a href="api.lcp.html#api.lcp.server.LCPServerConfiguration.lcpserver_password">lcpserver_password (api.lcp.server.LCPServerConfiguration attribute)</a>
+</li>
+      <li><a href="api.lcp.html#api.lcp.server.LCPServerConfiguration.lcpserver_url">lcpserver_url (api.lcp.server.LCPServerConfiguration attribute)</a>
+</li>
+      <li><a href="api.lcp.html#api.lcp.server.LCPServerConfiguration.lcpserver_user">lcpserver_user (api.lcp.server.LCPServerConfiguration attribute)</a>
+</li>
+      <li><a href="api.lcp.html#api.lcp.server.LCPServerConfiguration">LCPServerConfiguration (class in api.lcp.server)</a>
+</li>
+      <li><a href="api.lcp.html#api.lcp.factory.LCPServerFactory">LCPServerFactory (class in api.lcp.factory)</a>
 </li>
       <li><a href="core.classifier.html#core.classifier.Classifier.LCSH">LCSH (core.classifier.Classifier attribute)</a>
 
@@ -7490,6 +7778,8 @@
 </li>
       <li><a href="core.html#core.metadata_layer.LicenseData">LicenseData (class in core.metadata_layer)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="core.model.html#core.model.licensing.LicensePool">LicensePool (class in core.model.licensing)</a>
 </li>
       <li><a href="core.model.html#core.model.listeners.licensepool_collection_change">licensepool_collection_change() (in module core.model.listeners)</a>
@@ -7520,6 +7810,8 @@
 </li>
       <li><a href="core.model.html#core.model.licensing.LicensePool.licenses_reserved">licenses_reserved (core.model.licensing.LicensePool attribute)</a>
 </li>
+      <li><a href="api.html#api.onix.UsageStatus.LIMITED">LIMITED (api.onix.UsageStatus attribute)</a>
+</li>
       <li><a href="api.html#api.circulation_exceptions.LimitReached">LimitReached</a>
 </li>
       <li><a href="core.html#core.opds.AcquisitionFeed.link">link() (core.opds.AcquisitionFeed class method)</a>
@@ -7530,8 +7822,6 @@
         <li><a href="core.util.html#core.util.opds_writer.AtomFeed.link">(core.util.opds_writer.AtomFeed class method)</a>
 </li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="core.html#core.user_profile.ProfileController.LINK_RELATION">LINK_RELATION (core.user_profile.ProfileController attribute)</a>
 
       <ul>
@@ -7591,13 +7881,17 @@
       <li><a href="api.html#api.config.Configuration.load">load() (api.config.Configuration class method)</a>
 
       <ul>
-        <li><a href="api.saml.html#api.saml.configuration.SAMLConfigurationStorage.load">(api.saml.configuration.SAMLConfigurationStorage method)</a>
-</li>
         <li><a href="core.html#core.config.Configuration.load">(core.config.Configuration class method)</a>
 </li>
         <li><a href="core.html#core.external_search.ExternalSearchIndex.load">(core.external_search.ExternalSearchIndex class method)</a>
 </li>
         <li><a href="core.html#core.metadata_layer.IdentifierData.load">(core.metadata_layer.IdentifierData method)</a>
+</li>
+        <li><a href="core.model.html#core.model.collection.CollectionConfigurationStorage.load">(core.model.collection.CollectionConfigurationStorage method)</a>
+</li>
+        <li><a href="core.model.html#core.model.configuration.BaseConfigurationStorage.load">(core.model.configuration.BaseConfigurationStorage method)</a>
+</li>
+        <li><a href="core.model.html#core.model.configuration.ConfigurationStorage.load">(core.model.configuration.ConfigurationStorage method)</a>
 </li>
       </ul></li>
       <li><a href="core.html#core.config.Configuration.load_cdns">load_cdns() (core.config.Configuration class method)</a>
@@ -8088,7 +8382,7 @@
 </li>
       <li><a href="core.model.html#core.model.configuration.ExternalIntegrationLink.MARC">MARC (core.model.configuration.ExternalIntegrationLink attribute)</a>
 </li>
-      <li><a href="core.html#core.s3.S3Uploader.MARC_BUCKET_KEY">MARC_BUCKET_KEY (core.s3.S3Uploader attribute)</a>
+      <li><a href="core.html#core.s3.S3UploaderConfiguration.MARC_BUCKET_KEY">MARC_BUCKET_KEY (core.s3.S3UploaderConfiguration attribute)</a>
 </li>
       <li><a href="core.html#core.marc.Annotator.marc_cache_field">marc_cache_field (core.marc.Annotator attribute)</a>
 </li>
@@ -8096,10 +8390,20 @@
 </li>
       <li><a href="core.model.html#core.model.resource.Representation.marc_file">marc_file (core.model.resource.Representation attribute)</a>
 </li>
-      <li><a href="core.html#core.s3.S3Uploader.marc_file_root">marc_file_root() (core.s3.S3Uploader method)</a>
+      <li><a href="core.html#core.s3.S3UploaderConfiguration.marc_file_bucket">marc_file_bucket (core.s3.S3UploaderConfiguration attribute)</a>
 </li>
-      <li><a href="core.html#core.s3.S3Uploader.marc_file_url">marc_file_url() (core.s3.S3Uploader method)</a>
+      <li><a href="api.lcp.html#api.lcp.mirror.LCPMirror.marc_file_root">marc_file_root() (api.lcp.mirror.LCPMirror method)</a>
+
+      <ul>
+        <li><a href="core.html#core.s3.S3Uploader.marc_file_root">(core.s3.S3Uploader method)</a>
 </li>
+      </ul></li>
+      <li><a href="api.lcp.html#api.lcp.mirror.LCPMirror.marc_file_url">marc_file_url() (api.lcp.mirror.LCPMirror method)</a>
+
+      <ul>
+        <li><a href="core.html#core.s3.S3Uploader.marc_file_url">(core.s3.S3Uploader method)</a>
+</li>
+      </ul></li>
       <li><a href="core.model.html#core.model.constants.MediaTypes.MARC_MEDIA_TYPE">MARC_MEDIA_TYPE (core.model.constants.MediaTypes attribute)</a>
 </li>
       <li><a href="core.html#core.marc.MARCExporter.MARC_ORGANIZATION_CODE">MARC_ORGANIZATION_CODE (core.marc.MARCExporter attribute)</a>
@@ -8208,6 +8512,8 @@
       </ul></li>
       <li><a href="core.html#core.facets.FacetConstants.MAX_CACHE_AGE_NAME">MAX_CACHE_AGE_NAME (core.facets.FacetConstants attribute)</a>
 </li>
+      <li><a href="api.lcp.html#api.lcp.server.LCPServerConfiguration.max_copiable_pages">max_copiable_pages (api.lcp.server.LCPServerConfiguration attribute)</a>
+</li>
       <li><a href="core.html#core.overdrive.OverdriveAPI.MAX_CREDENTIAL_AGE">MAX_CREDENTIAL_AGE (core.overdrive.OverdriveAPI attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.edition.Edition.MAX_FALLBACK_THUMBNAIL_HEIGHT">MAX_FALLBACK_THUMBNAIL_HEIGHT (core.model.edition.Edition attribute)</a>
@@ -8215,6 +8521,8 @@
       <li><a href="api.html#api.config.Configuration.MAX_OUTSTANDING_FINES">MAX_OUTSTANDING_FINES (api.config.Configuration attribute)</a>
 </li>
       <li><a href="api.html#api.config.Configuration.max_outstanding_fines">max_outstanding_fines() (api.config.Configuration class method)</a>
+</li>
+      <li><a href="api.lcp.html#api.lcp.server.LCPServerConfiguration.max_printable_pages">max_printable_pages (api.lcp.server.LCPServerConfiguration attribute)</a>
 </li>
       <li><a href="api.html#api.novelist.NoveListAPI.MAX_REPRESENTATION_AGE">MAX_REPRESENTATION_AGE (api.novelist.NoveListAPI attribute)</a>
 </li>
@@ -8374,12 +8682,12 @@
 </li>
       <li><a href="api.html#api.metadata_wrangler.MetadataWranglerCollectionReaper">MetadataWranglerCollectionReaper (class in api.metadata_wrangler)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.html#api.metadata_wrangler.MetadataWranglerCollectionRegistrar">MetadataWranglerCollectionRegistrar (class in api.metadata_wrangler)</a>
 </li>
       <li><a href="core.html#core.opds_import.MetadataWranglerOPDSLookup">MetadataWranglerOPDSLookup (class in core.opds_import)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="core.html#core.metadata_layer.MetaToModelUtility">MetaToModelUtility (class in core.metadata_layer)</a>
 </li>
       <li><a href="core.html#core.scripts.DatabaseMigrationScript.migratable_files">migratable_files() (core.scripts.DatabaseMigrationScript class method)</a>
@@ -8410,6 +8718,8 @@
 </li>
       <li><a href="core.html#core.s3.MinIOUploader">MinIOUploader (class in core.s3)</a>
 </li>
+      <li><a href="core.html#core.s3.MinIOUploaderConfiguration">MinIOUploaderConfiguration (class in core.s3)</a>
+</li>
       <li><a href="core.html#core.mirror.MirrorUploader.mirror">mirror() (core.mirror.MirrorUploader class method)</a>
 </li>
       <li><a href="core.html#core.mirror.MirrorUploader.mirror_batch">mirror_batch() (core.mirror.MirrorUploader method)</a>
@@ -8422,9 +8732,11 @@
 </li>
       <li><a href="core.html#core.metadata_layer.MetaToModelUtility.mirror_link">mirror_link() (core.metadata_layer.MetaToModelUtility method)</a>
 </li>
-      <li><a href="core.html#core.mirror.MirrorUploader.mirror_one">mirror_one() (core.mirror.MirrorUploader method)</a>
+      <li><a href="api.lcp.html#api.lcp.mirror.LCPMirror.mirror_one">mirror_one() (api.lcp.mirror.LCPMirror method)</a>
 
       <ul>
+        <li><a href="core.html#core.mirror.MirrorUploader.mirror_one">(core.mirror.MirrorUploader method)</a>
+</li>
         <li><a href="core.html#core.s3.MockS3Uploader.mirror_one">(core.s3.MockS3Uploader method)</a>
 </li>
         <li><a href="core.html#core.s3.S3Uploader.mirror_one">(core.s3.S3Uploader method)</a>
@@ -8762,6 +9074,10 @@
         <li><a href="api.html#api.google_analytics_provider.GoogleAnalyticsProvider.NAME">(api.google_analytics_provider.GoogleAnalyticsProvider attribute)</a>
 </li>
         <li><a href="api.html#api.kansas_patron.KansasAuthenticationAPI.NAME">(api.kansas_patron.KansasAuthenticationAPI attribute)</a>
+</li>
+        <li><a href="api.lcp.html#api.lcp.collection.LCPAPI.NAME">(api.lcp.collection.LCPAPI attribute)</a>
+</li>
+        <li><a href="api.lcp.html#api.lcp.mirror.LCPMirror.NAME">(api.lcp.mirror.LCPMirror attribute)</a>
 </li>
         <li><a href="api.html#api.millenium_patron.MilleniumPatronAPI.NAME">(api.millenium_patron.MilleniumPatronAPI attribute)</a>
 </li>
@@ -9216,6 +9532,8 @@
 </li>
       <li><a href="api.html#api.authenticator.BasicAuthenticationProvider.NULL_KEYBOARD">NULL_KEYBOARD (api.authenticator.BasicAuthenticationProvider attribute)</a>
 </li>
+      <li><a href="core.model.html#core.model.configuration.ConfigurationAttributeType.NUMBER">NUMBER (core.model.configuration.ConfigurationAttributeType attribute)</a>
+</li>
       <li><a href="core.util.html#core.util.languages.LanguageNames.number">number (core.util.languages.LanguageNames attribute)</a>
 </li>
       <li><a href="api.html#api.authenticator.BasicAuthenticationProvider.NUMBER_PAD">NUMBER_PAD (api.authenticator.BasicAuthenticationProvider attribute)</a>
@@ -9264,7 +9582,7 @@
 <h2 id="O">O</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="core.html#core.s3.S3Uploader.OA_CONTENT_BUCKET_KEY">OA_CONTENT_BUCKET_KEY (core.s3.S3Uploader attribute)</a>
+      <li><a href="core.html#core.s3.S3UploaderConfiguration.OA_CONTENT_BUCKET_KEY">OA_CONTENT_BUCKET_KEY (core.s3.S3UploaderConfiguration attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.constants.DataSourceConstants.OA_CONTENT_SERVER">OA_CONTENT_SERVER (core.model.constants.DataSourceConstants attribute)</a>
 </li>
@@ -9454,6 +9772,8 @@
 </li>
       <li><a href="core.model.html#core.model.configuration.ExternalIntegrationLink.OPEN_ACCESS_BOOKS_KEY">OPEN_ACCESS_BOOKS_KEY (core.model.configuration.ExternalIntegrationLink attribute)</a>
 </li>
+      <li><a href="core.html#core.s3.S3UploaderConfiguration.open_access_content_bucket">open_access_content_bucket (core.s3.S3UploaderConfiguration attribute)</a>
+</li>
       <li><a href="core.model.html#core.model.constants.LinkRelations.OPEN_ACCESS_DOWNLOAD">OPEN_ACCESS_DOWNLOAD (core.model.constants.LinkRelations attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.licensing.LicensePool.open_access_download_url">open_access_download_url (core.model.licensing.LicensePool attribute)</a>
@@ -9464,14 +9784,14 @@
         <li><a href="core.model.html#core.model.work.Work.open_access_for_permanent_work_id">(core.model.work.Work class method)</a>
 </li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.html#api.opds.CirculationManagerAnnotator.open_access_link">open_access_link() (api.opds.CirculationManagerAnnotator method)</a>
 
       <ul>
         <li><a href="api.html#api.opds.LibraryAnnotator.open_access_link">(api.opds.LibraryAnnotator method)</a>
 </li>
       </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="core.model.html#core.model.licensing.LicensePool.open_access_links">open_access_links (core.model.licensing.LicensePool attribute)</a>
 </li>
       <li><a href="core.util.html#core.util.opds_writer.OPDSFeed.OPEN_ACCESS_REL">OPEN_ACCESS_REL (core.util.opds_writer.OPDSFeed attribute)</a>
@@ -9523,6 +9843,10 @@
 </li>
       </ul></li>
       <li><a href="core.util.html#core.util.opds_writer.AtomFeed.OPF_NS">OPF_NS (core.util.opds_writer.AtomFeed attribute)</a>
+</li>
+      <li><a href="core.model.html#core.model.configuration.ConfigurationAttribute.OPTIONS">OPTIONS (core.model.configuration.ConfigurationAttribute attribute)</a>
+</li>
+      <li><a href="core.model.html#core.model.configuration.ConfigurationMetadata.options">options (core.model.configuration.ConfigurationMetadata attribute)</a>
 </li>
       <li><a href="core.html#core.facets.FacetConstants.ORDER_ADDED_TO_COLLECTION">ORDER_ADDED_TO_COLLECTION (core.facets.FacetConstants attribute)</a>
 </li>
@@ -9582,7 +9906,11 @@
 </li>
       <li><a href="core.model.html#core.model.identifier.Equivalency.output">output (core.model.identifier.Equivalency attribute)</a>
 </li>
+      <li><a href="api.lcp.html#api.lcp.encrypt.LCPEncryptor.Parameters.output_file_path">output_file_path (api.lcp.encrypt.LCPEncryptor.Parameters attribute)</a>
+</li>
       <li><a href="core.model.html#core.model.identifier.Equivalency.output_id">output_id (core.model.identifier.Equivalency attribute)</a>
+</li>
+      <li><a href="api.lcp.html#api.lcp.encrypt.LCPEncryptor.OUTPUT_REGEX">OUTPUT_REGEX (api.lcp.encrypt.LCPEncryptor attribute)</a>
 </li>
       <li><a href="api.html#api.circulation_exceptions.OutstandingFines">OutstandingFines</a>
 </li>
@@ -9695,6 +10023,8 @@
 </li>
       </ul></li>
       <li><a href="core.model.html#core.model.cachedfeed.CachedFeed.PAGE_TYPE">PAGE_TYPE (core.model.cachedfeed.CachedFeed attribute)</a>
+</li>
+      <li><a href="api.html#api.onix.UsageUnit.PAGES">PAGES (api.onix.UsageUnit attribute)</a>
 </li>
       <li><a href="core.html#core.lane.Pagination">Pagination (class in core.lane)</a>
 </li>
@@ -9844,6 +10174,8 @@
         <li><a href="core.html#core.opds_import.OPDSImporter.PARSER_CLASS">(core.opds_import.OPDSImporter attribute)</a>
 </li>
       </ul></li>
+      <li><a href="api.lcp.html#api.lcp.server.LCPServerConfiguration.passphrase_hint">passphrase_hint (api.lcp.server.LCPServerConfiguration attribute)</a>
+</li>
       <li><a href="core.html#core.log.Loggly.PASSWORD">PASSWORD (core.log.Loggly attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.admin.Admin.password">password (core.model.admin.Admin attribute)</a>
@@ -9882,6 +10214,8 @@
         <li><a href="api.html#api.circulation.CirculationAPI.patron_activity">(api.circulation.CirculationAPI method)</a>
 </li>
         <li><a href="api.html#api.enki.EnkiAPI.patron_activity">(api.enki.EnkiAPI method)</a>
+</li>
+        <li><a href="api.lcp.html#api.lcp.collection.LCPAPI.patron_activity">(api.lcp.collection.LCPAPI method)</a>
 </li>
         <li><a href="api.html#api.odilo.OdiloAPI.patron_activity">(api.odilo.OdiloAPI method)</a>
 </li>
@@ -9925,6 +10259,8 @@
       <li><a href="api.html#api.rbdigital.RBDigitalAPI.patron_fulfillment_request">patron_fulfillment_request() (api.rbdigital.RBDigitalAPI method)</a>
 </li>
       <li><a href="api.html#api.odilo.OdiloAPI.PATRON_HOLDS_ENDPOINT">PATRON_HOLDS_ENDPOINT (api.odilo.OdiloAPI attribute)</a>
+</li>
+      <li><a href="core.lcp.html#core.lcp.credential.LCPCredentialType.PATRON_ID">PATRON_ID (core.lcp.credential.LCPCredentialType attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.credential.Credential.patron_id">patron_id (core.model.credential.Credential attribute)</a>
 
@@ -10033,6 +10369,10 @@
 </li>
       </ul></li>
       <li><a href="core.model.html#core.model.constants.MediaTypes.PDF_MEDIA_TYPE">PDF_MEDIA_TYPE (core.model.constants.MediaTypes attribute)</a>
+</li>
+      <li><a href="api.html#api.onix.UsageUnit.PERCENTAGE">PERCENTAGE (api.onix.UsageUnit attribute)</a>
+</li>
+      <li><a href="api.html#api.onix.UsageUnit.PERCENTAGE_PER_TIME_PERIOD">PERCENTAGE_PER_TIME_PERIOD (api.onix.UsageUnit attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.measurement.Measurement.PERCENTILE_SCALES">PERCENTILE_SCALES (core.model.measurement.Measurement attribute)</a>
 </li>
@@ -10290,8 +10630,6 @@
 </li>
       <li><a href="core.html#core.lane.Lane.priority">priority (core.lane.Lane attribute)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.html#api.config.Configuration.PRIVACY_POLICY">PRIVACY_POLICY (api.config.Configuration attribute)</a>
 
       <ul>
@@ -10300,6 +10638,8 @@
       </ul></li>
       <li><a href="api.saml.html#api.saml.metadata.UIInfo.privacy_statement_urls">privacy_statement_urls (api.saml.metadata.UIInfo attribute)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.saml.html#api.saml.configuration.SAMLOneLoginConfiguration.PRIVATE_KEY">PRIVATE_KEY (api.saml.configuration.SAMLOneLoginConfiguration attribute)</a>
 </li>
       <li><a href="api.saml.html#api.saml.metadata.ServiceProviderMetadata.private_key">private_key (api.saml.metadata.ServiceProviderMetadata attribute)</a>
@@ -10720,6 +11060,8 @@
       </ul></li>
       <li><a href="core.html#core.user_profile.ProfileStorage">ProfileStorage (class in core.user_profile)</a>
 </li>
+      <li><a href="api.html#api.onix.UsageStatus.PROHIBITED">PROHIBITED (api.onix.UsageStatus attribute)</a>
+</li>
       <li><a href="core.model.html#core.model.constants.DataSourceConstants.PROJECT_GITENBERG">PROJECT_GITENBERG (core.model.constants.DataSourceConstants attribute)</a>
 </li>
       <li><a href="core.html#core.scripts.CollectionType.PROTECTED_ACCESS">PROTECTED_ACCESS (core.scripts.CollectionType attribute)</a>
@@ -10728,7 +11070,29 @@
 </li>
       <li><a href="core.model.html#core.model.configuration.ExternalIntegrationLink.PROTECTED_ACCESS_BOOKS_KEY">PROTECTED_ACCESS_BOOKS_KEY (core.model.configuration.ExternalIntegrationLink attribute)</a>
 </li>
-      <li><a href="core.html#core.s3.S3Uploader.PROTECTED_CONTENT_BUCKET_KEY">PROTECTED_CONTENT_BUCKET_KEY (core.s3.S3Uploader attribute)</a>
+      <li><a href="core.html#core.s3.S3UploaderConfiguration.protected_access_content_bucket">protected_access_content_bucket (core.s3.S3UploaderConfiguration attribute)</a>
+</li>
+      <li><a href="core.html#core.s3.S3UploaderConfiguration.PROTECTED_CONTENT_BUCKET_KEY">PROTECTED_CONTENT_BUCKET_KEY (core.s3.S3UploaderConfiguration attribute)</a>
+</li>
+      <li><a href="api.lcp.html#api.lcp.encrypt.LCPEncryptionResult.PROTECTED_CONTENT_DISPOSITION">PROTECTED_CONTENT_DISPOSITION (api.lcp.encrypt.LCPEncryptionResult attribute)</a>
+</li>
+      <li><a href="api.lcp.html#api.lcp.encrypt.LCPEncryptionResult.protected_content_disposition">protected_content_disposition (api.lcp.encrypt.LCPEncryptionResult attribute)</a>
+</li>
+      <li><a href="api.lcp.html#api.lcp.encrypt.LCPEncryptionResult.PROTECTED_CONTENT_LENGTH">PROTECTED_CONTENT_LENGTH (api.lcp.encrypt.LCPEncryptionResult attribute)</a>
+</li>
+      <li><a href="api.lcp.html#api.lcp.encrypt.LCPEncryptionResult.protected_content_length">protected_content_length (api.lcp.encrypt.LCPEncryptionResult attribute)</a>
+</li>
+      <li><a href="api.lcp.html#api.lcp.encrypt.LCPEncryptionResult.PROTECTED_CONTENT_LOCATION">PROTECTED_CONTENT_LOCATION (api.lcp.encrypt.LCPEncryptionResult attribute)</a>
+</li>
+      <li><a href="api.lcp.html#api.lcp.encrypt.LCPEncryptionResult.protected_content_location">protected_content_location (api.lcp.encrypt.LCPEncryptionResult attribute)</a>
+</li>
+      <li><a href="api.lcp.html#api.lcp.encrypt.LCPEncryptionResult.PROTECTED_CONTENT_SHA256">PROTECTED_CONTENT_SHA256 (api.lcp.encrypt.LCPEncryptionResult attribute)</a>
+</li>
+      <li><a href="api.lcp.html#api.lcp.encrypt.LCPEncryptionResult.protected_content_sha256">protected_content_sha256 (api.lcp.encrypt.LCPEncryptionResult attribute)</a>
+</li>
+      <li><a href="api.lcp.html#api.lcp.encrypt.LCPEncryptionResult.PROTECTED_CONTENT_TYPE">PROTECTED_CONTENT_TYPE (api.lcp.encrypt.LCPEncryptionResult attribute)</a>
+</li>
+      <li><a href="api.lcp.html#api.lcp.encrypt.LCPEncryptionResult.protected_content_type">protected_content_type (api.lcp.encrypt.LCPEncryptionResult attribute)</a>
 </li>
       <li><a href="api.html#api.axis.Axis360BibliographicCoverageProvider.PROTOCOL">PROTOCOL (api.axis.Axis360BibliographicCoverageProvider attribute)</a>
 
@@ -10827,6 +11191,8 @@
 </li>
       </ul></li>
       <li><a href="api.admin.controller.html#api.admin.controller.SettingsController.PROVIDER_APIS">PROVIDER_APIS (api.admin.controller.SettingsController attribute)</a>
+</li>
+      <li><a href="api.lcp.html#api.lcp.server.LCPServerConfiguration.provider_name">provider_name (api.lcp.server.LCPServerConfiguration attribute)</a>
 </li>
       <li><a href="api.saml.html#api.saml.controller.SAMLController.PROVIDER_NAME">PROVIDER_NAME (api.saml.controller.SAMLController attribute)</a>
 </li>
@@ -11474,10 +11840,10 @@
 </li>
       <li><a href="api.html#api.feedbooks.FeedbooksOPDSImporter.replace_css">replace_css() (api.feedbooks.FeedbooksOPDSImporter method)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.html#api.custom_patron_catalog.CustomPatronCatalog.replace_link">replace_link() (api.custom_patron_catalog.CustomPatronCatalog class method)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="core.html#core.external_search.CurrentMapping.replacement">replacement (core.external_search.CurrentMapping attribute)</a>
 </li>
       <li><a href="api.html#api.feedbooks.FeedbooksOPDSImporter.REPLACEMENT_CSS_KEY">REPLACEMENT_CSS_KEY (api.feedbooks.FeedbooksOPDSImporter attribute)</a>
@@ -11549,6 +11915,10 @@
       <li><a href="api.admin.controller.html#api.admin.controller.AdminCirculationManagerController.require_system_admin">require_system_admin() (api.admin.controller.AdminCirculationManagerController method)</a>
 </li>
       <li><a href="api.sip.html#api.sip.client.named.required">required (api.sip.client.named attribute)</a>
+</li>
+      <li><a href="core.model.html#core.model.configuration.ConfigurationAttribute.REQUIRED">REQUIRED (core.model.configuration.ConfigurationAttribute attribute)</a>
+</li>
+      <li><a href="core.model.html#core.model.configuration.ConfigurationMetadata.required">required (core.model.configuration.ConfigurationMetadata attribute)</a>
 </li>
       <li><a href="core.html#core.config.Configuration.required">required() (core.config.Configuration class method)</a>
 </li>
@@ -11924,23 +12294,31 @@
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="core.model.html#core.model.configuration.ExternalIntegration.S3">S3 (core.model.configuration.ExternalIntegration attribute)</a>
 </li>
-      <li><a href="core.html#core.s3.S3Uploader.S3_ADDRESSING_STYLE">S3_ADDRESSING_STYLE (core.s3.S3Uploader attribute)</a>
+      <li><a href="core.html#core.s3.S3UploaderConfiguration.S3_ADDRESSING_STYLE">S3_ADDRESSING_STYLE (core.s3.S3UploaderConfiguration attribute)</a>
 </li>
-      <li><a href="core.html#core.s3.S3Uploader.S3_DEFAULT_ADDRESSING_STYLE">S3_DEFAULT_ADDRESSING_STYLE (core.s3.S3Uploader attribute)</a>
+      <li><a href="core.html#core.s3.S3UploaderConfiguration.s3_addressing_style">s3_addressing_style (core.s3.S3UploaderConfiguration attribute)</a>
 </li>
-      <li><a href="core.html#core.s3.S3Uploader.S3_DEFAULT_PRESIGNED_URL_EXPIRATION">S3_DEFAULT_PRESIGNED_URL_EXPIRATION (core.s3.S3Uploader attribute)</a>
+      <li><a href="core.html#core.s3.S3UploaderConfiguration.S3_DEFAULT_ADDRESSING_STYLE">S3_DEFAULT_ADDRESSING_STYLE (core.s3.S3UploaderConfiguration attribute)</a>
 </li>
-      <li><a href="core.html#core.s3.S3Uploader.S3_DEFAULT_REGION">S3_DEFAULT_REGION (core.s3.S3Uploader attribute)</a>
+      <li><a href="core.html#core.s3.S3UploaderConfiguration.S3_DEFAULT_PRESIGNED_URL_EXPIRATION">S3_DEFAULT_PRESIGNED_URL_EXPIRATION (core.s3.S3UploaderConfiguration attribute)</a>
+</li>
+      <li><a href="core.html#core.s3.S3UploaderConfiguration.S3_DEFAULT_REGION">S3_DEFAULT_REGION (core.s3.S3UploaderConfiguration attribute)</a>
 </li>
       <li><a href="core.html#core.s3.S3Uploader.S3_HOST">S3_HOST (core.s3.S3Uploader attribute)</a>
 </li>
-      <li><a href="core.html#core.s3.S3Uploader.S3_PRESIGNED_URL_EXPIRATION">S3_PRESIGNED_URL_EXPIRATION (core.s3.S3Uploader attribute)</a>
+      <li><a href="core.html#core.s3.S3UploaderConfiguration.S3_PRESIGNED_URL_EXPIRATION">S3_PRESIGNED_URL_EXPIRATION (core.s3.S3UploaderConfiguration attribute)</a>
 </li>
-      <li><a href="core.html#core.s3.S3Uploader.S3_REGION">S3_REGION (core.s3.S3Uploader attribute)</a>
+      <li><a href="core.html#core.s3.S3UploaderConfiguration.s3_presigned_url_expiration">s3_presigned_url_expiration (core.s3.S3UploaderConfiguration attribute)</a>
+</li>
+      <li><a href="core.html#core.s3.S3UploaderConfiguration.S3_REGION">S3_REGION (core.s3.S3UploaderConfiguration attribute)</a>
+</li>
+      <li><a href="core.html#core.s3.S3UploaderConfiguration.s3_region">s3_region (core.s3.S3UploaderConfiguration attribute)</a>
 </li>
       <li><a href="core.html#core.s3.S3AddressingStyle">S3AddressingStyle (class in core.s3)</a>
 </li>
       <li><a href="core.html#core.s3.S3Uploader">S3Uploader (class in core.s3)</a>
+</li>
+      <li><a href="core.html#core.s3.S3UploaderConfiguration">S3UploaderConfiguration (class in core.s3)</a>
 </li>
       <li><a href="api.html#api.routes.saml_authenticate">saml_authenticate() (in module api.routes)</a>
 </li>
@@ -11970,13 +12348,7 @@
 </li>
       <li><a href="api.saml.html#api.saml.configuration.SAMLConfigurationError">SAMLConfigurationError</a>
 </li>
-      <li><a href="api.saml.html#api.saml.configuration.SAMLConfigurationStorage">SAMLConfigurationStorage (class in api.saml.configuration)</a>
-</li>
-      <li><a href="api.saml.html#api.saml.configuration.SAMLConfigurationStorageError">SAMLConfigurationStorageError</a>
-</li>
       <li><a href="api.saml.html#api.saml.controller.SAMLController">SAMLController (class in api.saml.controller)</a>
-</li>
-      <li><a href="api.saml.html#api.saml.exceptions.SAMLError">SAMLError</a>
 </li>
       <li><a href="api.saml.html#api.saml.loader.SAMLMetadataLoader">SAMLMetadataLoader (class in api.saml.loader)</a>
 </li>
@@ -12000,9 +12372,13 @@
 </li>
       <li><a href="core.html#core.testing.DatabaseTest.sample_cover_representation">sample_cover_representation() (core.testing.DatabaseTest method)</a>
 </li>
-      <li><a href="api.saml.html#api.saml.configuration.SAMLConfigurationStorage.save">save() (api.saml.configuration.SAMLConfigurationStorage method)</a>
+      <li><a href="core.model.html#core.model.collection.CollectionConfigurationStorage.save">save() (core.model.collection.CollectionConfigurationStorage method)</a>
 
       <ul>
+        <li><a href="core.model.html#core.model.configuration.BaseConfigurationStorage.save">(core.model.configuration.BaseConfigurationStorage method)</a>
+</li>
+        <li><a href="core.model.html#core.model.configuration.ConfigurationStorage.save">(core.model.configuration.ConfigurationStorage method)</a>
+</li>
         <li><a href="core.html#core.scripts.DatabaseMigrationScript.TimestampInfo.save">(core.scripts.DatabaseMigrationScript.TimestampInfo method)</a>
 </li>
       </ul></li>
@@ -12170,9 +12546,13 @@
       </ul></li>
       <li><a href="api.html#api.config.Configuration.SECRET_KEY">SECRET_KEY (api.config.Configuration attribute)</a>
 </li>
+      <li><a href="core.html#core.s3.S3UploaderConfiguration.secret_key">secret_key (core.s3.S3UploaderConfiguration attribute)</a>
+</li>
       <li><a href="api.saml.html#api.saml.configuration.SAMLOneLoginConfiguration.SECURITY">SECURITY (api.saml.configuration.SAMLOneLoginConfiguration attribute)</a>
 </li>
       <li><a href="core.classifier.html#core.classifier.bisac.BISACClassifier.see_also">see_also (core.classifier.bisac.BISACClassifier attribute)</a>
+</li>
+      <li><a href="core.model.html#core.model.configuration.ConfigurationAttributeType.SELECT">SELECT (core.model.configuration.ConfigurationAttributeType attribute)</a>
 </li>
       <li><a href="core.html#core.lane.BaseFacets.selectable_entrypoints">selectable_entrypoints() (core.lane.BaseFacets class method)</a>
 
@@ -12288,6 +12668,8 @@
         <li><a href="api.html#api.enki.EnkiCollectionReaper.SERVICE_NAME">(api.enki.EnkiCollectionReaper attribute)</a>
 </li>
         <li><a href="api.html#api.enki.EnkiImport.SERVICE_NAME">(api.enki.EnkiImport attribute)</a>
+</li>
+        <li><a href="api.lcp.html#api.lcp.collection.LCPAPI.SERVICE_NAME">(api.lcp.collection.LCPAPI attribute)</a>
 </li>
         <li><a href="api.html#api.metadata_wrangler.MWAuxiliaryMetadataMonitor.SERVICE_NAME">(api.metadata_wrangler.MWAuxiliaryMetadataMonitor attribute)</a>
 </li>
@@ -12446,6 +12828,8 @@
         <li><a href="core.html#core.log.Loggly.set_formatter">(core.log.Loggly class method)</a>
 </li>
       </ul></li>
+      <li><a href="core.lcp.html#core.lcp.credential.LCPCredentialFactory.set_hashed_passphrase">set_hashed_passphrase() (core.lcp.credential.LCPCredentialFactory method)</a>
+</li>
       <li><a href="core.model.html#core.model.patron.Annotation.set_inactive">set_inactive() (core.model.patron.Annotation method)</a>
 </li>
       <li><a href="core.html#core.coverage.IdentifierCoverageProvider.set_metadata">set_metadata() (core.coverage.IdentifierCoverageProvider method)</a>
@@ -12484,6 +12868,12 @@
 </li>
       <li><a href="core.model.html#core.model.configuration.ExternalIntegration.set_setting">set_setting() (core.model.configuration.ExternalIntegration method)</a>
 </li>
+      <li><a href="core.model.html#core.model.configuration.ConfigurationGrouping.set_setting_value">set_setting_value() (core.model.configuration.ConfigurationGrouping method)</a>
+
+      <ul>
+        <li><a href="core.model.html#core.model.configuration.HasConfigurationSettings.set_setting_value">(core.model.configuration.HasConfigurationSettings method)</a>
+</li>
+      </ul></li>
       <li><a href="core.html#core.external_search.ExternalSearchIndex.set_stored_scripts">set_stored_scripts() (core.external_search.ExternalSearchIndex method)</a>
 </li>
       <li><a href="core.model.html#core.model.resource.Resource.Work.set_summary">set_summary() (core.model.resource.Resource.Work method)</a>
@@ -12571,6 +12961,10 @@
 </li>
         <li><a href="api.html#api.lanes.CrawlableFacets.SETTINGS">(api.lanes.CrawlableFacets attribute)</a>
 </li>
+        <li><a href="api.lcp.html#api.lcp.collection.LCPAPI.SETTINGS">(api.lcp.collection.LCPAPI attribute)</a>
+</li>
+        <li><a href="api.lcp.html#api.lcp.mirror.LCPMirror.SETTINGS">(api.lcp.mirror.LCPMirror attribute)</a>
+</li>
         <li><a href="api.html#api.millenium_patron.MilleniumPatronAPI.SETTINGS">(api.millenium_patron.MilleniumPatronAPI attribute)</a>
 </li>
         <li><a href="api.html#api.novelist.NoveListAPI.SETTINGS">(api.novelist.NoveListAPI attribute)</a>
@@ -12646,6 +13040,8 @@
 </li>
       <li><a href="api.html#api.controller.CirculationManager.setup_adobe_vendor_id">setup_adobe_vendor_id() (api.controller.CirculationManager method)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.html#api.controller.CirculationManager.setup_circulation">setup_circulation() (api.controller.CirculationManager method)</a>
 </li>
       <li><a href="core.html#core.testing.DatabaseTest.setup_class">setup_class() (core.testing.DatabaseTest class method)</a>
@@ -12656,8 +13052,6 @@
 </li>
       <li><a href="api.html#api.controller.CirculationManager.setup_external_search">setup_external_search() (api.controller.CirculationManager method)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="core.html#core.external_search.ExternalSearchIndex.setup_index">setup_index() (core.external_search.ExternalSearchIndex method)</a>
 
       <ul>
@@ -12671,6 +13065,10 @@
       <li><a href="api.html#api.controller.CirculationManager.setup_search">setup_search() (api.controller.CirculationManager method)</a>
 </li>
       <li><a href="api.html#api.controller.CirculationManager.setup_shared_collection">setup_shared_collection() (api.controller.CirculationManager method)</a>
+</li>
+      <li><a href="api.lcp.html#api.lcp.hash.HashingAlgorithm.SHA256">SHA256 (api.lcp.hash.HashingAlgorithm attribute)</a>
+</li>
+      <li><a href="api.lcp.html#api.lcp.hash.HashingAlgorithm.SHA512">SHA512 (api.lcp.hash.HashingAlgorithm attribute)</a>
 </li>
       <li><a href="api.html#api.controller.CirculationManagerController.shared_collection">shared_collection (api.controller.CirculationManagerController attribute)</a>
 </li>
@@ -13540,6 +13938,8 @@
 </li>
       <li><a href="core.html#core.opds.TestUnfulfillableAnnotator">TestUnfulfillableAnnotator (class in core.opds)</a>
 </li>
+      <li><a href="core.model.html#core.model.configuration.ConfigurationAttributeType.TEXT">TEXT (core.model.configuration.ConfigurationAttributeType attribute)</a>
+</li>
       <li><a href="core.html#core.testing.MockRequestsResponse.text">text (core.testing.MockRequestsResponse attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.constants.MediaTypes.TEXT_HTML_MEDIA_TYPE">TEXT_HTML_MEDIA_TYPE (core.model.constants.MediaTypes attribute)</a>
@@ -13553,6 +13953,8 @@
       <li><a href="core.model.html#core.model.constants.MediaTypes.TEXT_PLAIN">TEXT_PLAIN (core.model.constants.MediaTypes attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.constants.MediaTypes.TEXT_XML_MEDIA_TYPE">TEXT_XML_MEDIA_TYPE (core.model.constants.MediaTypes attribute)</a>
+</li>
+      <li><a href="core.model.html#core.model.configuration.ConfigurationAttributeType.TEXTAREA">TEXTAREA (core.model.configuration.ConfigurationAttributeType attribute)</a>
 </li>
       <li><a href="api.html#api.millenium_patron.MockMilleniumPatronAPI.the_future">the_future (api.millenium_patron.MockMilleniumPatronAPI attribute)</a>
 </li>
@@ -13591,6 +13993,8 @@
 </li>
       </ul></li>
       <li><a href="core.html#core.monitor.TimelineMonitor">TimelineMonitor (class in core.monitor)</a>
+</li>
+      <li><a href="api.html#api.onix.UsageUnit.TIMES">TIMES (api.onix.UsageUnit attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.coverage.Timestamp">Timestamp (class in core.model.coverage)</a>
 </li>
@@ -13638,8 +14042,6 @@
 </li>
       <li><a href="api.html#api.config.Configuration.TINY_COLLECTION_LANGUAGES">TINY_COLLECTION_LANGUAGES (api.config.Configuration attribute)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.html#api.config.Configuration.tiny_collection_languages">tiny_collection_languages() (api.config.Configuration class method)</a>
 </li>
       <li><a href="core.model.html#core.model.edition.Edition.title">title (core.model.edition.Edition attribute)</a>
@@ -13658,6 +14060,8 @@
         <li><a href="core.util.html#core.util.http.RequestTimedOut.title">(core.util.http.RequestTimedOut attribute)</a>
 </li>
       </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="core.util.html#core.util.opds_writer.AtomFeed.title">title() (core.util.opds_writer.AtomFeed class method)</a>
 </li>
       <li><a href="core.model.html#core.model.edition.Edition.title_for_permanent_work_id">title_for_permanent_work_id (core.model.edition.Edition attribute)</a>
@@ -13676,9 +14080,13 @@
 </li>
       <li><a href="core.util.html#core.util.TitleProcessor">TitleProcessor (class in core.util)</a>
 </li>
+      <li><a href="api.lcp.html#api.lcp.encrypt.LCPEncryptor.Parameters.to_array">to_array() (api.lcp.encrypt.LCPEncryptor.Parameters method)</a>
+</li>
       <li><a href="scripts.html#scripts.CreateWorksForIdentifiersScript.to_check">to_check (scripts.CreateWorksForIdentifiersScript attribute)</a>
 </li>
       <li><a href="core.html#core.overdrive.OverdriveAdvantageAccount.to_collection">to_collection() (core.overdrive.OverdriveAdvantageAccount method)</a>
+</li>
+      <li><a href="core.model.html#core.model.configuration.ConfigurationAttributeType.to_control_type">to_control_type() (core.model.configuration.ConfigurationAttributeType method)</a>
 </li>
       <li><a href="core.html#core.coverage.CoverageFailure.to_coverage_record">to_coverage_record() (core.coverage.CoverageFailure method)</a>
 </li>
@@ -13726,6 +14134,14 @@
 
       <ul>
         <li><a href="core.model.html#core.model.work.Work.to_search_documents">(core.model.work.Work class method)</a>
+</li>
+      </ul></li>
+      <li><a href="core.model.html#core.model.configuration.ConfigurationGrouping.to_settings">to_settings() (core.model.configuration.ConfigurationGrouping class method)</a>
+
+      <ul>
+        <li><a href="core.model.html#core.model.configuration.ConfigurationMetadata.to_settings">(core.model.configuration.ConfigurationMetadata method)</a>
+</li>
+        <li><a href="core.model.html#core.model.configuration.ConfigurationOption.to_settings">(core.model.configuration.ConfigurationOption method)</a>
 </li>
       </ul></li>
       <li><a href="core.html#core.coverage.CoverageFailure.to_work_coverage_record">to_work_coverage_record() (core.coverage.CoverageFailure method)</a>
@@ -13879,6 +14295,12 @@
 </li>
         <li><a href="core.model.html#core.model.complaint.Complaint.type">(core.model.complaint.Complaint attribute)</a>
 </li>
+      </ul></li>
+      <li><a href="core.model.html#core.model.configuration.ConfigurationAttribute.TYPE">TYPE (core.model.configuration.ConfigurationAttribute attribute)</a>
+</li>
+      <li><a href="core.model.html#core.model.configuration.ConfigurationMetadata.type">type (core.model.configuration.ConfigurationMetadata attribute)</a>
+
+      <ul>
         <li><a href="core.model.html#core.model.credential.Credential.type">(core.model.credential.Credential attribute)</a>
 </li>
         <li><a href="core.model.html#core.model.credential.DelegatedPatronIdentifier.type">(core.model.credential.DelegatedPatronIdentifier attribute)</a>
@@ -13930,6 +14352,8 @@
 </li>
       <li><a href="core.html#core.external_search.Filter.universal_nested_filters">universal_nested_filters() (core.external_search.Filter class method)</a>
 </li>
+      <li><a href="api.lcp.html#api.lcp.hash.UniversalHasher">UniversalHasher (class in api.lcp.hash)</a>
+</li>
       <li><a href="core.model.html#core.model.licensing.RightsStatus.UNKNOWN">UNKNOWN (core.model.licensing.RightsStatus attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.resource.Resource.Work.UNKNOWN_APPEAL">UNKNOWN_APPEAL (core.model.resource.Resource.Work attribute)</a>
@@ -13945,6 +14369,12 @@
       <li><a href="api.sip.html#api.sip.client.Constants.UNKNOWN_LANGUAGE">UNKNOWN_LANGUAGE (api.sip.client.Constants attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.contributor.Contributor.UNKNOWN_ROLE">UNKNOWN_ROLE (core.model.contributor.Contributor attribute)</a>
+</li>
+      <li><a href="api.html#api.onix.UsageStatus.UNLIMITED">UNLIMITED (api.onix.UsageStatus attribute)</a>
+</li>
+      <li><a href="core.model.html#core.model.licensing.LicensePool.UNLIMITED_ACCESS">UNLIMITED_ACCESS (core.model.licensing.LicensePool attribute)</a>
+</li>
+      <li><a href="core.model.html#core.model.licensing.LicensePool.unlimited_access">unlimited_access (core.model.licensing.LicensePool attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.resource.Hyperlink.unmirrored">unmirrored() (core.model.resource.Hyperlink class method)</a>
 </li>
@@ -14196,17 +14626,19 @@
 </li>
       <li><a href="core.html#core.lane.Lane.url_name">url_name (core.lane.Lane attribute)</a>
 </li>
+      <li><a href="core.html#core.s3.S3UploaderConfiguration.url_template">url_template (core.s3.S3UploaderConfiguration attribute)</a>
+</li>
       <li><a href="core.html#core.opensearch.OpenSearchDocument.url_template">url_template() (core.opensearch.OpenSearchDocument class method)</a>
 </li>
-      <li><a href="core.html#core.s3.S3Uploader.URL_TEMPLATE_DEFAULT">URL_TEMPLATE_DEFAULT (core.s3.S3Uploader attribute)</a>
+      <li><a href="core.html#core.s3.S3UploaderConfiguration.URL_TEMPLATE_DEFAULT">URL_TEMPLATE_DEFAULT (core.s3.S3UploaderConfiguration attribute)</a>
 </li>
-      <li><a href="core.html#core.s3.S3Uploader.URL_TEMPLATE_HTTP">URL_TEMPLATE_HTTP (core.s3.S3Uploader attribute)</a>
+      <li><a href="core.html#core.s3.S3UploaderConfiguration.URL_TEMPLATE_HTTP">URL_TEMPLATE_HTTP (core.s3.S3UploaderConfiguration attribute)</a>
 </li>
-      <li><a href="core.html#core.s3.S3Uploader.URL_TEMPLATE_HTTPS">URL_TEMPLATE_HTTPS (core.s3.S3Uploader attribute)</a>
+      <li><a href="core.html#core.s3.S3UploaderConfiguration.URL_TEMPLATE_HTTPS">URL_TEMPLATE_HTTPS (core.s3.S3UploaderConfiguration attribute)</a>
 </li>
-      <li><a href="core.html#core.s3.S3Uploader.URL_TEMPLATE_KEY">URL_TEMPLATE_KEY (core.s3.S3Uploader attribute)</a>
+      <li><a href="core.html#core.s3.S3UploaderConfiguration.URL_TEMPLATE_KEY">URL_TEMPLATE_KEY (core.s3.S3UploaderConfiguration attribute)</a>
 </li>
-      <li><a href="core.html#core.s3.S3Uploader.URL_TEMPLATES_BY_TEMPLATE">URL_TEMPLATES_BY_TEMPLATE (core.s3.S3Uploader attribute)</a>
+      <li><a href="core.html#core.s3.S3UploaderConfiguration.URL_TEMPLATES_BY_TEMPLATE">URL_TEMPLATES_BY_TEMPLATE (core.s3.S3UploaderConfiguration attribute)</a>
 </li>
       <li><a href="api.admin.controller.html#api.admin.controller.SettingsController.url_variants">url_variants() (api.admin.controller.SettingsController class method)</a>
 </li>
@@ -14233,6 +14665,10 @@
       <li><a href="core.html#core.app_server.URNLookupHandler">URNLookupHandler (class in core.app_server)</a>
 </li>
       <li><a href="api.html#api.feedbooks.RehostingPolicy.US_SITES">US_SITES (api.feedbooks.RehostingPolicy attribute)</a>
+</li>
+      <li><a href="api.html#api.onix.UsageStatus">UsageStatus (class in api.onix)</a>
+</li>
+      <li><a href="api.html#api.onix.UsageUnit">UsageUnit (class in api.onix)</a>
 </li>
       <li><a href="api.html#api.rbdigital.RBDigitalFulfillmentProxy.use_proxy_links">use_proxy_links (api.rbdigital.RBDigitalFulfillmentProxy attribute)</a>
 </li>
@@ -14577,6 +15013,8 @@
       <li><a href="core.model.html#core.model.configuration.ExternalIntegration.with_setting_value">with_setting_value() (core.model.configuration.ExternalIntegration class method)</a>
 </li>
       <li><a href="core.model.html#core.model.constants.MediaTypes.WMV_MEDIA_TYPE">WMV_MEDIA_TYPE (core.model.constants.MediaTypes attribute)</a>
+</li>
+      <li><a href="api.html#api.onix.UsageUnit.WORDS">WORDS (api.onix.UsageUnit attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.work.Work">Work (class in core.model.work)</a>
 </li>

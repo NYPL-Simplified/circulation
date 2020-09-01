@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    <title>api.saml.exceptions &#8212; Library Simplified Circulation Manager  documentation</title>
+    <title>core.lcp.exceptions &#8212; Library Simplified Circulation Manager  documentation</title>
     <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
     <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
     <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
@@ -32,31 +32,12 @@
 
           <div class="body" role="main">
             
-  <h1>Source code for api.saml.exceptions</h1><div class="highlight"><pre>
-<div class="viewcode-block" id="SAMLError"><a class="viewcode-back" href="../../../api.saml.html#api.saml.exceptions.SAMLError">[docs]</a><span></span><span class="k">class</span> <span class="nc">SAMLError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Base class for all SAML-related errors&quot;&quot;&quot;</span>
+  <h1>Source code for core.lcp.exceptions</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">core.exceptions</span> <span class="kn">import</span> <span class="n">BaseError</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">inner_exception</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Initializes a new instance of SAMLError class</span>
 
-<span class="sd">        :param message: String containing description of the error occurred</span>
-<span class="sd">        :param inner_exception: (Optional) Inner exception</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="n">inner_exception</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">message</span><span class="p">:</span>
-            <span class="n">message</span> <span class="o">=</span> <span class="n">inner_exception</span><span class="o">.</span><span class="n">message</span>
-
-        <span class="nb">super</span><span class="p">(</span><span class="n">SAMLError</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">_inner_exception</span> <span class="o">=</span> <span class="n">inner_exception</span>
-
-    <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">inner_exception</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Returns an inner exception</span>
-
-<span class="sd">        :return: Inner exception</span>
-<span class="sd">        :rtype: Exception</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_inner_exception</span></div>
+<div class="viewcode-block" id="LCPError"><a class="viewcode-back" href="../../../core.lcp.html#core.lcp.exceptions.LCPError">[docs]</a><span class="k">class</span> <span class="nc">LCPError</span><span class="p">(</span><span class="n">BaseError</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Base class for all LCP related exceptions&quot;&quot;&quot;</span></div>
 </pre></div>
 
           </div>

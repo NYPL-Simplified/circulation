@@ -34,16 +34,19 @@
             
   <h1>Source code for api.onix</h1><div class="highlight"><pre>
 <span></span><span class="kn">import</span> <span class="nn">datetime</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+
+<span class="kn">from</span> <span class="nn">enum</span> <span class="kn">import</span> <span class="n">Enum</span>
 <span class="kn">from</span> <span class="nn">lxml</span> <span class="kn">import</span> <span class="n">etree</span>
-<span class="kn">import</span> <span class="nn">os</span>
+
+<span class="kn">from</span> <span class="nn">core.classifier</span> <span class="kn">import</span> <span class="n">Classifier</span>
 <span class="kn">from</span> <span class="nn">core.metadata_layer</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Metadata</span><span class="p">,</span>
     <span class="n">IdentifierData</span><span class="p">,</span>
     <span class="n">SubjectData</span><span class="p">,</span>
     <span class="n">ContributorData</span><span class="p">,</span>
     <span class="n">LinkData</span><span class="p">,</span>
-<span class="p">)</span>
-<span class="kn">from</span> <span class="nn">core.classifier</span> <span class="kn">import</span> <span class="n">Classifier</span>
+    <span class="n">CirculationData</span><span class="p">)</span>
 <span class="kn">from</span> <span class="nn">core.model</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Classification</span><span class="p">,</span>
     <span class="n">Identifier</span><span class="p">,</span>
@@ -52,10 +55,28 @@
     <span class="n">Hyperlink</span><span class="p">,</span>
     <span class="n">Representation</span><span class="p">,</span>
     <span class="n">Subject</span><span class="p">,</span>
-<span class="p">)</span>
+    <span class="n">LicensePool</span><span class="p">)</span>
 <span class="kn">from</span> <span class="nn">core.util.xmlparser</span> <span class="kn">import</span> <span class="n">XMLParser</span>
 
-<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
+
+<div class="viewcode-block" id="UsageStatus"><a class="viewcode-back" href="../../api.html#api.onix.UsageStatus">[docs]</a><span class="k">class</span> <span class="nc">UsageStatus</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
+    <span class="n">UNLIMITED</span> <span class="o">=</span> <span class="s1">&#39;01&#39;</span>
+    <span class="n">LIMITED</span> <span class="o">=</span> <span class="s1">&#39;02&#39;</span>
+    <span class="n">PROHIBITED</span> <span class="o">=</span> <span class="s1">&#39;03&#39;</span></div>
+
+
+<div class="viewcode-block" id="UsageUnit"><a class="viewcode-back" href="../../api.html#api.onix.UsageUnit">[docs]</a><span class="k">class</span> <span class="nc">UsageUnit</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
+    <span class="n">COPIES</span> <span class="o">=</span> <span class="s1">&#39;01&#39;</span>
+    <span class="n">CHARACTERS</span> <span class="o">=</span> <span class="s1">&#39;02&#39;</span>
+    <span class="n">WORDS</span> <span class="o">=</span> <span class="s1">&#39;03&#39;</span>
+    <span class="n">PAGES</span> <span class="o">=</span> <span class="s1">&#39;04&#39;</span>
+    <span class="n">PERCENTAGE</span> <span class="o">=</span> <span class="s1">&#39;05&#39;</span>
+    <span class="n">DEVICES</span> <span class="o">=</span> <span class="s1">&#39;06&#39;</span>
+    <span class="n">CONCURRENT_USERS</span> <span class="o">=</span> <span class="s1">&#39;07&#39;</span>
+    <span class="n">PERCENTAGE_PER_TIME_PERIOD</span> <span class="o">=</span> <span class="s1">&#39;08&#39;</span>
+    <span class="n">DAYS</span> <span class="o">=</span> <span class="s1">&#39;09&#39;</span>
+    <span class="n">TIMES</span> <span class="o">=</span> <span class="s1">&#39;10&#39;</span></div>
+
 
 <div class="viewcode-block" id="ONIXExtractor"><a class="viewcode-back" href="../../api.html#api.onix.ONIXExtractor">[docs]</a><span class="k">class</span> <span class="nc">ONIXExtractor</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Transform an ONIX file into a list of Metadata objects.&quot;&quot;&quot;</span>
@@ -193,6 +214,8 @@
         <span class="s1">&#39;Z99&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">UNKNOWN_ROLE</span><span class="p">,</span> <span class="c1"># Other creative responsibility</span>
     <span class="p">}</span>
 
+    <span class="n">_logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
 <div class="viewcode-block" id="ONIXExtractor.parse"><a class="viewcode-back" href="../../api.html#api.onix.ONIXExtractor.parse">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">parse</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">file</span><span class="p">,</span> <span class="n">data_source_name</span><span class="p">):</span>
         <span class="n">metadata_records</span> <span class="o">=</span> <span class="p">[]</span>
@@ -288,6 +311,43 @@
                                           <span class="n">media_type</span><span class="o">=</span><span class="n">Representation</span><span class="o">.</span><span class="n">TEXT_HTML_MEDIA_TYPE</span><span class="p">,</span>
                                           <span class="n">content</span><span class="o">=</span><span class="n">text</span><span class="p">))</span>
 
+            <span class="n">usage_constraint_tags</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">_xpath</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="s1">&#39;descriptivedetail/epubusageconstraint&#39;</span><span class="p">)</span>
+            <span class="n">licenses_owned</span> <span class="o">=</span> <span class="n">LicensePool</span><span class="o">.</span><span class="n">UNLIMITED_ACCESS</span>
+
+            <span class="k">if</span> <span class="n">usage_constraint_tags</span><span class="p">:</span>
+                <span class="bp">cls</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s1">&#39;Found </span><span class="si">{0}</span><span class="s1"> EpubUsageConstraint tags&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">usage_constraint_tags</span><span class="p">)))</span>
+
+            <span class="k">for</span> <span class="n">usage_constraint_tag</span> <span class="ow">in</span> <span class="n">usage_constraint_tags</span><span class="p">:</span>
+                <span class="n">usage_status</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">text_of_subtag</span><span class="p">(</span><span class="n">usage_constraint_tag</span><span class="p">,</span> <span class="s1">&#39;x319&#39;</span><span class="p">)</span>
+
+                <span class="bp">cls</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s1">&#39;EpubUsageStatus: </span><span class="si">{0}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">usage_status</span><span class="p">))</span>
+
+                <span class="k">if</span> <span class="n">usage_status</span> <span class="o">==</span> <span class="n">UsageStatus</span><span class="o">.</span><span class="n">PROHIBITED</span><span class="o">.</span><span class="n">value</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s1">&#39;The content is prohibited&#39;</span><span class="p">)</span>
+                <span class="k">elif</span> <span class="n">usage_status</span> <span class="o">==</span> <span class="n">UsageStatus</span><span class="o">.</span><span class="n">LIMITED</span><span class="o">.</span><span class="n">value</span><span class="p">:</span>
+                    <span class="n">usage_limit_tags</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">_xpath</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="s1">&#39;descriptivedetail/epubusageconstraint/epubusagelimit&#39;</span><span class="p">)</span>
+
+                    <span class="bp">cls</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s1">&#39;Found </span><span class="si">{0}</span><span class="s1"> EpubUsageLimit tags&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">usage_limit_tags</span><span class="p">)))</span>
+
+                    <span class="k">if</span> <span class="ow">not</span> <span class="n">usage_limit_tags</span><span class="p">:</span>
+                        <span class="k">continue</span>
+
+                    <span class="p">[</span><span class="n">usage_limit_tag</span><span class="p">]</span> <span class="o">=</span> <span class="n">usage_limit_tags</span>
+
+                    <span class="n">usage_unit</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">text_of_subtag</span><span class="p">(</span><span class="n">usage_limit_tag</span><span class="p">,</span> <span class="s1">&#39;x321&#39;</span><span class="p">)</span>
+
+                    <span class="bp">cls</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s1">&#39;EpubUsageUnit: </span><span class="si">{0}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">usage_unit</span><span class="p">))</span>
+
+                    <span class="k">if</span> <span class="n">usage_unit</span> <span class="o">==</span> <span class="n">UsageUnit</span><span class="o">.</span><span class="n">COPIES</span><span class="o">.</span><span class="n">value</span> <span class="ow">or</span> <span class="n">usage_status</span> <span class="o">==</span> <span class="n">UsageUnit</span><span class="o">.</span><span class="n">CONCURRENT_USERS</span><span class="o">.</span><span class="n">value</span><span class="p">:</span>
+                        <span class="n">quantity_limit</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">text_of_subtag</span><span class="p">(</span><span class="n">usage_limit_tag</span><span class="p">,</span> <span class="s1">&#39;x320&#39;</span><span class="p">)</span>
+
+                        <span class="bp">cls</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s1">&#39;Quantity: </span><span class="si">{0}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">quantity_limit</span><span class="p">))</span>
+
+                        <span class="k">if</span> <span class="n">licenses_owned</span> <span class="o">==</span> <span class="n">LicensePool</span><span class="o">.</span><span class="n">UNLIMITED_ACCESS</span><span class="p">:</span>
+                            <span class="n">licenses_owned</span> <span class="o">=</span> <span class="mi">0</span>
+
+                        <span class="n">licenses_owned</span> <span class="o">+=</span> <span class="nb">int</span><span class="p">(</span><span class="n">quantity_limit</span><span class="p">)</span>
+
             <span class="n">metadata_records</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Metadata</span><span class="p">(</span>
                 <span class="n">data_source</span><span class="o">=</span><span class="n">data_source_name</span><span class="p">,</span>
                 <span class="n">title</span><span class="o">=</span><span class="n">title</span><span class="p">,</span>
@@ -301,8 +361,17 @@
                 <span class="n">identifiers</span><span class="o">=</span><span class="n">identifiers</span><span class="p">,</span>
                 <span class="n">subjects</span><span class="o">=</span><span class="n">subjects</span><span class="p">,</span>
                 <span class="n">contributors</span><span class="o">=</span><span class="n">contributors</span><span class="p">,</span>
-                <span class="n">links</span><span class="o">=</span><span class="n">links</span>
+                <span class="n">links</span><span class="o">=</span><span class="n">links</span><span class="p">,</span>
+                <span class="n">circulation</span><span class="o">=</span><span class="n">CirculationData</span><span class="p">(</span>
+                    <span class="n">data_source_name</span><span class="p">,</span>
+                    <span class="n">primary_identifier</span><span class="p">,</span>
+                    <span class="n">licenses_owned</span><span class="o">=</span><span class="n">licenses_owned</span><span class="p">,</span>
+                    <span class="n">licenses_available</span><span class="o">=</span><span class="n">licenses_owned</span><span class="p">,</span>
+                    <span class="n">licenses_reserved</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                    <span class="n">patrons_in_hold_queue</span><span class="o">=</span><span class="mi">0</span>
+                <span class="p">)</span>
             <span class="p">))</span>
+
         <span class="k">return</span> <span class="n">metadata_records</span></div></div>
 </pre></div>
 

@@ -595,11 +595,13 @@
         <span class="k">for</span> <span class="n">integration</span> <span class="ow">in</span> <span class="n">integrations</span><span class="p">:</span>
             <span class="c1"># Only add an integration to choose from if it has a </span>
             <span class="c1"># MARC File Bucket field in its settings.</span>
-            <span class="p">[</span><span class="n">configuration_setting</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">s</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">integration</span><span class="o">.</span><span class="n">settings</span> <span class="k">if</span> <span class="n">s</span><span class="o">.</span><span class="n">key</span><span class="o">==</span><span class="s2">&quot;marc_bucket&quot;</span><span class="p">]</span>
-            <span class="k">if</span> <span class="n">configuration_setting</span><span class="o">.</span><span class="n">value</span><span class="p">:</span>
-                <span class="bp">cls</span><span class="o">.</span><span class="n">SETTING</span><span class="p">[</span><span class="s1">&#39;options&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-                    <span class="nb">dict</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">integration</span><span class="o">.</span><span class="n">id</span><span class="p">),</span> <span class="n">label</span><span class="o">=</span><span class="n">integration</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
-                <span class="p">)</span>
+            <span class="n">configuration_settings</span> <span class="o">=</span> <span class="p">[</span><span class="n">s</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">integration</span><span class="o">.</span><span class="n">settings</span> <span class="k">if</span> <span class="n">s</span><span class="o">.</span><span class="n">key</span><span class="o">==</span><span class="s2">&quot;marc_bucket&quot;</span><span class="p">]</span>
+
+            <span class="k">if</span> <span class="n">configuration_settings</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">configuration_settings</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">value</span><span class="p">:</span>
+                    <span class="bp">cls</span><span class="o">.</span><span class="n">SETTING</span><span class="p">[</span><span class="s1">&#39;options&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                        <span class="nb">dict</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">integration</span><span class="o">.</span><span class="n">id</span><span class="p">),</span> <span class="n">label</span><span class="o">=</span><span class="n">integration</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+                    <span class="p">)</span>
         
         <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">SETTING</span></div>
 

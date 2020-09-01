@@ -8,6 +8,7 @@ Subpackages
 
     api.admin
     api.clever
+    api.lcp
     api.saml
     api.sip
     api.util

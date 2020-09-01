@@ -28,14 +28,6 @@ api.saml.controller module
     :undoc-members:
     :show-inheritance:
 
-api.saml.exceptions module
---------------------------
-
-.. automodule:: api.saml.exceptions
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 api.saml.loader module
 ----------------------
 

@@ -37,10 +37,10 @@
 
 <span class="kn">from</span> <span class="nn">onelogin.saml2.idp_metadata_parser</span> <span class="kn">import</span> <span class="n">OneLogin_Saml2_IdPMetadataParser</span>
 
-<span class="kn">from</span> <span class="nn">api.saml.exceptions</span> <span class="kn">import</span> <span class="n">SAMLError</span>
+<span class="kn">from</span> <span class="nn">core.exceptions</span> <span class="kn">import</span> <span class="n">BaseError</span>
 
 
-<div class="viewcode-block" id="SAMLMetadataLoadingError"><a class="viewcode-back" href="../../../api.saml.html#api.saml.loader.SAMLMetadataLoadingError">[docs]</a><span class="k">class</span> <span class="nc">SAMLMetadataLoadingError</span><span class="p">(</span><span class="n">SAMLError</span><span class="p">):</span>
+<div class="viewcode-block" id="SAMLMetadataLoadingError"><a class="viewcode-back" href="../../../api.saml.html#api.saml.loader.SAMLMetadataLoadingError">[docs]</a><span class="k">class</span> <span class="nc">SAMLMetadataLoadingError</span><span class="p">(</span><span class="n">BaseError</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Raised in the case of any errors occurred during loading of SAML metadata from a remote source&quot;&quot;&quot;</span></div>
 
 

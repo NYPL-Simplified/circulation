@@ -41,9 +41,10 @@
 <span class="kn">from</span> <span class="nn">onelogin.saml2.auth</span> <span class="kn">import</span> <span class="n">OneLogin_Saml2_Auth</span>
 <span class="kn">from</span> <span class="nn">onelogin.saml2.errors</span> <span class="kn">import</span> <span class="n">OneLogin_Saml2_Error</span>
 
-<span class="kn">from</span> <span class="nn">api.saml.configuration</span> <span class="kn">import</span> <span class="n">SAMLConfigurationStorage</span><span class="p">,</span> <span class="n">SAMLConfiguration</span><span class="p">,</span> \
+<span class="kn">from</span> <span class="nn">api.saml.configuration</span> <span class="kn">import</span> <span class="n">SAMLConfiguration</span><span class="p">,</span> \
     <span class="n">SAMLOneLoginConfiguration</span>
 <span class="kn">from</span> <span class="nn">api.saml.parser</span> <span class="kn">import</span> <span class="n">SAMLMetadataParser</span><span class="p">,</span> <span class="n">SAMLSubjectParser</span>
+<span class="kn">from</span> <span class="nn">core.model.configuration</span> <span class="kn">import</span> <span class="n">ConfigurationStorage</span>
 <span class="kn">from</span> <span class="nn">core.problem_details</span> <span class="kn">import</span> <span class="o">*</span>
 
 <span class="n">SAML_GENERIC_ERROR</span> <span class="o">=</span> <span class="n">pd</span><span class="p">(</span>
@@ -226,7 +227,7 @@
 <span class="sd">        :return: SAML authentication manager</span>
 <span class="sd">        :rtype: SAMLAuthenticationManager</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">configuration_storage</span> <span class="o">=</span> <span class="n">SAMLConfigurationStorage</span><span class="p">(</span><span class="n">integration_owner</span><span class="p">)</span>
+        <span class="n">configuration_storage</span> <span class="o">=</span> <span class="n">ConfigurationStorage</span><span class="p">(</span><span class="n">integration_owner</span><span class="p">)</span>
         <span class="n">configuration</span> <span class="o">=</span> <span class="n">SAMLConfiguration</span><span class="p">(</span><span class="n">configuration_storage</span><span class="p">,</span> <span class="n">SAMLMetadataParser</span><span class="p">())</span>
         <span class="n">onelogin_configuration</span> <span class="o">=</span> <span class="n">SAMLOneLoginConfiguration</span><span class="p">(</span><span class="n">configuration</span><span class="p">)</span>
         <span class="n">subject_parser</span> <span class="o">=</span> <span class="n">SAMLSubjectParser</span><span class="p">()</span>

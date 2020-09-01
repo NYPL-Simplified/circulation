@@ -1,0 +1,407 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>api.lcp.collection &#8212; Library Simplified Circulation Manager  documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for api.lcp.collection</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">datetime</span>
+<span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">from</span> <span class="nn">io</span> <span class="kn">import</span> <span class="n">BytesIO</span>
+
+<span class="kn">from</span> <span class="nn">flask</span> <span class="kn">import</span> <span class="n">send_file</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="kn">import</span> <span class="n">or_</span>
+
+<span class="kn">from</span> <span class="nn">api.circulation</span> <span class="kn">import</span> <span class="n">FulfillmentInfo</span><span class="p">,</span> <span class="n">BaseCirculationAPI</span><span class="p">,</span> <span class="n">LoanInfo</span>
+<span class="kn">from</span> <span class="nn">api.lcp.encrypt</span> <span class="kn">import</span> <span class="n">LCPEncryptionConfiguration</span>
+<span class="kn">from</span> <span class="nn">api.lcp.hash</span> <span class="kn">import</span> <span class="n">HasherFactory</span>
+<span class="kn">from</span> <span class="nn">api.lcp.server</span> <span class="kn">import</span> <span class="n">LCPServerConfiguration</span><span class="p">,</span> <span class="n">LCPServer</span>
+<span class="kn">from</span> <span class="nn">core.lcp.credential</span> <span class="kn">import</span> <span class="n">LCPCredentialFactory</span>
+<span class="kn">from</span> <span class="nn">core.model</span> <span class="kn">import</span> <span class="n">ExternalIntegration</span><span class="p">,</span> <span class="n">LicensePoolDeliveryMechanism</span><span class="p">,</span> <span class="n">get_one</span><span class="p">,</span> <span class="n">Loan</span><span class="p">,</span> <span class="n">Collection</span><span class="p">,</span> <span class="n">LicensePool</span><span class="p">,</span> \
+    <span class="n">DeliveryMechanism</span>
+<span class="kn">from</span> <span class="nn">core.model.configuration</span> <span class="kn">import</span> <span class="n">HasExternalIntegration</span><span class="p">,</span> <span class="n">ConfigurationStorage</span><span class="p">,</span> <span class="n">ConfigurationFactory</span>
+
+
+<div class="viewcode-block" id="LCPFulfilmentInfo"><a class="viewcode-back" href="../../../api.lcp.html#api.lcp.collection.LCPFulfilmentInfo">[docs]</a><span class="k">class</span> <span class="nc">LCPFulfilmentInfo</span><span class="p">(</span><span class="n">FulfillmentInfo</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Sends LCP licenses as fulfilment info&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">identifier</span><span class="p">,</span>
+            <span class="n">collection</span><span class="p">,</span>
+            <span class="n">data_source_name</span><span class="p">,</span>
+            <span class="n">identifier_type</span><span class="p">,</span>
+            <span class="n">content_link</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">content_type</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">content</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">content_expires</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Initializes a new instance of LCPFulfilmentInfo class</span>
+
+<span class="sd">        :param identifier: Identifier</span>
+<span class="sd">        :type identifier: string</span>
+
+<span class="sd">        :param collection: Collection</span>
+<span class="sd">        :type collection: Collection</span>
+
+<span class="sd">        :param data_source_name: Data source&#39;s name</span>
+<span class="sd">        :type data_source_name: string</span>
+
+<span class="sd">        :param identifier_type: Identifier&#39;s type</span>
+<span class="sd">        :type identifier_type: string</span>
+
+<span class="sd">        :param content_link: Content link</span>
+<span class="sd">        :type content_link: Optional[string]</span>
+
+<span class="sd">        :param content_link: Identifier&#39;s type</span>
+<span class="sd">        :type content_link: string</span>
+
+<span class="sd">        :param content: Identifier&#39;s type</span>
+<span class="sd">        :type content: Any</span>
+
+<span class="sd">        :param content_expires: Time when the content expires</span>
+<span class="sd">        :type content_expires: Optional[datetime.datetime]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">LCPFulfilmentInfo</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">collection</span><span class="p">,</span>
+            <span class="n">data_source_name</span><span class="p">,</span>
+            <span class="n">identifier_type</span><span class="p">,</span>
+            <span class="n">identifier</span><span class="p">,</span>
+            <span class="n">content_link</span><span class="p">,</span>
+            <span class="n">content_type</span><span class="p">,</span>
+            <span class="n">content</span><span class="p">,</span>
+            <span class="n">content_expires</span>
+        <span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">as_response</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns LCP license as a Flask response</span>
+
+<span class="sd">        :return: LCP license as a Flask response</span>
+<span class="sd">        :rtype: Response</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">send_file</span><span class="p">(</span>
+            <span class="n">BytesIO</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">content</span><span class="p">)),</span>
+            <span class="n">mimetype</span><span class="o">=</span><span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">LCP_DRM</span><span class="p">,</span>
+            <span class="n">as_attachment</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">attachment_filename</span><span class="o">=</span><span class="s1">&#39;</span><span class="si">{0}</span><span class="s1">.lcpl&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">identifier</span><span class="p">)</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="LCPAPI"><a class="viewcode-back" href="../../../api.lcp.html#api.lcp.collection.LCPAPI">[docs]</a><span class="k">class</span> <span class="nc">LCPAPI</span><span class="p">(</span><span class="n">BaseCirculationAPI</span><span class="p">,</span> <span class="n">HasExternalIntegration</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Implements LCP workflow&quot;&quot;&quot;</span>
+
+    <span class="n">NAME</span> <span class="o">=</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">LCP</span>
+    <span class="n">SERVICE_NAME</span> <span class="o">=</span> <span class="s1">&#39;LCP&#39;</span>
+    <span class="n">DESCRIPTION</span> <span class="o">=</span> <span class="s1">&#39;Manually imported collection protected using Readium LCP DRM&#39;</span>
+
+    <span class="n">SETTINGS</span> <span class="o">=</span> <span class="n">LCPServerConfiguration</span><span class="o">.</span><span class="n">to_settings</span><span class="p">()</span> <span class="o">+</span> <span class="n">LCPEncryptionConfiguration</span><span class="o">.</span><span class="n">to_settings</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">db</span><span class="p">,</span> <span class="n">collection</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Initializes a new instance of LCPAPI class</span>
+
+<span class="sd">        :param db: Database session</span>
+<span class="sd">        :type db: sqlalchemy.orm.session.Session</span>
+
+<span class="sd">        :param collection: Book collection</span>
+<span class="sd">        :type collection: Collection</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">collection</span><span class="o">.</span><span class="n">protocol</span> <span class="o">!=</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">LCP</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s1">&#39;Collection protocol is </span><span class="si">{0}</span><span class="s1"> but must be LCPAPI&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">collection</span><span class="o">.</span><span class="n">protocol</span><span class="p">)</span>
+            <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_db</span> <span class="o">=</span> <span class="n">db</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_collection_id</span> <span class="o">=</span> <span class="n">collection</span><span class="o">.</span><span class="n">id</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_lcp_server_instance</span> <span class="o">=</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="LCPAPI.internal_format"><a class="viewcode-back" href="../../../api.lcp.html#api.lcp.collection.LCPAPI.internal_format">[docs]</a>    <span class="k">def</span> <span class="nf">internal_format</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">delivery_mechanism</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Look up the internal format for this delivery mechanism or</span>
+<span class="sd">        raise an exception.</span>
+
+<span class="sd">        :param delivery_mechanism: A LicensePoolDeliveryMechanism</span>
+<span class="sd">        :type delivery_mechanism: LicensePoolDeliveryMechanism</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">delivery_mechanism</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">collection</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns an associated Collection object</span>
+
+<span class="sd">        :return: Associated Collection object</span>
+<span class="sd">        :rtype: Collection</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">Collection</span><span class="o">.</span><span class="n">by_id</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="nb">id</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_collection_id</span><span class="p">)</span>
+
+<div class="viewcode-block" id="LCPAPI.external_integration"><a class="viewcode-back" href="../../../api.lcp.html#api.lcp.collection.LCPAPI.external_integration">[docs]</a>    <span class="k">def</span> <span class="nf">external_integration</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">db</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns an external integration associated with this object</span>
+
+<span class="sd">        :param db: Database session</span>
+<span class="sd">        :type db: sqlalchemy.orm.session.Session</span>
+
+<span class="sd">        :return: External integration associated with this object</span>
+<span class="sd">        :rtype: core.model.configuration.ExternalIntegration</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">collection</span><span class="o">.</span><span class="n">external_integration</span></div>
+
+    <span class="k">def</span> <span class="nf">_create_lcp_server</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Creates a new instance of LCPServer</span>
+
+<span class="sd">        :return: New instance of LCPServer</span>
+<span class="sd">        :rtype: LCPServer</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">configuration_storage</span> <span class="o">=</span> <span class="n">ConfigurationStorage</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="n">configuration_factory</span> <span class="o">=</span> <span class="n">ConfigurationFactory</span><span class="p">()</span>
+        <span class="n">hasher_factory</span> <span class="o">=</span> <span class="n">HasherFactory</span><span class="p">()</span>
+        <span class="n">credential_factory</span> <span class="o">=</span> <span class="n">LCPCredentialFactory</span><span class="p">()</span>
+        <span class="n">lcp_server</span> <span class="o">=</span> <span class="n">LCPServer</span><span class="p">(</span><span class="n">configuration_storage</span><span class="p">,</span> <span class="n">configuration_factory</span><span class="p">,</span> <span class="n">hasher_factory</span><span class="p">,</span> <span class="n">credential_factory</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">lcp_server</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">_lcp_server</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns an instance of LCPServer</span>
+
+<span class="sd">        :return: Instance of LCPServer</span>
+<span class="sd">        :rtype: LCPServer</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lcp_server_instance</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_lcp_server_instance</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_lcp_server</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lcp_server_instance</span>
+
+<div class="viewcode-block" id="LCPAPI.checkout"><a class="viewcode-back" href="../../../api.lcp.html#api.lcp.collection.LCPAPI.checkout">[docs]</a>    <span class="k">def</span> <span class="nf">checkout</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">,</span> <span class="n">internal_format</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Checks out a book on behalf of a patron</span>
+
+<span class="sd">        :param patron: A Patron object for the patron who wants to check out the book</span>
+<span class="sd">        :type patron: Patron</span>
+
+<span class="sd">        :param pin: The patron&#39;s alleged password</span>
+<span class="sd">        :type pin: string</span>
+
+<span class="sd">        :param licensepool: Contains lending info as well as link to parent Identifier</span>
+<span class="sd">        :type licensepool: LicensePool</span>
+
+<span class="sd">        :param internal_format: Represents the patron&#39;s desired book format.</span>
+<span class="sd">        :type internal_format: Any</span>
+
+<span class="sd">        :return: a LoanInfo object</span>
+<span class="sd">        :rtype: LoanInfo</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">days</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">collection</span><span class="o">.</span><span class="n">default_loan_period</span><span class="p">(</span><span class="n">patron</span><span class="o">.</span><span class="n">library</span><span class="p">)</span>
+        <span class="n">today</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+        <span class="n">expires</span> <span class="o">=</span> <span class="n">today</span> <span class="o">+</span> <span class="n">datetime</span><span class="o">.</span><span class="n">timedelta</span><span class="p">(</span><span class="n">days</span><span class="o">=</span><span class="n">days</span><span class="p">)</span>
+        <span class="n">loan</span> <span class="o">=</span> <span class="n">get_one</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">Loan</span><span class="p">,</span> <span class="n">patron</span><span class="o">=</span><span class="n">patron</span><span class="p">,</span> <span class="n">license_pool</span><span class="o">=</span><span class="n">licensepool</span><span class="p">,</span> <span class="n">on_multiple</span><span class="o">=</span><span class="s1">&#39;interchangeable&#39;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">loan</span><span class="p">:</span>
+            <span class="n">license</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lcp_server</span><span class="o">.</span><span class="n">get_license</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">loan</span><span class="o">.</span><span class="n">external_identifier</span><span class="p">,</span> <span class="n">patron</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">license</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lcp_server</span><span class="o">.</span><span class="n">generate_license</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span>
+                <span class="n">licensepool</span><span class="o">.</span><span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span>
+                <span class="n">patron</span><span class="p">,</span>
+                <span class="n">today</span><span class="p">,</span>
+                <span class="n">expires</span>
+            <span class="p">)</span>
+
+        <span class="n">loan</span> <span class="o">=</span> <span class="n">LoanInfo</span><span class="p">(</span>
+            <span class="n">licensepool</span><span class="o">.</span><span class="n">collection</span><span class="p">,</span>
+            <span class="n">licensepool</span><span class="o">.</span><span class="n">data_source</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+            <span class="n">identifier_type</span><span class="o">=</span><span class="n">licensepool</span><span class="o">.</span><span class="n">identifier</span><span class="o">.</span><span class="n">type</span><span class="p">,</span>
+            <span class="n">identifier</span><span class="o">=</span><span class="n">licensepool</span><span class="o">.</span><span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span>
+            <span class="n">start_date</span><span class="o">=</span><span class="n">today</span><span class="p">,</span>
+            <span class="n">end_date</span><span class="o">=</span><span class="n">expires</span><span class="p">,</span>
+            <span class="n">fulfillment_info</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">external_identifier</span><span class="o">=</span><span class="n">license</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">]</span>
+        <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">loan</span></div>
+
+<div class="viewcode-block" id="LCPAPI.fulfill"><a class="viewcode-back" href="../../../api.lcp.html#api.lcp.collection.LCPAPI.fulfill">[docs]</a>    <span class="k">def</span> <span class="nf">fulfill</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">,</span> <span class="n">internal_format</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">part</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">fulfill_part_url</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get the actual resource file to the patron.</span>
+
+<span class="sd">        :param patron: A Patron object for the patron who wants to check out the book</span>
+<span class="sd">        :type patron: Patron</span>
+
+<span class="sd">        :param pin: The patron&#39;s alleged password</span>
+<span class="sd">        :type pin: string</span>
+
+<span class="sd">        :param licensepool: Contains lending info as well as link to parent Identifier</span>
+<span class="sd">        :type licensepool: LicensePool</span>
+
+<span class="sd">        :param internal_format: A vendor-specific name indicating the format requested by the patron</span>
+<span class="sd">        :type internal_format:</span>
+
+<span class="sd">        :param part: A vendor-specific identifier indicating that the</span>
+<span class="sd">            patron wants to fulfill one specific part of the book</span>
+<span class="sd">            (e.g. one chapter of an audiobook), not the whole thing</span>
+<span class="sd">        :type part: Any</span>
+
+<span class="sd">        :param fulfill_part_url: A function that takes one argument (a</span>
+<span class="sd">            vendor-specific part identifier) and returns the URL to use</span>
+<span class="sd">            when fulfilling that part</span>
+<span class="sd">        :type fulfill_part_url: Any</span>
+
+<span class="sd">        :return: a FulfillmentInfo object</span>
+<span class="sd">        :rtype: FulfillmentInfo</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">loan</span> <span class="o">=</span> <span class="n">get_one</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">Loan</span><span class="p">,</span> <span class="n">patron</span><span class="o">=</span><span class="n">patron</span><span class="p">,</span> <span class="n">license_pool</span><span class="o">=</span><span class="n">licensepool</span><span class="p">,</span> <span class="n">on_multiple</span><span class="o">=</span><span class="s1">&#39;interchangeable&#39;</span><span class="p">)</span>
+        <span class="n">license</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lcp_server</span><span class="o">.</span><span class="n">get_license</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">loan</span><span class="o">.</span><span class="n">external_identifier</span><span class="p">,</span> <span class="n">patron</span><span class="p">)</span>
+        <span class="n">fulfillment_info</span> <span class="o">=</span> <span class="n">LCPFulfilmentInfo</span><span class="p">(</span>
+            <span class="n">licensepool</span><span class="o">.</span><span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span>
+            <span class="n">licensepool</span><span class="o">.</span><span class="n">collection</span><span class="p">,</span>
+            <span class="n">licensepool</span><span class="o">.</span><span class="n">data_source</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+            <span class="n">licensepool</span><span class="o">.</span><span class="n">identifier</span><span class="o">.</span><span class="n">type</span><span class="p">,</span>
+            <span class="n">content_link</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">content_type</span><span class="o">=</span><span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">LCP_DRM</span><span class="p">,</span>
+            <span class="n">content</span><span class="o">=</span><span class="n">license</span><span class="p">,</span>
+            <span class="n">content_expires</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">fulfillment_info</span></div>
+
+<div class="viewcode-block" id="LCPAPI.patron_activity"><a class="viewcode-back" href="../../../api.lcp.html#api.lcp.collection.LCPAPI.patron_activity">[docs]</a>    <span class="k">def</span> <span class="nf">patron_activity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns patron&#39;s loans</span>
+
+<span class="sd">        :param patron: A Patron object for the patron who wants to check out the book</span>
+<span class="sd">        :type patron: Patron</span>
+
+<span class="sd">        :param pin: The patron&#39;s alleged password</span>
+<span class="sd">        :type pin: string</span>
+
+<span class="sd">        :return: List of patron&#39;s loans</span>
+<span class="sd">        :rtype: List[LoanInfo]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">now</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+        <span class="n">loans</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span>\
+            <span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Loan</span><span class="p">)</span>\
+            <span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">LicensePool</span><span class="p">)</span>\
+            <span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">Collection</span><span class="p">)</span>\
+            <span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+                <span class="n">Collection</span><span class="o">.</span><span class="n">id</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">_collection_id</span><span class="p">,</span>
+                <span class="n">Loan</span><span class="o">.</span><span class="n">patron</span> <span class="o">==</span> <span class="n">patron</span><span class="p">,</span>
+                <span class="n">or_</span><span class="p">(</span>
+                    <span class="n">Loan</span><span class="o">.</span><span class="n">start</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">,</span>
+                    <span class="n">Loan</span><span class="o">.</span><span class="n">start</span> <span class="o">&lt;=</span> <span class="n">now</span>
+                <span class="p">),</span>
+                <span class="n">or_</span><span class="p">(</span>
+                    <span class="n">Loan</span><span class="o">.</span><span class="n">end</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">,</span>
+                    <span class="n">Loan</span><span class="o">.</span><span class="n">end</span> <span class="o">&gt;</span> <span class="n">now</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+
+        <span class="n">loan_info_objects</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">for</span> <span class="n">loan</span> <span class="ow">in</span> <span class="n">loans</span><span class="p">:</span>
+            <span class="n">licensepool</span> <span class="o">=</span> <span class="n">get_one</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">LicensePool</span><span class="p">,</span> <span class="nb">id</span><span class="o">=</span><span class="n">loan</span><span class="o">.</span><span class="n">license_pool_id</span><span class="p">)</span>
+
+            <span class="n">loan_info_objects</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">LoanInfo</span><span class="p">(</span>
+                <span class="n">collection</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">collection</span><span class="p">,</span>
+                <span class="n">data_source_name</span><span class="o">=</span><span class="n">licensepool</span><span class="o">.</span><span class="n">data_source</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+                <span class="n">identifier_type</span><span class="o">=</span><span class="n">licensepool</span><span class="o">.</span><span class="n">identifier</span><span class="o">.</span><span class="n">type</span><span class="p">,</span>
+                <span class="n">identifier</span><span class="o">=</span><span class="n">licensepool</span><span class="o">.</span><span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span>
+                <span class="n">start_date</span><span class="o">=</span><span class="n">loan</span><span class="o">.</span><span class="n">start</span><span class="p">,</span>
+                <span class="n">end_date</span><span class="o">=</span><span class="n">loan</span><span class="o">.</span><span class="n">end</span><span class="p">,</span>
+                <span class="n">fulfillment_info</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                <span class="n">external_identifier</span><span class="o">=</span><span class="n">loan</span><span class="o">.</span><span class="n">external_identifier</span>
+            <span class="p">))</span>
+
+        <span class="k">return</span> <span class="n">loan_info_objects</span></div></div>
+
+    <span class="c1"># TODO: Implement place_hold and release_hold (https://jira.nypl.org/browse/SIMPLY-3013)</span>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">Library Simplified Circulation Manager</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../modules.html">circulation</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

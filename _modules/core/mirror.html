@@ -146,8 +146,18 @@
 <div class="viewcode-block" id="MirrorUploader.do_upload"><a class="viewcode-back" href="../../core.html#core.mirror.MirrorUploader.do_upload">[docs]</a>    <span class="k">def</span> <span class="nf">do_upload</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">representation</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
 
-<div class="viewcode-block" id="MirrorUploader.mirror_one"><a class="viewcode-back" href="../../core.html#core.mirror.MirrorUploader.mirror_one">[docs]</a>    <span class="k">def</span> <span class="nf">mirror_one</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">representation</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Mirror a single Representation.&quot;&quot;&quot;</span>
+<div class="viewcode-block" id="MirrorUploader.mirror_one"><a class="viewcode-back" href="../../core.html#core.mirror.MirrorUploader.mirror_one">[docs]</a>    <span class="k">def</span> <span class="nf">mirror_one</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">representation</span><span class="p">,</span> <span class="n">mirror_to</span><span class="p">,</span> <span class="n">collection</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Mirror a single Representation.</span>
+
+<span class="sd">        :param representation: Book&#39;s representation</span>
+<span class="sd">        :type representation: Representation</span>
+
+<span class="sd">        :param mirror_to: Mirror URL</span>
+<span class="sd">        :type mirror_to: string</span>
+
+<span class="sd">        :param collection: Collection</span>
+<span class="sd">        :type collection: Optional[Collection]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">now</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
         <span class="n">exception</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">do_upload</span><span class="p">(</span><span class="n">representation</span><span class="p">)</span>
         <span class="n">representation</span><span class="o">.</span><span class="n">mirror_exception</span> <span class="o">=</span> <span class="n">exception</span>
@@ -160,7 +170,7 @@
         <span class="sd">&quot;&quot;&quot;Mirror a batch of Representations at once.&quot;&quot;&quot;</span>
 
         <span class="k">for</span> <span class="n">representation</span> <span class="ow">in</span> <span class="n">representations</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">mirror_one</span><span class="p">(</span><span class="n">representation</span><span class="p">)</span></div>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mirror_one</span><span class="p">(</span><span class="n">representation</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="MirrorUploader.book_url"><a class="viewcode-back" href="../../core.html#core.mirror.MirrorUploader.book_url">[docs]</a>    <span class="k">def</span> <span class="nf">book_url</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">extension</span><span class="o">=</span><span class="s1">&#39;.epub&#39;</span><span class="p">,</span> <span class="n">open_access</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
                  <span class="n">data_source</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>

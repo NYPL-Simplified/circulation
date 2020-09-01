@@ -43,11 +43,12 @@
 <span class="kn">from</span> <span class="nn">api.authenticator</span> <span class="kn">import</span> <span class="n">BaseSAMLAuthenticationProvider</span><span class="p">,</span> <span class="n">PatronData</span>
 <span class="kn">from</span> <span class="nn">api.problem_details</span> <span class="kn">import</span> <span class="o">*</span>
 <span class="kn">from</span> <span class="nn">api.saml.auth</span> <span class="kn">import</span> <span class="n">SAMLAuthenticationManagerFactory</span>
-<span class="kn">from</span> <span class="nn">api.saml.configuration</span> <span class="kn">import</span> <span class="n">ExternalIntegrationOwner</span><span class="p">,</span> <span class="n">SAMLConfiguration</span>
+<span class="kn">from</span> <span class="nn">api.saml.configuration</span> <span class="kn">import</span> <span class="n">SAMLConfiguration</span>
 <span class="kn">from</span> <span class="nn">api.saml.metadata</span> <span class="kn">import</span> <span class="n">Subject</span><span class="p">,</span> <span class="n">SubjectUIDExtractor</span><span class="p">,</span> <span class="n">SubjectJSONEncoder</span><span class="p">,</span> <span class="n">LocalizableMetadataItem</span>
 <span class="kn">from</span> <span class="nn">api.saml.parser</span> <span class="kn">import</span> <span class="n">SAMLMetadataParser</span>
 <span class="kn">from</span> <span class="nn">api.saml.validator</span> <span class="kn">import</span> <span class="n">SAMLSettingsValidator</span>
 <span class="kn">from</span> <span class="nn">core.model</span> <span class="kn">import</span> <span class="n">Credential</span><span class="p">,</span> <span class="n">get_one_or_create</span><span class="p">,</span> <span class="n">DataSource</span>
+<span class="kn">from</span> <span class="nn">core.model.configuration</span> <span class="kn">import</span> <span class="n">HasExternalIntegration</span>
 <span class="kn">from</span> <span class="nn">core.util.problem_detail</span> <span class="kn">import</span> <span class="n">ProblemDetail</span>
 
 <span class="n">SAML_INVALID_SUBJECT</span> <span class="o">=</span> <span class="n">pd</span><span class="p">(</span>
@@ -58,7 +59,7 @@
 <span class="p">)</span>
 
 
-<div class="viewcode-block" id="SAMLWebSSOAuthenticationProvider"><a class="viewcode-back" href="../../../api.saml.html#api.saml.provider.SAMLWebSSOAuthenticationProvider">[docs]</a><span class="k">class</span> <span class="nc">SAMLWebSSOAuthenticationProvider</span><span class="p">(</span><span class="n">BaseSAMLAuthenticationProvider</span><span class="p">,</span> <span class="n">ExternalIntegrationOwner</span><span class="p">):</span>
+<div class="viewcode-block" id="SAMLWebSSOAuthenticationProvider"><a class="viewcode-back" href="../../../api.saml.html#api.saml.provider.SAMLWebSSOAuthenticationProvider">[docs]</a><span class="k">class</span> <span class="nc">SAMLWebSSOAuthenticationProvider</span><span class="p">(</span><span class="n">BaseSAMLAuthenticationProvider</span><span class="p">,</span> <span class="n">HasExternalIntegration</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;SAML authentication provider implementing Web Browser SSO profile using the following bindings:</span>
 <span class="sd">    - HTTP-Redirect Binding for requests</span>
 <span class="sd">    - HTTP-POST Binding for responses</span>

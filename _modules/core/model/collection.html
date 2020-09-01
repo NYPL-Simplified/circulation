@@ -35,6 +35,7 @@
   <h1>Source code for core.model.collection</h1><div class="highlight"><pre>
 <span></span><span class="c1"># encoding: utf-8</span>
 <span class="c1"># Collection, CollectionIdentifier, CollectionMissing</span>
+<span class="kn">from</span> <span class="nn">abc</span> <span class="kn">import</span> <span class="n">ABCMeta</span><span class="p">,</span> <span class="n">abstractmethod</span>
 
 <span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Column</span><span class="p">,</span>
@@ -65,7 +66,7 @@
 <span class="kn">from</span> <span class="nn">configuration</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">ConfigurationSetting</span><span class="p">,</span>
     <span class="n">ExternalIntegration</span><span class="p">,</span>
-<span class="p">)</span>
+    <span class="n">BaseConfigurationStorage</span><span class="p">)</span>
 <span class="kn">from</span> <span class="nn">constants</span> <span class="kn">import</span> <span class="n">EditionConstants</span>
 <span class="kn">from</span> <span class="nn">coverage</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">CoverageRecord</span><span class="p">,</span>
@@ -779,7 +780,12 @@
 
         <span class="c1"># Only find books with available licenses or books from self-hosted collections using MirrorUploader</span>
         <span class="n">query</span> <span class="o">=</span> <span class="n">query</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
-            <span class="n">or_</span><span class="p">(</span><span class="n">LicensePool</span><span class="o">.</span><span class="n">licenses_owned</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="n">LicensePool</span><span class="o">.</span><span class="n">open_access</span><span class="p">,</span> <span class="n">LicensePool</span><span class="o">.</span><span class="n">self_hosted</span><span class="p">)</span>
+            <span class="n">or_</span><span class="p">(</span>
+                <span class="n">LicensePool</span><span class="o">.</span><span class="n">licenses_owned</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span>
+                <span class="n">LicensePool</span><span class="o">.</span><span class="n">open_access</span><span class="p">,</span>
+                <span class="n">LicensePool</span><span class="o">.</span><span class="n">unlimited_access</span><span class="p">,</span>
+                <span class="n">LicensePool</span><span class="o">.</span><span class="n">self_hosted</span>
+            <span class="p">)</span>
         <span class="p">)</span>
 
         <span class="c1"># Only find books in an appropriate collection.</span>
@@ -883,6 +889,77 @@
     <span class="p">),</span>
     <span class="n">UniqueConstraint</span><span class="p">(</span><span class="s1">&#39;collection_id&#39;</span><span class="p">,</span> <span class="s1">&#39;customlist_id&#39;</span><span class="p">),</span>
 <span class="p">)</span>
+
+
+<div class="viewcode-block" id="HasExternalIntegrationPerCollection"><a class="viewcode-back" href="../../../core.model.html#core.monitor.HasExternalIntegrationPerCollection">[docs]</a><span class="k">class</span> <span class="nc">HasExternalIntegrationPerCollection</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Interface allowing to get access to an external integration&quot;&quot;&quot;</span>
+
+    <span class="n">__metaclass__</span> <span class="o">=</span> <span class="n">ABCMeta</span>
+
+<div class="viewcode-block" id="HasExternalIntegrationPerCollection.collection_external_integration"><a class="viewcode-back" href="../../../core.model.html#core.monitor.HasExternalIntegrationPerCollection.collection_external_integration">[docs]</a>    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">collection_external_integration</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collection</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns an external integration associated with the collection</span>
+
+<span class="sd">        :param collection: Collection</span>
+<span class="sd">        :type collection: core.model.Collection</span>
+
+<span class="sd">        :return: External integration associated with the collection</span>
+<span class="sd">        :rtype: core.model.configuration.ExternalIntegration</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div></div>
+
+
+<div class="viewcode-block" id="CollectionConfigurationStorage"><a class="viewcode-back" href="../../../core.model.html#core.monitor.CollectionConfigurationStorage">[docs]</a><span class="k">class</span> <span class="nc">CollectionConfigurationStorage</span><span class="p">(</span><span class="n">BaseConfigurationStorage</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Serializes and deserializes values as library&#39;s configuration settings&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">external_integration_association</span><span class="p">,</span> <span class="n">collection</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Initializes a new instance of ConfigurationStorage class</span>
+
+<span class="sd">        :param external_integration_association: Association with an external integtation</span>
+<span class="sd">        :type external_integration_association: HasExternalIntegrationPerCollection</span>
+
+<span class="sd">        :param collection: Collection object</span>
+<span class="sd">        :type collection: Collection</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_integration_owner</span> <span class="o">=</span> <span class="n">external_integration_association</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_collection_id</span> <span class="o">=</span> <span class="n">collection</span><span class="o">.</span><span class="n">id</span>
+
+<div class="viewcode-block" id="CollectionConfigurationStorage.save"><a class="viewcode-back" href="../../../core.model.html#core.monitor.CollectionConfigurationStorage.save">[docs]</a>    <span class="k">def</span> <span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">db</span><span class="p">,</span> <span class="n">setting_name</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Save the value as as a new configuration setting</span>
+
+<span class="sd">        :param db: Database session</span>
+<span class="sd">        :type db: sqlalchemy.orm.session.Session</span>
+
+<span class="sd">        :param setting_name: Name of the library&#39;s configuration setting</span>
+<span class="sd">        :type setting_name: string</span>
+
+<span class="sd">        :param value: Value to be saved</span>
+<span class="sd">        :type value: Any</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">collection</span> <span class="o">=</span> <span class="n">Collection</span><span class="o">.</span><span class="n">by_id</span><span class="p">(</span><span class="n">db</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_collection_id</span><span class="p">)</span>
+        <span class="n">integration</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_integration_owner</span><span class="o">.</span><span class="n">collection_external_integration</span><span class="p">(</span><span class="n">collection</span><span class="p">)</span>
+        <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">for_externalintegration</span><span class="p">(</span>
+            <span class="n">setting_name</span><span class="p">,</span>
+            <span class="n">integration</span><span class="p">)</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="n">value</span></div>
+
+<div class="viewcode-block" id="CollectionConfigurationStorage.load"><a class="viewcode-back" href="../../../core.model.html#core.monitor.CollectionConfigurationStorage.load">[docs]</a>    <span class="k">def</span> <span class="nf">load</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">db</span><span class="p">,</span> <span class="n">setting_name</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Loads and returns the library&#39;s configuration setting</span>
+
+<span class="sd">        :param db: Database session</span>
+<span class="sd">        :type db: sqlalchemy.orm.session.Session</span>
+
+<span class="sd">        :param setting_name: Name of the library&#39;s configuration setting</span>
+<span class="sd">        :type setting_name: string</span>
+
+<span class="sd">        :return: Any</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">collection</span> <span class="o">=</span> <span class="n">Collection</span><span class="o">.</span><span class="n">by_id</span><span class="p">(</span><span class="n">db</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_collection_id</span><span class="p">)</span>
+        <span class="n">integration</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_integration_owner</span><span class="o">.</span><span class="n">collection_external_integration</span><span class="p">(</span><span class="n">collection</span><span class="p">)</span>
+        <span class="n">value</span> <span class="o">=</span> <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">for_externalintegration</span><span class="p">(</span>
+            <span class="n">setting_name</span><span class="p">,</span>
+            <span class="n">integration</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+
+        <span class="k">return</span> <span class="n">value</span></div></div>
 </pre></div>
 
           </div>

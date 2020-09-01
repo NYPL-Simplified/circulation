@@ -1,0 +1,30 @@
+core.lcp package
+================
+
+Submodules
+----------
+
+core.lcp.credential module
+--------------------------
+
+.. automodule:: core.lcp.credential
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+core.lcp.exceptions module
+--------------------------
+
+.. automodule:: core.lcp.exceptions
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+
+Module contents
+---------------
+
+.. automodule:: core.lcp
+    :members:
+    :undoc-members:
+    :show-inheritance:

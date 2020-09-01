@@ -74,6 +74,8 @@
     <span class="n">BIBFRAME_NS</span> <span class="o">=</span> <span class="s2">&quot;http://bibframe.org/vocab/&quot;</span>
     <span class="n">BIB_SCHEMA_NS</span> <span class="o">=</span> <span class="s2">&quot;http://bib.schema.org/&quot;</span>
 
+    <span class="n">LCP_NS</span> <span class="o">=</span> <span class="s1">&#39;http://readium.org/lcp-specs/ns&#39;</span>
+
     <span class="n">nsmap</span> <span class="o">=</span> <span class="p">{</span>
         <span class="kc">None</span><span class="p">:</span> <span class="n">ATOM_NS</span><span class="p">,</span>
         <span class="s1">&#39;app&#39;</span><span class="p">:</span> <span class="n">APP_NS</span><span class="p">,</span>
@@ -86,6 +88,7 @@
         <span class="s1">&#39;bibframe&#39;</span> <span class="p">:</span> <span class="n">BIBFRAME_NS</span><span class="p">,</span>
         <span class="s1">&#39;bib&#39;</span><span class="p">:</span> <span class="n">BIB_SCHEMA_NS</span><span class="p">,</span>
         <span class="s1">&#39;opensearch&#39;</span><span class="p">:</span> <span class="n">OPENSEARCH_NS</span><span class="p">,</span>
+        <span class="s1">&#39;lcp&#39;</span><span class="p">:</span> <span class="n">LCP_NS</span>
     <span class="p">}</span>
 
     <span class="n">default_typemap</span> <span class="o">=</span> <span class="p">{</span><span class="n">datetime</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">e</span><span class="p">,</span> <span class="n">v</span><span class="p">:</span> <span class="n">_strftime</span><span class="p">(</span><span class="n">v</span><span class="p">)}</span>

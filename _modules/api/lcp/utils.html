@@ -1,0 +1,151 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>api.lcp.utils &#8212; Library Simplified Circulation Manager  documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for api.lcp.utils</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">core.lcp.exceptions</span> <span class="kn">import</span> <span class="n">LCPError</span>
+
+
+<div class="viewcode-block" id="format_datetime"><a class="viewcode-back" href="../../../api.lcp.html#api.lcp.utils.format_datetime">[docs]</a><span class="k">def</span> <span class="nf">format_datetime</span><span class="p">(</span><span class="n">datetime_value</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Converts a datetime value into a string using the format which Go understands</span>
+
+<span class="sd">    :param datetime_value: Datetime value</span>
+<span class="sd">    :type datetime_value: datetime.datetime</span>
+
+<span class="sd">    :return: String representation of the datetime value</span>
+<span class="sd">    :rtype: string</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">datetime_string_value</span> <span class="o">=</span> <span class="n">datetime_value</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s1">&#39;%Y-%m-</span><span class="si">%d</span><span class="s1">T%H:%M:%S&#39;</span><span class="p">)</span>
+
+    <span class="c1"># NOTE: Go can parse only strings where the timezone contains a colon (e.g., -07:00)</span>
+    <span class="c1"># Unfortunately, Python doesn&#39;t support such format and we have to do it manually</span>
+    <span class="c1"># We assume that all the dates are in UTC</span>
+    <span class="n">datetime_string_value</span> <span class="o">+=</span> <span class="s1">&#39;+00:00&#39;</span>
+
+    <span class="k">return</span> <span class="n">datetime_string_value</span></div>
+
+
+<div class="viewcode-block" id="get_target_extension"><a class="viewcode-back" href="../../../api.lcp.html#api.lcp.utils.get_target_extension">[docs]</a><span class="k">def</span> <span class="nf">get_target_extension</span><span class="p">(</span><span class="n">input_extension</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">input_extension</span> <span class="o">==</span> <span class="s1">&#39;.epub&#39;</span><span class="p">:</span>
+        <span class="n">target_extension</span> <span class="o">=</span> <span class="s1">&#39;.epub&#39;</span>
+    <span class="k">elif</span> <span class="n">input_extension</span> <span class="o">==</span> <span class="s1">&#39;.pdf&#39;</span><span class="p">:</span>
+        <span class="n">target_extension</span> <span class="o">=</span> <span class="s1">&#39;.lcpdf&#39;</span>
+    <span class="k">elif</span> <span class="n">input_extension</span> <span class="o">==</span> <span class="s1">&#39;.lpf&#39;</span><span class="p">:</span>
+        <span class="n">target_extension</span> <span class="o">=</span> <span class="s2">&quot;.audiobook&quot;</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">LCPError</span><span class="p">(</span><span class="s1">&#39;Unknown extension &quot;</span><span class="si">{0}</span><span class="s1">&quot;&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">input_extension</span><span class="p">))</span>
+
+    <span class="k">return</span> <span class="n">target_extension</span></div>
+
+
+<div class="viewcode-block" id="bind_method"><a class="viewcode-back" href="../../../api.lcp.html#api.lcp.utils.bind_method">[docs]</a><span class="k">def</span> <span class="nf">bind_method</span><span class="p">(</span><span class="n">instance</span><span class="p">,</span> <span class="n">func</span><span class="p">,</span> <span class="n">as_name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Bind the function *func* to *instance*, with either provided name *as_name*</span>
+<span class="sd">    or the existing name of *func*. The provided *func* should accept the</span>
+<span class="sd">    instance as the first argument, i.e. &quot;self&quot;.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">as_name</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">as_name</span> <span class="o">=</span> <span class="n">func</span><span class="o">.</span><span class="vm">__name__</span>
+
+    <span class="n">bound_method</span> <span class="o">=</span> <span class="n">func</span><span class="o">.</span><span class="fm">__get__</span><span class="p">(</span><span class="n">instance</span><span class="p">,</span> <span class="n">instance</span><span class="o">.</span><span class="vm">__class__</span><span class="p">)</span>
+    <span class="nb">setattr</span><span class="p">(</span><span class="n">instance</span><span class="p">,</span> <span class="n">as_name</span><span class="p">,</span> <span class="n">bound_method</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">bound_method</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">Library Simplified Circulation Manager</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../modules.html">circulation</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

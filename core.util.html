@@ -627,7 +627,7 @@ human-readable names to ISO-639-2 language codes.</p>
 
 <dl class="attribute">
 <dt id="core.util.languages.LanguageNames.name_re">
-<code class="descname">name_re</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x1ae5720&gt;</em><a class="headerlink" href="#core.util.languages.LanguageNames.name_re" title="Permalink to this definition">¶</a></dt>
+<code class="descname">name_re</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x23835a0&gt;</em><a class="headerlink" href="#core.util.languages.LanguageNames.name_re" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -715,6 +715,11 @@ rather than raising a ValueError.</p>
 <code class="descname">E</code><a class="headerlink" href="#core.util.opds_writer.AtomFeed.E" title="Permalink to this definition">¶</a></dt>
 <dd><p>A helper object for creating etree elements.</p>
 </dd></dl>
+
+<dl class="attribute">
+<dt id="core.util.opds_writer.AtomFeed.LCP_NS">
+<code class="descname">LCP_NS</code><em class="property"> = 'http://readium.org/lcp-specs/ns'</em><a class="headerlink" href="#core.util.opds_writer.AtomFeed.LCP_NS" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
 
 <dl class="attribute">
 <dt id="core.util.opds_writer.AtomFeed.OPDS_NS">
@@ -815,7 +820,7 @@ rather than raising a ValueError.</p>
 
 <dl class="attribute">
 <dt id="core.util.opds_writer.AtomFeed.nsmap">
-<code class="descname">nsmap</code><em class="property"> = {None: 'http://www.w3.org/2005/Atom', 'app': 'http://www.w3.org/2007/app', 'bib': 'http://bib.schema.org/', 'bibframe': 'http://bibframe.org/vocab/', 'dcterms': 'http://purl.org/dc/terms/', 'drm': 'http://librarysimplified.org/terms/drm', 'opds': 'http://opds-spec.org/2010/catalog', 'opensearch': 'http://a9.com/-/spec/opensearch/1.1/', 'opf': 'http://www.idpf.org/2007/opf', 'schema': 'http://schema.org/', 'simplified': 'http://librarysimplified.org/terms/'}</em><a class="headerlink" href="#core.util.opds_writer.AtomFeed.nsmap" title="Permalink to this definition">¶</a></dt>
+<code class="descname">nsmap</code><em class="property"> = {None: 'http://www.w3.org/2005/Atom', 'app': 'http://www.w3.org/2007/app', 'bib': 'http://bib.schema.org/', 'bibframe': 'http://bibframe.org/vocab/', 'dcterms': 'http://purl.org/dc/terms/', 'drm': 'http://librarysimplified.org/terms/drm', 'lcp': 'http://readium.org/lcp-specs/ns', 'opds': 'http://opds-spec.org/2010/catalog', 'opensearch': 'http://a9.com/-/spec/opensearch/1.1/', 'opf': 'http://www.idpf.org/2007/opf', 'schema': 'http://schema.org/', 'simplified': 'http://librarysimplified.org/terms/'}</em><a class="headerlink" href="#core.util.opds_writer.AtomFeed.nsmap" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="classmethod">
@@ -976,17 +981,17 @@ identifier.</p>
 
 <dl class="attribute">
 <dt id="core.util.permanent_work_id.WorkIDCalculator.commonAuthorPrefixPattern">
-<code class="descname">commonAuthorPrefixPattern</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x1e91d30&gt;</em><a class="headerlink" href="#core.util.permanent_work_id.WorkIDCalculator.commonAuthorPrefixPattern" title="Permalink to this definition">¶</a></dt>
+<code class="descname">commonAuthorPrefixPattern</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x277a7b0&gt;</em><a class="headerlink" href="#core.util.permanent_work_id.WorkIDCalculator.commonAuthorPrefixPattern" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="core.util.permanent_work_id.WorkIDCalculator.commonAuthorSuffixPattern">
-<code class="descname">commonAuthorSuffixPattern</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x1e97ff0&gt;</em><a class="headerlink" href="#core.util.permanent_work_id.WorkIDCalculator.commonAuthorSuffixPattern" title="Permalink to this definition">¶</a></dt>
+<code class="descname">commonAuthorSuffixPattern</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x277b020&gt;</em><a class="headerlink" href="#core.util.permanent_work_id.WorkIDCalculator.commonAuthorSuffixPattern" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="core.util.permanent_work_id.WorkIDCalculator.commonSubtitlesPattern">
-<code class="descname">commonSubtitlesPattern</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x1eadab0&gt;</em><a class="headerlink" href="#core.util.permanent_work_id.WorkIDCalculator.commonSubtitlesPattern" title="Permalink to this definition">¶</a></dt>
+<code class="descname">commonSubtitlesPattern</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x27295c0&gt;</em><a class="headerlink" href="#core.util.permanent_work_id.WorkIDCalculator.commonSubtitlesPattern" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">

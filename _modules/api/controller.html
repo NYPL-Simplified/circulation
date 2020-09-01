@@ -33,40 +33,57 @@
           <div class="body" role="main">
             
   <h1>Source code for api.controller</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
+<span></span><span class="kn">import</span> <span class="nn">base64</span>
+<span class="kn">import</span> <span class="nn">datetime</span>
 <span class="kn">import</span> <span class="nn">email</span>
 <span class="kn">import</span> <span class="nn">json</span>
 <span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">sys</span>
 <span class="kn">import</span> <span class="nn">urllib</span>
 <span class="kn">import</span> <span class="nn">urlparse</span>
-<span class="kn">import</span> <span class="nn">datetime</span>
-<span class="kn">import</span> <span class="nn">base64</span>
-<span class="kn">from</span> <span class="nn">wsgiref.handlers</span> <span class="kn">import</span> <span class="n">format_date_time</span>
-<span class="kn">from</span> <span class="nn">time</span> <span class="kn">import</span> <span class="n">mktime</span>
-<span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">defaultdict</span>
+<span class="kn">from</span> <span class="nn">time</span> <span class="kn">import</span> <span class="n">mktime</span>
+<span class="kn">from</span> <span class="nn">wsgiref.handlers</span> <span class="kn">import</span> <span class="n">format_date_time</span>
 
-<span class="kn">from</span> <span class="nn">expiringdict</span> <span class="kn">import</span> <span class="n">ExpiringDict</span>
-<span class="kn">from</span> <span class="nn">lxml</span> <span class="kn">import</span> <span class="n">etree</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="kn">import</span> <span class="n">eagerload</span>
-
-<span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">wraps</span>
 <span class="kn">import</span> <span class="nn">flask</span>
+<span class="kn">from</span> <span class="nn">expiringdict</span> <span class="kn">import</span> <span class="n">ExpiringDict</span>
 <span class="kn">from</span> <span class="nn">flask</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">make_response</span><span class="p">,</span>
     <span class="n">Response</span><span class="p">,</span>
     <span class="n">redirect</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
+<span class="kn">from</span> <span class="nn">lxml</span> <span class="kn">import</span> <span class="n">etree</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="kn">import</span> <span class="n">eagerload</span>
 
+<span class="kn">from</span> <span class="nn">adobe_vendor_id</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">AdobeVendorIDController</span><span class="p">,</span>
+    <span class="n">DeviceManagementProtocolController</span><span class="p">,</span>
+    <span class="n">AuthdataUtility</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">annotations</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">AnnotationWriter</span><span class="p">,</span>
+    <span class="n">AnnotationParser</span><span class="p">,</span>
+<span class="p">)</span>
 <span class="kn">from</span> <span class="nn">api.rbdigital</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">RBDigitalFulfillmentProxy</span><span class="p">,</span>
     <span class="n">RBDProxyException</span><span class="p">,</span>
 <span class="p">)</span>
-
-<span class="kn">from</span> <span class="nn">api.saml.auth</span> <span class="kn">import</span> <span class="n">SAMLAuthenticationManagerFactory</span>
 <span class="kn">from</span> <span class="nn">api.saml.controller</span> <span class="kn">import</span> <span class="n">SAMLController</span>
+<span class="kn">from</span> <span class="nn">authenticator</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Authenticator</span><span class="p">,</span>
+    <span class="n">CirculationPatronProfileStorage</span><span class="p">,</span>
+    <span class="n">OAuthController</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">base_controller</span> <span class="kn">import</span> <span class="n">BaseCirculationManagerController</span>
+<span class="kn">from</span> <span class="nn">circulation</span> <span class="kn">import</span> <span class="n">CirculationAPI</span>
+<span class="kn">from</span> <span class="nn">circulation_exceptions</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">config</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Configuration</span><span class="p">,</span>
+    <span class="n">CannotLoadConfiguration</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">core.analytics</span> <span class="kn">import</span> <span class="n">Analytics</span>
 <span class="kn">from</span> <span class="nn">core.app_server</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">cdn_url_for</span><span class="p">,</span>
     <span class="n">url_for</span><span class="p">,</span>
@@ -83,26 +100,22 @@
     <span class="n">MockExternalSearchIndex</span><span class="p">,</span>
     <span class="n">SortKeyPagination</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">core.facets</span> <span class="kn">import</span> <span class="n">FacetConfig</span>
-<span class="kn">from</span> <span class="nn">core.log</span> <span class="kn">import</span> <span class="n">LogConfiguration</span>
 <span class="kn">from</span> <span class="nn">core.lane</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">DatabaseBackedFacets</span><span class="p">,</span>
-    <span class="n">Facets</span><span class="p">,</span>
+    <span class="n">BaseFacets</span><span class="p">,</span>
     <span class="n">FeaturedFacets</span><span class="p">,</span>
     <span class="n">Pagination</span><span class="p">,</span>
     <span class="n">Lane</span><span class="p">,</span>
     <span class="n">SearchFacets</span><span class="p">,</span>
     <span class="n">WorkList</span><span class="p">,</span>
 <span class="p">)</span>
+<span class="kn">from</span> <span class="nn">core.log</span> <span class="kn">import</span> <span class="n">LogConfiguration</span>
+<span class="kn">from</span> <span class="nn">core.marc</span> <span class="kn">import</span> <span class="n">MARCExporter</span>
 <span class="kn">from</span> <span class="nn">core.metadata_layer</span> <span class="kn">import</span> <span class="n">ContributorData</span>
 <span class="kn">from</span> <span class="nn">core.model</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">get_one</span><span class="p">,</span>
-    <span class="n">get_one_or_create</span><span class="p">,</span>
-    <span class="n">production_session</span><span class="p">,</span>
     <span class="n">Admin</span><span class="p">,</span>
     <span class="n">Annotation</span><span class="p">,</span>
     <span class="n">CachedFeed</span><span class="p">,</span>
-    <span class="n">CachedMARCFile</span><span class="p">,</span>
     <span class="n">CirculationEvent</span><span class="p">,</span>
     <span class="n">Collection</span><span class="p">,</span>
     <span class="n">Complaint</span><span class="p">,</span>
@@ -110,7 +123,6 @@
     <span class="n">CustomList</span><span class="p">,</span>
     <span class="n">DataSource</span><span class="p">,</span>
     <span class="n">DeliveryMechanism</span><span class="p">,</span>
-    <span class="n">Edition</span><span class="p">,</span>
     <span class="n">ExternalIntegration</span><span class="p">,</span>
     <span class="n">Hold</span><span class="p">,</span>
     <span class="n">Identifier</span><span class="p">,</span>
@@ -122,55 +134,24 @@
     <span class="n">Patron</span><span class="p">,</span>
     <span class="n">Representation</span><span class="p">,</span>
     <span class="n">Session</span><span class="p">,</span>
-    <span class="n">Work</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">core.opds</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">AcquisitionFeed</span><span class="p">,</span>
     <span class="n">NavigationFacets</span><span class="p">,</span>
     <span class="n">NavigationFeed</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">core.util.opds_writer</span> <span class="kn">import</span> <span class="p">(</span>
-     <span class="n">OPDSFeed</span><span class="p">,</span>
-<span class="p">)</span>
 <span class="kn">from</span> <span class="nn">core.opensearch</span> <span class="kn">import</span> <span class="n">OpenSearchDocument</span>
 <span class="kn">from</span> <span class="nn">core.user_profile</span> <span class="kn">import</span> <span class="n">ProfileController</span> <span class="k">as</span> <span class="n">CoreProfileController</span>
-<span class="kn">from</span> <span class="nn">core.util.flask_util</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">problem</span><span class="p">,</span>
-    <span class="n">OPDSFeedResponse</span>
-<span class="p">)</span>
 <span class="kn">from</span> <span class="nn">core.util.authentication_for_opds</span> <span class="kn">import</span> <span class="n">AuthenticationForOPDSDocument</span>
-<span class="kn">from</span> <span class="nn">core.util.problem_detail</span> <span class="kn">import</span> <span class="n">ProblemDetail</span>
 <span class="kn">from</span> <span class="nn">core.util.http</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">HTTP</span><span class="p">,</span>
     <span class="n">RemoteIntegrationException</span><span class="p">,</span>
 <span class="p">)</span>
-
-<span class="kn">from</span> <span class="nn">circulation_exceptions</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">core.util.opds_writer</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">OPDSFeed</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">core.util.problem_detail</span> <span class="kn">import</span> <span class="n">ProblemDetail</span>
 <span class="kn">from</span> <span class="nn">custom_index</span> <span class="kn">import</span> <span class="n">CustomIndexView</span>
-
-<span class="kn">from</span> <span class="nn">opds</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">CirculationManagerAnnotator</span><span class="p">,</span>
-    <span class="n">LibraryAnnotator</span><span class="p">,</span>
-    <span class="n">SharedCollectionAnnotator</span><span class="p">,</span>
-    <span class="n">LibraryLoanAndHoldAnnotator</span><span class="p">,</span>
-    <span class="n">SharedCollectionLoanAndHoldAnnotator</span><span class="p">,</span>
-<span class="p">)</span>
-<span class="kn">from</span> <span class="nn">annotations</span> <span class="kn">import</span> <span class="p">(</span>
-  <span class="n">AnnotationWriter</span><span class="p">,</span>
-  <span class="n">AnnotationParser</span><span class="p">,</span>
-<span class="p">)</span>
-<span class="kn">from</span> <span class="nn">problem_details</span> <span class="kn">import</span> <span class="o">*</span>
-
-<span class="kn">from</span> <span class="nn">authenticator</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">Authenticator</span><span class="p">,</span>
-    <span class="n">CirculationPatronProfileStorage</span><span class="p">,</span>
-    <span class="n">OAuthController</span><span class="p">,</span>
-<span class="p">)</span>
-<span class="kn">from</span> <span class="nn">config</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">Configuration</span><span class="p">,</span>
-    <span class="n">CannotLoadConfiguration</span><span class="p">,</span>
-<span class="p">)</span>
-
 <span class="kn">from</span> <span class="nn">lanes</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">load_lanes</span><span class="p">,</span>
     <span class="n">ContributorFacets</span><span class="p">,</span>
@@ -183,24 +164,18 @@
     <span class="n">CrawlableCustomListBasedLane</span><span class="p">,</span>
     <span class="n">CrawlableFacets</span><span class="p">,</span>
 <span class="p">)</span>
-
-<span class="kn">from</span> <span class="nn">adobe_vendor_id</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">AdobeVendorIDController</span><span class="p">,</span>
-    <span class="n">DeviceManagementProtocolController</span><span class="p">,</span>
-    <span class="n">AuthdataUtility</span><span class="p">,</span>
-<span class="p">)</span>
-<span class="kn">from</span> <span class="nn">circulation</span> <span class="kn">import</span> <span class="n">CirculationAPI</span>
-<span class="kn">from</span> <span class="nn">shared_collection</span> <span class="kn">import</span> <span class="n">SharedCollectionAPI</span>
 <span class="kn">from</span> <span class="nn">odl</span> <span class="kn">import</span> <span class="n">ODLAPI</span>
-<span class="kn">from</span> <span class="nn">novelist</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">NoveListAPI</span><span class="p">,</span>
-    <span class="n">MockNoveListAPI</span><span class="p">,</span>
+<span class="kn">from</span> <span class="nn">opds</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">CirculationManagerAnnotator</span><span class="p">,</span>
+    <span class="n">LibraryAnnotator</span><span class="p">,</span>
+    <span class="n">SharedCollectionAnnotator</span><span class="p">,</span>
+    <span class="n">LibraryLoanAndHoldAnnotator</span><span class="p">,</span>
+    <span class="n">SharedCollectionLoanAndHoldAnnotator</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">base_controller</span> <span class="kn">import</span> <span class="n">BaseCirculationManagerController</span>
+<span class="kn">from</span> <span class="nn">problem_details</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">shared_collection</span> <span class="kn">import</span> <span class="n">SharedCollectionAPI</span>
 <span class="kn">from</span> <span class="nn">testing</span> <span class="kn">import</span> <span class="n">MockCirculationAPI</span><span class="p">,</span> <span class="n">MockSharedCollectionAPI</span>
-<span class="kn">from</span> <span class="nn">core.analytics</span> <span class="kn">import</span> <span class="n">Analytics</span>
-<span class="kn">from</span> <span class="nn">core.lane</span> <span class="kn">import</span> <span class="n">BaseFacets</span>
-<span class="kn">from</span> <span class="nn">core.marc</span> <span class="kn">import</span> <span class="n">MARCExporter</span>
+
 
 <div class="viewcode-block" id="CirculationManager"><a class="viewcode-back" href="../../api.html#api.controller.CirculationManager">[docs]</a><span class="k">class</span> <span class="nc">CirculationManager</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
 
@@ -467,7 +442,10 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">odl_notification_controller</span> <span class="o">=</span> <span class="n">ODLNotificationController</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">shared_collection_controller</span> <span class="o">=</span> <span class="n">SharedCollectionController</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">static_files</span> <span class="o">=</span> <span class="n">StaticFileController</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">rbdproxy</span> <span class="o">=</span> <span class="n">RBDFulfillmentProxyController</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rbdproxy</span> <span class="o">=</span> <span class="n">RBDFulfillmentProxyController</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+        <span class="kn">from</span> <span class="nn">api.lcp.controller</span> <span class="kn">import</span> <span class="n">LCPController</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lcp_controller</span> <span class="o">=</span> <span class="n">LCPController</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="CirculationManager.setup_configuration_dependent_controllers"><a class="viewcode-back" href="../../api.html#api.controller.CirculationManager.setup_configuration_dependent_controllers">[docs]</a>    <span class="k">def</span> <span class="nf">setup_configuration_dependent_controllers</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Set up all the controllers that depend on the</span>
@@ -760,6 +738,7 @@
         <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="n">patron</span><span class="o">.</span><span class="n">library</span><span class="o">.</span><span class="n">allow_holds</span> <span class="ow">and</span>
             <span class="n">license_pool</span><span class="o">.</span><span class="n">licenses_available</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span>
             <span class="ow">not</span> <span class="n">license_pool</span><span class="o">.</span><span class="n">open_access</span> <span class="ow">and</span>
+            <span class="ow">not</span> <span class="n">license_pool</span><span class="o">.</span><span class="n">unlimited_access</span> <span class="ow">and</span>
             <span class="ow">not</span> <span class="n">license_pool</span><span class="o">.</span><span class="n">self_hosted</span>
         <span class="p">):</span>
             <span class="k">return</span> <span class="n">FORBIDDEN_BY_POLICY</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span>

@@ -7,6 +7,7 @@ Subpackages
 .. toctree::
 
     core.classifier
+    core.lcp
     core.model
     core.resources
     core.util
@@ -58,6 +59,14 @@ core.entrypoint module
 ----------------------
 
 .. automodule:: core.entrypoint
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+core.exceptions module
+----------------------
+
+.. automodule:: core.exceptions
     :members:
     :undoc-members:
     :show-inheritance:
