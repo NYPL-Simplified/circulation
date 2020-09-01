@@ -75,3 +75,8 @@ defusedxml
 xmlsec
 parameterized
 freezegun
+
+# For the LCP feature
+docker
+pyfakefs==3.7
+requests-mock

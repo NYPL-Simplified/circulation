@@ -1,14 +1,17 @@
 import datetime
+import logging
+
+from enum import Enum
 from lxml import etree
-import os
+
+from core.classifier import Classifier
 from core.metadata_layer import (
     Metadata,
     IdentifierData,
     SubjectData,
     ContributorData,
     LinkData,
-)
-from core.classifier import Classifier
+    CirculationData)
 from core.model import (
     Classification,
     Identifier,
@@ -17,10 +20,28 @@ from core.model import (
     Hyperlink,
     Representation,
     Subject,
-)
+    LicensePool)
 from core.util.xmlparser import XMLParser
 
-from nose.tools import set_trace
+
+class UsageStatus(Enum):
+    UNLIMITED = '01'
+    LIMITED = '02'
+    PROHIBITED = '03'
+
+
+class UsageUnit(Enum):
+    COPIES = '01'
+    CHARACTERS = '02'
+    WORDS = '03'
+    PAGES = '04'
+    PERCENTAGE = '05'
+    DEVICES = '06'
+    CONCURRENT_USERS = '07'
+    PERCENTAGE_PER_TIME_PERIOD = '08'
+    DAYS = '09'
+    TIMES = '10'
+
 
 class ONIXExtractor(object):
     """Transform an ONIX file into a list of Metadata objects."""
@@ -158,6 +179,8 @@ class ONIXExtractor(object):
         'Z99': Contributor.UNKNOWN_ROLE, # Other creative responsibility
     }
 
+    _logger = logging.getLogger(__name__)
+
     @classmethod
     def parse(cls, file, data_source_name):
         metadata_records = []
@@ -253,6 +276,43 @@ class ONIXExtractor(object):
                                           media_type=Representation.TEXT_HTML_MEDIA_TYPE,
                                           content=text))
 
+            usage_constraint_tags = parser._xpath(record, 'descriptivedetail/epubusageconstraint')
+            licenses_owned = LicensePool.UNLIMITED_ACCESS
+
+            if usage_constraint_tags:
+                cls._logger.debug('Found {0} EpubUsageConstraint tags'.format(len(usage_constraint_tags)))
+
+            for usage_constraint_tag in usage_constraint_tags:
+                usage_status = parser.text_of_subtag(usage_constraint_tag, 'x319')
+
+                cls._logger.debug('EpubUsageStatus: {0}'.format(usage_status))
+
+                if usage_status == UsageStatus.PROHIBITED.value:
+                    raise Exception('The content is prohibited')
+                elif usage_status == UsageStatus.LIMITED.value:
+                    usage_limit_tags = parser._xpath(record, 'descriptivedetail/epubusageconstraint/epubusagelimit')
+
+                    cls._logger.debug('Found {0} EpubUsageLimit tags'.format(len(usage_limit_tags)))
+
+                    if not usage_limit_tags:
+                        continue
+
+                    [usage_limit_tag] = usage_limit_tags
+
+                    usage_unit = parser.text_of_subtag(usage_limit_tag, 'x321')
+
+                    cls._logger.debug('EpubUsageUnit: {0}'.format(usage_unit))
+
+                    if usage_unit == UsageUnit.COPIES.value or usage_status == UsageUnit.CONCURRENT_USERS.value:
+                        quantity_limit = parser.text_of_subtag(usage_limit_tag, 'x320')
+
+                        cls._logger.debug('Quantity: {0}'.format(quantity_limit))
+
+                        if licenses_owned == LicensePool.UNLIMITED_ACCESS:
+                            licenses_owned = 0
+
+                        licenses_owned += int(quantity_limit)
+
             metadata_records.append(Metadata(
                 data_source=data_source_name,
                 title=title,
@@ -266,6 +326,15 @@ class ONIXExtractor(object):
                 identifiers=identifiers,
                 subjects=subjects,
                 contributors=contributors,
-                links=links
+                links=links,
+                circulation=CirculationData(
+                    data_source_name,
+                    primary_identifier,
+                    licenses_owned=licenses_owned,
+                    licenses_available=licenses_owned,
+                    licenses_reserved=0,
+                    patrons_in_hold_queue=0
+                )
             ))
+
         return metadata_records

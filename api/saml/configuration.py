@@ -1,83 +1,11 @@
-from abc import ABCMeta, abstractmethod
-
 from flask_babel import lazy_gettext as _
 from onelogin.saml2.settings import OneLogin_Saml2_Settings
 
-from api.saml.exceptions import SAMLError
 from api.saml.metadata import ServiceProviderMetadata, IdentityProviderMetadata
-from core.model import ConfigurationSetting
+from core.exceptions import BaseError
 
 
-class ExternalIntegrationOwner(object):
-    """Interface allowing to get access to an external integration"""
-
-    __metaclass__ = ABCMeta
-
-    @abstractmethod
-    def external_integration(self, db):
-        """Returns an external integration owned by this object
-
-        :param db: Database session
-        :type db: sqlalchemy.orm.session.Session
-
-        :return: External integration owned by this object
-        :rtype: core.model.configuration.ExternalIntegration
-        """
-        raise NotImplementedError()
-
-
-class SAMLConfigurationStorageError(SAMLError):
-    """Raised in the case of any errors during saving/loading configuration values"""
-
-
-class SAMLConfigurationStorage(object):
-    """Serializes and deserializes values as library's configuration settings"""
-
-    def __init__(self, integration_owner):
-        """Initializes a new instance of SAMLConfigurationStorage class
-
-        :param integration_owner: External integration owner
-        :type integration_owner: ExternalIntegrationOwner
-        """
-        self._integration_owner = integration_owner
-
-    def save(self, db, setting_name, value):
-        """Save the value as as a new configuration setting
-
-        :param db: Database session
-        :type db: sqlalchemy.orm.session.Session
-
-        :param setting_name: Name of the library's configuration setting
-        :type setting_name: string
-
-        :param value: Value to be saved
-        :type value: Any
-        """
-        integration = self._integration_owner.external_integration(db)
-        ConfigurationSetting.for_externalintegration(
-            setting_name,
-            integration).value = value
-
-    def load(self, db, setting_name):
-        """Loads and returns the library's configuration setting
-
-        :param db: Database session
-        :type db: sqlalchemy.orm.session.Session
-
-        :param setting_name: Name of the library's configuration setting
-        :type setting_name: string
-
-        :return: Any
-        """
-        integration = self._integration_owner.external_integration(db)
-        value = ConfigurationSetting.for_externalintegration(
-            setting_name,
-            integration).value
-
-        return value
-
-
-class SAMLConfigurationError(SAMLError):
+class SAMLConfigurationError(BaseError):
     """Raised in the case of any configuration errors"""
 
 
@@ -97,8 +25,8 @@ class SAMLConfiguration(object):
     def __init__(self, configuration_storage, metadata_parser):
         """Initializes a new instance of SAMLConfiguration class
 
-        :param configuration_storage: SAML configuration serializer
-        :type configuration_storage: SAMLConfigurationStorage
+        :param configuration_storage: SAML configuration storage
+        :type configuration_storage: ConfigurationStorage
 
         :param metadata_parser: SAML metadata parser
         :type metadata_parser: SAMLMetadataParser

@@ -2,10 +2,10 @@ import logging
 
 from onelogin.saml2.idp_metadata_parser import OneLogin_Saml2_IdPMetadataParser
 
-from api.saml.exceptions import SAMLError
+from core.exceptions import BaseError
 
 
-class SAMLMetadataLoadingError(SAMLError):
+class SAMLMetadataLoadingError(BaseError):
     """Raised in the case of any errors occurred during loading of SAML metadata from a remote source"""
 
 
