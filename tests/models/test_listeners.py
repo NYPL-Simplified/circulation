@@ -74,8 +74,11 @@ class TestSiteConfigurationHasChanged(DatabaseTest):
         eq_(timestamp_value, last_update)
 
         # Now let's call site_configuration_has_changed().
+        #
+        # Sending cooldown=0 ensures we can change the timestamp value
+        # even though it changed less than one second ago.
         time_of_update = datetime.datetime.utcnow()
-        site_configuration_has_changed(self._db, timeout=0)
+        site_configuration_has_changed(self._db, cooldown=0)
 
         # The Timestamp has changed in the database.
         assert ts() > timestamp_value
@@ -98,44 +101,37 @@ class TestSiteConfigurationHasChanged(DatabaseTest):
         )
 
         # Calling Configuration.check_for_site_configuration_update
-        # doesn't detect the change because by default we only go to
-        # the database every ten minutes.
+        # with a timeout doesn't detect the change.
         eq_(new_last_update_time,
-            Configuration.site_configuration_last_update(self._db))
+            Configuration.site_configuration_last_update(self._db, timeout=60)
+        )
 
-        # Passing in a different timeout value forces the method to go
-        # to the database and find the correct answer.
+        # But the default behavior -- a timeout of zero -- forces
+        # the method to go to the database and find the correct
+        # answer.
         newer_update = Configuration.site_configuration_last_update(
-            self._db, timeout=0
+            self._db
         )
         assert newer_update > last_update
 
-        # It's also possible to change the timeout value through a
-        # site-wide ConfigurationSetting
-        ConfigurationSetting.sitewide(
-            self._db, Configuration.SITE_CONFIGURATION_TIMEOUT
-        ).value = 0
-        timestamp = Timestamp.stamp(
-            self._db, Configuration.SITE_CONFIGURATION_CHANGED, None
-        )
-        even_newer_update = Configuration.site_configuration_last_update(
-            self._db, timeout=0
-        )
-        assert even_newer_update > newer_update
+        # The Timestamp that tracks the last configuration update has
+        # a cooldown; the default cooldown is 1 second. This means the
+        # last update time will only be set once per second, to avoid
+        # spamming the Timestamp with updates.
 
-        # If ConfigurationSettings are updated twice within the
-        # timeout period (default 1 second), the last update time is
-        # only set once, to avoid spamming the Timestamp with updates.
+        # It's been less than one second since we updated the timeout
+        # (with the Timestamp.stamp call). If this call decided that
+        # the cooldown had expired, it would try to update the
+        # Timestamp, and the code would crash because we're passing in
+        # None instead of a database connection.
+        #
+        # But it knows the cooldown has not expired, so nothing
+        # happens.
+        site_configuration_has_changed(None)
 
-        # The high site-wide value for 'timeout' saves this code. If we decided
-        # that the timeout had expired and tried to check the
-        # Timestamp, the code would crash because we're not passing
-        # a database connection in.
-        site_configuration_has_changed(None, timeout=100)
-
-        # Nothing has changed -- how could it, with no database connection
-        # to modify anything?
-        eq_(even_newer_update,
+        # Verify that the Timestamp has not changed (how could it,
+        # with no database connection to modify the Timestamp?)
+        eq_(newer_update,
             Configuration.site_configuration_last_update(self._db))
 
     # We don't test every event listener, but we do test one of each type.

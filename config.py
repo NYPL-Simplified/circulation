@@ -495,7 +495,7 @@ class Configuration(ConfigurationConstants):
 
     @classmethod
     def site_configuration_last_update(cls, _db, known_value=None,
-                                       timeout=None):
+                                       timeout=0):
         """Check when the site configuration was last updated.
 
         Updates Configuration.instance[Configuration.SITE_CONFIGURATION_LAST_UPDATE].
@@ -508,8 +508,9 @@ class Configuration(ConfigurationConstants):
 
         :param timeout: We will only call out to the database once in
             this number of seconds. If we are asked again before this
-            number of seconds elapses, we will assume site configuration
-            has not changed.
+            number of seconds elapses, we will assume site
+            configuration has not changed. By default, we call out to
+            the database every time.
 
         :return: a datetime object.
 
