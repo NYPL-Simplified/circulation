@@ -478,6 +478,10 @@ class Configuration(ConfigurationConstants):
 
     # A sitewide configuration setting controlling *how often* to check
     # whether the database configuration has changed.
+    #
+    # NOTE: This setting is currently not used; the most reliable
+    # value seems to be zero. Assuming that's true, this whole
+    # subsystem can be removed.
     SITE_CONFIGURATION_TIMEOUT = 'site_configuration_timeout'
 
     # The name of the service associated with a Timestamp that tracks
