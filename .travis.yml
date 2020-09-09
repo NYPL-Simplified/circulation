@@ -10,7 +10,7 @@ python:
 - '2.7'
 cache: pip
 git:
-  submodules: true
+  submodules: false
 script:
 - cd $TRAVIS_BUILD_DIR
 - provisioning/travis/build_for_aws.sh

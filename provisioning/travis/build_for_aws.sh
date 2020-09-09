@@ -30,7 +30,7 @@ if [ -z "$TRAVIS_PULL_REQUEST" ] || [ "$TRAVIS_PULL_REQUEST" == "false" ]; then
     LOCAL_TAG_NAME=$IMAGE_NAME:$TRAVIS_BRANCH-latest
     REMOTE_FULL_URL=$DOCKER_REPO_URL:$TRAVIS_BRANCH-latest
 
-    docker build --tag $LOCAL_TAG_NAME docker/Dockerfile.webapp
+    docker build --tag $LOCAL_TAG_NAME docker-nypl/Dockerfile.webapp
     echo "Pushing $LOCAL_TAG_NAME"
     docker tag $LOCAL_TAG_NAME "$REMOTE_FULL_URL"
     docker push "$REMOTE_FULL_URL"
