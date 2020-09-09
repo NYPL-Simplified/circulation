@@ -1,14 +1,14 @@
 sudo: required
-# addons:
-#   postgresql: '9.6'
-#   apt:
-#     packages:
-#     - postgresql-contrib-9.6
-#     - libxmlsec1-dev
-#     - libxml2-dev
+addons:
+  postgresql: '9.6'
+  apt:
+    packages:
+    - postgresql-contrib-9.6
+    - libxmlsec1-dev
+    - libxml2-dev
 # services:
 # - postgresql
-language: python
+# language: python
 python:
 - '2.7'
 cache: pip
