@@ -26,7 +26,7 @@ if [ -z "$TRAVIS_PULL_REQUEST" ] || [ "$TRAVIS_PULL_REQUEST" == "false" ]; then
     eval $(aws ecr get-login --no-include-email --region us-east-1)
 
     # Build and push
-    IMAGE_NAME=nginxrp
+    IMAGE_NAME=nyplsimplye
     LOCAL_TAG_NAME=$IMAGE_NAME:$TRAVIS_BRANCH-latest
     REMOTE_FULL_URL=$DOCKER_REPO_URL:$TRAVIS_BRANCH-latest
 
