@@ -478,6 +478,10 @@ class Configuration(ConfigurationConstants):
 
     # A sitewide configuration setting controlling *how often* to check
     # whether the database configuration has changed.
+    #
+    # NOTE: This setting is currently not used; the most reliable
+    # value seems to be zero. Assuming that's true, this whole
+    # subsystem can be removed.
     SITE_CONFIGURATION_TIMEOUT = 'site_configuration_timeout'
 
     # The name of the service associated with a Timestamp that tracks
@@ -495,7 +499,7 @@ class Configuration(ConfigurationConstants):
 
     @classmethod
     def site_configuration_last_update(cls, _db, known_value=None,
-                                       timeout=None):
+                                       timeout=0):
         """Check when the site configuration was last updated.
 
         Updates Configuration.instance[Configuration.SITE_CONFIGURATION_LAST_UPDATE].
@@ -508,20 +512,29 @@ class Configuration(ConfigurationConstants):
 
         :param timeout: We will only call out to the database once in
             this number of seconds. If we are asked again before this
-            number of seconds elapses, we will assume site configuration
-            has not changed.
+            number of seconds elapses, we will assume site
+            configuration has not changed. By default, we call out to
+            the database every time.
 
         :return: a datetime object.
 
         """
+
         now = datetime.datetime.utcnow()
 
+        # NOTE: Currently we never check the database (because timeout is
+        # never set to None). This code will hopefully be removed soon.
         if _db and timeout is None:
             from model import ConfigurationSetting
             timeout = ConfigurationSetting.sitewide(
                 _db, cls.SITE_CONFIGURATION_TIMEOUT
             ).int_value
+
         if timeout is None:
+            # NOTE: this only happens if timeout is explicitly set to
+            # None _and_ no database value is present. Right now that
+            # never happens because timeout is never explicitly set to
+            # None.
             timeout = 60
 
         last_check = cls.instance.get(

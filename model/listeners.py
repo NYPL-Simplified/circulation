@@ -32,7 +32,7 @@ from work import Work
 from threading import RLock
 
 site_configuration_has_changed_lock = RLock()
-def site_configuration_has_changed(_db, timeout=1):
+def site_configuration_has_changed(_db, cooldown=1):
     """Call this whenever you want to indicate that the site configuration
     has changed and needs to be reloaded.
 
@@ -43,7 +43,7 @@ def site_configuration_has_changed(_db, timeout=1):
     :param _db: Either a Session or (to save time in a common case) an
         ORM object that can turned into a Session.
 
-    :param timeout: Nothing will happen if it's been fewer than this
+    :param cooldown: Nothing will happen if it's been fewer than this
         number of seconds since the last site configuration change was
         recorded.
     """
@@ -55,16 +55,16 @@ def site_configuration_has_changed(_db, timeout=1):
         return
 
     try:
-        _site_configuration_has_changed(_db, timeout)
+        _site_configuration_has_changed(_db, cooldown)
     finally:
         site_configuration_has_changed_lock.release()
 
-def _site_configuration_has_changed(_db, timeout=1):
+def _site_configuration_has_changed(_db, cooldown=1):
     """Actually changes the timestamp on the site configuration."""
     now = datetime.datetime.utcnow()
     last_update = Configuration._site_configuration_last_update()
-    if not last_update or (now - last_update).total_seconds() > timeout:
-        # The configuration last changed more than `timeout` ago, which
+    if not last_update or (now - last_update).total_seconds() > cooldown:
+        # The configuration last changed more than `cooldown` ago, which
         # means it's time to reset the Timestamp that says when the
         # configuration last changed.
 
@@ -75,7 +75,7 @@ def _site_configuration_has_changed(_db, timeout=1):
 
         # Update the timestamp.
         now = datetime.datetime.utcnow()
-        earlier = now-datetime.timedelta(seconds=timeout)
+        earlier = now-datetime.timedelta(seconds=cooldown)
         sql = "UPDATE timestamps SET finish=:finish WHERE service=:service AND collection_id IS NULL AND finish<=:earlier;"
         _db.execute(
             text(sql),
