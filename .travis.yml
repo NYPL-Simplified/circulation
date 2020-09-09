@@ -13,7 +13,7 @@ sudo: required
 # - '2.7'
 # cache: pip
 git:
-  submodules: true
+  submodules: false
 before_install:
 # - git config submodule.core.url https://github.com/NYPL-Simplified/server_core.git
 # - git config submodule.docker.url https://github.com/NYPL-Simplified/circulation-docker.git
