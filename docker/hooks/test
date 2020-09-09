@@ -1,0 +1,80 @@
+#!/bin/bash
+
+set -ex
+
+# Create a container with test and production postgres databases.
+docker pull postgres:9.5;
+docker run -d --env POSTGRES_HOST_AUTH_METHOD=trust --name pg postgres:9.5;
+
+# Sleep to let PostgreSQL start up.
+sleep 15;
+
+# Create production and test databases.
+docker exec -u postgres pg psql -c "create user simplified with password 'test';";
+docker exec -u postgres pg psql -c "create database docker_prod;";
+docker exec -u postgres pg psql -c "create database docker_test;";
+docker exec -u postgres pg psql -c "grant all privileges on database docker_prod to simplified;";
+docker exec -u postgres pg psql -c "grant all privileges on database docker_test to simplified;";
+
+# Find the Postgres host IP address dynamically.
+pghost=$(docker inspect pg --format="{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}")
+echo "Postgres IP: $pghost"
+
+# Create a base and deployment container with this tag.
+docker run -d -p 80:80 \
+  -e SIMPLIFIED_DB_TASK="init" \
+  -e SIMPLIFIED_TEST_DATABASE="postgres://simplified:test@${pghost}:5432/docker_test" \
+  -e SIMPLIFIED_PRODUCTION_DATABASE="postgres://simplified:test@${pghost}:5432/docker_prod" \
+  --name circ --rm "$IMAGE_NAME"
+
+# A method to check that runit services are running inside the container
+function check_service_status()
+{
+  # The location of the runit service should be passed.
+  service="$1"
+
+  # Check the status of the service.
+  service_status=`docker exec circ /bin/bash -c "sv status $service"`
+
+  # Get the exit code for the sv call.
+  sv_status=$?
+
+  if [[ "$sv_status" != 0 || "$service_status" =~ down ]]; then
+    echo "  FAIL: $service is not running"
+    exit 1
+  else
+    echo "  OK"
+  fi
+}
+
+# Wait for the container to start services before running tests
+sleep 30;
+
+# If this is an exec container, there are no tests to run.
+if [[ ${IMAGE_NAME} == *"exec"* ]]; then
+  exit 0
+fi
+
+# If this is a scripts container, check that cron is running.
+if [[ ${IMAGE_NAME} == *"scripts"* ]]; then
+  check_service_status /etc/service/cron
+  exit 0
+fi
+
+# In a webapp container, check that nginx and uwsgi are running.
+check_service_status /etc/service/nginx
+check_service_status /home/simplified/service/uwsgi
+
+# Make sure the web server is running.
+healthcheck=$(docker exec circ /bin/bash -c "curl --write-out \"%{http_code}\" --silent --output /dev/null http://localhost/healthcheck.html")
+if ! [[ ${healthcheck} == '200' ]]; then exit 1; else echo "  OK"; fi
+
+# Also make sure the app server is running.
+feed_type=$(docker exec circ /bin/bash -c "curl --write-out \"%{content_type}\" --silent --output /dev/null http://localhost/heartbeat")
+if ! [[ ${feed_type} == 'application/vnd.health+json' ]]; then
+  exit 1
+else
+  echo "  OK"
+fi
+
+exit 0;

@@ -1,0 +1,37 @@
+###############################################################################
+## lcpencrypt
+###############################################################################
+
+FROM amd64/golang AS builder
+
+LABEL maintainer="Library Simplified <info@librarysimplified.org>"
+
+RUN go get -v github.com/readium/readium-lcp-server/lcpencrypt
+
+###############################################################################
+## Final image
+###############################################################################
+
+FROM phusion/baseimage:latest-amd64
+
+COPY --from=builder /go/bin/lcpencrypt /go/bin/lcpencrypt
+
+ARG version
+ARG repo="NYPL-Simplified/circulation"
+
+ENV SIMPLIFIED_DB_TASK "auto"
+ENV SIMPLIFIED_SCRIPT_NAME ""
+
+# Copy over all Library Simplified build files for this image
+COPY . /ls_build
+
+RUN /bin/bash -c "/ls_build/simplified_app.sh ${repo} ${version} \
+      && /ls_build/logrotate.sh \
+      && rm -rf /ls_build && /bd_build/cleanup.sh"
+
+VOLUME /var/log
+WORKDIR /home/simplified/circulation/bin
+
+CMD ["/sbin/my_init", "--skip-runit", "--quiet", "--", \
+     "/bin/bash", "-c", \
+     "source ../env/bin/activate && ./${SIMPLIFIED_SCRIPT_NAME}"]
