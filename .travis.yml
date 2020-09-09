@@ -1,56 +1,50 @@
 sudo: required
-
 addons:
-  postgresql: "9.6"
+  postgresql: '9.6'
   apt:
     packages:
-      - postgresql-contrib-9.6
-      - libxmlsec1-dev
-      - libxml2-dev
-
+    - postgresql-contrib-9.6
+    - libxmlsec1-dev
+    - libxml2-dev
 services:
-  - postgresql
-
+- postgresql
 language: python
-
 python:
-  - "2.7"
-
+- '2.7'
 cache: pip
-
 git:
   submodules: false
-
 before_install:
-  # Access the submodule via https instead of default SSH
-  - git config submodule.core.url https://github.com/NYPL-Simplified/server_core.git
-  - git config submodule.docker.url https://github.com/NYPL-Simplified/circulation-docker.git
-  - git submodule update --init --recursive
-
+- git config submodule.core.url https://github.com/NYPL-Simplified/server_core.git
+- git config submodule.docker.url https://github.com/NYPL-Simplified/circulation-docker.git
+- git submodule update --init --recursive
 install:
-  - pip install --upgrade pip
-  - pip install -r requirements.txt
-  - python -m textblob.download_corpora
-
+- pip install --upgrade pip
+- pip install -r requirements.txt
+- python -m textblob.download_corpora
 before_script:
-  - psql -c 'create user simplified_test;' -U postgres
-  - psql -c 'create database simplified_circulation_test;' -U postgres
-  - psql -c 'grant all privileges on database simplified_circulation_test to simplified_test;' -U postgres
-  - cd docs && make html && cd ..
-
+- psql -c 'create user simplified_test;' -U postgres
+- psql -c 'create database simplified_circulation_test;' -U postgres
+- psql -c 'grant all privileges on database simplified_circulation_test to simplified_test;'
+  -U postgres
+- cd docs && make html && cd ..
+after_success:
+- cd $TRAVIS_BUILD_DIR
+- provisioning/travis/build_for_aws.sh
+- provisioning/travis/deploy_on_aws.sh
 env:
   global:
-    - SIMPLIFIED_TEST_DATABASE="postgres://simplified_test:test@localhost:5432/simplified_circulation_test"
-
+  - SIMPLIFIED_TEST_DATABASE="postgres://simplified_test:test@localhost:5432/simplified_circulation_test"
+  - REMOTE_IMAGE_URL_SIMYPLE_DEV=491147561046.dkr.ecr.us-east-1.amazonaws.com/nyplsimplye
+  - REMOTE_IMAGE_URL_SIMPLYE_PRODUCTION=
+  - secure: XINNbfZ8w1IpPmmwMUhsuED/DIxKXvgj6+LxE/9mxU+hyLcte3S34v3q587jzRzlq8J6hWvWPiNKzcvGrTQCapHk6BwKyv4meAIMJL+sHva6ZMKPKq00DrPrSwDMKcc/iVBMkJ3ZmOOu8R9YNtXlJNakqzPfJmKechboj4Ow4Z4QXqi3BbzQA8OqaUCfIAraF6C+NasVMetfdYbMRUOXoaiqFjoiLOwfmv4jRrDYcJKkcjMLi+ZmlpmDzDiSrScn+YoRto43rVSJOC7/kUQ+5yRfGsIQPUkYXtip3yIlRHOqNAgTBeXuQiqQiO1DYPI4njOtChbPsuUzm0w2ZFiKZTiZYH/HPNElh6NJC5frF5f6LiQ2jDfXHnseOaDNtWv+kmTT4vwh3sbWvWpPAwY9ELA3yYZAlchCiGbxmpFpv/w9D8Hk1JU65B2LO64UosyrD3v05Y12j4yOCvUEP0lnu+o6khISRxG2P27RaIt8NdRfpoP/25Fcatxd0IMAug1oe2r8QBcP44RioNvinfdu72bbYvfCFRee+vVwyWCc7fjM3BqwS5sShuUJRPmOtnF1CnVpEHSMYwvac/lfbBpHSFM2Q8mN+BhAT7OEkIvL0QqiTHP1QOz90vSgk97wE68iWcQOEmhFJ0rpStUGRhF+1fhnpSEnBNaOI2vIu8VokAI=
 script:
-  - ./verbose-test
-
+- "./verbose-test"
 deploy:
   provider: pages
   skip_cleanup: true
   keep-history: true
-  github_token: $GITHUB_TOKEN
+  github_token: "$GITHUB_TOKEN"
   on:
     branch: master
   local_dir: docs/build/html/
-
