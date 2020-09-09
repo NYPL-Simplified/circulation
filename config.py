@@ -519,14 +519,22 @@ class Configuration(ConfigurationConstants):
         :return: a datetime object.
 
         """
+
         now = datetime.datetime.utcnow()
 
+        # NOTE: Currently we never check the database (because timeout is
+        # never set to None). This code will hopefully be removed soon.
         if _db and timeout is None:
             from model import ConfigurationSetting
             timeout = ConfigurationSetting.sitewide(
                 _db, cls.SITE_CONFIGURATION_TIMEOUT
             ).int_value
+
         if timeout is None:
+            # NOTE: this only happens if timeout is explicitly set to
+            # None _and_ no database value is present. Right now that
+            # never happens because timeout is never explicitly set to
+            # None.
             timeout = 60
 
         last_check = cls.instance.get(
