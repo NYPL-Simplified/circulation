@@ -18,6 +18,6 @@ script:
 env:
   global:
   - SIMPLIFIED_TEST_DATABASE="postgres://simplified_test:test@localhost:5432/simplified_circulation_test"
-  - REMOTE_IMAGE_URL_SIMYPLE_DEV=491147561046.dkr.ecr.us-east-1.amazonaws.com/nyplsimplye
+  - REMOTE_IMAGE_URL_SIMPLYE_DEV=491147561046.dkr.ecr.us-east-1.amazonaws.com/nyplsimplye
   - REMOTE_IMAGE_URL_SIMPLYE_PRODUCTION=
   - secure: Cg/55B0Gvzs3VdJ+MvB1e/P69xr7HVOoUI+o6cxysFqKVS1TB9cbybsScQ7mR3ngcH1e48IuAQNPYPwPP/yFgRCbwHGiNCJdrC8uLk56IoBhHArwWNsin5Hy4xhZs96qgHO5TiVfVI35usiUTULL4m5GfiYuBwFcnkr4bjg/5xGnxl6chaUke7/e6LU5sWcg/JN7AQnPyi93KaOD0zIlQhkuZ/Jx8Ju7TWGzqY9A/rWe6NWbUffSt5/j7zayDb+KH/UvJNkYh4vMiIBI6sXQcNb6J6s0nEs9TZkx1y4kYqodnc/VqGDN4+NfGdbDwx7OLqGagGWn2wo5mOQwMVUFB22zH9/sTcc+N3Hu4Xi1nYbrBspaQu2vrXyMFnivIx7KuIl7N2Td7nkeR6i1eCl4lYaYu4KhkIwh8oRxmiQyqK3Wqjluzxssd5TWso1dQYaO4MvHsGD6/Qi5CCJ2EqsjigN/O6Dp5OA79b5fh4nWrOUqegQ1cW/ksCY+NNt25uWZiudf8XEZGstmj7OPyvVd7Oxz1et0YUbFepzLGJ+6TkaHaYtzZTA1UR7wiWs8BbktR7Xz2l3SukDGoTfv+0vPa+BB7WvCQZGo518TpH0fjS3sSAdALfGvMJ6OoQHyKxEbaINTJggzYQt2SGQ1LjDS8ux1/xUaVE9W3wwE5aEYDbQ=
