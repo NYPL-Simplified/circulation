@@ -513,6 +513,10 @@
 
     <span class="c1"># A sitewide configuration setting controlling *how often* to check</span>
     <span class="c1"># whether the database configuration has changed.</span>
+    <span class="c1">#</span>
+    <span class="c1"># NOTE: This setting is currently not used; the most reliable</span>
+    <span class="c1"># value seems to be zero. Assuming that&#39;s true, this whole</span>
+    <span class="c1"># subsystem can be removed.</span>
     <span class="n">SITE_CONFIGURATION_TIMEOUT</span> <span class="o">=</span> <span class="s1">&#39;site_configuration_timeout&#39;</span>
 
     <span class="c1"># The name of the service associated with a Timestamp that tracks</span>
@@ -530,7 +534,7 @@
 
 <div class="viewcode-block" id="Configuration.site_configuration_last_update"><a class="viewcode-back" href="../../core.html#core.config.Configuration.site_configuration_last_update">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">site_configuration_last_update</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">known_value</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-                                       <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+                                       <span class="n">timeout</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Check when the site configuration was last updated.</span>
 
 <span class="sd">        Updates Configuration.instance[Configuration.SITE_CONFIGURATION_LAST_UPDATE].</span>
@@ -543,20 +547,29 @@
 
 <span class="sd">        :param timeout: We will only call out to the database once in</span>
 <span class="sd">            this number of seconds. If we are asked again before this</span>
-<span class="sd">            number of seconds elapses, we will assume site configuration</span>
-<span class="sd">            has not changed.</span>
+<span class="sd">            number of seconds elapses, we will assume site</span>
+<span class="sd">            configuration has not changed. By default, we call out to</span>
+<span class="sd">            the database every time.</span>
 
 <span class="sd">        :return: a datetime object.</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
+
         <span class="n">now</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
 
+        <span class="c1"># NOTE: Currently we never check the database (because timeout is</span>
+        <span class="c1"># never set to None). This code will hopefully be removed soon.</span>
         <span class="k">if</span> <span class="n">_db</span> <span class="ow">and</span> <span class="n">timeout</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="kn">from</span> <span class="nn">model</span> <span class="kn">import</span> <span class="n">ConfigurationSetting</span>
             <span class="n">timeout</span> <span class="o">=</span> <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">sitewide</span><span class="p">(</span>
                 <span class="n">_db</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">SITE_CONFIGURATION_TIMEOUT</span>
             <span class="p">)</span><span class="o">.</span><span class="n">int_value</span>
+
         <span class="k">if</span> <span class="n">timeout</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># NOTE: this only happens if timeout is explicitly set to</span>
+            <span class="c1"># None _and_ no database value is present. Right now that</span>
+            <span class="c1"># never happens because timeout is never explicitly set to</span>
+            <span class="c1"># None.</span>
             <span class="n">timeout</span> <span class="o">=</span> <span class="mi">60</span>
 
         <span class="n">last_check</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">instance</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>

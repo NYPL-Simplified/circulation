@@ -833,7 +833,7 @@ database.</p>
 
 <dl class="classmethod">
 <dt id="core.config.Configuration.site_configuration_last_update">
-<em class="property">classmethod </em><code class="descname">site_configuration_last_update</code><span class="sig-paren">(</span><em>_db</em>, <em>known_value=None</em>, <em>timeout=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/config.html#Configuration.site_configuration_last_update"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.config.Configuration.site_configuration_last_update" title="Permalink to this definition">¶</a></dt>
+<em class="property">classmethod </em><code class="descname">site_configuration_last_update</code><span class="sig-paren">(</span><em>_db</em>, <em>known_value=None</em>, <em>timeout=0</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/config.html#Configuration.site_configuration_last_update"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.config.Configuration.site_configuration_last_update" title="Permalink to this definition">¶</a></dt>
 <dd><p>Check when the site configuration was last updated.</p>
 <p>Updates Configuration.instance[Configuration.SITE_CONFIGURATION_LAST_UPDATE].
 It’s the application’s responsibility to periodically check
@@ -848,8 +848,9 @@ last updated–it’s this timestamp. Use it instead of checking
 with the database.</li>
 <li><strong>timeout</strong> – We will only call out to the database once in
 this number of seconds. If we are asked again before this
-number of seconds elapses, we will assume site configuration
-has not changed.</li>
+number of seconds elapses, we will assume site
+configuration has not changed. By default, we call out to
+the database every time.</li>
 </ul>
 </td>
 </tr>
@@ -5149,7 +5150,7 @@ it is formatted using formatException() and appended to the message.</p>
 
 <dl class="attribute">
 <dt id="core.log.JSONFormatter.hostname">
-<code class="descname">hostname</code><em class="property"> = 'travis-job-89954112-ac96-415a-b11e-9a625b8b5502'</em><a class="headerlink" href="#core.log.JSONFormatter.hostname" title="Permalink to this definition">¶</a></dt>
+<code class="descname">hostname</code><em class="property"> = 'travis-job-441a6f95-20bb-43f0-a271-1face4d2757e'</em><a class="headerlink" href="#core.log.JSONFormatter.hostname" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>

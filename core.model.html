@@ -7185,7 +7185,7 @@ its LicensePools changes its open-access status.</p>
 
 <dl class="function">
 <dt id="core.model.listeners.site_configuration_has_changed">
-<code class="descclassname">core.model.listeners.</code><code class="descname">site_configuration_has_changed</code><span class="sig-paren">(</span><em>_db</em>, <em>timeout=1</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/model/listeners.html#site_configuration_has_changed"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.listeners.site_configuration_has_changed" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">core.model.listeners.</code><code class="descname">site_configuration_has_changed</code><span class="sig-paren">(</span><em>_db</em>, <em>cooldown=1</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/model/listeners.html#site_configuration_has_changed"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.listeners.site_configuration_has_changed" title="Permalink to this definition">¶</a></dt>
 <dd><p>Call this whenever you want to indicate that the site configuration
 has changed and needs to be reloaded.</p>
 <p>This is automatically triggered on relevant changes to the data
@@ -7198,7 +7198,7 @@ of what you consider “site configuration”, just to be safe.</p>
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
 <li><strong>_db</strong> – Either a Session or (to save time in a common case) an
 ORM object that can turned into a Session.</li>
-<li><strong>timeout</strong> – Nothing will happen if it’s been fewer than this
+<li><strong>cooldown</strong> – Nothing will happen if it’s been fewer than this
 number of seconds since the last site configuration change was
 recorded.</li>
 </ul>

@@ -50,12 +50,23 @@
 <span class="kn">import</span> <span class="nn">re</span>
 <span class="kn">import</span> <span class="nn">urllib</span>
 <span class="kn">import</span> <span class="nn">uszipcode</span>
+<span class="kn">import</span> <span class="nn">os</span>
 
 <div class="viewcode-block" id="GeographicValidator"><a class="viewcode-back" href="../../../api.admin.html#api.admin.geographic_validator.GeographicValidator">[docs]</a><span class="k">class</span> <span class="nc">GeographicValidator</span><span class="p">(</span><span class="n">Validator</span><span class="p">):</span>
+
+<div class="viewcode-block" id="GeographicValidator.get_us_search"><a class="viewcode-back" href="../../../api.admin.html#api.admin.geographic_validator.GeographicValidator.get_us_search">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">get_us_search</span><span class="p">():</span>
+        <span class="c1"># Use a known path for the uszipcode db_file_dir that already contains the DB that the</span>
+        <span class="c1"># library would otherwise download. This is done because the host for this file can</span>
+        <span class="c1"># be flaky. There is an issue for this in the underlying library here:</span>
+        <span class="c1"># https://github.com/MacHu-GWU/uszipcode-project/issues/40</span>
+        <span class="n">db_file_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="vm">__file__</span><span class="p">),</span> <span class="s2">&quot;..&quot;</span><span class="p">,</span> <span class="s2">&quot;..&quot;</span><span class="p">,</span> <span class="s2">&quot;data&quot;</span><span class="p">,</span> <span class="s2">&quot;uszipcode&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">uszipcode</span><span class="o">.</span><span class="n">SearchEngine</span><span class="p">(</span><span class="n">simple_zipcode</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">db_file_dir</span><span class="o">=</span><span class="n">db_file_path</span><span class="p">)</span></div>
+
 <div class="viewcode-block" id="GeographicValidator.validate_geographic_areas"><a class="viewcode-back" href="../../../api.admin.html#api.admin.geographic_validator.GeographicValidator.validate_geographic_areas">[docs]</a>    <span class="k">def</span> <span class="nf">validate_geographic_areas</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">values</span><span class="p">,</span> <span class="n">db</span><span class="p">):</span>
         <span class="c1"># Note: the validator does not recognize data from US territories other than Puerto Rico.</span>
 
-        <span class="n">us_search</span> <span class="o">=</span> <span class="n">uszipcode</span><span class="o">.</span><span class="n">SearchEngine</span><span class="p">(</span><span class="n">simple_zipcode</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">us_search</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_us_search</span><span class="p">()</span>
         <span class="n">ca_search</span> <span class="o">=</span> <span class="n">PostalCodeDatabase</span><span class="p">()</span>
         <span class="n">CA_PROVINCES</span> <span class="o">=</span> <span class="p">{</span>
             <span class="s2">&quot;AB&quot;</span><span class="p">:</span> <span class="s2">&quot;Alberta&quot;</span><span class="p">,</span>
@@ -141,7 +152,7 @@
 
 <div class="viewcode-block" id="GeographicValidator.look_up_zip"><a class="viewcode-back" href="../../../api.admin.html#api.admin.geographic_validator.GeographicValidator.look_up_zip">[docs]</a>    <span class="k">def</span> <span class="nf">look_up_zip</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">zip</span><span class="p">,</span> <span class="n">country</span><span class="p">,</span> <span class="n">formatted</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">country</span> <span class="o">==</span> <span class="s2">&quot;US&quot;</span><span class="p">:</span>
-            <span class="n">info</span> <span class="o">=</span> <span class="n">uszipcode</span><span class="o">.</span><span class="n">SearchEngine</span><span class="p">(</span><span class="n">simple_zipcode</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">by_zipcode</span><span class="p">(</span><span class="nb">zip</span><span class="p">)</span>
+            <span class="n">info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_us_search</span><span class="p">()</span><span class="o">.</span><span class="n">by_zipcode</span><span class="p">(</span><span class="nb">zip</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">formatted</span><span class="p">:</span>
                 <span class="n">info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">format_place</span><span class="p">(</span><span class="nb">zip</span><span class="p">,</span> <span class="n">info</span><span class="o">.</span><span class="n">major_city</span><span class="p">,</span> <span class="n">info</span><span class="o">.</span><span class="n">state</span><span class="p">)</span>
         <span class="k">elif</span> <span class="n">country</span> <span class="o">==</span> <span class="s2">&quot;CA&quot;</span><span class="p">:</span>
