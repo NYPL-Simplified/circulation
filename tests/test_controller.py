@@ -1181,9 +1181,9 @@ class TestBaseController(CirculationControllerTest):
         self._default_library.short_name = new_name
         self._db.commit()
 
-        # Bypass the 1-second timeout and make sure the site knows
+        # Bypass the 1-second cooldown and make sure the site knows
         # the configuration has actually changed.
-        model.site_configuration_has_changed(self._db, timeout=0)
+        model.site_configuration_has_changed(self._db, cooldown=0)
 
         # Just making the change and calling
         # site_configuration_has_changed was not enough to update the
