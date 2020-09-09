@@ -47,7 +47,6 @@ git checkout $version
 
 # Use https to access submodules.
 git config submodule.core.url https://github.com/NYPL-Simplified/server_core.git
-git config submodule.docker.url https://github.com/NYPL-Simplified/circulation-docker.git
 git submodule update --init --recursive
 
 # Add a .version file to the directory. This file
