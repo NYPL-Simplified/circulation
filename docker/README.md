@@ -59,7 +59,7 @@ For troubleshooting information and installation directions for the entire Circu
 
 This image builds containers that will run a single script and stop. It's useful in conjunction with a tool like Amazon ECS Scheduled Tasks, where you can run script containers on a cron-style schedule.
 
-Unlike the `circ-scripts` image, which runs constantly and executes every possible maintenance script--whether or not your configuration requires it--`circ-exec` offers more nuanced control of your Library Simplified Circulation Manager jobs. The most accurate place to look for recommended jobs and their recommended frequencies is [the existing `circ-scripts` crontab](https://github.com/NYPL-Simplified/circulation-docker/blob/master/services/simplified_crontab).
+Unlike the `circ-scripts` image, which runs constantly and executes every possible maintenance script--whether or not your configuration requires it--`circ-exec` offers more nuanced control of your Library Simplified Circulation Manager jobs. The most accurate place to look for recommended jobs and their recommended frequencies is [the existing `circ-scripts` crontab](https://github.com/NYPL-Simplified/circulation/blob/main/docker/services/simplified_crontab).
 
 Because containers based on `circ-exec` are built, run their job, and are destroyed, it's important to configure an external log aggregator to find &#42;.log files in `/var/log/simplified/${SIMPLIFIED_SCRIPT_NAME}.log`.
 
