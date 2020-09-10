@@ -21,7 +21,26 @@ cache: pip
 git:
   submodules: false
 
+before_install:
+  # Access the submodule via https instead of default SSH
+  - git config submodule.core.url https://github.com/NYPL-Simplified/server_core.git
+  - git submodule update --init --recursive
+
+install:
+  - pip install --upgrade pip
+  - pip install -r requirements.txt
+  - python -m textblob.download_corpora
+
+before_script:
+  - psql -c 'create user simplified_test;' -U postgres
+  - psql -c 'create database simplified_circulation_test;' -U postgres
+  - psql -c 'grant all privileges on database simplified_circulation_test to simplified_test;' -U postgres
+  - cd docs && make html && cd ..
+
 script:
+  - ./verbose-test
+
+after_script:
   - cd $TRAVIS_BUILD_DIR
   - provisioning/travis/build_for_aws.sh
   - provisioning/travis/deploy_on_aws.sh
@@ -32,3 +51,12 @@ env:
     - REMOTE_IMAGE_URL_SIMPLYE_DEV=491147561046.dkr.ecr.us-east-1.amazonaws.com/nyplsimplye
     - REMOTE_IMAGE_URL_SIMPLYE_PRODUCTION=
     - secure: MGrns5BKpVtAQyTX/7lo5qobX+fJSaPnHPdfy4I86IUEIAADADbD4D8OLbQe0qFm/1FrevnBk22qXS5xLT5dkAFpYJH7zIQ59IOgld52DcwZkKEX9ZCAgXMFKO6UYi1Qj7EcHeZdopdwgHOPOXo/QkaztpEGNkAjRzgxDyZKzIReqof/XoY4bG5ON/nF9M4Z9CfKE8xupbIiGeD1S4k4n8BQTSVtcH0AvyHA1M8PyPqm1eFAiK2NgLnHDXdvkaPkZ5458qa8tC6A9J1YY8JWNqPf2obMH0hR5UKwScGIpPhVSHaM9kjj7PG1OfhUzwMu59bM1PSve5J7vgGRd9SJepIdHOy6HCbrwd3Oo3J/3i8I57B4l5oy7xLsMd01NJ/Qd6rPKXJSyFBUBtYB/xWFxHE1PKGpvAWUDvaBhpXAltTtWUDTVU1MqnwmLK5P/2Wzyl/tNciuPMHsDHYNTlx2ZbAFLFPkA4n6vKGZuGMYI5o9C2SfU2f0MyIxCC8vejGfK0usBHt+G/Tpf1Zv2nLjxQLPqJPGxrslIZTBXBJ9g8D3RfjIkKLIcEBWEdzemSGw/Gvw3Hb8AdytbyvZonYUhcaPC5kqusRM5eAlnYr8nGvIDrhffda+Y/Nf1wH5/lhWVSGoXk45W7Cs7onlw06/63xcWCXVCjM/41jXkVb16jI=
+
+deploy:
+  provider: pages
+  skip_cleanup: true
+  keep-history: true
+  github_token: $GITHUB_TOKEN
+  on:
+    branch: master
+  local_dir: docs/build/html/
