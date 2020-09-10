@@ -569,6 +569,22 @@ def saml_authenticate():
 def saml_callback():
     return app.manager.saml_controller.saml_authentication_callback(request, app.manager._db)
 
+
+@library_route('/lcp/hint')
+@has_library
+@requires_auth
+@returns_problem_detail
+def lcp_passphrase():
+    return app.manager.lcp_controller.get_lcp_passphrase()
+
+
+@library_route('/lcp/licenses/<license_id>')
+@has_library
+@requires_auth
+@returns_problem_detail
+def lcp_license(license_id):
+    return app.manager.lcp_controller.get_lcp_license(license_id)
+
 # Loan notifications for ODL distributors, eg. Feedbooks
 @library_route('/odl_notify/<loan_id>', methods=['GET', 'POST'])
 @has_library

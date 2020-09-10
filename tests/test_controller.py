@@ -1062,6 +1062,25 @@ class TestBaseController(CirculationControllerTest):
         )
         eq_(BAD_DELIVERY_MECHANISM.uri, problem_detail.uri)
 
+    def test_apply_borrowing_policy_succeeds_for_unlimited_access_books(self):
+        with self.request_context_with_library("/"):
+            # Arrange
+            patron = self.controller.authenticated_patron(self.valid_credentials)
+            work = self._work(
+                with_license_pool=True,
+                with_open_access_download=False
+            )
+            [pool] = work.license_pools
+            pool.open_access = False
+            pool.self_hosted = False
+            pool.unlimited_access = True
+
+            # Act
+            problem = self.controller.apply_borrowing_policy(patron, pool)
+
+            # Assert
+            assert problem is None
+
     def test_apply_borrowing_policy_succeeds_for_self_hosted_books(self):
         with self.request_context_with_library("/"):
             # Arrange
@@ -1162,9 +1181,9 @@ class TestBaseController(CirculationControllerTest):
         self._default_library.short_name = new_name
         self._db.commit()
 
-        # Bypass the 1-second timeout and make sure the site knows
+        # Bypass the 1-second cooldown and make sure the site knows
         # the configuration has actually changed.
-        model.site_configuration_has_changed(self._db, timeout=0)
+        model.site_configuration_has_changed(self._db, cooldown=0)
 
         # Just making the change and calling
         # site_configuration_has_changed was not enough to update the

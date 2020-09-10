@@ -6,12 +6,12 @@ from lxml.etree import XMLSyntaxError
 from onelogin.saml2.constants import OneLogin_Saml2_Constants
 from onelogin.saml2.utils import OneLogin_Saml2_Utils
 
-from api.saml.exceptions import SAMLError
 from api.saml.metadata import IdentityProviderMetadata, LocalizableMetadataItem, UIInfo, ServiceProviderMetadata, \
     Binding, Service, NameIDFormat, Organization, NameID, AttributeStatement, Subject, SAMLAttributes, Attribute
+from core.exceptions import BaseError
 
 
-class SAMLMetadataParsingError(SAMLError):
+class SAMLMetadataParsingError(BaseError):
     """Raised in the case of any errors occurred during parsing of SAML metadata"""
 
 

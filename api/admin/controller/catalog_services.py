@@ -1,21 +1,19 @@
-from nose.tools import set_trace
 import flask
 from flask import Response
 from flask_babel import lazy_gettext as _
 
-from . import SettingsController
+from api.admin.problem_details import *
 from core.marc import MARCExporter
 from core.model import (
     ExternalIntegration,
-    ConfigurationSetting,
-    Session,
     get_one,
     get_one_or_create
 )
 from core.model.configuration import ExternalIntegrationLink
-from api.admin.problem_details import *
+from core.s3 import S3UploaderConfiguration
 from core.util.problem_detail import ProblemDetail
-from core.s3 import S3Uploader
+from . import SettingsController
+
 
 class CatalogServicesController(SettingsController):
 
@@ -117,7 +115,8 @@ class CatalogServicesController(SettingsController):
                 self._db, ExternalIntegration, id=mirror_integration_id
             )
             # Only get storage integrations that have a MARC file option set
-            if not storage_integration or not storage_integration.setting(S3Uploader.MARC_BUCKET_KEY).value:
+            if not storage_integration or \
+                    not storage_integration.setting(S3UploaderConfiguration.MARC_BUCKET_KEY).value:
                 return MISSING_INTEGRATION
             current_integration_link.other_integration_id=storage_integration.id
 
