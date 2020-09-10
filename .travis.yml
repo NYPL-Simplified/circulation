@@ -1,20 +1,31 @@
 sudo: required
+
 addons:
-  postgresql: '9.6'
+  postgresql: "9.6"
   apt:
     packages:
-    - postgresql-contrib-9.6
-    - libxmlsec1-dev
-    - libxml2-dev
+      - postgresql-contrib-9.6
+      - libxmlsec1-dev
+      - libxml2-dev
+
+services:
+  - postgresql
+
+language: python
+
 python:
-- '2.7'
+  - "2.7"
+
 cache: pip
+
 git:
   submodules: false
+
 script:
-- cd $TRAVIS_BUILD_DIR
-- provisioning/travis/build_for_aws.sh
-- provisioning/travis/deploy_on_aws.sh
+  - cd $TRAVIS_BUILD_DIR
+  - provisioning/travis/build_for_aws.sh
+  - provisioning/travis/deploy_on_aws.sh
+
 env:
   global:
   - SIMPLIFIED_TEST_DATABASE="postgres://simplified_test:test@localhost:5432/simplified_circulation_test"
