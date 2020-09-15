@@ -1,6 +1,7 @@
 # Requirements for core
 boto3
-feedparser
+# feedparser 6.0.0 drops support for Python 2.
+feedparser<6.0.0
 pillow
 psycopg2
 requests>=2.18.4
