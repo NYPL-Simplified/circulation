@@ -7,6 +7,7 @@ import os
 import sys
 import urllib
 import urlparse
+from nose.tools import set_trace
 from collections import defaultdict
 from time import mktime
 from wsgiref.handlers import format_date_time
@@ -88,6 +89,7 @@ from core.model import (
     CustomList,
     DataSource,
     DeliveryMechanism,
+    Edition,
     ExternalIntegration,
     Hold,
     Identifier,
@@ -798,8 +800,30 @@ class IndexController(CirculationManagerController):
             200, { 'Content-Type' : 'application/opds+json' }
         )
 
-
 class OPDSFeedController(CirculationManagerController):
+    def qa_feed(self, feed_class=AcquisitionFeed):
+        library = flask.request.library
+        filter_list = []
+
+        for collection in self._db.query(Collection):
+            for medium in Edition.FULFILLABLE_MEDIA:
+                for availability in ("now", "all"):
+                    filter_list.append((collection, medium, availability))
+
+        search_engine = self.search_engine
+        if isinstance(search_engine, ProblemDetail):
+            return search_engine
+
+        url = self.cdn_url_for(
+            "qa_feed",
+            library_short_name=library.short_name,
+        )
+
+        annotator = self.manager.annotator(None)
+        return feed_class.qa_feed(
+            _db=self._db, title="QA test feed", url=url, annotator=annotator,
+            search_engine=search_engine, filter_list=filter_list
+        )
 
     def groups(self, lane_identifier, feed_class=AcquisitionFeed):
         """Build or retrieve a grouped acquisition feed.
