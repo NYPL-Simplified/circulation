@@ -31,8 +31,9 @@ sphinx # for code documentation
 # Ensure that we support SNI-based SSL
 ndg-httpsclient
 
-# In circ, feedparser is only used in tests.
-feedparser
+# In circ, feedparser is only used in tests. feedparser 6.0.0 drops
+# support for Python 2.
+feedparser<6.0.0
 
 # Flask-Babel 2.0.0 drops support for Python 2.
 # https://github.com/python-babel/flask-babel/commit/52dbb6f632e07ceb7299bf8c41b6f691a36e9fe3#diff-2eeaed663bd0d25b7e608891384b7298
