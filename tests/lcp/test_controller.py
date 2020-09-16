@@ -30,7 +30,7 @@ class TestLCPController(ControllerTest):
             controller = LCPController(manager)
             controller.authenticated_patron_from_request = MagicMock(return_value=patron)
 
-            url = 'http://circulationmanager.org/{0}/lcp/hint'.format(self._default_library.short_name)
+            url = 'http://circulationmanager.org/lcp/hint'
 
             with self.app.test_request_context(url):
                 request.library = self._default_library
@@ -72,15 +72,15 @@ class TestLCPController(ControllerTest):
             controller = LCPController(manager)
             controller.authenticated_patron_from_request = MagicMock(return_value=patron)
 
-            url = 'http://circulationmanager.org/{0}/lcp/licenses{0}'.format(
-                self._default_library.short_name, license_id)
+            url = 'http://circulationmanager.org/{0}/licenses{1}'.format(
+                LCPAPI.NAME, license_id)
 
             with self.app.test_request_context(url):
                 request.library = self._default_library
 
                 # Act
-                result1 = controller.get_lcp_license(license_id)
-                result2 = controller.get_lcp_license(license_id)
+                result1 = controller.get_lcp_license(LCPAPI.NAME, license_id)
+                result2 = controller.get_lcp_license(LCPAPI.NAME, license_id)
 
                 # Assert
                 for result in [result1, result2]:
