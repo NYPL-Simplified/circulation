@@ -95,6 +95,18 @@ class TestSAMLController(ControllerTest):
                 SAMLController.PROVIDER_NAME: SAMLWebSSOAuthenticationProvider.NAME,
                 SAMLController.IDP_ENTITY_ID: IDENTITY_PROVIDERS[0].entity_id
             })
+        ),
+        (
+            'with_all_parameters_set_and_fragment',
+            SAMLWebSSOAuthenticationProvider.NAME,
+            IDENTITY_PROVIDERS[0].entity_id,
+            'http://localhost#fragment',
+            None,
+            'http://localhost?' + urllib.urlencode({
+                SAMLController.LIBRARY_SHORT_NAME: 'default',
+                SAMLController.PROVIDER_NAME: SAMLWebSSOAuthenticationProvider.NAME,
+                SAMLController.IDP_ENTITY_ID: IDENTITY_PROVIDERS[0].entity_id
+            }) + '#fragment'
         )
     ])
     def test_saml_authentication_redirect(
