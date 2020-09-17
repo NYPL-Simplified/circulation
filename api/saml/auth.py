@@ -6,9 +6,10 @@ from flask_babel import lazy_gettext as _
 from onelogin.saml2.auth import OneLogin_Saml2_Auth
 from onelogin.saml2.errors import OneLogin_Saml2_Error
 
-from api.saml.configuration import SAMLConfigurationStorage, SAMLConfiguration, \
+from api.saml.configuration import SAMLConfiguration, \
     SAMLOneLoginConfiguration
 from api.saml.parser import SAMLMetadataParser, SAMLSubjectParser
+from core.model.configuration import ConfigurationStorage
 from core.problem_details import *
 
 SAML_GENERIC_ERROR = pd(
@@ -191,7 +192,7 @@ class SAMLAuthenticationManagerFactory(object):
         :return: SAML authentication manager
         :rtype: SAMLAuthenticationManager
         """
-        configuration_storage = SAMLConfigurationStorage(integration_owner)
+        configuration_storage = ConfigurationStorage(integration_owner)
         configuration = SAMLConfiguration(configuration_storage, SAMLMetadataParser())
         onelogin_configuration = SAMLOneLoginConfiguration(configuration)
         subject_parser = SAMLSubjectParser()

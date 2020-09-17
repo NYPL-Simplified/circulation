@@ -436,6 +436,8 @@ class CirculationAPI(object):
         from enki import EnkiAPI
         from opds_for_distributors import OPDSForDistributorsAPI
         from odl import ODLAPI, SharedODLAPI
+        from api.lcp.collection import LCPAPI
+
         return {
             ExternalIntegration.OVERDRIVE : OverdriveAPI,
             ExternalIntegration.ODILO : OdiloAPI,
@@ -446,6 +448,7 @@ class CirculationAPI(object):
             OPDSForDistributorsAPI.NAME: OPDSForDistributorsAPI,
             ODLAPI.NAME: ODLAPI,
             SharedODLAPI.NAME: SharedODLAPI,
+            LCPAPI.NAME: LCPAPI
         }
 
     def api_for_license_pool(self, licensepool):

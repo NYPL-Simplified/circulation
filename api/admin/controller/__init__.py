@@ -41,6 +41,7 @@ from api.controller import CirculationManagerController
 from api.enki import EnkiAPI
 from api.feedbooks import FeedbooksOPDSImporter
 from api.lanes import create_default_lanes
+from api.lcp.collection import LCPAPI
 from api.local_analytics_exporter import LocalAnalyticsExporter
 from api.odilo import OdiloAPI
 from api.odl import ODLAPI, SharedODLAPI
@@ -68,7 +69,6 @@ from core.model import (
     CustomList,
     CustomListEntry,
     DataSource,
-    Edition,
     ExternalIntegration,
     Hold,
     Identifier,
@@ -82,7 +82,7 @@ from core.model import (
 from core.model.configuration import ExternalIntegrationLink
 from core.opds import AcquisitionFeed
 from core.opds_import import (OPDSImporter, OPDSImportMonitor)
-from core.s3 import S3Uploader
+from core.s3 import S3UploaderConfiguration
 from core.selftest import HasSelfTests
 from core.util.flask_util import OPDSFeedResponse
 from core.util.http import HTTP
@@ -1294,6 +1294,7 @@ class SettingsController(AdminCirculationManagerController):
                      ODLAPI,
                      SharedODLAPI,
                      FeedbooksOPDSImporter,
+                     LCPAPI
                      ]
 
     @classmethod
@@ -1584,9 +1585,9 @@ class SettingsController(AdminCirculationManagerController):
 
         mirror_integration_settings = copy.deepcopy(ExternalIntegrationLink.COLLECTION_MIRROR_SETTINGS)
         for integration in integrations:
-            book_covers_bucket = integration.setting(S3Uploader.BOOK_COVERS_BUCKET_KEY).value
-            open_access_bucket = integration.setting(S3Uploader.OA_CONTENT_BUCKET_KEY).value
-            protected_access_bucket = integration.setting(S3Uploader.PROTECTED_CONTENT_BUCKET_KEY).value
+            book_covers_bucket = integration.setting(S3UploaderConfiguration.BOOK_COVERS_BUCKET_KEY).value
+            open_access_bucket = integration.setting(S3UploaderConfiguration.OA_CONTENT_BUCKET_KEY).value
+            protected_access_bucket = integration.setting(S3UploaderConfiguration.PROTECTED_CONTENT_BUCKET_KEY).value
 
             for setting in mirror_integration_settings:
                 if setting['key'] == ExternalIntegrationLink.COVERS_KEY and book_covers_bucket:

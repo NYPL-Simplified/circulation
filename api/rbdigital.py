@@ -2590,13 +2590,13 @@ class AudiobookManifest(CoreAudiobookManifest):
         if download_url:
             self.add_link(
                 download_url, 'alternate',
-                type=Representation.guess_media_type(download_url)
+                type=Representation.guess_url_media_type_from_path(download_url)
             )
 
         cover = self.best_cover(self.raw.get('images', []))
         if cover:
             self.add_link(
-                cover, "cover", type=Representation.guess_media_type(cover)
+                cover, "cover", type=Representation.guess_url_media_type_from_path(cover)
             )
 
     @classmethod

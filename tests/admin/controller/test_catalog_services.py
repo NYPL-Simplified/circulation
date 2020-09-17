@@ -1,11 +1,11 @@
+import json
+
+import flask
 from nose.tools import (
-    set_trace,
     eq_,
     assert_raises,
 )
-import flask
 from werkzeug.datastructures import MultiDict
-import json
 
 from api.admin.exceptions import *
 from core.marc import MARCExporter
@@ -17,8 +17,9 @@ from core.model import (
     get_one,
 )
 from core.model.configuration import ExternalIntegrationLink
+from core.s3 import S3Uploader, S3UploaderConfiguration
 from test_controller import SettingsControllerTest
-from core.s3 import S3Uploader
+
 
 class TestCatalogServicesController(SettingsControllerTest):
 
@@ -156,7 +157,7 @@ class TestCatalogServicesController(SettingsControllerTest):
 
         # This should be the last test to check since rolling back database
         # changes in the test can cause it to crash.
-        s3.setting(S3Uploader.MARC_BUCKET_KEY).value = "marc-files"
+        s3.setting(S3UploaderConfiguration.MARC_BUCKET_KEY).value = "marc-files"
         service.libraries += [self._default_library]
         self.admin.add_role(AdminRole.SYSTEM_ADMIN)
 
@@ -183,7 +184,7 @@ class TestCatalogServicesController(SettingsControllerTest):
             protocol=ExternalIntegration.S3,
             goal=ExternalIntegration.STORAGE_GOAL,
         )
-        s3.setting(S3Uploader.MARC_BUCKET_KEY).value = "marc-files"
+        s3.setting(S3UploaderConfiguration.MARC_BUCKET_KEY).value = "marc-files"
 
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
@@ -227,7 +228,7 @@ class TestCatalogServicesController(SettingsControllerTest):
             protocol=ExternalIntegration.S3,
             goal=ExternalIntegration.STORAGE_GOAL,
         )
-        s3.setting(S3Uploader.MARC_BUCKET_KEY).value = "marc-files"
+        s3.setting(S3UploaderConfiguration.MARC_BUCKET_KEY).value = "marc-files"
 
         service, ignore = create(
             self._db, ExternalIntegration,

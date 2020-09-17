@@ -8,11 +8,12 @@ from flask_babel import lazy_gettext as _
 from api.authenticator import BaseSAMLAuthenticationProvider, PatronData
 from api.problem_details import *
 from api.saml.auth import SAMLAuthenticationManagerFactory
-from api.saml.configuration import ExternalIntegrationOwner, SAMLConfiguration
+from api.saml.configuration import SAMLConfiguration
 from api.saml.metadata import Subject, SubjectUIDExtractor, SubjectJSONEncoder, LocalizableMetadataItem
 from api.saml.parser import SAMLMetadataParser
 from api.saml.validator import SAMLSettingsValidator
 from core.model import Credential, get_one_or_create, DataSource
+from core.model.configuration import HasExternalIntegration
 from core.util.problem_detail import ProblemDetail
 
 SAML_INVALID_SUBJECT = pd(
@@ -23,7 +24,7 @@ SAML_INVALID_SUBJECT = pd(
 )
 
 
-class SAMLWebSSOAuthenticationProvider(BaseSAMLAuthenticationProvider, ExternalIntegrationOwner):
+class SAMLWebSSOAuthenticationProvider(BaseSAMLAuthenticationProvider, HasExternalIntegration):
     """SAML authentication provider implementing Web Browser SSO profile using the following bindings:
     - HTTP-Redirect Binding for requests
     - HTTP-POST Binding for responses
