@@ -1,47 +1,78 @@
 # encoding: utf-8
+import argparse
+import csv
+import logging
+import os
+import sys
+import time
 from cStringIO import StringIO
 from datetime import (
     datetime,
     timedelta,
 )
-from nose.tools import set_trace
-import csv
-import json
-import os
-import sys
-import time
-import urlparse
-import logging
-import argparse
 
+from enum import Enum
 from sqlalchemy import (
     or_,
-    func,
 )
-from sqlalchemy.orm import (
-    contains_eager,
-    defer
-)
-from psycopg2.extras import NumericRange
 
-from core import log
-from core.cdn import cdnify
+from api.adobe_vendor_id import (
+    AuthdataUtility,
+)
+from api.bibliotheca import (
+    BibliothecaCirculationSweep
+)
+from api.config import (
+    CannotLoadConfiguration,
+    Configuration,
+)
+from api.controller import CirculationManager
+from api.lanes import create_default_lanes
+from api.local_analytics_exporter import LocalAnalyticsExporter
+from api.marc import LibraryAnnotator as MARCLibraryAnnotator
+from api.novelist import (
+    NoveListAPI
+)
+from api.nyt import NYTBestSellerAPI
+from api.odl import (
+    ODLImporter,
+    ODLImportMonitor,
+    SharedODLImporter,
+    SharedODLImportMonitor,
+)
+from api.onix import ONIXExtractor
+from api.opds_for_distributors import (
+    OPDSForDistributorsImporter,
+    OPDSForDistributorsImportMonitor,
+    OPDSForDistributorsReaperMonitor,
+)
+from api.overdrive import (
+    OverdriveAPI,
+)
 from core.entrypoint import EntryPoint
+from core.external_list import CustomListFromCSV
+from core.external_search import ExternalSearchIndex
 from core.lane import Lane
-from core.classifier import Classifier
+from core.lane import (
+    Pagination,
+    Facets,
+    FeaturedFacets,
+)
+from core.marc import MARCExporter
 from core.metadata_layer import (
     CirculationData,
     FormatData,
     ReplacementPolicy,
     LinkData,
 )
+from core.metadata_layer import MARCExtractor
+from core.mirror import MirrorUploader
 from core.model import (
     CachedMARCFile,
     CirculationEvent,
     Collection,
     ConfigurationSetting,
     Contribution,
-    Credential,
     CustomList,
     DataSource,
     DeliveryMechanism,
@@ -51,9 +82,7 @@ from core.model import (
     Hold,
     Hyperlink,
     Identifier,
-    Library,
     LicensePool,
-    LicensePoolDeliveryMechanism,
     Loan,
     Representation,
     RightsStatus,
@@ -63,78 +92,28 @@ from core.model import (
     Work,
 )
 from core.model.configuration import ExternalIntegrationLink
-from core.scripts import (
-    Script as CoreScript,
-    DatabaseMigrationInitializationScript,
-    RunCoverageProvidersScript,
-    RunCoverageProviderScript,
-    IdentifierInputScript,
-    LaneSweeperScript,
-    LibraryInputScript,
-    PatronInputScript,
-    RunMonitorScript,
-    TimestampScript,
-)
-from core.lane import (
-    Pagination,
-    Facets,
-    FeaturedFacets,
+from core.opds import (
+    AcquisitionFeed,
 )
 from core.opds_import import (
     MetadataWranglerOPDSLookup,
     OPDSImporter,
 )
-from core.opds import (
-    AcquisitionFeed,
+from core.scripts import OPDSImportScript, CollectionType
+from core.scripts import (
+    Script as CoreScript,
+    DatabaseMigrationInitializationScript,
+    IdentifierInputScript,
+    LaneSweeperScript,
+    LibraryInputScript,
+    PatronInputScript,
+    TimestampScript,
 )
-from core.util.opds_writer import (
-     OPDSFeed,
-)
-from core.external_list import CustomListFromCSV
-from core.external_search import ExternalSearchIndex
 from core.util import LanguageCodes
-from core.mirror import MirrorUploader
+from core.util.opds_writer import (
+    OPDSFeed,
+)
 
-from api.config import (
-    CannotLoadConfiguration,
-    Configuration,
-)
-from api.adobe_vendor_id import (
-    AdobeVendorIDModel,
-    AuthdataUtility,
-)
-from api.lanes import create_default_lanes
-from api.controller import CirculationManager
-from api.overdrive import OverdriveAPI
-from api.circulation import CirculationAPI
-from api.opds import CirculationManagerAnnotator
-from api.overdrive import (
-    OverdriveAPI,
-)
-from api.bibliotheca import (
-    BibliothecaCirculationSweep
-)
-from api.nyt import NYTBestSellerAPI
-from api.opds_for_distributors import (
-    OPDSForDistributorsImporter,
-    OPDSForDistributorsImportMonitor,
-    OPDSForDistributorsReaperMonitor,
-)
-from api.odl import (
-    ODLImporter,
-    ODLImportMonitor,
-    SharedODLImporter,
-    SharedODLImportMonitor,
-)
-from core.scripts import OPDSImportScript
-from api.novelist import (
-    NoveListAPI
-)
-from core.metadata_layer import MARCExtractor
-from api.onix import ONIXExtractor
-from core.marc import MARCExporter
-from api.marc import LibraryAnnotator as MARCLibraryAnnotator
-from api.local_analytics_exporter import LocalAnalyticsExporter
 
 class Script(CoreScript):
     def load_config(self):
@@ -795,21 +774,21 @@ class CacheMARCFiles(LaneSweeperScript):
         # integration.
         integration_link = get_one(
             self._db, ExternalIntegrationLink,
-            other_integration_id=exporter.integration.id,
+            external_integration_id=exporter.integration.id,
             purpose=ExternalIntegrationLink.MARC
         )
         # Then use the "other" integration value to find the storage integration.
-        integration = get_one(self._db, ExternalIntegration,
+        storage_integration = get_one(self._db, ExternalIntegration,
             id=integration_link.other_integration_id
         )
 
-        if not integration:
+        if not storage_integration:
             self.log.info("No storage External Integration was found.")
             return
 
         # First update the file with ALL the records.
         records = exporter.records(
-            lane, annotator, integration
+            lane, annotator, storage_integration
         )
 
         # Then create a new file with changes since the last update.
@@ -819,7 +798,7 @@ class CacheMARCFiles(LaneSweeperScript):
             start_time = last_update - timedelta(days=1)
 
             records = exporter.records(
-                lane, annotator, integration, start_time=start_time
+                lane, annotator, storage_integration, start_time=start_time
             )
 
 
@@ -1288,6 +1267,13 @@ class DirectoryImportScript(TimestampScript):
             required=True
         )
         parser.add_argument(
+            '--collection-type',
+            help=u'Collection type. Valid values are: OPEN_ACCESS (default), PROTECTED_ACCESS, LCP.',
+            type=CollectionType,
+            choices=list(CollectionType),
+            default=CollectionType.OPEN_ACCESS
+        )
+        parser.add_argument(
             '--data-source-name',
             help=u'All data associated with this import activity will be recorded as originating with this data source. The data source will be created if it does not already exist.',
             required=True
@@ -1329,6 +1315,7 @@ class DirectoryImportScript(TimestampScript):
         parser = self.arg_parser(self._db)
         parsed = parser.parse_args(cmd_args)
         collection_name = parsed.collection_name
+        collection_type = parsed.collection_type
         data_source_name = parsed.data_source_name
         metadata_file = parsed.metadata_file
         metadata_format = parsed.metadata_format
@@ -1337,13 +1324,13 @@ class DirectoryImportScript(TimestampScript):
         rights_uri = parsed.rights_uri
         dry_run = parsed.dry_run
         return self.run_with_arguments(
-            collection_name, data_source_name,
+            collection_name, collection_type, data_source_name,
             metadata_file, metadata_format, cover_directory,
             ebook_directory, rights_uri, dry_run
         )
 
     def run_with_arguments(
-            self, collection_name, data_source_name, metadata_file,
+            self, collection_name, collection_type, data_source_name, metadata_file,
             metadata_format, cover_directory, ebook_directory, rights_uri,
             dry_run
     ):
@@ -1352,7 +1339,7 @@ class DirectoryImportScript(TimestampScript):
                 "This is a dry run. No files will be uploaded and nothing will change in the database."
             )
 
-        collection, mirrors = self.load_collection(collection_name, data_source_name)
+        collection, mirrors = self.load_collection(collection_name, collection_type, data_source_name)
 
         if not collection or not mirrors:
             return
@@ -1367,13 +1354,23 @@ class DirectoryImportScript(TimestampScript):
         metadata_records = self.load_metadata(metadata_file, metadata_format, data_source_name)
         for metadata in metadata_records:
             self.work_from_metadata(
-                collection, metadata, replacement_policy, cover_directory,
-                ebook_directory, rights_uri
+                collection,
+                collection_type,
+                metadata,
+                replacement_policy,
+                cover_directory,
+                ebook_directory,
+                rights_uri
             )
+
+            if collection_type in [CollectionType.OPEN_ACCESS, CollectionType.PROTECTED_ACCESS]:
+                for licensepool in collection.licensepools:
+                    licensepool.self_hosted = True
+
             if not dry_run:
                 self._db.commit()
 
-    def load_collection(self, collection_name, data_source_name):
+    def load_collection(self, collection_name, collection_type, data_source_name):
         """Locate a Collection with the given name.
 
         If the collection is found, it will be associated
@@ -1381,14 +1378,21 @@ class DirectoryImportScript(TimestampScript):
         covers and books mirror configurations.
 
         :param collection_name: Name of the Collection.
+        :type collection_name: string
+
+        :param collection_type: Type of the collection: open access/proteceted access.
+        :type collection_name: CollectionType
+
         :param data_source_name: Associate this data source with
             the Collection if it does not already have a data source.
             A DataSource object will be created if necessary.
+        :type data_source_name: string
 
-        :return: A 2-tuple (Collection, MirrorUploader)
+        :return: A 2-tuple (Collection, list of MirrorUploader instances)
+        :rtype: Tuple[Collection, List[MirrorUploader]]
         """
         collection, is_new = Collection.by_name_and_protocol(
-            self._db, collection_name, ExternalIntegration.MANUAL
+            self._db, collection_name, ExternalIntegration.LCP if collection_type == CollectionType.LCP else ExternalIntegration.MANUAL
         )
 
         if is_new:
@@ -1399,7 +1403,12 @@ class DirectoryImportScript(TimestampScript):
 
         mirrors = dict(covers_mirror=None, books_mirror=None)
 
-        types = [ExternalIntegrationLink.COVERS, ExternalIntegrationLink.BOOKS]
+        types = [
+            ExternalIntegrationLink.COVERS,
+            ExternalIntegrationLink.OPEN_ACCESS_BOOKS
+            if collection_type == CollectionType.OPEN_ACCESS
+            else ExternalIntegrationLink.PROTECTED_ACCESS_BOOKS
+        ]
         for type in types:
             mirror_for_type = MirrorUploader.for_collection(collection, type)
             if not mirror_for_type:
@@ -1432,8 +1441,25 @@ class DirectoryImportScript(TimestampScript):
             metadata_records.extend(extractor.parse(f, data_source_name))
         return metadata_records
 
-    def work_from_metadata(self, collection, metadata, policy, *args, **kwargs):
-        self.annotate_metadata(metadata, policy, *args, **kwargs)
+    def work_from_metadata(self, collection, collection_type, metadata, policy, *args, **kwargs):
+        """Creates a Work instance from metadata
+
+        :param collection: Target collection
+        :type collection: Collection
+
+        :param collection_type: Collection's type: open access/protected access
+        :type collection_type: CollectionType
+
+        :param metadata: Book's metadata
+        :type metadata: Metadata
+
+        :param policy: Replacement policy
+        :type policy: ReplacementPolicy
+
+        :return: Work object
+        :rtype: core.model.work.Work
+        """
+        self.annotate_metadata(collection_type, metadata, policy, *args, **kwargs)
 
         if not metadata.circulation:
             # We cannot actually provide access to the book so there
@@ -1458,23 +1484,58 @@ class DirectoryImportScript(TimestampScript):
             )
         return work
 
+    def annotate_metadata(
+            self,
+            collection_type,
+            metadata,
+            policy,
+            cover_directory,
+            ebook_directory,
+            rights_uri):
+        """Add a CirculationData and possibly an extra LinkData to `metadata`
 
-    def annotate_metadata(self, metadata, policy,
-                          cover_directory, ebook_directory, rights_uri):
-        """Add a CirculationData and possibly an extra LinkData
-        to `metadata`.
+        :param collection_type: Collection's type: open access/protected access
+        :type collection_type: CollectionType
+
+        :param metadata: Book's metadata
+        :type metadata: Metadata
+
+        :param policy: Replacement policy
+        :type policy: ReplacementPolicy
+
+        :param cover_directory: Directory containing book covers
+        :type cover_directory: string
+
+        :param ebook_directory: Directory containing books
+        :type ebook_directory: string
+
+        :param rights_uri: URI explaining the rights status of the works being uploaded
+        :type rights_uri: string
         """
         identifier, ignore = metadata.primary_identifier.load(self._db)
         data_source = metadata.data_source(self._db)
         mirrors = policy.mirrors
 
         circulation_data = self.load_circulation_data(
-            identifier, data_source, ebook_directory, mirrors,
-            metadata.title, rights_uri
+            collection_type,
+            identifier,
+            data_source,
+            ebook_directory,
+            mirrors,
+            metadata.title,
+            rights_uri
         )
         if not circulation_data:
             # There is no point in contining.
             return
+
+        if metadata.circulation:
+            circulation_data.licenses_owned = metadata.circulation.licenses_owned
+            circulation_data.licenses_available = metadata.circulation.licenses_available
+            circulation_data.licenses_reserved = metadata.circulation.licenses_reserved
+            circulation_data.patrons_in_hold_queue = metadata.circulation.patrons_in_hold_queue
+            circulation_data.licenses = metadata.circulation.licenses
+
         metadata.circulation = circulation_data
 
         # If a cover image is available, add it to the Metadata
@@ -1492,12 +1553,41 @@ class DirectoryImportScript(TimestampScript):
                 identifier
             )
 
-    def load_circulation_data(self, identifier, data_source, ebook_directory,
-                              mirrors, title, rights_uri):
-        """Load an actual copy of a book from disk.
+    def load_circulation_data(
+            self,
+            collection_type,
+            identifier,
+            data_source,
+            ebook_directory,
+            mirrors,
+            title,
+            rights_uri):
+        """Loads an actual copy of a book from disk
+
+        :param collection_type: Collection's type: open access/protected access
+        :type collection_type: CollectionType
+
+        :param identifier: Book's identifier
+        :type identifier: Identifier
+
+        :param data_source: DataSource object
+        :type data_source: DataSource
+
+        :param ebook_directory: Directory containing books
+        :type ebook_directory: string
+
+        :param mirrors: Dictionary containing mirrors for books and their covers
+        :type mirrors: Dict[string, MirrorUploader]
+
+        :param title: Book's title
+        :type title: string
+
+        :param rights_uri: URI explaining the rights status of the works being uploaded
+        :type rights_uri: string
 
         :return: A CirculationData that contains the book as an open-access
-            download, or None if no such book can be found.
+            download, or None if no such book can be found
+        :rtype: CirculationData
         """
         ignore, book_media_type, book_content = self._locate_file(
             identifier.identifier, ebook_directory,
@@ -1509,11 +1599,18 @@ class DirectoryImportScript(TimestampScript):
             # no point in proceeding.
             return
 
+        book_mirror = mirrors[
+            ExternalIntegrationLink.OPEN_ACCESS_BOOKS
+            if collection_type == CollectionType.OPEN_ACCESS
+            else ExternalIntegrationLink.PROTECTED_ACCESS_BOOKS
+        ] if mirrors else None
+
         # Use the S3 storage for books.
-        if mirrors and mirrors[ExternalIntegrationLink.BOOKS]:
-            book_url = mirrors[ExternalIntegrationLink.BOOKS].book_url(
+        if book_mirror:
+            book_url = book_mirror.book_url(
                 identifier,
                 '.' + Representation.FILE_EXTENSIONS[book_media_type],
+                open_access=collection_type == CollectionType.OPEN_ACCESS,
                 data_source=data_source,
                 title=title
             )
@@ -1521,8 +1618,12 @@ class DirectoryImportScript(TimestampScript):
             # This is a dry run and we won't be mirroring anything.
             book_url = identifier.identifier + "." + Representation.FILE_EXTENSIONS[book_media_type]
 
+        book_link_rel = \
+            Hyperlink.OPEN_ACCESS_DOWNLOAD \
+            if collection_type == CollectionType.OPEN_ACCESS \
+            else Hyperlink.GENERIC_OPDS_ACQUISITION
         book_link = LinkData(
-            rel=Hyperlink.OPEN_ACCESS_DOWNLOAD,
+            rel=book_link_rel,
             href=book_url,
             media_type=book_media_type,
             content=book_content
@@ -1530,7 +1631,7 @@ class DirectoryImportScript(TimestampScript):
         formats = [
             FormatData(
                 content_type=book_media_type,
-                drm_scheme=DeliveryMechanism.NO_DRM,
+                drm_scheme=DeliveryMechanism.LCP_DRM if collection_type == CollectionType.LCP else DeliveryMechanism.NO_DRM,
                 link=book_link,
             )
         ]

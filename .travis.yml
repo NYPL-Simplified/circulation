@@ -5,6 +5,8 @@ addons:
   apt:
     packages:
       - postgresql-contrib-9.6
+      - libxmlsec1-dev
+      - libxml2-dev
 
 services:
   - postgresql
@@ -49,6 +51,6 @@ deploy:
   keep-history: true
   github_token: $GITHUB_TOKEN
   on:
-    branch: master
+    branch: main
   local_dir: docs/build/html/
 

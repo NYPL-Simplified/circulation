@@ -1,13 +1,13 @@
+import json
+
+import flask
 from nose.tools import (
-    set_trace,
     eq_,
     assert_raises
 )
-import flask
-import json
-from api.admin.problem_details import *
+from werkzeug.datastructures import MultiDict
+
 from api.admin.exceptions import *
-from core.selftest import HasSelfTests
 from core.model import (
     Admin,
     AdminRole,
@@ -19,9 +19,10 @@ from core.model import (
     Library,
 )
 from core.model.configuration import ExternalIntegrationLink
-from werkzeug.datastructures import MultiDict
-
+from core.s3 import S3UploaderConfiguration
+from core.selftest import HasSelfTests
 from test_controller import SettingsControllerTest
+
 
 class TestCollectionSettings(SettingsControllerTest):
     def test_collections_get_with_no_collections(self):
@@ -60,11 +61,21 @@ class TestCollectionSettings(SettingsControllerTest):
             name="integration 1",
             protocol=ExternalIntegration.S3,
             goal=ExternalIntegration.STORAGE_GOAL,
+            settings={
+                S3UploaderConfiguration.BOOK_COVERS_BUCKET_KEY: 'covers',
+                S3UploaderConfiguration.OA_CONTENT_BUCKET_KEY: 'open-access-books',
+                S3UploaderConfiguration.PROTECTED_CONTENT_BUCKET_KEY: 'protected-access-books'
+            }
         )
         storage2 = self._external_integration(
             name="integration 2",
             protocol="Some other protocol",
             goal=ExternalIntegration.STORAGE_GOAL,
+            settings={
+                S3UploaderConfiguration.BOOK_COVERS_BUCKET_KEY: 'covers',
+                S3UploaderConfiguration.OA_CONTENT_BUCKET_KEY: 'open-access-books',
+                S3UploaderConfiguration.PROTECTED_CONTENT_BUCKET_KEY: 'protected-access-books'
+            }
         )
 
         with self.request_context_with_admin("/"):
@@ -76,33 +87,43 @@ class TestCollectionSettings(SettingsControllerTest):
                              if x.get('key').endswith('mirror_integration_id')]
 
                 covers_mirror = mirror_settings[0]
-                books_mirror = mirror_settings[1]
+                open_access_books_mirror = mirror_settings[1]
+                protected_access_books_mirror = mirror_settings[2]
                 eq_("Covers Mirror", covers_mirror['label'])
-                eq_("Books Mirror", books_mirror['label'])
+                eq_("Open Access Books Mirror", open_access_books_mirror['label'])
+                eq_("Protected Access Books Mirror", protected_access_books_mirror['label'])
                 covers_mirror_option = covers_mirror['options']
-                books_mirror_option = books_mirror['options']
+                open_books_mirror_option = open_access_books_mirror['options']
+                protected_books_mirror_option = protected_access_books_mirror['options']
 
                 # The first option is to disable mirroring on this
                 # collection altogether.
                 no_mirror_covers = covers_mirror_option[0]
-                no_mirror_books = books_mirror_option[0]
+                no_mirror_open_books = open_books_mirror_option[0]
+                no_mirror_protected_books = protected_books_mirror_option[0]
                 eq_(controller.NO_MIRROR_INTEGRATION, no_mirror_covers['key'])
-                eq_(controller.NO_MIRROR_INTEGRATION, no_mirror_books['key'])
+                eq_(controller.NO_MIRROR_INTEGRATION, no_mirror_open_books['key'])
+                eq_(controller.NO_MIRROR_INTEGRATION, no_mirror_protected_books['key'])
 
                 # The other options are to use one of the storage
                 # integrations to do the mirroring.
                 use_covers_mirror = [(x['key'], x['label'])
                                for x in covers_mirror_option[1:]]
-                use_books_mirror = [(x['key'], x['label'])
-                               for x in books_mirror_option[1:]]
+                use_open_books_mirror = [(x['key'], x['label'])
+                               for x in open_books_mirror_option[1:]]
+                use_protected_books_mirror = [(x['key'], x['label'])
+                               for x in protected_books_mirror_option[1:]]
 
                 # Expect to have two separate mirrors
                 expect_covers = [(str(integration.id), integration.name)
                           for integration in (storage1, storage2)]
                 eq_(expect_covers, use_covers_mirror)
-                expect_books = [(str(integration.id), integration.name)
+                expect_open_books = [(str(integration.id), integration.name)
                           for integration in (storage1, storage2)]
-                eq_(expect_books, use_books_mirror)
+                eq_(expect_open_books, use_open_books_mirror)
+                expect_protected_books = [(str(integration.id), integration.name)
+                          for integration in (storage1, storage2)]
+                eq_(expect_protected_books, use_protected_books_mirror)
 
         HasSelfTests.prior_test_results = old_prior_test_results
 

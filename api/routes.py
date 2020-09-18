@@ -394,6 +394,11 @@ def annotations_for_work(identifier_type, identifier):
 def borrow(identifier_type, identifier, mechanism_id=None):
     return app.manager.loans.borrow(identifier_type, identifier, mechanism_id)
 
+@library_route('/works/<license_pool_id>/fulfill/<mechanism_id>/<part>/rbdproxy/<bearer>')
+@has_library
+def proxy_rbdigital_patron_requests(license_pool_id, mechanism_id, part, bearer):
+    return app.manager.rbdproxy.proxy(bearer)
+
 @library_route('/works/<license_pool_id>/fulfill')
 @library_route('/works/<license_pool_id>/fulfill/<mechanism_id>')
 @library_route('/works/<license_pool_id>/fulfill/<mechanism_id>/<part>')
@@ -542,6 +547,43 @@ def oauth_authenticate():
 @returns_problem_detail
 def oauth_callback():
     return app.manager.oauth_controller.oauth_authentication_callback(app.manager._db, flask.request.args)
+
+# Route that redirects to the authentication URL for a SAML provider
+@library_route('/saml_authenticate')
+@has_library
+@returns_problem_detail
+def saml_authenticate():
+    return app.manager.saml_controller.saml_authentication_redirect(flask.request.args, app.manager._db)
+
+# Redirect URI for SAML providers
+# NOTE: we cannot use @has_library decorator and append a library's name to saml_calback route
+# (e.g. https://cm.org/LIBRARY_NAME/saml_callback).
+# The URL of the SP's assertion consumer service (saml_callback) should be constant:
+# SP's metadata is registered in the IdP and cannot change.
+# If we try to append a library's name to the ACS's URL sent as a part of the SAML request,
+# the IdP will fail this request because the URL mentioned in the request and
+# the URL saved in the SP's metadata configured in this IdP will differ.
+# Library's name is passed as a part of the relay state and processed in SAMLController.saml_authentication_callback
+@returns_problem_detail
+@app.route("/saml_callback", methods=['POST'])
+def saml_callback():
+    return app.manager.saml_controller.saml_authentication_callback(request, app.manager._db)
+
+
+@library_route('/lcp/hint')
+@has_library
+@requires_auth
+@returns_problem_detail
+def lcp_passphrase():
+    return app.manager.lcp_controller.get_lcp_passphrase()
+
+
+@library_route('/lcp/licenses/<license_id>')
+@has_library
+@requires_auth
+@returns_problem_detail
+def lcp_license(license_id):
+    return app.manager.lcp_controller.get_lcp_license(license_id)
 
 # Loan notifications for ODL distributors, eg. Feedbooks
 @library_route('/odl_notify/<loan_id>', methods=['GET', 'POST'])

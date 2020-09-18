@@ -313,7 +313,7 @@ class CirculationManagerAnnotator(Annotator):
                 url = active_fulfillment.content_link
                 rel = OPDSFeed.ACQUISITION_REL
                 link_tag = AcquisitionFeed.acquisition_link(
-                    rel=rel, href=url, types=[type])
+                    rel=rel, href=url, types=[type], active_loan=active_loan)
                 fulfill_links.append(link_tag)
 
             elif active_loan and active_loan.fulfillment:
@@ -1113,7 +1113,8 @@ class LibraryAnnotator(CirculationManagerAnnotator):
 
         link_tag = AcquisitionFeed.acquisition_link(
             rel=rel, href=fulfill_url,
-            types=format_types
+            types=format_types,
+            active_loan=active_loan
         )
 
         children = AcquisitionFeed.license_tags(license_pool, active_loan, None)
@@ -1388,7 +1389,8 @@ class SharedCollectionAnnotator(CirculationManagerAnnotator):
         )
         link_tag = AcquisitionFeed.acquisition_link(
             rel=rel, href=fulfill_url,
-            types=format_types
+            types=format_types,
+            active_loan=active_loan
         )
 
         children = AcquisitionFeed.license_tags(license_pool, active_loan, None)
@@ -1422,7 +1424,11 @@ class LibraryLoanAndHoldAnnotator(LibraryAnnotator):
 
         feed_obj = AcquisitionFeed(db, "Active loans and holds", url, works, annotator)
         annotator.annotate_feed(feed_obj, None)
-        return feed_obj.as_response(max_age=60*30, private=True)
+        response = feed_obj.as_response(max_age=0, private=True)
+        last_modified = patron.last_loan_activity_sync
+        if last_modified:
+            response.last_modified = last_modified
+        return response
 
     @classmethod
     def single_item_feed(cls, circulation, item, fulfillment=None, test_mode=False,

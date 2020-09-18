@@ -1,28 +1,54 @@
-from nose.tools import set_trace
+import base64
+import datetime
+import email
 import json
 import logging
+import os
 import sys
 import urllib
 import urlparse
-import datetime
-import base64
-from wsgiref.handlers import format_date_time
-from time import mktime
-import os
 from collections import defaultdict
+from time import mktime
+from wsgiref.handlers import format_date_time
 
-from lxml import etree
-from sqlalchemy.orm import eagerload
-
-from functools import wraps
 import flask
+from expiringdict import ExpiringDict
 from flask import (
     make_response,
     Response,
     redirect,
 )
 from flask_babel import lazy_gettext as _
+from lxml import etree
+from sqlalchemy.orm import eagerload
 
+from adobe_vendor_id import (
+    AdobeVendorIDController,
+    DeviceManagementProtocolController,
+    AuthdataUtility,
+)
+from annotations import (
+    AnnotationWriter,
+    AnnotationParser,
+)
+from api.rbdigital import (
+    RBDigitalFulfillmentProxy,
+    RBDProxyException,
+)
+from api.saml.controller import SAMLController
+from authenticator import (
+    Authenticator,
+    CirculationPatronProfileStorage,
+    OAuthController,
+)
+from base_controller import BaseCirculationManagerController
+from circulation import CirculationAPI
+from circulation_exceptions import *
+from config import (
+    Configuration,
+    CannotLoadConfiguration,
+)
+from core.analytics import Analytics
 from core.app_server import (
     cdn_url_for,
     url_for,
@@ -39,25 +65,22 @@ from core.external_search import (
     MockExternalSearchIndex,
     SortKeyPagination,
 )
-from core.facets import FacetConfig
-from core.log import LogConfiguration
 from core.lane import (
-    DatabaseBackedFacets,
-    Facets,
+    BaseFacets,
     FeaturedFacets,
     Pagination,
     Lane,
     SearchFacets,
     WorkList,
 )
+from core.log import LogConfiguration
+from core.marc import MARCExporter
 from core.metadata_layer import ContributorData
 from core.model import (
     get_one,
-    get_one_or_create,
-    production_session,
     Admin,
     Annotation,
-    CachedMARCFile,
+    CachedFeed,
     CirculationEvent,
     Collection,
     Complaint,
@@ -65,7 +88,6 @@ from core.model import (
     CustomList,
     DataSource,
     DeliveryMechanism,
-    Edition,
     ExternalIntegration,
     Hold,
     Identifier,
@@ -77,55 +99,24 @@ from core.model import (
     Patron,
     Representation,
     Session,
-    Work,
 )
 from core.opds import (
     AcquisitionFeed,
     NavigationFacets,
     NavigationFeed,
 )
-from core.util.opds_writer import (
-     OPDSFeed,
-)
 from core.opensearch import OpenSearchDocument
 from core.user_profile import ProfileController as CoreProfileController
-from core.util.flask_util import (
-    problem,
-    OPDSFeedResponse
-)
 from core.util.authentication_for_opds import AuthenticationForOPDSDocument
-from core.util.problem_detail import ProblemDetail
 from core.util.http import (
     HTTP,
     RemoteIntegrationException,
 )
-
-from circulation_exceptions import *
+from core.util.opds_writer import (
+    OPDSFeed,
+)
+from core.util.problem_detail import ProblemDetail
 from custom_index import CustomIndexView
-
-from opds import (
-    CirculationManagerAnnotator,
-    LibraryAnnotator,
-    SharedCollectionAnnotator,
-    LibraryLoanAndHoldAnnotator,
-    SharedCollectionLoanAndHoldAnnotator,
-)
-from annotations import (
-  AnnotationWriter,
-  AnnotationParser,
-)
-from problem_details import *
-
-from authenticator import (
-    Authenticator,
-    CirculationPatronProfileStorage,
-    OAuthController,
-)
-from config import (
-    Configuration,
-    CannotLoadConfiguration,
-)
-
 from lanes import (
     load_lanes,
     ContributorFacets,
@@ -138,23 +129,18 @@ from lanes import (
     CrawlableCustomListBasedLane,
     CrawlableFacets,
 )
-
-from adobe_vendor_id import (
-    AdobeVendorIDController,
-    DeviceManagementProtocolController,
-    AuthdataUtility,
-)
-from circulation import CirculationAPI
-from shared_collection import SharedCollectionAPI
 from odl import ODLAPI
-from novelist import (
-    NoveListAPI,
-    MockNoveListAPI,
+from opds import (
+    CirculationManagerAnnotator,
+    LibraryAnnotator,
+    SharedCollectionAnnotator,
+    LibraryLoanAndHoldAnnotator,
+    SharedCollectionLoanAndHoldAnnotator,
 )
-from base_controller import BaseCirculationManagerController
+from problem_details import *
+from shared_collection import SharedCollectionAPI
 from testing import MockCirculationAPI, MockSharedCollectionAPI
-from core.analytics import Analytics
-from core.marc import MARCExporter
+
 
 class CirculationManager(object):
 
@@ -176,6 +162,37 @@ class CirculationManager(object):
         )
         self.setup_one_time_controllers()
         self.load_settings()
+
+    def load_facets_from_request(self, *args, **kwargs):
+        """Load a faceting object from the incoming request, but also apply an authentication
+        restriction.
+
+        Specifically, in this application you can't use nonstandard
+        caching rules unless you're an authenticated administrator.
+        """
+        facets = load_facets_from_request(*args, **kwargs)
+        if isinstance(facets, BaseFacets) and getattr(facets, 'max_cache_age', None) is not None:
+            # A faceting object was loaded, and it tried to do something nonstandard
+            # with caching.
+
+            # Try to get the AdminSignInController, which is
+            # associated with the CirculationManager object by the
+            # admin interface in admin/controller.
+            #
+            # If the admin interface wasn't initialized for whatever
+            # reason, we'll default to assuming the user is not an
+            # authenticated admin.
+            authenticated = False
+            controller = getattr(self, 'admin_sign_in_controller', None)
+            if controller:
+                admin = controller.authenticated_admin_from_request()
+                # If authenticated_admin_from_request returns anything other than an admin (probably
+                # a ProblemDetail), the user is not an authenticated admin.
+                if isinstance(admin, Admin):
+                    authenticated = True
+            if not authenticated:
+                facets.max_cache_age = None
+        return facets
 
     def reload_settings_if_changed(self):
         """If the site configuration has been updated, reload the
@@ -247,15 +264,22 @@ class CirculationManager(object):
         patron_web_domains = set()
 
         def get_domain(url):
+            url = url.strip()
             if url == "*":
                 return url
             scheme, netloc, path, parameters, query, fragment = urlparse.urlparse(url)
-            return scheme + "://" + netloc
+            if scheme and netloc:
+                return scheme + "://" + netloc
+            else:
+                return None
 
-        sitewide_patron_web_client_url = ConfigurationSetting.sitewide(
-            self._db, Configuration.PATRON_WEB_CLIENT_URL).value
-        if sitewide_patron_web_client_url:
-            patron_web_domains.add(get_domain(sitewide_patron_web_client_url))
+        sitewide_patron_web_client_urls = ConfigurationSetting.sitewide(
+            self._db, Configuration.PATRON_WEB_HOSTNAMES).value
+        if sitewide_patron_web_client_urls:
+            for url in sitewide_patron_web_client_urls.split('|'):
+                domain = get_domain(url)
+                if domain:
+                    patron_web_domains.add(domain)
 
         from registry import Registration
         for setting in self._db.query(
@@ -266,7 +290,9 @@ class CirculationManager(object):
 
         self.patron_web_domains = patron_web_domains
         self.setup_configuration_dependent_controllers()
-        self.authentication_for_opds_documents = {}
+        self.authentication_for_opds_documents = ExpiringDict(
+            max_len=1000, max_age_seconds=3600
+        )
 
     @property
     def external_search(self):
@@ -293,9 +319,38 @@ class CirculationManager(object):
         return self._external_search
 
     def cdn_url_for(self, view, *args, **kwargs):
-        return cdn_url_for(view, *args, **kwargs)
+        """Generate a URL for a view that (probably) passes through a CDN.
+
+        :param view: Name of the view.
+        :param _facets: The faceting object used to generate the document that's calling
+           this method. This may change which function is actually used to generate the
+           URL; in particular, it may disable a CDN that would otherwise be used. This is
+           called _facets just in case there's ever a view that takes 'facets' as a real
+           keyword argument.
+        :param args: Positional arguments to the view function.
+        :param kwargs: Keyword arguments to the view function.
+        """
+        url_for = self._cdn_url_for
+        facets = kwargs.pop('_facets', None)
+        if facets and facets.max_cache_age is CachedFeed.IGNORE_CACHE:
+            # The faceting object in play has disabled cache
+            # checking. A CDN is also a cache, so we should disable
+            # CDN URLs in the feed to make it more likely that the
+            # client continues to see up-to-the-minute feeds as they
+            # click around.
+            url_for = self.url_for
+        return url_for(view, *args, **kwargs)
+
+    def _cdn_url_for(self, *args, **kwargs):
+        """Call the cdn_url_for function.
+
+        Defined solely to be overridden in tests.
+        """
+        return cdn_url_for(*args, **kwargs)
 
     def url_for(self, view, *args, **kwargs):
+        """Call the url_for function, ensuring that Flask generates an absolute URL.
+        """
         kwargs['_external'] = True
         return url_for(view, *args, **kwargs)
 
@@ -352,6 +407,10 @@ class CirculationManager(object):
         self.odl_notification_controller = ODLNotificationController(self)
         self.shared_collection_controller = SharedCollectionController(self)
         self.static_files = StaticFileController(self)
+        self.rbdproxy = RBDFulfillmentProxyController(self)
+
+        from api.lcp.controller import LCPController
+        self.lcp_controller = LCPController(self)
 
     def setup_configuration_dependent_controllers(self):
         """Set up all the controllers that depend on the
@@ -361,6 +420,7 @@ class CirculationManager(object):
         configuration changes.
         """
         self.oauth_controller = OAuthController(self.auth)
+        self.saml_controller = SAMLController(self, self.auth)
 
     def setup_adobe_vendor_id(self, _db, library):
         """If this Library has an Adobe Vendor ID integration,
@@ -514,6 +574,45 @@ class CirculationManagerController(BaseCirculationManagerController):
             )
         return search_engine
 
+    def handle_conditional_request(self, last_modified=None):
+        """Handle a conditional HTTP request.
+
+        :param last_modified: A datetime representing the time this
+           resource was last modified.
+
+        :return: a Response, if the incoming request can be handled
+            conditionally. Otherwise, None.
+        """
+        if not last_modified:
+            return None
+
+        # If-Modified-Since values have resolution of one second. If
+        # last_modified has millisecond resolution, change its
+        # resolution to one second.
+        if last_modified.microsecond:
+            last_modified = last_modified.replace(microsecond=0)
+
+        # TODO: This can be cleaned up significantly in Python 3.
+        if_modified_since = flask.request.headers.get('If-Modified-Since')
+        if not if_modified_since:
+            return None
+
+        if_modified_since_tuple = email.utils.parsedate(
+            if_modified_since
+        )
+        if not if_modified_since_tuple:
+            return None
+
+        parsed_if_modified_since = datetime.datetime.fromtimestamp(
+            mktime(if_modified_since_tuple)
+        )
+        if not parsed_if_modified_since:
+            return None
+
+        if parsed_if_modified_since >= last_modified:
+            return Response(status=304)
+        return None
+
     def load_lane(self, lane_identifier):
         """Turn user input into a Lane object."""
         library_id = flask.request.library.id
@@ -603,7 +702,9 @@ class CirculationManagerController(BaseCirculationManagerController):
 
         if (not patron.library.allow_holds and
             license_pool.licenses_available == 0 and
-            not license_pool.open_access
+            not license_pool.open_access and
+            not license_pool.unlimited_access and
+            not license_pool.self_hosted
         ):
             return FORBIDDEN_BY_POLICY.detailed(
                 _("Library policy prohibits the placement of holds."),
@@ -724,7 +825,7 @@ class OPDSFeedController(CirculationManagerController):
         facet_class_kwargs = dict(
             minimum_featured_quality=library.minimum_featured_quality,
         )
-        facets = load_facets_from_request(
+        facets = self.manager.load_facets_from_request(
             worklist=lane, base_class=FeaturedFacets,
             base_class_constructor_kwargs=facet_class_kwargs
         )
@@ -737,7 +838,7 @@ class OPDSFeedController(CirculationManagerController):
 
         url = self.cdn_url_for(
             "acquisition_groups", lane_identifier=lane_identifier,
-            library_short_name=library.short_name,
+            library_short_name=library.short_name, _facets=facets
         )
 
         annotator = self.manager.annotator(lane, facets)
@@ -757,7 +858,7 @@ class OPDSFeedController(CirculationManagerController):
         lane = self.load_lane(lane_identifier)
         if isinstance(lane, ProblemDetail):
             return lane
-        facets = load_facets_from_request(worklist=lane)
+        facets = self.manager.load_facets_from_request(worklist=lane)
         if isinstance(facets, ProblemDetail):
             return facets
         pagination = load_pagination_from_request(SortKeyPagination)
@@ -770,7 +871,7 @@ class OPDSFeedController(CirculationManagerController):
         library_short_name = flask.request.library.short_name
         url = self.cdn_url_for(
             "feed", lane_identifier=lane_identifier,
-            library_short_name=library_short_name,
+            library_short_name=library_short_name, _facets=facets
         )
 
         annotator = self.manager.annotator(lane, facets=facets)
@@ -797,7 +898,7 @@ class OPDSFeedController(CirculationManagerController):
         facet_class_kwargs = dict(
             minimum_featured_quality=library.minimum_featured_quality,
         )
-        facets = load_facets_from_request(
+        facets = self.manager.load_facets_from_request(
             worklist=lane, base_class=NavigationFacets,
             base_class_constructor_kwargs=facet_class_kwargs
         )
@@ -909,7 +1010,7 @@ class OPDSFeedController(CirculationManagerController):
             # There is only one enabled EntryPoint,
             # and no need for a special default.
             default_entrypoint = None
-        return load_facets_from_request(
+        return self.manager.load_facets_from_request(
             worklist=lane, base_class=SearchFacets,
             default_entrypoint=default_entrypoint,
         )
@@ -1075,10 +1176,22 @@ class LoanController(CirculationManagerController):
 
         :return: A Response containing an OPDS feed with up-to-date information.
         """
+        patron = flask.request.patron
+
+        # Save some time if we don't believe the patron's loans or holds have
+        # changed since the last time the client requested this feed.
+        response = self.handle_conditional_request(
+            patron.last_loan_activity_sync
+        )
+        if isinstance(response, Response):
+            return response
+
+        # TODO: SimplyE used to make a HEAD request to the bookshelf feed
+        # as a quick way of checking authentication. Does this still happen?
+        # It shouldn't -- the patron profile feed should be used instead.
+        # If it's not used, we can take this out.
         if flask.request.method=='HEAD':
             return Response()
-
-        patron = flask.request.patron
 
         # First synchronize our local list of loans and holds with all
         # third-party loan providers.
@@ -1337,6 +1450,7 @@ class LoanController(CirculationManagerController):
             return url_for(
                 "fulfill", license_pool_id=requested_license_pool.id,
                 mechanism_id=mechanism.delivery_mechanism.id,
+                library_short_name=library.short_name,
                 part=unicode(part), _external=True
             )
 
@@ -1639,7 +1753,7 @@ class WorkController(CirculationManagerController):
         lane = ContributorLane(
             library, contributor, languages=languages, audiences=audiences
         )
-        facets = load_facets_from_request(
+        facets = self.manager.load_facets_from_request(
             worklist=lane, base_class=ContributorFacets
         )
         if isinstance(facets, ProblemDetail):
@@ -1709,7 +1823,7 @@ class WorkController(CirculationManagerController):
             # No related books were found.
             return NO_SUCH_LANE.detailed(e.message)
 
-        facets = load_facets_from_request(
+        facets = self.manager.load_facets_from_request(
             worklist=lane, base_class=FeaturedFacets,
             base_class_constructor_kwargs=dict(
                 minimum_featured_quality=library.minimum_featured_quality
@@ -1753,7 +1867,7 @@ class WorkController(CirculationManagerController):
             # NoveList isn't configured.
             return NO_SUCH_LANE.detailed(_("Recommendations not available"))
 
-        facets = load_facets_from_request(worklist=lane)
+        facets = self.manager.load_facets_from_request(worklist=lane)
         if isinstance(facets, ProblemDetail):
             return facets
 
@@ -1817,7 +1931,7 @@ class WorkController(CirculationManagerController):
             audiences=audiences
         )
 
-        facets = load_facets_from_request(
+        facets = self.manager.load_facets_from_request(
             worklist=lane, base_class=SeriesFacets
         )
         if isinstance(facets, ProblemDetail):
@@ -2156,3 +2270,28 @@ class StaticFileController(CirculationManagerController):
     def image(self, filename):
         directory = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..", "resources", "images")
         return self.static_file(directory, filename)
+
+class RBDFulfillmentProxyController(CirculationManagerController):
+
+    def __init__(self, *args, **kwargs):
+        super(RBDFulfillmentProxyController, self).__init__(*args, **kwargs)
+        self.log = logging.getLogger("RBDigital fulfillment proxy")
+
+    def proxy(self, bearer, api_class=None):
+        # This method expects a proxy URL with a "url" query parameter.
+        # It returns a Flask response.
+        fulfillment_url = flask.request.values.get('url', None)
+
+        try:
+            response = RBDigitalFulfillmentProxy.proxy(self._db, bearer, fulfillment_url,
+                                                       api_class=api_class)
+        except RBDProxyException as e:
+            status = e.message.get('status', 500)
+            message = e.message.get('message', 'unspecified error')
+            self.log.error('RBDProxyException: {} {}'.format(status, message))
+            response = Response(
+                response=json.dumps({"message": message}),
+                status=status, content_type='application/json;charset=UTF-8',
+            )
+
+        return response

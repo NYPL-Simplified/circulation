@@ -15,12 +15,23 @@ from pypostalcode import PostalCodeDatabase
 import re
 import urllib
 import uszipcode
+import os
 
 class GeographicValidator(Validator):
+
+    @staticmethod
+    def get_us_search():
+        # Use a known path for the uszipcode db_file_dir that already contains the DB that the
+        # library would otherwise download. This is done because the host for this file can
+        # be flaky. There is an issue for this in the underlying library here:
+        # https://github.com/MacHu-GWU/uszipcode-project/issues/40
+        db_file_path = os.path.join(os.path.dirname(__file__), "..", "..", "data", "uszipcode")
+        return uszipcode.SearchEngine(simple_zipcode=True, db_file_dir=db_file_path)
+
     def validate_geographic_areas(self, values, db):
         # Note: the validator does not recognize data from US territories other than Puerto Rico.
 
-        us_search = uszipcode.SearchEngine(simple_zipcode=True)
+        us_search = self.get_us_search()
         ca_search = PostalCodeDatabase()
         CA_PROVINCES = {
             "AB": "Alberta",
@@ -96,7 +107,7 @@ class GeographicValidator(Validator):
                         locations[registry_response].append(value)
                     else:
                         return UNKNOWN_LOCATION.detailed(_('Unable to locate "%(value)s".', value=value))
-        return json.dumps(locations)
+        return locations
 
     def is_zip(self, value, country):
         if country == "US":
@@ -106,7 +117,7 @@ class GeographicValidator(Validator):
 
     def look_up_zip(self, zip, country, formatted=False):
         if country == "US":
-            info = uszipcode.SearchEngine(simple_zipcode=True).by_zipcode(zip)
+            info = self.get_us_search().by_zipcode(zip)
             if formatted:
                 info = self.format_place(zip, info.major_city, info.state)
         elif country == "CA":
@@ -148,3 +159,7 @@ class GeographicValidator(Validator):
                     return True
 
         return result
+
+    def format_as_string(self, value):
+        """Format the output of validate_geographic_areas for storage in ConfigurationSetting.value."""
+        return json.dumps(value)

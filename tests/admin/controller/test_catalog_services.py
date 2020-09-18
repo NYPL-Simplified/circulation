@@ -1,11 +1,11 @@
+import json
+
+import flask
 from nose.tools import (
-    set_trace,
     eq_,
     assert_raises,
 )
-import flask
 from werkzeug.datastructures import MultiDict
-import json
 
 from api.admin.exceptions import *
 from core.marc import MARCExporter
@@ -17,8 +17,9 @@ from core.model import (
     get_one,
 )
 from core.model.configuration import ExternalIntegrationLink
+from core.s3 import S3Uploader, S3UploaderConfiguration
 from test_controller import SettingsControllerTest
-from core.s3 import S3Uploader
+
 
 class TestCatalogServicesController(SettingsControllerTest):
 
@@ -44,7 +45,6 @@ class TestCatalogServicesController(SettingsControllerTest):
                 goal=ExternalIntegration.CATALOG_GOAL,
                 name="name",
             )
-            integration.setting(MARCExporter.STORAGE_PROTOCOL).value = ExternalIntegration.S3
             integration.libraries += [self._default_library]
             ConfigurationSetting.for_library_and_externalintegration(
                 self._db, MARCExporter.MARC_ORGANIZATION_CODE,
@@ -62,7 +62,6 @@ class TestCatalogServicesController(SettingsControllerTest):
                 eq_(integration.id, service.get("id"))
                 eq_(integration.name, service.get("name"))
                 eq_(integration.protocol, service.get("protocol"))
-                eq_(ExternalIntegration.S3, service.get("settings").get(MARCExporter.STORAGE_PROTOCOL))
                 [library] = service.get("libraries")
                 eq_(self._default_library.short_name, library.get("short_name"))
                 eq_("US-MaBoDPL", library.get(MARCExporter.MARC_ORGANIZATION_CODE))
@@ -151,14 +150,14 @@ class TestCatalogServicesController(SettingsControllerTest):
             flask.request.form = MultiDict([
                 ("name", "new name"),
                 ("protocol", ME.NAME),
-                (ME.STORAGE_PROTOCOL, ExternalIntegration.S3),
+                ("mirror_integration_id", s3.id),
             ])
             assert_raises(AdminNotAuthorized,
                           self.manager.admin_catalog_services_controller.process_catalog_services)
 
         # This should be the last test to check since rolling back database
         # changes in the test can cause it to crash.
-        s3.setting(S3Uploader.MARC_BUCKET_KEY).value = "marc-files"
+        s3.setting(S3UploaderConfiguration.MARC_BUCKET_KEY).value = "marc-files"
         service.libraries += [self._default_library]
         self.admin.add_role(AdminRole.SYSTEM_ADMIN)
 
@@ -185,7 +184,7 @@ class TestCatalogServicesController(SettingsControllerTest):
             protocol=ExternalIntegration.S3,
             goal=ExternalIntegration.STORAGE_GOAL,
         )
-        s3.setting(S3Uploader.MARC_BUCKET_KEY).value = "marc-files"
+        s3.setting(S3UploaderConfiguration.MARC_BUCKET_KEY).value = "marc-files"
 
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
@@ -204,9 +203,9 @@ class TestCatalogServicesController(SettingsControllerTest):
         service = get_one(self._db, ExternalIntegration, goal=ExternalIntegration.CATALOG_GOAL)
         # There was one S3 integration and it was selected. The service has an 
         # External Integration Link to the storage integration that is created
-        # in a POST with purpose of "MARC".
+        # in a POST with purpose of ExternalIntegrationLink.MARC.
         integration_link = get_one(
-            self._db, ExternalIntegrationLink, external_integration_id=service.id, purpose="MARC"
+            self._db, ExternalIntegrationLink, external_integration_id=service.id, purpose=ExternalIntegrationLink.MARC
         )
 
         eq_(service.id, int(response.response[0]))
@@ -229,7 +228,7 @@ class TestCatalogServicesController(SettingsControllerTest):
             protocol=ExternalIntegration.S3,
             goal=ExternalIntegration.STORAGE_GOAL,
         )
-        s3.setting(S3Uploader.MARC_BUCKET_KEY).value = "marc-files"
+        s3.setting(S3UploaderConfiguration.MARC_BUCKET_KEY).value = "marc-files"
 
         service, ignore = create(
             self._db, ExternalIntegration,
@@ -253,7 +252,7 @@ class TestCatalogServicesController(SettingsControllerTest):
             eq_(response.status_code, 200)
 
         integration_link = get_one(
-            self._db, ExternalIntegrationLink, external_integration_id=service.id, purpose="MARC"
+            self._db, ExternalIntegrationLink, external_integration_id=service.id, purpose=ExternalIntegrationLink.MARC
         )
         eq_(service.id, int(response.response[0]))
         eq_(ME.NAME, service.protocol)

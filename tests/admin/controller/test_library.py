@@ -4,6 +4,7 @@ from nose.tools import (
     assert_raises
 )
 import base64
+import datetime
 import flask
 import json
 import urllib
@@ -26,11 +27,18 @@ from core.model import (
     Library,
 )
 from core.testing import MockRequestsResponse
+from core.util.problem_detail import ProblemDetail
+from api.announcements import (
+    Announcements,
+    Announcement,
+)
 from api.admin.controller.library_settings import LibrarySettingsController
+from api.admin.announcement_list_validator import AnnouncementListValidator
 from api.admin.geographic_validator import GeographicValidator
+from api.testing import AnnouncementTest
 from test_controller import SettingsControllerTest
 
-class TestLibrarySettings(SettingsControllerTest):
+class TestLibrarySettings(SettingsControllerTest, AnnouncementTest):
 
     def library_form(self, library, fields={}):
 
@@ -75,6 +83,37 @@ class TestLibrarySettings(SettingsControllerTest):
             library_settings = response.get("libraries")[0].get("settings")
             eq_(library_settings.get("focus_area"), {u'CA': [{u'N3L': u'Paris, Ontario'}], u'US': [{u'11235': u'Brooklyn, NY'}]})
             eq_(library_settings.get("service_area"), {u'CA': [{u'J2S': u'Saint-Hyacinthe Southwest, Quebec'}], u'US': [{u'31415': u'Savannah, GA'}]})
+
+    def test_libraries_get_with_announcements(self):
+        # Delete any existing library created by the controller test setup.
+        library = get_one(self._db, Library)
+        if library:
+            self._db.delete(library)
+
+        # Set some announcements for this library.
+        test_library = self._library("Library 1", "L1")
+        ConfigurationSetting.for_library(
+            Announcements.SETTING_NAME, test_library
+        ).value = json.dumps([self.active, self.expired, self.forthcoming])
+
+        # When we request information about this library...
+        with self.request_context_with_admin("/"):
+            response = self.manager.admin_library_settings_controller.process_get()
+            library_settings = response.get("libraries")[0].get("settings")
+
+            # We find out about the library's announcements.
+            announcements = library_settings.get(Announcements.SETTING_NAME)
+            eq_(
+                [self.active['id'], self.expired['id'], self.forthcoming['id']],
+                [x.get('id') for x in json.loads(announcements)]
+            )
+
+            # The objects found in `library_settings` aren't exactly
+            # the same as what is stored in the database: string dates
+            # can be parsed into datetime.date objects.
+            for i in json.loads(announcements):
+                assert isinstance(datetime.datetime.strptime(i.get('start'), "%Y-%m-%d"), datetime.date)
+                assert isinstance(datetime.datetime.strptime(i.get('finish'), "%Y-%m-%d"), datetime.date)
 
     def test_libraries_get_with_multiple_libraries(self):
         # Delete any existing library created by the controller test setup.
@@ -189,16 +228,17 @@ class TestLibrarySettings(SettingsControllerTest):
             response = self.manager.admin_library_settings_controller.process_post()
             eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
 
-        # Test a bad contrast ratio between the web foreground and
-        # web background colors.
+        # Test a web primary and secondary color that doesn't contrast
+        # well on white. Here primary will, secondary should not.
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = self.library_form(
-                library, {Configuration.WEB_BACKGROUND_COLOR: "#000000",
-                Configuration.WEB_FOREGROUND_COLOR: "#010101"}
+                library, {Configuration.WEB_PRIMARY_COLOR: "#000000",
+                Configuration.WEB_SECONDARY_COLOR: "#e0e0e0"}
             )
             response = self.manager.admin_library_settings_controller.process_post()
             eq_(response.uri, INVALID_CONFIGURATION_OPTION.uri)
-            assert "contrast-ratio.com/#%23010101-on-%23000000" in response.detail
+            assert "contrast-ratio.com/#%23e0e0e0-on-%23ffffff" in response.detail
+            assert "contrast-ratio.com/#%23e0e0e0-on-%23ffffff" in response.detail
 
         # Test a list of web header links and a list of labels that
         # aren't the same length.
@@ -218,19 +258,26 @@ class TestLibrarySettings(SettingsControllerTest):
             response = self.manager.admin_library_settings_controller.process_post()
             eq_(response.uri, INVALID_CONFIGURATION_OPTION.uri)
 
-
     def test_libraries_post_create(self):
         class TestFileUpload(StringIO):
             headers = { "Content-Type": "image/png" }
         image_data = '\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x01\x03\x00\x00\x00%\xdbV\xca\x00\x00\x00\x06PLTE\xffM\x00\x01\x01\x01\x8e\x1e\xe5\x1b\x00\x00\x00\x01tRNS\xcc\xd24V\xfd\x00\x00\x00\nIDATx\x9cc`\x00\x00\x00\x02\x00\x01H\xaf\xa4q\x00\x00\x00\x00IEND\xaeB`\x82'
 
-        original_validate = GeographicValidator().validate_geographic_areas
-        class MockValidator(GeographicValidator):
+        original_geographic_validate = GeographicValidator().validate_geographic_areas
+        class MockGeographicValidator(GeographicValidator):
             def __init__(self):
                 self.was_called = False
             def validate_geographic_areas(self, values, db):
                 self.was_called = True
-                return original_validate(values, db)
+                return original_geographic_validate(values, db)
+
+        original_announcement_validate = AnnouncementListValidator().validate_announcements
+        class MockAnnouncementListValidator(AnnouncementListValidator):
+            def __init__(self):
+                self.was_called = False
+            def validate_announcements(self, values):
+                self.was_called = True
+                return original_announcement_validate(values)
 
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
@@ -241,6 +288,7 @@ class TestLibrarySettings(SettingsControllerTest):
                 (Configuration.TINY_COLLECTION_LANGUAGES, ['ger']),
                 (Configuration.LIBRARY_SERVICE_AREA, ['06759', 'everywhere', 'MD', 'Boston, MA']),
                 (Configuration.LIBRARY_FOCUS_AREA, ['Manitoba', 'Broward County, FL', 'QC']),
+                (Announcements.SETTING_NAME, json.dumps([self.active, self.forthcoming])),
                 (Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, "email@example.com"),
                 (Configuration.HELP_EMAIL, "help@example.com"),
                 (Configuration.FEATURED_LANE_SIZE, "5"),
@@ -254,8 +302,13 @@ class TestLibrarySettings(SettingsControllerTest):
             flask.request.files = MultiDict([
                 (Configuration.LOGO, TestFileUpload(image_data)),
             ])
-            validator = MockValidator()
-            response = self.manager.admin_library_settings_controller.process_post(validator)
+            geographic_validator = MockGeographicValidator()
+            announcement_validator = MockAnnouncementListValidator()
+            validators = dict(
+                geographic=geographic_validator,
+                announcements=announcement_validator,
+            )
+            response = self.manager.admin_library_settings_controller.process_post(validators)
             eq_(response.status_code, 201)
 
         library = get_one(self._db, Library, short_name="nypl")
@@ -273,11 +326,20 @@ class TestLibrarySettings(SettingsControllerTest):
                 library).value)
         eq_("data:image/png;base64,%s" % base64.b64encode(image_data),
             ConfigurationSetting.for_library(Configuration.LOGO, library).value)
-        eq_(validator.was_called, True)
+        eq_(geographic_validator.was_called, True)
         eq_('{"CA": [], "US": ["06759", "everywhere", "MD", "Boston, MA"]}',
             ConfigurationSetting.for_library(Configuration.LIBRARY_SERVICE_AREA, library).value)
         eq_('{"CA": ["Manitoba", "Quebec"], "US": ["Broward County, FL"]}',
             ConfigurationSetting.for_library(Configuration.LIBRARY_FOCUS_AREA, library).value)
+
+        # Announcements were validated.
+        eq_(announcement_validator.was_called, True)
+
+        # The validated result was written to the database, such that we can
+        # parse it as a list of Announcement objects.
+        announcements = Announcements.for_library(library).announcements
+        eq_([self.active['id'], self.forthcoming['id']], [x.id for x in announcements])
+        assert all(isinstance(x, Announcement) for x in announcements)
 
         # When the library was created, default lanes were also created
         # according to its language setup. This library has one tiny
@@ -369,3 +431,234 @@ class TestLibrarySettings(SettingsControllerTest):
 
         library = get_one(self._db, Library, uuid=library.uuid)
         eq_(None, library)
+
+    def test_library_configuration_settings(self):
+        # Verify that library_configuration_settings validates and updates every
+        # setting for a library.
+        settings = [
+            dict(key="setting1", format="format1"),
+            dict(key="setting2", format="format2"),
+        ]
+
+        # format1 has a custom validation class; format2 does not.
+        class MockValidator(object):
+            def format_as_string(self, value):
+                self.format_as_string_called_with = value
+                return value + ", formatted for storage"
+        validator1 = MockValidator()
+        validators = dict(format1=validator1)
+
+        class MockController(LibrarySettingsController):
+            succeed = True
+            _validate_setting_calls = []
+
+            def _validate_setting(self, library, setting, validator):
+                self._validate_setting_calls.append((library, setting, validator))
+                if self.succeed:
+                    return "validated %s" % setting['key']
+                else:
+                    return INVALID_INPUT.detailed("invalid!")
+
+        # Run library_configuration_settings in a situation where all validations succeed.
+        controller = MockController(self.manager)
+        library = self._default_library
+        result = controller.library_configuration_settings(library, validators, settings)
+
+        # No problem detail was returned -- the 'request' can continue.
+        eq_(None, result)
+
+        # _validate_setting was called twice...
+        [c1, c2] = controller._validate_setting_calls
+
+        # ...once for each item in `settings`. One of the settings was
+        # of a type with a known validator, so the validator was
+        # passed in.
+        eq_((library, settings[0], validator1), c1)
+        eq_((library, settings[1], None), c2)
+
+        # The 'validated' value from the MockValidator was then formatted
+        # for storage using the format() method.
+        eq_("validated %s" % settings[0]['key'], validator1.format_as_string_called_with)
+
+        # Each (validated and formatted) value was written to the
+        # database.
+        setting1, setting2 = [library.setting(x['key']) for x in settings]
+        eq_("validated %s, formatted for storage" % setting1.key, setting1.value)
+        eq_("validated %s" % setting2.key, setting2.value)
+
+        # Try again in a situation where there are validation failures.
+        setting1.value = None
+        setting2.value = None
+        controller.succeed = False
+        controller._validate_setting_calls = []
+        result = controller.library_configuration_settings(
+            self._default_library, validators, settings
+        )
+
+        # _validate_setting was only called once.
+        eq_([(library, settings[0], validator1)],
+            controller._validate_setting_calls)
+
+        # When it returned a ProblemDetail, that ProblemDetail
+        # was propagated outwards.
+        assert isinstance(result, ProblemDetail)
+        eq_("invalid!", result.detail)
+
+        # No new values were written to the database.
+        for x in settings:
+            eq_(None, library.setting(x['key']).value)
+
+    def test__validate_setting(self):
+        # Verify the rules for validating different kinds of settings,
+        # one simulated setting at a time.
+
+        library = self._default_library
+        class MockController(LibrarySettingsController):
+
+            # Mock the functions that pull various values out of the
+            # 'current request' or the 'database' so we don't need an
+            # actual current request or actual database settings.
+            def scalar_setting(self, setting):
+                return self.scalar_form_values.get(setting['key'])
+
+            def list_setting(self, setting, json_objects=False):
+                value = self.list_form_values.get(setting['key'])
+                if json_objects:
+                    value = [json.loads(x) for x in value]
+                return json.dumps(value)
+
+            def image_setting(self, setting):
+                return self.image_form_values.get(setting['key'])
+
+            def current_value(self, setting, _library):
+                # While we're here, make sure the right Library
+                # object was passed in.
+                eq_(_library, library)
+                return self.current_values.get(setting['key'])
+
+            # Now insert mock data into the 'form submission' and
+            # the 'database'.
+
+            # Simulate list values in a form submission. The geographic values
+            # go in as normal strings; the announcements go in as strings that are
+            # JSON-encoded data structures.
+            announcement_list = [{"content" : "announcement1"}, {"content": "announcement2"}]
+            list_form_values = dict(
+                geographic_setting=["geographic values"],
+                announcement_list=[
+                    json.dumps(x) for x in announcement_list
+                ],
+                language_codes=["English", "fr"],
+                list_value=["a list"],
+            )
+
+            # Simulate scalar values in a form submission.
+            scalar_form_values = dict(
+                string_value="a scalar value"
+            )
+
+            # Simulate uploaded images in a form submission.
+            image_form_values = dict(
+                image_setting="some image data"
+            )
+
+            # Simulate values present in the database but not present
+            # in the form submission.
+            current_values = dict(
+                value_not_present_in_request = "a database value",
+                previously_uploaded_image = "an old image",
+            )
+
+        # First test some simple cases: scalar values.
+        controller = MockController(self.manager)
+        m = controller._validate_setting
+
+        # The incoming request has a value for this setting.
+        eq_("a scalar value", m(library, dict(key="string_value")))
+
+        # But not for this setting: we end up going to the database
+        # instead.
+        eq_("a database value", m(library, dict(key="value_not_present_in_request")))
+
+        # And not for this setting either: there is no database value,
+        # so we have to use the default associated with the setting configuration.
+        eq_("a default value", m(library, dict(key="some_other_value",
+                                               default="a default value")) )
+
+        # An uploaded image is (from the perspective of this method) also simple.
+
+        # Here, a new image was uploaded.
+        eq_("some image data", m(library, dict(key="image_setting", type="image")))
+
+        # Here, no image was uploaded so we use the currently stored database value.
+        eq_("an old image", m(library, dict(key="previously_uploaded_image", type="image")))
+
+        # There are some lists which are more complex, but a normal list is
+        # simple: the return value is the JSON-encoded list.
+        eq_(json.dumps(["a list"]), m(library, dict(key="list_value", type="list")))
+
+        # Now let's look at the more complex lists.
+
+        # A list of language codes.
+        eq_(
+            json.dumps(["eng", "fre"]),
+            m(library, dict(key="language_codes", format="language-code", type="list"))
+        )
+
+        # A list of geographic places
+        class MockGeographicValidator(object):
+            value = "validated value"
+            def validate_geographic_areas(self, value, _db):
+                self.called_with = (value, _db)
+                return self.value
+        validator = MockGeographicValidator()
+
+        # The validator was consulted and its response was used as the
+        # value.
+        eq_(
+            'validated value',
+            m(library, dict(key="geographic_setting", format="geographic"), validator)
+        )
+        eq_((json.dumps(["geographic values"]), self._db), validator.called_with)
+
+        # Just to be explicit, let's also test the case where the 'response' sent from the
+        # validator is a ProblemDetail.
+        validator.value = INVALID_INPUT
+        eq_(
+            INVALID_INPUT,
+            m(library, dict(key="geographic_setting", format="geographic"), validator)
+        )
+
+        # A list of announcements.
+        class MockAnnouncementValidator(object):
+            value = "validated value"
+            def validate_announcements(self, value):
+                self.called_with = value
+                return self.value
+        validator = MockAnnouncementValidator()
+
+        eq_(
+            'validated value',
+            m(library, dict(key="announcement_list", type="announcements"), validator)
+        )
+        eq_(json.dumps(controller.announcement_list), validator.called_with)
+
+    def test__format_validated_value(self):
+
+        m = LibrarySettingsController._format_validated_value
+
+        # When there is no validator, the incoming value is used as the formatted value,
+        # unchanged.
+        value = object()
+        eq_(value, m(value, validator=None))
+
+        # When there is a validator, its format_as_string method is
+        # called, and its return value is used as the formatted value.
+        class MockValidator(object):
+            def format_as_string(self, value):
+                self.called_with = value
+                return "formatted value"
+
+        validator = MockValidator()
+        eq_("formatted value", m(value, validator=validator))
+        eq_(value, validator.called_with)

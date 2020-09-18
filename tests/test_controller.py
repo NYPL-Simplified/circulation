@@ -4,10 +4,13 @@ from nose.tools import (
     eq_,
     set_trace,
 )
+import calendar
 from contextlib import contextmanager
+import email
 import os
 import datetime
-import re
+import time
+import urlparse
 from wsgiref.handlers import format_date_time
 from time import mktime
 from decimal import Decimal
@@ -81,6 +84,7 @@ from core.entrypoint import (
 )
 from core.local_analytics_provider import LocalAnalyticsProvider
 from core.model import (
+    Admin,
     Annotation,
     CachedMARCFile,
     Collection,
@@ -172,6 +176,7 @@ import random
 import json
 import urllib
 from core.analytics import Analytics
+from core.lane import BaseFacets
 from core.util.authentication_for_opds import AuthenticationForOPDSDocument
 from api.registry import Registration
 
@@ -443,7 +448,7 @@ class TestCirculationManager(CirculationControllerTest):
         # We also set up some patron web client settings that will
         # be loaded.
         ConfigurationSetting.sitewide(
-            self._db, Configuration.PATRON_WEB_CLIENT_URL).value = "http://sitewide/1234"
+            self._db, Configuration.PATRON_WEB_HOSTNAMES).value = "http://sitewide/1234"
         registry = self._external_integration(
             protocol="some protocol", goal=ExternalIntegration.DISCOVERY_GOAL
         )
@@ -498,9 +503,15 @@ class TestCirculationManager(CirculationControllerTest):
 
         # The sitewide patron web domain can also be set to *.
         ConfigurationSetting.sitewide(
-            self._db, Configuration.PATRON_WEB_CLIENT_URL).value = "*"
+            self._db, Configuration.PATRON_WEB_HOSTNAMES).value = "*"
         self.manager.load_settings()
         eq_(set(["*", "http://registration"]), manager.patron_web_domains)
+
+        # The sitewide patron web domain can have pipe separated domains, and will get spaces stripped
+        ConfigurationSetting.sitewide(
+            self._db, Configuration.PATRON_WEB_HOSTNAMES).value = "https://1.com|http://2.com |  http://subdomain.3.com|4.com"
+        self.manager.load_settings()
+        eq_(set(["https://1.com", "http://2.com",  "http://subdomain.3.com", "http://registration"]), manager.patron_web_domains)
 
         # Restore the CustomIndexView.for_library implementation
         CustomIndexView.for_library = old_for_library
@@ -656,6 +667,118 @@ class TestCirculationManager(CirculationControllerTest):
             assert isinstance(annotator, CirculationManagerAnnotator)
             eq_(worklist, annotator.lane)
 
+    def test_load_facets_from_request(self):
+        # Test our customization to the core load_facets_from_request
+        # function.
+        #
+        # Specifically, only an authenticated admin can ask to disable
+        # caching.
+        class MockAdminSignInController(object):
+            # Pretend to be able to find (or not) an Admin authenticated
+            # to make the current request.
+            admin = None
+
+            def authenticated_admin_from_request(self):
+                return self.admin
+        admin = Admin()
+        controller = MockAdminSignInController()
+
+        self.manager.admin_sign_in_controller = controller
+
+        with self.request_context_with_library("/"):
+            # If you don't specify a max cache age, nothing happens,
+            # whether or not you're an admin.
+            for value in INVALID_CREDENTIALS, admin:
+                controller.admin = value
+                facets = self.manager.load_facets_from_request()
+                eq_(None, facets.max_cache_age)
+
+        with self.request_context_with_library("/?max_age=0"):
+            # Not an admin, max cache age requested.
+            controller.admin = INVALID_CREDENTIALS
+            facets = self.manager.load_facets_from_request()
+            eq_(None, facets.max_cache_age)
+
+            # Admin, max age requested. This is the only case where
+            # nonstandard caching rules make it through
+            # load_facets_from_request().
+            controller.admin = admin
+            facets = self.manager.load_facets_from_request()
+            eq_(CachedFeed.IGNORE_CACHE, facets.max_cache_age)
+
+        # Since the admin sign-in controller is part of the admin
+        # package and not the API proper, test a situation where, for
+        # whatever reason, that controller was never initialized.
+        del self.manager.admin_sign_in_controller
+
+        # Now what controller.admin says doesn't matter, because the
+        # controller's not associated with the CirculationManager.
+        # But everything still basically works; you just can't
+        # disable the cache.
+        with self.request_context_with_library("/?max_age=0"):
+            for value in (INVALID_CREDENTIALS, admin):
+                controller.admin = value
+                facets = self.manager.load_facets_from_request()
+                eq_(None, facets.max_cache_age)
+
+    def test_cdn_url_for(self):
+        # Test the various rules for generating a URL for a view while
+        # passing it through a CDN (or not).
+
+        # The CDN configuration itself is handled inside the
+        # cdn_url_for function imported from core.app_server. So
+        # mainly we just need to check when a CirculationManager calls
+        # that function (via self._cdn_url_for), versus when it
+        # decides to bail on the CDN and call self.url_for instead.
+        class Mock(CirculationManager):
+            _cdn_url_for_calls = []
+            url_for_calls = []
+
+            def _cdn_url_for(self, view, *args, **kwargs):
+                self._cdn_url_for_calls.append((view, args, kwargs))
+                return "http://cdn/"
+
+            def url_for(self, view, *args, **kwargs):
+                self.url_for_calls.append((view, args, kwargs))
+                return "http://url/"
+
+        manager = Mock(self._db, testing=True)
+
+        # Normally, cdn_url_for calls _cdn_url_for to generate a URL.
+        args = ("arg1", "arg2")
+        kwargs = dict(key="value")
+        url = manager.cdn_url_for("view", *args, **kwargs)
+        eq_("http://cdn/", url)
+        eq_(("view", args, kwargs), manager._cdn_url_for_calls.pop())
+        eq_([], manager._cdn_url_for_calls)
+
+        # But if a faceting object is passed in as _facets, it's checked
+        # to see if it wants to disable caching.
+        class MockFacets(BaseFacets):
+            max_cache_age = None
+        kwargs_with_facets = dict(kwargs)
+        kwargs_with_facets.update(_facets=MockFacets)
+        url = manager.cdn_url_for("view", *args, **kwargs_with_facets)
+
+        # Here, the faceting object has no opinion on the matter, so
+        # _cdn_url_for is called again.
+        eq_("http://cdn/", url)
+        eq_(("view", args, kwargs), manager._cdn_url_for_calls.pop())
+        eq_([], manager._cdn_url_for_calls)
+
+        # Here, the faceting object does have an opinion: the document
+        # being generated should not be stored in a cache. This
+        # implies that the documents it links to should _also_ not be
+        # stored in a cache.
+        MockFacets.max_cache_age = CachedFeed.IGNORE_CACHE
+        url = manager.cdn_url_for("view", *args, **kwargs_with_facets)
+
+        # And so, url_for is called instead of _cdn_url_for.
+        eq_("http://url/", url)
+        eq_([], manager._cdn_url_for_calls)
+        eq_(("view", args, kwargs), manager.url_for_calls.pop())
+        eq_([], manager.url_for_calls)
+
 
 class TestBaseController(CirculationControllerTest):
 
@@ -720,6 +843,82 @@ class TestBaseController(CirculationControllerTest):
         with self.request_context_with_library("/", headers={"X-Requested-With": "XMLHttpRequest"}):
             response = self.controller.authenticate()
             eq_(None, response.headers.get("WWW-Authenticate"))
+
+    def test_handle_conditional_request(self):
+
+        # First, test success: the client provides If-Modified-Since
+        # and it is _not_ earlier than the 'last modified' date known by
+        # the server.
+
+        # We need to do a lot of Python manipulation get the
+        # current time UTC as an int, an HTTP-compatible string, and a
+        # datetime.
+        #
+        # TODO: This can be cleaned up significantly in Python 3.
+        now_int = calendar.timegm(time.gmtime())
+        now_string = email.utils.formatdate(now_int)
+        now_datetime = datetime.datetime.utcfromtimestamp(now_int)
+
+        # To make the test more realistic, set the microseconds value of 'now'.
+        now_datetime = now_datetime.replace(microsecond=random.randint(0, 999999))
+
+        # If all of that was correct, we ended up with a datetime
+        # that's very close to the one we can get with
+        # datetime.datetime.utcnow(). If it's off (due to a
+        # localtime/GMT confusion) it'll be significantly off.
+        cross_check = datetime.datetime.utcnow()
+        assert abs(now_datetime - cross_check).total_seconds() < 5
+
+        with self.app.test_request_context(
+            headers={"If-Modified-Since": now_string}
+        ):
+            response = self.controller.handle_conditional_request(now_datetime)
+            eq_(304, response.status_code)
+
+        # Try with a few specific values that comply to a greater or lesser
+        # extent with the date-format spec.
+        very_old = datetime.datetime(2000, 1, 1)
+        for value in [
+                "Thu, 01 Aug 2019 10:00:40 -0000",
+                "Thu, 01 Aug 2019 10:00:40",
+                "01 Aug 2019 10:00:40",
+        ]:
+            with self.app.test_request_context(
+                    headers={"If-Modified-Since": value}
+            ):
+                response = self.controller.handle_conditional_request(very_old)
+                eq_(304, response.status_code)
+
+        # All remaining test cases are failures: for whatever reason,
+        # the request is not a valid conditional request and the
+        # method returns None.
+
+        with self.app.test_request_context(
+            headers={"If-Modified-Since": now_string}
+        ):
+            # This request _would_ be a conditional request, but the
+            # precondition fails: If-Modified-Since is earlier than
+            # the 'last modified' date known by the server.
+            newer = now_datetime + datetime.timedelta(seconds=10)
+            response = self.controller.handle_conditional_request(newer)
+            eq_(None, response)
+
+            # Here, the server doesn't know what the 'last modified' date is,
+            # so it can't evaluate the precondition.
+            response = self.controller.handle_conditional_request(None)
+            eq_(None, response)
+
+        # Here, the precondition string is not parseable as a datetime.
+        with self.app.test_request_context(
+            headers={"If-Modified-Since": "01 Aug 2019"}
+        ):
+            response = self.controller.handle_conditional_request(very_old)
+            eq_(None, response)
+
+        # Here, the client doesn't provide a precondition at all.
+        with self.app.test_request_context():
+            response = self.controller.handle_conditional_request(very_old)
+            eq_(None, response)
 
     def test_load_licensepools(self):
 
@@ -863,6 +1062,45 @@ class TestBaseController(CirculationControllerTest):
         )
         eq_(BAD_DELIVERY_MECHANISM.uri, problem_detail.uri)
 
+    def test_apply_borrowing_policy_succeeds_for_unlimited_access_books(self):
+        with self.request_context_with_library("/"):
+            # Arrange
+            patron = self.controller.authenticated_patron(self.valid_credentials)
+            work = self._work(
+                with_license_pool=True,
+                with_open_access_download=False
+            )
+            [pool] = work.license_pools
+            pool.open_access = False
+            pool.self_hosted = False
+            pool.unlimited_access = True
+
+            # Act
+            problem = self.controller.apply_borrowing_policy(patron, pool)
+
+            # Assert
+            assert problem is None
+
+    def test_apply_borrowing_policy_succeeds_for_self_hosted_books(self):
+        with self.request_context_with_library("/"):
+            # Arrange
+            patron = self.controller.authenticated_patron(self.valid_credentials)
+            work = self._work(
+                with_license_pool=True,
+                with_open_access_download=False
+            )
+            [pool] = work.license_pools
+            pool.licenses_available = 0
+            pool.licenses_owned = 0
+            pool.open_access = False
+            pool.self_hosted = True
+
+            # Act
+            problem = self.controller.apply_borrowing_policy(patron, pool)
+
+            # Assert
+            assert problem is None
+
     def test_apply_borrowing_policy_when_holds_prohibited(self):
         with self.request_context_with_library("/"):
             patron = self.controller.authenticated_patron(self.valid_credentials)
@@ -943,9 +1181,9 @@ class TestBaseController(CirculationControllerTest):
         self._default_library.short_name = new_name
         self._db.commit()
 
-        # Bypass the 1-second timeout and make sure the site knows
+        # Bypass the 1-second cooldown and make sure the site knows
         # the configuration has actually changed.
-        model.site_configuration_has_changed(self._db, timeout=0)
+        model.site_configuration_has_changed(self._db, cooldown=0)
 
         # Just making the change and calling
         # site_configuration_has_changed was not enough to update the
@@ -1576,6 +1814,24 @@ class TestLoanController(CirculationControllerTest):
             hold = get_one(self._db, Hold, license_pool=pool)
             assert hold != None
 
+    def test_borrow_nolicenses(self):
+        edition, pool = self._edition(
+            with_open_access_download=False,
+            data_source_name=DataSource.GUTENBERG,
+            identifier_type=Identifier.GUTENBERG_ID,
+            with_license_pool=True,
+        )
+
+        with self.request_context_with_library(
+                "/", headers=dict(Authorization=self.valid_auth)):
+            self.manager.loans.authenticated_patron_from_request()
+            self.manager.d_circulation.queue_checkout(pool, NoLicenses())
+
+            response = self.manager.loans.borrow(
+                pool.identifier.type, pool.identifier.identifier)
+            eq_(404, response.status_code)
+            eq_(NOT_FOUND_ON_REMOTE, response)
+
     def test_borrow_creates_local_hold_if_remote_hold_exists(self):
         """We try to check out a book, but turns out we already have it
         on hold.
@@ -1668,6 +1924,7 @@ class TestLoanController(CirculationControllerTest):
 
         controller = self.manager.loans
         mock = MockCirculationAPI()
+        library_short_name = self._default_library.short_name
         controller.manager.circulation_apis[self._default_library.id] = mock
 
         with self.request_context_with_library(
@@ -1697,10 +1954,20 @@ class TestLoanController(CirculationControllerTest):
             # and make sure it gives the result we expect.
             expect = url_for(
                 "fulfill", license_pool_id=self.pool.id,
-                mechanism_id=mechanism.delivery_mechanism.id, part=part,
-                _external=True
+                mechanism_id=mechanism.delivery_mechanism.id,
+                library_short_name=library_short_name,
+                part=part, _external=True
             )
-            eq_(expect, fulfill_part_url(part))
+            part_url = fulfill_part_url(part)
+            eq_(expect, part_url)
+
+            # Ensure that the library short name is the first segment
+            # of the path of the fulfillment url. We cannot perform
+            # patron authentication without it.
+            expected_path = urlparse.urlparse(expect).path
+            part_url_path = urlparse.urlparse(part_url).path
+            assert expected_path.startswith("/{}/".format(library_short_name))
+            assert part_url_path.startswith("/{}/".format(library_short_name))
 
     def test_fulfill_returns_fulfillment_info_implementing_as_response(self):
         # If CirculationAPI.fulfill returns a FulfillmentInfo that
@@ -1927,13 +2194,71 @@ class TestLoanController(CirculationControllerTest):
             eq_("Cannot release a hold once it enters reserved state.", response.detail)
 
     def test_active_loans(self):
+
+        # First, verify that this controller supports conditional HTTP
+        # GET by calling handle_conditional_request and propagating
+        # any Response it returns.
+        response_304 = Response(status=304)
+        def handle_conditional_request(last_modified=None):
+            return response_304
+        original_handle_conditional_request = self.controller.handle_conditional_request
+        self.manager.loans.handle_conditional_request = handle_conditional_request
+
+        # Before making any requests, set the patron's last_loan_activity_sync
+        # to a known value.
+        patron = None
+        with self.request_context_with_library("/"):
+            patron = self.controller.authenticated_patron(
+                self.valid_credentials
+            )
+        now = datetime.datetime.utcnow()
+        patron.last_loan_activity_sync = now
+
+        # Make a request -- it doesn't have If-Modified-Since, but our
+        # mocked handle_conditional_request will treat it as a
+        # successful conditional request.
         with self.request_context_with_library(
-                "/", headers=dict(Authorization=self.valid_auth)):
+            "/", headers=dict(Authorization=self.valid_auth)
+        ):
+            patron = self.manager.loans.authenticated_patron_from_request()
+            response = self.manager.loans.sync()
+            assert response is response_304
+
+        # Since the conditional request succeeded, we did not call out
+        # to the vendor APIs, and patron.last_loan_activity_sync was
+        # not updated.
+        eq_(now, patron.last_loan_activity_sync)
+
+        # Leaving patron.last_loan_activity_sync alone will stop the
+        # circulation manager from calling out to the external APIs,
+        # since it was set to a recent time. We test this explicitly
+        # later, but for now, clear it out.
+        patron.last_loan_activity_sync = None
+
+        # Un-mock handle_conditional_request. It will be called over
+        # the course of this test, but it will not notice any more
+        # conditional requests -- the detailed behavior of
+        # handle_conditional_request is tested elsewhere.
+        self.manager.loans.handle_conditional_request = (
+            original_handle_conditional_request
+        )
+
+        # If the request is not conditional, an OPDS feed is returned.
+        # This feed is empty because the patron has no loans.
+        with self.request_context_with_library(
+            "/", headers=dict(Authorization=self.valid_auth)
+        ):
             patron = self.manager.loans.authenticated_patron_from_request()
             response = self.manager.loans.sync()
             assert not "<entry>" in response.data
             assert response.headers['Cache-Control'].startswith('private,')
 
+            # patron.last_loan_activity_sync was set to the moment the
+            # LoanController started calling out to the remote APIs.
+            new_sync_time = patron.last_loan_activity_sync
+            assert new_sync_time > now
+
+        # Set up a bunch of loans on the remote APIs.
         overdrive_edition, overdrive_pool = self._edition(
             with_open_access_download=False,
             data_source_name=DataSource.OVERDRIVE,
@@ -1973,11 +2298,33 @@ class TestLoanController(CirculationControllerTest):
             0,
         )
 
+        # Making a new request so soon after the last one means the
+        # circulation manager won't actually call out to the vendor
+        # APIs. The resulting feed won't reflect what we know to be
+        # the reality.
+        with self.request_context_with_library(
+                "/", headers=dict(Authorization=self.valid_auth)):
+            patron = self.manager.loans.authenticated_patron_from_request()
+            response = self.manager.loans.sync()
+            assert '<entry>' not in response.data
+
+        # patron.last_loan_activity_sync was not changed as the result
+        # of this request, since we didn't go to the vendor APIs.
+        eq_(patron.last_loan_activity_sync, new_sync_time)
+
+        # Change it now, to a timestamp far in the past.
+        long_ago = datetime.datetime(2000, 1, 1)
+        patron.last_loan_activity_sync = long_ago
+
+        # This ensures that when we request the loans feed again, the
+        # LoanController actually goes out to the vendor APIs for new
+        # information.
         with self.request_context_with_library(
                 "/", headers=dict(Authorization=self.valid_auth)):
             patron = self.manager.loans.authenticated_patron_from_request()
             response = self.manager.loans.sync()
 
+            # This time, the feed contains entries.
             feed = feedparser.parse(response.data)
             entries = feed['entries']
 
@@ -1999,6 +2346,9 @@ class TestLoanController(CirculationControllerTest):
             assert urllib.quote("%s/%s/borrow" % (bibliotheca_pool.identifier.type, bibliotheca_pool.identifier.identifier)) in borrow_link
             eq_(0, len(bibliotheca_revoke_links))
 
+            # Since we went out the the vendor APIs,
+            # patron.last_loan_activity_sync was updated.
+            assert patron.last_loan_activity_sync > new_sync_time
 
 class TestAnnotationController(CirculationControllerTest):
     def setup(self):
@@ -3121,6 +3471,7 @@ class TestOPDSFeedController(CirculationControllerTest):
             expect_url = self.controller.cdn_url_for(
                 "feed", lane_identifier=lane_id,
                 library_short_name=self._default_library.short_name,
+                _facets=load_facets_from_request()
             )
 
         assert isinstance(response, Response)
@@ -3227,6 +3578,7 @@ class TestOPDSFeedController(CirculationControllerTest):
             expect_url = self.manager.opds_feeds.cdn_url_for(
                 "acquisition_groups", lane_identifier=None,
                 library_short_name=library.short_name,
+                _facets=load_facets_from_request()
             )
 
         kwargs = self.groups_called_with
@@ -3264,6 +3616,7 @@ class TestOPDSFeedController(CirculationControllerTest):
             expect_url = self.manager.opds_feeds.cdn_url_for(
                 "feed", lane_identifier=self.english_adult_fiction.id,
                 library_short_name=library.short_name,
+                _facets=load_facets_from_request()
             )
 
         eq_(self.english_adult_fiction, self.page_called_with.pop('worklist'))

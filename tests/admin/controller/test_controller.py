@@ -1,60 +1,52 @@
+import csv
+import json
+import re
+from StringIO import StringIO
+from contextlib import contextmanager
+from datetime import datetime, timedelta
+
+import feedparser
+import flask
 from nose.tools import (
-    set_trace,
     eq_,
     assert_raises
 )
-import flask
-import json
-import os
-import re
-import feedparser
-from werkzeug.datastructures import ImmutableMultiDict, MultiDict
+from werkzeug.datastructures import MultiDict
 from werkzeug.http import dump_cookie
-from StringIO import StringIO
-import base64
-from Crypto.PublicKey import RSA
-from Crypto.Cipher import PKCS1_OAEP
-from contextlib import contextmanager
-from PIL import Image
-import math
-import operator
-from flask_babel import lazy_gettext as _
-import csv
-
-from tests import sample_data
-from tests.test_controller import CirculationControllerTest
-from api.adobe_vendor_id import (
-    AdobeVendorIDModel,
-    AuthdataUtility
-)
 
 from api.admin.controller import (
     setup_admin_controllers,
     AdminAnnotator,
     SettingsController,
-    PatronController,
-    TimestampsController
+    PatronController
 )
 from api.admin.exceptions import *
+from api.admin.google_oauth_admin_authentication_provider import GoogleOAuthAdminAuthenticationProvider
+from api.admin.password_admin_authentication_provider import PasswordAdminAuthenticationProvider
 from api.admin.problem_details import *
-from api.admin.validator import Validator
 from api.admin.routes import setup_admin
+from api.admin.validator import Validator
+from api.adobe_vendor_id import (
+    AdobeVendorIDModel
+)
+from api.adobe_vendor_id import AuthdataUtility
+from api.authenticator import (
+    PatronData,
+)
+from api.axis import (Axis360API, MockAxis360API)
 from api.config import (
     Configuration,
-    temp_config,
 )
-from api.admin.password_admin_authentication_provider import PasswordAdminAuthenticationProvider
-from api.admin.google_oauth_admin_authentication_provider import GoogleOAuthAdminAuthenticationProvider
+from core.classifier import (
+    genres
+)
+from core.lane import Lane
 from core.model import (
     Admin,
     AdminRole,
     CirculationEvent,
-    Classification,
-    Collection,
     Complaint,
     ConfigurationSetting,
-    Contributor,
-    CoverageRecord,
     CustomList,
     CustomListEntry,
     create,
@@ -64,45 +56,16 @@ from core.model import (
     Genre,
     get_one,
     get_one_or_create,
-    Hyperlink,
-    Identifier,
     Library,
-    Representation,
-    ResourceTransformation,
-    RightsStatus,
-    SessionManager,
-    Subject,
     Timestamp,
     WorkGenre
 )
-from core.model.configuration import ExternalIntegrationLink
-from core.lane import Lane
-from core.s3 import MockS3Uploader
-from core.testing import (
-    AlwaysSuccessfulCoverageProvider,
-    NeverSuccessfulCoverageProvider,
-    MockRequestsResponse,
-)
-from core.util.http import HTTP
-from core.util.problem_detail import ProblemDetail
-from core.classifier import (
-    genres,
-    SimplifiedGenreClassifier
-)
-from datetime import date, datetime, timedelta
-
-from api.authenticator import (
-    AuthenticationProvider,
-    PatronData,
-)
-
-from core.local_analytics_provider import LocalAnalyticsProvider
-
-from api.adobe_vendor_id import AuthdataUtility
-
-from api.axis import (Axis360API, MockAxis360API)
-from core.selftest import HasSelfTests
 from core.opds_import import (OPDSImporter, OPDSImportMonitor)
+from core.s3 import S3UploaderConfiguration
+from core.selftest import HasSelfTests
+from core.util.http import HTTP
+from tests.test_controller import CirculationControllerTest
+
 
 class AdminControllerTest(CirculationControllerTest):
 
@@ -1528,7 +1491,7 @@ class TestLanesController(AdminControllerTest):
             eq_(self._default_library, lane.library)
             eq_("lane", lane.display_name)
             eq_(parent, lane.parent)
-            eq_([Edition.BOOK_MEDIUM], lane.media)
+            eq_(None, lane.media)
             eq_(1, len(lane.customlists))
             eq_(list, lane.customlists[0])
             eq_(False, lane.inherit_parent_restrictions)
@@ -1571,6 +1534,7 @@ class TestLanesController(AdminControllerTest):
             eq_("new name", lane.display_name)
             eq_([list2], lane.customlists)
             eq_(True, lane.inherit_parent_restrictions)
+            eq_(None, lane.media)
             eq_(2, lane.size)
 
     def test_lane_delete_success(self):
@@ -2335,6 +2299,11 @@ class TestSettingsController(SettingsControllerTest):
         # Storages created will appear for settings of any purpose
         storage1 = self._external_integration(
             "protocol1", ExternalIntegration.STORAGE_GOAL, name="storage1",
+            settings={
+                S3UploaderConfiguration.BOOK_COVERS_BUCKET_KEY: 'covers',
+                S3UploaderConfiguration.OA_CONTENT_BUCKET_KEY: 'open-access-books',
+                S3UploaderConfiguration.PROTECTED_CONTENT_BUCKET_KEY: 'protected-access-books'
+            }
         )
 
         settings = mirror_integration_settings()
@@ -2346,14 +2315,24 @@ class TestSettingsController(SettingsControllerTest):
         eq_(settings[0]["options"][1]['key'],
             str(storage1.id))
         eq_(settings[1]["key"], "books_mirror_integration_id")
-        eq_(settings[1]["label"], "Books Mirror")
+        eq_(settings[1]["label"], "Open Access Books Mirror")
         eq_(settings[1]["options"][0]['key'],
             self.manager.admin_settings_controller.NO_MIRROR_INTEGRATION)
         eq_(settings[1]["options"][1]['key'],
             str(storage1.id))
+        eq_(settings[2]["label"], "Protected Access Books Mirror")
+        eq_(settings[2]["options"][0]['key'],
+            self.manager.admin_settings_controller.NO_MIRROR_INTEGRATION)
+        eq_(settings[2]["options"][1]['key'],
+            str(storage1.id))
 
         storage2 = self._external_integration(
-            "protocol2", ExternalIntegration.STORAGE_GOAL, name="storage2"
+            "protocol2", ExternalIntegration.STORAGE_GOAL, name="storage2",
+            settings={
+                S3UploaderConfiguration.BOOK_COVERS_BUCKET_KEY: 'covers',
+                S3UploaderConfiguration.OA_CONTENT_BUCKET_KEY: 'open-access-books',
+                S3UploaderConfiguration.PROTECTED_CONTENT_BUCKET_KEY: 'protected-access-books'
+            }
         )
         settings = mirror_integration_settings()
 
@@ -2366,13 +2345,18 @@ class TestSettingsController(SettingsControllerTest):
         eq_(settings[0]["options"][2]['key'],
             str(storage2.id))
         eq_(settings[1]["key"], "books_mirror_integration_id")
-        eq_(settings[1]["label"], "Books Mirror")
+        eq_(settings[1]["label"], "Open Access Books Mirror")
         eq_(settings[1]["options"][0]['key'],
             self.manager.admin_settings_controller.NO_MIRROR_INTEGRATION)
         eq_(settings[1]["options"][1]['key'],
             str(storage1.id))
         eq_(settings[1]["options"][2]['key'],
             str(storage2.id))
+        eq_(settings[2]["label"], "Protected Access Books Mirror")
+        eq_(settings[2]["options"][0]['key'],
+            self.manager.admin_settings_controller.NO_MIRROR_INTEGRATION)
+        eq_(settings[2]["options"][1]['key'],
+            str(storage1.id))
 
     def test_check_url_unique(self):
         # Verify our ability to catch duplicate integrations for a
