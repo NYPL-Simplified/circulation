@@ -3,10 +3,12 @@ import logging
 import flask
 from flask import Response
 
+from api.admin.problem_details import MISSING_COLLECTION
 from api.controller import CirculationManagerController
 from api.lcp.factory import LCPServerFactory
 from core.lcp.credential import LCPCredentialFactory
 from core.model import Session, ExternalIntegration, Collection
+from core.util.problem_detail import ProblemDetail
 
 
 class LCPController(CirculationManagerController):
@@ -70,6 +72,9 @@ class LCPController(CirculationManagerController):
         db = Session.object_session(patron)
         lcp_collection, _ = Collection.by_name_and_protocol(db, collection_name, ExternalIntegration.LCP)
 
+        if not lcp_collection or lcp_collection not in patron.library.collections:
+            return MISSING_COLLECTION
+
         return lcp_collection
 
     def get_lcp_passphrase(self):
@@ -107,6 +112,10 @@ class LCPController(CirculationManagerController):
 
         patron = self._get_patron()
         lcp_collection = self._get_lcp_collection(patron, collection_name)
+
+        if isinstance(lcp_collection, ProblemDetail):
+            return lcp_collection
+
         lcp_api = self.circulation.api_for_collection.get(lcp_collection.id)
         lcp_server = self._lcp_server_factory.create(lcp_api)
 
