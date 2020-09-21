@@ -1,10 +1,14 @@
+import logging
+
 import flask
 from flask import Response
-from core.util.problem_detail import ProblemDetail
-from circulation_exceptions import *
-from problem_details import *
 from flask_babel import lazy_gettext as _
-from core.model import Library, get_one
+
+from circulation_exceptions import *
+from core.model import Library, get_one, Loan
+from core.util.problem_detail import ProblemDetail
+from problem_details import *
+
 
 class BaseCirculationManagerController(object):
     """Define minimal standards for a circulation manager controller,
@@ -81,6 +85,38 @@ class BaseCirculationManagerController(object):
         headers = self.manager.auth.create_authentication_headers()
         data = self.manager.authentication_for_opds_document
         return Response(data, 401, headers)
+
+    def library_through_external_loan_identifier(self, loan_external_identifier):
+        """Look up the library the user is trying to access using a loan's external identifier.
+        We assume that the external identifier is globally unique which is true, for example,
+        in the case of using Readium LCP.
+
+        :param loan_external_identifier: External identifier of the patron's loan
+        :type loan_external_identifier: basestring
+
+        :return: Library the patron is trying to access
+        :rtype: Library
+        """
+        self.manager.reload_settings_if_changed()
+
+        loan = None
+
+        try:
+            loan = get_one(self._db, Loan, external_identifier=loan_external_identifier)
+        except:
+            logging.exception(
+                'An unexpected exception occurred during fetching a loan with external identifier {0}'.format(
+                    loan_external_identifier
+                )
+            )
+
+        if loan is None:
+            return LOAN_NOT_FOUND
+
+        library = loan.patron.library
+        flask.request.library = library
+
+        return library
 
     def library_for_request(self, library_short_name):
         """Look up the library the user is trying to access.
