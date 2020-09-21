@@ -10,7 +10,7 @@ elasticsearch-dsl==6.4.0
 enum34==1.1.10
 feedparser==5.2.1
 Flask==1.1.2
-Flask-Babel==2.0.0
+Flask-Babel==1.0.0
 funcsigs==1.0.2
 futures==3.3.0
 fuzzywuzzy==0.18.0 # For author name manipulations
