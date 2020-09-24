@@ -73,6 +73,7 @@ from core.lane import (
     Lane,
     SearchFacets,
     WorkList,
+    JackpotWorkList,
 )
 from core.log import LogConfiguration
 from core.marc import MARCExporter
@@ -807,7 +808,7 @@ class OPDSFeedController(CirculationManagerController):
 
         for collection in self._db.query(Collection):
             for medium in Edition.FULFILLABLE_MEDIA:
-                for availability in ("now", "all"):
+                for availability in ("now"):
                     filter_list.append((collection, medium, availability))
 
         search_engine = self.search_engine
@@ -819,10 +820,13 @@ class OPDSFeedController(CirculationManagerController):
             library_short_name=library.short_name,
         )
 
-        annotator = self.manager.annotator(None)
-        return feed_class.qa_feed(
-            _db=self._db, title="QA test feed", url=url, annotator=annotator,
-            search_engine=search_engine, filter_list=filter_list
+        jwl = JackpotWorkList()
+        jwl.initialize(library, filter_list=filter_list)
+
+        annotator = self.manager.annotator(jwl)
+        return feed_class.groups(
+            _db=self._db, title="QA test feed", url=url, worklist=jwl,
+            annotator=annotator, search_engine=search_engine,
         )
 
     def groups(self, lane_identifier, feed_class=AcquisitionFeed):
