@@ -31,9 +31,16 @@ class SimpleAuthenticationProvider(BasicAuthenticationProvider):
     TEST_NEIGHBORHOOD = 'neighborhood'
 
     basic_settings = list(BasicAuthenticationProvider.SETTINGS)
-    for setting in basic_settings:
-        if setting['key'] == BasicAuthenticationProvider.TEST_PASSWORD:
-            setting['required'] = True
+    for i, setting in enumerate(basic_settings):
+        if setting['key'] == BasicAuthenticationProvider.TEST_IDENTIFIER:
+            s = dict(**setting)
+            s['description'] = BasicAuthenticationProvider.TEST_IDENTIFIER_DESCRIPTION_FOR_REQUIRED_PASSWORD
+            basic_settings[i] = s
+        elif setting['key'] == BasicAuthenticationProvider.TEST_PASSWORD:
+            s = dict(**setting)
+            s['required'] = True
+            s['description'] = BasicAuthenticationProvider.TEST_PASSWORD_DESCRIPTION_REQUIRED
+            basic_settings[i] = s
 
     SETTINGS = basic_settings + [
         { "key": ADDITIONAL_TEST_IDENTIFIERS,

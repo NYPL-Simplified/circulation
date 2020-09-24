@@ -1723,15 +1723,25 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
     TEST_IDENTIFIER = 'test_identifier'
     TEST_PASSWORD = 'test_password'
 
+    TEST_IDENTIFIER_DESCRIPTION_FOR_REQUIRED_PASSWORD = _(
+        "A valid identifier that can be used to test that patron authentication is working."
+    )
+    TEST_IDENTIFIER_DESCRIPTION_FOR_OPTIONAL_PASSWORD = _("{} {}".format(
+        TEST_IDENTIFIER_DESCRIPTION_FOR_REQUIRED_PASSWORD,
+        "An optional Test Password for this identifier can be set in the next section.",
+    ))
+    TEST_PASSWORD_DESCRIPTION_REQUIRED = _("The password for the Test Identifier.")
+    TEST_PASSWORD_DESCRIPTION_OPTIONAL = _("The password for the Test Identifier (above, in previous section).")
+
     SETTINGS = [
         { "key": TEST_IDENTIFIER,
           "label": _("Test Identifier"),
-          "description": _("A valid identifier that can be used to test that patron authentication is working."),
+          "description": TEST_IDENTIFIER_DESCRIPTION_FOR_OPTIONAL_PASSWORD,
           "required": True,
         },
         { "key": TEST_PASSWORD,
           "label": _("Test Password"),
-          "description": _("The password for the test identifier."),
+          "description": TEST_PASSWORD_DESCRIPTION_OPTIONAL,
         },
         { "key" : IDENTIFIER_BARCODE_FORMAT,
           "label": _("Patron identifier barcode format"),
