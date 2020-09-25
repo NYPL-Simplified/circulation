@@ -598,11 +598,11 @@ def saml_callback():
     return app.manager.saml_controller.saml_authentication_callback(request, app.manager._db)
 
 
-@library_route('/lcp/hint')
-@has_library
+@app.route('/<collection_name>/lcp/licenses/<license_id>/hint')
+@has_library_through_external_loan_identifier(parameter_name='license_id')
 @requires_auth
 @returns_problem_detail
-def lcp_passphrase():
+def lcp_passphrase(collection_name, license_id):
     return app.manager.lcp_controller.get_lcp_passphrase()
 
 
