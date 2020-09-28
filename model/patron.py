@@ -300,6 +300,47 @@ class Patron(Base):
                 _db.delete(annotation)
         self._synchronize_annotations = value
 
+    @property
+    def root_lane(self):
+        """Find the Lane, if any, to be used as the Patron's root lane.
+
+        A patron with a root Lane can only access that Lane and the
+        Lanes beneath it. In addition, a patron with a root lane
+        cannot conduct a transaction on a book intended for an older
+        audience than the one defined by their root lane.
+        """
+        if not patron.external_type:
+            return None
+        _db = Session.object_session(self)
+        qu = _db.query(Lane).filter(
+            Lane.library==patron.library
+        ).filter(
+            Lane.root_for_patron_type.any(patron.external_type)
+        )
+        lanes = qu.all()
+        if len(lanes) < 1:
+            # The most common situation -- this patron has no special
+            # root lane.
+            return None
+        if len(lanes) > 1:
+            # Multiple root lanes for a patron indicates a
+            # configuration problem, but we shouldn't make the patron
+            # pay the price -- just pick the first one.
+            logging.error(
+                "Multiple root lanes found for patron type %s.",
+                patron.external_type
+            )
+        return lanes[0]
+
+        _db = Session.object_session(self)
+        root_lanes = _db.query(Lane).filter(
+            Lane.library==self
+        ).filter(
+            Lane.root_for_patron_type!=None
+        )
+        return root_lanes.count() > 0
+
+
 Index("ix_patron_library_id_external_identifier", Patron.library_id, Patron.external_identifier)
 Index("ix_patron_library_id_authorization_identifier", Patron.library_id, Patron.authorization_identifier)
 Index("ix_patron_library_id_username", Patron.library_id, Patron.username)

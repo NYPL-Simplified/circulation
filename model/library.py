@@ -292,6 +292,21 @@ class Library(Base, HasFullTableCache):
         key = self.ENABLED_FACETS_KEY_PREFIX + group_name
         return self.setting(key)
 
+    @property
+    def has_root_lanes(self):
+        """Does this library have any lanes that act as the root
+        lane for a certain patron type?
+
+        :return: A boolean
+        """
+        _db = Session.object_session(self)
+        root_lanes = _db.query(Lane).filter(
+            Lane.library==self
+        ).filter(
+            Lane.root_for_patron_type!=None
+        )
+        return root_lanes.count() > 0
+
     def restrict_to_ready_deliverable_works(
         self, query, collection_ids=None, show_suppressed=False,
     ):

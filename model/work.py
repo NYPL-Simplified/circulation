@@ -781,6 +781,71 @@ class Work(Base):
             language = LanguageCodes.three_to_two[language]
         return language
 
+    def too_grown_up_for_patron(self, patron):
+        """Should the given Patron be prohibited from interacting
+        with this book due to an age-related policy?
+
+        This happens only if this book is too grown-up to be allowed
+        in the Patron's root lane.
+
+        TODO: What "grown-up" means depends on some policy questions
+        that have not been answered and may be library-specific.
+
+        :param patron: A Patron.
+        :return: A boolean
+
+        """
+        root = patron.root_lane
+        if not root:
+            # The patron has no root lane. They can interact with any
+            # book in the system.
+            return False
+
+        # The patron can interact with this Work assuming it's not too
+        # grown-up to show in their root lane.
+        return self.too_grown_up_for(root.audience, root.target_age)
+
+    def too_grown_up_for(self, audience=None, reader_age=None):
+        """Is this work aimed at readers more grown-up than the
+        reader described?
+
+        TODO: What "grown-up" means depends on some policy questions that
+        have not been answered and may be library-specific.
+
+        :param audience: One of the audience constants from
+           Classifier, representing the general reading audience to
+           which the reader belongs.
+
+        :param reader_age: A number representing the age of the reader.
+
+        """
+        if audience not in Classifier.AUDIENCES_YOUNG_CHILDREN:
+            # These restrictions only apply to young children.
+            return False
+
+        # Young children can only interact with works whose audience
+        # is set to CHILDREN or ALL_AGES.
+        if self.audience not in (Classifier.AUDIENCES_YOUNG_CHILDREN):
+            return True
+
+        if not self.target_age:
+            # This is a generic children's book with no particular age
+            # restriction.
+            return False
+
+        if isinstance(reader_age, tuple):
+            # A range was passed in rather than a specific age. Assume
+            # the reader is at the top edge of the range.
+            ignore, reader_age = reader_age
+
+        young_limit, old_limit = self.target_age
+        if reader_age < young:
+            # This is a children's book with a target age that is too high
+            # for the reader.
+            return True
+
+        return False
+
     def set_presentation_edition(self, new_presentation_edition):
         """ Sets presentation edition and lets owned pools and editions know.
             Raises exception if edition to set to is None.

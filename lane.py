@@ -1489,6 +1489,20 @@ class WorkList(object):
         """
         return []
 
+    def in_scope(self, scoped_to):
+        """In the hierarchy, can you see this WorkList from the given
+        WorkList?
+
+        :param scope_to: A WorkList.
+        :return: A boolean.
+        """
+        for parent in [self] + list(self.parentage):
+            if parent == scoped_to:
+                return True
+        return False
+
+
+
     @property
     def inherit_parent_restrictions(self):
         """Since a WorkList has no parent, it cannot inherit any restrictions
@@ -1591,6 +1605,35 @@ class WorkList(object):
         return "%s-%s-%s" % (
             self.display_name, self.language_key, self.audience_key
         )
+
+    def visible_to(self, patron):
+        """As a matter of library policy, is the given `Patron` allowed
+        to view this `WorkList`?
+        """
+        if not patron:
+            # We have no lanes that are private, per se, so if there
+            # is no active patron every lane is visible.
+            return True
+
+        _db = Session.object_session(patron)
+        if patron.library != self.get_library(_db):
+            # You can't access a lane from another library.
+            return False
+
+        # Get the root lane for this external type, if any.
+        root = patron.root_lane
+        if not root:
+            # A patron with no root lane can see every one of the
+            # library's lanes.
+            return True
+
+        if self.in_scope(root_lane):
+            # This lane is in scope to the patron's root lane, so it's
+            # visible.
+            return True
+
+        # This lane is not beneath the 
+        return False
 
     def overview_facets(self, _db, facets):
         """Convert a generic FeaturedFacets to some other faceting object,
