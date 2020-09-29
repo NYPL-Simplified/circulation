@@ -808,7 +808,7 @@ class OPDSFeedController(CirculationManagerController):
 
         for collection in self._db.query(Collection):
             for medium in Edition.FULFILLABLE_MEDIA:
-                for availability in ("now"):
+                for availability in ['now']:
                     filter_list.append((collection, medium, availability))
 
         search_engine = self.search_engine
@@ -827,6 +827,7 @@ class OPDSFeedController(CirculationManagerController):
         return feed_class.groups(
             _db=self._db, title="QA test feed", url=url, worklist=jwl,
             annotator=annotator, search_engine=search_engine,
+            max_age=CachedFeed.IGNORE_CACHE
         )
 
     def groups(self, lane_identifier, feed_class=AcquisitionFeed):
