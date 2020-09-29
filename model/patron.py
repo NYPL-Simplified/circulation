@@ -216,25 +216,6 @@ class Patron(Base):
         loans = self.works_on_loan()
         return set(holds + loans)
 
-    def can_borrow(self, work, policy):
-        """Return true if the given policy allows this patron to borrow the
-        given work.
-        This will return False when the policy for this patron's
-        .external_type prevents access to this book's audience.
-        """
-        if not self.external_type in policy:
-            return True
-        if not work:
-            # Shouldn't happen, but not this method's problem.
-            return True
-        p = policy[self.external_type]
-        if not self.AUDIENCE_RESTRICTION_POLICY in p:
-            return True
-        allowed = p[self.AUDIENCE_RESTRICTION_POLICY]
-        if work.audience in allowed:
-            return True
-        return False
-
     @property
     def loan_activity_max_age(self):
         """In the absence of any other information, how long should loan

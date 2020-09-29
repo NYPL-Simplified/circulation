@@ -1489,19 +1489,20 @@ class WorkList(object):
         """
         return []
 
-    def in_scope(self, scoped_to):
+    def in_scope_of(self, possible_parent):
         """In the hierarchy, can you see this WorkList from the given
         WorkList?
+
+        A WorkList is in its own scope, and in the scope of every WorkList
+        in its parentage.
 
         :param scope_to: A WorkList.
         :return: A boolean.
         """
         for parent in [self] + list(self.parentage):
-            if parent == scoped_to:
+            if parent == possible_ancestor:
                 return True
         return False
-
-
 
     @property
     def inherit_parent_restrictions(self):
@@ -1620,19 +1621,20 @@ class WorkList(object):
             # You can't access a lane from another library.
             return False
 
-        # Get the root lane for this external type, if any.
+        # Get the patron's root lane, if any.
         root = patron.root_lane
         if not root:
             # A patron with no root lane can see every one of the
             # library's lanes.
             return True
 
-        if self.in_scope(root_lane):
-            # This lane is in scope to the patron's root lane, so it's
-            # visible.
+        if self.in_scope_of(root_lane):
+            # This lane is in the scope of the patron's root lane, so
+            # it's visible.
             return True
 
-        # This lane is not beneath the 
+        # This lane is not in the scope of the patron's root lane,
+        # so it's not visible.
         return False
 
     def overview_facets(self, _db, facets):

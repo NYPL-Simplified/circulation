@@ -1826,6 +1826,25 @@ class TestWorkList(DatabaseTest):
         wl_child.priority = 0
         eq_([wl_child, lane_child], wl.visible_children)
 
+    def test_in_scope_of(self):
+        """A WorkList is in its own scope and the scope of every
+        WorkList in its parentage.
+        """
+        child = WorkList()
+        child.initialize(self._default_library)
+        eq_(True, wl1.in_scope_of(child))
+
+        parent = WorkList()
+        parent.initialize(self._default_library)
+        eq_(False, child.in_scope_of(parent))
+
+        grandparent = WorkList()
+        grandparent.initialize(self._default_library)
+        eq_(False, wl1.in_scope_of(grandparent))
+
+        # Set parentage.
+        wl1.parent = wl2
+
     def test_uses_customlists(self):
         """A WorkList is said to use CustomLists if either ._customlist_ids
         or .list_datasource_id is set.

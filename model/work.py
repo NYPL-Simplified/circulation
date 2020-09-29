@@ -788,8 +788,10 @@ class Work(Base):
         This happens only if this book is too grown-up to be allowed
         in the Patron's root lane.
 
-        TODO: What "grown-up" means depends on some policy questions
-        that have not been answered and may be library-specific.
+        NOTE: What "grown-up" means depends on some policy questions
+        that have not been answered and may be library-specific. For
+        now, it means that the patron has a root lane, and the Work is
+        too grown-up for that lane.
 
         :param patron: A Patron.
         :return: A boolean
@@ -809,8 +811,11 @@ class Work(Base):
         """Is this work aimed at readers more grown-up than the
         reader described?
 
-        TODO: What "grown-up" means depends on some policy questions that
-        have not been answered and may be library-specific.
+        NOTE: What "grown-up" means depends on some policy questions
+        that have not been answered and may be library-specific. For
+        now it means that the target reader is a young child and
+        either a) this Work is not a children's book, or b) it's a
+        children's book aimed at a higher age than the target reader.
 
         :param audience: One of the audience constants from
            Classifier, representing the general reading audience to
@@ -820,7 +825,7 @@ class Work(Base):
 
         """
         if audience not in Classifier.AUDIENCES_YOUNG_CHILDREN:
-            # These restrictions only apply to young children.
+            # These restrictions apply only to young children.
             return False
 
         # Young children can only interact with works whose audience
@@ -843,6 +848,13 @@ class Work(Base):
             # This is a children's book with a target age that is too high
             # for the reader.
             return True
+
+        # NOTE: This will allow a two-year-old to interact with an
+        # "all ages" book even though "all ages" actually means "all
+        # ages with reading fluency". This probably isn't a problem
+        # since the issue here is age appropriateness, not reading
+        # level. But if it is an issue, we can add an additional check
+        # against Classifier.ALL_AGES_AGE_CUTOFF.
 
         return False
 
