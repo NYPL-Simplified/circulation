@@ -629,6 +629,12 @@ class CirculationManagerController(BaseCirculationManagerController):
                 self._db, Lane, id=lane_identifier, library_id=library_id
             )
 
+        if lane and flask.request.patron:
+            # Make sure the patron can see the lane they requested.
+            if not lane.visible_to(flask.request.patron):
+                # Act like the lane does not exist.
+                lane = None
+
         if not lane:
             return NO_SUCH_LANE.detailed(
                 _("Lane %(lane_identifier)s does not exist or is not associated with library %(library_id)s",
@@ -680,6 +686,7 @@ class CirculationManagerController(BaseCirculationManagerController):
             return INVALID_INPUT.detailed(
                 _("License Pool #%s does not exist.") % license_pool_id
             )
+
         return license_pool
 
     def load_licensepooldelivery(self, pool, mechanism_id):
@@ -694,9 +701,11 @@ class CirculationManagerController(BaseCirculationManagerController):
     def apply_borrowing_policy(self, patron, license_pool):
         if isinstance(patron, ProblemDetail):
             return patron
-        if not patron.can_borrow(license_pool.work, self.manager.lending_policy):
+
+        work = license_pool.work
+        if work.too_grown_up_for(patron):
             return FORBIDDEN_BY_POLICY.detailed(
-                _("Library policy prohibits us from lending you this book."),
+                _("Library policy considers this title inappropriate for your patron type."),
                 status_code=451
             )
 
@@ -744,12 +753,7 @@ class IndexController(CirculationManagerController):
         )
 
     def has_root_lanes(self):
-        root_lanes = self._db.query(Lane).filter(
-            Lane.library==flask.request.library
-        ).filter(
-            Lane.root_for_patron_type!=None
-        )
-        return root_lanes.count() > 0
+        return flask.request.library.has_root_lanes
 
     def authenticated_patron_root_lane(self):
         patron = self.authenticated_patron_from_request()
@@ -757,16 +761,7 @@ class IndexController(CirculationManagerController):
             return patron
         if isinstance(patron, Response):
             return patron
-
-        lanes = self._db.query(Lane).filter(
-            Lane.library==flask.request.library
-        ).filter(
-            Lane.root_for_patron_type.any(patron.external_type)
-        )
-        if lanes.count() < 1:
-            return None
-        else:
-            return lanes.one()
+        return patron.root_lane
 
     def appropriate_index_for_patron_type(self):
         library_short_name = flask.request.library.short_name
