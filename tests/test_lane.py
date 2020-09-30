@@ -1830,20 +1830,70 @@ class TestWorkList(DatabaseTest):
         """A WorkList is in its own scope and the scope of every
         WorkList in its parentage.
         """
+        # A WorkList is in its own scope.
         child = WorkList()
         child.initialize(self._default_library)
-        eq_(True, wl1.in_scope_of(child))
+        eq_(True, child.in_scope_of(child))
 
+        # But not in the scope of any other WorkList.
         parent = WorkList()
         parent.initialize(self._default_library)
         eq_(False, child.in_scope_of(parent))
 
         grandparent = WorkList()
         grandparent.initialize(self._default_library)
-        eq_(False, wl1.in_scope_of(grandparent))
+        eq_(False, child.in_scope_of(grandparent))
 
-        # Set parentage.
-        wl1.parent = wl2
+        # Unless it's a descendant of that WorkList.
+        child.parent = parent
+        parent.parent = grandparent
+        eq_(True, child.in_scope_of(parent))
+        eq_(True, child.in_scope_of(grandparent))
+        eq_(True, parent.in_scope_of(grandparent))
+
+        eq_(False, parent.in_scope_of(child))
+        eq_(False, grandparent.in_scope_of(parent))
+
+    def test_visible_to(self):
+        # Test the circumstances under which a WorkList is visible
+        # (or invisible) to a Patron.
+
+        class Mock(WorkList):
+            # mock in_scope_of
+            in_scope = False
+            def in_scope_of(self, other_wl):
+                self.in_scope_of_called_with = other_wl
+                return self.in_scope
+
+        wl = Mock()
+        wl.initialize(self._default_library)
+
+        # A WorkList is always visible to unauthenticated users.
+        m = wl.visible_to
+        eq_(True, m(None))
+
+        # A WorkList is never visible to patrons of a different library.
+        other_library = self._library()
+        other_library_patron = self._patron(library=other_library)
+        eq_(False, m(other_library_patron))
+
+        # A WorkList is always visible to patrons with no root lane
+        # set.
+        patron = self._patron()
+        eq_(True, m(patron))
+
+        # Give the patron a root lane.
+        lane = self._lane()
+        lane.root_for_patron_types = ["1"]
+        patron.external_type = "1"
+
+        # Now it depends on whether this WorkList is in_scope_of the
+        # patron's root lane.
+        eq_(False, m(patron))
+        eq_(lane, wl.in_scope_of_called_with)
+        
+        wl.in_scope = True
+        eq_(True, m(patron))
 
     def test_uses_customlists(self):
         """A WorkList is said to use CustomLists if either ._customlist_ids

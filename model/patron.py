@@ -7,7 +7,6 @@ from . import (
     get_one_or_create,
 )
 from credential import Credential
-
 import datetime
 from sqlalchemy import (
     Boolean,
@@ -290,13 +289,14 @@ class Patron(Base):
         cannot conduct a transaction on a book intended for an older
         audience than the one defined by their root lane.
         """
-        if not patron.external_type:
+        if not self.external_type:
             return None
         _db = Session.object_session(self)
+        from ..lane import Lane
         qu = _db.query(Lane).filter(
-            Lane.library==patron.library
+            Lane.library==self.library
         ).filter(
-            Lane.root_for_patron_type.any(patron.external_type)
+            Lane.root_for_patron_type.any(self.external_type)
         )
         lanes = qu.all()
         if len(lanes) < 1:

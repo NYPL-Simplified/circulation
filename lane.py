@@ -1618,18 +1618,18 @@ class WorkList(object):
 
         _db = Session.object_session(patron)
         if patron.library != self.get_library(_db):
-            # You can't access a lane from another library.
+            # You can't access a WorkList from another library.
             return False
 
         # Get the patron's root lane, if any.
         root = patron.root_lane
         if not root:
             # A patron with no root lane can see every one of the
-            # library's lanes.
+            # library's WorkLists.
             return True
 
         if self.in_scope_of(root_lane):
-            # This lane is in the scope of the patron's root lane, so
+            # This WorkList is in the scope of the patron's root lane, so
             # it's visible.
             return True
 
