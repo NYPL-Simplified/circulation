@@ -5,6 +5,7 @@ from nose.tools import (
 from pymarc import Record
 
 from . import DatabaseTest
+from core.config import Configuration
 from core.model import (
     ConfigurationSetting,
     ExternalIntegration,
@@ -109,6 +110,34 @@ class TestLibraryAnnotator(DatabaseTest):
         # Web client URLs can come from either the MARC export integration or
         # a library registry integration.
 
+        # The expected format for a web client url is as follows
+        # - <web-client-base>/book/<cm-base>/<lib-short-name>/works/<qualified-identifier>
+        client_url_template = "{client_base}/book/{cm_base}/{lib}/works/{qid}"
+
+        qualified_identifier = "Gutenberg%20ID%2Fidentifier"
+        lib_short_name = self._default_library.short_name
+
+        cm_base_url = "http://test-circulation-manager"
+        client_base_1 = "http://web_catalog"
+        client_base_2 = "http://another_web_catalog"
+        expected_client_url_1 = client_url_template.format(**dict(
+            client_base=client_base_1, cm_base=cm_base_url,
+            lib=lib_short_name, qid=qualified_identifier
+        ))
+        expected_client_url_2 = client_url_template.format(**dict(
+            client_base=client_base_2, cm_base=cm_base_url,
+            lib=lib_short_name, qid=qualified_identifier
+        ))
+
+        # a few assertions to ensure that our client configurations are useful
+        assert len(lib_short_name) > 0
+        assert client_base_1 != client_base_2
+        assert expected_client_url_1 != expected_client_url_2
+        assert expected_client_url_1.startswith(client_base_1)
+        assert expected_client_url_2.startswith(client_base_2)
+
+        ConfigurationSetting.sitewide(self._db, Configuration.BASE_URL_KEY).value = cm_base_url
+
         annotator = LibraryAnnotator(self._default_library)
 
         # If no web catalog URLs are set for the library, nothing will be changed.
@@ -123,14 +152,13 @@ class TestLibraryAnnotator(DatabaseTest):
             libraries=[self._default_library])
         ConfigurationSetting.for_library_and_externalintegration(
             self._db, Registration.LIBRARY_REGISTRATION_WEB_CLIENT,
-            self._default_library, registry).value = "http://web_catalog"
+            self._default_library, registry).value = client_base_1
 
         record = Record()
         annotator.add_web_client_urls(record, self._default_library, identifier)
         [field] = record.get_fields("856")
         eq_(["4", "0"], field.indicators)
-        eq_("http://web_catalog/book/Gutenberg%20ID%2Fidentifier",
-            field.get_subfields("u")[0])
+        eq_(expected_client_url_1, field.get_subfields("u")[0])
 
         # Add a manually configured URL on a MARC export integration.
         integration = self._external_integration(
@@ -139,18 +167,13 @@ class TestLibraryAnnotator(DatabaseTest):
 
         ConfigurationSetting.for_library_and_externalintegration(
             self._db, MARCExporter.WEB_CLIENT_URL,
-            self._default_library, integration).value = "http://another_web_catalog"
+            self._default_library, integration).value = client_base_2
 
         record = Record()
         annotator.add_web_client_urls(record, self._default_library, identifier, integration)
         [field1, field2] = record.get_fields("856")
         eq_(["4", "0"], field1.indicators)
-        eq_("http://another_web_catalog/book/Gutenberg%20ID%2Fidentifier",
-            field1.get_subfields("u")[0])
+        eq_(expected_client_url_2, field1.get_subfields("u")[0])
 
         eq_(["4", "0"], field2.indicators)
-        eq_("http://web_catalog/book/Gutenberg%20ID%2Fidentifier",
-            field2.get_subfields("u")[0])
-
-        
-
+        eq_(expected_client_url_1, field2.get_subfields("u")[0])
