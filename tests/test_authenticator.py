@@ -58,6 +58,7 @@ from api.authenticator import (
     OAuthAuthenticationProvider,
     PatronData,
 )
+from api.problem_details import PATRON_OF_ANOTHER_LIBRARY
 from api.simple_authentication import SimpleAuthenticationProvider
 from api.millenium_patron import MilleniumPatronAPI
 from api.opds import LibraryAnnotator
@@ -1909,6 +1910,15 @@ class TestBasicAuthenticationProvider(AuthenticatorTest):
 
 
     def test_testing_patron(self):
+
+        class MockAuthenticatedPatron(MockBasicAuthenticationProvider):
+            def __init__(self, *args, **kwargs):
+                self._authenticated_patron_returns = kwargs.pop("_authenticated_patron_returns", None)
+                super(MockAuthenticatedPatron, self).__init__(*args, **kwargs)
+
+            def authenticated_patron(self, *args, **kwargs):
+                return self._authenticated_patron_returns
+
         # You don't have to have a testing patron.
         integration = self._external_integration(self._str)
         no_testing_patron = BasicAuthenticationProvider(
@@ -1946,6 +1956,54 @@ class TestBasicAuthenticationProvider(AuthenticatorTest):
             self._db
         )
 
+        # We configure a testing patron but authenticating them
+        # results in a problem detail document.
+        b = BasicAuthenticationProvider
+        patron = self._patron()
+        integration = self._external_integration(self._str)
+        integration.setting(b.TEST_IDENTIFIER).value = '1'
+        integration.setting(b.TEST_PASSWORD).value = '2'
+        problem_patron = MockAuthenticatedPatron(
+            self._default_library, integration, patron=patron,
+            _authenticated_patron_returns=PATRON_OF_ANOTHER_LIBRARY
+        )
+        value = problem_patron.testing_patron(self._db)
+        assert patron != PATRON_OF_ANOTHER_LIBRARY
+        eq_((PATRON_OF_ANOTHER_LIBRARY, "2"), value)
+
+        # And testing_patron_or_bust() still doesn't work.
+        assert_raises_regexp(
+            IntegrationException,
+            "Test patron lookup returned a problem detail",
+            problem_patron.testing_patron_or_bust,
+            self._db
+        )
+
+        # We configure a testing patron but authenticating them
+        # results in something (non None) that's not a Patron
+        # or a problem detail document.
+        not_a_patron = "<not a patron>"
+        b = BasicAuthenticationProvider
+        patron = self._patron()
+        integration = self._external_integration(self._str)
+        integration.setting(b.TEST_IDENTIFIER).value = '1'
+        integration.setting(b.TEST_PASSWORD).value = '2'
+        problem_patron = MockAuthenticatedPatron(
+            self._default_library, integration, patron=patron,
+            _authenticated_patron_returns=not_a_patron
+        )
+        value = problem_patron.testing_patron(self._db)
+        assert patron != not_a_patron
+        eq_((not_a_patron, "2"), value)
+
+        # And testing_patron_or_bust() still doesn't work.
+        assert_raises_regexp(
+            IntegrationException,
+            "Test patron lookup returned invalid value for patron",
+            problem_patron.testing_patron_or_bust,
+            self._db
+        )
+
         # Here, we configure a testing patron who is authenticated by
         # their username and password.
         patron = self._patron()
@@ -1959,6 +2017,7 @@ class TestBasicAuthenticationProvider(AuthenticatorTest):
         # Finally, testing_patron_or_bust works, returning the same
         # value as testing_patron()
         eq_(value, present_patron.testing_patron_or_bust(self._db))
+
 
     def test__run_self_tests(self):
         _db = object()

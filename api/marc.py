@@ -66,11 +66,15 @@ class LibraryAnnotator(Annotator):
         qualified_identifier = urllib.quote(identifier.type + "/" + identifier.identifier, safe='')
 
         for web_client_base_url in settings:
-            url = "{}/book/{}/{}/works/{}".format(
-                web_client_base_url,
+            link = "{}/{}/works/{}".format(
                 self.base_url,
                 library.short_name,
                 qualified_identifier,
+            )
+            encoded_link = urllib.quote(link, safe='')
+            url = "{}/book/{}".format(
+                web_client_base_url,
+                encoded_link
             )
             record.add_field(
                 Field(

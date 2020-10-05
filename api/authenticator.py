@@ -1891,8 +1891,11 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
         return self.authenticated_patron(_db, header), self.test_password
 
     def testing_patron_or_bust(self, _db):
-        """Look up the Patron object reserved for testing purposes,
-        raising CannotLoadConfiguration if none is configured.
+        """Look up the Patron object reserved for testing purposes.
+
+        :raise:CannotLoadConfiguration: If no test patron is configured.
+        :raise:IntegrationException: If the returned patron is not a Patron object.
+        :return: A 2-tuple (Patron, password)
         """
         if self.test_username is None:
             raise CannotLoadConfiguration(
@@ -1900,13 +1903,22 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
             )
 
         patron, password = self.testing_patron(_db)
+        if isinstance(patron, Patron):
+            return patron, password
+
         if not patron:
-            # We ran to completion but ended up with no patron.
-            raise IntegrationException(
+            message =  (
                 "Remote declined to authenticate the test patron.",
                 "The patron may not exist or its password may be wrong."
             )
-        return patron, password
+        elif isinstance(patron, ProblemDetail):
+            message = "Test patron lookup returned a problem detail - {}: {} ({})".format(
+                    patron.title, patron.detail, patron.uri
+            )
+        else:
+            message = "Test patron lookup returned invalid value for patron: {!r}".format(patron)
+        raise IntegrationException(message)
+
 
     def _run_self_tests(self, _db):
         """Verify the credentials of the test patron for this integration,
