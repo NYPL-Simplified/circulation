@@ -844,7 +844,7 @@ class Work(Base):
             ignore, reader_age = reader_age
 
         young_limit, old_limit = self.target_age
-        if reader_age < young:
+        if reader_age < young_limit:
             # This is a children's book with a target age that is too high
             # for the reader.
             return True

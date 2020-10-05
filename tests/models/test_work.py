@@ -1211,6 +1211,78 @@ class TestWork(DatabaseTest):
         eq_(set([collection1.id, collection2.id]),
             set([x['collection_id'] for x in search_doc['licensepools']]))
 
+    def test_too_grown_up_for_patron(self):
+        # The target audience and age of a patron's root lane controls
+        # whether a given book is 'too grown up' for them.
+        class MockLane(object):
+            audience = object()
+            target_age = object()
+
+        class MockPatron(object):
+            root_lane = None
+
+        class MockWork(Work):
+            called_with = None
+            def too_grown_up_for(self, audience, target_age):
+                self.called_with = (audience, target_age)
+                return True
+
+        patron = MockPatron()
+        w = MockWork()
+
+        # The patron has no root lane, so too_grown_up_for is not
+        # even called.
+        eq_(False, w.too_grown_up_for_patron(patron))
+        eq_(None, w.called_with)
+
+        # Give the patron a root lane.
+        lane = MockLane()
+        eq_(True, w.too_grown_up_for_patron(patron))
+
+        # too_grown_up_for was called and the return result passed
+        # back.
+        eq_((lane.audience, lane.target_age), w.called_with)
+
+    def test_too_grown_up_for(self):
+        # Check whether this work is too grown-up for a certain audience.
+        work = self._work()
+        m = work.too_grown_up_for
+        work.audience = object()
+
+        # These restrictions apply only to young children. Everyone
+        # else can read whatever books they want.
+        for patron_audience in Classifier.AUDIENCES:
+            if patron_audience in Classifier.AUDIENCES_YOUNG_CHILDREN:
+                # Tested later.
+                continue
+            eq_(False, m(patron_audience, object()))
+
+        # Patrons who are young children cannot read books that are
+        # not in one of the YOUNG_CHILDREN audiences.
+        for book_audience in Classifier.AUDIENCES:
+            if book_audience in Classifier.AUDIENCES_YOUNG_CHILDREN:
+                continue
+            work.audience = book_audience
+            for patron_audience in Classifier.AUDIENCES_YOUNG_CHILDREN:
+                eq_(True, m(patron_audience, object()))
+
+        # Now let's consider the most complicated case: a child who
+        # wants to read a children's book.
+        work.audience = Classifier.AUDIENCE_CHILDREN
+        for patron_audience in Classifier.AUDIENCES_YOUNG_CHILDREN:
+            # No target age -> it's fine (or at least we don't have
+            # the information necessary to say it's not fine).
+            work.target_age = None
+            eq_(False, m(patron_audience, object()))
+            
+            work.target_age = (5, 7)
+            for patron_age in (5,6,7,8,9):
+                eq_(False, m(patron_audience, patron_age))
+                eq_(False, m(patron_audience, (patron_age-1, patron_age)))
+            for patron_age in (2,3,4):
+                eq_(True, m(patron_audience, patron_age))
+                eq_(True, m(patron_audience, (patron_age-1, patron_age)))
+
     def test_unlimited_access_books_are_available_by_default(self):
         # Set up an edition and work.
         edition, pool = self._edition(authors=[self._str, self._str], with_license_pool=True)
