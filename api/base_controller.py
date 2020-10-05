@@ -99,16 +99,7 @@ class BaseCirculationManagerController(object):
         """
         self.manager.reload_settings_if_changed()
 
-        loan = None
-
-        try:
-            loan = get_one(self._db, Loan, external_identifier=loan_external_identifier)
-        except:
-            logging.exception(
-                'An unexpected exception occurred during fetching a loan with external identifier {0}'.format(
-                    loan_external_identifier
-                )
-            )
+        loan = get_one(self._db, Loan, external_identifier=loan_external_identifier)
 
         if loan is None:
             return LOAN_NOT_FOUND
