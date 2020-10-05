@@ -178,7 +178,7 @@ class LibrarySettingsController(SettingsController):
         primary_passes = wcag_contrast_ratio.passes_AA(wcag_contrast_ratio.rgb(hex_to_rgb(primary), hex_to_rgb("#ffffff")))
         secondary_passes = wcag_contrast_ratio.passes_AA(wcag_contrast_ratio.rgb(hex_to_rgb(secondary), hex_to_rgb("#ffffff")))
         if not (primary_passes and secondary_passes):
-            primary_check_url = "https://contrast-ratio.com/#%23" + secondary[1:] + "-on-%23" + "#ffffff"[1:] 
+            primary_check_url = "https://contrast-ratio.com/#%23" + secondary[1:] + "-on-%23" + "#ffffff"[1:]
             secondary_check_url = "https://contrast-ratio.com/#%23" + secondary[1:] + "-on-%23" + "#ffffff"[1:]
             return INVALID_CONFIGURATION_OPTION.detailed(
                 _("The web primary and secondary colors don't have enough contrast to pass the WCAG 2.0 AA guidelines and will be difficult for some patrons to read. Check contrast for primary <a href='%(primary_check_url)s' target='_blank'>here</a> and secondary <a href='%(primary_check_url)s' target='_blank'>here</a>.",
