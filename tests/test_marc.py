@@ -3,6 +3,7 @@ from nose.tools import (
     set_trace,
 )
 from pymarc import Record
+import urllib
 
 from . import DatabaseTest
 from core.config import Configuration
@@ -110,26 +111,34 @@ class TestLibraryAnnotator(DatabaseTest):
         # Web client URLs can come from either the MARC export integration or
         # a library registry integration.
 
-        # The expected format for a web client url is as follows
-        # - <web-client-base>/book/<cm-base>/<lib-short-name>/works/<qualified-identifier>
-        client_url_template = "{client_base}/book/{cm_base}/{lib}/works/{qid}"
-
-        qualified_identifier = "Gutenberg%20ID%2Fidentifier"
+        identifier = self._identifier(foreign_id="identifier")
         lib_short_name = self._default_library.short_name
 
+        # The URL for a work is constructed as:
+        # - <cm-base>/<lib-short-name>/works/<qualified-identifier>
+        work_link_template = "{cm_base}/{lib}/works/{qid}"
+        # It is then encoded and the web client URL is constructed in this form:
+        # - <web-client-base>/book/<encoded-work-url>
+        client_url_template = "{client_base}/book/{work_link}"
+
+        qualified_identifier = urllib.quote(identifier.type + "/" + identifier.identifier, safe='')
         cm_base_url = "http://test-circulation-manager"
+
+        expected_work_link = work_link_template.format(
+            cm_base=cm_base_url, lib=lib_short_name, qid=qualified_identifier
+        )
+        encoded_work_link = urllib.quote(expected_work_link, safe='')
+
         client_base_1 = "http://web_catalog"
         client_base_2 = "http://another_web_catalog"
-        expected_client_url_1 = client_url_template.format(**dict(
-            client_base=client_base_1, cm_base=cm_base_url,
-            lib=lib_short_name, qid=qualified_identifier
-        ))
-        expected_client_url_2 = client_url_template.format(**dict(
-            client_base=client_base_2, cm_base=cm_base_url,
-            lib=lib_short_name, qid=qualified_identifier
-        ))
+        expected_client_url_1 = client_url_template.format(
+            client_base=client_base_1, work_link=encoded_work_link
+        )
+        expected_client_url_2 = client_url_template.format(
+            client_base=client_base_2, work_link=encoded_work_link
+        )
 
-        # a few assertions to ensure that our client configurations are useful
+        # A few checks to ensure that our setup is useful.
         assert len(lib_short_name) > 0
         assert client_base_1 != client_base_2
         assert expected_client_url_1 != expected_client_url_2
@@ -142,7 +151,6 @@ class TestLibraryAnnotator(DatabaseTest):
 
         # If no web catalog URLs are set for the library, nothing will be changed.
         record = Record()
-        identifier = self._identifier(foreign_id="identifier")
         annotator.add_web_client_urls(record, self._default_library, identifier)
         eq_([], record.get_fields("856"))
 
