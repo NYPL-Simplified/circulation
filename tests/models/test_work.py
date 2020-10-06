@@ -1211,9 +1211,9 @@ class TestWork(DatabaseTest):
         eq_(set([collection1.id, collection2.id]),
             set([x['collection_id'] for x in search_doc['licensepools']]))
 
-    def test_too_grown_up_for_patron(self):
+    def test_age_appropriate_for_patron(self):
         # The target audience and age of a patron's root lane controls
-        # whether a given book is 'too grown up' for them.
+        # whether a given book is 'age-appropriate' for them.
         class MockLane(object):
             audience = object()
             target_age = object()
@@ -1225,28 +1225,28 @@ class TestWork(DatabaseTest):
             called_with = None
             def too_grown_up_for(self, audience, target_age):
                 self.called_with = (audience, target_age)
-                return True
+                return False
 
         patron = MockPatron()
         w = MockWork()
 
-        # The patron has no root lane, so too_grown_up_for is not
+        # The patron has no root lane, so age_appropriate_for is not
         # even called.
-        eq_(False, w.too_grown_up_for_patron(patron))
+        eq_(True, w.age_appropriate_for_patron(patron))
         eq_(None, w.called_with)
 
         # Give the patron a root lane.
         lane = MockLane()
-        eq_(True, w.too_grown_up_for_patron(patron))
+        eq_(False, w.age_appropriate_for_patron(patron))
 
-        # too_grown_up_for was called and the return result passed
+        # age_appropriate_for was called and the return result passed
         # back.
         eq_((lane.audience, lane.target_age), w.called_with)
 
-    def test_too_grown_up_for(self):
-        # Check whether this work is too grown-up for a certain audience.
+    def test_age_appropriate_for(self):
+        # Check whether this work is age-appropriate for a certain audience.
         work = self._work()
-        m = work.too_grown_up_for
+        m = work.age_appropriate_for
         work.audience = object()
 
         # These restrictions apply only to young children. Everyone
@@ -1255,7 +1255,7 @@ class TestWork(DatabaseTest):
             if patron_audience in Classifier.AUDIENCES_YOUNG_CHILDREN:
                 # Tested later.
                 continue
-            eq_(False, m(patron_audience, object()))
+            eq_(True, m(patron_audience, object()))
 
         # Patrons who are young children cannot read books that are
         # not in one of the YOUNG_CHILDREN audiences.
@@ -1264,7 +1264,7 @@ class TestWork(DatabaseTest):
                 continue
             work.audience = book_audience
             for patron_audience in Classifier.AUDIENCES_YOUNG_CHILDREN:
-                eq_(True, m(patron_audience, object()))
+                eq_(False, m(patron_audience, object()))
 
         # Now let's consider the most complicated case: a child who
         # wants to read a children's book.
@@ -1273,15 +1273,15 @@ class TestWork(DatabaseTest):
             # No target age -> it's fine (or at least we don't have
             # the information necessary to say it's not fine).
             work.target_age = None
-            eq_(False, m(patron_audience, object()))
+            eq_(True, m(patron_audience, object()))
             
             work.target_age = (5, 7)
             for patron_age in (5,6,7,8,9):
-                eq_(False, m(patron_audience, patron_age))
-                eq_(False, m(patron_audience, (patron_age-1, patron_age)))
-            for patron_age in (2,3,4):
                 eq_(True, m(patron_audience, patron_age))
                 eq_(True, m(patron_audience, (patron_age-1, patron_age)))
+            for patron_age in (2,3,4):
+                eq_(False, m(patron_audience, patron_age))
+                eq_(False, m(patron_audience, (patron_age-1, patron_age)))
 
     def test_unlimited_access_books_are_available_by_default(self):
         # Set up an edition and work.

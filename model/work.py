@@ -781,12 +781,11 @@ class Work(Base):
             language = LanguageCodes.three_to_two[language]
         return language
 
-    def too_grown_up_for_patron(self, patron):
-        """Should the given Patron be prohibited from interacting
-        with this book due to an age-related policy?
+    def age_appropriate_for_patron(self, patron):
+        """Is this Work age-appropriate for the given Patron?
 
-        This happens only if this book is too grown-up to be allowed
-        in the Patron's root lane.
+        A Work is age-appropriate unless it is too grown-up to be
+        allowed in the Patron's root lane.
 
         NOTE: What "grown-up" means depends on some policy questions
         that have not been answered and may be library-specific. For
@@ -795,27 +794,26 @@ class Work(Base):
 
         :param patron: A Patron.
         :return: A boolean
-
         """
         root = patron.root_lane
         if not root:
             # The patron has no root lane. They can interact with any
             # book in the system.
-            return False
+            return True
 
         # The patron can interact with this Work assuming it's not too
         # grown-up to show in their root lane.
-        return self.too_grown_up_for(root.audience, root.target_age)
+        return self.age_appropriate_for(root.audience, root.target_age)
 
-    def too_grown_up_for(self, audience=None, reader_age=None):
-        """Is this work aimed at readers more grown-up than the
-        reader described?
+    def age_appropriate_for(self, audience=None, reader_age=None):
+        """Is this work age-appropriate for the reader described?
 
-        NOTE: What "grown-up" means depends on some policy questions
-        that have not been answered and may be library-specific. For
-        now it means that the target reader is a young child and
-        either a) this Work is not a children's book, or b) it's a
-        children's book aimed at a higher age than the target reader.
+        NOTE: What "age-appropriate" means depends on some policy
+        questions that have not been answered and may be
+        library-specific. For now, non-children's books are
+        age-inappropriate for young children, and children's books are
+        age-inappropriate for children too young to be in the book's
+        target age range.
 
         :param audience: One of the audience constants from
            Classifier, representing the general reading audience to
@@ -826,17 +824,17 @@ class Work(Base):
         """
         if audience not in Classifier.AUDIENCES_YOUNG_CHILDREN:
             # These restrictions apply only to young children.
-            return False
+            return True
 
         # Young children can only interact with works whose audience
         # is set to CHILDREN or ALL_AGES.
         if self.audience not in (Classifier.AUDIENCES_YOUNG_CHILDREN):
-            return True
+            return False
 
         if not self.target_age:
             # This is a generic children's book with no particular age
             # restriction.
-            return False
+            return True
 
         if isinstance(reader_age, tuple):
             # A range was passed in rather than a specific age. Assume
@@ -847,7 +845,7 @@ class Work(Base):
         if reader_age < young_limit:
             # This is a children's book with a target age that is too high
             # for the reader.
-            return True
+            return False
 
         # NOTE: This will allow a two-year-old to interact with an
         # "all ages" book even though "all ages" actually means "all
@@ -856,7 +854,7 @@ class Work(Base):
         # level. But if it is an issue, we can add an additional check
         # against Classifier.ALL_AGES_AGE_CUTOFF.
 
-        return False
+        return True
 
     def set_presentation_edition(self, new_presentation_edition):
         """ Sets presentation edition and lets owned pools and editions know.
