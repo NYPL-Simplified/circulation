@@ -739,8 +739,11 @@ class AuthdataUtility(object):
         ):
             raise CannotLoadConfiguration(
                 "Short Client Token configuration is incomplete. "
-                "vendor_id, username, password and "
-                "Library website_url must all be defined.")
+                "vendor_id (%s), username (%s), password (%s) and "
+                "Library website_url (%s) must all be defined." % (
+                    vendor_id, library_uri, library_short_name, secret
+                )
+            )
         if '|' in library_short_name:
             raise CannotLoadConfiguration(
                 "Library short name cannot contain the pipe character."
