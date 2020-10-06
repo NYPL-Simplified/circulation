@@ -299,6 +299,7 @@ class Library(Base, HasFullTableCache):
 
         :return: A boolean
         """
+        from ..lane import Lane
         _db = Session.object_session(self)
         root_lanes = _db.query(Lane).filter(
             Lane.library==self

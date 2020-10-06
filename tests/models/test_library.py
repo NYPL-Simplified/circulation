@@ -80,6 +80,13 @@ class TestLibrary(DatabaseTest):
             assign_false
         )
 
+    def test_has_root_lanes(self):
+        library = self._default_library
+        lane = self._lane()
+        eq_(False, library.has_root_lanes)
+        lane.root_for_patron_type = ["1","2"]
+        eq_(True, library.has_root_lanes)
+
     def test_all_collections(self):
         library = self._default_library
 
