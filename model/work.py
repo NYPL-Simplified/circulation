@@ -803,7 +803,10 @@ class Work(Base):
 
         # The patron can interact with this Work assuming it's not too
         # grown-up to show in their root lane.
-        return self.age_appropriate_for(root.audience, root.target_age)
+        return any(
+            self.age_appropriate_for(audience, root.target_age)
+            for audience in root.audiences
+        )
 
     def age_appropriate_for(self, audience=None, reader_age=None):
         """Is this work age-appropriate for the reader described?
@@ -822,18 +825,44 @@ class Work(Base):
         :param reader_age: A number representing the age of the reader.
 
         """
-        if audience not in Classifier.AUDIENCES_YOUNG_CHILDREN:
-            # These restrictions apply only to young children.
+        if not audience:
+            # A patron with no particular audience restrictions
+            # can see everything.
             return True
 
-        # Young children can only interact with works whose audience
-        # is set to CHILDREN or ALL_AGES.
-        if self.audience not in (Classifier.AUDIENCES_YOUNG_CHILDREN):
+        if audience not in Classifier.AUDIENCES_JUVENILE:
+            # A patron associated with a non-juvenile audience can see
+            # everything.
+            return True
+
+        # At this point we know that the patron is a child or young
+        # adult.
+
+        if self.audience == Classifier.AUDIENCE_ALL_AGES:
+            # 'All ages' means always age-appropriate.
+            return True
+
+        if (audience == Classifier.AUDIENCE_YOUNG_ADULT
+            and self.audience in (Classifier.AUDIENCES_YOUNG_CHILDREN)):
+            # Young adults can see any children's title.
+            return True
+
+        if (audience in (Classifier.AUDIENCES_YOUNG_CHILDREN)
+            and self.audience == Classifier.AUDIENCE_YOUNG_ADULT):
+            # Children cannot see any YA title.
             return False
 
+        # At this point it comes down to a question of the reader's
+        # age vs. the work's target age.
+
         if not self.target_age:
-            # This is a generic children's book with no particular age
-            # restriction.
+            # This is a generic children's or YA book with no
+            # particular target age.
+            return True
+
+        if not reader_age:
+            # We have no idea how old the patron is, so any work with
+            # the appropriate audience is considered age-appropriate.
             return True
 
         if isinstance(reader_age, tuple):
@@ -843,16 +872,10 @@ class Work(Base):
 
         young_limit, old_limit = self.target_age
         if reader_age < young_limit:
-            # This is a children's book with a target age that is too high
+            # The audience for this book matches the patron's
+            # audience, but the book has a target age that is too high
             # for the reader.
             return False
-
-        # NOTE: This will allow a two-year-old to interact with an
-        # "all ages" book even though "all ages" actually means "all
-        # ages with reading fluency". This probably isn't a problem
-        # since the issue here is age appropriateness, not reading
-        # level. But if it is an issue, we can add an additional check
-        # against Classifier.ALL_AGES_AGE_CUTOFF.
 
         return True
 
