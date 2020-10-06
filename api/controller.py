@@ -703,7 +703,7 @@ class CirculationManagerController(BaseCirculationManagerController):
             return patron
 
         work = license_pool.work
-        if work.too_grown_up_for(patron):
+        if not work.age_appropriate_for(patron):
             return FORBIDDEN_BY_POLICY.detailed(
                 _("Library policy considers this title inappropriate for your patron type."),
                 status_code=451
