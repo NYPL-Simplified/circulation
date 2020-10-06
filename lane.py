@@ -1489,18 +1489,14 @@ class WorkList(object):
         """
         return []
 
-    def in_scope_of(self, possible_parent):
-        """In the hierarchy, can you see this WorkList from the given
-        WorkList?
+    def is_self_or_descendant(self, ancestor):
+        """Is this WorkList the given WorkList or one of its descendants?
 
-        A WorkList is in its own scope, and in the scope of every WorkList
-        in its parentage.
-
-        :param scope_to: A WorkList.
+        :param target: A WorkList.
         :return: A boolean.
         """
-        for parent in [self] + list(self.parentage):
-            if parent == possible_ancestor:
+        for candidate in [self] + list(self.parentage):
+            if candidate == ancestor:
                 return True
         return False
 
@@ -1628,9 +1624,9 @@ class WorkList(object):
             # library's WorkLists.
             return True
 
-        if self.in_scope_of(root_lane):
-            # This WorkList is in the scope of the patron's root lane, so
-            # it's visible.
+        if self.is_self_or_descendant(root):
+            # This WorkList is the patron's root lane, or a descendant
+            # of that lane, so it's visible.
             return True
 
         # This lane is not in the scope of the patron's root lane,

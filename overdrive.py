@@ -522,10 +522,9 @@ class OverdriveAPI(object):
     def _do_get(self, url, headers):
         """This method is overridden in MockOverdriveAPI."""
         url = self.endpoint(url)
-        data = Representation.simple_http_get(
+        return Representation.simple_http_get(
             url, headers
         )
-        return data
 
     def _do_post(self, url, payload, headers, **kwargs):
         """This method is overridden in MockOverdriveAPI."""

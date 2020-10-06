@@ -1826,44 +1826,44 @@ class TestWorkList(DatabaseTest):
         wl_child.priority = 0
         eq_([wl_child, lane_child], wl.visible_children)
 
-    def test_in_scope_of(self):
-        """A WorkList is in its own scope and the scope of every
-        WorkList in its parentage.
-        """
-        # A WorkList is in its own scope.
+    def test_is_self_or_descendant(self):
+        # Test the code that checks whether one WorkList is 'beneath'
+        # another.
+
+        # A WorkList matches itself.
         child = WorkList()
         child.initialize(self._default_library)
-        eq_(True, child.in_scope_of(child))
+        eq_(True, child.is_self_or_descendant(child))
 
-        # But not in the scope of any other WorkList.
+        # But not any other WorkList.
         parent = WorkList()
         parent.initialize(self._default_library)
-        eq_(False, child.in_scope_of(parent))
+        eq_(False, child.is_self_or_descendant(parent))
 
         grandparent = WorkList()
         grandparent.initialize(self._default_library)
-        eq_(False, child.in_scope_of(grandparent))
+        eq_(False, child.is_self_or_descendant(grandparent))
 
         # Unless it's a descendant of that WorkList.
         child.parent = parent
         parent.parent = grandparent
-        eq_(True, child.in_scope_of(parent))
-        eq_(True, child.in_scope_of(grandparent))
-        eq_(True, parent.in_scope_of(grandparent))
+        eq_(True, child.is_self_or_descendant(parent))
+        eq_(True, child.is_self_or_descendant(grandparent))
+        eq_(True, parent.is_self_or_descendant(grandparent))
 
-        eq_(False, parent.in_scope_of(child))
-        eq_(False, grandparent.in_scope_of(parent))
+        eq_(False, parent.is_self_or_descendant(child))
+        eq_(False, grandparent.is_self_or_descendant(parent))
 
     def test_visible_to(self):
         # Test the circumstances under which a WorkList is visible
         # (or invisible) to a Patron.
 
         class Mock(WorkList):
-            # mock in_scope_of
-            in_scope = False
-            def in_scope_of(self, other_wl):
-                self.in_scope_of_called_with = other_wl
-                return self.in_scope
+            # mock is_self_or_descendant
+            return_value = False
+            def is_self_or_descendant(self, other_wl):
+                self.is_self_or_descendant_called_with = other_wl
+                return self.return_value
 
         wl = Mock()
         wl.initialize(self._default_library)
@@ -1884,15 +1884,15 @@ class TestWorkList(DatabaseTest):
 
         # Give the patron a root lane.
         lane = self._lane()
-        lane.root_for_patron_types = ["1"]
+        lane.root_for_patron_type = ["1"]
         patron.external_type = "1"
 
-        # Now it depends on whether this WorkList is in_scope_of the
-        # patron's root lane.
+        # Now it depends on whether this WorkList is_self_or_descendant
+        # with respect to the patron's root lane.
         eq_(False, m(patron))
-        eq_(lane, wl.in_scope_of_called_with)
+        eq_(lane, wl.is_self_or_descendant_called_with)
         
-        wl.in_scope = True
+        wl.return_value = True
         eq_(True, m(patron))
 
     def test_uses_customlists(self):
