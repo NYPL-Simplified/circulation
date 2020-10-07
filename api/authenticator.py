@@ -1723,15 +1723,25 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
     TEST_IDENTIFIER = 'test_identifier'
     TEST_PASSWORD = 'test_password'
 
+    TEST_IDENTIFIER_DESCRIPTION_FOR_REQUIRED_PASSWORD = _(
+        "A valid identifier that can be used to test that patron authentication is working."
+    )
+    TEST_IDENTIFIER_DESCRIPTION_FOR_OPTIONAL_PASSWORD = _("{} {}".format(
+        TEST_IDENTIFIER_DESCRIPTION_FOR_REQUIRED_PASSWORD,
+        "An optional Test Password for this identifier can be set in the next section.",
+    ))
+    TEST_PASSWORD_DESCRIPTION_REQUIRED = _("The password for the Test Identifier.")
+    TEST_PASSWORD_DESCRIPTION_OPTIONAL = _("The password for the Test Identifier (above, in previous section).")
+
     SETTINGS = [
         { "key": TEST_IDENTIFIER,
           "label": _("Test Identifier"),
-          "description": _("A valid identifier that can be used to test that patron authentication is working."),
+          "description": TEST_IDENTIFIER_DESCRIPTION_FOR_OPTIONAL_PASSWORD,
           "required": True,
         },
         { "key": TEST_PASSWORD,
           "label": _("Test Password"),
-          "description": _("The password for the test identifier."),
+          "description": TEST_PASSWORD_DESCRIPTION_OPTIONAL,
         },
         { "key" : IDENTIFIER_BARCODE_FORMAT,
           "label": _("Patron identifier barcode format"),
@@ -1881,8 +1891,11 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
         return self.authenticated_patron(_db, header), self.test_password
 
     def testing_patron_or_bust(self, _db):
-        """Look up the Patron object reserved for testing purposes,
-        raising CannotLoadConfiguration if none is configured.
+        """Look up the Patron object reserved for testing purposes.
+
+        :raise:CannotLoadConfiguration: If no test patron is configured.
+        :raise:IntegrationException: If the returned patron is not a Patron object.
+        :return: A 2-tuple (Patron, password)
         """
         if self.test_username is None:
             raise CannotLoadConfiguration(
@@ -1890,13 +1903,22 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
             )
 
         patron, password = self.testing_patron(_db)
+        if isinstance(patron, Patron):
+            return patron, password
+
         if not patron:
-            # We ran to completion but ended up with no patron.
-            raise IntegrationException(
+            message =  (
                 "Remote declined to authenticate the test patron.",
                 "The patron may not exist or its password may be wrong."
             )
-        return patron, password
+        elif isinstance(patron, ProblemDetail):
+            message = "Test patron lookup returned a problem detail - {}: {} ({})".format(
+                    patron.title, patron.detail, patron.uri
+            )
+        else:
+            message = "Test patron lookup returned invalid value for patron: {!r}".format(patron)
+        raise IntegrationException(message)
+
 
     def _run_self_tests(self, _db):
         """Verify the credentials of the test patron for this integration,

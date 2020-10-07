@@ -3,10 +3,12 @@ import logging
 import flask
 from flask import Response
 
+from api.admin.problem_details import MISSING_COLLECTION
 from api.controller import CirculationManagerController
 from api.lcp.factory import LCPServerFactory
 from core.lcp.credential import LCPCredentialFactory
-from core.model import Session, ExternalIntegration
+from core.model import Session, ExternalIntegration, Collection
+from core.util.problem_detail import ProblemDetail
 
 
 class LCPController(CirculationManagerController):
@@ -54,21 +56,24 @@ class LCPController(CirculationManagerController):
 
         return lcp_passphrase
 
-    def _get_lcp_collection(self, library):
+    def _get_lcp_collection(self, patron, collection_name):
         """Returns an LCP collection for a specified library
         NOTE: We assume that there is only ONE LCP collection per library
 
-        :param library: Library
-        :type library: core.model.library.Library
+        :param patron: Patron object
+        :type patron: core.model.patron.Patron
+
+        :param collection_name: Name of the collection
+        :type collection_name: string
 
         :return: LCP collection
         :rtype: core.model.collection.Collection
         """
-        lcp_collection = next(iter([
-            collection
-            for collection in library.collections
-            if collection.protocol == ExternalIntegration.LCP
-        ]))
+        db = Session.object_session(patron)
+        lcp_collection, _ = Collection.by_name_and_protocol(db, collection_name, ExternalIntegration.LCP)
+
+        if not lcp_collection or lcp_collection not in patron.library.collections:
+            return MISSING_COLLECTION
 
         return lcp_collection
 
@@ -91,8 +96,14 @@ class LCPController(CirculationManagerController):
 
         return response
 
-    def get_lcp_license(self, license_id):
+    def get_lcp_license(self, collection_name, license_id):
         """Returns an LCP license with the specified ID
+
+        :param collection_name: Name of the collection
+        :type collection_name: string
+
+        :param license_id: License ID
+        :type license_id: string
 
         :return: Flask response containing the LCP license with the specified ID
         :rtype: string
@@ -100,9 +111,11 @@ class LCPController(CirculationManagerController):
         self._logger.info('Started fetching license # {0}'.format(license_id))
 
         patron = self._get_patron()
+        lcp_collection = self._get_lcp_collection(patron, collection_name)
 
-        library = flask.request.library
-        lcp_collection = self._get_lcp_collection(library)
+        if isinstance(lcp_collection, ProblemDetail):
+            return lcp_collection
+
         lcp_api = self.circulation.api_for_collection.get(lcp_collection.id)
         lcp_server = self._lcp_server_factory.create(lcp_api)
 

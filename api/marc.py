@@ -2,6 +2,7 @@ from nose.tools import set_trace
 from pymarc import Field
 import urllib
 
+from core.config import Configuration
 from core.marc import (
     Annotator,
     MARCExporter,
@@ -15,6 +16,8 @@ class LibraryAnnotator(Annotator):
     def __init__(self, library):
         super(LibraryAnnotator, self).__init__()
         self.library = library
+        _db = Session.object_session(library)
+        self.base_url = ConfigurationSetting.sitewide(_db, Configuration.BASE_URL_KEY).value
 
     def value(self, key, integration):
         _db = Session.object_session(integration)
@@ -60,13 +63,22 @@ class LibraryAnnotator(Annotator):
             ConfigurationSetting.library_id==library.id
         ) if s.value]
 
-        for setting in settings:
+        qualified_identifier = urllib.quote(identifier.type + "/" + identifier.identifier, safe='')
+
+        for web_client_base_url in settings:
+            link = "{}/{}/works/{}".format(
+                self.base_url,
+                library.short_name,
+                qualified_identifier,
+            )
+            encoded_link = urllib.quote(link, safe='')
+            url = "{}/book/{}".format(
+                web_client_base_url,
+                encoded_link
+            )
             record.add_field(
                 Field(
                     tag="856",
                     indicators=["4", "0"],
-                    subfields=[
-                        "u", setting + "/book/" + urllib.quote(identifier.type + "/" + identifier.identifier, safe='')
-                    ]))
-
-
+                    subfields=["u", url],
+                ))

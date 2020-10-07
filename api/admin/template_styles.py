@@ -6,7 +6,6 @@ body_style = """
     color: #403d37;
     border: 1px solid #DDD;
     border-radius: 4px;
-    0 1px 1px rgba(0, 0, 0, .05);
     display: flex;
     flex-direction: column;
     align-items: center;

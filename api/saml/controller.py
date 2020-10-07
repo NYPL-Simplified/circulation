@@ -78,11 +78,10 @@ class SAMLController(object):
         :rtype: string
         """
         query = urllib.urlencode(params)
-
-        if '?' in url:
-            url += '&' + query
-        else:
-            url += '?' + query
+        url_parts = urlparse.urlsplit(url)
+        url_parts = urlparse.SplitResult(
+            url_parts.scheme, url_parts.netloc, url_parts.path, url_parts.query + query, url_parts.fragment)
+        url = url_parts.geturl()
 
         return url
 
