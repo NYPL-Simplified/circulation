@@ -121,7 +121,7 @@ def package_setup():
                 # on this server, and the tables don't exist yet.
                 pass
             else:
-                raise e
+                raise
 
 
 def package_teardown():

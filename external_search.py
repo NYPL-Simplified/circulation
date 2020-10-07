@@ -252,10 +252,10 @@ class ExternalSearchIndex(HasSelfTests):
         if works_index and integration and not in_testing:
             try:
                 self.set_works_index_and_alias(_db)
-            except RequestError, e:
+            except RequestError:
                 # This is almost certainly a problem with our code,
                 # not a communications error.
-                raise e
+                raise
             except ElasticsearchException, e:
                 raise CannotLoadConfiguration(
                     "Exception communicating with Elasticsearch server: %s" %

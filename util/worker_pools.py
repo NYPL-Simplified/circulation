@@ -170,9 +170,9 @@ class Job(object):
     def run(self, *args, **kwargs):
         try:
             self.do_run(*args, **kwargs)
-        except Exception as e:
+        except Exception:
             self.rollback(*args, **kwargs)
-            raise e
+            raise
         else:
             self.finalize(*args, **kwargs)
 
