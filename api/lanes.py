@@ -1242,3 +1242,60 @@ class CrawlableCustomListBasedLane(CrawlableLane):
     def url_arguments(self):
         kwargs = dict(list_name=self.customlist_name)
         return self.ROUTE, kwargs
+
+
+class JackpotWorkList(WorkList):
+    """A WorkList that contains exactly the selection of books
+    necessary to perform common QA tasks.
+
+    This makes it easy to write integration tests that work on real
+    circulation managers and real books.
+    """
+
+    def initialize(self, library, filter_list):
+        """Constructor.
+
+        :param library: A Library
+
+        :param filter_list: A list of (collection, medium, availability)
+           3-tuples.
+        """
+        super(JackpotWorkList, self).initialize(library)
+        self.library = library
+        self.filter_list = filter_list
+
+    def groups(self, _db, include_sublanes=True, facets=None,
+               search_engine=None, debug=False, **response_kwargs):
+       """
+        :param facets: Ignored; Facet objects are generated as
+            needed.
+        :param search_engine: An ExternalSearchIndex to use when
+            asking for the featured works in a given WorkList.
+        :param debug: A debug argument passed into `search_engine` when
+            running the search.
+        :yield: A sequence of (Work, WorkList) 2-tuples, with each
+            WorkList representing the child WorkList in which the Work is
+            found.
+        """
+        pagination = Pagination(size=5)
+        for (collection, medium, availability) in self.filter_list:
+            # Set up getting the filter to use for the es query.
+            from external_search import Filter
+            facets = Facets.default(self.library, availability=availability)
+            filter = Filter.from_worklist(_db, self, facets)
+            filter.media = medium
+
+            query = (None, filter, pagination)
+
+            # Create a Worklist for every query
+            wl = WorkList()
+
+            # Give each Worklist a distinctive, easy to parse name.
+            display_name = "License source {%s} - Medium {%s} - Availability {%s} - Collection name {%s}" % (collection.data_source.name, medium, availability, collection.name)
+            wl.initialize(self.library, display_name=display_name)
+            
+            resultsets = list(search_engine.query_works_multi([query]))
+            [results] = wl.works_for_resultsets(_db, resultsets)
+
+            for work in results:
+                yield (work, wl)
