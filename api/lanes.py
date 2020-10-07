@@ -1244,17 +1244,31 @@ class CrawlableCustomListBasedLane(CrawlableLane):
         return self.ROUTE, kwargs
 
 class KnownOverviewFacetsWorkList(WorkList):
+    """A WorkList whose defining feature is that the Facets object
+    to be used when generating a grouped feed is known in advance.
+    """
     def __init__(self, facets, *args, **kwargs):
+        """Constructor.
+
+        :param facets: A Facets object to be used when generating a grouped
+           feed.
+        """
         super(KnownOverviewFacetsWorkList, self).__init__(*args, **kwargs)
         self.facets = facets
 
     def overview_facets(self, _db, facets):
+        """Return the faceting object to be used when generating a grouped
+        feed.
+        
+        :param _db: Ignored -- only present for API compatibility.
+        :param facets: Ignored -- only present for API compatibility.
+        """
         return self.facets
 
 
 class JackpotWorkList(WorkList):
-    """A WorkList guaranteed to, if possible, contain the exact selection
-    of books necessary to perform common QA tasks.
+    """A WorkList guaranteed to, so far as possible, contain the exact
+    selection of books necessary to perform common QA tasks.
 
     This makes it easy to write integration tests that work on real
     circulation managers and real books.

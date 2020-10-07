@@ -873,6 +873,31 @@ class TestCrawlableCustomListBasedLane(DatabaseTest):
         eq_(customlist.name, kwargs.get("list_name"))
 
 
+class TestKnownOverviewFacetsWorkList(DatabaseTest):
+    """Test of the KnownOverviewFacetsWorkList class.
+
+    This is an unusual class which should be used when hard-coding the
+    faceting object to use for a given WorkList when generating a
+    grouped feed.
+    """
+    def test_overview_facets(self):
+        # Show that we can hard-code the return value of overview_facets.
+        #
+        # core/tests/test_lanes.py#TestWorkList.test_groups_propagates_facets
+        # verifies that WorkList.groups() calls
+        # WorkList.overview_facets() and passes the return value
+        # (which we hard-code here) into WorkList.works().
+
+        # Pass in a known faceting object.
+        known_facets = object()
+        wl = KnownOverviewFacetsWorkList(known_facets)
+
+        # That faceting object is always returned when we're
+        # making a grouped feed.
+        some_other_facets = object()
+        eq_(known_facets, wl.overview_facets(self._db, some_other_facets))
+
+
 class TestJackpotWorkList(DatabaseTest):
     """Test the 'jackpot' WorkList that always contains the information
     necessary to run a full suite of integration tests.
