@@ -73,7 +73,6 @@ from core.lane import (
     Lane,
     SearchFacets,
     WorkList,
-    JackpotWorkList,
 )
 from core.log import LogConfiguration
 from core.marc import MARCExporter
@@ -124,6 +123,7 @@ from lanes import (
     load_lanes,
     ContributorFacets,
     ContributorLane,
+    JackpotWorkList,
     RecommendationLane,
     RelatedBooksLane,
     SeriesFacets,
@@ -804,13 +804,6 @@ class IndexController(CirculationManagerController):
 class OPDSFeedController(CirculationManagerController):
     def qa_feed(self, feed_class=AcquisitionFeed):
         library = flask.request.library
-        filter_list = []
-
-        for collection in self._db.query(Collection):
-            for medium in Edition.FULFILLABLE_MEDIA:
-                for availability in ['now']:
-                    filter_list.append((collection, medium, availability))
-
         search_engine = self.search_engine
         if isinstance(search_engine, ProblemDetail):
             return search_engine
@@ -820,10 +813,12 @@ class OPDSFeedController(CirculationManagerController):
             library_short_name=library.short_name,
         )
 
-        jwl = JackpotWorkList()
-        jwl.initialize(library, filter_list=filter_list)
-
+        jwl = JackpotWorkList(library)
         annotator = self.manager.annotator(jwl)
+
+        # TODO: Make it possible to pass a pagination object into
+        # groups() to override the standard size of a grouped lane,
+        # improving performance.
         return feed_class.groups(
             _db=self._db, title="QA test feed", url=url, worklist=jwl,
             annotator=annotator, search_engine=search_engine,

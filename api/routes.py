@@ -267,7 +267,7 @@ def public_key_document():
 def acquisition_groups(lane_identifier):
     return app.manager.opds_feeds.groups(lane_identifier)
 
-@library_route('/qa-feed')
+@library_route('/feed/qa')
 @has_library
 @allows_patron_web
 @requires_auth
