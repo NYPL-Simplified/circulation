@@ -808,7 +808,7 @@ class Work(Base):
             for audience in root.audiences
         )
 
-    def age_appropriate_for(self, audience=None, reader_age=None):
+    def age_appropriate_for(self, reader_audience=None, reader_age=None):
         """Is this work age-appropriate for the reader described?
 
         NOTE: What "age-appropriate" means depends on some policy
@@ -818,14 +818,14 @@ class Work(Base):
         age-inappropriate for children too young to be in the book's
         target age range.
 
-        :param audience: One of the audience constants from
+        :param reader_audience: One of the audience constants from
            Classifier, representing the general reading audience to
            which the reader belongs.
 
         :param reader_age: A number representing the age of the reader.
 
         """
-        if not audience:
+        if not reader_audience:
             # A patron with no particular audience restrictions
             # can see everything.
             return True
