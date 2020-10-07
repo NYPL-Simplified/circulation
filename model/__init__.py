@@ -88,9 +88,9 @@ def get_one(db, model, on_multiple='error', constraint=None, **kwargs):
 
     try:
         return q.one()
-    except MultipleResultsFound, e:
+    except MultipleResultsFound:
         if on_multiple == 'error':
-            raise e
+            raise
         elif on_multiple == 'interchangeable':
             # These records are interchangeable so we can use
             # whichever one we want.

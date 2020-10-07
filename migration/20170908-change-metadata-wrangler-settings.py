@@ -29,6 +29,6 @@ try:
                 setting.value = None
         _db.commit()
     _db.close()
-except Exception as e:
+except Exception:
     _db.close()
-    raise e
+    raise

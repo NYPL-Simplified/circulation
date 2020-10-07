@@ -118,7 +118,7 @@ class HasFullTableCache(object):
 
                 # That didn't work. Re-raise the original exception.
                 logging.error("Unable to look up a fresh copy of %r", obj)
-                raise e
+                raise
         return obj, new
 
     @classmethod
