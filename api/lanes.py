@@ -1266,7 +1266,6 @@ class JackpotWorkList(WorkList):
         :param library: A Library
         """
         super(JackpotWorkList, self).initialize(library)
-        self.library = library
 
         # Initialize a list of child Worklists; one for each test that
         # a client might need to run.
@@ -1275,23 +1274,32 @@ class JackpotWorkList(WorkList):
         # Add one or more WorkLists for every collection in the
         # system, so that a client can test borrowing a book from
         # every collection.
-        for collection in library.collections:
+        for collection in sorted(library.collections, key=lambda x: x.name):
             for medium in Edition.FULFILLABLE_MEDIA:
                 for availability in [Facets.AVAILABLE_NOW]:
                     facets = Facets.default(
-                        self.library, availability=availability
+                        library, availability=availability
                     )
 
                     # Give each Worklist a name that is distinctive
                     # and easy for a client to parse.
-                    display_name = "[Collection test] - License source {%s} - Medium {%s} - Availability {%s} - Collection name {%s}" % (collection.data_source.name, medium, availability, collection.name)
+                    if collection.data_source:
+                        data_source_name = collection.data_source.name
+                    else:
+                        data_source_name = "[Unknown]"
+                    display_name = "[Collection test] - License source {%s} - Medium {%s} - Availability {%s} - Collection name {%s}" % (data_source_name, medium, availability, collection.name)
                     child = KnownOverviewFacetsWorkList(facets)
-                    child.initialize(self.library, display_name=display_name)
+                    child.initialize(
+                        library, media=[medium], display_name=display_name
+                    )
                     child.collection_ids = [collection.id]
                     self.children.append(child)
 
-            # TODO: Add other child lanes for other types of tests,
-            # e.g. a lane where all the books belong to some series.
+            # TODO: Add other child lanes for other types of tests:
+            #  One lane for every collection containing only books
+            #   that are _not_ available.
+            #  A lane where all books belong to some series
+            #  A lane where all books use a particular DRM scheme/format
 
     def works(self, _db, *args, **kwargs):
         """This worklist never has works of its own.

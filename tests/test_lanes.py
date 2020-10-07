@@ -59,6 +59,8 @@ from api.lanes import (
     CrawlableCollectionBasedLane,
     CrawlableFacets,
     CrawlableCustomListBasedLane,
+    JackpotWorkList,
+    KnownOverviewFacetsWorkList,
     RecommendationLane,
     RelatedBooksLane,
     SeriesFacets,
@@ -871,3 +873,80 @@ class TestCrawlableCustomListBasedLane(DatabaseTest):
         eq_(customlist.name, kwargs.get("list_name"))
 
 
+class TestJackpotWorkList(DatabaseTest):
+    """Test the 'jackpot' WorkList that always contains the information
+    necessary to run a full suite of integration tests.
+    """
+
+    def test_constructor(self):
+        # Add some stuff to the default library to make sure we
+        # test everything.
+
+        # The default library comes with a collection whose data
+        # source is unspecified. Make another one whose data source _is_
+        # specified.
+        overdrive_collection = self._collection(
+            "Test Overdrive Collection", protocol=ExternalIntegration.OVERDRIVE,
+            data_source_name=DataSource.OVERDRIVE
+        )
+        self._default_library.collections.append(overdrive_collection)
+
+        # Create another collection that is _not_ associated with this
+        # library. It will not be used at all.
+        ignored_collection = self._collection(
+            "Ignored Collection", protocol=ExternalIntegration.BIBLIOTHECA,
+            data_source_name=DataSource.BIBLIOTHECA
+        )
+
+        # The JackpotWorkList has no works of its own -- only its children
+        # have works.
+        wl = JackpotWorkList(self._default_library)
+        eq_([], wl.works(self._db))
+
+        # Let's take a look at the children.
+
+        # NOTE: This test is structured to make it easy to add other
+        # groups of children later on.
+        children = list(wl.children)
+        available_now = children[:4]
+        children = children[4:]
+
+        # This group contains four similar
+        # KnownOverviewFacetsWorkLists. They only show works that are
+        # currently available.
+        for i in available_now:
+            assert isinstance(i, KnownOverviewFacetsWorkList)
+            facets = i.facets
+            eq_(self._default_library, facets.library)
+            eq_(Facets.AVAILABLE_NOW, facets.availability)
+
+        # These worklists show ebooks and audiobooks from the two
+        # collections associated with the default library.
+        [default_ebooks, default_audio, overdrive_ebooks, overdrive_audio] = (
+            available_now
+        )
+
+        eq_("[Collection test] - License source {[Unknown]} - Medium {Book} - Availability {now} - Collection name {%s}" % self._default_collection.name, 
+            default_ebooks.display_name)
+        eq_([self._default_collection.id], default_ebooks.collection_ids)
+        eq_([Edition.BOOK_MEDIUM], default_ebooks.media)
+
+        eq_("[Collection test] - License source {[Unknown]} - Medium {Audio} - Availability {now} - Collection name {%s}" % self._default_collection.name,
+            default_audio.display_name)
+        eq_([self._default_collection.id], default_audio.collection_ids)
+        eq_([Edition.AUDIO_MEDIUM], default_audio.media)
+
+        eq_("[Collection test] - License source {Overdrive} - Medium {Book} - Availability {now} - Collection name {Test Overdrive Collection}",
+            overdrive_ebooks.display_name)
+        eq_([overdrive_collection.id], overdrive_ebooks.collection_ids)
+        eq_([Edition.BOOK_MEDIUM], overdrive_ebooks.media)
+
+
+        eq_("[Collection test] - License source {Overdrive} - Medium {Audio} - Availability {now} - Collection name {Test Overdrive Collection}",
+            overdrive_audio.display_name)
+        eq_([overdrive_collection.id], overdrive_audio.collection_ids)
+        eq_([Edition.AUDIO_MEDIUM], overdrive_audio.media)
+
+        # At this point we've looked at all the children of the
+        # JackpotWorkList
+        eq_([], children)
