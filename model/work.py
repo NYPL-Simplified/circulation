@@ -801,8 +801,9 @@ class Work(Base):
             # book in the system.
             return True
 
-        # The patron can interact with this Work assuming it's not too
-        # grown-up to show in their root lane.
+        # The patron can interact with this Work if any of the audiences
+        # in their root lane (in conjunction with the root lane's target_age)
+        # would match the Work.
         return any(
             self.age_appropriate_for(audience, root.target_age)
             for audience in root.audiences
@@ -822,53 +823,68 @@ class Work(Base):
            Classifier, representing the general reading audience to
            which the reader belongs.
 
-        :param reader_age: A number representing the age of the reader.
-
+        :param reader_age: A number or 2-tuple representing the age or
+           age range of the reader.
         """
         if not reader_audience:
             # A patron with no particular audience restrictions
             # can see everything.
             return True
 
-        if audience not in Classifier.AUDIENCES_JUVENILE:
-            # A patron associated with a non-juvenile audience can see
-            # everything.
+        if reader_audience not in Classifier.AUDIENCES_JUVENILE:
+            # Any non-juvenile patron can see everything.
             return True
-
-        # At this point we know that the patron is a child or young
-        # adult.
 
         if self.audience == Classifier.AUDIENCE_ALL_AGES:
-            # 'All ages' means always age-appropriate.
+            # An 'all ages' book is always age-appropriate.
             return True
 
-        if (audience == Classifier.AUDIENCE_YOUNG_ADULT
+        # At this point we know that the patron is a juvenile.
+
+        if isinstance(reader_age, tuple):
+            # A range was passed in rather than a specific age. Assume
+            # the reader is at the top edge of the range.
+            ignore, reader_age = reader_age
+
+        # A YA reader is treated as an adult (with no reading
+        # restrictions) if they have no associated age range, or their
+        # age range includes ADULT_AGE_CUTOFF.
+        if (reader_audience == Classifier.AUDIENCE_YOUNG_ADULT
+            and (reader_age is None
+                 or reader_age >= Classifier.ADULT_AGE_CUTOFF)):
+            return True
+
+        # There are no other situations where a juvenile reader can access
+        # non-juvenile titles.
+        if self.audience not in Classifier.AUDIENCES_JUVENILE:
+            return False
+
+        # At this point we know we have a juvenile reader and a
+        # juvenile book.
+
+        if (reader_audience == Classifier.AUDIENCE_YOUNG_ADULT
             and self.audience in (Classifier.AUDIENCES_YOUNG_CHILDREN)):
-            # Young adults can see any children's title.
+            # A YA reader can see any children's title.
             return True
 
-        if (audience in (Classifier.AUDIENCES_YOUNG_CHILDREN)
+        if (reader_audience in (Classifier.AUDIENCES_YOUNG_CHILDREN)
             and self.audience == Classifier.AUDIENCE_YOUNG_ADULT):
             # Children cannot see any YA title.
             return False
 
-        # At this point it comes down to a question of the reader's
-        # age vs. the work's target age.
+        # At this point we either have a YA patron with a YA book, or
+        # a child patron with a children's book. It comes down to a
+        # question of the reader's age vs. the work's target age.
 
         if not self.target_age:
             # This is a generic children's or YA book with no
-            # particular target age.
+            # particular target age. Assume it's age appropriate.
             return True
 
         if not reader_age:
             # We have no idea how old the patron is, so any work with
             # the appropriate audience is considered age-appropriate.
             return True
-
-        if isinstance(reader_age, tuple):
-            # A range was passed in rather than a specific age. Assume
-            # the reader is at the top edge of the range.
-            ignore, reader_age = reader_age
 
         young_limit, old_limit = self.target_age
         if reader_age < young_limit:
