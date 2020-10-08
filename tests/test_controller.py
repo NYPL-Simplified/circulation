@@ -57,6 +57,7 @@ from api.authenticator import (
     OAuthController,
     LibraryAuthenticator,
 )
+from api.circulation_exceptions import RemoteInitiatedServerError
 from api.simple_authentication import SimpleAuthenticationProvider
 from core.app_server import (
     cdn_url_for,
@@ -795,6 +796,55 @@ class TestBaseController(CirculationControllerTest):
         with self.request_context_with_library("/"):
             response2 = self.manager.index_controller()
             eq_(self.app.manager._db, self._db)
+
+    def test_authenticated_patron_from_request(self):
+
+        # First, test success.
+        with self.request_context_with_library(
+                "/", headers=dict(Authorization=self.valid_auth)
+        ):
+            result = self.controller.authenticated_patron_from_request()
+            eq_(self.default_patron, result)
+            eq_(self.default_patron, flask.request.patron)
+
+        # No authorization header -> 401 error.
+        with patch(
+                'api.base_controller.BaseCirculationManagerController.authorization_header',
+                  lambda x: None
+        ):
+            with self.request_context_with_library("/"):
+                result = self.controller.authenticated_patron_from_request()
+                eq_(401, result.status_code)
+                eq_(None, flask.request.patron)
+
+        # Exception contacting the authentication authority -> ProblemDetail
+        def remote_failure(self, header):
+            raise RemoteInitiatedServerError("argh", "service")
+        with patch(
+                'api.base_controller.BaseCirculationManagerController.authenticated_patron',
+                remote_failure
+        ):
+            with self.request_context_with_library(
+                "/", headers=dict(Authorization=self.valid_auth)
+            ):
+                result = self.controller.authenticated_patron_from_request()
+                assert isinstance(result, ProblemDetail)
+                eq_(REMOTE_INTEGRATION_FAILED.uri, result.uri)
+                eq_("Error in authentication service", result.detail)
+                eq_(None, flask.request.patron)
+
+        # Credentials provided but don't identify anyone in particular
+        # -> 401 error.
+        with patch(
+                'api.base_controller.BaseCirculationManagerController.authenticated_patron',
+                lambda self, x: None
+        ):
+            with self.request_context_with_library(
+                "/", headers=dict(Authorization=self.valid_auth)
+            ):
+                result = self.controller.authenticated_patron_from_request()
+                eq_(401, result.status_code)
+                eq_(None, flask.request.patron)
 
     def test_authenticated_patron_invalid_credentials(self):
         with self.request_context_with_library("/"):
