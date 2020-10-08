@@ -150,6 +150,34 @@ def has_library(f):
             return f(*args, **kwargs)
     return decorated
 
+def has_library_through_external_loan_identifier(parameter_name='external_loan_identifier'):
+    """Decorator to get a library using the loan's external identifier.
+
+    :param parameter_name: Name of the parameter holding the loan's external identifier
+    :type parameter_name: string
+
+    :return: Decorated function
+    :rtype: Callable
+    """
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            if parameter_name in kwargs:
+                external_loan_identifier = kwargs[parameter_name]
+            else:
+                external_loan_identifier = None
+
+            library = app.manager.index_controller.library_through_external_loan_identifier(external_loan_identifier)
+
+            if isinstance(library, ProblemDetail):
+                return library.response
+            else:
+                return func(*args, **kwargs)
+
+        return wrapper
+
+    return decorator
+
 def allows_library(f):
     """Decorator similar to @has_library but if there is no library short name,
     then don't set the request library.
@@ -570,14 +598,16 @@ def saml_callback():
     return app.manager.saml_controller.saml_authentication_callback(request, app.manager._db)
 
 
-@app.route('/lcp/hint')
+@app.route('/<collection_name>/lcp/licenses/<license_id>/hint')
+@has_library_through_external_loan_identifier(parameter_name='license_id')
 @requires_auth
 @returns_problem_detail
-def lcp_passphrase():
+def lcp_passphrase(collection_name, license_id):
     return app.manager.lcp_controller.get_lcp_passphrase()
 
 
 @app.route('/<collection_name>/lcp/licenses/<license_id>')
+@has_library_through_external_loan_identifier(parameter_name='license_id')
 @requires_auth
 @returns_problem_detail
 def lcp_license(collection_name, license_id):

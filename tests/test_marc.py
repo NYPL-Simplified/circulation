@@ -3,8 +3,10 @@ from nose.tools import (
     set_trace,
 )
 from pymarc import Record
+import urllib
 
 from . import DatabaseTest
+from core.config import Configuration
 from core.model import (
     ConfigurationSetting,
     ExternalIntegration,
@@ -109,11 +111,46 @@ class TestLibraryAnnotator(DatabaseTest):
         # Web client URLs can come from either the MARC export integration or
         # a library registry integration.
 
+        identifier = self._identifier(foreign_id="identifier")
+        lib_short_name = self._default_library.short_name
+
+        # The URL for a work is constructed as:
+        # - <cm-base>/<lib-short-name>/works/<qualified-identifier>
+        work_link_template = "{cm_base}/{lib}/works/{qid}"
+        # It is then encoded and the web client URL is constructed in this form:
+        # - <web-client-base>/book/<encoded-work-url>
+        client_url_template = "{client_base}/book/{work_link}"
+
+        qualified_identifier = urllib.quote(identifier.type + "/" + identifier.identifier, safe='')
+        cm_base_url = "http://test-circulation-manager"
+
+        expected_work_link = work_link_template.format(
+            cm_base=cm_base_url, lib=lib_short_name, qid=qualified_identifier
+        )
+        encoded_work_link = urllib.quote(expected_work_link, safe='')
+
+        client_base_1 = "http://web_catalog"
+        client_base_2 = "http://another_web_catalog"
+        expected_client_url_1 = client_url_template.format(
+            client_base=client_base_1, work_link=encoded_work_link
+        )
+        expected_client_url_2 = client_url_template.format(
+            client_base=client_base_2, work_link=encoded_work_link
+        )
+
+        # A few checks to ensure that our setup is useful.
+        assert len(lib_short_name) > 0
+        assert client_base_1 != client_base_2
+        assert expected_client_url_1 != expected_client_url_2
+        assert expected_client_url_1.startswith(client_base_1)
+        assert expected_client_url_2.startswith(client_base_2)
+
+        ConfigurationSetting.sitewide(self._db, Configuration.BASE_URL_KEY).value = cm_base_url
+
         annotator = LibraryAnnotator(self._default_library)
 
         # If no web catalog URLs are set for the library, nothing will be changed.
         record = Record()
-        identifier = self._identifier(foreign_id="identifier")
         annotator.add_web_client_urls(record, self._default_library, identifier)
         eq_([], record.get_fields("856"))
 
@@ -123,14 +160,13 @@ class TestLibraryAnnotator(DatabaseTest):
             libraries=[self._default_library])
         ConfigurationSetting.for_library_and_externalintegration(
             self._db, Registration.LIBRARY_REGISTRATION_WEB_CLIENT,
-            self._default_library, registry).value = "http://web_catalog"
+            self._default_library, registry).value = client_base_1
 
         record = Record()
         annotator.add_web_client_urls(record, self._default_library, identifier)
         [field] = record.get_fields("856")
         eq_(["4", "0"], field.indicators)
-        eq_("http://web_catalog/book/Gutenberg%20ID%2Fidentifier",
-            field.get_subfields("u")[0])
+        eq_(expected_client_url_1, field.get_subfields("u")[0])
 
         # Add a manually configured URL on a MARC export integration.
         integration = self._external_integration(
@@ -139,18 +175,13 @@ class TestLibraryAnnotator(DatabaseTest):
 
         ConfigurationSetting.for_library_and_externalintegration(
             self._db, MARCExporter.WEB_CLIENT_URL,
-            self._default_library, integration).value = "http://another_web_catalog"
+            self._default_library, integration).value = client_base_2
 
         record = Record()
         annotator.add_web_client_urls(record, self._default_library, identifier, integration)
         [field1, field2] = record.get_fields("856")
         eq_(["4", "0"], field1.indicators)
-        eq_("http://another_web_catalog/book/Gutenberg%20ID%2Fidentifier",
-            field1.get_subfields("u")[0])
+        eq_(expected_client_url_2, field1.get_subfields("u")[0])
 
         eq_(["4", "0"], field2.indicators)
-        eq_("http://web_catalog/book/Gutenberg%20ID%2Fidentifier",
-            field2.get_subfields("u")[0])
-
-        
-
+        eq_(expected_client_url_1, field2.get_subfields("u")[0])
