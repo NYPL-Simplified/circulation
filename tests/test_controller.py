@@ -797,11 +797,38 @@ class TestBaseController(CirculationControllerTest):
             response2 = self.manager.index_controller()
             eq_(self.app.manager._db, self._db)
 
+    def test_request_patron(self):
+        # Test the method that finds the currently authenticated patron
+        # for the current request, triggering the authentication process
+        # if necessary.
+
+        # If flask.request.patron is present, whatever value is in
+        # there is returned.
+        o1 = object()
+        with self.app.test_request_context("/"):
+            flask.request.patron = o1
+            eq_(o1, self.controller.request_patron)
+
+        # If not, authenticated_patron_from_request is called to set
+        # flask.request.patron
+        o2 = object()
+        def mock(self):
+            flask.request.patron = o2
+            return "return value will be ignored"
+
+        with patch(
+            'api.base_controller.BaseCirculationManagerController.authenticated_patron_from_request', mock
+        ):
+            with self.app.test_request_context("/"):
+                eq_(o2, self.controller.request_patron)
+
     def test_authenticated_patron_from_request(self):
+        # Test the method that attempts to authenticate a patron
+        # for the current request.
 
         # First, test success.
         with self.request_context_with_library(
-                "/", headers=dict(Authorization=self.valid_auth)
+            "/", headers=dict(Authorization=self.valid_auth)
         ):
             result = self.controller.authenticated_patron_from_request()
             eq_(self.default_patron, result)

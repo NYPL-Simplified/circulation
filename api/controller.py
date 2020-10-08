@@ -1959,6 +1959,8 @@ class ProfileController(CirculationManagerController):
     def _controller(self):
         """Instantiate a CoreProfileController that actually does the work.
         """
+        # TODO: Probably better to use request_patron and check for
+        # None here.
         patron = self.authenticated_patron_from_request()
         storage = CirculationPatronProfileStorage(patron, flask.url_for)
         return CoreProfileController(storage)
