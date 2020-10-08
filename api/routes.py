@@ -81,6 +81,9 @@ def requires_auth(f):
 def allows_auth(f):
     """Decorator function for a controller method that supports both
     authenticated and unauthenticated requests.
+
+    NOTE: This decorator might not be necessary; you can probably call
+    BaseCirculationManagerController.request_patron instead.
     """
     @wraps(f)
     def decorated(*args, **kwargs):

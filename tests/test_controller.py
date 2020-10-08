@@ -14,6 +14,7 @@ import urlparse
 from wsgiref.handlers import format_date_time
 from time import mktime
 from decimal import Decimal
+from mock import patch
 
 import flask
 from flask import (
@@ -1219,52 +1220,72 @@ class TestBaseController(CirculationControllerTest):
             # An assertion that would have failed before works now.
             assert new_name in self.manager.auth.library_authenticators
 
-
-class FullLaneSetupTest(CirculationControllerTest):
-    """Most lane-based tests don't need the full multi-tier setup of lanes
-    that we would see in a real site. We use a smaller setup to save time
-    when running the test.
-
-    This class is for the tests that do need that full set of lanes.
-    """
-    def library_setup(self, library):
-        super(FullLaneSetupTest, self).library_setup(library)
-        for k, v in [
-                (Configuration.LARGE_COLLECTION_LANGUAGES, ['eng']),
-                (Configuration.SMALL_COLLECTION_LANGUAGES, ['spa', 'chi']),
-                (Configuration.TINY_COLLECTION_LANGUAGES, [])
-        ]:
-            ConfigurationSetting.for_library(k, library).value = json.dumps(v)
-        create_default_lanes(self._db, library)
-
     def test_load_lane(self):
+        # Verify that requests for specific lanes are mapped to
+        # the appropriate lane.
+
+        # TODO: The case where the top-level lane is a WorkList rather
+        # than a Lane is not tested.
+
+        lanes = self._default_library.lanes
+
         with self.request_context_with_library("/"):
-            eq_(self.manager.d_top_level_lane,
-                self.controller.load_lane(None, None))
-            chinese = self.controller.load_lane('chi', None)
-            eq_("Chinese", chinese.name)
-            eq_("Chinese", chinese.display_name)
-            eq_(["chi"], chinese.languages)
+            top_level = self.controller.load_lane(None)
+            expect = self.controller.manager.top_level_lanes[
+                self._default_library.id
+            ]
 
-            english_sf = self.controller.load_lane('eng', "Science Fiction")
-            eq_("Science Fiction", english_sf.display_name)
-            eq_(["eng"], english_sf.languages)
+            # expect and top_level are different ORM objects
+            # representing the same lane. (They're different objects
+            # because the lane stored across requests inside the
+            # CirculationManager object was merged into the request's
+            # database session.)
+            assert isinstance(top_level, Lane)
+            eq_(expect.id, top_level.id)
 
-            # __ is converted to /
-            english_thriller = self.controller.load_lane('eng', "Suspense__Thriller")
-            eq_("Suspense/Thriller", english_thriller.name)
+            # A lane can be looked up by ID.
+            for l in lanes:
+                found = self.controller.load_lane(l.id)
+                eq_(l, found)
 
-            # Unlike with Chinese, there is no lane that contains all English books.
-            english = self.controller.load_lane('eng', None)
-            eq_(english.uri, NO_SUCH_LANE.uri)
+            # If a lane cannot be looked up by ID, a problem detail
+            # is returned.
+            for bad_id in ('nosuchlane', -1):
+                not_found = self.controller.load_lane(bad_id)
+                assert isinstance(not_found, ProblemDetail)
+                eq_(not_found.uri, NO_SUCH_LANE.uri)
+                eq_(
+                    "Lane %s does not exist or is not associated with library %s" % (
+                        bad_id, self._default_library.id
+                    ),
+                    not_found.detail
+                )
 
-            no_such_language = self.controller.load_lane('o10', None)
-            eq_(no_such_language.uri, NO_SUCH_LANE.uri)
-            eq_("Unrecognized language key: o10", no_such_language.detail)
+        # If the requested lane exists but is not visible to the
+        # authenticated patron, the server _acts_ like the lane does
+        # not exist.
 
-            no_such_lane = self.controller.load_lane('eng', 'No such lane')
-            eq_("No such lane: No such lane", no_such_lane.detail)
+        # Any lane will do here.
+        lane = lanes[0]
 
+        # Mock Lane.visible_to so that it always returns
+        # false.
+        lane.called_with = None
+        def mock_visible_to(self, patron):
+            self.visible_to_called_with = patron
+            return False
+
+        with patch('core.lane.Lane.visible_to', mock_visible_to):
+            headers = dict(Authorization=self.valid_auth)
+            with self.request_context_with_library(
+                "/", headers=headers, library=self._default_library
+            ):
+                # The lane exists, but visible_to says it's not
+                # visible to the authenticated patron.
+                result = self.controller.load_lane(lane.id)
+                assert isinstance(result, ProblemDetail)
+                eq_(result.uri, NO_SUCH_LANE.uri)
+                eq_(self.default_patron, lane.visible_to_called_with)
 
 
 class TestIndexController(CirculationControllerTest):

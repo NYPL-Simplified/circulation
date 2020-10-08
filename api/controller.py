@@ -617,6 +617,7 @@ class CirculationManagerController(BaseCirculationManagerController):
         """Turn user input into a Lane object."""
         library_id = flask.request.library.id
 
+        lane = None
         if lane_identifier is None:
             # Return the top-level lane.
             lane = self.manager.top_level_lanes[library_id]
@@ -625,15 +626,20 @@ class CirculationManagerController(BaseCirculationManagerController):
             elif isinstance(lane, WorkList):
                 lane.children = [self._db.merge(child) for child in lane.children]
         else:
-            lane = get_one(
-                self._db, Lane, id=lane_identifier, library_id=library_id
-            )
+            try:
+                lane_identifier = int(lane_identifier)
+            except ValueError, e:
+                pass
 
-        if lane and flask.request.patron:
-            # Make sure the patron can see the lane they requested.
-            if not lane.visible_to(flask.request.patron):
-                # Act like the lane does not exist.
-                lane = None
+            if isinstance(lane_identifier, int):
+                lane = get_one(
+                    self._db, Lane, id=lane_identifier, library_id=library_id
+                )
+
+        if lane and not lane.visible_to(self.request_patron):
+            # The authenticated patron cannot see the lane they
+            # requested. Act like the lane does not exist.
+            lane = None
 
         if not lane:
             return NO_SUCH_LANE.detailed(
