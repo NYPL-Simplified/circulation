@@ -52,20 +52,6 @@ def cdn_url_for(*args, **kwargs):
     base_url = url_for(*args, **kwargs)
     return cdnify(base_url)
 
-def load_lending_policy(policy):
-    if not policy:
-        return {}
-    if isinstance(policy, basestring):
-        logging.info("Lending policy: %s", policy)
-        policy = json.loads(policy)
-    for external_type, p in policy.items():
-        if Patron.AUDIENCE_RESTRICTION_POLICY in p:
-            for audience in p[Patron.AUDIENCE_RESTRICTION_POLICY]:
-                if not audience in Classifier.AUDIENCES:
-                    raise ValueError(
-                        "Unrecognized audience in lending policy: %s" %
-                        audience)
-    return policy
 
 def load_facets_from_request(
         facet_config=None, worklist=None, base_class=Facets,

@@ -161,8 +161,6 @@ class Patron(Base):
         UniqueConstraint('library_id', 'external_identifier'),
     )
 
-    AUDIENCE_RESTRICTION_POLICY = 'audiences'
-
     # A patron with borrowing privileges should have their local
     # metadata synced with their ILS record at intervals no greater
     # than this time.
