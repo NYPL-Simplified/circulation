@@ -299,14 +299,26 @@ class Library(Base, HasFullTableCache):
 
         :return: A boolean
         """
-        from ..lane import Lane
-        _db = Session.object_session(self)
-        root_lanes = _db.query(Lane).filter(
-            Lane.library==self
-        ).filter(
-            Lane.root_for_patron_type!=None
-        )
-        return root_lanes.count() > 0
+
+        # NOTE: Although this fact is derived from the Lanes, not the
+        # Library, the result is stored in the Library object for
+        # performance reasons.
+        #
+        # This makes it important to clear the cache of Library
+        # objects whenever the Lane configuration changes. Otherwise a
+        # library that went from not having root lanes, to having them
+        # (or vice versa) might not see the change take effect without
+        # a server restart.
+        if not getattr(self, '_has_root_lanes'):
+            from ..lane import Lane
+            _db = Session.object_session(self)
+            root_lanes = _db.query(Lane).filter(
+                Lane.library==self
+            ).filter(
+                Lane.root_for_patron_type!=None
+            )
+            self._has_root_lanes = root_lanes.count() > 0
+        return self._has_root_lanes
 
     def restrict_to_ready_deliverable_works(
         self, query, collection_ids=None, show_suppressed=False,

@@ -3024,3 +3024,10 @@ def configuration_relevant_lifecycle_event(mapper, connection, target):
 def configuration_relevant_update(mapper, connection, target):
     if directly_modified(target):
         site_configuration_has_changed(target)
+
+        # Some elements of Lane configuration are stored in the
+        # corresponding Library objects for performance reasons.
+        #
+        # Thus, invalidate the Library cache whenever the Lane
+        # configuration changes.
+        Library.reset_cache()
