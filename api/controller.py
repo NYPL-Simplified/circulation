@@ -52,7 +52,6 @@ from core.analytics import Analytics
 from core.app_server import (
     cdn_url_for,
     url_for,
-    load_lending_policy,
     load_facets_from_request,
     load_pagination_from_request,
     ComplaintController,
@@ -255,9 +254,6 @@ class CirculationManager(object):
         self.circulation_apis = new_circulation_apis
         self.custom_index_views = new_custom_index_views
         self.shared_collection_api = self.setup_shared_collection()
-        self.lending_policy = load_lending_policy(
-            Configuration.policy('lending', {})
-        )
 
         # Assemble the list of patron web client domains from individual
         # library registration settings as well as a sitewide setting.
@@ -616,6 +612,7 @@ class CirculationManagerController(BaseCirculationManagerController):
     def load_lane(self, lane_identifier):
         """Turn user input into a Lane object."""
         library_id = flask.request.library.id
+        has_root_lanes = flask.request.library.has_root_lanes
 
         lane = None
         if lane_identifier is None:
@@ -636,7 +633,7 @@ class CirculationManagerController(BaseCirculationManagerController):
                     self._db, Lane, id=lane_identifier, library_id=library_id
                 )
 
-        if lane and not lane.visible_to(self.request_patron):
+        if lane and has_root_lanes and not lane.visible_to(self.request_patron):
             # The authenticated patron cannot see the lane they
             # requested. Act like the lane does not exist.
             lane = None
@@ -759,6 +756,11 @@ class IndexController(CirculationManagerController):
         )
 
     def has_root_lanes(self):
+        """Does the active library feature root lanes for patrons of
+        certain types?
+
+        :return: A boolean
+        """
         return flask.request.library.has_root_lanes
 
     def authenticated_patron_root_lane(self):
