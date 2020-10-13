@@ -363,6 +363,10 @@ class TestOPDSFeed(RouteTest):
             url, self.controller.search, "<lane_identifier>"
         )
 
+    def test_qa_feed(self):
+        url = '/feed/qa'
+        self.assert_authenticated_request_calls(url, self.controller.qa_feed)
+
 class TestMARCRecord(RouteTest):
     CONTROLLER_NAME = 'marc_records'
 
