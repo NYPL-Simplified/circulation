@@ -174,7 +174,7 @@ class Script(object):
             )
             stack_trace = traceback.format_exc()
             self.update_timestamp(None, start_time, stack_trace)
-            raise e
+            raise
 
     def load_configuration(self):
         if not Configuration.cdns_loaded_from_database():
