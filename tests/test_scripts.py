@@ -864,8 +864,8 @@ class TestDirectoryImportScript(DatabaseTest):
         # arguments and calls run_with_arguments.
 
         class Mock(DirectoryImportScript):
-            def run_with_arguments(self, *args):
-                self.ran_with = args
+            def run_with_arguments(self, *args, **kwargs):
+                self.ran_with = kwargs
 
         script = Mock(self._db)
         script.do_run(
@@ -878,22 +878,22 @@ class TestDirectoryImportScript(DatabaseTest):
                 "--ebook-directory=ebooks",
                 "--rights-uri=rights",
                 "--dry-run",
-                "--default-medium-type=Audiobook"
+                "--default-medium-type={0}".format(EditionConstants.AUDIO_MEDIUM)
             ]
         )
         eq_(
-            (
-                'coll1',
-                CollectionType.OPEN_ACCESS,
-                'ds1',
-                'metadata',
-                'marc',
-                'covers',
-                'ebooks',
-                'rights',
-                True,
-                'Audiobook'
-            ),
+            {
+                'collection_name': 'coll1',
+                'collection_type': CollectionType.OPEN_ACCESS,
+                'data_source_name': 'ds1',
+                'metadata_file': 'metadata',
+                'metadata_format': 'marc',
+                'cover_directory': 'covers',
+                'ebook_directory': 'ebooks',
+                'rights_uri': 'rights',
+                'dry_run': True,
+                'default_medium_type': EditionConstants.AUDIO_MEDIUM
+            },
             script.ran_with
         )
 

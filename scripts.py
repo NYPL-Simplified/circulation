@@ -1312,9 +1312,9 @@ class DirectoryImportScript(TimestampScript):
         parser.add_argument(
             '--default-medium-type',
             help=u'Default medium type used in the case when it\'s not explicitly specified in a metadata file. '
-                 u'Valid values are: Book, Audio.',
+                 u'Valid values are: EditionConstants.FULFILLABLE_MEDIA.',
             type=str,
-            choices=(EditionConstants.BOOK_MEDIUM, EditionConstants.AUDIO_MEDIUM)
+            choices=EditionConstants.FULFILLABLE_MEDIA
         )
 
         return parser
@@ -1334,16 +1334,16 @@ class DirectoryImportScript(TimestampScript):
         default_medium_type = parsed.default_medium_type
 
         return self.run_with_arguments(
-            collection_name,
-            collection_type,
-            data_source_name,
-            metadata_file,
-            metadata_format,
-            cover_directory,
-            ebook_directory,
-            rights_uri,
-            dry_run,
-            default_medium_type
+            collection_name=collection_name,
+            collection_type=collection_type,
+            data_source_name=data_source_name,
+            metadata_file=metadata_file,
+            metadata_format=metadata_format,
+            cover_directory=cover_directory,
+            ebook_directory=ebook_directory,
+            rights_uri=rights_uri,
+            dry_run=dry_run,
+            default_medium_type=default_medium_type
         )
 
     def run_with_arguments(
