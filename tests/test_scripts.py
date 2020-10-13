@@ -67,7 +67,7 @@ from core.model import (
     Representation,
     RightsStatus,
     Timestamp,
-)
+    EditionConstants)
 from core.model.configuration import ExternalIntegrationLink
 
 from core.opds import AcquisitionFeed
@@ -877,7 +877,8 @@ class TestDirectoryImportScript(DatabaseTest):
                 "--cover-directory=covers",
                 "--ebook-directory=ebooks",
                 "--rights-uri=rights",
-                "--dry-run"
+                "--dry-run",
+                "--default-medium-type=Audiobook"
             ]
         )
         eq_(
@@ -890,7 +891,8 @@ class TestDirectoryImportScript(DatabaseTest):
                 'covers',
                 'ebooks',
                 'rights',
-                True
+                True,
+                'Audiobook'
             ),
             script.ran_with
         )
@@ -938,7 +940,7 @@ class TestDirectoryImportScript(DatabaseTest):
             "ebook directory",
             "rights URI"
         ]
-        script.run_with_arguments(*(basic_args + [True]))
+        script.run_with_arguments(*(basic_args + [True] + [EditionConstants.BOOK_MEDIUM]))
 
         # load_collection was called with the collection and data source names.
         eq_(
@@ -947,7 +949,7 @@ class TestDirectoryImportScript(DatabaseTest):
         )
 
         # load_metadata was called with the metadata file and data source name.
-        eq_([('metadata file', 'marc', 'data source name')], script.load_metadata_calls)
+        eq_([('metadata file', 'marc', 'data source name', EditionConstants.BOOK_MEDIUM)], script.load_metadata_calls)
 
         # work_from_metadata was called twice, once on each metadata
         # object.
