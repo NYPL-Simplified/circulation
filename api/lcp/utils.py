@@ -27,6 +27,8 @@ def get_target_extension(input_extension):
         target_extension = '.lcpdf'
     elif input_extension == '.lpf':
         target_extension = ".audiobook"
+    elif input_extension == '.audiobook':
+        target_extension = ".audiobook"
     else:
         raise LCPError('Unknown extension "{0}"'.format(input_extension))
 
