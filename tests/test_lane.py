@@ -1830,13 +1830,32 @@ class TestWorkList(DatabaseTest):
         # Test the code that checks whether one WorkList is 'beneath'
         # another.
 
+        class WorkListWithParent(WorkList):
+            # A normal WorkList never has a parent; this subclass
+            # makes it possible to explicitly set a WorkList's parent
+            # and get its parentage.
+            #
+            # This way we can test WorkList code without bringing in Lane.
+            def __init__(self):
+                self._parent = None
+
+            @property
+            def parent(self):
+                return self._parent
+
+            @property
+            def parentage(self):
+                if not self._parent:
+                    return []
+                return [self._parent] + list(self._parent.parentage)
+
         # A WorkList matches itself.
-        child = WorkList()
+        child = WorkListWithParent()
         child.initialize(self._default_library)
         eq_(True, child.is_self_or_descendant(child))
 
         # But not any other WorkList.
-        parent = WorkList()
+        parent = WorkListWithParent()
         parent.initialize(self._default_library)
         eq_(False, child.is_self_or_descendant(parent))
 
@@ -1845,8 +1864,8 @@ class TestWorkList(DatabaseTest):
         eq_(False, child.is_self_or_descendant(grandparent))
 
         # Unless it's a descendant of that WorkList.
-        child.parent = parent
-        parent.parent = grandparent
+        child._parent = parent
+        parent._parent = grandparent
         eq_(True, child.is_self_or_descendant(parent))
         eq_(True, child.is_self_or_descendant(grandparent))
         eq_(True, parent.is_self_or_descendant(grandparent))
