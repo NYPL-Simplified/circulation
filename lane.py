@@ -3027,7 +3027,7 @@ def configuration_relevant_update(mapper, connection, target):
 
         # Some elements of Lane configuration are stored in the
         # corresponding Library objects for performance reasons.
-        #
-        # Thus, invalidate the Library cache whenever the Lane
-        # configuration changes.
-        Library.reset_cache()
+
+        # Remove this information whenever the Lane configuration
+        # changes. This will force it to be recalculated.
+        Library._has_root_lane_cache.clear()

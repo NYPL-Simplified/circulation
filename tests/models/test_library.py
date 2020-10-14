@@ -87,10 +87,20 @@ class TestLibrary(DatabaseTest):
         lane = self._lane()
         eq_(False, library.has_root_lanes)
 
+        # If a library goes back and forth between 'has root lanes'
+        # and 'doesn't have root lanes', has_root_lanes continues to
+        # give the correct result so long as there was a database
+        # flush in between.
+        #
+        # (This is because there's a listener that resets
+        # Library._has_default_lane_cache whenever lane configuration
+        # changes.)
         lane.root_for_patron_type = ["1","2"]
+        self._db.flush()
         eq_(True, library.has_root_lanes)
 
         lane.root_for_patron_type = None
+        self._db.flush()
         eq_(False, library.has_root_lanes)
 
     def test_all_collections(self):
