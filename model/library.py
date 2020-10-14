@@ -309,7 +309,7 @@ class Library(Base, HasFullTableCache):
         # library that went from not having root lanes, to having them
         # (or vice versa) might not see the change take effect without
         # a server restart.
-        if not getattr(self, '_has_root_lanes'):
+        if not getattr(self, '_has_root_lanes', None):
             from ..lane import Lane
             _db = Session.object_session(self)
             root_lanes = _db.query(Lane).filter(
