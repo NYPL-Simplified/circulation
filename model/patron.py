@@ -287,8 +287,14 @@ class Patron(Base):
         cannot conduct a transaction on a book intended for an older
         audience than the one defined by their root lane.
         """
+
+        # Two ways of improving performance by short-circuiting this
+        # logic.
         if not self.external_type:
             return None
+        if not self.library.has_root_lanes:
+            return None
+
         _db = Session.object_session(self)
         from ..lane import Lane
         qu = _db.query(Lane).filter(

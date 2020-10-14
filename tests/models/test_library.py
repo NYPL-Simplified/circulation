@@ -81,11 +81,17 @@ class TestLibrary(DatabaseTest):
         )
 
     def test_has_root_lanes(self):
+        # A library has root lanes if any of its lanes are the root for any
+        # patron type(s).
         library = self._default_library
         lane = self._lane()
         eq_(False, library.has_root_lanes)
+
         lane.root_for_patron_type = ["1","2"]
         eq_(True, library.has_root_lanes)
+
+        lane.root_for_patron_type = None
+        eq_(False, library.has_root_lanes)
 
     def test_all_collections(self):
         library = self._default_library
