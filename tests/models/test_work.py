@@ -16,7 +16,10 @@ from ...classifier import (
     Romance,
     Science_Fiction,
 )
-from ...model import get_one_or_create
+from ...model import (
+    get_one_or_create,
+    tuple_to_numericrange,
+)
 from ...model.coverage import WorkCoverageRecord
 from ...model.classification import (
     Genre,
@@ -1265,6 +1268,28 @@ class TestWork(DatabaseTest):
 
         w.return_true_for = Classifier.AUDIENCE_ADULT
         eq_(False, w.age_appropriate_for_patron(patron))
+
+    def test_age_appropriate_for_patron_end_to_end(self):
+        # A test of age_appropriate_for_patron without mocks.
+        patron = self._patron()
+        patron.external_type = "a"
+
+        # This Lane contains books at the old end of the "children"
+        # range and the young end of the "young adult" range.
+        lane = self._lane()
+        lane.root_for_patron_type = ["a"]
+        # NOTE: setting target_age sets .audiences to appropriate values,
+        # so setting .audiences here is purely demonstrative.
+        lane.audiences = [
+            Classifier.AUDIENCE_CHILDREN, Classifier.AUDIENCE_YOUNG_ADULT
+        ]
+        lane.target_age = (9,14)
+
+        work = self._work()
+        work.audience = Classifier.AUDIENCE_YOUNG_ADULT
+        work.target_age = tuple_to_numericrange((12, 15))
+
+        eq_(True, work.age_appropriate_for_patron(patron))
 
     def test_age_appropriate_for(self):
         # Check whether this work is age-appropriate for a certain audience.
