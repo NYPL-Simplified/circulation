@@ -1607,6 +1607,14 @@ class WorkList(object):
         """As a matter of library policy, is the given `Patron` allowed
         to view this `WorkList`?
         """
+        if not self.visible:
+            # A WorkList that has .visible=False is not visible
+            # to any particular patron.
+            #
+            # This avoids confusion regarding the two different
+            # notions of 'visibility' defined in this class.
+            return False
+
         if not patron:
             # We have no lanes that are private, per se, so if there
             # is no active patron every lane is visible.

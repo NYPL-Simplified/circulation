@@ -1891,6 +1891,12 @@ class TestWorkList(DatabaseTest):
         m = wl.visible_to
         eq_(True, m(None))
 
+        # Unless it has .visible set to False, in which case it is not
+        # visible to anyone.
+        wl.visible = False
+        eq_(False, m(None))
+        wl.visible = True
+
         # A WorkList is never visible to patrons of a different library.
         other_library = self._library()
         other_library_patron = self._patron(library=other_library)
