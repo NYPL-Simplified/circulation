@@ -317,14 +317,6 @@ class Patron(Base):
             )
         return lanes[0]
 
-        _db = Session.object_session(self)
-        root_lanes = _db.query(Lane).filter(
-            Lane.library==self
-        ).filter(
-            Lane.root_for_patron_type!=None
-        )
-        return root_lanes.count() > 0
-
 
 Index("ix_patron_library_id_external_identifier", Patron.library_id, Patron.external_identifier)
 Index("ix_patron_library_id_authorization_identifier", Patron.library_id, Patron.authorization_identifier)
