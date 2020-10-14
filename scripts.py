@@ -1312,7 +1312,7 @@ class DirectoryImportScript(TimestampScript):
         parser.add_argument(
             '--default-medium-type',
             help=u'Default medium type used in the case when it\'s not explicitly specified in a metadata file. '
-                 u'Valid values are: EditionConstants.FULFILLABLE_MEDIA.',
+                 u'Valid values are: {0}.'.format(', '.join(EditionConstants.FULFILLABLE_MEDIA)),
             type=str,
             choices=EditionConstants.FULFILLABLE_MEDIA
         )
