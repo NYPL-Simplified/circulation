@@ -1637,9 +1637,35 @@ class WorkList(object):
             # of that lane, so it's visible.
             return True
 
-        # This lane is not in the scope of the patron's root lane,
-        # so it's not visible.
-        return False
+        # A database Lane that's not in scope of the patron's root
+        # lane is not visible, period. Even if all of the books in the
+        # Lane are age-appropriate, it's in a different part of the
+        # navigational structure.
+        if isinstance(self, Lane):
+            return False
+
+        # But a WorkList other than a lane (such as a WorkList of
+        # books by a certain author) might be visible. It depends on
+        # whether the audience and target age of the WorkList are
+        # compatible with that of the patron's root Lane.
+        for work_audience in self.audiences:
+            # work_audience represents a type of book that _might_
+            # show up in this WorkList.
+
+            # TODO: I think this is wrong, it should be an any() as with
+            # age_appropriate_for_patron, which probably means 
+            # the code should be moved from Work to Patron.
+            for patron_audience in root_lane.audiences:
+                if not Work.age_appropriate_match(
+                    work_audience, self.target_age,
+                        patron_audience, root_lane.target_age
+                ):
+                    # We've found a type of book that _might_ show up
+                    # in this WorkList, but which the patron's root
+                    # lane would not allow. That disqualifies the
+                    # entire WorkList from consideration.
+                    return False
+        return True
 
     def overview_facets(self, _db, facets):
         """Convert a generic FeaturedFacets to some other faceting object,

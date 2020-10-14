@@ -826,7 +826,21 @@ class Work(Base):
         :param reader_age: A number or 2-tuple representing the age or
            age range of the reader.
         """
-        if not reader_audience:
+        return self.age_appropriate_match(
+            self.audience, self.target_age,
+            reader_audience, reader_age
+        )
+
+    @classmethod
+    def age_appropriate_match(
+        cls, work_audience, work_target_age,
+        reader_audience, reader_age
+    ):
+        """Match the audience and target age of a putative work
+        with that of a reader, and see whether they are an appropriate
+        match.
+        """
+        if reader_audience is None:
             # A patron with no particular audience restrictions
             # can see everything.
             return True
@@ -835,7 +849,7 @@ class Work(Base):
             # Any non-juvenile patron can see everything.
             return True
 
-        if self.audience == Classifier.AUDIENCE_ALL_AGES:
+        if work_audience == Classifier.AUDIENCE_ALL_AGES:
             # An 'all ages' book is always age-appropriate.
             return True
 
@@ -856,19 +870,19 @@ class Work(Base):
 
         # There are no other situations where a juvenile reader can access
         # non-juvenile titles.
-        if self.audience not in Classifier.AUDIENCES_JUVENILE:
+        if work_audience not in Classifier.AUDIENCES_JUVENILE:
             return False
 
         # At this point we know we have a juvenile reader and a
         # juvenile book.
 
         if (reader_audience == Classifier.AUDIENCE_YOUNG_ADULT
-            and self.audience in (Classifier.AUDIENCES_YOUNG_CHILDREN)):
+            and work_audience in (Classifier.AUDIENCES_YOUNG_CHILDREN)):
             # A YA reader can see any children's title.
             return True
 
         if (reader_audience in (Classifier.AUDIENCES_YOUNG_CHILDREN)
-            and self.audience == Classifier.AUDIENCE_YOUNG_ADULT):
+            and work_audience == Classifier.AUDIENCE_YOUNG_ADULT):
             # Children cannot see any YA title.
             return False
 
@@ -876,7 +890,7 @@ class Work(Base):
         # a child patron with a children's book. It comes down to a
         # question of the reader's age vs. the work's target age.
 
-        if not self.target_age:
+        if not work_target_age:
             # This is a generic children's or YA book with no
             # particular target age. Assume it's age appropriate.
             return True
@@ -886,7 +900,7 @@ class Work(Base):
             # the appropriate audience is considered age-appropriate.
             return True
 
-        young_limit, old_limit = self.target_age
+        young_limit, old_limit = work_target_age
         if reader_age < young_limit:
             # The audience for this book matches the patron's
             # audience, but the book has a target age that is too high
@@ -894,6 +908,7 @@ class Work(Base):
             return False
 
         return True
+        
 
     def set_presentation_edition(self, new_presentation_edition):
         """ Sets presentation edition and lets owned pools and editions know.
