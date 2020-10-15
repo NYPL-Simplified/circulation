@@ -1603,22 +1603,13 @@ class WorkList(object):
             self.display_name, self.language_key, self.audience_key
         )
 
-    def visible_to(self, patron):
+    def accessible_to(self, patron):
         """As a matter of library policy, is the given `Patron` allowed
-        to view this `WorkList`?
+        to access this `WorkList`?
         """
-        if not self.visible:
-            # A WorkList that has .visible=False is not visible
-            # to any particular patron.
-            #
-            # This unifies the two different notions of 'visibility'
-            # defined in this class (visibility in general and visibility
-            # to a specific patron).
-            return False
-
         if not patron:
             # We have no lanes that are private, per se, so if there
-            # is no active patron, every lane is visible.
+            # is no active patron, every lane is accessible.
             return True
 
         _db = Session.object_session(patron)
@@ -1626,14 +1617,19 @@ class WorkList(object):
             # You can't access a WorkList from another library.
             return False
 
+        if not patron.library.has_root_lanes:
+            # The patron's library has no root lanes, so it's not necessary
+            # to run the somewhat expensive check for a patron's root lane.
+            return False
+
         # Get the patron's root lane, if any.
         root = patron.root_lane
         if not root:
-            # A patron with no root lane can see every one of the
+            # A patron with no root lane can access every one of the
             # library's WorkLists.
             return True
 
-        # A WorkList is only visible if the audiences and target age
+        # A WorkList is only accessible if the audiences and target age
         # of the WorkList are fully compatible with that of the
         # patron's root lane.
         for work_audience in self.audiences:
@@ -1641,7 +1637,7 @@ class WorkList(object):
             # show up in this WorkList.
             if not patron.work_is_age_appropriate(work_audience, self.target_age):
                 # Books of this type would not be appropriate to show to
-                # this patron, so the lane itself should not be shown.
+                # this patron, so the lane itself is not accessible.
                 return False
 
         return True
@@ -2616,9 +2612,9 @@ class Lane(Base, DatabaseBackedWorkList):
     def visible(self, value):
         self._visible = value
 
-    def visible_to(self, patron):
+    def accessible_to(self, patron):
         """As a matter of library policy, is the given `Patron` allowed
-        to view this `Lane`?
+        to access this `Lane`?
 
         :param patron: A Patron
         :return: A boolean
@@ -2630,7 +2626,7 @@ class Lane(Base, DatabaseBackedWorkList):
 
         if not self.is_or_descendant(root):
             # In addition, a database Lane that's not in scope of the
-            # patron's root lane is not visible, period. Even if all
+            # patron's root lane is not accessible, period. Even if all
             # of the books in the Lane are age-appropriate, it's in a
             # different part of the navigational structure and
             # navigating to it is not allowed.
