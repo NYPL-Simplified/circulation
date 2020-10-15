@@ -23,6 +23,7 @@ from sqlalchemy import (
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm.session import Session
+from ..classifier import Classifier
 from ..user_profile import ProfileStorage
 import uuid
 

@@ -1620,7 +1620,8 @@ class WorkList(object):
         if not patron.library.has_root_lanes:
             # The patron's library has no root lanes, so it's not necessary
             # to run the somewhat expensive check for a patron's root lane.
-            return False
+            # All lanes are accessible to all patrons.
+            return True
 
         # Get the patron's root lane, if any.
         root = patron.root_lane
@@ -1632,13 +1633,14 @@ class WorkList(object):
         # A WorkList is only accessible if the audiences and target age
         # of the WorkList are fully compatible with that of the
         # patron's root lane.
-        for work_audience in self.audiences:
-            # work_audience represents a type of book that _might_
-            # show up in this WorkList.
-            if not patron.work_is_age_appropriate(work_audience, self.target_age):
-                # Books of this type would not be appropriate to show to
-                # this patron, so the lane itself is not accessible.
-                return False
+        if self.audiences:
+            for work_audience in self.audiences:
+                # work_audience represents a type of book that _might_
+                # show up in this WorkList.
+                if not patron.work_is_age_appropriate(work_audience, self.target_age):
+                    # Books of this type would not be appropriate to show to
+                    # this patron, so the lane itself is not accessible.
+                    return False
 
         return True
 
@@ -2621,10 +2623,11 @@ class Lane(Base, DatabaseBackedWorkList):
         """
 
         # All the rules of WorkList apply.
-        if not super(Lane, self).visible_to(patron):
+        if not super(Lane, self).accessible_to(patron):
             return False
 
-        if not self.is_or_descendant(root):
+        root_lane = patron.root_lane
+        if root_lane and not self.is_self_or_descendant(root_lane):
             # In addition, a database Lane that's not in scope of the
             # patron's root lane is not accessible, period. Even if all
             # of the books in the Lane are age-appropriate, it's in a
