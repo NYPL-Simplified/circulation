@@ -317,6 +317,136 @@ class Patron(Base):
             )
         return lanes[0]
 
+    def work_is_age_appropriate(self, work_audience, work_target_age):
+        """Is the given audience and target age an age-appropriate match for this Patron?
+
+        NOTE: What "age-appropriate" means depends on some policy questions
+        that have not been answered and may be library-specific. For
+        now, it is determined by comparing audience and target age to that of the
+        Patron's root lane.
+
+        This is designed for use when reasoning about works in
+        general. If you have a specific Work in mind, use
+        `Work.age_appropriate_for_patron`.
+
+        :param work_audience: One of the audience constants from
+           Classifier, representing the general reading audience to
+           which a putative work belongs.
+
+        :param work_target_age: A number or 2-tuple representing the target age
+           or age range of a putative work.
+
+        :return: A boolean
+
+        """
+        root = self.root_lane
+        if not root:
+            # The patron has no root lane. They can interact with any
+            # title.
+            return True
+
+        # The patron can interact with a title if any of the audiences
+        # in their root lane (in conjunction with the root lane's target_age)
+        # are a match for the title's audience and target age.
+        return any(
+            self.age_appropriate_match(
+                work_audience, work_target_age,
+                audience, root.target_age
+            )
+            for audience in root.audiences
+        )
+
+    @classmethod
+    def age_appropriate_match(
+        cls, work_audience, work_target_age,
+        reader_audience, reader_age
+    ):
+        """Match the audience and target age of a work with that of a reader,
+        and see whether they are an age-appropriate match.
+
+        NOTE: What "age-appropriate" means depends on some policy
+        questions that have not been answered and may be
+        library-specific. For now, non-children's books are
+        age-inappropriate for young children, and children's books are
+        age-inappropriate for children too young to be in the book's
+        target age range.
+
+        :param reader_audience: One of the audience constants from
+           Classifier, representing the general reading audience to
+           which the reader belongs.
+
+        :param reader_age: A number or 2-tuple representing the age or
+           age range of the reader.
+        """
+        if reader_audience is None:
+            # A patron with no particular audience restrictions
+            # can see everything.
+            return True
+
+        if reader_audience not in Classifier.AUDIENCES_JUVENILE:
+            # Any non-juvenile patron can see everything.
+            return True
+
+        if work_audience == Classifier.AUDIENCE_ALL_AGES:
+            # An 'all ages' book is always age-appropriate.
+            return True
+
+        # At this point we know that the patron is a juvenile.
+
+        if isinstance(reader_age, tuple):
+            # A range was passed in rather than a specific age. Assume
+            # the reader is at the top edge of the range.
+            ignore, reader_age = reader_age
+
+        # A YA reader is treated as an adult (with no reading
+        # restrictions) if they have no associated age range, or their
+        # age range includes ADULT_AGE_CUTOFF.
+        if (reader_audience == Classifier.AUDIENCE_YOUNG_ADULT
+            and (reader_age is None
+                 or reader_age >= Classifier.ADULT_AGE_CUTOFF)):
+            return True
+
+        # There are no other situations where a juvenile reader can access
+        # non-juvenile titles.
+        if work_audience not in Classifier.AUDIENCES_JUVENILE:
+            return False
+
+        # At this point we know we have a juvenile reader and a
+        # juvenile book.
+
+        if (reader_audience == Classifier.AUDIENCE_YOUNG_ADULT
+            and work_audience in (Classifier.AUDIENCES_YOUNG_CHILDREN)):
+            # A YA reader can see any children's title.
+            return True
+
+        if (reader_audience in (Classifier.AUDIENCES_YOUNG_CHILDREN)
+            and work_audience == Classifier.AUDIENCE_YOUNG_ADULT):
+            # Children cannot see any YA title.
+            return False
+
+        # At this point we either have a YA patron with a YA book, or
+        # a child patron with a children's book. It comes down to a
+        # question of the reader's age vs. the work's target age.
+
+        if not work_target_age:
+            # This is a generic children's or YA book with no
+            # particular target age. Assume it's age appropriate.
+            return True
+
+        if not reader_age:
+            # We have no idea how old the patron is, so any work with
+            # the appropriate audience is considered age-appropriate.
+            return True
+
+        young_limit, old_limit = work_target_age
+        if reader_age < young_limit:
+            # The audience for this book matches the patron's
+            # audience, but the book has a target age that is too high
+            # for the reader.
+            return False
+
+        return True
+
 
 Index("ix_patron_library_id_external_identifier", Patron.library_id, Patron.external_identifier)
 Index("ix_patron_library_id_authorization_identifier", Patron.library_id, Patron.authorization_identifier)
