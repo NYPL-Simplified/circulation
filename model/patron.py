@@ -8,6 +8,7 @@ from . import (
 )
 from credential import Credential
 import datetime
+import logging
 from sqlalchemy import (
     Boolean,
     Column,
@@ -302,7 +303,7 @@ class Patron(Base):
             Lane.library==self.library
         ).filter(
             Lane.root_for_patron_type.any(self.external_type)
-        )
+        ).order_by(Lane.id)
         lanes = qu.all()
         if len(lanes) < 1:
             # The most common situation -- this patron has no special
@@ -314,7 +315,7 @@ class Patron(Base):
             # pay the price -- just pick the first one.
             logging.error(
                 "Multiple root lanes found for patron type %s.",
-                patron.external_type
+                self.external_type
             )
         return lanes[0]
 

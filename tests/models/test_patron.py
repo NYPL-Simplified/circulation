@@ -552,6 +552,46 @@ class TestPatron(DatabaseTest):
         eq_(None, patron.last_loan_activity_sync)
         eq_(None, patron._last_loan_activity_sync)
 
+    def test_root_lane(self):
+        root_1 = self._lane()
+        root_2 = self._lane()
+
+        # If a library has no root lanes, its patrons have no root
+        # lanes.
+        patron = self._patron()
+        patron.external_type = "x"
+        eq_(None, patron.root_lane)
+
+        # Patrons of external type '1' and '2' have a certain root lane.
+        root_1.root_for_patron_type = ["1", "2"]
+
+        # Patrons of external type '3' have a different root.
+        root_2.root_for_patron_type = ["3"]
+
+        # Flush the database to clear the Library._has_root_lane_cache.
+        self._db.flush()
+
+        # A patron with no external type has no root lane.
+        eq_(None, patron.root_lane)
+
+        # If a patron's external type associates them with a specific lane, that
+        # lane is their root lane.
+        patron.external_type = "1"
+        eq_(root_1, patron.root_lane)
+
+        patron.external_type = "2"
+        eq_(root_1, patron.root_lane)
+
+        patron.external_type = "3"
+        eq_(root_2, patron.root_lane)
+
+        # This shouldn't happen, but if two different lanes are the
+        # root lane for a single patron type, the one with the lowest
+        # database ID is chosen.  This way we avoid denying service to
+        # a patron based on a server misconfiguration.
+        root_1.root_for_patron_type = ["1", "2", "3"]
+        eq_(root_1, patron.root_lane)
+
 
 class TestPatronProfileStorage(DatabaseTest):
 
