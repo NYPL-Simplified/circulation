@@ -163,13 +163,19 @@ class CirculationManager(object):
         self.load_settings()
 
     def load_facets_from_request(self, *args, **kwargs):
-        """Load a faceting object from the incoming request, but also apply an authentication
-        restriction.
+        """Load a faceting object from the incoming request, but also apply some
+        application-specific access restrictions:
 
-        Specifically, in this application you can't use nonstandard
-        caching rules unless you're an authenticated administrator.
+        * You can't use nonstandard caching rules unless you're an authenticated administrator.
+        * You can't access a WorkList that's not visible to you.
         """
+
         facets = load_facets_from_request(*args, **kwargs)
+
+        worklist = kwargs.get('worklist')
+        if worklist is not None and not worklist.is_visible_to(self.request_patron):
+            return NO_SUCH_LANE.detailed(_("Lane does not exist"))
+
         if isinstance(facets, BaseFacets) and getattr(facets, 'max_cache_age', None) is not None:
             # A faceting object was loaded, and it tried to do something nonstandard
             # with caching.
@@ -612,7 +618,6 @@ class CirculationManagerController(BaseCirculationManagerController):
     def load_lane(self, lane_identifier):
         """Turn user input into a Lane object."""
         library_id = flask.request.library.id
-        has_root_lanes = flask.request.library.has_root_lanes
 
         lane = None
         if lane_identifier is None:
@@ -633,7 +638,7 @@ class CirculationManagerController(BaseCirculationManagerController):
                     self._db, Lane, id=lane_identifier, library_id=library_id
                 )
 
-        if lane and has_root_lanes and not lane.visible_to(self.request_patron):
+        if lane and not lane.visible_to(self.request_patron):
             # The authenticated patron cannot see the lane they
             # requested. Act like the lane does not exist.
             lane = None
