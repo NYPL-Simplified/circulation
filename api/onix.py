@@ -16,11 +16,10 @@ from core.model import (
     Classification,
     Identifier,
     Contributor,
-    Edition,
     Hyperlink,
     Representation,
     Subject,
-    LicensePool)
+    LicensePool, EditionConstants)
 from core.util.xmlparser import XMLParser
 
 
@@ -179,10 +178,15 @@ class ONIXExtractor(object):
         'Z99': Contributor.UNKNOWN_ROLE, # Other creative responsibility
     }
 
+    PRODUCT_CONTENT_TYPES = {
+        '10': EditionConstants.BOOK_MEDIUM,  # Text (eye-readable)
+        '01': EditionConstants.AUDIO_MEDIUM  # Audiobook
+    }
+
     _logger = logging.getLogger(__name__)
 
     @classmethod
-    def parse(cls, file, data_source_name):
+    def parse(cls, file, data_source_name, default_medium=None):
         metadata_records = []
 
         # TODO: ONIX has plain language 'reference names' and short tags that
@@ -200,6 +204,13 @@ class ONIXExtractor(object):
                 title_without_prefix = parser.text_of_optional_subtag(record, 'descriptivedetail/titledetail/titleelement/b031')
                 if title_prefix and title_without_prefix:
                     title = title_prefix + " " + title_without_prefix
+
+            medium = parser.text_of_optional_subtag(record, 'b385')
+
+            if not medium and default_medium:
+                medium = default_medium
+            else:
+                medium = cls.PRODUCT_CONTENT_TYPES.get(medium, EditionConstants.BOOK_MEDIUM)
 
             subtitle = parser.text_of_optional_subtag(record, 'descriptivedetail/titledetail/titleelement/b029')
             language = parser.text_of_optional_subtag(record, 'descriptivedetail/language/b252') or "eng"
@@ -318,7 +329,7 @@ class ONIXExtractor(object):
                 title=title,
                 subtitle=subtitle,
                 language=language,
-                medium=Edition.BOOK_MEDIUM,
+                medium=medium,
                 publisher=publisher,
                 imprint=imprint,
                 issued=issued,

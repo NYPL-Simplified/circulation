@@ -7,6 +7,7 @@ import os
 import sys
 import urllib
 import urlparse
+from nose.tools import set_trace
 from collections import defaultdict
 from time import mktime
 from wsgiref.handlers import format_date_time
@@ -121,6 +122,7 @@ from lanes import (
     load_lanes,
     ContributorFacets,
     ContributorLane,
+    JackpotWorkList,
     RecommendationLane,
     RelatedBooksLane,
     SeriesFacets,
@@ -798,7 +800,6 @@ class IndexController(CirculationManagerController):
             200, { 'Content-Type' : 'application/opds+json' }
         )
 
-
 class OPDSFeedController(CirculationManagerController):
 
     def groups(self, lane_identifier, feed_class=AcquisitionFeed):
@@ -1073,6 +1074,34 @@ class OPDSFeedController(CirculationManagerController):
             url=make_url(), lane=lane, search_engine=search_engine,
             query=query, annotator=annotator, pagination=pagination,
             facets=facets
+        )
+
+    def qa_feed(self, feed_class=AcquisitionFeed):
+        """Create an OPDS feed containing the information necessary to
+        run a full set of integration tests against this server and
+        the vendors it relies on.
+        """
+
+        library = flask.request.library
+        search_engine = self.search_engine
+        if isinstance(search_engine, ProblemDetail):
+            return search_engine
+
+        url = self.url_for(
+            "qa_feed",
+            library_short_name=library.short_name,
+        )
+
+        jwl = JackpotWorkList(library)
+        annotator = self.manager.annotator(jwl)
+
+        # TODO: Make it possible to pass a pagination object into
+        # groups() to override the standard size of a grouped lane,
+        # improving performance.
+        return feed_class.groups(
+            _db=self._db, title="QA test feed", url=url, worklist=jwl,
+            annotator=annotator, search_engine=search_engine,
+            max_age=CachedFeed.IGNORE_CACHE
         )
 
 

@@ -67,7 +67,7 @@ from core.model import (
     Representation,
     RightsStatus,
     Timestamp,
-)
+    EditionConstants)
 from core.model.configuration import ExternalIntegrationLink
 
 from core.opds import AcquisitionFeed
@@ -864,8 +864,8 @@ class TestDirectoryImportScript(DatabaseTest):
         # arguments and calls run_with_arguments.
 
         class Mock(DirectoryImportScript):
-            def run_with_arguments(self, *args):
-                self.ran_with = args
+            def run_with_arguments(self, *args, **kwargs):
+                self.ran_with = kwargs
 
         script = Mock(self._db)
         script.do_run(
@@ -877,21 +877,23 @@ class TestDirectoryImportScript(DatabaseTest):
                 "--cover-directory=covers",
                 "--ebook-directory=ebooks",
                 "--rights-uri=rights",
-                "--dry-run"
+                "--dry-run",
+                "--default-medium-type={0}".format(EditionConstants.AUDIO_MEDIUM)
             ]
         )
         eq_(
-            (
-                'coll1',
-                CollectionType.OPEN_ACCESS,
-                'ds1',
-                'metadata',
-                'marc',
-                'covers',
-                'ebooks',
-                'rights',
-                True
-            ),
+            {
+                'collection_name': 'coll1',
+                'collection_type': CollectionType.OPEN_ACCESS,
+                'data_source_name': 'ds1',
+                'metadata_file': 'metadata',
+                'metadata_format': 'marc',
+                'cover_directory': 'covers',
+                'ebook_directory': 'ebooks',
+                'rights_uri': 'rights',
+                'dry_run': True,
+                'default_medium_type': EditionConstants.AUDIO_MEDIUM
+            },
             script.ran_with
         )
 
@@ -938,7 +940,7 @@ class TestDirectoryImportScript(DatabaseTest):
             "ebook directory",
             "rights URI"
         ]
-        script.run_with_arguments(*(basic_args + [True]))
+        script.run_with_arguments(*(basic_args + [True] + [EditionConstants.BOOK_MEDIUM]))
 
         # load_collection was called with the collection and data source names.
         eq_(
@@ -947,7 +949,7 @@ class TestDirectoryImportScript(DatabaseTest):
         )
 
         # load_metadata was called with the metadata file and data source name.
-        eq_([('metadata file', 'marc', 'data source name')], script.load_metadata_calls)
+        eq_([('metadata file', 'marc', 'data source name', EditionConstants.BOOK_MEDIUM)], script.load_metadata_calls)
 
         # work_from_metadata was called twice, once on each metadata
         # object.
