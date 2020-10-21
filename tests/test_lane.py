@@ -1,7 +1,10 @@
 import datetime
 import json
 import logging
-from mock import patch
+from mock import (
+    call,
+    MagicMock,
+)
 import random
 from nose.tools import (
     eq_,
@@ -1878,14 +1881,7 @@ class TestWorkList(DatabaseTest):
         # Test the circumstances under which a Patron may or may not access a 
         # WorkList.
 
-        class Mock(WorkList):
-            # mock is_self_or_descendant
-            return_value = True
-            def is_self_or_descendant(self, other_wl):
-                self.is_self_or_descendant_called_with = other_wl
-                return self.return_value
-
-        wl = Mock()
+        wl = WorkList()
         wl.initialize(self._default_library)
 
         # A WorkList is always accessible to unauthenticated users.
@@ -1921,35 +1917,33 @@ class TestWorkList(DatabaseTest):
 
         # Now it depends on the return value of Patron.work_is_age_appropriate.
         # Mock that method.
-        patron.work_is_age_appropriate_calls = []
-        patron.work_is_age_appropriate_return = False
-        def work_is_age_appropriate(self, audience, target_age):
-            self.work_is_age_appropriate_calls.append((audience, target_age))
-            return self.work_is_age_appropriate_return
-            
-        with patch('core.model.Patron.work_is_age_appropriate',
-                   work_is_age_appropriate):
-            eq_(False, m(patron))
+        patron.work_is_age_appropriate = MagicMock(return_value=False)
 
-            # work_is_age_appropriate was called once, with the
-            # WorkList's target age and its first audience restriction.
-            # When work_is_age_appropriate returned False, it short-circuited
-            # the process and no second call was made.
-            call1 = patron.work_is_age_appropriate_calls.pop()
-            eq_([], patron.work_is_age_appropriate_calls)
-            eq_((wl.audiences[0], wl.target_age), call1)
+        # Since our mock returns false, so does accessible_to
+        eq_(False, m(patron))
 
-            # If we tell work_is_age_appropriate to always return true...
-            patron.work_is_age_appropriate_return = True
-            set_trace()
-            eq_(True, m(patron))
+        # work_is_age_appropriate was called once, with the
+        # WorkList's target age and its first audience restriction.
+        # When work_is_age_appropriate returned False, it short-circuited
+        # the process and no second call was made.
+        patron.work_is_age_appropriate.assert_called_once_with(
+            wl.audiences[0], wl.target_age
+        )
 
-            # ...it gets called once for each audience restriction in
-            # our WorkList. Only if _every_ call returns True is the
-            # WorkList considered age-appropriate for the patron.
-            call1, call2 = [patron.work_is_age_appropriate_calls]
-            eq_((wl.audiences[0], wl.target_age), call1)
-            eq_((wl.audiences[1], wl.target_age), call2)
+        # If we tell work_is_age_appropriate to always return true...
+        patron.work_is_age_appropriate = MagicMock(return_value=True)
+
+        # ...accessible_to starts returning True.
+        eq_(True, m(patron))
+
+        # The mock method was called once for each audience
+        # restriction in our WorkList. Only if _every_ call returns
+        # True is the WorkList considered age-appropriate for the
+        # patron.
+        patron.work_is_age_appropriate.assert_has_calls([
+            call(wl.audiences[0], wl.target_age),
+            call(wl.audiences[1], wl.target_age),
+        ])
 
     def test_uses_customlists(self):
         """A WorkList is said to use CustomLists if either ._customlist_ids
