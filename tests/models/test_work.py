@@ -6,6 +6,7 @@ from nose.tools import (
 )
 import datetime
 from ...external_search import MockExternalSearchIndex
+from mock import MagicMock
 import os
 from psycopg2.extras import NumericRange
 import random
@@ -1222,13 +1223,12 @@ class TestWork(DatabaseTest):
         work.target_age = tuple_to_numericrange((12, 15))
         patron = self._patron()
 
-        def mock(self, audience, target_age):
-            self.called_with = (audience, target_age)
-            return "value"
+        patron.work_is_age_appropriate = MagicMock(return_value="value")
 
-        with patch('core.model.Patron.work_is_age_appropriate'):
-            eq_("value", work.age_appropriate_for_patron(patron))
-            eq_((work.audience, work.target_age), patron.called_with)
+        eq_("value", work.age_appropriate_for_patron(patron))
+        patron.work_is_age_appropriate.assert_called_with(
+            work.audience, work.target_age
+        )
 
     def test_age_appropriate_for_patron_end_to_end(self):
         # A test of age_appropriate_for_patron without any mocks.

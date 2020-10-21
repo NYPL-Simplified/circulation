@@ -6,7 +6,10 @@ from nose.tools import (
     set_trace,
 )
 import datetime
-from mock import patch
+from mock import (
+    call,
+    MagicMock,
+)
 
 from .. import DatabaseTest
 from ...classifier import Classifier
@@ -550,7 +553,7 @@ class TestPatron(DatabaseTest):
         patron.last_loan_activity_sync = recently
         eq_(recently, patron._last_loan_activity_sync)
         eq_(recently, patron.last_loan_activity_sync)
-        
+
         # If it's _not_ relatively recent, attempting to access it
         # clears it out.
         patron.last_loan_activity_sync = long_ago
@@ -608,58 +611,57 @@ class TestPatron(DatabaseTest):
         lane.root_for_patron_type = ["1"]
         self._db.flush()
 
-        def mock_age_appropriate_match(
-            self, work_audience, work_target_age,
-            reader_audience, reader_target_age
+        def mock_age_appropriate(work_audience, work_target_age,
+                 reader_audience, reader_target_age
         ):
-            """Mock that returns True only if reader_audience
-            is the preconfigured expected value.
+            """Returns True only if reader_audience is the preconfigured
+            expected value.
             """
-            self.calls.append((work_audience, work_target_age,
-                               reader_audience, reader_target_age))
             if reader_audience == self.return_true_for:
                 return True
             return False
 
         patron = self._patron()
-        patron.calls = []
-        patron.return_true_for = None
-        with patch('core.model.Patron.age_appropriate_match',
-                   mock_age_appropriate_match):
-            # If the patron has no root lane, age_appropriate_match is not
-            # even called -- all works are age-appropriate.
-            m = patron.work_is_age_appropriate
-            work_audience = object()
-            work_target_age = object()
-            eq_(True, m(work_audience, work_target_age))
-            eq_([], patron.calls)
+        mock = MagicMock(side_effect=mock_age_appropriate)
+        patron.age_appropriate_match = mock
+        self.calls = []
+        self.return_true_for = None
 
-            # Give the patron a root lane and try again.
-            patron.external_type = "1"
-            eq_(False, m(work_audience, work_target_age))
+        # If the patron has no root lane, age_appropriate_match is not
+        # even called -- all works are age-appropriate.
+        m = patron.work_is_age_appropriate
+        work_audience = object()
+        work_target_age = object()
+        eq_(True, m(work_audience, work_target_age))
+        eq_(0, mock.call_count)
 
-            # The mock age_appropriate_match() method was called on
-            # each audience associated with the patron's root lane.
-            c1, c2 = patron.calls
-            eq_((work_audience, work_target_age, 
-                 Classifier.AUDIENCE_CHILDREN, lane.target_age), c1)
-            eq_((work_audience, work_target_age, 
-                 Classifier.AUDIENCE_YOUNG_ADULT, lane.target_age), c2)
+        # Give the patron a root lane and try again.
+        patron.external_type = "1"
+        eq_(False, m(work_audience, work_target_age))
 
-            # work_is_age_appropriate() will only return True if at least
-            # one of the age_appropriate_match() calls returns True.
-            #
-            # Simulate this by telling our mock age_appropriate_match() to
-            # return True only when passed a specific reader audience. Our
-            # Mock lane has two audiences, and at most one can match.
-            patron.return_true_for = Classifier.AUDIENCE_CHILDREN
-            eq_(True, m(work_audience, work_target_age))
+        # age_appropriate_match method was called on
+        # each audience associated with the patron's root lane.
+        mock.assert_has_calls([
+            call(work_audience, work_target_age,
+                 Classifier.AUDIENCE_CHILDREN, lane.target_age),
+            call(work_audience, work_target_age,
+                 Classifier.AUDIENCE_YOUNG_ADULT, lane.target_age)
+        ])
 
-            patron.return_true_for = Classifier.AUDIENCE_YOUNG_ADULT
-            eq_(True, m(work_audience, work_target_age))
+        # work_is_age_appropriate() will only return True if at least
+        # one of the age_appropriate_match() calls returns True.
+        #
+        # Simulate this by telling our mock age_appropriate_match() to
+        # return True only when passed a specific reader audience. Our
+        # Mock lane has two audiences, and at most one can match.
+        self.return_true_for = Classifier.AUDIENCE_CHILDREN
+        eq_(True, m(work_audience, work_target_age))
 
-            patron.return_true_for = Classifier.AUDIENCE_ADULT
-            eq_(False, m(work_audience, work_target_age))
+        self.return_true_for = Classifier.AUDIENCE_YOUNG_ADULT
+        eq_(True, m(work_audience, work_target_age))
+
+        self.return_true_for = Classifier.AUDIENCE_ADULT
+        eq_(False, m(work_audience, work_target_age))
 
     def test_age_appropriate_match(self):
         # Check whether there's any overlap between a work's target age
