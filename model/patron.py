@@ -411,7 +411,8 @@ class Patron(Base):
 
         work_target_age = ensure_tuple(work_target_age)
         if isinstance(work_target_age, tuple):
-            # Pick the _bottom_ edge of a work's target age range,
+            # Pick the _bottom_ edge of a work's target age range --
+            # the work is appropriate for anyone _at least_ that old.
             work_target_age, ignore = work_target_age
 
         # A YA reader is treated as an adult (with no reading
