@@ -1215,172 +1215,20 @@ class TestWork(DatabaseTest):
             set([x['collection_id'] for x in search_doc['licensepools']]))
 
     def test_age_appropriate_for_patron(self):
-        # The target audience and age of a patron's root lane controls
-        # whether a given book is 'age-appropriate' for them.
-        class MockLane(object):
-            audiences = [Classifier.AUDIENCE_CHILDREN,
-                         Classifier.AUDIENCE_YOUNG_ADULT]
-            target_age = object()
-
-        class MockPatron(object):
-            root_lane = None
-
-        class MockWork(Work):
-            calls = []
-            return_true_for = None
-            def age_appropriate_for(self, audience, target_age):
-                self.calls.append((audience, target_age))
-                if audience == self.return_true_for:
-                    return True
-                return False
-
-        patron = MockPatron()
-        w = MockWork()
-
-        # The patron has no root lane, so age_appropriate_for is not
-        # even called.
-        eq_(True, w.age_appropriate_for_patron(patron))
-        eq_([], w.calls)
-
-        # Give the patron a root lane.
-        lane = MockLane()
-        patron.root_lane = lane
-        eq_(False, w.age_appropriate_for_patron(patron))
-
-        # age_appropriate_for was called on each audience associated
-        # with the root lane.
-        c1, c2 = w.calls
-        eq_((Classifier.AUDIENCE_CHILDREN, lane.target_age), c1)
-        eq_((Classifier.AUDIENCE_YOUNG_ADULT, lane.target_age), c2)
-
-        # age_appropriate_for_patron() will only return True if at
-        # least one of the age_appropriate_for() calls returns
-        # True.
-        #
-        # Simulate this by telling our mock Work to return True only
-        # when passed a specific audience. Our Mock lane has two
-        # audiences, one of which may or may not match.
-        w.return_true_for = Classifier.AUDIENCE_CHILDREN
-        eq_(True, w.age_appropriate_for_patron(patron))
-
-        w.return_true_for = Classifier.AUDIENCE_YOUNG_ADULT
-        eq_(True, w.age_appropriate_for_patron(patron))
-
-        w.return_true_for = Classifier.AUDIENCE_ADULT
-        eq_(False, w.age_appropriate_for_patron(patron))
-
-    def test_age_appropriate_for_patron_end_to_end(self):
-        # A test of age_appropriate_for_patron without mocks.
-        patron = self._patron()
-        patron.external_type = "a"
-
-        # This Lane contains books at the old end of the "children"
-        # range and the young end of the "young adult" range.
-        lane = self._lane()
-        lane.root_for_patron_type = ["a"]
-        # NOTE: setting target_age sets .audiences to appropriate values,
-        # so setting .audiences here is purely demonstrative.
-        lane.audiences = [
-            Classifier.AUDIENCE_CHILDREN, Classifier.AUDIENCE_YOUNG_ADULT
-        ]
-        lane.target_age = (9,14)
-
+        # This method is a simple passthrough for
+        # Patron.work_is_age_appropriate.
         work = self._work()
         work.audience = Classifier.AUDIENCE_YOUNG_ADULT
         work.target_age = tuple_to_numericrange((12, 15))
+        patron = self._patron()
 
-        eq_(True, work.age_appropriate_for_patron(patron))
+        def mock(self, audience, target_age):
+            self.called_with = (audience, target_age)
+            return "value"
 
-    def test_age_appropriate_for(self):
-        # Check whether this work is age-appropriate for a certain audience.
-        w = self._work()
-        m = w.age_appropriate_for
-        w.audience = object()
-
-        ya = Classifier.AUDIENCE_YOUNG_ADULT
-        children = Classifier.AUDIENCE_CHILDREN
-        adult = Classifier.AUDIENCE_ADULT
-
-        # A reader with no particular audience can see everything.
-        eq_(True, m(None, object()))
-
-        # A patron associated with a non-juvenile audience, such as
-        # AUDIENCE_ADULT, can see everything.
-        for patron_audience in Classifier.AUDIENCES:
-            if patron_audience in Classifier.AUDIENCES_JUVENILE:
-                # Tested later.
-                continue
-            eq_(True, m(patron_audience, object()))
-
-        # Everyone can see 'all-ages' books.
-        w.audience = Classifier.AUDIENCE_ALL_AGES
-        for patron_audience in Classifier.AUDIENCES:
-            eq_(True, m(patron_audience, object()))
-
-        # Children cannot see YA or adult books.
-        for audience in (ya, adult):
-            w.audience = audience
-            eq_(False, m(children, None))
-
-            # This is true even if the "child's" target age is set to
-            # a value that would allow for this (as can happen when
-            # the patron's root lane is set up to show both children's
-            # and YA titles).
-            eq_(False, m(children, (14,18)))
-
-        # YA readers can see any children's title.
-        w.audience = children
-        eq_(True, m(ya, object()))
-
-        # A YA reader is treated as an adult (with no reading
-        # restrictions) if they have no associated age range, or their
-        # age range includes ADULT_AGE_CUTOFF.
-        w.audience = adult
-        eq_(True, m(ya, None))
-        eq_(True, m(ya, 18))
-        eq_(True, m(ya, (14, 18)))
-
-        # Otherwise, YA readers cannot see books for adults.
-        eq_(False, m(ya, 16))
-        eq_(False, m(ya, (14,17)))
-
-        # Now let's consider the most complicated cases. First, a
-        # child who wants to read a children's book.
-        w.audience = children
-        for patron_audience in Classifier.AUDIENCES_YOUNG_CHILDREN:
-            # No target age -> it's fine (or at least we don't have
-            # the information necessary to say it's not fine).
-            w.target_age = None
-            eq_(True, m(patron_audience, object()))
-
-            w.target_age = (5, 7)
-            # Old enough.
-            for patron_age in (5,6,7,8,9):
-                eq_(True, m(patron_audience, patron_age))
-                eq_(True, m(patron_audience, (patron_age-1, patron_age)))
-            # Not old enough.
-            for patron_age in (2,3,4):
-                eq_(False, m(patron_audience, patron_age))
-                eq_(False, m(patron_audience, (patron_age-1, patron_age)))
-
-        # Similarly, a YA reader who wants to read a YA book.
-        w.audience = ya
-
-        # No target age -> it's fine (or at least we don't have
-        # the information necessary to say it's not fine).
-        w.target_age = None
-        eq_(True, m(ya, object()))
-
-        w.target_age = (14, 16)
-        # Old enough.
-        for patron_age in range(14, 20):
-            eq_(True, m(ya, patron_age))
-            eq_(True, m(ya, (patron_age-1, patron_age)))
-
-        # Not old enough.
-        for patron_age in range(6,14):
-            eq_(False, m(ya, patron_age))
-            eq_(False, m(ya, (patron_age-1, patron_age)))
+        with patch('core.model.Patron.work_is_age_appropriate'):
+            eq_("value", work.age_appropriate_for_patron(patron))
+            eq_((work.audience, work.target_age), patron.called_with)
 
     def test_unlimited_access_books_are_available_by_default(self):
         # Set up an edition and work.
