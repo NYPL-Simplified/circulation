@@ -658,8 +658,8 @@ class TestPatron(DatabaseTest):
             patron.return_true_for = Classifier.AUDIENCE_ADULT
             eq_(False, m(work_audience, work_target_age))
 
-    def test_age_appropriate_for_patron_end_to_end(self):
-        # A test of age_appropriate_for_patron without mocks.
+    def test_work_is_age_appropriate_end_to_end(self):
+        # A test work_is_age_appropriate without mocks.
         patron = self._patron()
         patron.external_type = "a"
 
@@ -679,6 +679,9 @@ class TestPatron(DatabaseTest):
         work.target_age = tuple_to_numericrange((12, 15))
 
         eq_(True, work.age_appropriate_for_patron(patron))
+
+        work.target_age = tuple_to_numericrange((16, 17))
+        eq_(False, work.age_appropriate_for_patron(patron))
 
     def test_age_appropriate_for(self):
         # Check whether this work is age-appropriate for a certain audience.
