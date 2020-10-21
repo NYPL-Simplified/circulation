@@ -5,6 +5,7 @@ from nose.tools import set_trace
 from . import (
     Base,
     get_one_or_create,
+    numericrange_to_tuple
 )
 from credential import Credential
 import datetime
@@ -21,6 +22,7 @@ from sqlalchemy import (
     Unicode,
     UniqueConstraint,
 )
+from psycopg2.extras import NumericRange
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm.session import Session
@@ -395,10 +397,22 @@ class Patron(Base):
 
         # At this point we know that the patron is a juvenile.
 
+        def ensure_tuple(x):
+            # Convert a potential NumericRange into a tuple.
+            if isinstance(x, NumericRange):
+                x = numericrange_to_tuple(x)
+            return x
+
+        reader_age = ensure_tuple(reader_age)
         if isinstance(reader_age, tuple):
             # A range was passed in rather than a specific age. Assume
             # the reader is at the top edge of the range.
             ignore, reader_age = reader_age
+
+        work_target_age = ensure_tuple(work_target_age)
+        if isinstance(work_target_age, tuple):
+            # Pick the _bottom_ edge of a work's target age range,
+            work_target_age, ignore = work_target_age
 
         # A YA reader is treated as an adult (with no reading
         # restrictions) if they have no associated age range, or their
@@ -430,18 +444,17 @@ class Patron(Base):
         # a child patron with a children's book. It comes down to a
         # question of the reader's age vs. the work's target age.
 
-        if not work_target_age:
+        if work_target_age is None:
             # This is a generic children's or YA book with no
             # particular target age. Assume it's age appropriate.
             return True
 
-        if not reader_age:
+        if reader_age is None:
             # We have no idea how old the patron is, so any work with
             # the appropriate audience is considered age-appropriate.
             return True
 
-        young_limit, old_limit = work_target_age
-        if reader_age < young_limit:
+        if reader_age < work_target_age:
             # The audience for this book matches the patron's
             # audience, but the book has a target age that is too high
             # for the reader.
