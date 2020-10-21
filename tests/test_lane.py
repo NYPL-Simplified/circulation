@@ -3193,19 +3193,19 @@ class TestLane(DatabaseTest):
         lane.root_for_patron_type = ["1"]
         patron.external_type = "1"
 
+        # Descendant -> it's accessible
         m = lane.accessible_to
-        with patch('core.lane.Lane.is_self_or_descendant',
-                   lambda self, x: True):
-            eq_(True, m(patron))
+        lane.is_self_or_descendant = MagicMock(return_value=True)
+        eq_(True, m(patron))
 
-        with patch('core.lane.Lane.is_self_or_descendant',
-                   lambda self, x: False):
-            eq_(False, m(patron))
+        # Not a descendant -> it's not accessible
+        lane.is_self_or_descendant = MagicMock(return_value=False)
+        eq_(False, m(patron))
 
-            # If the patron has no root lane, is_self_or_descendant
-            # isn't consulted.
-            patron.external_type = "2"
-            eq_(True, m(patron))
+        # If the patron has no root lane, is_self_or_descendant
+        # isn't consulted -- everything is accessible.
+        patron.external_type = "2"
+        eq_(True, m(patron))
 
     def test_update_size(self):
 
