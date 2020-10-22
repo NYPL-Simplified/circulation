@@ -47,6 +47,7 @@ from api.lanes import (
     CrawlableCustomListBasedLane,
     CrawlableFacets,
     DynamicLane,
+    JackpotWorkList,
     RecommendationLane,
     RelatedBooksLane,
     SeriesFacets,
@@ -4076,6 +4077,54 @@ class TestOPDSFeedController(CirculationControllerTest):
             eq_(REMOTE_INTEGRATION_FAILED.uri, problem.uri)
             eq_(u'The search index for this site is not properly configured.',
                 problem.detail)
+
+    def test_qa_feed(self):
+        # Test the qa_feed() controller method.
+
+        # Bad search index setup -> Problem detail
+        self.assert_bad_search_index_gives_problem_detail(
+            lambda: self.manager.opds_feeds.qa_feed(None)
+        )
+
+        # The AcquisitionFeed.groups method is tested in core, so we're
+        # just going to test that appropriate values are passed into that
+        # method:
+        class MockFeed(object):
+            @classmethod
+            def groups(cls, **kwargs):
+                self.called_with = kwargs
+                return "An OPDS feed"
+
+        with self.request_context_with_library("/"):
+            expect_url = self.manager.opds_feeds.url_for(
+                'qa_feed', library_short_name=self._default_library.short_name,
+            )
+            response = self.manager.opds_feeds.qa_feed(feed_class=MockFeed)
+            eq_("An OPDS feed", response)
+
+        kwargs = self.called_with
+        eq_(self._db, kwargs.pop('_db'))
+        eq_("QA test feed", kwargs.pop("title"))
+        eq_(self.manager.external_search, kwargs.pop('search_engine'))
+        eq_(expect_url, kwargs.pop('url'))
+
+        # These feeds are never to be cached.
+        eq_(CachedFeed.IGNORE_CACHE, kwargs.pop('max_age'))
+
+        # To build the feed, a JackpotWorkList was instantiated for
+        # the Library.
+        worklist = kwargs.pop('worklist')
+        assert isinstance(worklist, JackpotWorkList)
+        eq_(self._default_library, worklist.get_library(self._db))
+
+        # Then a LibraryAnnotator object was created from the JackpotWorkList.
+        annotator = kwargs.pop('annotator')
+        assert isinstance(annotator, LibraryAnnotator)
+        eq_(worklist, annotator.lane)
+        eq_(None, annotator.facets)
+
+        # No other arguments were passed into qa_feed().
+        eq_({}, kwargs)
 
 
 class TestCrawlableFeed(CirculationControllerTest):
