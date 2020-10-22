@@ -167,13 +167,13 @@ class CirculationManager(object):
         application-specific access restrictions:
 
         * You can't use nonstandard caching rules unless you're an authenticated administrator.
-        * You can't access a WorkList that's not visible to you.
+        * You can't access a WorkList that's not accessible to you.
         """
 
         facets = load_facets_from_request(*args, **kwargs)
 
         worklist = kwargs.get('worklist')
-        if worklist is not None and not worklist.is_visible_to(self.request_patron):
+        if worklist is not None and not worklist.accessible_to(self.request_patron):
             return NO_SUCH_LANE.detailed(_("Lane does not exist"))
 
         if isinstance(facets, BaseFacets) and getattr(facets, 'max_cache_age', None) is not None:
@@ -638,8 +638,8 @@ class CirculationManagerController(BaseCirculationManagerController):
                     self._db, Lane, id=lane_identifier, library_id=library_id
                 )
 
-        if lane and not lane.visible_to(self.request_patron):
-            # The authenticated patron cannot see the lane they
+        if lane and not lane.accessible_to(self.request_patron):
+            # The authenticated patron cannot access the lane they
             # requested. Act like the lane does not exist.
             lane = None
 

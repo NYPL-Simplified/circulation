@@ -14,7 +14,7 @@ import urlparse
 from wsgiref.handlers import format_date_time
 from time import mktime
 from decimal import Decimal
-from mock import patch
+from mock import MagicMock
 
 import flask
 from flask import (
@@ -61,7 +61,6 @@ from api.circulation_exceptions import RemoteInitiatedServerError
 from api.simple_authentication import SimpleAuthenticationProvider
 from core.app_server import (
     cdn_url_for,
-    load_lending_policy,
     load_facets_from_request,
 )
 from core.classifier import Classifier
@@ -809,18 +808,16 @@ class TestBaseController(CirculationControllerTest):
             flask.request.patron = o1
             eq_(o1, self.controller.request_patron)
 
-        # If not, authenticated_patron_from_request is called to set
-        # flask.request.patron
+        # If not, authenticated_patron_from_request is called; it's
+        # supposed to set flask.request.patron.
         o2 = object()
-        def mock(self):
+        def set_patron():
             flask.request.patron = o2
-            return "return value will be ignored"
-
-        with patch(
-            'api.base_controller.BaseCirculationManagerController.authenticated_patron_from_request', mock
-        ):
-            with self.app.test_request_context("/"):
-                eq_(o2, self.controller.request_patron)
+        mock = MagicMock(side_effect = set_patron,
+                         return_value = "return value will be ignored")
+        self.controller.authenticated_patron_from_request = mock
+        with self.app.test_request_context("/"):
+            eq_(o2, self.controller.request_patron)
 
     def test_authenticated_patron_from_request(self):
         # Test the method that attempts to authenticate a patron
