@@ -116,6 +116,7 @@ from core.model import (
     get_one,
     get_one_or_create,
     create,
+    tuple_to_numericrange,
 )
 from core.lane import (
     DatabaseBackedFacets,
@@ -1205,19 +1206,19 @@ class TestBaseController(CirculationControllerTest):
 
         # Set up lanes for different patron types.
         children_lane = self._lane()
-        children.audiences = [Classifier.AUDIENCE_CHILDREN,
+        children_lane.audiences = [Classifier.AUDIENCE_CHILDREN,
                               Classifier.AUDIENCE_YOUNG_ADULT]
-        children.target_age = (9, 12)
-        children.root_for_patron_types = ["child"]
+        children_lane.target_age = tuple_to_numericrange((9, 12))
+        children_lane.root_for_patron_type = ["child"]
         
-        adults = self._lane()
-        adults.audiences = [Classifier.AUDIENCE_ADULT]
-        adults.root_for_patron_types = ["adult"]
+        adults_lane = self._lane()
+        adults_lane.audiences = [Classifier.AUDIENCE_ADULT]
+        adults_lane.root_for_patron_type = ["adult"]
 
         # This book is age-appropriate for anyone 13 years old or older.
         work = self._work(with_license_pool=True)
         work.audience = Classifier.AUDIENCE_CHILDREN
-        work.target_age = (13,15)
+        work.target_age = tuple_to_numericrange((13,15))
         [pool] = work.license_pools
 
         with self.request_context_with_library("/"):
@@ -1228,17 +1229,17 @@ class TestBaseController(CirculationControllerTest):
             # book would not appear.
             patron.external_type = "child"
 
-            # The book is not age-appropriate for the patron.
+            # Therefore the book is not age-appropriate for the patron.
             problem = self.controller.apply_borrowing_policy(patron, pool)
             eq_(FORBIDDEN_BY_POLICY.uri, problem.uri)
 
             # If the lane is expanded to allow the book's age range, there's
             # no problem.
-            children.target_age = (9,13)
+            children_lane.target_age = tuple_to_numericrange((9,13))
             eq_(None, self.controller.apply_borrowing_policy(patron, pool))
 
             # Similarly if the patron is given a different external type.
-            children.target_age = (9, 12)
+            children_lane.target_age = tuple_to_numericrange((9, 12))
             patron.external_type = "adult"
             eq_(None, self.controller.apply_borrowing_policy(patron, pool))
 

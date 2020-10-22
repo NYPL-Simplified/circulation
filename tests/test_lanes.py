@@ -414,8 +414,9 @@ class TestWorkBasedLane(DatabaseTest):
         eq_(True, lane.accessible_to(patron))
         work.age_appropriate_for_patron.assert_called_once_with(patron)
 
-        # The WorkList rules are still enforced -- a patron from
-        # library B can't access any kind of WorkList from library A.
+        # The WorkList rules are still enforced -- for instance, a
+        # patron from library B can't access any kind of WorkList from
+        # library A.
         other_library_patron = self._patron(library=self._library())
         eq_(False, lane.accessible_to(other_library_patron))
 
