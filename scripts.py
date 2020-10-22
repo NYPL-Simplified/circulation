@@ -90,7 +90,7 @@ from core.model import (
     Subject,
     Timestamp,
     Work,
-)
+    EditionConstants)
 from core.model.configuration import ExternalIntegrationLink
 from core.opds import (
     AcquisitionFeed,
@@ -1309,6 +1309,14 @@ class DirectoryImportScript(TimestampScript):
             help=u"Show what would be imported, but don't actually do the import.",
             action='store_true',
         )
+        parser.add_argument(
+            '--default-medium-type',
+            help=u'Default medium type used in the case when it\'s not explicitly specified in a metadata file. '
+                 u'Valid values are: {0}.'.format(', '.join(EditionConstants.FULFILLABLE_MEDIA)),
+            type=str,
+            choices=EditionConstants.FULFILLABLE_MEDIA
+        )
+
         return parser
 
     def do_run(self, cmd_args=None):
@@ -1323,16 +1331,33 @@ class DirectoryImportScript(TimestampScript):
         ebook_directory = parsed.ebook_directory
         rights_uri = parsed.rights_uri
         dry_run = parsed.dry_run
+        default_medium_type = parsed.default_medium_type
+
         return self.run_with_arguments(
-            collection_name, collection_type, data_source_name,
-            metadata_file, metadata_format, cover_directory,
-            ebook_directory, rights_uri, dry_run
+            collection_name=collection_name,
+            collection_type=collection_type,
+            data_source_name=data_source_name,
+            metadata_file=metadata_file,
+            metadata_format=metadata_format,
+            cover_directory=cover_directory,
+            ebook_directory=ebook_directory,
+            rights_uri=rights_uri,
+            dry_run=dry_run,
+            default_medium_type=default_medium_type
         )
 
     def run_with_arguments(
-            self, collection_name, collection_type, data_source_name, metadata_file,
-            metadata_format, cover_directory, ebook_directory, rights_uri,
-            dry_run
+            self,
+            collection_name,
+            collection_type,
+            data_source_name,
+            metadata_file,
+            metadata_format,
+            cover_directory,
+            ebook_directory,
+            rights_uri,
+            dry_run,
+            default_medium_type=None
     ):
         if dry_run:
             self.log.warn(
@@ -1351,7 +1376,7 @@ class DirectoryImportScript(TimestampScript):
 
         replacement_policy = ReplacementPolicy.from_license_source(self._db)
         replacement_policy.mirrors = mirrors
-        metadata_records = self.load_metadata(metadata_file, metadata_format, data_source_name)
+        metadata_records = self.load_metadata(metadata_file, metadata_format, data_source_name, default_medium_type)
         for metadata in metadata_records:
             self.work_from_metadata(
                 collection,
@@ -1428,7 +1453,7 @@ class DirectoryImportScript(TimestampScript):
 
         return collection, mirrors
 
-    def load_metadata(self, metadata_file, metadata_format, data_source_name):
+    def load_metadata(self, metadata_file, metadata_format, data_source_name, default_medium_type):
         """Read a metadata file and convert the data into Metadata records."""
         metadata_records = []
 
@@ -1438,7 +1463,7 @@ class DirectoryImportScript(TimestampScript):
             extractor = ONIXExtractor()
 
         with open(metadata_file) as f:
-            metadata_records.extend(extractor.parse(f, data_source_name))
+            metadata_records.extend(extractor.parse(f, data_source_name, default_medium_type))
         return metadata_records
 
     def work_from_metadata(self, collection, collection_type, metadata, policy, *args, **kwargs):

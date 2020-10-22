@@ -326,4 +326,26 @@
       </supplydetail>
     </productsupply>
   </product>
+  <product>
+    <a001>001043-32582478</a001>
+    <a002>03</a002>
+    <b385>01</b385>
+    <productidentifier>
+      <b221>02</b221>
+      <b244>0262343665</b244>
+    </productidentifier>
+    <productidentifier>
+      <b221>03</b221>
+      <b244>9780262343664</b244>
+    </productidentifier>
+    <productidentifier>
+      <b221>15</b221>
+      <b244>9780262343664</b244>
+    </productidentifier>
+    <productidentifier>
+      <b221>01</b221>
+      <b233>MIT Press Title ID</b233>
+      <b244>11245</b244>
+    </productidentifier>
+  </product>
 </ONIXmessage>

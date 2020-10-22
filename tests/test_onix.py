@@ -27,7 +27,7 @@ class TestONIXExtractor(object):
         file = self.sample_data("onix_example.xml")
         metadata_records = ONIXExtractor().parse(StringIO(file), "MIT Press")
 
-        eq_(1, len(metadata_records))
+        eq_(2, len(metadata_records))
 
         record = metadata_records[0]
         eq_("Safe Spaces, Brave Spaces", record.title)
@@ -52,6 +52,9 @@ class TestONIXExtractor(object):
 
         eq_(1, len(record.links))
         assert "the essential democratic values of diversity and free expression" in record.links[0].content
+
+        record = metadata_records[1]
+        eq_(Edition.AUDIO_MEDIUM, record.medium)
 
     @parameterized.expand([
         (
