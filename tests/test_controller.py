@@ -2970,6 +2970,9 @@ class TestWorkController(CirculationControllerTest):
         # An end-to-end test of the idea that a patron can't access
         # feeds configured to include titles that would not be
         # age-appropriate for that patron.
+        #
+        # A similar test could be run for any of the other subclasses
+        # of DynamicLane.
         m = self.manager.work_controller.contributor
 
         contributor, ignore = self._contributor()
