@@ -2934,6 +2934,45 @@ class TestWorkController(CirculationControllerTest):
         # No other arguments were passed into page().
         eq_({}, kwargs)
 
+    def test_age_appropriateness_end_to_end(self):
+        # An end-to-end test of the idea that a patron can't access
+        # feeds configured to include titles that would not be
+        # age-appropriate for that patron.
+        m = self.manager.work_controller.contributor
+
+        contributor, ignore = self._contributor()
+
+        patron = self.default_patrons[self._default_library]
+        patron.external_type = "child"
+        children_lane = self._lane()
+        children_lane.audiences = [Classifier.AUDIENCE_CHILDREN]
+        children_lane.target_age = tuple_to_numericrange((4, 5))
+        children_lane.root_for_patron_type = ["child"]
+
+        with self.request_context_with_library(
+            "/", headers=dict(Authorization=self.valid_auth)
+        ):
+            # If we ask for books for adults _or_ children by a given
+            # author, we're denied access -- the authenticated
+            # patron's root lane would make any adult books
+            # age-inappropriate.
+            audiences = ",".join([
+                Classifier.AUDIENCE_ADULT, Classifier.AUDIENCE_CHILDREN
+            ])
+            response = m(contributor.sort_name, "eng", audiences)
+            assert isinstance(response, ProblemDetail)
+            eq_(NO_SUCH_LANE.uri, response.uri)
+
+            # If we only ask for children's books by the same author,
+            # we're fine.
+            response = m(contributor.sort_name, "eng", 
+                         Classifier.AUDIENCE_CHILDREN)
+            eq_(200, response.status_code)
+
+        # We're also fine if we don't authenticate the request at all.
+        with self.request_context_with_library("/"):
+            response = m(contributor.sort_name, "eng", audiences)
+            eq_(200, response.status_code)
 
     def test_permalink(self):
         with self.request_context_with_library("/"):
