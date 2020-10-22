@@ -174,7 +174,7 @@ class Script(object):
             )
             stack_trace = traceback.format_exc()
             self.update_timestamp(None, start_time, stack_trace)
-            raise e
+            raise
 
     def load_configuration(self):
         if not Configuration.cdns_loaded_from_database():
@@ -2078,7 +2078,7 @@ class DatabaseMigrationScript(Script):
             # If _none_ of those worked, something is wrong on a
             # deeper level.
             if exception:
-                raise e
+                raise exception
 
             if not results:
                 # Make sure there's a row for this service in the timestamps
@@ -3005,9 +3005,9 @@ class WhereAreMyBooksScript(CollectionInputScript):
         self.output = output or sys.stdout
         try:
             self.search = search or ExternalSearchIndex(_db)
-        except CannotLoadConfiguration, e:
+        except CannotLoadConfiguration:
             self.out("Here's your problem: the search integration is missing or misconfigured.")
-            raise e
+            raise
 
     def out(self, s, *args):
         if not s.endswith("\n"):

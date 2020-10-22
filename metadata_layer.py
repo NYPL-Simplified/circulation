@@ -847,7 +847,8 @@ class MetaToModelUtility(object):
 
         # Determine the best URL to use when mirroring this
         # representation.
-        if link.media_type in Representation.BOOK_MEDIA_TYPES:
+        if link.media_type in Representation.BOOK_MEDIA_TYPES or \
+                link.media_type in Representation.AUDIOBOOK_MEDIA_TYPES:
             url_title = title or identifier.identifier
             extension = representation.extension()
             mirror_url = mirror.book_url(
@@ -2377,7 +2378,7 @@ class MARCExtractor(object):
         return None
 
     @classmethod
-    def parse(cls, file, data_source_name):
+    def parse(cls, file, data_source_name, default_medium_type=None):
         reader = MARCReader(file)
         metadata_records = []
 

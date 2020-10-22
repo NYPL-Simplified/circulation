@@ -233,6 +233,7 @@ class MediaTypes(object):
     OCTET_STREAM_MEDIA_TYPE = u"application/octet-stream"
     TEXT_PLAIN = u"text/plain"
     AUDIOBOOK_MANIFEST_MEDIA_TYPE = u"application/audiobook+json"
+    AUDIOBOOK_PACKAGE_MEDIA_TYPE = u"application/audiobook+zip"
     MARC_MEDIA_TYPE = u"application/marc"
 
     # To distinguish internally between Overdrive's audiobook and
@@ -245,6 +246,7 @@ class MediaTypes(object):
     AUDIOBOOK_MEDIA_TYPES = [
         OVERDRIVE_AUDIOBOOK_MANIFEST_MEDIA_TYPE,
         AUDIOBOOK_MANIFEST_MEDIA_TYPE,
+        AUDIOBOOK_PACKAGE_MEDIA_TYPE
     ]
 
     BOOK_MEDIA_TYPES = [
@@ -297,11 +299,12 @@ class MediaTypes(object):
             (TEXT_HTML_MEDIA_TYPE, "html"),
             (APPLICATION_XML_MEDIA_TYPE, "xml"),
             (AUDIOBOOK_MANIFEST_MEDIA_TYPE, "audiobook-manifest"),
+            (AUDIOBOOK_PACKAGE_MEDIA_TYPE, "audiobook"),
             (SCORM_MEDIA_TYPE, "zip")
         ]
     )
 
-    COMMON_EBOOK_EXTENSIONS = ['.epub', '.pdf']
+    COMMON_EBOOK_EXTENSIONS = ['.epub', '.pdf', '.audiobook']
     COMMON_IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif']
 
     # Invert FILE_EXTENSIONS and add some extra guesses.
