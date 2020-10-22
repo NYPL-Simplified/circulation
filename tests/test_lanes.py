@@ -395,10 +395,10 @@ class TestWorkBasedLane(DatabaseTest):
         # A lane based on a Work is accessible to a patron only if
         # the Work is age-appropriate for the patron.
         work = self._work()
-        patron = object()
+        patron = self._patron()
+        lane = WorkBasedLane(self._default_library, work)
 
         work.age_appropriate_for_patron = MagicMock(return_value=False)
-        lane = WorkBasedLane(self._default_library, work)
         eq_(False, lane.accessible_to(patron))
         work.age_appropriate_for_patron.assert_called_once_with(patron)
 
@@ -411,9 +411,13 @@ class TestWorkBasedLane(DatabaseTest):
         lane.work = work
         work.age_appropriate_for_patron = MagicMock(return_value=True)
         lane = WorkBasedLane(self._default_library, work)
-        patron = object()
         eq_(True, lane.accessible_to(patron))
         work.age_appropriate_for_patron.assert_called_once_with(patron)
+
+        # The WorkList rules are still enforced -- a patron from
+        # library B can't access any kind of WorkList from library A.
+        other_library_patron = self._patron(library=self._library())
+        eq_(False, lane.accessible_to(other_library_patron))
 
 
 class TestRelatedBooksLane(DatabaseTest):
