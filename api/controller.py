@@ -666,7 +666,13 @@ class CirculationManagerController(BaseCirculationManagerController):
 
         # We know there is at least one LicensePool, and all LicensePools
         # for an Identifier have the same Work.
-        return pools[0].work
+        work = pools[0].work
+
+        if work and not work.age_appropriate_for_patron(self.request_patron):
+            # This work is not age-appropriate for the authenticated
+            # patron. Act like it doesn't exist.
+            work = None
+        return work
 
     def load_licensepools(self, library, identifier_type, identifier):
         """Turn user input into one or more LicensePool objects.

@@ -740,9 +740,7 @@ class TestCirculationManager(CirculationControllerTest):
         ):
             facets = self.manager.load_facets_from_request(worklist=wl)
             assert isinstance(facets, Facets)
-            wl.accessible_to.assert_called_with(
-                self.default_patrons[self._default_library]
-            )
+            wl.accessible_to.assert_called_with(self.default_patron)
 
         # The request is short-circuited if accessible_to returns
         # False.
@@ -1119,6 +1117,40 @@ class TestBaseController(CirculationControllerTest):
             lp5.identifier.identifier
         )
         eq_(NO_LICENSES.uri, problem_detail.uri)
+
+    def test_load_work(self):
+
+        # Create a Work with two LicensePools.
+        work = self._work(with_license_pool=True)
+        [pool1] = work.license_pools
+        pool2 = self._licensepool(None)
+        pool2.work = work
+
+        # Either identifier suffices to identify the Work.
+        for i in [pool1.identifier, pool2.identifier]:
+            with self.request_context_with_library("/"):
+                eq_(
+                    work,
+                    self.controller.load_work(
+                        self._default_library, i.type, i.identifier
+                    )
+                )
+
+        # If a patron is authenticated, the requested Work must be
+        # age-appropriate for that patron, or this method will return
+        # None.
+        headers = dict(Authorization=self.valid_auth)
+        for retval, expect in [(True, work), (False, None)]:
+            work.age_appropriate_for_patron = MagicMock(return_value = retval)
+            with self.request_context_with_library("/", headers=headers):
+                eq_(
+                    expect,
+                    self.controller.load_work(
+                        self._default_library, pool1.identifier.type,
+                        pool1.identifier.identifier
+                    )
+                )
+                work.age_appropriate_for_patron.called_with(self.default_patron)
 
     def test_load_licensepooldelivery(self):
 
@@ -2942,7 +2974,7 @@ class TestWorkController(CirculationControllerTest):
 
         contributor, ignore = self._contributor()
 
-        patron = self.default_patrons[self._default_library]
+        patron = self.default_patron
         patron.external_type = "child"
         children_lane = self._lane()
         children_lane.audiences = [Classifier.AUDIENCE_CHILDREN]
