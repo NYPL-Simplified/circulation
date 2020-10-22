@@ -787,6 +787,8 @@ class Work(Base):
         :param patron: A Patron.
         :return: A boolean
         """
+        if patron is None:
+            return True
         return patron.work_is_age_appropriate(self.audience, self.target_age)
 
     def set_presentation_edition(self, new_presentation_edition):

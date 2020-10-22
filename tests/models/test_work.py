@@ -1216,13 +1216,16 @@ class TestWork(DatabaseTest):
             set([x['collection_id'] for x in search_doc['licensepools']]))
 
     def test_age_appropriate_for_patron(self):
-        # This method is a simple passthrough for
-        # Patron.work_is_age_appropriate.
         work = self._work()
         work.audience = Classifier.AUDIENCE_YOUNG_ADULT
         work.target_age = tuple_to_numericrange((12, 15))
         patron = self._patron()
 
+        # If no Patron is specified, the method always returns True.
+        eq_(True, work.age_appropriate_for_patron(None))
+
+        # Otherwise, this method is a simple passthrough for
+        # Patron.work_is_age_appropriate.
         patron.work_is_age_appropriate = MagicMock(return_value="value")
 
         eq_("value", work.age_appropriate_for_patron(patron))
