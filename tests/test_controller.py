@@ -669,12 +669,9 @@ class TestCirculationManager(CirculationControllerTest):
             assert isinstance(annotator, CirculationManagerAnnotator)
             eq_(worklist, annotator.lane)
 
-    def test_load_facets_from_request(self):
-        # Test our customization to the core load_facets_from_request
-        # function.
-        #
-        # Specifically, only an authenticated admin can ask to disable
-        # caching.
+    def test_load_facets_from_request_disable_caching(self):
+        # Only an authenticated admin can ask to disable caching,
+        # and load_facets_from_request is where we enforce this.
         class MockAdminSignInController(object):
             # Pretend to be able to find (or not) an Admin authenticated
             # to make the current request.
@@ -722,6 +719,42 @@ class TestCirculationManager(CirculationControllerTest):
                 controller.admin = value
                 facets = self.manager.load_facets_from_request()
                 eq_(None, facets.max_cache_age)
+
+    def test_load_facets_from_request_denies_access_to_inaccessible_worklist(self):
+        """You can't access a WorkList that's inaccessible to your patron
+        type, and load_facets_from_request (which is called when
+        presenting the WorkList) is where we enforce this.
+        """
+        wl = WorkList()
+        wl.accessible_to = MagicMock(return_value=True)
+
+        # The authenticated patron, if any, is passed into
+        # WorkList.accessible_to.
+        with self.request_context_with_library("/"):
+            facets = self.manager.load_facets_from_request(worklist=wl)
+            assert isinstance(facets, Facets)
+            wl.accessible_to.assert_called_once_with(None)
+
+        with self.request_context_with_library(
+            "/", headers=dict(Authorization=self.valid_auth)
+        ):
+            facets = self.manager.load_facets_from_request(worklist=wl)
+            assert isinstance(facets, Facets)
+            wl.accessible_to.assert_called_with(
+                self.default_patrons[self._default_library]
+            )
+
+        # The request is short-circuited if accessible_to returns
+        # False.
+        wl.accessible_to = MagicMock(return_value=False)
+        with self.request_context_with_library("/"):
+            facets = self.manager.load_facets_from_request(worklist=wl)
+            assert isinstance(facets, ProblemDetail)
+
+            # Because the patron didn't ask for a specific title, we
+            # respond that the lane doesn't exist rather than saying
+            # they've been denied access to age-inappropriate content.
+            eq_(NO_SUCH_LANE.uri, facets.uri)
 
     def test_cdn_url_for(self):
         # Test the various rules for generating a URL for a view while
@@ -785,6 +818,7 @@ class TestCirculationManager(CirculationControllerTest):
 class TestBaseController(CirculationControllerTest):
 
     def test_unscoped_session(self):
+
         """Compare to TestScopedSession.test_scoped_session to see
         how database sessions will be handled in production.
         """
@@ -1203,6 +1237,8 @@ class TestBaseController(CirculationControllerTest):
             eq_(FORBIDDEN_BY_POLICY.uri, problem.uri)
 
     def test_apply_borrowing_policy_for_age_inappropriate_book(self):
+        # apply_borrowing_policy() prevents patrons from checking out
+        # books that are not age-appropriate.
 
         # Set up lanes for different patron types.
         children_lane = self._lane()
@@ -1238,7 +1274,9 @@ class TestBaseController(CirculationControllerTest):
             children_lane.target_age = tuple_to_numericrange((9,13))
             eq_(None, self.controller.apply_borrowing_policy(patron, pool))
 
-            # Similarly if the patron is given a different external type.
+            # Similarly if the patron has an external type
+            # corresponding to a root lane in which the given book
+            # _is_ age-appropriate.
             children_lane.target_age = tuple_to_numericrange((9, 12))
             patron.external_type = "adult"
             eq_(None, self.controller.apply_borrowing_policy(patron, pool))

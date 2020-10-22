@@ -173,8 +173,15 @@ class CirculationManager(object):
         facets = load_facets_from_request(*args, **kwargs)
 
         worklist = kwargs.get('worklist')
-        if worklist is not None and not worklist.accessible_to(self.request_patron):
-            return NO_SUCH_LANE.detailed(_("Lane does not exist"))
+        if worklist is not None:
+
+            # Try to get the index controller. If it's not initialized
+            # for any reason, don't run this check -- we have bigger
+            # problems.
+            index_controller = getattr(self, 'index_controller', None)
+            if (index_controller and not
+                worklist.accessible_to(index_controller.request_patron)):
+                return NO_SUCH_LANE.detailed(_("Lane does not exist"))
 
         if isinstance(facets, BaseFacets) and getattr(facets, 'max_cache_age', None) is not None:
             # A faceting object was loaded, and it tried to do something nonstandard
