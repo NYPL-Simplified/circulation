@@ -3207,6 +3207,9 @@ class TestLane(DatabaseTest):
         patron.external_type = "2"
         eq_(True, m(patron))
 
+        # Similarly if there is no authenticated patron.
+        eq_(True, m(None))
+
     def test_update_size(self):
 
         class Mock(object):

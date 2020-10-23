@@ -2626,6 +2626,9 @@ class Lane(Base, DatabaseBackedWorkList):
         if not super(Lane, self).accessible_to(patron):
             return False
 
+        if patron is None:
+            return True
+
         root_lane = patron.root_lane
         if root_lane and not self.is_self_or_descendant(root_lane):
             # In addition, a database Lane that's not in scope of the
