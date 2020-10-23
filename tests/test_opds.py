@@ -92,7 +92,11 @@ class TestBaseAnnotator(DatabaseTest):
         edition.add_contributor(
             "Jonathan Frakes", Contributor.NARRATOR_ROLE
         )
-        author, contributor = Annotator.authors(None, edition)
+        author, contributor = sorted(
+            Annotator.authors(None, edition),
+            key=lambda x: x.tag
+        )
+        
 
         # The <author> tag indicates a role of 'author', so there's no
         # need for an explicitly specified role property.
