@@ -1651,7 +1651,8 @@ class WorkList(object):
         # for any children that are Lanes, and call groups()
         # recursively for any children that are not.
         for work, worklist in self._groups_for_lanes(
-            _db, relevant_children, relevant_lanes, pagination=pagination,j            facets=facets, search_engine=search_engine, debug=debug
+            _db, relevant_children, relevant_lanes, pagination=pagination,
+            facets=facets, search_engine=search_engine, debug=debug
         ):
             yield work, worklist
 
