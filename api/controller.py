@@ -721,6 +721,21 @@ class CirculationManagerController(BaseCirculationManagerController):
         return mechanism or BAD_DELIVERY_MECHANISM
 
     def apply_borrowing_policy(self, patron, license_pool):
+        """Apply the borrowing policy of the patron's library to the
+        book they're trying to check out.
+
+        This prevents a patron from borrowing an age-inappropriate book
+        or from placing a hold in a library that prohibits holds.
+
+        Generally speaking, both of these operations should be
+        prevented before they get to this point; this is an extra
+        layer of protection.
+
+        :param patron: A `Patron`. It's okay if this turns out to be a
+           `ProblemDetail` or `None` due to a problem earlier in the
+           process.
+        :param license_pool`: The `LicensePool` the patron is trying to act on.
+        """
         if patron is None or isinstance(patron, ProblemDetail):
             # An earlier stage in the process failed to authenticate
             # the patron.
