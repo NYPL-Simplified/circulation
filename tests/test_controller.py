@@ -14,7 +14,10 @@ import urlparse
 from wsgiref.handlers import format_date_time
 from time import mktime
 from decimal import Decimal
-from mock import MagicMock
+from mock import (
+    MagicMock,
+    patch
+)
 
 import flask
 from flask import (
@@ -1139,9 +1142,9 @@ class TestBaseController(CirculationControllerTest):
 
         # If a patron is authenticated, the requested Work must be
         # age-appropriate for that patron, or this method will return
-        # None.
+        # a problem detail.
         headers = dict(Authorization=self.valid_auth)
-        for retval, expect in [(True, work), (False, None)]:
+        for retval, expect in ((True, work), (False, NOT_AGE_APPROPRIATE)):
             work.age_appropriate_for_patron = MagicMock(return_value = retval)
             with self.request_context_with_library("/", headers=headers):
                 eq_(
@@ -1414,24 +1417,20 @@ class TestBaseController(CirculationControllerTest):
         # Any lane will do here.
         lane = lanes[0]
 
-        # Mock Lane.visible_to so that it always returns
+        # Mock Lane.accessible_to so that it always returns
         # false.
-        lane.called_with = None
-        def mock_visible_to(self, patron):
-            self.visible_to_called_with = patron
-            return False
-
-        with patch('core.lane.Lane.visible_to', mock_visible_to):
-            headers = dict(Authorization=self.valid_auth)
-            with self.request_context_with_library(
-                "/", headers=headers, library=self._default_library
-            ):
-                # The lane exists, but visible_to says it's not
-                # visible to the authenticated patron.
-                result = self.controller.load_lane(lane.id)
-                assert isinstance(result, ProblemDetail)
-                eq_(result.uri, NO_SUCH_LANE.uri)
-                eq_(self.default_patron, lane.visible_to_called_with)
+        lane.accessible_to = MagicMock(return_value=False)
+        headers = dict(Authorization=self.valid_auth)
+        with self.request_context_with_library(
+            "/", headers=headers, library=self._default_library
+        ):
+            # The lane exists, but visible_to says it's not
+            # visible to the authenticated patron, so the controller
+            # denies it exists.
+            result = self.controller.load_lane(lane.id)
+            assert isinstance(result, ProblemDetail)
+            eq_(result.uri, NO_SUCH_LANE.uri)
+            lane.accessible_to.assert_called_once_with(self.default_patron)
 
 
 class TestIndexController(CirculationControllerTest):

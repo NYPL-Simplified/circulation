@@ -142,7 +142,6 @@ from problem_details import *
 from shared_collection import SharedCollectionAPI
 from testing import MockCirculationAPI, MockSharedCollectionAPI
 
-
 class CirculationManager(object):
 
     def __init__(self, _db, testing=False):
@@ -672,8 +671,8 @@ class CirculationManagerController(BaseCirculationManagerController):
 
         if work and not work.age_appropriate_for_patron(self.request_patron):
             # This work is not age-appropriate for the authenticated
-            # patron. Act like it doesn't exist.
-            work = None
+            # patron. Don't show it.
+            work = NOT_AGE_APPROPRIATE
         return work
 
     def load_licensepools(self, library, identifier_type, identifier):
@@ -722,15 +721,14 @@ class CirculationManagerController(BaseCirculationManagerController):
         return mechanism or BAD_DELIVERY_MECHANISM
 
     def apply_borrowing_policy(self, patron, license_pool):
-        if isinstance(patron, ProblemDetail):
+        if patron is None or isinstance(patron, ProblemDetail):
+            # An earlier stage in the process failed to authenticate
+            # the patron.
             return patron
 
         work = license_pool.work
-        if not work.age_appropriate_for_patron(patron):
-            return FORBIDDEN_BY_POLICY.detailed(
-                _("Library policy considers this title inappropriate for your patron type."),
-                status_code=451
-            )
+        if work is not None and not work.age_appropriate_for_patron(patron):
+            return NOT_AGE_APPROPRIATE
 
         if (not patron.library.allow_holds and
             license_pool.licenses_available == 0 and
