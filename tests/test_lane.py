@@ -1912,14 +1912,15 @@ class TestWorkList(DatabaseTest):
         eq_((w1, child2), wwl3)
 
     def test_groups_propagates_facets(self):
-        """Verify that the Facets object passed into groups() is
-        propagated to the methods called by groups().
-        """
+        # Verify that the Facets object passed into groups() is
+        # propagated to the methods called by groups().
+        #
+        # TODO: Also check pagination
         class MockWorkList(WorkList):
 
             overview_facets_called_with = None
 
-            def works(self, _db, facets):
+            def works(self, _db, pagination, facets):
                 self.works_called_with = facets
                 return []
 
@@ -3930,7 +3931,7 @@ class TestWorkListGroupsEndToEnd(EndToEndSearchTest):
             visible = True
             priority = 2
 
-            def groups(slf, _db, include_sublanes, facets=None):
+            def groups(slf, _db, include_sublanes, pagination=None, facets=None):
                 yield self.lq_litfic, slf
 
         mock = MockWorkList()
@@ -3987,7 +3988,7 @@ class TestWorkListGroups(DatabaseTest):
                 self.overview_facets_called_with = (_db, facets)
                 return "Custom facets for %s." % self.id
 
-            def works(self, _db, facets, *args, **kwargs):
+            def works(self, _db, pagination, facets, *args, **kwargs):
                 self.works_called_with = facets
                 return [self.work]
 
@@ -4007,7 +4008,7 @@ class TestWorkListGroups(DatabaseTest):
         queryable = []
         facets = FeaturedFacets(0)
         groups = list(
-            parent._groups_for_lanes(self._db, relevant, queryable, facets)
+            parent._groups_for_lanes(self._db, relevant, queryable, None, facets)
         )
 
         # Each sublane was asked in turn to provide works for the feed.
