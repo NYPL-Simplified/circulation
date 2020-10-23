@@ -419,7 +419,6 @@ class TestCirculationManager(CirculationControllerTest):
         manager.adobe_device_management = object()
         manager.oauth_controller = object()
         manager.auth = object()
-        manager.lending_policy = object()
         manager.shared_collection_api = object()
         manager.new_custom_index_views = object()
         manager.patron_web_domains = object()
@@ -484,9 +483,6 @@ class TestCirculationManager(CirculationControllerTest):
 
         # The ExternalSearch object has been reset.
         assert isinstance(manager.external_search, MockExternalSearchIndex)
-
-        # So has the lending policy.
-        assert isinstance(manager.lending_policy, dict)
 
         # The OAuth controller has been recreated.
         assert isinstance(manager.oauth_controller, OAuthController)
