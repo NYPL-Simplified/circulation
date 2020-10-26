@@ -8,6 +8,7 @@ from nose.tools import (
 )
 import json
 import datetime
+from mock import MagicMock
 
 from . import (
     DatabaseTest,
@@ -391,6 +392,43 @@ class TestWorkBasedLane(DatabaseTest):
         # of children. It doesn't reuse the first lane's list.
         lane2 = WorkBasedLane(self._default_library, work)
         eq_([], lane2.children)
+
+    def test_accessible_to(self):
+        # A lane based on a Work is accessible to a patron only if
+        # the Work is age-appropriate for the patron.
+        work = self._work()
+        patron = self._patron()
+        lane = WorkBasedLane(self._default_library, work)
+
+        work.age_appropriate_for_patron = MagicMock(return_value=False)
+        eq_(False, lane.accessible_to(patron))
+        work.age_appropriate_for_patron.assert_called_once_with(patron)
+
+        # If for whatever reason Work is not set, we just we say the Lane is
+        # accessible -- but things probably won't work.
+        lane.work = None
+        eq_(True, lane.accessible_to(patron))
+
+        # age_appropriate_for_patron wasn't called, since there was no
+        # work.
+        work.age_appropriate_for_patron.assert_called_once_with(patron)
+
+        lane.work = work
+        work.age_appropriate_for_patron = MagicMock(return_value=True)
+        lane = WorkBasedLane(self._default_library, work)
+        eq_(True, lane.accessible_to(patron))
+        work.age_appropriate_for_patron.assert_called_once_with(patron)
+
+        # The WorkList rules are still enforced -- for instance, a
+        # patron from library B can't access any kind of WorkList from
+        # library A.
+        other_library_patron = self._patron(library=self._library())
+        eq_(False, lane.accessible_to(other_library_patron))
+
+        # age_appropriate_for_patron was never called with the new
+        # patron -- the WorkList rules answered the question before we
+        # got to that point.
+        work.age_appropriate_for_patron.assert_called_once_with(patron)
 
 
 class TestRelatedBooksLane(DatabaseTest):

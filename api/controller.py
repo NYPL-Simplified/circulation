@@ -53,7 +53,6 @@ from core.analytics import Analytics
 from core.app_server import (
     cdn_url_for,
     url_for,
-    load_lending_policy,
     load_facets_from_request,
     load_pagination_from_request,
     ComplaintController,
@@ -143,7 +142,6 @@ from problem_details import *
 from shared_collection import SharedCollectionAPI
 from testing import MockCirculationAPI, MockSharedCollectionAPI
 
-
 class CirculationManager(object):
 
     def __init__(self, _db, testing=False):
@@ -166,13 +164,26 @@ class CirculationManager(object):
         self.load_settings()
 
     def load_facets_from_request(self, *args, **kwargs):
-        """Load a faceting object from the incoming request, but also apply an authentication
-        restriction.
+        """Load a faceting object from the incoming request, but also apply some
+        application-specific access restrictions:
 
-        Specifically, in this application you can't use nonstandard
-        caching rules unless you're an authenticated administrator.
+        * You can't use nonstandard caching rules unless you're an authenticated administrator.
+        * You can't access a WorkList that's not accessible to you.
         """
+
         facets = load_facets_from_request(*args, **kwargs)
+
+        worklist = kwargs.get('worklist')
+        if worklist is not None:
+
+            # Try to get the index controller. If it's not initialized
+            # for any reason, don't run this check -- we have bigger
+            # problems.
+            index_controller = getattr(self, 'index_controller', None)
+            if (index_controller and not
+                worklist.accessible_to(index_controller.request_patron)):
+                return NO_SUCH_LANE.detailed(_("Lane does not exist"))
+
         if isinstance(facets, BaseFacets) and getattr(facets, 'max_cache_age', None) is not None:
             # A faceting object was loaded, and it tried to do something nonstandard
             # with caching.
@@ -257,9 +268,6 @@ class CirculationManager(object):
         self.circulation_apis = new_circulation_apis
         self.custom_index_views = new_custom_index_views
         self.shared_collection_api = self.setup_shared_collection()
-        self.lending_policy = load_lending_policy(
-            Configuration.policy('lending', {})
-        )
 
         # Assemble the list of patron web client domains from individual
         # library registration settings as well as a sitewide setting.
@@ -619,6 +627,7 @@ class CirculationManagerController(BaseCirculationManagerController):
         """Turn user input into a Lane object."""
         library_id = flask.request.library.id
 
+        lane = None
         if lane_identifier is None:
             # Return the top-level lane.
             lane = self.manager.top_level_lanes[library_id]
@@ -627,9 +636,20 @@ class CirculationManagerController(BaseCirculationManagerController):
             elif isinstance(lane, WorkList):
                 lane.children = [self._db.merge(child) for child in lane.children]
         else:
-            lane = get_one(
-                self._db, Lane, id=lane_identifier, library_id=library_id
-            )
+            try:
+                lane_identifier = int(lane_identifier)
+            except ValueError, e:
+                pass
+
+            if isinstance(lane_identifier, int):
+                lane = get_one(
+                    self._db, Lane, id=lane_identifier, library_id=library_id
+                )
+
+        if lane and not lane.accessible_to(self.request_patron):
+            # The authenticated patron cannot access the lane they
+            # requested. Act like the lane does not exist.
+            lane = None
 
         if not lane:
             return NO_SUCH_LANE.detailed(
@@ -647,7 +667,13 @@ class CirculationManagerController(BaseCirculationManagerController):
 
         # We know there is at least one LicensePool, and all LicensePools
         # for an Identifier have the same Work.
-        return pools[0].work
+        work = pools[0].work
+
+        if work and not work.age_appropriate_for_patron(self.request_patron):
+            # This work is not age-appropriate for the authenticated
+            # patron. Don't show it.
+            work = NOT_AGE_APPROPRIATE
+        return work
 
     def load_licensepools(self, library, identifier_type, identifier):
         """Turn user input into one or more LicensePool objects.
@@ -682,6 +708,7 @@ class CirculationManagerController(BaseCirculationManagerController):
             return INVALID_INPUT.detailed(
                 _("License Pool #%s does not exist.") % license_pool_id
             )
+
         return license_pool
 
     def load_licensepooldelivery(self, pool, mechanism_id):
@@ -694,13 +721,29 @@ class CirculationManagerController(BaseCirculationManagerController):
         return mechanism or BAD_DELIVERY_MECHANISM
 
     def apply_borrowing_policy(self, patron, license_pool):
-        if isinstance(patron, ProblemDetail):
+        """Apply the borrowing policy of the patron's library to the
+        book they're trying to check out.
+
+        This prevents a patron from borrowing an age-inappropriate book
+        or from placing a hold in a library that prohibits holds.
+
+        Generally speaking, both of these operations should be
+        prevented before they get to this point; this is an extra
+        layer of protection.
+
+        :param patron: A `Patron`. It's okay if this turns out to be a
+           `ProblemDetail` or `None` due to a problem earlier in the
+           process.
+        :param license_pool`: The `LicensePool` the patron is trying to act on.
+        """
+        if patron is None or isinstance(patron, ProblemDetail):
+            # An earlier stage in the process failed to authenticate
+            # the patron.
             return patron
-        if not patron.can_borrow(license_pool.work, self.manager.lending_policy):
-            return FORBIDDEN_BY_POLICY.detailed(
-                _("Library policy prohibits us from lending you this book."),
-                status_code=451
-            )
+
+        work = license_pool.work
+        if work is not None and not work.age_appropriate_for_patron(patron):
+            return NOT_AGE_APPROPRIATE
 
         if (not patron.library.allow_holds and
             license_pool.licenses_available == 0 and
@@ -746,12 +789,12 @@ class IndexController(CirculationManagerController):
         )
 
     def has_root_lanes(self):
-        root_lanes = self._db.query(Lane).filter(
-            Lane.library==flask.request.library
-        ).filter(
-            Lane.root_for_patron_type!=None
-        )
-        return root_lanes.count() > 0
+        """Does the active library feature root lanes for patrons of
+        certain types?
+
+        :return: A boolean
+        """
+        return flask.request.library.has_root_lanes
 
     def authenticated_patron_root_lane(self):
         patron = self.authenticated_patron_from_request()
@@ -759,16 +802,7 @@ class IndexController(CirculationManagerController):
             return patron
         if isinstance(patron, Response):
             return patron
-
-        lanes = self._db.query(Lane).filter(
-            Lane.library==flask.request.library
-        ).filter(
-            Lane.root_for_patron_type.any(patron.external_type)
-        )
-        if lanes.count() < 1:
-            return None
-        else:
-            return lanes.one()
+        return patron.root_lane
 
     def appropriate_index_for_patron_type(self):
         library_short_name = flask.request.library.short_name
@@ -1849,7 +1883,7 @@ class WorkController(CirculationManagerController):
             lane = RelatedBooksLane(
                 library, work, lane_name, novelist_api=novelist_api
             )
-        except ValueError, e:
+        except ValueError as e:
             # No related books were found.
             return NO_SUCH_LANE.detailed(e.message)
 
@@ -1988,6 +2022,8 @@ class ProfileController(CirculationManagerController):
     def _controller(self):
         """Instantiate a CoreProfileController that actually does the work.
         """
+        # TODO: Probably better to use request_patron and check for
+        # None here.
         patron = self.authenticated_patron_from_request()
         storage = CirculationPatronProfileStorage(patron, flask.url_for)
         return CoreProfileController(storage)
