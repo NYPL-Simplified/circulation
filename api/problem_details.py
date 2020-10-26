@@ -188,6 +188,11 @@ FORBIDDEN_BY_POLICY = pd(
       _("Library policy prevents us from carrying out your request."),
 )
 
+NOT_AGE_APPROPRIATE = FORBIDDEN_BY_POLICY.detailed(
+    _("Library policy considers this title inappropriate for your patron type."),
+    status_code=451
+)
+
 CANNOT_FULFILL = pd(
       "http://librarysimplified.org/terms/problem/cannot-fulfill-loan",
       400,
