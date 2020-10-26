@@ -408,7 +408,10 @@ class TestWorkBasedLane(DatabaseTest):
         # accessible -- but things probably won't work.
         lane.work = None
         eq_(True, lane.accessible_to(patron))
-        eq_(1, work.age_appropriate_for_patron.call_count)
+
+        # age_appropriate_for_patron wasn't called, since there was no
+        # work.
+        work.age_appropriate_for_patron.assert_called_once_with(patron)
 
         lane.work = work
         work.age_appropriate_for_patron = MagicMock(return_value=True)
@@ -421,6 +424,11 @@ class TestWorkBasedLane(DatabaseTest):
         # library A.
         other_library_patron = self._patron(library=self._library())
         eq_(False, lane.accessible_to(other_library_patron))
+
+        # age_appropriate_for_patron was never called with the new
+        # patron -- the WorkList rules answered the question before we
+        # got to that point.
+        work.age_appropriate_for_patron.assert_called_once_with(patron)
 
 
 class TestRelatedBooksLane(DatabaseTest):
