@@ -1095,12 +1095,13 @@ class OPDSFeedController(CirculationManagerController):
         jwl = JackpotWorkList(library)
         annotator = self.manager.annotator(jwl)
 
-        # TODO: Make it possible to pass a pagination object into
-        # groups() to override the standard size of a grouped lane,
-        # improving performance.
+        # Since this feed will be consumed by an automated client, and
+        # we're choosing titles for specific purposes, there's no
+        # reason to put more than a single item in each group.
+        pagination = Pagination(size=1)
         return feed_class.groups(
-            _db=self._db, title="QA test feed", url=url, worklist=jwl,
-            annotator=annotator, search_engine=search_engine,
+            _db=self._db, title="QA test feed", url=url, pagination=pagination,
+            worklist=jwl, annotator=annotator, search_engine=search_engine,
             max_age=CachedFeed.IGNORE_CACHE
         )
 
