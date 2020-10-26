@@ -385,14 +385,25 @@ class Patron(Base):
         if reader_audience is None:
             # A patron with no particular audience restrictions
             # can see everything.
+            #
+            # This is by far the most common case, so we don't set up
+            # logging until after running it.
             return True
 
+        log = logging.getLogger("Age-appropriate match calculator")
+        log.debug(
+            "Matching work %s/%s to reader %s/%s" % (
+                work_audience, work_target_age,
+                reader_audience, reader_age
+            )
+        )
+
         if reader_audience not in Classifier.AUDIENCES_JUVENILE:
-            # Any non-juvenile patron can see everything.
+            log.debug("A non-juvenile patron can see everything.")
             return True
 
         if work_audience == Classifier.AUDIENCE_ALL_AGES:
-            # An 'all ages' book is always age-appropriate.
+            log.debug("An all-ages book is always age appropriate.")
             return True
 
         # At this point we know that the patron is a juvenile.
@@ -421,11 +432,13 @@ class Patron(Base):
         if (reader_audience == Classifier.AUDIENCE_YOUNG_ADULT
             and (reader_age is None
                  or reader_age >= Classifier.ADULT_AGE_CUTOFF)):
+            log.debug("YA reader to be treated as an adult.")
             return True
 
         # There are no other situations where a juvenile reader can access
         # non-juvenile titles.
         if work_audience not in Classifier.AUDIENCES_JUVENILE:
+            log.debug("Juvenile reader cannot access non-juvenile title.")
             return False
 
         # At this point we know we have a juvenile reader and a
@@ -433,12 +446,12 @@ class Patron(Base):
 
         if (reader_audience == Classifier.AUDIENCE_YOUNG_ADULT
             and work_audience in (Classifier.AUDIENCES_YOUNG_CHILDREN)):
-            # A YA reader can see any children's title.
+            log.debug("YA reader can access any children's title.")
             return True
 
         if (reader_audience in (Classifier.AUDIENCES_YOUNG_CHILDREN)
             and work_audience == Classifier.AUDIENCE_YOUNG_ADULT):
-            # Children cannot see any YA title.
+            # Children cannot access any YA title.
             return False
 
         # At this point we either have a YA patron with a YA book, or
@@ -448,19 +461,29 @@ class Patron(Base):
         if work_target_age is None:
             # This is a generic children's or YA book with no
             # particular target age. Assume it's age appropriate.
+            log.debug(
+                "Juvenile book with no target age is presumed age-appropriate."
+            )
             return True
 
         if reader_age is None:
             # We have no idea how old the patron is, so any work with
             # the appropriate audience is considered age-appropriate.
+            log.debug(
+                "Audience matches, and no specific patron age information available: presuming age-appropriate."
+            )
             return True
 
         if reader_age < work_target_age:
             # The audience for this book matches the patron's
             # audience, but the book has a target age that is too high
             # for the reader.
+            log.debug(
+                "Audience matches, but work's target age is too high for reader."
+            )
             return False
 
+        log.debug("Both audience and target age match; it's age-appropriate.")
         return True
 
 
