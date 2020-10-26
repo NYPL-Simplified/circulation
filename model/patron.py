@@ -451,7 +451,7 @@ class Patron(Base):
 
         if (reader_audience in (Classifier.AUDIENCES_YOUNG_CHILDREN)
             and work_audience == Classifier.AUDIENCE_YOUNG_ADULT):
-            # Children cannot access any YA title.
+            log.debug("Child reader cannot access any YA title.")
             return False
 
         # At this point we either have a YA patron with a YA book, or
