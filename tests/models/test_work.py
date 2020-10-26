@@ -6,6 +6,7 @@ from nose.tools import (
 )
 import datetime
 from ...external_search import MockExternalSearchIndex
+from mock import MagicMock
 import os
 from psycopg2.extras import NumericRange
 import random
@@ -16,7 +17,10 @@ from ...classifier import (
     Romance,
     Science_Fiction,
 )
-from ...model import get_one_or_create
+from ...model import (
+    get_one_or_create,
+    tuple_to_numericrange,
+)
 from ...model.coverage import WorkCoverageRecord
 from ...model.classification import (
     Genre,
@@ -1210,6 +1214,70 @@ class TestWork(DatabaseTest):
         search_doc = work.to_search_document()
         eq_(set([collection1.id, collection2.id]),
             set([x['collection_id'] for x in search_doc['licensepools']]))
+
+    def test_age_appropriate_for_patron(self):
+        work = self._work()
+        work.audience = Classifier.AUDIENCE_YOUNG_ADULT
+        work.target_age = tuple_to_numericrange((12, 15))
+        patron = self._patron()
+
+        # If no Patron is specified, the method always returns True.
+        eq_(True, work.age_appropriate_for_patron(None))
+
+        # Otherwise, this method is a simple passthrough for
+        # Patron.work_is_age_appropriate.
+        patron.work_is_age_appropriate = MagicMock(return_value="value")
+
+        eq_("value", work.age_appropriate_for_patron(patron))
+        patron.work_is_age_appropriate.assert_called_with(
+            work.audience, work.target_age
+        )
+
+    def test_age_appropriate_for_patron_end_to_end(self):
+        # A test of age_appropriate_for_patron without any mocks.
+        # More detailed unit tests are in test_patron.py.
+        #
+        # Some end-to-end examples are useful because the
+        # 'age-appropriate' logic is quite complicated, and because
+        # target age ranges are sometimes passed around as tuples and
+        # sometimes as NumericRange objects.
+        patron = self._patron()
+        patron.external_type = "a"
+
+        # This Lane contains books at the old end of the "children"
+        # range and the young end of the "young adult" range.
+        lane = self._lane()
+        lane.root_for_patron_type = ["a"]
+
+        # A patron with this root lane can see children's and YA
+        # titles in the age range 9-14.
+
+        # NOTE: setting target_age sets .audiences to appropriate values,
+        # so setting .audiences here is purely demonstrative.
+        lane.audiences = [
+            Classifier.AUDIENCE_CHILDREN, Classifier.AUDIENCE_YOUNG_ADULT
+        ]
+        lane.target_age = (9,14)
+
+        # This work is a YA title within the age range.
+        work = self._work()
+        work.audience = Classifier.AUDIENCE_YOUNG_ADULT
+        work.target_age = tuple_to_numericrange((12, 15))
+        eq_(True, work.age_appropriate_for_patron(patron))
+
+        # Bump up the target age of the work, and it stops being
+        # age-appropriate.
+        work.target_age = tuple_to_numericrange((16, 17))
+        eq_(False, work.age_appropriate_for_patron(patron))
+
+        # Bump up the lane to match, and it's age-appropriate again.
+        lane.target_age = (9,16)
+        eq_(True, work.age_appropriate_for_patron(patron))
+
+        # Change the audience to AUDIENCE_ADULT, and the work stops being
+        # age-appropriate.
+        work.audience = Classifier.AUDIENCE_ADULT
+        eq_(False, work.age_appropriate_for_patron(patron))
 
     def test_unlimited_access_books_are_available_by_default(self):
         # Set up an edition and work.

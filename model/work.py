@@ -781,6 +781,16 @@ class Work(Base):
             language = LanguageCodes.three_to_two[language]
         return language
 
+    def age_appropriate_for_patron(self, patron):
+        """Is this Work age-appropriate for the given Patron?
+
+        :param patron: A Patron.
+        :return: A boolean
+        """
+        if patron is None:
+            return True
+        return patron.work_is_age_appropriate(self.audience, self.target_age)
+
     def set_presentation_edition(self, new_presentation_edition):
         """ Sets presentation edition and lets owned pools and editions know.
             Raises exception if edition to set to is None.

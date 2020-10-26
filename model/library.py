@@ -1,5 +1,6 @@
 # encoding: utf-8
 # Library
+from expiringdict import ExpiringDict
 from nose.tools import set_trace
 
 from . import (
@@ -116,6 +117,11 @@ class Library(Base, HasFullTableCache):
 
     _cache = HasFullTableCache.RESET
     _id_cache = HasFullTableCache.RESET
+
+    # A class-wide cache mapping library ID to the calculated value
+    # used for Library.has_root_lane.  This is invalidated whenever
+    # Lane configuration changes, and it will also expire on its own.
+    _has_root_lane_cache = ExpiringDict(max_len=1000, max_age_seconds=3600)
 
     def __repr__(self):
         return '<Library: name="%s", short name="%s", uuid="%s", library registry short name="%s">' % (
@@ -291,6 +297,36 @@ class Library(Base, HasFullTableCache):
     def enabled_facets_setting(self, group_name):
         key = self.ENABLED_FACETS_KEY_PREFIX + group_name
         return self.setting(key)
+
+    @property
+    def has_root_lanes(self):
+        """Does this library have any lanes that act as the root
+        lane for a certain patron type?
+
+        :return: A boolean
+        """
+
+        # NOTE: Although this fact is derived from the Lanes, not the
+        # Library, the result is stored in the Library object for
+        # performance reasons.
+        #
+        # This makes it important to clear the cache of Library
+        # objects whenever the Lane configuration changes. Otherwise a
+        # library that went from not having root lanes, to having them
+        # (or vice versa) might not see the change take effect without
+        # a server restart.
+        value = Library._has_root_lane_cache.get(self.id, None)
+        if value is None:
+            from ..lane import Lane
+            _db = Session.object_session(self)
+            root_lanes = _db.query(Lane).filter(
+                Lane.library==self
+            ).filter(
+                Lane.root_for_patron_type!=None
+            )
+            value = (root_lanes.count() > 0)
+            Library._has_root_lane_cache[self.id] = value
+        return value
 
     def restrict_to_ready_deliverable_works(
         self, query, collection_ids=None, show_suppressed=False,
