@@ -594,7 +594,7 @@ class AcquisitionFeed(OPDSFeed):
             )
 
         return CachedFeed.fetch(
-            _db, worklist=worklist, facets=facets, pagination=pagination,
+            _db=_db, worklist=worklist, facets=facets, pagination=pagination,
             refresher_method=refresh, max_age=max_age,
             **response_kwargs
         )

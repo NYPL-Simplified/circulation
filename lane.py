@@ -1900,7 +1900,10 @@ class WorkList(object):
         """Ask the search engine for groups of featurable works in the
         given lanes. Fill in gaps as necessary.
 
-        :param pagination: A Pagination object.
+        :param pagination: An optional Pagination object which will be
+           used to paginate each group individually. Note that this
+           means Pagination.page_loaded() method will be called once
+           for each group.
         :param facets: A FeaturedFacets object.
 
         :param search_engine: An ExternalSearchIndex to use when
@@ -1910,10 +1913,8 @@ class WorkList(object):
         :yield: A sequence of (Work, WorkList) 2-tuples, with each
             WorkList representing the child WorkList in which the Work is
             found.
-        """
 
-        # First, determine the target_size (the number of works we actually
-        # want to get).
+        """
         library = self.get_library(_db)
         if pagination is None:
             # No pagination object was provided. Our target size is
@@ -1921,17 +1922,14 @@ class WorkList(object):
             # works for each lane, to reduce the risk that we end up
             # reusing a book in two different lanes.
             target_size = library.featured_lane_size
+
+            # We ask for a few extra works for each lane, to reduce the
+            # risk that we'll end up reusing a book in two different
+            # lanes.
             ask_for_size = max(target_size+1, int(target_size * 1.10))
             pagination = Pagination(size=ask_for_size)
         else:
-            # Our target size comes from the provided Pagination
-            # object.
             target_size = pagination.size
-
-        # TODO: we're reusing the same pagination object for every
-        # child, which means page_loaded will be called multiple
-        # times. Could this be a problem?
-        pagination = pagination or self.default_groups_pagination(_db)
 
         from external_search import ExternalSearchIndex
         search_engine = search_engine or ExternalSearchIndex.load(_db)
@@ -1944,9 +1942,8 @@ class WorkList(object):
         queryable_lane_set = set(queryable_lanes)
         works_and_lanes = list(
             self._featured_works_with_lanes(
-                _db, queryable_lanes, facets=facets,
-                pagination=pagination, search_engine=search_engine,
-                debug=debug
+                _db, queryable_lanes, pagination=pagination,
+                facets=facets, search_engine=search_engine, debug=debug
             )
         )
 
@@ -2007,12 +2004,13 @@ class WorkList(object):
                 # Lane at all. Do a whole separate query and plug it
                 # in at this point.
                 for x in lane.groups(
-                    _db, include_sublanes=False, facets=facets,
+                    _db, include_sublanes=False,
+                        pagination=pagination, facets=facets,
                 ):
                     yield x
 
     def _featured_works_with_lanes(
-        self, _db, lanes, facets, pagination, search_engine, debug=False
+        self, _db, lanes, pagination, facets, search_engine, debug=False
     ):
         """Find a sequence of works that can be used to
         populate this lane's grouped acquisition feed.
