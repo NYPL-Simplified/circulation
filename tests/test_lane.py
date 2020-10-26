@@ -1,6 +1,10 @@
 import datetime
 import json
 import logging
+from mock import (
+    call,
+    MagicMock,
+)
 import random
 from nose.tools import (
     eq_,
@@ -1826,6 +1830,121 @@ class TestWorkList(DatabaseTest):
         wl_child.priority = 0
         eq_([wl_child, lane_child], wl.visible_children)
 
+    def test_is_self_or_descendant(self):
+        # Test the code that checks whether one WorkList is 'beneath'
+        # another.
+
+        class WorkListWithParent(WorkList):
+            # A normal WorkList never has a parent; this subclass
+            # makes it possible to explicitly set a WorkList's parent
+            # and get its parentage.
+            #
+            # This way we can test WorkList code without bringing in Lane.
+            def __init__(self):
+                self._parent = None
+
+            @property
+            def parent(self):
+                return self._parent
+
+            @property
+            def parentage(self):
+                if not self._parent:
+                    return []
+                return [self._parent] + list(self._parent.parentage)
+
+        # A WorkList matches itself.
+        child = WorkListWithParent()
+        child.initialize(self._default_library)
+        eq_(True, child.is_self_or_descendant(child))
+
+        # But not any other WorkList.
+        parent = WorkListWithParent()
+        parent.initialize(self._default_library)
+        eq_(False, child.is_self_or_descendant(parent))
+
+        grandparent = WorkList()
+        grandparent.initialize(self._default_library)
+        eq_(False, child.is_self_or_descendant(grandparent))
+
+        # Unless it's a descendant of that WorkList.
+        child._parent = parent
+        parent._parent = grandparent
+        eq_(True, child.is_self_or_descendant(parent))
+        eq_(True, child.is_self_or_descendant(grandparent))
+        eq_(True, parent.is_self_or_descendant(grandparent))
+
+        eq_(False, parent.is_self_or_descendant(child))
+        eq_(False, grandparent.is_self_or_descendant(parent))
+
+    def test_accessible_to(self):
+        # Test the circumstances under which a Patron may or may not access a 
+        # WorkList.
+
+        wl = WorkList()
+        wl.initialize(self._default_library)
+
+        # A WorkList is always accessible to unauthenticated users.
+        m = wl.accessible_to
+        eq_(True, m(None))
+
+        # A WorkList is never accessible to patrons of a different library.
+        other_library = self._library()
+        other_library_patron = self._patron(library=other_library)
+        eq_(False, m(other_library_patron))
+
+        # A WorkList is always accessible to patrons with no root lane
+        # set.
+        patron = self._patron()
+        eq_(True, m(patron))
+
+        # Give the patron a root lane.
+        lane = self._lane()
+        lane.root_for_patron_type = ["1"]
+        patron.external_type = "1"
+
+        # Now that the patron has a root lane, WorkLists will become
+        # inaccessible if they might contain content not
+        # age-appropriate for that patron (as gauged by their root
+        # lane).
+
+        # As initialized, our worklist has no audience restrictions.
+        eq_(True, m(patron))
+
+        # Give it some audience restrictions.
+        wl.audiences = [Classifier.AUDIENCE_ADULT, Classifier.AUDIENCE_CHILDREN]
+        wl.target_age = tuple_to_numericrange((4,5))
+
+        # Now it depends on the return value of Patron.work_is_age_appropriate.
+        # Mock that method.
+        patron.work_is_age_appropriate = MagicMock(return_value=False)
+
+        # Since our mock returns false, so does accessible_to
+        eq_(False, m(patron))
+
+        # work_is_age_appropriate was called once, with the
+        # WorkList's target age and its first audience restriction.
+        # When work_is_age_appropriate returned False, it short-circuited
+        # the process and no second call was made.
+        patron.work_is_age_appropriate.assert_called_once_with(
+            wl.audiences[0], wl.target_age
+        )
+
+        # If we tell work_is_age_appropriate to always return true...
+        patron.work_is_age_appropriate = MagicMock(return_value=True)
+
+        # ...accessible_to starts returning True.
+        eq_(True, m(patron))
+
+        # The mock method was called once for each audience
+        # restriction in our WorkList. Only if _every_ call returns
+        # True is the WorkList considered age-appropriate for the
+        # patron.
+        patron.work_is_age_appropriate.assert_has_calls([
+            call(wl.audiences[0], wl.target_age),
+            call(wl.audiences[1], wl.target_age),
+        ])
+
     def test_uses_customlists(self):
         """A WorkList is said to use CustomLists if either ._customlist_ids
         or .list_datasource_id is set.
@@ -3065,6 +3184,32 @@ class TestLane(DatabaseTest):
         lane = self._lane()
         lane.audiences = Classifier.AUDIENCE_ADULT
         eq_([Classifier.AUDIENCE_ADULT], lane.audiences)
+
+    def test_accessible_to(self):
+        # In addition to the general tests imposed by WorkList, a Lane
+        # is only accessible to a patron if it is a descendant of
+        # their root lane.
+        lane = self._lane()
+        patron = self._patron()
+        lane.root_for_patron_type = ["1"]
+        patron.external_type = "1"
+
+        # Descendant -> it's accessible
+        m = lane.accessible_to
+        lane.is_self_or_descendant = MagicMock(return_value=True)
+        eq_(True, m(patron))
+
+        # Not a descendant -> it's not accessible
+        lane.is_self_or_descendant = MagicMock(return_value=False)
+        eq_(False, m(patron))
+
+        # If the patron has no root lane, is_self_or_descendant
+        # isn't consulted -- everything is accessible.
+        patron.external_type = "2"
+        eq_(True, m(patron))
+
+        # Similarly if there is no authenticated patron.
+        eq_(True, m(None))
 
     def test_update_size(self):
 

@@ -6,8 +6,17 @@ from nose.tools import (
     set_trace,
 )
 import datetime
+from mock import (
+    call,
+    MagicMock,
+)
+
 from .. import DatabaseTest
-from ...model import create
+from ...classifier import Classifier
+from ...model import (
+    create,
+    tuple_to_numericrange,
+)
 from ...model.credential import Credential
 from ...model.datasource import DataSource
 from ...model.library import Library
@@ -544,13 +553,223 @@ class TestPatron(DatabaseTest):
         patron.last_loan_activity_sync = recently
         eq_(recently, patron._last_loan_activity_sync)
         eq_(recently, patron.last_loan_activity_sync)
-        
+
         # If it's _not_ relatively recent, attempting to access it
         # clears it out.
         patron.last_loan_activity_sync = long_ago
         eq_(long_ago, patron._last_loan_activity_sync)
         eq_(None, patron.last_loan_activity_sync)
         eq_(None, patron._last_loan_activity_sync)
+
+    def test_root_lane(self):
+        root_1 = self._lane()
+        root_2 = self._lane()
+
+        # If a library has no root lanes, its patrons have no root
+        # lanes.
+        patron = self._patron()
+        patron.external_type = "x"
+        eq_(None, patron.root_lane)
+
+        # Patrons of external type '1' and '2' have a certain root lane.
+        root_1.root_for_patron_type = ["1", "2"]
+
+        # Patrons of external type '3' have a different root.
+        root_2.root_for_patron_type = ["3"]
+
+        # Flush the database to clear the Library._has_root_lane_cache.
+        self._db.flush()
+
+        # A patron with no external type has no root lane.
+        eq_(None, patron.root_lane)
+
+        # If a patron's external type associates them with a specific lane, that
+        # lane is their root lane.
+        patron.external_type = "1"
+        eq_(root_1, patron.root_lane)
+
+        patron.external_type = "2"
+        eq_(root_1, patron.root_lane)
+
+        patron.external_type = "3"
+        eq_(root_2, patron.root_lane)
+
+        # This shouldn't happen, but if two different lanes are the
+        # root lane for a single patron type, the one with the lowest
+        # database ID is chosen.  This way we avoid denying service to
+        # a patron based on a server misconfiguration.
+        root_1.root_for_patron_type = ["1", "2", "3"]
+        eq_(root_1, patron.root_lane)
+
+    def test_work_is_age_appropriate(self):
+        # The target audience and age of a patron's root lane controls
+        # whether a given book is 'age-appropriate' for them.
+        lane = self._lane()
+        lane.audiences = [Classifier.AUDIENCE_CHILDREN,
+                         Classifier.AUDIENCE_YOUNG_ADULT]
+        lane.target_age = (9,14)
+        lane.root_for_patron_type = ["1"]
+        self._db.flush()
+
+        def mock_age_appropriate(work_audience, work_target_age,
+                 reader_audience, reader_target_age
+        ):
+            """Returns True only if reader_audience is the preconfigured
+            expected value.
+            """
+            if reader_audience == self.return_true_for:
+                return True
+            return False
+
+        patron = self._patron()
+        mock = MagicMock(side_effect=mock_age_appropriate)
+        patron.age_appropriate_match = mock
+        self.calls = []
+        self.return_true_for = None
+
+        # If the patron has no root lane, age_appropriate_match is not
+        # even called -- all works are age-appropriate.
+        m = patron.work_is_age_appropriate
+        work_audience = object()
+        work_target_age = object()
+        eq_(True, m(work_audience, work_target_age))
+        eq_(0, mock.call_count)
+
+        # Give the patron a root lane and try again.
+        patron.external_type = "1"
+        eq_(False, m(work_audience, work_target_age))
+
+        # age_appropriate_match method was called on
+        # each audience associated with the patron's root lane.
+        mock.assert_has_calls([
+            call(work_audience, work_target_age,
+                 Classifier.AUDIENCE_CHILDREN, lane.target_age),
+            call(work_audience, work_target_age,
+                 Classifier.AUDIENCE_YOUNG_ADULT, lane.target_age)
+        ])
+
+        # work_is_age_appropriate() will only return True if at least
+        # one of the age_appropriate_match() calls returns True.
+        #
+        # Simulate this by telling our mock age_appropriate_match() to
+        # return True only when passed a specific reader audience. Our
+        # Mock lane has two audiences, and at most one can match.
+        self.return_true_for = Classifier.AUDIENCE_CHILDREN
+        eq_(True, m(work_audience, work_target_age))
+
+        self.return_true_for = Classifier.AUDIENCE_YOUNG_ADULT
+        eq_(True, m(work_audience, work_target_age))
+
+        self.return_true_for = Classifier.AUDIENCE_ADULT
+        eq_(False, m(work_audience, work_target_age))
+
+    def test_age_appropriate_match(self):
+        # Check whether there's any overlap between a work's target age
+        # and a reader's age.
+        m = Patron.age_appropriate_match
+
+        ya = Classifier.AUDIENCE_YOUNG_ADULT
+        children = Classifier.AUDIENCE_CHILDREN
+        adult = Classifier.AUDIENCE_ADULT
+        all_ages = Classifier.AUDIENCE_ALL_AGES
+
+        # A reader with no particular audience can see everything.
+        eq_(True, m(object(), object(), None, object()))
+
+        # A reader associated with a non-juvenile audience, such as
+        # AUDIENCE_ADULT, can see everything.
+        for reader_audience in Classifier.AUDIENCES:
+            if reader_audience in Classifier.AUDIENCES_JUVENILE:
+                # Tested later.
+                continue
+            eq_(True, m(object(), object(), reader_audience, object()))
+
+        # Everyone can see 'all-ages' books.
+        for reader_audience in Classifier.AUDIENCES:
+            eq_(True, m(all_ages, object(), reader_audience, object()))
+
+        # Children cannot see YA or adult books.
+        for work_audience in (ya, adult):
+            eq_(False, m(work_audience, object(), children, None))
+
+            # This is true even if the "child's" target age is set to
+            # a value that would allow for this (as can happen when
+            # the patron's root lane is set up to show both children's
+            # and YA titles).
+            eq_(False, m(work_audience, object(), children, (14,18)))
+
+        # YA readers can see any children's title.
+        eq_(True, m(children, object(), ya, object()))
+
+        # A YA reader is treated as an adult (with no reading
+        # restrictions) if they have no associated age range, or their
+        # age range includes ADULT_AGE_CUTOFF.
+        for reader_age in [
+            None, 18, (14, 18), tuple_to_numericrange((14, 18))
+        ]:
+            eq_(True, m(adult, object(), ya, reader_age))
+
+        # Otherwise, YA readers cannot see books for adults.
+        for reader_age in [16, (14, 17)]:
+            eq_(False, m(adult, object(), ya, reader_age))
+
+        # Now let's consider the most complicated cases. First, a
+        # child who wants to read a children's book.
+        work_audience = children
+        for reader_audience in Classifier.AUDIENCES_YOUNG_CHILDREN:
+            # If the work has no target age, it's fine (or at least
+            # we don't have the information necessary to say it's not
+            # fine).
+            work_target_age = None
+            eq_(True, m(work_audience, work_target_age,
+                        reader_audience, object()))
+
+            # Now give the work a specific target age range.
+            for work_target_age in [(5, 7), tuple_to_numericrange((5,7))]:
+                # The lower end of the age range is old enough.
+                for age in range(5,9):
+                    for reader_age in (
+                        age, (age-1, age), tuple_to_numericrange((age-1, age))
+                    ):
+                        eq_(True,  m(work_audience, work_target_age,
+                                     reader_audience, reader_age))
+
+                # Anything lower than that is not.
+                for age in range(2,5):
+                    for reader_age in (
+                        age, (age-1, age), tuple_to_numericrange((age-1, age))
+                    ):
+                        eq_(False, m(work_audience, work_target_age,
+                                     reader_audience, reader_age))
+
+        # Similar rules apply for a YA reader who wants to read a YA
+        # book.
+        work_audience = ya
+        reader_audience = ya
+
+        # If there's no target age, it's fine (or at least we don't
+        # have the information necessary to say it's not fine).
+        work_target_age = None
+        eq_(True, m(work_audience, work_target_age,
+                    reader_audience, object()))
+
+        # Now give the work a specific target age range.
+        for work_target_age in ((14, 16), tuple_to_numericrange((14, 16))):
+            # The lower end of the age range is old enough
+            for age in range(14, 20):
+                for reader_age in (
+                    age, (age-1, age), tuple_to_numericrange((age-1, age))
+                ):
+                    eq_(True,  m(work_audience, work_target_age,
+                                 reader_audience, reader_age))
+
+            # Anything lower than that is not.
+            for age in range(7, 14):
+                for reader_age in (
+                    age, (age-1, age), tuple_to_numericrange((age-1, age))
+                ):
+                    eq_(False, m(work_audience, work_target_age,
+                                 reader_audience, reader_age))
 
 
 class TestPatronProfileStorage(DatabaseTest):

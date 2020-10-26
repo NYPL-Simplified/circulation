@@ -5,10 +5,11 @@ from nose.tools import set_trace
 from . import (
     Base,
     get_one_or_create,
+    numericrange_to_tuple
 )
 from credential import Credential
-
 import datetime
+import logging
 from sqlalchemy import (
     Boolean,
     Column,
@@ -21,9 +22,11 @@ from sqlalchemy import (
     Unicode,
     UniqueConstraint,
 )
+from psycopg2.extras import NumericRange
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm.session import Session
+from ..classifier import Classifier
 from ..user_profile import ProfileStorage
 import uuid
 
@@ -162,8 +165,6 @@ class Patron(Base):
         UniqueConstraint('library_id', 'external_identifier'),
     )
 
-    AUDIENCE_RESTRICTION_POLICY = 'audiences'
-
     # A patron with borrowing privileges should have their local
     # metadata synced with their ILS record at intervals no greater
     # than this time.
@@ -215,25 +216,6 @@ class Patron(Base):
         holds = [hold.work for hold in self.holds if hold.work]
         loans = self.works_on_loan()
         return set(holds + loans)
-
-    def can_borrow(self, work, policy):
-        """Return true if the given policy allows this patron to borrow the
-        given work.
-        This will return False when the policy for this patron's
-        .external_type prevents access to this book's audience.
-        """
-        if not self.external_type in policy:
-            return True
-        if not work:
-            # Shouldn't happen, but not this method's problem.
-            return True
-        p = policy[self.external_type]
-        if not self.AUDIENCE_RESTRICTION_POLICY in p:
-            return True
-        allowed = p[self.AUDIENCE_RESTRICTION_POLICY]
-        if work.audience in allowed:
-            return True
-        return False
 
     @property
     def loan_activity_max_age(self):
@@ -299,6 +281,211 @@ class Patron(Base):
             for annotation in qu:
                 _db.delete(annotation)
         self._synchronize_annotations = value
+
+    @property
+    def root_lane(self):
+        """Find the Lane, if any, to be used as the Patron's root lane.
+
+        A patron with a root Lane can only access that Lane and the
+        Lanes beneath it. In addition, a patron with a root lane
+        cannot conduct a transaction on a book intended for an older
+        audience than the one defined by their root lane.
+        """
+
+        # Two ways of improving performance by short-circuiting this
+        # logic.
+        if not self.external_type:
+            return None
+        if not self.library.has_root_lanes:
+            return None
+
+        _db = Session.object_session(self)
+        from ..lane import Lane
+        qu = _db.query(Lane).filter(
+            Lane.library==self.library
+        ).filter(
+            Lane.root_for_patron_type.any(self.external_type)
+        ).order_by(Lane.id)
+        lanes = qu.all()
+        if len(lanes) < 1:
+            # The most common situation -- this patron has no special
+            # root lane.
+            return None
+        if len(lanes) > 1:
+            # Multiple root lanes for a patron indicates a
+            # configuration problem, but we shouldn't make the patron
+            # pay the price -- just pick the first one.
+            logging.error(
+                "Multiple root lanes found for patron type %s.",
+                self.external_type
+            )
+        return lanes[0]
+
+    def work_is_age_appropriate(self, work_audience, work_target_age):
+        """Is the given audience and target age an age-appropriate match for this Patron?
+
+        NOTE: What "age-appropriate" means depends on some policy questions
+        that have not been answered and may be library-specific. For
+        now, it is determined by comparing audience and target age to that of the
+        Patron's root lane.
+
+        This is designed for use when reasoning about works in
+        general. If you have a specific Work in mind, use
+        `Work.age_appropriate_for_patron`.
+
+        :param work_audience: One of the audience constants from
+           Classifier, representing the general reading audience to
+           which a putative work belongs.
+
+        :param work_target_age: A number or 2-tuple representing the target age
+           or age range of a putative work.
+
+        :return: A boolean
+
+        """
+        root = self.root_lane
+        if not root:
+            # The patron has no root lane. They can interact with any
+            # title.
+            return True
+
+        # The patron can interact with a title if any of the audiences
+        # in their root lane (in conjunction with the root lane's target_age)
+        # are a match for the title's audience and target age.
+        return any(
+            self.age_appropriate_match(
+                work_audience, work_target_age,
+                audience, root.target_age
+            )
+            for audience in root.audiences
+        )
+
+    @classmethod
+    def age_appropriate_match(
+        cls, work_audience, work_target_age,
+        reader_audience, reader_age
+    ):
+        """Match the audience and target age of a work with that of a reader,
+        and see whether they are an age-appropriate match.
+
+        NOTE: What "age-appropriate" means depends on some policy
+        questions that have not been answered and may be
+        library-specific. For now, non-children's books are
+        age-inappropriate for young children, and children's books are
+        age-inappropriate for children too young to be in the book's
+        target age range.
+
+        :param reader_audience: One of the audience constants from
+           Classifier, representing the general reading audience to
+           which the reader belongs.
+
+        :param reader_age: A number or 2-tuple representing the age or
+           age range of the reader.
+        """
+        if reader_audience is None:
+            # A patron with no particular audience restrictions
+            # can see everything.
+            #
+            # This is by far the most common case, so we don't set up
+            # logging until after running it.
+            return True
+
+        log = logging.getLogger("Age-appropriate match calculator")
+        log.debug(
+            "Matching work %s/%s to reader %s/%s" % (
+                work_audience, work_target_age,
+                reader_audience, reader_age
+            )
+        )
+
+        if reader_audience not in Classifier.AUDIENCES_JUVENILE:
+            log.debug("A non-juvenile patron can see everything.")
+            return True
+
+        if work_audience == Classifier.AUDIENCE_ALL_AGES:
+            log.debug("An all-ages book is always age appropriate.")
+            return True
+
+        # At this point we know that the patron is a juvenile.
+
+        def ensure_tuple(x):
+            # Convert a potential NumericRange into a tuple.
+            if isinstance(x, NumericRange):
+                x = numericrange_to_tuple(x)
+            return x
+
+        reader_age = ensure_tuple(reader_age)
+        if isinstance(reader_age, tuple):
+            # A range was passed in rather than a specific age. Assume
+            # the reader is at the top edge of the range.
+            ignore, reader_age = reader_age
+
+        work_target_age = ensure_tuple(work_target_age)
+        if isinstance(work_target_age, tuple):
+            # Pick the _bottom_ edge of a work's target age range --
+            # the work is appropriate for anyone _at least_ that old.
+            work_target_age, ignore = work_target_age
+
+        # A YA reader is treated as an adult (with no reading
+        # restrictions) if they have no associated age range, or their
+        # age range includes ADULT_AGE_CUTOFF.
+        if (reader_audience == Classifier.AUDIENCE_YOUNG_ADULT
+            and (reader_age is None
+                 or reader_age >= Classifier.ADULT_AGE_CUTOFF)):
+            log.debug("YA reader to be treated as an adult.")
+            return True
+
+        # There are no other situations where a juvenile reader can access
+        # non-juvenile titles.
+        if work_audience not in Classifier.AUDIENCES_JUVENILE:
+            log.debug("Juvenile reader cannot access non-juvenile title.")
+            return False
+
+        # At this point we know we have a juvenile reader and a
+        # juvenile book.
+
+        if (reader_audience == Classifier.AUDIENCE_YOUNG_ADULT
+            and work_audience in (Classifier.AUDIENCES_YOUNG_CHILDREN)):
+            log.debug("YA reader can access any children's title.")
+            return True
+
+        if (reader_audience in (Classifier.AUDIENCES_YOUNG_CHILDREN)
+            and work_audience == Classifier.AUDIENCE_YOUNG_ADULT):
+            log.debug("Child reader cannot access any YA title.")
+            return False
+
+        # At this point we either have a YA patron with a YA book, or
+        # a child patron with a children's book. It comes down to a
+        # question of the reader's age vs. the work's target age.
+
+        if work_target_age is None:
+            # This is a generic children's or YA book with no
+            # particular target age. Assume it's age appropriate.
+            log.debug(
+                "Juvenile book with no target age is presumed age-appropriate."
+            )
+            return True
+
+        if reader_age is None:
+            # We have no idea how old the patron is, so any work with
+            # the appropriate audience is considered age-appropriate.
+            log.debug(
+                "Audience matches, and no specific patron age information available: presuming age-appropriate."
+            )
+            return True
+
+        if reader_age < work_target_age:
+            # The audience for this book matches the patron's
+            # audience, but the book has a target age that is too high
+            # for the reader.
+            log.debug(
+                "Audience matches, but work's target age is too high for reader."
+            )
+            return False
+
+        log.debug("Both audience and target age match; it's age-appropriate.")
+        return True
+
 
 Index("ix_patron_library_id_external_identifier", Patron.library_id, Patron.external_identifier)
 Index("ix_patron_library_id_authorization_identifier", Patron.library_id, Patron.authorization_identifier)

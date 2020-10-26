@@ -1489,6 +1489,17 @@ class WorkList(object):
         """
         return []
 
+    def is_self_or_descendant(self, ancestor):
+        """Is this WorkList the given WorkList or one of its descendants?
+
+        :param target: A WorkList.
+        :return: A boolean.
+        """
+        for candidate in [self] + list(self.parentage):
+            if candidate == ancestor:
+                return True
+        return False
+
     @property
     def inherit_parent_restrictions(self):
         """Since a WorkList has no parent, it cannot inherit any restrictions
@@ -1591,6 +1602,47 @@ class WorkList(object):
         return "%s-%s-%s" % (
             self.display_name, self.language_key, self.audience_key
         )
+
+    def accessible_to(self, patron):
+        """As a matter of library policy, is the given `Patron` allowed
+        to access this `WorkList`?
+        """
+        if not patron:
+            # We have no lanes that are private, per se, so if there
+            # is no active patron, every lane is accessible.
+            return True
+
+        _db = Session.object_session(patron)
+        if patron.library != self.get_library(_db):
+            # You can't access a WorkList from another library.
+            return False
+
+        if not patron.library.has_root_lanes:
+            # The patron's library has no root lanes, so it's not necessary
+            # to run the somewhat expensive check for a patron's root lane.
+            # All lanes are accessible to all patrons.
+            return True
+
+        # Get the patron's root lane, if any.
+        root = patron.root_lane
+        if not root:
+            # A patron with no root lane can access every one of the
+            # library's WorkLists.
+            return True
+
+        # A WorkList is only accessible if the audiences and target age
+        # of the WorkList are fully compatible with that of the
+        # patron's root lane.
+        if self.audiences:
+            for work_audience in self.audiences:
+                # work_audience represents a type of book that _might_
+                # show up in this WorkList.
+                if not patron.work_is_age_appropriate(work_audience, self.target_age):
+                    # Books of this type would not be appropriate to show to
+                    # this patron, so the lane itself is not accessible.
+                    return False
+
+        return True
 
     def overview_facets(self, _db, facets):
         """Convert a generic FeaturedFacets to some other faceting object,
@@ -2575,6 +2627,32 @@ class Lane(Base, DatabaseBackedWorkList):
     def visible(self, value):
         self._visible = value
 
+    def accessible_to(self, patron):
+        """As a matter of library policy, is the given `Patron` allowed
+        to access this `Lane`?
+
+        :param patron: A Patron
+        :return: A boolean
+        """
+
+        # All the rules of WorkList apply.
+        if not super(Lane, self).accessible_to(patron):
+            return False
+
+        if patron is None:
+            return True
+
+        root_lane = patron.root_lane
+        if root_lane and not self.is_self_or_descendant(root_lane):
+            # In addition, a database Lane that's not in scope of the
+            # patron's root lane is not accessible, period. Even if all
+            # of the books in the Lane are age-appropriate, it's in a
+            # different part of the navigational structure and
+            # navigating to it is not allowed.
+            return False
+
+        return True
+
     @property
     def url_name(self):
         """Return the name of this lane to be used in URLs.
@@ -2996,3 +3074,10 @@ def configuration_relevant_lifecycle_event(mapper, connection, target):
 def configuration_relevant_update(mapper, connection, target):
     if directly_modified(target):
         site_configuration_has_changed(target)
+
+        # Some elements of Lane configuration are stored in the
+        # corresponding Library objects for performance reasons.
+
+        # Remove this information whenever the Lane configuration
+        # changes. This will force it to be recalculated.
+        Library._has_root_lane_cache.clear()
