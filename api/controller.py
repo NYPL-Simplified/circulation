@@ -1882,7 +1882,7 @@ class WorkController(CirculationManagerController):
             lane = RelatedBooksLane(
                 library, work, lane_name, novelist_api=novelist_api
             )
-        except ValueError:
+        except ValueError as e:
             # No related books were found.
             return NO_SUCH_LANE.detailed(e.message)
 
