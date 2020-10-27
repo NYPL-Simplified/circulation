@@ -75,6 +75,10 @@ class Contributor(Base):
     PHOTOGRAPHER_ROLE = u"Photographer"
     TRANSLATOR_ROLE = u"Translator"
     ILLUSTRATOR_ROLE = u"Illustrator"
+    LETTERER_ROLE = u"Letterer"
+    PENCILER_ROLE = u"Penciler"
+    COLORIST_ROLE = u"Colorist"
+    INKER_ROLE = u"Inker"
     INTRODUCTION_ROLE = u"Introduction Author"
     FOREWORD_ROLE = u"Foreword Author"
     AFTERWORD_ROLE = u"Afterword Author"
@@ -134,6 +138,10 @@ class Contributor(Base):
         PRODUCER_ROLE : 'pro',
         TRANSCRIBER_ROLE : 'trc',
         TRANSLATOR_ROLE : 'trl',
+        LETTERER_ROLE : 'ctb',
+        PENCILER_ROLE : 'ctb',
+        COLORIST_ROLE : 'clr',
+        INKER_ROLE : 'ctb',
         UNKNOWN_ROLE : 'asn',
     }
 

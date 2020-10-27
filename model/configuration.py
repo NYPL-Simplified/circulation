@@ -170,6 +170,7 @@ class ExternalIntegration(Base, HasFullTableCache):
 
     # Supported protocols for ExternalIntegrations with LICENSE_GOAL.
     OPDS_IMPORT = u'OPDS Import'
+    OPDS2_IMPORT = u'OPDS 2.0 Import'
     OVERDRIVE = DataSourceConstants.OVERDRIVE
     ODILO = DataSourceConstants.ODILO
     BIBLIOTHECA = DataSourceConstants.BIBLIOTHECA

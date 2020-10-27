@@ -126,6 +126,7 @@ class EditionConstants(object):
     for k, v in medium_to_additional_type.items():
         additional_type_to_medium[v] = k
 
+    additional_type_to_medium[u"http://schema.org/Book"] = BOOK_MEDIUM
 
     # Map the medium constants to the strings used when generating
     # permanent work IDs.

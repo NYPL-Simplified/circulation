@@ -1,0 +1,141 @@
+{
+  "metadata": {
+    "title": "Example listing publications"
+  },
+  "links": [
+    {
+      "rel": "self",
+      "href": "http://example.com/new",
+      "type": "application/opds+json"
+    }
+  ],
+  "publications": [
+    {
+      "metadata": {
+        "@type": "http://schema.org/Book",
+        "title": "Moby-Dick",
+        "author": "Herman Melville",
+        "identifier": "urn:isbn:978-3-16-148410-0",
+        "language": "en",
+        "publisher": {
+          "name": "Test Publisher"
+        },
+        "published": "2015-09-29T00:00:00Z",
+        "modified": "2015-09-29T17:00:00Z",
+        "subject": [
+          {
+            "scheme": "http://schema.org/audience",
+            "code": "juvenile-fiction",
+            "name": "Juvenile Fiction",
+            "links": []
+          }
+        ]
+      },
+      "links": [
+        {
+          "rel": "self",
+          "href": "http://example.org/publication.json",
+          "type": "application/opds-publication+json"
+        },
+        {
+          "rel": "http://opds-spec.org/acquisition/open-access",
+          "href": "http://example.org/moby-dick.epub",
+          "type": "application/epub+zip"
+        }
+      ],
+      "images": [
+        {
+          "href": "http://example.org/cover.jpg",
+          "type": "image/jpeg",
+          "height": 1400,
+          "width": 800
+        },
+        {
+          "href": "http://example.org/cover-small.jpg",
+          "type": "image/jpeg",
+          "height": 700,
+          "width": 400
+        },
+        {
+          "href": "http://example.org/cover.svg",
+          "type": "image/svg+xml"
+        }
+      ]
+    },
+    {
+      "metadata": {
+        "@type": "http://schema.org/Book",
+        "title": "Adventures of Huckleberry Finn",
+        "description": "Adventures of Huckleberry Finn is a novel by Mark Twain, first published in the United Kingdom in December 1884 and in the United States in February 1885.",
+        "author": [
+          {
+            "name": "Mark Twain"
+          },
+          {
+            "name": "Samuel Langhorne Clemens"
+          }
+        ],
+        "identifier": "urn:isbn:9781234567897",
+        "language": [
+          "eng"
+        ],
+        "publisher": {
+          "name": "Test Publisher"
+        },
+        "published": "2014-09-28T00:00:00Z",
+        "modified": "2015-09-29T17:00:00Z",
+        "subject": [
+          {
+            "scheme": "http://schema.org/audience",
+            "code": "juvenile-fiction",
+            "name": "Juvenile Fiction",
+            "links": []
+          }
+        ]
+      },
+      "links": [
+        {
+          "type": "application/opds-publication+json",
+          "rel": "http://opds-spec.org/acquisition/borrow",
+          "href": "http://example.org/huckleberry-finn",
+          "properties": {
+            "availability": {
+              "state": "available"
+            },
+            "indirectAcquisition": [
+              {
+                "type": "application/vnd.adobe.adept+xml",
+                "child": [
+                  {
+                    "type": "application/epub+zip"
+                  }
+                ]
+              },
+              {
+                "type": "application/vnd.readium.lcp.license.v1.0+json",
+                "child": [
+                  {
+                    "type": "application/epub+zip"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "rel": "http://opds-spec.org/acquisition/sample",
+          "type": "application/epub+zip",
+          "href": "https://example.com/medias/e5/318061475b11cf8c8e3752da2a1cf68384d8bf.epub"
+        }
+      ],
+      "images": [
+        {
+          "href": "http://example.org/cover.jpg",
+          "type": "image/jpeg",
+          "height": 1400,
+          "width": 800
+        }
+      ]
+    }
+  ]
+}

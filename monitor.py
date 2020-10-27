@@ -194,11 +194,11 @@ class Monitor(object):
                 # This will be treated the same as an unhandled
                 # exception, below.
                 exception = new_timestamp.exception
-        except Exception, e:
+        except Exception:
             this_run_finish = datetime.datetime.utcnow()
-            self.log.error(
+            self.log.exception(
                 "Error running %s monitor. Timestamp will not be updated.",
-                self.service_name, exc_info=e
+                self.service_name
             )
             exception = traceback.format_exc()
         if exception is not None:
