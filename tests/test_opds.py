@@ -1903,14 +1903,13 @@ class TestAcquisitionFeed(DatabaseTest):
         ep = AudiobooksEntryPoint
 
         # The top level with no entrypoint
-        # Top Level Title >
+        # Top Level Title
         feed = MockFeed()
         feed.add_breadcrumbs(lane)
-        children = getElementChildren(feed)
+        [top] = getElementChildren(feed)
 
-        eq_(len(children), 1)
-        eq_(children[0].attrib.get("href"), TestAnnotator.default_lane_url())
-        eq_(children[0].attrib.get("title"), TestAnnotator.top_level_title())
+        eq_(top.attrib.get("href"), TestAnnotator.default_lane_url())
+        eq_(top.attrib.get("title"), TestAnnotator.top_level_title())
 
         # The top level with an entrypoint
         # Top Level Title > Audio
