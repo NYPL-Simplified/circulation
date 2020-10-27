@@ -138,6 +138,10 @@ class Contributor(Base):
         PRODUCER_ROLE : 'pro',
         TRANSCRIBER_ROLE : 'trc',
         TRANSLATOR_ROLE : 'trl',
+        LETTERER_ROLE : 'contributor',
+        PENCILER_ROLE : 'contributor',
+        COLORIST_ROLE : 'contributor',
+        INKER_ROLE : 'contributor',
         UNKNOWN_ROLE : 'asn',
     }
 
