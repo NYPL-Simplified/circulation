@@ -578,7 +578,7 @@ class AcquisitionFeed(OPDSFeed):
 
         :param response_kwargs: Extra keyword arguments to pass into
             the OPDSFeedResponse constructor.
-        
+
         :return: An OPDSFeedResponse containing the feed.
         """
         annotator = cls._make_annotator(annotator)
@@ -1430,13 +1430,25 @@ class AcquisitionFeed(OPDSFeed):
                     AtomFeed.link(title=entrypoint.INTERNAL_NAME, href=root_url + entrypointQuery)
                 )
 
-            # Add links for all visible ancestors that aren't root
-            for ancestor in reversed(list(lane.parentage)):
+            # Add links for all visible ancestors that aren't a root lane
+            # for one patron type or another.
+            full_parentage = list(lane.parentage)
+            usable_parentage = []
+            for ancestor in lane.parentage:
+                if isinstance(ancestor, Lane) and ancestor.root_for_patron_type:
+                    # Root lane for a specific patron type.
+                    break
+                usable_parentage.append(ancestor)
+
+            for ancestor in reversed(usable_parentage):
                 lane_url = annotator.lane_url(ancestor)
-                if lane_url != root_url:
-                    breadcrumbs.append(
-                        AtomFeed.link(title=ancestor.display_name, href=lane_url + entrypointQuery)
-                    )
+                if lane_url == root_url:
+                    # Root lane for the entire site.
+                    break
+
+                breadcrumbs.append(
+                    AtomFeed.link(title=ancestor.display_name, href=lane_url + entrypointQuery)
+                )
 
             # Include link to lane
             # For search, breadcrumbs include the searched lane
