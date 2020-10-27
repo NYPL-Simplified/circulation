@@ -81,6 +81,7 @@ from core.model import (
 )
 from core.model.configuration import ExternalIntegrationLink
 from core.opds import AcquisitionFeed
+from core.opds2_import import OPDS2Importer
 from core.opds_import import (OPDSImporter, OPDSImportMonitor)
 from core.s3 import S3UploaderConfiguration
 from core.selftest import HasSelfTests
@@ -1285,6 +1286,7 @@ class SettingsController(AdminCirculationManagerController):
 
     PROVIDER_APIS = [OPDSImporter,
                      OPDSForDistributorsAPI,
+                     OPDS2Importer,
                      OverdriveAPI,
                      OdiloAPI,
                      BibliothecaAPI,
