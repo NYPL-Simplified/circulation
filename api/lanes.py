@@ -853,6 +853,19 @@ class WorkBasedLane(DynamicLane):
         worklist.languages = self.languages
         worklist.audiences = self.audiences
 
+    def accessible_to(self, patron):
+        """In addition to the restrictions imposed by the superclass, a lane
+        based on a specific Work is accessible to a Patron only if the
+        Work itself is age-appropriate for the patron.
+
+        :param patron: A Patron
+        :return: A boolean
+        """
+        superclass_ok = super(WorkBasedLane, self).accessible_to(patron)
+        return superclass_ok and (
+            not self.work or self.work.age_appropriate_for_patron(patron)
+        )
+
 
 class RecommendationLane(WorkBasedLane):
     """A lane of recommended Works based on a particular Work"""

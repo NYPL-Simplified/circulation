@@ -5,7 +5,12 @@ from flask import Response
 from flask_babel import lazy_gettext as _
 
 from circulation_exceptions import *
-from core.model import Library, get_one, Loan
+from core.model import (
+    Library,
+    Loan,
+    Patron,
+    get_one,
+)
 from core.util.problem_detail import ProblemDetail
 from problem_details import *
 
@@ -35,7 +40,39 @@ class BaseCirculationManagerController(object):
 
         return header
 
+    @property
+    def request_patron(self):
+        """The currently authenticated patron for this request, if any.
+
+        Most of the time you can use flask.request.patron, but
+        sometimes it's not clear whether
+        authenticated_patron_from_request() (which sets
+        flask.request.patron) has been called, and
+        authenticated_patron_from_request has a complicated return
+        value.
+
+        :return: A Patron, if one could be authenticated; None otherwise.
+        """
+        if not hasattr(flask.request, 'patron'):
+            # Call authenticated_patron_from_request for its side effect
+            # of setting flask.request.patron
+            self.authenticated_patron_from_request()
+
+        return flask.request.patron
+
     def authenticated_patron_from_request(self):
+        """Try to authenticate a patron for the incoming request.
+
+        When this method returns, flask.request.patron will
+        be set, though the value it's set to may be None.
+
+        :return: A Patron, if possible. If no authentication was
+          provided, a Flask Response. If a problem occured during
+          authentication, a ProblemDetail.
+        """
+        # Start off by assuming authentication will not work.
+        flask.request.patron = None
+
         header = self.authorization_header()
 
         if not header:
@@ -52,14 +89,12 @@ class BaseCirculationManagerController(object):
             # Credentials were provided but they turned out not
             # to identify anyone in particular.
             return self.authenticate()
-        if isinstance(patron, ProblemDetail):
-            flask.request.patron = None
-            return patron
-        else:
+        if isinstance(patron, Patron):
             flask.request.patron = patron
-            return patron
+        return patron
 
     def authenticated_patron(self, authorization_header):
+
         """Look up the patron authenticated by the given authorization header.
 
         The header could contain a barcode and pin or a token for an

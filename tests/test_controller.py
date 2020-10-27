@@ -14,6 +14,10 @@ import urlparse
 from wsgiref.handlers import format_date_time
 from time import mktime
 from decimal import Decimal
+from mock import (
+    MagicMock,
+    patch
+)
 
 import flask
 from flask import (
@@ -57,10 +61,10 @@ from api.authenticator import (
     OAuthController,
     LibraryAuthenticator,
 )
+from api.circulation_exceptions import RemoteInitiatedServerError
 from api.simple_authentication import SimpleAuthenticationProvider
 from core.app_server import (
     cdn_url_for,
-    load_lending_policy,
     load_facets_from_request,
 )
 from core.classifier import Classifier
@@ -116,6 +120,7 @@ from core.model import (
     get_one,
     get_one_or_create,
     create,
+    tuple_to_numericrange,
 )
 from core.lane import (
     DatabaseBackedFacets,
@@ -414,7 +419,6 @@ class TestCirculationManager(CirculationControllerTest):
         manager.adobe_device_management = object()
         manager.oauth_controller = object()
         manager.auth = object()
-        manager.lending_policy = object()
         manager.shared_collection_api = object()
         manager.new_custom_index_views = object()
         manager.patron_web_domains = object()
@@ -479,9 +483,6 @@ class TestCirculationManager(CirculationControllerTest):
 
         # The ExternalSearch object has been reset.
         assert isinstance(manager.external_search, MockExternalSearchIndex)
-
-        # So has the lending policy.
-        assert isinstance(manager.lending_policy, dict)
 
         # The OAuth controller has been recreated.
         assert isinstance(manager.oauth_controller, OAuthController)
@@ -668,12 +669,9 @@ class TestCirculationManager(CirculationControllerTest):
             assert isinstance(annotator, CirculationManagerAnnotator)
             eq_(worklist, annotator.lane)
 
-    def test_load_facets_from_request(self):
-        # Test our customization to the core load_facets_from_request
-        # function.
-        #
-        # Specifically, only an authenticated admin can ask to disable
-        # caching.
+    def test_load_facets_from_request_disable_caching(self):
+        # Only an authenticated admin can ask to disable caching,
+        # and load_facets_from_request is where we enforce this.
         class MockAdminSignInController(object):
             # Pretend to be able to find (or not) an Admin authenticated
             # to make the current request.
@@ -721,6 +719,40 @@ class TestCirculationManager(CirculationControllerTest):
                 controller.admin = value
                 facets = self.manager.load_facets_from_request()
                 eq_(None, facets.max_cache_age)
+
+    def test_load_facets_from_request_denies_access_to_inaccessible_worklist(self):
+        """You can't access a WorkList that's inaccessible to your patron
+        type, and load_facets_from_request (which is called when
+        presenting the WorkList) is where we enforce this.
+        """
+        wl = WorkList()
+        wl.accessible_to = MagicMock(return_value=True)
+
+        # The authenticated patron, if any, is passed into
+        # WorkList.accessible_to.
+        with self.request_context_with_library("/"):
+            facets = self.manager.load_facets_from_request(worklist=wl)
+            assert isinstance(facets, Facets)
+            wl.accessible_to.assert_called_once_with(None)
+
+        with self.request_context_with_library(
+            "/", headers=dict(Authorization=self.valid_auth)
+        ):
+            facets = self.manager.load_facets_from_request(worklist=wl)
+            assert isinstance(facets, Facets)
+            wl.accessible_to.assert_called_with(self.default_patron)
+
+        # The request is short-circuited if accessible_to returns
+        # False.
+        wl.accessible_to = MagicMock(return_value=False)
+        with self.request_context_with_library("/"):
+            facets = self.manager.load_facets_from_request(worklist=wl)
+            assert isinstance(facets, ProblemDetail)
+
+            # Because the patron didn't ask for a specific title, we
+            # respond that the lane doesn't exist rather than saying
+            # they've been denied access to age-inappropriate content.
+            eq_(NO_SUCH_LANE.uri, facets.uri)
 
     def test_cdn_url_for(self):
         # Test the various rules for generating a URL for a view while
@@ -784,6 +816,7 @@ class TestCirculationManager(CirculationControllerTest):
 class TestBaseController(CirculationControllerTest):
 
     def test_unscoped_session(self):
+
         """Compare to TestScopedSession.test_scoped_session to see
         how database sessions will be handled in production.
         """
@@ -795,6 +828,80 @@ class TestBaseController(CirculationControllerTest):
         with self.request_context_with_library("/"):
             response2 = self.manager.index_controller()
             eq_(self.app.manager._db, self._db)
+
+    def test_request_patron(self):
+        # Test the method that finds the currently authenticated patron
+        # for the current request, triggering the authentication process
+        # if necessary.
+
+        # If flask.request.patron is present, whatever value is in
+        # there is returned.
+        o1 = object()
+        with self.app.test_request_context("/"):
+            flask.request.patron = o1
+            eq_(o1, self.controller.request_patron)
+
+        # If not, authenticated_patron_from_request is called; it's
+        # supposed to set flask.request.patron.
+        o2 = object()
+        def set_patron():
+            flask.request.patron = o2
+        mock = MagicMock(side_effect = set_patron,
+                         return_value = "return value will be ignored")
+        self.controller.authenticated_patron_from_request = mock
+        with self.app.test_request_context("/"):
+            eq_(o2, self.controller.request_patron)
+
+    def test_authenticated_patron_from_request(self):
+        # Test the method that attempts to authenticate a patron
+        # for the current request.
+
+        # First, test success.
+        with self.request_context_with_library(
+            "/", headers=dict(Authorization=self.valid_auth)
+        ):
+            result = self.controller.authenticated_patron_from_request()
+            eq_(self.default_patron, result)
+            eq_(self.default_patron, flask.request.patron)
+
+        # No authorization header -> 401 error.
+        with patch(
+                'api.base_controller.BaseCirculationManagerController.authorization_header',
+                  lambda x: None
+        ):
+            with self.request_context_with_library("/"):
+                result = self.controller.authenticated_patron_from_request()
+                eq_(401, result.status_code)
+                eq_(None, flask.request.patron)
+
+        # Exception contacting the authentication authority -> ProblemDetail
+        def remote_failure(self, header):
+            raise RemoteInitiatedServerError("argh", "service")
+        with patch(
+                'api.base_controller.BaseCirculationManagerController.authenticated_patron',
+                remote_failure
+        ):
+            with self.request_context_with_library(
+                "/", headers=dict(Authorization=self.valid_auth)
+            ):
+                result = self.controller.authenticated_patron_from_request()
+                assert isinstance(result, ProblemDetail)
+                eq_(REMOTE_INTEGRATION_FAILED.uri, result.uri)
+                eq_("Error in authentication service", result.detail)
+                eq_(None, flask.request.patron)
+
+        # Credentials provided but don't identify anyone in particular
+        # -> 401 error.
+        with patch(
+                'api.base_controller.BaseCirculationManagerController.authenticated_patron',
+                lambda self, x: None
+        ):
+            with self.request_context_with_library(
+                "/", headers=dict(Authorization=self.valid_auth)
+            ):
+                result = self.controller.authenticated_patron_from_request()
+                eq_(401, result.status_code)
+                eq_(None, flask.request.patron)
 
     def test_authenticated_patron_invalid_credentials(self):
         with self.request_context_with_library("/"):
@@ -1011,6 +1118,40 @@ class TestBaseController(CirculationControllerTest):
         )
         eq_(NO_LICENSES.uri, problem_detail.uri)
 
+    def test_load_work(self):
+
+        # Create a Work with two LicensePools.
+        work = self._work(with_license_pool=True)
+        [pool1] = work.license_pools
+        pool2 = self._licensepool(None)
+        pool2.work = work
+
+        # Either identifier suffices to identify the Work.
+        for i in [pool1.identifier, pool2.identifier]:
+            with self.request_context_with_library("/"):
+                eq_(
+                    work,
+                    self.controller.load_work(
+                        self._default_library, i.type, i.identifier
+                    )
+                )
+
+        # If a patron is authenticated, the requested Work must be
+        # age-appropriate for that patron, or this method will return
+        # a problem detail.
+        headers = dict(Authorization=self.valid_auth)
+        for retval, expect in ((True, work), (False, NOT_AGE_APPROPRIATE)):
+            work.age_appropriate_for_patron = MagicMock(return_value = retval)
+            with self.request_context_with_library("/", headers=headers):
+                eq_(
+                    expect,
+                    self.controller.load_work(
+                        self._default_library, pool1.identifier.type,
+                        pool1.identifier.identifier
+                    )
+                )
+                work.age_appropriate_for_patron.called_with(self.default_patron)
+
     def test_load_licensepooldelivery(self):
 
         licensepool = self._licensepool(edition=None, with_open_access_download=True)
@@ -1127,26 +1268,50 @@ class TestBaseController(CirculationControllerTest):
             problem = self.controller.apply_borrowing_policy(patron, pool)
             eq_(FORBIDDEN_BY_POLICY.uri, problem.uri)
 
-    def test_apply_borrowing_policy_for_audience_restriction(self):
+    def test_apply_borrowing_policy_for_age_inappropriate_book(self):
+        # apply_borrowing_policy() prevents patrons from checking out
+        # books that are not age-appropriate.
+
+        # Set up lanes for different patron types.
+        children_lane = self._lane()
+        children_lane.audiences = [Classifier.AUDIENCE_CHILDREN,
+                              Classifier.AUDIENCE_YOUNG_ADULT]
+        children_lane.target_age = tuple_to_numericrange((9, 12))
+        children_lane.root_for_patron_type = ["child"]
+        
+        adults_lane = self._lane()
+        adults_lane.audiences = [Classifier.AUDIENCE_ADULT]
+        adults_lane.root_for_patron_type = ["adult"]
+
+        # This book is age-appropriate for anyone 13 years old or older.
+        work = self._work(with_license_pool=True)
+        work.audience = Classifier.AUDIENCE_CHILDREN
+        work.target_age = tuple_to_numericrange((13,15))
+        [pool] = work.license_pools
+
         with self.request_context_with_library("/"):
-            patron = self.controller.authenticated_patron(self.valid_credentials)
-            work = self._work(with_license_pool=True)
-            [pool] = work.license_pools
-
-            self.manager.lending_policy = load_lending_policy(
-                {
-                    "60": {"audiences": ["Children"]},
-                    "152": {"audiences": ["Children"]},
-                    "62": {"audiences": ["Children"]}
-                }
+            patron = self.controller.authenticated_patron(
+                self.valid_credentials
             )
+            # This patron is restricted to a lane in which the 13-year-old
+            # book would not appear.
+            patron.external_type = "child"
 
-            patron.external_type = '10'
-            eq_(None, self.controller.apply_borrowing_policy(patron, pool))
-
-            patron.external_type = '152'
+            # Therefore the book is not age-appropriate for the patron.
             problem = self.controller.apply_borrowing_policy(patron, pool)
             eq_(FORBIDDEN_BY_POLICY.uri, problem.uri)
+
+            # If the lane is expanded to allow the book's age range, there's
+            # no problem.
+            children_lane.target_age = tuple_to_numericrange((9,13))
+            eq_(None, self.controller.apply_borrowing_policy(patron, pool))
+
+            # Similarly if the patron has an external type
+            # corresponding to a root lane in which the given book
+            # _is_ age-appropriate.
+            children_lane.target_age = tuple_to_numericrange((9, 12))
+            patron.external_type = "adult"
+            eq_(None, self.controller.apply_borrowing_policy(patron, pool))
 
     def test_library_for_request(self):
         with self.app.test_request_context("/"):
@@ -1200,52 +1365,68 @@ class TestBaseController(CirculationControllerTest):
             # An assertion that would have failed before works now.
             assert new_name in self.manager.auth.library_authenticators
 
-
-class FullLaneSetupTest(CirculationControllerTest):
-    """Most lane-based tests don't need the full multi-tier setup of lanes
-    that we would see in a real site. We use a smaller setup to save time
-    when running the test.
-
-    This class is for the tests that do need that full set of lanes.
-    """
-    def library_setup(self, library):
-        super(FullLaneSetupTest, self).library_setup(library)
-        for k, v in [
-                (Configuration.LARGE_COLLECTION_LANGUAGES, ['eng']),
-                (Configuration.SMALL_COLLECTION_LANGUAGES, ['spa', 'chi']),
-                (Configuration.TINY_COLLECTION_LANGUAGES, [])
-        ]:
-            ConfigurationSetting.for_library(k, library).value = json.dumps(v)
-        create_default_lanes(self._db, library)
-
     def test_load_lane(self):
+        # Verify that requests for specific lanes are mapped to
+        # the appropriate lane.
+
+        # TODO: The case where the top-level lane is a WorkList rather
+        # than a Lane is not tested.
+
+        lanes = self._default_library.lanes
+
         with self.request_context_with_library("/"):
-            eq_(self.manager.d_top_level_lane,
-                self.controller.load_lane(None, None))
-            chinese = self.controller.load_lane('chi', None)
-            eq_("Chinese", chinese.name)
-            eq_("Chinese", chinese.display_name)
-            eq_(["chi"], chinese.languages)
+            top_level = self.controller.load_lane(None)
+            expect = self.controller.manager.top_level_lanes[
+                self._default_library.id
+            ]
 
-            english_sf = self.controller.load_lane('eng', "Science Fiction")
-            eq_("Science Fiction", english_sf.display_name)
-            eq_(["eng"], english_sf.languages)
+            # expect and top_level are different ORM objects
+            # representing the same lane. (They're different objects
+            # because the lane stored across requests inside the
+            # CirculationManager object was merged into the request's
+            # database session.)
+            assert isinstance(top_level, Lane)
+            eq_(expect.id, top_level.id)
 
-            # __ is converted to /
-            english_thriller = self.controller.load_lane('eng', "Suspense__Thriller")
-            eq_("Suspense/Thriller", english_thriller.name)
+            # A lane can be looked up by ID.
+            for l in lanes:
+                found = self.controller.load_lane(l.id)
+                eq_(l, found)
 
-            # Unlike with Chinese, there is no lane that contains all English books.
-            english = self.controller.load_lane('eng', None)
-            eq_(english.uri, NO_SUCH_LANE.uri)
+            # If a lane cannot be looked up by ID, a problem detail
+            # is returned.
+            for bad_id in ('nosuchlane', -1):
+                not_found = self.controller.load_lane(bad_id)
+                assert isinstance(not_found, ProblemDetail)
+                eq_(not_found.uri, NO_SUCH_LANE.uri)
+                eq_(
+                    "Lane %s does not exist or is not associated with library %s" % (
+                        bad_id, self._default_library.id
+                    ),
+                    not_found.detail
+                )
 
-            no_such_language = self.controller.load_lane('o10', None)
-            eq_(no_such_language.uri, NO_SUCH_LANE.uri)
-            eq_("Unrecognized language key: o10", no_such_language.detail)
+        # If the requested lane exists but is not visible to the
+        # authenticated patron, the server _acts_ like the lane does
+        # not exist.
 
-            no_such_lane = self.controller.load_lane('eng', 'No such lane')
-            eq_("No such lane: No such lane", no_such_lane.detail)
+        # Any lane will do here.
+        lane = lanes[0]
 
+        # Mock Lane.accessible_to so that it always returns
+        # false.
+        lane.accessible_to = MagicMock(return_value=False)
+        headers = dict(Authorization=self.valid_auth)
+        with self.request_context_with_library(
+            "/", headers=headers, library=self._default_library
+        ):
+            # The lane exists, but visible_to says it's not
+            # visible to the authenticated patron, so the controller
+            # denies it exists.
+            result = self.controller.load_lane(lane.id)
+            assert isinstance(result, ProblemDetail)
+            eq_(result.uri, NO_SUCH_LANE.uri)
+            lane.accessible_to.assert_called_once_with(self.default_patron)
 
 
 class TestIndexController(CirculationControllerTest):
@@ -2781,6 +2962,48 @@ class TestWorkController(CirculationControllerTest):
         # No other arguments were passed into page().
         eq_({}, kwargs)
 
+    def test_age_appropriateness_end_to_end(self):
+        # An end-to-end test of the idea that a patron can't access
+        # feeds configured to include titles that would not be
+        # age-appropriate for that patron.
+        #
+        # A similar test could be run for any of the other subclasses
+        # of DynamicLane.
+        m = self.manager.work_controller.contributor
+
+        contributor, ignore = self._contributor()
+
+        patron = self.default_patron
+        patron.external_type = "child"
+        children_lane = self._lane()
+        children_lane.audiences = [Classifier.AUDIENCE_CHILDREN]
+        children_lane.target_age = tuple_to_numericrange((4, 5))
+        children_lane.root_for_patron_type = ["child"]
+
+        with self.request_context_with_library(
+            "/", headers=dict(Authorization=self.valid_auth)
+        ):
+            # If we ask for books for adults _or_ children by a given
+            # author, we're denied access -- the authenticated
+            # patron's root lane would make any adult books
+            # age-inappropriate.
+            audiences = ",".join([
+                Classifier.AUDIENCE_ADULT, Classifier.AUDIENCE_CHILDREN
+            ])
+            response = m(contributor.sort_name, "eng", audiences)
+            assert isinstance(response, ProblemDetail)
+            eq_(NO_SUCH_LANE.uri, response.uri)
+
+            # If we only ask for children's books by the same author,
+            # we're fine.
+            response = m(contributor.sort_name, "eng", 
+                         Classifier.AUDIENCE_CHILDREN)
+            eq_(200, response.status_code)
+
+        # We're also fine if we don't authenticate the request at all.
+        with self.request_context_with_library("/"):
+            response = m(contributor.sort_name, "eng", audiences)
+            eq_(200, response.status_code)
 
     def test_permalink(self):
         with self.request_context_with_library("/"):
