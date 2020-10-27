@@ -152,7 +152,7 @@ class OPDS2Importer(OPDSImporter):
 
         return subject_metadata_list
 
-    def _extract_contributors(self, contributors, default_role=None):
+    def _extract_contributors(self, contributors, default_role=Contributor.AUTHOR_ROLE):
         """Extract a list of ContributorData objects from the webpub-manifest-parser's contributor.
 
         :param contributors: Parsed contributor object
