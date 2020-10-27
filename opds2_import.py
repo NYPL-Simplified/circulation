@@ -1,10 +1,9 @@
 import logging
 
-import webpub_manifest_parser.core.ast as core_ast
 import webpub_manifest_parser.opds2.ast as opds2_ast
 from flask_babel import lazy_gettext as _
 from six import StringIO
-from urlparse import urljoin, urlparse
+from six.moves.urllib.parse import urljoin, urlparse
 from webpub_manifest_parser.errors import BaseError
 from webpub_manifest_parser.opds2.parsers import OPDS2DocumentParserFactory
 from webpub_manifest_parser.opds2.registry import (
@@ -23,6 +22,7 @@ from .metadata_layer import (
     SubjectData,
 )
 from .model import (
+    Contributor,
     DeliveryMechanism,
     Edition,
     ExternalIntegration,
@@ -67,7 +67,7 @@ class OPDS2Importer(OPDSImporter):
         :param collection: Circulation Manager's collection.
             LicensePools created by this OPDS2Import class will be associated with the given Collection.
             If this is None, no LicensePools will be created -- only Editions.
-        :type collection: sqlalchemy.orm.session.Session
+        :type collection: Collection
 
         :param data_source_name: Name of the source of this OPDS feed.
             All Editions created by this import will be associated with this DataSource.
@@ -90,7 +90,7 @@ class OPDS2Importer(OPDSImporter):
         :type map_from_collection: Dict
 
         :param mirrors: A dictionary of different MirrorUploader objects for different purposes
-        :type mirrors: List[MirrorUploader]
+        :type mirrors: Dict[MirrorUploader]
         """
         super(OPDS2Importer, self).__init__(
             db,
@@ -106,31 +106,24 @@ class OPDS2Importer(OPDSImporter):
 
         self._logger = logging.getLogger(__name__)
 
-    def _extract_subjects(self, subject):
+    def _extract_subjects(self, subjects):
         """Extract a list of SubjectData objects from the webpub-manifest-parser's subject.
 
-        :param subject: Parsed subject object
-        :type subject: Union[
-            str,
-            List[Union[str, core_ast.Subject]],
-            core_ast.Subject
-        ]
+        :param subjects: Parsed subject object
+        :type subjects: List[core_ast.Subject]
 
         :return: List of subjects metadata
         :rtype: List[SubjectMetadata]
         """
-        self._logger.debug(
-            u"Started extracting subject metadata from {0}".format(encode(subject))
-        )
+        self._logger.debug(u"Started extracting subjects metadata")
 
         subject_metadata_list = []
 
-        if is_string(subject):
-            subject_metadata = SubjectData(
-                type=None, identifier=None, name=subject, weight=1
+        for subject in subjects:
+            self._logger.debug(
+                u"Started extracting subject metadata from {0}".format(encode(subject))
             )
-            subject_metadata_list.append(subject_metadata)
-        elif isinstance(subject, core_ast.Subject):
+
             scheme = subject.scheme
 
             subject_type = Subject.by_uri.get(scheme)
@@ -144,72 +137,63 @@ class OPDS2Importer(OPDSImporter):
             )
 
             subject_metadata_list.append(subject_metadata)
-        elif isinstance(subject, list):
-            for inner_subject in subject:
-                inner_subject_metadata_list = self._extract_subjects(inner_subject)
 
-                subject_metadata_list.extend(inner_subject_metadata_list)
+            self._logger.debug(
+                u"Finished extracting subject metadata from {0}: {1}".format(
+                    encode(subject), encode(subject_metadata)
+                )
+            )
 
         self._logger.debug(
-            u"Finished extracting contributor metadata from {0}: {1}".format(
-                encode(subject), encode(subject_metadata_list)
+            u"Finished extracting subjects metadata: {0}".format(
+                encode(subject_metadata_list)
             )
         )
 
         return subject_metadata_list
 
-    def _extract_contributors(self, contributor):
+    def _extract_contributors(self, contributors, default_role=None):
         """Extract a list of ContributorData objects from the webpub-manifest-parser's contributor.
 
-        :param contributor: Parsed contributor object
-        :type contributor: Union[
-            str,
-            List[Union[str, core_ast.Contributor]],
-            core_ast.Contributor
-        ]
+        :param contributors: Parsed contributor object
+        :type contributors: List[core_ast.Contributor]
+
+        :param default_role: Default role
+        :type default_role: Optional[str]
 
         :return: List of contributors metadata
         :rtype: List[ContributorData]
         """
-        self._logger.debug(
-            u"Started extracting contributor metadata from {0}".format(
-                encode(contributor)
-            )
-        )
+        self._logger.debug(u"Started extracting contributors metadata")
 
         contributor_metadata_list = []
 
-        if is_string(contributor):
-            contributor_metadata = ContributorData(
-                sort_name=None,
-                display_name=contributor,
-                family_name=None,
-                wikipedia_name=None,
-                roles=None,
+        for contributor in contributors:
+            self._logger.debug(
+                u"Started extracting contributor metadata from {0}".format(
+                    encode(contributor)
+                )
             )
 
-            contributor_metadata_list.append(contributor_metadata)
-        elif isinstance(contributor, core_ast.Contributor):
             contributor_metadata = ContributorData(
                 sort_name=contributor.sort_as,
                 display_name=contributor.name,
                 family_name=None,
                 wikipedia_name=None,
-                roles=contributor.roles if contributor.roles else None,
+                roles=contributor.roles if contributor.roles else default_role,
+            )
+
+            self._logger.debug(
+                u"Finished extracting contributor metadata from {0}: {1}".format(
+                    encode(contributor), encode(contributor_metadata)
+                )
             )
 
             contributor_metadata_list.append(contributor_metadata)
-        elif isinstance(contributor, list):
-            for inner_contributor in contributor:
-                inner_contributor_metadata_list = self._extract_contributors(
-                    inner_contributor
-                )
-
-                contributor_metadata_list.extend(inner_contributor_metadata_list)
 
         self._logger.debug(
-            u"Finished extracting contributor metadata from {0}: {1}".format(
-                encode(contributor), encode(contributor_metadata_list)
+            u"Finished extracting contributors metadata: {0}".format(
+                encode(contributor_metadata_list)
             )
         )
 
@@ -261,6 +245,14 @@ class OPDS2Importer(OPDSImporter):
         return link_metadata
 
     def _extract_description_link(self, publication):
+        """Extract description from the publication object and create a Hyperlink.DESCRIPTION link containing it.
+
+        :param publication: Publication object
+        :type publication: opds2_ast.Publication
+
+        :return: LinkData object containing publication's description
+        :rtype: LinkData
+        """
         self._logger.debug(
             u"Started extracting a description link from {0}".format(
                 encode(publication.metadata.description)
@@ -301,6 +293,16 @@ class OPDS2Importer(OPDSImporter):
                 encode(publication.images)
             )
         )
+
+        # FIXME: This code most likely will not work in general.
+        # There's no guarantee that these images have the same media type,
+        # or that the second-largest image isn't far too large to use as a thumbnail.
+        # Instead of using the second-largest image as a thumbnail,
+        # find the image that would make the best thumbnail
+        # because of its dimensions, media type, and aspect ratio:
+        #       IDEAL_COVER_ASPECT_RATIO = 2.0/3
+        #       IDEAL_IMAGE_HEIGHT = 240
+        #       IDEAL_IMAGE_WIDTH = 160
 
         sorted_raw_image_links = list(
             reversed(
@@ -392,7 +394,8 @@ class OPDS2Importer(OPDSImporter):
 
         if link.properties:
             if (
-                link.properties.availability.state
+                not link.properties.availability
+                or link.properties.availability.state
                 == opds2_ast.OPDS2AvailabilityType.AVAILABLE.value
             ):
                 for acquisition_object in link.properties.indirect_acquisition:
@@ -403,24 +406,11 @@ class OPDS2Importer(OPDSImporter):
                             acquisition_object.child
                         )
 
-                    drm_scheme = DeliveryMechanism.NO_DRM
-
-                    if acquisition_object.type == DeliveryMechanism.ADOBE_DRM:
-                        drm_scheme = DeliveryMechanism.ADOBE_DRM
-                    elif acquisition_object.type == DeliveryMechanism.FINDAWAY_DRM:
-                        drm_scheme = DeliveryMechanism.FINDAWAY_DRM
-                    elif acquisition_object.type == DeliveryMechanism.AXISNOW_DRM:
-                        drm_scheme = DeliveryMechanism.AXISNOW_DRM
-                    elif acquisition_object.type == DeliveryMechanism.AXISNOW_DRM:
-                        drm_scheme = DeliveryMechanism.AXISNOW_DRM
-                    elif acquisition_object.type == DeliveryMechanism.NOOK_DRM:
-                        drm_scheme = DeliveryMechanism.NOOK_DRM
-                    elif acquisition_object.type == DeliveryMechanism.NOOK_DRM:
-                        drm_scheme = DeliveryMechanism.NOOK_DRM
-                    elif acquisition_object.type == DeliveryMechanism.STREAMING_DRM:
-                        drm_scheme = DeliveryMechanism.STREAMING_DRM
-                    elif acquisition_object.type == DeliveryMechanism.LCP_DRM:
-                        drm_scheme = DeliveryMechanism.LCP_DRM
+                    drm_scheme = (
+                        acquisition_object.type
+                        if acquisition_object.type in DeliveryMechanism.KNOWN_DRM_TYPES
+                        else DeliveryMechanism.NO_DRM
+                    )
 
                     media_types_and_drm_scheme.append(
                         (nested_acquisition_object.type, drm_scheme)
@@ -521,21 +511,46 @@ class OPDS2Importer(OPDSImporter):
         if publisher:
             publisher = publisher.name
 
+        imprint = first_or_default(publication.metadata.imprints)
+        if imprint:
+            imprint = imprint.name
+
         published = publication.metadata.published
         subjects = self._extract_subjects(publication.metadata.subjects)
         contributors = (
-            self._extract_contributors(publication.metadata.authors)
-            + self._extract_contributors(publication.metadata.translators)
-            + self._extract_contributors(publication.metadata.editors)
-            + self._extract_contributors(publication.metadata.artists)
-            + self._extract_contributors(publication.metadata.illustrators)
-            + self._extract_contributors(publication.metadata.letterers)
-            + self._extract_contributors(publication.metadata.pencilers)
-            + self._extract_contributors(publication.metadata.colorists)
-            + self._extract_contributors(publication.metadata.inkers)
-            + self._extract_contributors(publication.metadata.narrators)
-            + self._extract_contributors(publication.metadata.contributors)
-            + self._extract_contributors(publication.metadata.imprints)
+            self._extract_contributors(
+                publication.metadata.authors, Contributor.AUTHOR_ROLE
+            )
+            + self._extract_contributors(
+                publication.metadata.translators, Contributor.TRANSLATOR_ROLE
+            )
+            + self._extract_contributors(
+                publication.metadata.editors, Contributor.EDITOR_ROLE
+            )
+            + self._extract_contributors(
+                publication.metadata.artists, Contributor.ARTIST_ROLE
+            )
+            + self._extract_contributors(
+                publication.metadata.illustrators, Contributor.ILLUSTRATOR_ROLE
+            )
+            + self._extract_contributors(
+                publication.metadata.letterers, Contributor.LETTERER_ROLE
+            )
+            + self._extract_contributors(
+                publication.metadata.pencilers, Contributor.PENCILER_ROLE
+            )
+            + self._extract_contributors(
+                publication.metadata.colorists, Contributor.COLORIST_ROLE
+            )
+            + self._extract_contributors(
+                publication.metadata.inkers, Contributor.INKER_ROLE
+            )
+            + self._extract_contributors(
+                publication.metadata.narrators, Contributor.NARRATOR_ROLE
+            )
+            + self._extract_contributors(
+                publication.metadata.contributors, Contributor.CONTRIBUTOR_ROLE
+            )
         )
 
         feed_self_url = first_or_default(
@@ -585,6 +600,7 @@ class OPDS2Importer(OPDSImporter):
             medium=medium,
             publisher=publisher,
             published=published,
+            imprint=imprint,
             primary_identifier=identifier_data,
             subjects=subjects,
             contributors=contributors,

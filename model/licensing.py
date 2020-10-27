@@ -1456,6 +1456,10 @@ class DeliveryMechanism(Base, HasFullTableCache):
     # its profiles.
     LIBBY_DRM = u"Libby DRM"
 
+    KNOWN_DRM_TYPES = {
+        ADOBE_DRM, FINDAWAY_DRM, AXISNOW_DRM, KINDLE_DRM, NOOK_DRM, STREAMING_DRM, LCP_DRM, OVERDRIVE_DRM, LIBBY_DRM
+    }
+
     BEARER_TOKEN = u"application/vnd.librarysimplified.bearer-token+json"
     FEEDBOOKS_AUDIOBOOK_DRM = u"http://www.feedbooks.com/audiobooks/access-restriction"
 
