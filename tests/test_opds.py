@@ -96,7 +96,7 @@ class TestBaseAnnotator(DatabaseTest):
             Annotator.authors(None, edition),
             key=lambda x: x.tag
         )
-        
+
 
         # The <author> tag indicates a role of 'author', so there's no
         # need for an explicitly specified role property.
@@ -1900,120 +1900,99 @@ class TestAcquisitionFeed(DatabaseTest):
         subsublane = self._lane(parent=sublane, display_name="subsublane")
         subsubsublane = self._lane(parent=subsublane,
                                    display_name="subsubsublane")
-        ep = AudiobooksEntryPoint
+
+        def assert_breadcrumbs(lane, expect_lanes=None,
+                               entrypoint=AudiobooksEntryPoint):
+            # Create breadcrumbs leading up to the given lane
+            # and verify that they include a breadcrumb for the top
+            # level, (optionally) a breadcrumb for a selected entrypoint,
+            # and breadcrumbs for all the lanes in `expect_lanes`.
+            #
+            # For easier reading, all assertions in this test are
+            # written as calls to this function.
+            feed = MockFeed()
+            feed.add_breadcrumbs(lane, entrypoint=entrypoint)
+            children = getElementChildren(feed)
+
+            # A Lane does not have a breadcrumb for itself; the
+            # breadcrumbs lead up to the Lane.
+            if expect_lanes:
+                assert lane not in expect_lanes
+
+            # Treat the top-level lane specially.
+            top = children.pop(0)
+            eq_(top.attrib.get("href"), TestAnnotator.default_lane_url())
+            eq_(top.attrib.get("title"), TestAnnotator.top_level_title())
+
+            if not children:
+                # There was only one breadcrumb; we're done.
+                return
+
+            entrypoint_query = "?entrypoint="
+            if entrypoint is None:
+                # There is a second breadcrumb but it's _not_ a
+                # selected entrypoint.  This means neither it nor the
+                # subsequent breadcrumbs should include the entrypoint
+                # query string.
+                for child in children:
+                    assert entrypoint_query not in child.attrib.get('href')
+            else:
+                # The second breadcrumb is a selected entrypoint.
+
+                # Make assertions about the entrypoint breadcrumb itself.
+                entrypoint_crumb = children.pop(0)
+                entrypoint_query += entrypoint.INTERNAL_NAME
+                expect_url = TestAnnotator.default_lane_url() + entrypoint_query
+                eq_(entrypoint_crumb.attrib.get("href"), expect_url)
+
+                # All subsequent breadcrumbs should include the
+                # entrypoint query string in their URL.
+                for child in children:
+                    assert entrypoint_query in child.attrib.get('href')
+
+            # Now verify that every lane in expect_lanes has its own
+            # breadcrumb.
+            eq_(
+                [child.attrib.get('title') for child in children],
+                [x.display_name for x in (expect_lanes or [])]
+            )
 
         # The top level with no entrypoint
         # Top Level Title
-        feed = MockFeed()
-        feed.add_breadcrumbs(lane)
-        [top] = getElementChildren(feed)
-
-        eq_(top.attrib.get("href"), TestAnnotator.default_lane_url())
-        eq_(top.attrib.get("title"), TestAnnotator.top_level_title())
+        assert_breadcrumbs(lane, entrypoint=None)
 
         # The top level with an entrypoint
         # Top Level Title > Audio
-        feed = MockFeed()
-        feed.add_breadcrumbs(lane, entrypoint=ep)
-        children = getElementChildren(feed)
-
-        top, entrypoint = children
-        eq_(top.attrib.get("href"), TestAnnotator.default_lane_url())
-        eq_(top.attrib.get("title"), TestAnnotator.top_level_title())
-        eq_(entrypoint.attrib.get("href"),
-            TestAnnotator.default_lane_url() + "?entrypoint=" + ep.INTERNAL_NAME
-        )
-        eq_(entrypoint.attrib.get("title"), ep.INTERNAL_NAME)
+        assert_breadcrumbs(lane)
 
         # One lane level down but with no entrypoint
         # Top Level Title > lane
-        feed = MockFeed()
-        feed.add_breadcrumbs(sublane)
-        children = getElementChildren(feed)
-
-        top, _lane = children
-        eq_(top.attrib.get("href"), TestAnnotator.default_lane_url())
-        eq_(top.attrib.get("title"), TestAnnotator.top_level_title())
-        assert(
-            ("?entrypoint=" + ep.INTERNAL_NAME) not in _lane.attrib.get("href")
-        )
-        eq_(_lane.attrib.get("title"), lane.display_name)
+        assert_breadcrumbs(sublane, [lane], entrypoint=None)
 
         # One lane level down and with an entrypoint
         # Each sublane will have the entrypoint propagated down to its link
         # Top Level Title > Audio > lane
-        feed = MockFeed()
-        feed.add_breadcrumbs(sublane, entrypoint=ep)
-        children = getElementChildren(feed)
-
-        top, entrypoint, _lane = children
-        eq_(top.attrib.get("href"), TestAnnotator.default_lane_url())
-        eq_(top.attrib.get("title"), TestAnnotator.top_level_title())
-        eq_(entrypoint.attrib.get("href"), TestAnnotator.default_lane_url() + "?entrypoint=" + ep.INTERNAL_NAME)
-        eq_(entrypoint.attrib.get("title"), ep.INTERNAL_NAME)
-        assert(("?entrypoint=" + ep.INTERNAL_NAME) in _lane.attrib.get("href"))
-        eq_(_lane.attrib.get("title"), lane.display_name)
+        assert_breadcrumbs(sublane, [lane])
 
         # Two lane levels down but no entrypoint
         # Top Level Title > lane > sublane
-        feed = MockFeed()
-        feed.add_breadcrumbs(subsublane)
-        children = getElementChildren(feed)
-
-        top, _lane, _sublane = children
-        eq_(top.attrib.get("href"), TestAnnotator.default_lane_url())
-        eq_(top.attrib.get("title"), TestAnnotator.top_level_title())
-        assert(
-            ("?entrypoint=" + ep.INTERNAL_NAME) not in _lane.attrib.get("href")
-        )
-        eq_(_lane.attrib.get("title"), lane.display_name)
-        assert(
-            ("?entrypoint=" + ep.INTERNAL_NAME) not in _sublane.attrib.get("href")
-        )
-        eq_(_sublane.attrib.get("title"), sublane.display_name)
+        assert_breadcrumbs(subsublane, [lane, sublane], entrypoint=None)
 
         # Two lane levels down after the entrypoint
         # Each sublane will have the entrypoint propagated down to its link
         # Top Level Title > Audio > lane > sublane
-        feed = MockFeed()
-        feed.add_breadcrumbs(subsublane, entrypoint=ep)
-        children = getElementChildren(feed)
+        assert_breadcrumbs(subsublane, [lane, sublane])
 
-        top, entrypoint, _lane, _sublane = children
-        eq_(top.attrib.get("href"), TestAnnotator.default_lane_url())
-        eq_(top.attrib.get("title"), TestAnnotator.top_level_title())
-        eq_(
-            entrypoint.attrib.get("href"),
-            TestAnnotator.default_lane_url() + "?entrypoint=" + ep.INTERNAL_NAME
-        )
-        eq_(entrypoint.attrib.get("title"), ep.INTERNAL_NAME)
+        # Three lane levels down after the entrypoint.
+        # Top Level Title > Audio > lane > sublane > subsublane
+        assert_breadcrumbs(subsubsublane, [lane, sublane, subsublane])
 
-        assert(
-            ("?entrypoint=" + ep.INTERNAL_NAME) in _lane.attrib.get("href")
-        )
-        eq_(_lane.attrib.get("title"), lane.display_name)
-
-        assert(
-            ("?entrypoint=" + ep.INTERNAL_NAME) in _sublane.attrib.get("href")
-        )
-        eq_(_sublane.attrib.get("title"), sublane.display_name)
-
-        # Three lane levels down after the entrypoint, with the second
-        # lane being a root lane for a certain patron type.
-        # Top Level Title > Audio > subsublane
+        # Make the sublane a root lane for a certain patron type, and
+        # the breadcrumbs will be cut off at that lane -- we won't see
+        # the sublane.
+        # Top Level Title > Audio > sublane > subsublane
         sublane.root_for_patron_type = ["ya"]
-        feed = MockFeed()
-        feed.add_breadcrumbs(subsubsublane, entrypoint=ep)
-        children = getElementChildren(feed)
-
-        top_level, entrypoint, subsubsublane_breadcrumb = children
-        eq_(top_level.attrib.get("title"), TestAnnotator.top_level_title())
-        eq_(entrypoint.attrib.get("title"), ep.INTERNAL_NAME)
-        eq_(subsubsublane_breadcrumb.attrib.get("title"),
-            subsubsublane.display_name)
-
-        # We don't see a breadcrumb for `lane` or `sublane` because
-        # sublane is a root lane.
+        assert_breadcrumbs(subsubsublane, [sublane, subsublane])
 
     def test_add_breadcrumb_links(self):
 

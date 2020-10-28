@@ -6,6 +6,7 @@ from collections import (
 )
 
 from lxml import etree
+from nose.tools import set_trace
 from sqlalchemy.orm.session import Session
 
 from cdn import cdnify
@@ -1435,10 +1436,10 @@ class AcquisitionFeed(OPDSFeed):
             full_parentage = list(lane.parentage)
             usable_parentage = []
             for ancestor in lane.parentage:
+                usable_parentage.append(ancestor)
                 if isinstance(ancestor, Lane) and ancestor.root_for_patron_type:
                     # Root lane for a specific patron type.
                     break
-                usable_parentage.append(ancestor)
 
             for ancestor in reversed(usable_parentage):
                 lane_url = annotator.lane_url(ancestor)
