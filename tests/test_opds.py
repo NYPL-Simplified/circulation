@@ -1901,8 +1901,12 @@ class TestAcquisitionFeed(DatabaseTest):
         subsubsublane = self._lane(parent=subsublane,
                                    display_name="subsubsublane")
 
-        def assert_breadcrumbs(lane, expect_lanes=None,
-                               entrypoint=AudiobooksEntryPoint):
+        top_level = object()
+        ep = AudiobooksEntryPoint
+
+        def assert_breadcrumbs(
+            expect_breadcrumbs_for, lane, **add_breadcrumbs_kwargs
+        ):
             # Create breadcrumbs leading up to the given lane
             # and verify that they include a breadcrumb for the top
             # level, (optionally) a breadcrumb for a selected entrypoint,
@@ -1911,88 +1915,101 @@ class TestAcquisitionFeed(DatabaseTest):
             # For easier reading, all assertions in this test are
             # written as calls to this function.
             feed = MockFeed()
-            feed.add_breadcrumbs(lane, entrypoint=entrypoint)
-            children = getElementChildren(feed)
 
-            # A Lane does not have a breadcrumb for itself; the
-            # breadcrumbs lead up to the Lane.
-            if expect_lanes:
-                assert lane not in expect_lanes
+            entrypoint = add_breadcrumbs_kwargs.get('entrypoint', None)
+            include_lane = add_breadcrumbs_kwargs.get('include_lane', False)
 
-            # Treat the top-level lane specially.
-            top = children.pop(0)
-            eq_(top.attrib.get("href"), TestAnnotator.default_lane_url())
-            eq_(top.attrib.get("title"), TestAnnotator.top_level_title())
+            feed.add_breadcrumbs(lane, **add_breadcrumbs_kwargs)
+            crumbs = getElementChildren(feed)
 
-            if not children:
-                # There was only one breadcrumb; we're done.
-                return
-
+            has_entrypoint = False
             entrypoint_query = "?entrypoint="
-            if entrypoint is None:
-                # There is a second breadcrumb but it's _not_ a
-                # selected entrypoint.  This means neither it nor the
-                # subsequent breadcrumbs should include the entrypoint
-                # query string.
-                for child in children:
-                    assert entrypoint_query not in child.attrib.get('href')
-            else:
-                # The second breadcrumb is a selected entrypoint.
+            for i, crumb in enumerate(crumbs):
+                expect = expect_breadcrumbs_for[i]
 
-                # Make assertions about the entrypoint breadcrumb itself.
-                entrypoint_crumb = children.pop(0)
-                entrypoint_query += entrypoint.INTERNAL_NAME
-                expect_url = TestAnnotator.default_lane_url() + entrypoint_query
-                eq_(entrypoint_crumb.attrib.get("href"), expect_url)
+                if expect is top_level:
+                    eq_(
+                        crumb.attrib.get("href"),
+                        TestAnnotator.default_lane_url()
+                    )
+                    eq_(
+                        crumb.attrib.get("title"),
+                        TestAnnotator.top_level_title()
+                    )
+                elif expect is ep:
+                    has_entrypoint = True
+                    entrypoint_query += expect.INTERNAL_NAME
 
-                # All subsequent breadcrumbs should include the
-                # entrypoint query string in their URL.
-                for child in children:
-                    assert entrypoint_query in child.attrib.get('href')
+                    # TODO: This assumes that an entry point selection
+                    # can only happen immediately after the default lane.
+                    expect_url = (
+                        TestAnnotator.default_lane_url() + entrypoint_query
+                    )
+                    eq_(crumb.attrib.get("href"), expect_url)
+                else:
+                    # Breadcrumb for a lane -- the name of the lane
+                    # is used.
+                    eq_(expect.display_name, crumb.attrib.get('title'))
 
-            # Now verify that every lane in expect_lanes has its own
-            # breadcrumb.
-            eq_(
-                [child.attrib.get('title') for child in children],
-                [x.display_name for x in (expect_lanes or [])]
-            )
+                    url = crumb.attrib.get('href')
+                    if has_entrypoint:
+                        # All breadcrumbs after the entrypoint selection
+                        # must propagate the entrypoint.
+                        assert entrypoint_query in url
+                    else:
+                        assert entrypoint_query not in url
 
         # The top level with no entrypoint
-        # Top Level Title
-        assert_breadcrumbs(lane, entrypoint=None)
+        assert_breadcrumbs([top_level], lane)
+        assert_breadcrumbs([top_level, lane], lane, include_lane=True)
 
         # The top level with an entrypoint
-        # Top Level Title > Audio
-        assert_breadcrumbs(lane)
+        assert_breadcrumbs([top_level, ep], lane, entrypoint=ep)
+        assert_breadcrumbs(
+            [top_level, ep, lane],
+            lane, entrypoint=ep, include_lane=True
+        )
 
-        # One lane level down but with no entrypoint
-        # Top Level Title > lane
-        assert_breadcrumbs(sublane, [lane], entrypoint=None)
+        # One lane level down.
+        assert_breadcrumbs([top_level, lane], sublane)
+        assert_breadcrumbs([top_level, ep, lane], sublane, entrypoint=ep)
+        assert_breadcrumbs(
+            [top_level, ep, lane, sublane], 
+            sublane, entrypoint=ep, include_lane=True
+        )
 
-        # One lane level down and with an entrypoint
-        # Each sublane will have the entrypoint propagated down to its link
-        # Top Level Title > Audio > lane
-        assert_breadcrumbs(sublane, [lane])
+        # Two lane levels down.
+        assert_breadcrumbs([top_level, lane, sublane], subsublane)
+        assert_breadcrumbs(
+            [top_level, ep, lane, sublane],
+            subsublane, entrypoint=ep
+        )
 
-        # Two lane levels down but no entrypoint
-        # Top Level Title > lane > sublane
-        assert_breadcrumbs(subsublane, [lane, sublane], entrypoint=None)
+        # Three lane levels down.
+        assert_breadcrumbs(
+            [top_level, lane, sublane, subsublane],
+            subsubsublane,
+        )
 
-        # Two lane levels down after the entrypoint
-        # Each sublane will have the entrypoint propagated down to its link
-        # Top Level Title > Audio > lane > sublane
-        assert_breadcrumbs(subsublane, [lane, sublane])
-
-        # Three lane levels down after the entrypoint.
-        # Top Level Title > Audio > lane > sublane > subsublane
-        assert_breadcrumbs(subsubsublane, [lane, sublane, subsublane])
+        assert_breadcrumbs(
+            [top_level, ep, lane, sublane, subsublane],
+            subsubsublane, entrypoint=ep
+        )
 
         # Make the sublane a root lane for a certain patron type, and
         # the breadcrumbs will be cut off at that lane -- we won't see
-        # the sublane.
-        # Top Level Title > Audio > sublane > subsublane
+        # the sublane or anything above it.
         sublane.root_for_patron_type = ["ya"]
-        assert_breadcrumbs(subsubsublane, [sublane, subsublane])
+        assert_breadcrumbs(
+            [sublane, subsublane],
+            subsubsublane, entrypoint=ep
+        )
+
+        assert_breadcrumbs(
+            [sublane, subsublane, subsubsublane],
+            subsubsublane, entrypoint=ep, include_lane=True
+        )
+
 
     def test_add_breadcrumb_links(self):
 
