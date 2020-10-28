@@ -815,15 +815,13 @@ class OPDSImporter(object):
             ]
         return next_links
 
-
-    @classmethod
-    def extract_last_update_dates(cls, feed):
+    def extract_last_update_dates(self, feed):
         if isinstance(feed, basestring):
             parsed_feed = feedparser.parse(feed)
         else:
             parsed_feed = feed
         dates = [
-            cls.last_update_date_for_feedparser_entry(entry)
+            self.last_update_date_for_feedparser_entry(entry)
             for entry in parsed_feed['entries']
         ]
         return [x for x in dates if x and x[1]]
@@ -1028,14 +1026,12 @@ class OPDSImporter(object):
                 pass
         return new_dict
 
-
-    @classmethod
-    def extract_data_from_feedparser(cls, feed, data_source):
+    def extract_data_from_feedparser(self, feed, data_source):
         feedparser_parsed = feedparser.parse(feed)
         values = {}
         failures = {}
         for entry in feedparser_parsed['entries']:
-            identifier, detail, failure = cls.data_detail_for_feedparser_entry(entry=entry, data_source=data_source)
+            identifier, detail, failure = self.data_detail_for_feedparser_entry(entry=entry, data_source=data_source)
 
             if identifier:
                 if failure:
@@ -1118,11 +1114,9 @@ class OPDSImporter(object):
             return value
         return datetime.datetime(*value[:6])
 
-
-    @classmethod
-    def last_update_date_for_feedparser_entry(cls, entry):
+    def last_update_date_for_feedparser_entry(self, entry):
         identifier = entry.get('id')
-        updated = cls._datetime(entry, 'updated_parsed')
+        updated = self._datetime(entry, 'updated_parsed')
         return (identifier, updated)
 
     @classmethod
@@ -1708,11 +1702,12 @@ class OPDSImporter(object):
         series_position = attr.get('{http://schema.org/}position', None)
         return series_name, series_position
 
-class OPDSImportMonitor(CollectionMonitor, HasSelfTests):
 
+class OPDSImportMonitor(CollectionMonitor, HasSelfTests):
     """Periodically monitor a Collection's OPDS archive feed and import
     every title it mentions.
     """
+
     SERVICE_NAME = "OPDS Import Monitor"
 
     # The first time this Monitor is invoked we want to get the
@@ -1788,6 +1783,17 @@ class OPDSImportMonitor(CollectionMonitor, HasSelfTests):
         response = HTTP.get_with_timeout(url, headers=headers, **kwargs)
         return response.status_code, response.headers, response.content
 
+    def _get_accept_header(self):
+        types = dict(
+            opds_acquisition=OPDSFeed.ACQUISITION_FEED_TYPE,
+            atom="application/atom+xml",
+            xml="application/xml",
+            anything="*/*",
+        )
+        accept_header = "%(opds_acquisition)s, %(atom)s;q=0.9, %(xml)s;q=0.8, %(anything)s;q=0.1" % types
+
+        return accept_header
+
     def _update_headers(self, headers):
         headers = dict(headers or {})
         if self.username and self.password and not 'Authorization' in headers:
@@ -1796,13 +1802,7 @@ class OPDSImportMonitor(CollectionMonitor, HasSelfTests):
             headers['Authorization'] = auth_header
 
         if not 'Accept' in headers:
-            types = dict(
-                opds_acquisition=OPDSFeed.ACQUISITION_FEED_TYPE,
-                atom="application/atom+xml",
-                xml="application/xml",
-                anything="*/*",
-            )
-            headers['Accept'] = "%(opds_acquisition)s, %(atom)s;q=0.9, %(xml)s;q=0.8, %(anything)s;q=0.1" % types
+            headers['Accept'] = self._get_accept_header()
         return headers
 
     def opds_url(self, collection):
@@ -1911,6 +1911,19 @@ class OPDSImportMonitor(CollectionMonitor, HasSelfTests):
                 )
                 return True
 
+    def _verify_media_type(self, url, status_code, headers, feed):
+        # Make sure we got an OPDS feed, and not an error page that was
+        # sent with a 200 status code.
+        media_type = headers.get('content-type')
+        if not media_type or not any(
+            x in media_type for x in (OPDSFeed.ATOM_LIKE_TYPES)
+        ):
+            message = "Expected Atom feed, got %s" % media_type
+            raise BadResponseException(
+                url, message=message, debug_message=feed,
+                status_code=status_code
+            )
+
     def follow_one_link(self, url, do_get=None):
         """Download a representation of a URL and extract the useful
         information.
@@ -1923,17 +1936,7 @@ class OPDSImportMonitor(CollectionMonitor, HasSelfTests):
         get = do_get or self._get
         status_code, headers, feed = get(url, {})
 
-        # Make sure we got an OPDS feed, and not an error page that was
-        # sent with a 200 status code.
-        media_type = headers.get('content-type')
-        if not media_type or not any(
-            x in media_type for x in (OPDSFeed.ATOM_LIKE_TYPES)
-        ):
-            message = "Expected Atom feed, got %s" % media_type
-            raise BadResponseException(
-                url, message=message, debug_message=feed,
-                status_code=status_code
-            )
+        self._verify_media_type(url, status_code, headers, feed)
 
         new_data = self.feed_contains_new_data(feed)
 
