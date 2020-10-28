@@ -591,9 +591,9 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_(RightsStatus.IN_COPYRIGHT, link.rights_uri)
 
     def test_extract_data_from_feedparser(self):
-
         data_source = DataSource.lookup(self._db, DataSource.OA_CONTENT_SERVER)
-        values, failures = OPDSImporter.extract_data_from_feedparser(
+        importer = OPDSImporter(self._db, None, data_source_name=data_source.name)
+        values, failures = importer.extract_data_from_feedparser(
             self.content_server_mini_feed, data_source
         )
 
@@ -612,7 +612,6 @@ class TestOPDSImporter(OPDSImporterTest):
         # extract_metadata_from_elementtree.
         eq_({}, failures)
 
-
     def test_extract_data_from_feedparser_handles_exception(self):
         class DoomedFeedparserOPDSImporter(OPDSImporter):
             """An importer that can't extract metadata from feedparser."""
@@ -621,8 +620,8 @@ class TestOPDSImporter(OPDSImporterTest):
                 raise Exception("Utter failure!")
 
         data_source = DataSource.lookup(self._db, DataSource.OA_CONTENT_SERVER)
-
-        values, failures = DoomedFeedparserOPDSImporter.extract_data_from_feedparser(
+        importer = DoomedFeedparserOPDSImporter(self._db, None, data_source_name=data_source.name)
+        values, failures = importer.extract_data_from_feedparser(
             self.content_server_mini_feed, data_source
         )
 
