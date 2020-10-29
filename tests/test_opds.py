@@ -1,4 +1,5 @@
 import datetime
+import logging
 import re
 import xml.etree.ElementTree as ET
 from StringIO import StringIO
@@ -8,6 +9,7 @@ from flask_babel import lazy_gettext as _
 from lxml import etree
 from nose.tools import (
     eq_,
+    set_trace,
 )
 from psycopg2.extras import NumericRange
 
@@ -1905,72 +1907,119 @@ class TestAcquisitionFeed(DatabaseTest):
         ep = AudiobooksEntryPoint
 
         def assert_breadcrumbs(
-            expect_breadcrumbs_for, lane, expect_entrypoint_query=None,
-                **add_breadcrumbs_kwargs
+            expect_breadcrumbs_for, lane, **add_breadcrumbs_kwargs
         ):
             # Create breadcrumbs leading up to `lane` and verify that
             # there is a breadcrumb for everything in
             # `expect_breadcrumbs_for` -- Lanes, EntryPoints, and the
-            # top-level lane.
+            # top-level lane. Verify that the titles and URLs of the
+            # breadcrumbs match what we expect.
             #
             # For easier reading, all assertions in this test are
             # written as calls to this function.
-            #
-            # `expect_entrypoint_query` is used to test an odd case where
-            # the entrypoint query shows up in lane URLs, but there is no
-            # breadcrumb for the entrypoint itself.
             feed = MockFeed()
+            annotator = TestAnnotator()
 
             entrypoint = add_breadcrumbs_kwargs.get('entrypoint', None)
             include_lane = add_breadcrumbs_kwargs.get('include_lane', False)
 
             feed.add_breadcrumbs(lane, **add_breadcrumbs_kwargs)
+
+            if not expect_breadcrumbs_for:
+                # We are expecting no breadcrumbs at all;
+                # nothing should have been added to the feed.
+                eq_([], feed.feed)
+                return
+
+            # At this point we expect at least one breadcrumb.
             crumbs = getElementChildren(feed)
 
-            has_entrypoint = False
+            entrypoint_selected = False
             entrypoint_query = "?entrypoint="
+
+            # First, compare the titles of the breadcrumbs to what was
+            # passed in. This makes test writing much easier.
+            def title(x):
+                if x is top_level:
+                    return annotator.top_level_title()
+                elif x is ep:
+                    return x.INTERNAL_NAME
+                else:
+                    return x.display_name
+
+            expect_titles = [title(x) for x in expect_breadcrumbs_for]
+            actual_titles = [x.attrib.get('title') for x in crumbs]
+            eq_(expect_titles, actual_titles)
+
+            # Now, compare the URLs of the breadcrumbs. This is
+            # trickier, mainly because the URLs change once an
+            # entrypoint is selected.
+            previous_breadcrumb_url = None
+            actual_urls = []
+
             for i, crumb in enumerate(crumbs):
                 expect = expect_breadcrumbs_for[i]
+                actual_url = crumb.attrib.get("href")
 
                 if expect is top_level:
-                    # Top-level breadcrumb
-                    eq_(
-                        crumb.attrib.get("href"),
-                        TestAnnotator.default_lane_url()
-                    )
-                    eq_(
-                        crumb.attrib.get("title"),
-                        TestAnnotator.top_level_title()
-                    )
+                    # Breadcrumb for the library root.
+                    expect_url = annotator.default_lane_url()
                 elif expect is ep:
-                    # Breadcrumb for the entry point selection.
-                    has_entrypoint = True
+                    # Breadcrumb for the entrypoint selection.
+
+                    # Beyond this point all URLs must propagate the
+                    # selected entrypoint.
+                    entrypoint_selected = True
                     entrypoint_query += expect.INTERNAL_NAME
 
-                    # TODO: This assumes that an entry point selection
-                    # can only happen immediately after the default lane.
+                    # The URL for this breadcrumb is the URL for the
+                    # previous breadcrumb with the addition of the
+                    # entrypoint selection query.
                     expect_url = (
-                        TestAnnotator.default_lane_url() + entrypoint_query
+                        previous_breadcrumb_url + entrypoint_query
                     )
-                    eq_(crumb.attrib.get("href"), expect_url)
                 else:
-                    # Breadcrumb for a lane -- the name of the lane
-                    # is used.
-                    eq_(expect.display_name, crumb.attrib.get('title'))
+                    # Breadcrumb for a lane.
 
-                    url = crumb.attrib.get('href')
-                    if has_entrypoint or expect_entrypoint_query:
+                    # The breadcrumb URL is determined by the
+                    # Annotator.
+                    lane_url = annotator.lane_url(expect)
+                    if entrypoint_selected:
                         # All breadcrumbs after the entrypoint selection
                         # must propagate the entrypoint.
-                        assert entrypoint_query in url
+                        expect_url = lane_url + entrypoint_query
                     else:
-                        assert entrypoint_query not in url
+                        expect_url = lane_url
 
-        # The top level with no entrypoint
+                logging.debug(
+                    "%s: expect=%s actual=%s", expect_titles[i],
+                    expect_url, actual_url
+                )
+                eq_(expect_url, actual_url)
+
+                # Keep track of the URL just used, in case the next
+                # breadcrumb is the same URL but with an entrypoint
+                # selection appended.
+                previous_breadcrumb_url = actual_url
+
+        # That was a complicated method, but now our assertions
+        # are very easy to write and understand.
+
+        # At the top level, there are no breadcrumbs whatsoever.
+        assert_breadcrumbs([], None)
+
+        # It doesn't matter if an entrypoint is selected.
+        assert_breadcrumbs([], None, entrypoint=ep)
+
+        # A lane with no entrypoint -- note that the breadcrumbs stop
+        # _before_ the lane in question.
         assert_breadcrumbs([top_level], lane)
+
+        # If you pass include_lane=True into add_breadcrumbs, the lane
+        # itself is included.
         assert_breadcrumbs([top_level, lane], lane, include_lane=True)
 
-        # The top level with an entrypoint
+        # A lane with an entrypoint selected
         assert_breadcrumbs([top_level, ep], lane, entrypoint=ep)
         assert_breadcrumbs(
             [top_level, ep, lane],
@@ -1981,7 +2030,7 @@ class TestAcquisitionFeed(DatabaseTest):
         assert_breadcrumbs([top_level, lane], sublane)
         assert_breadcrumbs([top_level, ep, lane], sublane, entrypoint=ep)
         assert_breadcrumbs(
-            [top_level, ep, lane, sublane], 
+            [top_level, ep, lane, sublane],
             sublane, entrypoint=ep, include_lane=True
         )
 
@@ -2004,8 +2053,8 @@ class TestAcquisitionFeed(DatabaseTest):
         )
 
         # Make the sublane a root lane for a certain patron type, and
-        # the breadcrumbs will be cut off at that lane -- we won't see
-        # the sublane or anything above it.
+        # the breadcrumbs will be start at that lane -- we won't see
+        # the sublane's parent or the library root.
         sublane.root_for_patron_type = ["ya"]
         assert_breadcrumbs(
             [sublane, subsublane],
@@ -2017,13 +2066,17 @@ class TestAcquisitionFeed(DatabaseTest):
             subsubsublane, include_lane=True
         )
 
-        # Since the breadcrumbs now start at sublane, there is no
-        # breadcrumb for the EntryPoint selection (which is above
-        # lane). However, the selected EntryPoint is still used in the
-        # breadcrumbs that _do_ show up.
+        # However, if an entrypoint is selected we will see a
+        # breadcrumb for it between the patron root lane and its
+        # child.
         assert_breadcrumbs(
-            [sublane, subsublane],
-            subsubsublane, entrypoint=ep, expect_entrypoint_query=True
+            [sublane, ep, subsublane],
+            subsubsublane, entrypoint=ep
+        )
+
+        assert_breadcrumbs(
+            [sublane, ep, subsublane, subsubsublane],
+            subsubsublane, entrypoint=ep, include_lane=True
         )
 
     def test_add_breadcrumb_links(self):
