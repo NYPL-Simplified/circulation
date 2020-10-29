@@ -1287,19 +1287,13 @@ class TestOPDS(DatabaseTest):
 
         eq_(work2.title, parsed['entries'][0]['title'])
 
-        # The feed has breadcrumb links
+        # The feed has no breadcrumb links, since we're not
+        # searching the lane -- just using some aspects of the lane
+        # to guide the search.
         parentage = list(fantasy_lane.parentage)
         root = ET.fromstring(feed)
         breadcrumbs = root.find("{%s}breadcrumbs" % AtomFeed.SIMPLIFIED_NS)
-        links = breadcrumbs.getchildren()
-        eq_(len(parentage) + 2, len(links))
-        eq_(TestAnnotator.top_level_title(), links[0].get("title"))
-        eq_(TestAnnotator.default_lane_url(), links[0].get("href"))
-        for i, lane in enumerate(parentage):
-            eq_(lane.display_name, links[i+1].get("title"))
-            eq_(TestAnnotator.lane_url(lane), links[i+1].get("href"))
-        eq_(fantasy_lane.display_name, links[-1].get("title"))
-        eq_(TestAnnotator.lane_url(fantasy_lane), links[-1].get("href"))
+        eq_(None, breadcrumbs)
 
     def test_cache(self):
         work1 = self._work(title="The Original Title",

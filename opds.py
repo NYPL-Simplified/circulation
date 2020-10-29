@@ -994,9 +994,13 @@ class AcquisitionFeed(OPDSFeed):
             previous_url = annotator.search_url(lane, query, previous_page, facets)
             AcquisitionFeed.add_link_to_feed(feed=opds_feed.feed, rel="previous", href=previous_url)
 
-        # Add "up" link and breadcrumbs
+        # Add "up" link.
         AcquisitionFeed.add_link_to_feed(feed=opds_feed.feed, rel="up", href=annotator.lane_url(lane), title=unicode(lane.display_name))
-        opds_feed.add_breadcrumbs(lane, include_lane=True)
+
+        # We do not add breadcrumbs to this feed since you're not
+        # technically searching the this lane; you are searching the
+        # library's entire collection, using _some_ of the constraints
+        # imposed by this lane (notably language and audience).
 
         annotator.annotate_feed(opds_feed, lane)
         return OPDSFeedResponse(response=unicode(opds_feed), **response_kwargs)
