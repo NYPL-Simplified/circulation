@@ -1,23 +1,17 @@
 # encoding: utf-8
 # Test the helper objects in util.string.
 
-from nose.tools import (
-    assert_raises,
-    eq_,
-)
 import base64 as stdlib_base64
-import random
 import re
 
-from ...util.string_helpers import (
-    UnicodeAwareBase64,
-    base64,
-    random_string
-)
+from nose.tools import assert_raises, eq_
+from parameterized import parameterized
+
+from ...util.string_helpers import UnicodeAwareBase64, base64, is_string, random_string
+
 
 class TestUnicodeAwareBase64(object):
-
-    def test_encoding(self):        
+    def test_encoding(self):
         string = u"םולש"
 
         # Run the same tests against two different encodings that can
@@ -85,8 +79,7 @@ class TestUnicodeAwareBase64(object):
         eq_(b"4piD", stdlib_base64.b64encode(snowman_utf8))
 
 
-class TestRandomstring(object):
-
+class TestRandomString(object):
     def test_random_string(self):
         m = random_string
         eq_("", m(0))
@@ -109,4 +102,18 @@ class TestRandomstring(object):
 
             # Each byte is represented as two digits, so the length of the
             # string is twice the length passed in to the function.
-            eq_(size*2, len(x))
+            eq_(size * 2, len(x))
+
+
+class TestIsString(object):
+    @parameterized.expand(
+        [
+            ("byte_string", "test", True),
+            ("unicode_string", u"test", True),
+            ("not_string", 1, False),
+        ]
+    )
+    def test_is_string(self, _, value, expected_result):
+        result = is_string(value)
+
+        eq_(expected_result, result)

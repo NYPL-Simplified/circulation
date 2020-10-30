@@ -4,8 +4,11 @@ As per http://datatracker.ietf.org/doc/draft-ietf-appsawg-http-problem/
 """
 import json as j
 import logging
+
 from flask_babel import LazyString
 from nose.tools import set_trace
+
+from ..exceptions import BaseError
 
 JSON_MEDIA_TYPE = "application/api-problem+json"
 
@@ -19,6 +22,7 @@ def json(type, status, title, detail=None, instance=None, debug_message=None):
     if debug_message:
         d['debug_message'] = debug_message
     return j.dumps(d)
+
 
 class ProblemDetail(object):
 
@@ -79,3 +83,27 @@ class ProblemDetail(object):
             self.uri, status_code or self.status_code, title or self.title,
             detail or self.detail, instance or self.instance, debug_message
         )
+
+
+class ProblemError(BaseError):
+    """Exception class allowing to raise and catch ProblemDetail objects."""
+
+    def __init__(self, problem_detail):
+        """Initialize a new instance of ProblemError class.
+
+        :param problem_detail: ProblemDetail object
+        :type problem_detail: ProblemDetail
+        """
+        if not isinstance(problem_detail, ProblemDetail):
+            raise ValueError('Argument "problem_detail" must be an instance of ProblemDetail class')
+
+        self._problem_detail = problem_detail
+
+    @property
+    def problem_detail(self):
+        """Return the ProblemDetail object associated with this exception.
+
+        :return: ProblemDetail object associated with this exception
+        :rtype: ProblemDetail
+        """
+        return self._problem_detail

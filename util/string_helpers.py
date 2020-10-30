@@ -7,6 +7,9 @@ import binascii
 import os
 import sys
 
+import six
+
+
 class UnicodeAwareBase64(object):
     """Simulate the interface of the base64 module, but make it look as
     though base64-encoding and -decoding works on Unicode strings.
@@ -84,3 +87,20 @@ def native_string(x):
         if isinstance(x, bytes):
             x = x.decode("utf8")
     return x
+
+
+def is_string(value):
+    """Return a boolean value indicating whether the value is a string or not.
+
+    This method is compatible with both Python 2.7 and Python 3.x.
+    NOTE:
+    1. We can't use isinstance(string_value, str) because strings in Python 2.7 can have "unicode" type.
+    2. We can't use isinstance(string_value, basestring) because "basestring" type is not available in Python 3.x.
+
+    :param value: Value
+    :type value: Any
+
+    :return: Boolean value indicating whether the value is a string or not
+    :rtype: bool
+    """
+    return isinstance(value, six.string_types)

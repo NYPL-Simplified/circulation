@@ -475,6 +475,19 @@ class OPDS2Importer(OPDSImporter):
 
         return medium
 
+    def _extract_identifier(self, publication):
+        """Extract the publication's identifier from its metadata.
+
+        :param publication: Publication object
+        :type publication: opds2_core.OPDS2Publication
+
+        :return: Identifier object
+        :rtype: Identifier
+        """
+        identifier, _ = Identifier.parse_urn(self._db, publication.metadata.identifier)
+
+        return identifier
+
     def _extract_publication_metadata(self, feed, publication, data_source_name):
         """Extract a Metadata object from webpub-manifest-parser's publication.
 
@@ -560,7 +573,7 @@ class OPDS2Importer(OPDSImporter):
 
         last_opds_update = publication.metadata.modified
 
-        identifier, _ = Identifier.parse_urn(self._db, publication.metadata.identifier)
+        identifier = self._extract_identifier(publication)
         identifier_data = IdentifierData(
             type=identifier.type, identifier=identifier.identifier
         )
@@ -747,7 +760,17 @@ class OPDS2Importer(OPDSImporter):
 
                 if not silent:
                     raise
+        elif isinstance(feed, dict):
+            try:
+                parser_factory = OPDS2DocumentParserFactory()
+                parser = parser_factory.create()
 
+                parsed_feed = parser.parse_json(feed)
+            except BaseError:
+                self._logger.exception("Failed to parse the OPDS 2.0 feed")
+
+                if not silent:
+                    raise
         elif isinstance(feed, opds2_ast.OPDS2Feed):
             parsed_feed = feed
         else:

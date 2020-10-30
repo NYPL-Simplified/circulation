@@ -41,6 +41,7 @@ class DataSourceConstants(object):
     BIBBLIO = u"Bibblio"
     ENKI = u"Enki"
     LCP = u"LCP"
+    PROQUEST = u"ProQuest"
 
     DEPRECATED_NAMES = {
         u"3M" : BIBLIOTHECA,
@@ -140,6 +141,7 @@ class EditionConstants(object):
         COURSEWARE_MEDIUM: "courseware"
     }
 
+
 class IdentifierConstants(object):
     # Common types of identifiers.
     OVERDRIVE_ID = u"Overdrive ID"
@@ -163,6 +165,7 @@ class IdentifierConstants(object):
     BIBBLIO_CONTENT_ITEM_ID = u"Bibblio Content Item ID"
     ENKI_ID = u"Enki ID"
     SUDOC_CALL_NUMBER = u"SuDoc Call Number"
+    PROQUEST_ID = u"ProQuest Doc ID"
 
     DEPRECATED_NAMES = {
         u"3M ID" : BIBLIOTHECA_ID,

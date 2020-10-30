@@ -1,20 +1,20 @@
 # encoding: utf-8
-"Miscellaneous utilities"
-from money import Money
-from nose.tools import set_trace
-from collections import Counter
-import os
+"""Miscellaneous utilities"""
+
 import re
 import string
+from collections import Counter
+
+import flask_sqlalchemy_session
+import sqlalchemy
+from money import Money
 from sqlalchemy import distinct
 from sqlalchemy.sql.functions import func
 
 # For backwards compatibility, import items that were moved to 
 # languages.py
-from .languages import (
-    LanguageCodes,
-    LookupTable,
-)
+from .languages import LanguageCodes, LookupTable
+
 
 def batch(iterable, size=1):
     """Split up `iterable` into batches of size `size`."""
@@ -533,3 +533,31 @@ class MoneyUtility(object):
             amount = amount[1:]
         return Money(amount, currency)
 
+
+def is_session(value):
+    """Return a boolean value indicating whether the value is a valid SQLAlchemy session.
+
+    :param value: Value
+    :type value: Any
+
+    :return: Boolean value indicating whether the value is a valid SQLAlchemy session or not
+    :rtype: bool
+    """
+    return isinstance(value, (sqlalchemy.orm.session.Session, flask_sqlalchemy_session.flask_scoped_session))
+
+
+def first_or_default(collection, default=None):
+    """Return first element of the specified collection or the default value if the collection is empty.
+
+    :param collection: Collection
+    :type collection: Iterable
+
+    :param default: Default value
+    :type default: Any
+    """
+    element = next(iter(collection), None)
+
+    if element is None:
+        element = default
+
+    return element
