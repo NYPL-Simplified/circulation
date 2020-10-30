@@ -288,7 +288,7 @@ class SAMLOneLoginConfiguration(object):
 
         :param db: Database session
         :type db: sqlalchemy.orm.session.Session
-        
+
         :param idp_entity_id: IdP's entity ID
         :type idp_entity_id: string
 
