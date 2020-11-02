@@ -2050,6 +2050,8 @@ class TestAcquisitionFeed(DatabaseTest):
         # the breadcrumbs will be start at that lane -- we won't see
         # the sublane's parent or the library root.
         sublane.root_for_patron_type = ["ya"]
+        assert_breadcrumbs([], sublane)
+
         assert_breadcrumbs(
             [sublane, subsublane],
             subsubsublane

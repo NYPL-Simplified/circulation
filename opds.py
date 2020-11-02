@@ -1432,7 +1432,7 @@ class AcquisitionFeed(OPDSFeed):
         site_root_lane = None
         usable_parentage = []
         if lane is not None:
-            for ancestor in lane.parentage:
+            for ancestor in [lane] + list(lane.parentage):
                 if isinstance(ancestor, Lane) and ancestor.root_for_patron_type:
                     # Root lane for a specific patron type. The root is
                     # treated specially, so it should not be added to
@@ -1440,7 +1440,11 @@ class AcquisitionFeed(OPDSFeed):
                     # library root should not be included at all.
                     site_root_lane = ancestor
                     break
-                usable_parentage.append(ancestor)
+
+                if ancestor != lane or include_lane:
+                    # A lane may appear in its own breadcrumbs
+                    # only if include_lane is True.
+                    usable_parentage.append(ancestor)
 
         annotator = self.annotator
         if (
@@ -1480,7 +1484,8 @@ class AcquisitionFeed(OPDSFeed):
                 )
             )
 
-        # Add links for all lanes between `lane` and `site_root_lane`.
+        # Add links for all usable lanes between `lane` and `site_root_lane`
+        # (possibly including `lane` itself).
         for ancestor in reversed(usable_parentage):
             lane_url = annotator.lane_url(ancestor)
             if lane_url == root_url:
@@ -1491,16 +1496,6 @@ class AcquisitionFeed(OPDSFeed):
                 AtomFeed.link(
                     title=ancestor.display_name,
                     href=lane_url + entrypoint_query
-                )
-            )
-
-        # Include link to the lane itself.
-        # For search, breadcrumbs include the searched lane
-        if include_lane:
-            breadcrumbs.append(
-                AtomFeed.link(
-                    title=lane.display_name,
-                    href=annotator.lane_url(lane) + entrypoint_query
                 )
             )
 
