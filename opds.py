@@ -6,6 +6,7 @@ from collections import (
 )
 
 from lxml import etree
+from nose.tools import set_trace
 from sqlalchemy.orm.session import Session
 
 from cdn import cdnify
@@ -578,7 +579,7 @@ class AcquisitionFeed(OPDSFeed):
 
         :param response_kwargs: Extra keyword arguments to pass into
             the OPDSFeedResponse constructor.
-        
+
         :return: An OPDSFeedResponse containing the feed.
         """
         annotator = cls._make_annotator(annotator)
@@ -993,9 +994,13 @@ class AcquisitionFeed(OPDSFeed):
             previous_url = annotator.search_url(lane, query, previous_page, facets)
             AcquisitionFeed.add_link_to_feed(feed=opds_feed.feed, rel="previous", href=previous_url)
 
-        # Add "up" link and breadcrumbs
+        # Add "up" link.
         AcquisitionFeed.add_link_to_feed(feed=opds_feed.feed, rel="up", href=annotator.lane_url(lane), title=unicode(lane.display_name))
-        opds_feed.add_breadcrumbs(lane, include_lane=True)
+
+        # We do not add breadcrumbs to this feed since you're not
+        # technically searching the this lane; you are searching the
+        # library's entire collection, using _some_ of the constraints
+        # imposed by this lane (notably language and audience).
 
         annotator.annotate_feed(opds_feed, lane)
         return OPDSFeedResponse(response=unicode(opds_feed), **response_kwargs)
@@ -1409,43 +1414,93 @@ class AcquisitionFeed(OPDSFeed):
     def add_breadcrumbs(self, lane, include_lane=False, entrypoint=None):
         """Add list of ancestor links in a breadcrumbs element.
 
+        :param lane: Add breadcrumbs from up to this lane.
+        :param include_lane: Include `lane` itself in the breadcrumbs.
+        :param entrypoint: The currently selected entrypoint, if any.
+
         TODO: The switchover from "no entry point" to "entry point" needs
         its own breadcrumb link.
         """
-        # Ensure that lane isn't top-level before proceeding
+        if entrypoint is None:
+            entrypoint_query = ""
+        else:
+            entrypoint_query = "?entrypoint=" + entrypoint.INTERNAL_NAME
 
-        entrypointQuery = ("?entrypoint=" + entrypoint.INTERNAL_NAME) if entrypoint != None else ""
+        # Breadcrumbs for lanes may be end up being cut off by a
+        # patron-type-specific root lane. If so, that lane -- not the
+        # site root -- should become the first breadcrumb.
+        site_root_lane = None
+        usable_parentage = []
+        if lane is not None:
+            for ancestor in [lane] + list(lane.parentage):
+                if isinstance(ancestor, Lane) and ancestor.root_for_patron_type:
+                    # Root lane for a specific patron type. The root is
+                    # treated specially, so it should not be added to
+                    # usable_parentage. Any lanes between this lane and the
+                    # library root should not be included at all.
+                    site_root_lane = ancestor
+                    break
+
+                if ancestor != lane or include_lane:
+                    # A lane may appear in its own breadcrumbs
+                    # only if include_lane is True.
+                    usable_parentage.append(ancestor)
+
         annotator = self.annotator
-        if annotator.lane_url(lane) != annotator.default_lane_url():
-            breadcrumbs = AtomFeed.makeelement("{%s}breadcrumbs" % AtomFeed.SIMPLIFIED_NS)
+        if (
+            lane == site_root_lane or
+            (
+                site_root_lane is None and
+                annotator.lane_url(lane) == annotator.default_lane_url()
+            )
+        ):
+            # There are no extra breadcrumbs: either we are at the
+            # site root, or we are at a lane that is the root for a
+            # specific patron type.
+            return
 
-            # Add root link
+        # Start work on a simplified:breadcrumbs tag.
+        breadcrumbs = AtomFeed.makeelement(
+            "{%s}breadcrumbs" % AtomFeed.SIMPLIFIED_NS
+        )
+
+        # Add root link. This is either the link to the site root
+        # or to the root lane for some patron type.
+        if site_root_lane is None:
             root_url = annotator.default_lane_url()
+            root_title = annotator.top_level_title()
+        else:
+            root_url = annotator.lane_url(site_root_lane)
+            root_title = site_root_lane.display_name
+        root_link = AtomFeed.link(title=root_title, href=root_url)
+        breadcrumbs.append(root_link)
+
+        # Add entrypoint selection link
+        if entrypoint:
             breadcrumbs.append(
-                AtomFeed.link(title=annotator.top_level_title(), href=root_url)
+                AtomFeed.link(
+                    title=entrypoint.INTERNAL_NAME,
+                    href=root_url + entrypoint_query
+                )
             )
 
-            if entrypoint:
-                breadcrumbs.append(
-                    AtomFeed.link(title=entrypoint.INTERNAL_NAME, href=root_url + entrypointQuery)
+        # Add links for all usable lanes between `lane` and `site_root_lane`
+        # (possibly including `lane` itself).
+        for ancestor in reversed(usable_parentage):
+            lane_url = annotator.lane_url(ancestor)
+            if lane_url == root_url:
+                # Root lane for the entire site.
+                break
+
+            breadcrumbs.append(
+                AtomFeed.link(
+                    title=ancestor.display_name,
+                    href=lane_url + entrypoint_query
                 )
+            )
 
-            # Add links for all visible ancestors that aren't root
-            for ancestor in reversed(list(lane.parentage)):
-                lane_url = annotator.lane_url(ancestor)
-                if lane_url != root_url:
-                    breadcrumbs.append(
-                        AtomFeed.link(title=ancestor.display_name, href=lane_url + entrypointQuery)
-                    )
-
-            # Include link to lane
-            # For search, breadcrumbs include the searched lane
-            if include_lane:
-                breadcrumbs.append(
-                    AtomFeed.link(title=lane.display_name, href=annotator.lane_url(lane) + entrypointQuery)
-                )
-
-            self.feed.append(breadcrumbs)
+        # Append the breadcrumbs to the feed.
+        self.feed.append(breadcrumbs)
 
     @classmethod
     def minimal_opds_entry(cls, identifier, cover, description, quality,
