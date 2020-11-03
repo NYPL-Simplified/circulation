@@ -54,6 +54,7 @@ from ..lane import (
     FeaturedFacets,
     Pagination,
     SearchFacets,
+    TopLevelWorkList,
     WorkList,
     Lane,
 )
@@ -1739,8 +1740,9 @@ class TestWorkList(DatabaseTest):
             display_name="Other Library Lane", library=other_library
         )
 
-        # The default library gets a WorkList with the two top-level lanes as children.
+        # The default library gets a TopLevelWorkList with the two top-level lanes as children.
         wl = WorkList.top_level_for_library(self._db, self._default_library)
+        assert isinstance(wl, TopLevelWorkList)
         eq_([lane1, lane2], wl.children)
         eq_(Edition.FULFILLABLE_MEDIA, wl.media)
 
@@ -1753,6 +1755,7 @@ class TestWorkList(DatabaseTest):
             name="No configuration Library", short_name="No config"
         )
         wl = WorkList.top_level_for_library(self._db, no_config_library)
+        assert isinstance(wl, TopLevelWorkList)
         eq_([], wl.children)
         eq_(Edition.FULFILLABLE_MEDIA, wl.media)
 
@@ -3145,6 +3148,46 @@ class TestDatabaseBackedWorkList(DatabaseTest):
         eq_([pool], w.license_pools)
 
 
+class TestHierarchyWorkList(DatabaseTest):
+    """Test HierarchyWorkList in terms of its two subclasses, Lane and TopLevelWorkList.
+    """
+
+    def test_accessible_to(self):
+        # In addition to the general tests imposed by WorkList, a Lane
+        # is only accessible to a patron if it is a descendant of
+        # their root lane.
+        lane = self._lane()
+        patron = self._patron()
+        lane.root_for_patron_type = ["1"]
+        patron.external_type = "1"
+
+        # Descendant -> it's accessible
+        m = lane.accessible_to
+        lane.is_self_or_descendant = MagicMock(return_value=True)
+        eq_(True, m(patron))
+
+        # Not a descendant -> it's not accessible
+        lane.is_self_or_descendant = MagicMock(return_value=False)
+        eq_(False, m(patron))
+
+        # If the patron has no root lane, is_self_or_descendant
+        # isn't consulted -- everything is accessible.
+        patron.external_type = "2"
+        eq_(True, m(patron))
+
+        # Similarly if there is no authenticated patron.
+        eq_(True, m(None))
+
+        # TopLevelWorkList works the same way -- it's visible unless the
+        # patron has a top-level lane set.
+        wl = TopLevelWorkList()
+        wl.initialize(self._default_library)
+
+        eq_(True, wl.accessible_to(None))
+        eq_(True, wl.accessible_to(patron))
+        patron.external_type = "1"
+        eq_(False, wl.accessible_to(patron))
+
 
 class TestLane(DatabaseTest):
 
@@ -3183,32 +3226,6 @@ class TestLane(DatabaseTest):
         lane = self._lane()
         lane.audiences = Classifier.AUDIENCE_ADULT
         eq_([Classifier.AUDIENCE_ADULT], lane.audiences)
-
-    def test_accessible_to(self):
-        # In addition to the general tests imposed by WorkList, a Lane
-        # is only accessible to a patron if it is a descendant of
-        # their root lane.
-        lane = self._lane()
-        patron = self._patron()
-        lane.root_for_patron_type = ["1"]
-        patron.external_type = "1"
-
-        # Descendant -> it's accessible
-        m = lane.accessible_to
-        lane.is_self_or_descendant = MagicMock(return_value=True)
-        eq_(True, m(patron))
-
-        # Not a descendant -> it's not accessible
-        lane.is_self_or_descendant = MagicMock(return_value=False)
-        eq_(False, m(patron))
-
-        # If the patron has no root lane, is_self_or_descendant
-        # isn't consulted -- everything is accessible.
-        patron.external_type = "2"
-        eq_(True, m(patron))
-
-        # Similarly if there is no authenticated patron.
-        eq_(True, m(None))
 
     def test_update_size(self):
 
