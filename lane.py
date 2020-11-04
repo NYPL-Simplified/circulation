@@ -2074,7 +2074,6 @@ class HierarchyWorkList(WorkList):
             return True
 
         root_lane = patron.root_lane
-        set_trace()
         if root_lane and not self.is_self_or_descendant(root_lane):
             # In addition, a HierarchyWorkList that's not in
             # scope of the patron's root lane is not accessible,
