@@ -349,6 +349,7 @@ class CloudwatchLogs(Logger):
         interval = settings.setting(cls.INTERVAL).value or cls.DEFAULT_INTERVAL
         region = settings.setting(cls.REGION).value or cls.DEFAULT_REGION
         create_group = settings.setting(cls.CREATE_GROUP).value or cls.DEFAULT_CREATE_GROUP
+
         try:
             interval = int(interval)
             if interval <= 0:
