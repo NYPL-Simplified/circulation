@@ -349,7 +349,6 @@ class CloudwatchLogs(Logger):
         interval = settings.setting(cls.INTERVAL).value or cls.DEFAULT_INTERVAL
         region = settings.setting(cls.REGION).value or cls.DEFAULT_REGION
         create_group = settings.setting(cls.CREATE_GROUP).value or cls.DEFAULT_CREATE_GROUP
-
         try:
             interval = int(interval)
             if interval <= 0:
@@ -361,13 +360,20 @@ class CloudwatchLogs(Logger):
                 "AWS Cloudwatch Logs interval configuration must be an integer."
             )
         session = AwsSession(region_name=region)
-        return CloudWatchLogHandler(
+        handler = CloudWatchLogHandler(
             log_group=group,
             stream_name=stream,
             send_interval=interval,
             boto3_session=session,
             create_log_group=create_group == "TRUE"
         )
+        # Add a filter that makes sure no messages from botocore are processed by
+        # the cloudwatch logs integration, as these messages can lead to an infinite loop.
+        class BotoFilter(logging.Filter):
+            def filter(self, record):
+                return not record.name.startswith('botocore')
+        handler.addFilter(BotoFilter())
+        return handler
 
 class LogConfiguration(object):
     """Configures the active Python logging handlers based on logging
@@ -441,6 +447,7 @@ class LogConfiguration(object):
         for logger in (
                 'sqlalchemy.engine', 'elasticsearch',
                 'requests.packages.urllib3.connectionpool',
+                'botocore'
         ):
             logging.getLogger(logger).setLevel(database_log_level)
 
