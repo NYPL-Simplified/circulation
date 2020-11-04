@@ -1492,7 +1492,7 @@ class WorkList(object):
     def is_self_or_descendant(self, ancestor):
         """Is this WorkList the given WorkList or one of its descendants?
 
-        :param target: A WorkList.
+        :param ancestor: A WorkList.
         :return: A boolean.
         """
         for candidate in [self] + list(self.parentage):
@@ -2637,6 +2637,22 @@ class Lane(Base, DatabaseBackedWorkList, HierarchyWorkList):
                 raise ValueError("Lane parentage loop detected")
             seen.add(grandparent)
             yield grandparent
+
+    def is_self_or_descendant(self, ancestor):
+        """Is this WorkList the given WorkList or one of its descendants?
+
+        :param ancestor: A WorkList.
+        :return: A boolean.
+        """
+        if super(Lane, self).is_self_or_descendant(ancestor):
+            return True
+
+        # A TopLevelWorkList won't show up in a Lane's parentage,
+        # because it's not a Lane, but if they share the same library
+        # it can be presumed to be the lane's ultimate ancestor.
+        if isinstance(ancestor, TopLevelWorkList) and self.library_id==ancestor.library_id:
+            return True
+        return False
 
     @property
     def depth(self):

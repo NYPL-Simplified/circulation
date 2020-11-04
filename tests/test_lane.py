@@ -1881,7 +1881,7 @@ class TestWorkList(DatabaseTest):
         eq_(False, grandparent.is_self_or_descendant(parent))
 
     def test_accessible_to(self):
-        # Test the circumstances under which a Patron may or may not access a 
+        # Test the circumstances under which a Patron may or may not access a
         # WorkList.
 
         wl = WorkList()
@@ -3188,6 +3188,13 @@ class TestHierarchyWorkList(DatabaseTest):
         patron.external_type = "1"
         eq_(False, wl.accessible_to(patron))
 
+        # However, a TopLevelWorkList associated with library A is not
+        # visible to a patron from library B.
+        library2 = self._library()
+        wl.initialize(library2)
+        patron.external_type = None
+        eq_(False, wl.accessible_to(patron))
+
 
 class TestLane(DatabaseTest):
 
@@ -3322,6 +3329,32 @@ class TestLane(DatabaseTest):
         assert_raises_regexp(
             ValueError, "Lane parentage loop detected", list, lane.parentage
         )
+
+    def test_is_self_or_descendant(self):
+        # Test the code that checks whether one Lane is 'beneath'
+        # a WorkList.
+
+        top_level = TopLevelWorkList()
+        top_level.initialize(self._default_library)
+        parent = self._lane()
+        child = self._lane(parent=parent)
+
+        # Generally this works the same as WorkList.is_self_or_descendant.
+        eq_(True, parent.is_self_or_descendant(parent))
+        eq_(True, child.is_self_or_descendant(child))
+
+        eq_(True, child.is_self_or_descendant(parent))
+        eq_(False, parent.is_self_or_descendant(child))
+
+        # The big exception: a TopLevelWorkList is a descendant of any
+        # Lane so long as they belong to the same library.
+        eq_(True, child.is_self_or_descendant(top_level))
+        eq_(True, parent.is_self_or_descendant(top_level))
+
+        library2 = self._library()
+        top_level.initialize(library2)
+        eq_(False, child.is_self_or_descendant(top_level))
+        eq_(False, parent.is_self_or_descendant(top_level))
 
     def test_depth(self):
         child = self._lane("sublane")
