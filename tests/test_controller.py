@@ -3755,7 +3755,7 @@ class TestOPDSFeedController(CirculationControllerTest):
             expect_url = controller.cdn_url_for(
                 'acquisition_groups',
                 library_short_name=self._default_library.short_name,
-                lane_identifier=lane.id, external=True
+                lane_identifier=lane.id, _external=True
             )
             eq_(response.headers['Location'], expect_url)
 

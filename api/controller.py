@@ -858,7 +858,7 @@ class OPDSFeedController(CirculationManagerController):
                         'acquisition_groups',
                         library_short_name=library.short_name,
                         lane_identifier=patron.root_lane.id,
-                        external=True
+                        _external=True
                     )
                 )
 
