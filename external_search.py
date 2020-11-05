@@ -2476,6 +2476,13 @@ class Filter(SearchBase):
         elif self.availability==FacetConstants.AVAILABLE_OPEN_ACCESS:
             # Only open-access books should be displayed.
             nested_filters['licensepools'].append(open_access)
+        elif self.availability==FacetConstants.AVAILABLE_NOT_NOW:
+            # Only books that are _not_ currently available should be displayed.
+            not_open_access = Term(**{'licensepools.open_access' : False})
+            not_available = Term(**{'licensepools.available' : False})
+            nested_filters['licensepools'].append(
+                Bool(must=[not_open_access, not_available])
+            )
 
         if self.subcollection==FacetConstants.COLLECTION_FEATURED:
             # Exclude books with a quality of less than the library's

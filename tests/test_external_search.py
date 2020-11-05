@@ -1145,6 +1145,9 @@ class TestFacetFilters(EndToEndSearchTest):
         expect(Facets.COLLECTION_FULL, Facets.AVAILABLE_NOW,
                [self.horse, self.moby, self.duck])
 
+        # Show only works that can *not* be borrowed right now.
+        expect(Facets.COLLECTION_FULL, Facets.AVAILABLE_NOT_NOW, [self.becoming])
+
         # Show only open-access works.
         expect(Facets.COLLECTION_FULL, Facets.AVAILABLE_OPEN_ACCESS,
                [self.horse, self.moby])
@@ -2372,6 +2375,24 @@ class TestQuery(DatabaseTest):
             nested_filter.to_dict(),
             {'bool': {'filter': [{'bool': {'should': [open_access, available],
                                            'minimum_should_match': 1}}]}}
+        )
+
+        # When using the AVAILABLE_NOT_NOW restriction...
+        built = from_facets(Facets.COLLECTION_FULL, Facets.AVAILABLE_NOT_NOW, None)
+
+        # An additional nested filter is applied.
+        [not_available_now] = built.nested_filter_calls
+        eq_('nested', available_now['name_or_query'])
+        eq_('licensepools', available_now['path'])
+
+        # It finds only license pools that are *not* open access *and* have
+        # no active licenses.
+        nested_filter = not_available_now['query']
+        not_available = {'term': {'licensepools.available': False}}
+        not_open_access = {'term': {'licensepools.open_access': False}}
+        eq_(
+            nested_filter.to_dict(),
+            {'bool': {'filter': [{'bool': {'must': [not_open_access, not_available]}}]}}
         )
 
         # If the Filter specifies script fields, those fields are
