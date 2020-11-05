@@ -4116,11 +4116,11 @@ class TestWorkListGroups(DatabaseTest):
         class MockParent(WorkList):
 
             def _featured_works_with_lanes(
-                    self, _db, lanes, facets, *args, **kwargs
+                    self, _db, lanes, pagination, facets, *args, **kwargs
             ):
-                self._featured_works_with_lanes_called_with = (lanes, facets)
+                self._featured_works_with_lanes_called_with = (lanes, pagination, facets)
                 return super(MockParent, self)._featured_works_with_lanes(
-                    _db, lanes, facets, *args, **kwargs
+                    _db, lanes, pagination, facets, *args, **kwargs
                 )
 
         class MockChild(WorkList):
@@ -4152,8 +4152,9 @@ class TestWorkListGroups(DatabaseTest):
         relevant = parent.children
         queryable = []
         facets = FeaturedFacets(0)
+        pagination = Pagination(size=2)
         groups = list(
-            parent._groups_for_lanes(self._db, relevant, queryable, None, facets)
+            parent._groups_for_lanes(self._db, relevant, queryable, pagination, facets)
         )
 
         # Each sublane was asked in turn to provide works for the feed.
@@ -4164,7 +4165,7 @@ class TestWorkListGroups(DatabaseTest):
         # The original faceting object was passed into
         # _featured_works_with_lanes, but none of the lanes were
         # queryable, so it ended up doing nothing.
-        eq_(([], facets), parent._featured_works_with_lanes_called_with)
+        eq_(([], pagination, facets), parent._featured_works_with_lanes_called_with)
 
         # Each non-queryable sublane was given a chance to adapt that
         # faceting object to its own needs.
@@ -4243,7 +4244,7 @@ class TestWorkListGroups(DatabaseTest):
         facets = FeaturedFacets(0.1)
         pagination = object()
         results = parent._featured_works_with_lanes(
-            self._db, [child1, child2], facets, pagination, search_engine=search
+            self._db, [child1, child2], pagination, facets, search_engine=search
         )
         results = list(results)
 
