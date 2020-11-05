@@ -1,0 +1,20 @@
+#!/usr/bin/env python
+"""Update the circulation manager server with new books from OPDS 2.0 import collections."""
+import os
+import sys
+
+bin_dir = os.path.split(__file__)[0]
+package_dir = os.path.join(bin_dir, "..")
+sys.path.append(os.path.abspath(package_dir))
+
+from core.scripts import OPDSImportScript
+from core.model import ExternalIntegration
+from core.opds2_import import OPDS2Importer, OPDS2ImportMonitor
+
+import_script = OPDSImportScript(
+    importer_class=OPDS2Importer,
+    monitor_class=OPDS2ImportMonitor,
+    protocol=ExternalIntegration.OPDS2_IMPORT
+)
+
+import_script.run()
