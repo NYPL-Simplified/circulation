@@ -4118,6 +4118,12 @@ class TestOPDSFeedController(CirculationControllerTest):
         eq_(worklist, annotator.lane)
         eq_(None, annotator.facets)
 
+        # To improve performance, a Pagination object was created that
+        # limits each lane to a single Work.
+        pagination = kwargs.pop('pagination')
+        assert isinstance(pagination, Pagination)
+        eq_(1, pagination.size)
+
         # No other arguments were passed into qa_feed().
         eq_({}, kwargs)
 
