@@ -2975,12 +2975,14 @@ class Lane(Base, DatabaseBackedWorkList):
             size = self.size_by_entrypoint[entrypoint_name]
         return size
 
-    def groups(self, _db, include_sublanes=True, facets=None,
+    def groups(self, _db, include_sublanes=True, pagination=None, facets=None,
                search_engine=None, debug=False):
         """Return a list of (Work, Lane) 2-tuples
         describing a sequence of featured items for this lane and
         (optionally) its children.
 
+        :param pagination: A Pagination object which may affect how many
+            works each child of this WorkList may contribute.
         :param facets: A FeaturedFacets object.
         """
         clauses = []
@@ -3003,8 +3005,8 @@ class Lane(Base, DatabaseBackedWorkList):
         queryable_lanes = [x for x in relevant_lanes
                            if x == self or x.inherit_parent_restrictions]
         return self._groups_for_lanes(
-            _db, relevant_lanes, queryable_lanes, facets=facets,
-            search_engine=search_engine, debug=debug
+            _db, relevant_lanes, queryable_lanes, pagination=pagination,
+            facets=facets, search_engine=search_engine, debug=debug
         )
 
     def search(self, _db, query_string, search_client, pagination=None,
