@@ -121,6 +121,7 @@ from lanes import (
     load_lanes,
     ContributorFacets,
     ContributorLane,
+    JackpotFacets,
     JackpotWorkList,
     RecommendationLane,
     RelatedBooksLane,
@@ -1126,7 +1127,9 @@ class OPDSFeedController(CirculationManagerController):
             library_short_name=library.short_name,
         )
 
-        jwl = JackpotWorkList(library)
+        facets = load_facets_from_request(base_class=JackpotFacets)
+
+        jwl = JackpotWorkList(library, facets)
         annotator = self.manager.annotator(jwl)
 
         # TODO: Make it possible to pass a pagination object into
