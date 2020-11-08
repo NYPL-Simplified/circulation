@@ -1,43 +1,47 @@
 import json
-import urllib
-import urlparse
 
 from flask import redirect
 from flask_babel import lazy_gettext as _
+from six.moves.urllib.parse import (
+    SplitResult,
+    parse_qs,
+    urlencode,
+    urlparse,
+    urlsplit,
+    urlunparse,
+)
 
 from api.problem_details import *
 from api.saml.auth import SAMLAuthenticationManager
 from core.util.problem_detail import ProblemDetail
-from core.util.problem_detail import (
-    json as pd_json,
-)
+from core.util.problem_detail import json as pd_json
 
 SAML_INVALID_REQUEST = pd(
-    'http://librarysimplified.org/terms/problem/saml/invalid-saml-request',
+    "http://librarysimplified.org/terms/problem/saml/invalid-saml-request",
     status_code=401,
-    title=_('SAML invalid request.'),
-    detail=_('SAML invalid request.')
+    title=_("SAML invalid request."),
+    detail=_("SAML invalid request."),
 )
 
 SAML_INVALID_RESPONSE = pd(
-    'http://librarysimplified.org/terms/problem/saml/invalid-saml-response',
+    "http://librarysimplified.org/terms/problem/saml/invalid-saml-response",
     status_code=401,
-    title=_('SAML invalid response.'),
-    detail=_('SAML invalid response.')
+    title=_("SAML invalid response."),
+    detail=_("SAML invalid response."),
 )
 
 
 class SAMLController(object):
     """Controller used for handing SAML 2.0 authentication requests"""
 
-    ERROR = 'error'
-    REDIRECT_URI = 'redirect_uri'
-    PROVIDER_NAME = 'provider'
-    IDP_ENTITY_ID = 'idp_entity_id'
-    LIBRARY_SHORT_NAME = 'library_short_name'
-    RELAY_STATE = 'RelayState'
-    ACCESS_TOKEN = 'access_token'
-    PATRON_INFO = 'patron_info'
+    ERROR = "error"
+    REDIRECT_URI = "redirect_uri"
+    PROVIDER_NAME = "provider"
+    IDP_ENTITY_ID = "idp_entity_id"
+    LIBRARY_SHORT_NAME = "library_short_name"
+    RELAY_STATE = "RelayState"
+    ACCESS_TOKEN = "access_token"
+    PATRON_INFO = "patron_info"
 
     def __init__(self, circulation_manager, authenticator):
         """Initializes a new instance of SAMLController class
@@ -51,7 +55,8 @@ class SAMLController(object):
         self._circulation_manager = circulation_manager
         self._authenticator = authenticator
 
-    def _get_authentication_manager(self, db, authentication_provider):
+    @staticmethod
+    def _get_authentication_manager(db, authentication_provider):
         """Returns an instance of SAML authentication manager
 
         :param db: Database session
@@ -65,7 +70,8 @@ class SAMLController(object):
         """
         return authentication_provider.get_authentication_manager(db)
 
-    def _add_params_to_url(self, url, params):
+    @staticmethod
+    def _add_params_to_url(url, params):
         """Adds parameters as a query part of the URL
 
         :param url: URL
@@ -77,10 +83,22 @@ class SAMLController(object):
         :return: URL with parameters formatted as a query string
         :rtype: string
         """
-        query = urllib.urlencode(params)
-        url_parts = urlparse.urlsplit(url)
-        url_parts = urlparse.SplitResult(
-            url_parts.scheme, url_parts.netloc, url_parts.path, url_parts.query + query, url_parts.fragment)
+        url_parts = urlsplit(url)
+
+        # Extract the existing parameters specified in the redirection URI
+        existing_params = parse_qs(url_parts.query)
+
+        # Enrich our custom parameters with the existing ones
+        params.update(existing_params)
+
+        new_query = urlencode(params, True)
+        url_parts = SplitResult(
+            url_parts.scheme,
+            url_parts.netloc,
+            url_parts.path,
+            new_query,
+            url_parts.fragment,
+        )
         url = url_parts.geturl()
 
         return url
@@ -103,11 +121,9 @@ class SAMLController(object):
             problem_detail.title,
             problem_detail.detail,
             problem_detail.instance,
-            problem_detail.debug_message
+            problem_detail.debug_message,
         )
-        params = {
-            self.ERROR: problem_detail_json
-        }
+        params = {self.ERROR: problem_detail_json}
         redirect_uri = self._add_params_to_url(redirect_uri, params)
 
         return redirect_uri
@@ -121,8 +137,8 @@ class SAMLController(object):
         :return: Redirection URL
         :rtype: string
         """
-        relay_state_parse_result = urlparse.urlparse(relay_state)
-        relay_state_parameters = urlparse.parse_qs(relay_state_parse_result.query)
+        relay_state_parse_result = urlparse(relay_state)
+        relay_state_parameters = parse_qs(relay_state_parse_result.query)
 
         if self.LIBRARY_SHORT_NAME in relay_state_parameters:
             del relay_state_parameters[self.LIBRARY_SHORT_NAME]
@@ -133,20 +149,21 @@ class SAMLController(object):
         if self.IDP_ENTITY_ID in relay_state_parameters:
             del relay_state_parameters[self.IDP_ENTITY_ID]
 
-        redirect_uri = urlparse.urlunparse(
+        redirect_uri = urlunparse(
             (
                 relay_state_parse_result.scheme,
                 relay_state_parse_result.netloc,
                 relay_state_parse_result.path,
                 relay_state_parse_result.params,
-                urllib.urlencode(relay_state_parameters),
+                urlencode(relay_state_parameters, True),
                 relay_state_parse_result.fragment,
             )
         )
 
         return redirect_uri
 
-    def _get_request_parameter(self, params, name, default_value=None):
+    @staticmethod
+    def _get_request_parameter(params, name, default_value=None):
         """Returns a parameter containing in the incoming request
 
         :param params: Request's parameters
@@ -161,11 +178,14 @@ class SAMLController(object):
         parameter = params.get(name, default_value)
 
         if not parameter:
-            return SAML_INVALID_REQUEST.detailed('Required parameter {0} is missing'.format(name))
+            return SAML_INVALID_REQUEST.detailed(
+                "Required parameter {0} is missing".format(name)
+            )
 
         return parameter
 
-    def _get_relay_state_parameter(self, relay_parameters, name):
+    @staticmethod
+    def _get_relay_state_parameter(relay_parameters, name):
         """Returns a parameter containing in the query string of the relay state returned by the IdP
 
         :param relay_parameters: Dictionary containing a list of parameters
@@ -178,7 +198,9 @@ class SAMLController(object):
         :rtype: Union[string, ProblemDetail]
         """
         if name not in relay_parameters:
-            return SAML_INVALID_RESPONSE.detailed('Required parameter {0} is missing from RelayState'.format(name))
+            return SAML_INVALID_RESPONSE.detailed(
+                "Required parameter {0} is missing from RelayState".format(name)
+            )
 
         return relay_parameters[name][0]
 
@@ -253,10 +275,12 @@ class SAMLController(object):
                 # processed in SAMLController.saml_authentication_callback
                 self.LIBRARY_SHORT_NAME: provider.library(db).short_name,
                 self.PROVIDER_NAME: provider_name,
-                self.IDP_ENTITY_ID: idp_entity_id
-            }
+                self.IDP_ENTITY_ID: idp_entity_id,
+            },
         )
-        redirect_uri = authentication_manager.start_authentication(db, idp_entity_id, relay_state)
+        redirect_uri = authentication_manager.start_authentication(
+            db, idp_entity_id, relay_state
+        )
         if isinstance(redirect_uri, ProblemDetail):
             return redirect_uri
 
@@ -277,27 +301,40 @@ class SAMLController(object):
         """
         if self.RELAY_STATE not in request.form:
             return SAML_INVALID_RESPONSE.detailed(
-                'Required parameter {0} is missing from the response body'.format(self.RELAY_STATE))
+                _(
+                    "Required parameter {0} is missing from the response body".format(
+                        self.RELAY_STATE
+                    )
+                )
+            )
 
         relay_state = request.form[self.RELAY_STATE]
-        relay_state_parse_result = urlparse.urlparse(relay_state)
-        relay_state_parameters = urlparse.parse_qs(relay_state_parse_result.query)
+        relay_state_parse_result = urlparse(relay_state)
+        relay_state_parameters = parse_qs(relay_state_parse_result.query)
 
-        library_short_name = self._get_relay_state_parameter(relay_state_parameters, self.LIBRARY_SHORT_NAME)
+        library_short_name = self._get_relay_state_parameter(
+            relay_state_parameters, self.LIBRARY_SHORT_NAME
+        )
         if isinstance(library_short_name, ProblemDetail):
             return library_short_name
 
-        provider_name = self._get_relay_state_parameter(relay_state_parameters, self.PROVIDER_NAME)
+        provider_name = self._get_relay_state_parameter(
+            relay_state_parameters, self.PROVIDER_NAME
+        )
         if isinstance(provider_name, ProblemDetail):
             return provider_name
 
-        idp_entity_id = self._get_relay_state_parameter(relay_state_parameters, self.IDP_ENTITY_ID)
+        idp_entity_id = self._get_relay_state_parameter(
+            relay_state_parameters, self.IDP_ENTITY_ID
+        )
         if isinstance(idp_entity_id, ProblemDetail):
             return idp_entity_id
 
         redirect_uri = self._get_redirect_uri(relay_state)
 
-        library = self._circulation_manager.index_controller.library_for_request(library_short_name)
+        library = self._circulation_manager.index_controller.library_for_request(
+            library_short_name
+        )
         if isinstance(library, ProblemDetail):
             return self._redirect_with_error(redirect_uri, library)
 
@@ -305,7 +342,9 @@ class SAMLController(object):
         if isinstance(provider, ProblemDetail):
             return self._redirect_with_error(redirect_uri, provider)
 
-        subject = self._get_authentication_manager(db, provider).finish_authentication(db, idp_entity_id)
+        subject = self._get_authentication_manager(db, provider).finish_authentication(
+            db, idp_entity_id
+        )
         if isinstance(subject, ProblemDetail):
             return self._redirect_with_error(redirect_uri, subject)
 
@@ -322,10 +361,7 @@ class SAMLController(object):
         )
 
         patron_info = json.dumps(patron_data.to_response_parameters)
-        params = {
-            'access_token': simplified_token,
-            'patron_info': patron_info
-        }
+        params = {"access_token": simplified_token, "patron_info": patron_info}
 
         redirect_uri = self._add_params_to_url(redirect_uri, params)
 
