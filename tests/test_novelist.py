@@ -409,7 +409,7 @@ class TestNoveListAPI(DatabaseTest):
         eq_(items, [])
 
         # Set up a book for this library.
-        edition = self._edition(identifier_type=Identifier.ISBN, publicationDate="2012-01-01")
+        edition = self._edition(identifier_type=Identifier.ISBN, publication_date="2012-01-01")
         pool = self._licensepool(edition, collection=self._default_collection)
         contributor = self._contributor(sort_name=edition.sort_author, name=edition.author)
 
