@@ -1295,7 +1295,7 @@ class WorkList(object):
 
         # This WorkList contains every title available to this library
         # in one of the media supported by the default client.
-        wl = WorkList()
+        wl = TopLevelWorkList()
 
         wl.initialize(
             library, display_name=library.name, children=top_level_lanes,
@@ -1501,7 +1501,7 @@ class WorkList(object):
     def is_self_or_descendant(self, ancestor):
         """Is this WorkList the given WorkList or one of its descendants?
 
-        :param target: A WorkList.
+        :param ancestor: A WorkList.
         :return: A boolean.
         """
         for candidate in [self] + list(self.parentage):
@@ -2058,6 +2058,50 @@ class WorkList(object):
                 yield work, lane
 
 
+class HierarchyWorkList(WorkList):
+    """A WorkList representing part of a hierarchical view of a a
+    library's collection. (As opposed to a non-hierarchical view such
+    as search results or "books by author X".)
+    """
+
+    def accessible_to(self, patron):
+        """As a matter of library policy, is the given `Patron` allowed
+        to access this `WorkList`?
+
+        Most of the logic is inherited from `WorkList`, but there's also
+        a restriction based on the site hierarchy.
+
+        :param patron: A Patron
+        :return: A boolean
+        """
+
+        # All the rules of WorkList apply.
+        if not super(HierarchyWorkList, self).accessible_to(patron):
+            return False
+
+        if patron is None:
+            return True
+
+        root_lane = patron.root_lane
+        if root_lane and not self.is_self_or_descendant(root_lane):
+            # In addition, a HierarchyWorkList that's not in
+            # scope of the patron's root lane is not accessible,
+            # period. Even if all of the books in the WorkList are
+            # age-appropriate, it's in a different part of the
+            # navigational structure and navigating to it is not
+            # allowed.
+            return False
+
+        return True
+
+
+class TopLevelWorkList(HierarchyWorkList):
+    """A special WorkList representing the top-level view of
+    a library's collection.
+    """
+    pass
+
+
 class DatabaseBackedWorkList(WorkList):
     """A WorkList that can get its works from the database in addition to
     (or possibly instead of) the search index.
@@ -2413,7 +2457,7 @@ Genre.lane_genres = relationship(
 )
 
 
-class Lane(Base, DatabaseBackedWorkList):
+class Lane(Base, DatabaseBackedWorkList, HierarchyWorkList):
     """A WorkList that draws its search criteria from a row in a
     database table.
 
@@ -2603,6 +2647,22 @@ class Lane(Base, DatabaseBackedWorkList):
             seen.add(grandparent)
             yield grandparent
 
+    def is_self_or_descendant(self, ancestor):
+        """Is this WorkList the given WorkList or one of its descendants?
+
+        :param ancestor: A WorkList.
+        :return: A boolean.
+        """
+        if super(Lane, self).is_self_or_descendant(ancestor):
+            return True
+
+        # A TopLevelWorkList won't show up in a Lane's parentage,
+        # because it's not a Lane, but if they share the same library
+        # it can be presumed to be the lane's ultimate ancestor.
+        if isinstance(ancestor, TopLevelWorkList) and self.library_id==ancestor.library_id:
+            return True
+        return False
+
     @property
     def depth(self):
         """How deep is this lane in this site's hierarchy?
@@ -2622,32 +2682,6 @@ class Lane(Base, DatabaseBackedWorkList):
     @visible.setter
     def visible(self, value):
         self._visible = value
-
-    def accessible_to(self, patron):
-        """As a matter of library policy, is the given `Patron` allowed
-        to access this `Lane`?
-
-        :param patron: A Patron
-        :return: A boolean
-        """
-
-        # All the rules of WorkList apply.
-        if not super(Lane, self).accessible_to(patron):
-            return False
-
-        if patron is None:
-            return True
-
-        root_lane = patron.root_lane
-        if root_lane and not self.is_self_or_descendant(root_lane):
-            # In addition, a database Lane that's not in scope of the
-            # patron's root lane is not accessible, period. Even if all
-            # of the books in the Lane are age-appropriate, it's in a
-            # different part of the navigational structure and
-            # navigating to it is not allowed.
-            return False
-
-        return True
 
     @property
     def url_name(self):

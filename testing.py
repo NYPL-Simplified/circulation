@@ -338,11 +338,21 @@ class DatabaseTest(object):
             id = self._str
         return Identifier.for_foreign_id(self._db, identifier_type, id)[0]
 
-    def _edition(self, data_source_name=DataSource.GUTENBERG,
-                 identifier_type=Identifier.GUTENBERG_ID,
-                 with_license_pool=False, with_open_access_download=False,
-                 title=None, language="eng", authors=None, identifier_id=None,
-                 series=None, collection=None, publicationDate=None
+    def _edition(
+            self,
+            data_source_name=DataSource.GUTENBERG,
+            identifier_type=Identifier.GUTENBERG_ID,
+            with_license_pool=False,
+            with_open_access_download=False,
+            title=None,
+            language="eng",
+            authors=None,
+            identifier_id=None,
+            series=None,
+            collection=None,
+            publication_date=None,
+            self_hosted=False,
+            unlimited_access=False
     ):
         id = identifier_id or self._str
         source = DataSource.lookup(self._db, data_source_name)
@@ -360,7 +370,7 @@ class DatabaseTest(object):
             authors = self._str
         if isinstance(authors, basestring):
             authors = [authors]
-        if authors != []:
+        if authors:
             primary_author_name = unicode(authors[0])
             contributor = wr.add_contributor(primary_author_name, Contributor.PRIMARY_AUTHOR_ROLE)
             # add_contributor assumes authors[0] is a sort_name,
@@ -371,24 +381,40 @@ class DatabaseTest(object):
 
         for author in authors[1:]:
             wr.add_contributor(unicode(author), Contributor.AUTHOR_ROLE)
-        if publicationDate:
-            wr.published = publicationDate
+        if publication_date:
+            wr.published = publication_date
 
         if with_license_pool or with_open_access_download:
             pool = self._licensepool(
                 wr, data_source_name=data_source_name,
                 with_open_access_download=with_open_access_download,
-                collection=collection
+                collection=collection,
+                self_hosted=self_hosted,
+                unlimited_access=unlimited_access
             )
 
             pool.set_presentation_edition()
             return wr, pool
         return wr
 
-    def _work(self, title=None, authors=None, genre=None, language=None,
-              audience=None, fiction=True, with_license_pool=False,
-              with_open_access_download=False, quality=0.5, series=None,
-              presentation_edition=None, collection=None, data_source_name=None):
+    def _work(
+            self,
+            title=None,
+            authors=None,
+            genre=None,
+            language=None,
+            audience=None,
+            fiction=True,
+            with_license_pool=False,
+            with_open_access_download=False,
+            quality=0.5,
+            series=None,
+            presentation_edition=None,
+            collection=None,
+            data_source_name=None,
+            self_hosted=False,
+            unlimited_access=False
+    ):
         """Create a Work.
 
         For performance reasons, this method does not generate OPDS
@@ -422,11 +448,20 @@ class DatabaseTest(object):
                 data_source_name=data_source_name,
                 series=series,
                 collection=collection,
+                self_hosted=self_hosted,
+                unlimited_access=unlimited_access
             )
             if with_license_pool:
                 presentation_edition, pool = presentation_edition
                 if with_open_access_download:
                     pool.open_access = True
+                if self_hosted:
+                    pool.open_access = False
+                    pool.self_hosted = True
+                if unlimited_access:
+                    pool.open_access = False
+                    pool.unlimited_access = True
+
                 pools = [pool]
         else:
             pools = presentation_edition.license_pools
@@ -543,23 +578,30 @@ class DatabaseTest(object):
         )
         return record
 
-    def _licensepool(self, edition, open_access=True,
-                     data_source_name=DataSource.GUTENBERG,
-                     with_open_access_download=False,
-                     set_edition_as_presentation=False,
-                     collection=None):
+    def _licensepool(
+            self,
+            edition,
+            open_access=True,
+            data_source_name=DataSource.GUTENBERG,
+            with_open_access_download=False,
+            set_edition_as_presentation=False,
+            collection=None,
+            self_hosted=False,
+            unlimited_access=False
+    ):
         source = DataSource.lookup(self._db, data_source_name)
         if not edition:
             edition = self._edition(data_source_name)
         collection = collection or self._default_collection
         pool, ignore = get_one_or_create(
             self._db, LicensePool,
-            create_method_kwargs=dict(
-                open_access=open_access),
+            create_method_kwargs=dict(open_access=open_access),
             identifier=edition.primary_identifier,
             data_source=source,
             collection=collection,
-            availability_time=datetime.utcnow()
+            availability_time=datetime.utcnow(),
+            self_hosted=self_hosted,
+            unlimited_access=unlimited_access
         )
 
         if set_edition_as_presentation:
@@ -586,7 +628,6 @@ class DatabaseTest(object):
                 url, media_type, "Dummy content", mirrored=True)
             link.resource.representation = representation
         else:
-
             # Add a DeliveryMechanism for this licensepool
             pool.set_delivery_mechanism(
                 MediaTypes.EPUB_MEDIA_TYPE,
@@ -594,7 +635,9 @@ class DatabaseTest(object):
                 RightsStatus.UNKNOWN,
                 None
             )
-            pool.licenses_owned = pool.licenses_available = 1
+
+            if not unlimited_access:
+                pool.licenses_owned = pool.licenses_available = 1
 
         return pool
 
@@ -720,7 +763,7 @@ class DatabaseTest(object):
             integration.set_setting(key, value)
 
         return integration
-    
+
     def _external_integration_link(self, integration=None, library=None,
                                     other_integration=None, purpose="covers_mirror"):
 
