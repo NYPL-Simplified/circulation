@@ -762,7 +762,12 @@ class Collection(Base, HasFullTableCache):
         # If we don't allow holds, hide any books with no available copies.
         if not allow_holds:
             query = query.filter(
-                or_(LicensePool.licenses_available > 0, LicensePool.open_access)
+                or_(
+                    LicensePool.licenses_available > 0,
+                    LicensePool.open_access,
+                    LicensePool.self_hosted,
+                    LicensePool.unlimited_access
+                )
             )
         return query
 
