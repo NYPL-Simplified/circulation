@@ -2,6 +2,9 @@ import logging
 from contextlib import contextmanager
 
 import requests
+from flask_babel import lazy_gettext as _
+from requests import HTTPError, Request
+
 from core.exceptions import BaseError
 from core.model.configuration import (
     ConfigurationAttributeType,
@@ -12,8 +15,6 @@ from core.model.configuration import (
 )
 from core.util import is_session
 from core.util.string_helpers import is_string
-from flask_babel import lazy_gettext as _
-from requests import HTTPError, Request
 
 
 class ProQuestAPIClientConfiguration(ConfigurationGrouping):
@@ -128,6 +129,63 @@ class ProQuestAPIMissingJSONPropertyError(ProQuestAPIInvalidJSONResponseError):
         :rtype: str
         """
         return self._missing_property
+
+
+class Book(object):
+    """POCO class containing book information."""
+
+    def __init__(self, link=None, content=None):
+        """Initialize a new instance of Book class.
+
+        :param link: Book's link
+        :type link: Optional[str]
+
+        :param content: Book's content
+        :type content: Optional[Union[str, bytes]]
+        """
+        if link is not None and not is_string(link):
+            raise ValueError("Argument 'link' must be a string")
+        if content is not None and not isinstance(content, bytes):
+            raise ValueError("Argument 'content' must be a bytes string")
+        if link is not None and content is not None:
+            raise ValueError(
+                "'link' and 'content' cannot be both set up at the same time"
+            )
+
+        self._link = link
+        self._content = content
+
+    def __eq__(self, other):
+        """Compare self and other other book.
+
+        :param other: Other book instance
+        :type other: Any
+
+        :return: Boolean value indicating whether self and other are equal to each to other
+        :rtype: bool
+        """
+        if not isinstance(other, Book):
+            return False
+
+        return self.link == other.link and self.content == other.content
+
+    @property
+    def link(self):
+        """Return the book's link.
+
+        :return: Book's link
+        :rtype: Optional[str]
+        """
+        return self._link
+
+    @property
+    def content(self):
+        """Return the book's content.
+
+        :return: Book's content
+        :rtype: Optional[Union[str, bytes]]
+        """
+        return self._content
 
 
 class ProQuestAPIClient(object):
@@ -568,7 +626,7 @@ class ProQuestAPIClient(object):
                         response, self.DOWNLOAD_LINK_FIELD
                     )
 
-                return response_json[self.DOWNLOAD_LINK_FIELD]
+                return Book(link=response_json[self.DOWNLOAD_LINK_FIELD])
             else:
                 self._logger.info(
                     "Finished fetching a book link for Doc ID {0} using JWT token {1}".format(
@@ -576,7 +634,7 @@ class ProQuestAPIClient(object):
                     )
                 )
 
-                return bytes(response.content)
+                return Book(content=bytes(response.content))
 
 
 class ProQuestAPIClientFactory(object):

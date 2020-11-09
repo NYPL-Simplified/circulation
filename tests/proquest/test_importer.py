@@ -1,9 +1,15 @@
 import datetime
 import json
 
+from flask import Response
+from freezegun import freeze_time
+from mock import MagicMock, create_autospec, patch
+from nose.tools import assert_raises, eq_
+from requests import HTTPError
+
 from api.authenticator import BaseSAMLAuthenticationProvider
 from api.circulation_exceptions import CannotFulfill, CannotLoan
-from api.proquest.client import ProQuestAPIClient, ProQuestAPIClientFactory
+from api.proquest.client import Book, ProQuestAPIClient, ProQuestAPIClientFactory
 from api.proquest.credential import ProQuestCredentialManager
 from api.proquest.importer import (
     ProQuestOPDS2Importer,
@@ -29,16 +35,11 @@ from core.model.configuration import (
     HasExternalIntegration,
 )
 from core.testing import DatabaseTest
-from flask import Response
-from freezegun import freeze_time
-from mock import MagicMock, create_autospec, patch
-from nose.tools import assert_raises, eq_
-from requests import HTTPError
 
 
-class ProQuestAPIClientTest(DatabaseTest):
+class TestProQuestAPIClient(DatabaseTest):
     def setup(self, mock_search=True):
-        super(ProQuestAPIClientTest, self).setup()
+        super(TestProQuestAPIClient, self).setup()
 
         self._proquest_data_source = DataSource.lookup(
             self._db, DataSource.PROQUEST, autocreate=True
@@ -114,7 +115,7 @@ class ProQuestAPIClientTest(DatabaseTest):
             eq_(self._proquest_data_source.name, loan.data_source_name)
             eq_(self._proquest_license_pool.identifier.type, loan.identifier_type)
             eq_(
-                self._proquest_license_pool.identifier.identifier,
+                None,
                 loan.external_identifier,
             )
             eq_(self._loan_start_date, loan.start_date)
@@ -176,7 +177,7 @@ class ProQuestAPIClientTest(DatabaseTest):
             eq_(self._proquest_data_source.name, loan.data_source_name)
             eq_(self._proquest_license_pool.identifier.type, loan.identifier_type)
             eq_(
-                self._proquest_license_pool.identifier.identifier,
+                None,
                 loan.external_identifier,
             )
             eq_(self._loan_start_date, loan.start_date)
@@ -191,7 +192,9 @@ class ProQuestAPIClientTest(DatabaseTest):
             # 2. Assert that ProQuestCredentialManager.lookup_patron_affiliation_id
             # was called when CM tried to fetch an existing SAML affiliation ID.
             credential_manager_mock.lookup_patron_affiliation_id.assert_called_once_with(
-                self._db, self._proquest_patron
+                self._db,
+                self._proquest_patron,
+                ProQuestOPDS2ImporterConfiguration.DEFAULT_AFFILIATION_ATTRIBUTES,
             )
 
             # 3. Assert that ProQuest.create_token was called when CM tried to create a new ProQuest JWT bearer token
@@ -292,7 +295,7 @@ class ProQuestAPIClientTest(DatabaseTest):
                 eq_(self._proquest_data_source.name, loan.data_source_name)
                 eq_(self._proquest_license_pool.identifier.type, loan.identifier_type)
                 eq_(
-                    self._proquest_license_pool.identifier.identifier,
+                    None,
                     loan.external_identifier,
                 )
                 eq_(self._loan_start_date, loan.start_date)
@@ -420,7 +423,9 @@ class ProQuestAPIClientTest(DatabaseTest):
             # 2. Assert that ProQuestCredentialManager.lookup_patron_affiliation_id
             # was called when CM tried to fetch an existing affiliation ID.
             credential_manager_mock.lookup_patron_affiliation_id.assert_called_once_with(
-                self._db, self._proquest_patron
+                self._db,
+                self._proquest_patron,
+                ProQuestOPDS2ImporterConfiguration.DEFAULT_AFFILIATION_ATTRIBUTES,
             )
 
             # 3. Assert that ProQuestAPIClient.create_token was called when CM tried to create a new JWT bearer token.
@@ -436,10 +441,10 @@ class ProQuestAPIClientTest(DatabaseTest):
 
         # Arrange
         proquest_token = "1234567890"
-        book_link = "https://proquest.com/books/books.epub"
+        book = Book(link="https://proquest.com/books/books.epub")
 
         api_client_mock = create_autospec(spec=ProQuestAPIClient)
-        api_client_mock.get_book = MagicMock(return_value=book_link)
+        api_client_mock.get_book = MagicMock(return_value=book)
 
         api_client_factory_mock = create_autospec(spec=ProQuestAPIClientFactory)
         api_client_factory_mock.create = MagicMock(return_value=api_client_mock)
@@ -475,7 +480,7 @@ class ProQuestAPIClientTest(DatabaseTest):
                 self._proquest_license_pool.identifier.type,
                 fulfilment_info.identifier_type,
             )
-            eq_(book_link, fulfilment_info.content_link)
+            eq_(book.link, fulfilment_info.content_link)
             eq_(
                 self._proquest_delivery_mechanism.delivery_mechanism.media_type,
                 fulfilment_info.content_type,
@@ -511,11 +516,11 @@ class ProQuestAPIClientTest(DatabaseTest):
         # Arrange
         affiliation_id = "12345"
         proquest_token = "1234567890"
-        book_content = bytes("Book")
+        book = Book(content=bytes("Book"))
 
         api_client_mock = create_autospec(spec=ProQuestAPIClient)
         api_client_mock.create_token = MagicMock(return_value=proquest_token)
-        api_client_mock.get_book = MagicMock(return_value=book_content)
+        api_client_mock.get_book = MagicMock(return_value=book)
 
         api_client_factory_mock = create_autospec(spec=ProQuestAPIClientFactory)
         api_client_factory_mock.create = MagicMock(return_value=api_client_mock)
@@ -559,7 +564,7 @@ class ProQuestAPIClientTest(DatabaseTest):
                 self._proquest_delivery_mechanism.delivery_mechanism.media_type,
                 fulfilment_info.content_type,
             )
-            eq_(book_content, fulfilment_info.content)
+            eq_(book.content, fulfilment_info.content)
             eq_(None, fulfilment_info.content_expires)
 
             # Assert than ProQuestOPDS2Importer correctly created an instance of ProQuestAPIClient.
@@ -574,7 +579,9 @@ class ProQuestAPIClientTest(DatabaseTest):
             # 2. Assert that ProQuestCredentialManager.lookup_patron_affiliation_id
             # was called when CM tried to fetch an existing SAML affiliation ID.
             credential_manager_mock.lookup_patron_affiliation_id.assert_called_once_with(
-                self._db, self._proquest_patron
+                self._db,
+                self._proquest_patron,
+                ProQuestOPDS2ImporterConfiguration.DEFAULT_AFFILIATION_ATTRIBUTES,
             )
 
             # 3. Assert that ProQuest.create_token was called when CM tried to create a new ProQuest JWT bearer token
@@ -638,7 +645,9 @@ class ProQuestAPIClientTest(DatabaseTest):
             # 2. Assert that ProQuestCredentialManager.lookup_patron_affiliation_id
             # was called when CM tried to fetch an existing SAML affiliation ID.
             credential_manager_mock.lookup_patron_affiliation_id.assert_called_once_with(
-                self._db, self._proquest_patron
+                self._db,
+                self._proquest_patron,
+                ProQuestOPDS2ImporterConfiguration.DEFAULT_AFFILIATION_ATTRIBUTES,
             )
 
     @freeze_time("2020-01-01 00:00:00")
@@ -690,7 +699,9 @@ class ProQuestAPIClientTest(DatabaseTest):
             # 2. Assert that ProQuestCredentialManager.lookup_patron_affiliation_id
             # was called when CM tried to fetch an existing SAML affiliation ID.
             credential_manager_mock.lookup_patron_affiliation_id.assert_called_once_with(
-                self._db, self._proquest_patron
+                self._db,
+                self._proquest_patron,
+                ProQuestOPDS2ImporterConfiguration.DEFAULT_AFFILIATION_ATTRIBUTES,
             )
 
             # 3. Assert that ProQuestAPIClient.create_token was called when CM tried to create a new JWT bearer token.
@@ -713,12 +724,12 @@ class ProQuestAPIClientTest(DatabaseTest):
         affiliation_id = "12345"
         expired_proquest_token = "1234567890"
         new_proquest_token = "1234567890_"
-        book_content = bytes("Book")
+        book = Book(content=bytes("Book"))
 
         api_client_mock = create_autospec(spec=ProQuestAPIClient)
         api_client_mock.create_token = MagicMock(return_value=new_proquest_token)
         api_client_mock.get_book = MagicMock(
-            side_effect=[HTTPError(response=Response(status=401)), book_content]
+            side_effect=[HTTPError(response=Response(status=401)), book]
         )
 
         api_client_factory_mock = create_autospec(spec=ProQuestAPIClientFactory)
@@ -763,7 +774,7 @@ class ProQuestAPIClientTest(DatabaseTest):
                 self._proquest_delivery_mechanism.delivery_mechanism.media_type,
                 fulfilment_info.content_type,
             )
-            eq_(book_content, fulfilment_info.content)
+            eq_(book.content, fulfilment_info.content)
             eq_(None, fulfilment_info.content_expires)
 
             # Assert than ProQuestOPDS2Importer correctly created an instance of ProQuestAPIClient.
@@ -786,7 +797,9 @@ class ProQuestAPIClientTest(DatabaseTest):
             # 3. Assert that ProQuestCredentialManager.lookup_patron_affiliation_id
             # was called when CM tried to fetch an existing SAML affiliation ID.
             credential_manager_mock.lookup_patron_affiliation_id.assert_called_once_with(
-                self._db, self._proquest_patron
+                self._db,
+                self._proquest_patron,
+                ProQuestOPDS2ImporterConfiguration.DEFAULT_AFFILIATION_ATTRIBUTES,
             )
 
             # 4. Assert that ProQuest.create_token was called when CM tried to create a new ProQuest JWT bearer token
