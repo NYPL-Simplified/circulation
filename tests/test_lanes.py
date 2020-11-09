@@ -60,6 +60,7 @@ from api.lanes import (
     CrawlableCollectionBasedLane,
     CrawlableFacets,
     CrawlableCustomListBasedLane,
+    JackpotFacets,
     JackpotWorkList,
     KnownOverviewFacetsWorkList,
     RecommendationLane,
@@ -934,6 +935,33 @@ class TestKnownOverviewFacetsWorkList(DatabaseTest):
         # making a grouped feed.
         some_other_facets = object()
         eq_(known_facets, wl.overview_facets(self._db, some_other_facets))
+
+
+class TestJackpotFacets(DatabaseTest):
+
+    def test_available_facets(self):
+
+        m = JackpotFacets.available_facets
+
+        # A JackpotFacets object always has the same availability
+        # facets. Normal facet configuration is ignored.
+        available = m(None, JackpotFacets.AVAILABILITY_FACET_GROUP_NAME)
+        eq_([Facets.AVAILABLE_NOW, Facets.AVAILABLE_NOT_NOW,
+             Facets.AVAILABLE_OPEN_ACCESS],
+             available)
+
+        # For other facet groups, the class defers to the Facets
+        # superclass. (But this doesn't matter because it's not relevant
+        # to the creation of jackpot feeds.)
+        for group in (Facets.COLLECTION_FACET_GROUP_NAME,
+                      Facets.ORDER_FACET_GROUP_NAME):
+            eq_(m(self._default_library, group),
+                Facets.available_facets(self._default_library, group))
+
+        eq_(Facets.ORDER_SERIES_POSITION, SeriesFacets.DEFAULT_SORT_ORDER)
+        facets = SeriesFacets.default(self._default_library)
+        assert isinstance(facets, DefaultSortOrderFacets)
+        eq_(Facets.ORDER_SERIES_POSITION, facets.order)
 
 
 class TestJackpotWorkList(DatabaseTest):

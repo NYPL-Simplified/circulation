@@ -1288,7 +1288,8 @@ class JackpotFacets(Facets):
                 config, facet_group_name
             )
 
-        return [Facets.AVAILABLE_NOW, Facets.AVAILABLE_NOT_NOW]
+        return [Facets.AVAILABLE_NOW, Facets.AVAILABLE_NOT_NOW,
+                Facets.AVAILABLE_OPEN_ACCESS]
 
 
 class JackpotWorkList(WorkList):
