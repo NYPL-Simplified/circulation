@@ -757,9 +757,7 @@ class ConfigurationSetting(Base, HasFullTableCache):
     # As of this release of the software, this is our best guess as to
     # which data sources should have their audiobooks excluded from
     # lanes.
-    EXCLUDED_AUDIO_DATA_SOURCES_DEFAULT = [
-        DataSourceConstants.OVERDRIVE
-    ]
+    EXCLUDED_AUDIO_DATA_SOURCES_DEFAULT = []
 
     @classmethod
     def excluded_audio_data_sources(cls, _db):
