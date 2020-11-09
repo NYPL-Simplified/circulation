@@ -1280,6 +1280,11 @@ class KnownOverviewFacetsWorkList(WorkList):
 
 
 class JackpotFacets(Facets):
+    """A faceting object for a jackpot feed.
+
+    Unlike other faceting objects, AVAILABLE_NOT_NOW is an acceptable
+    option for the availability facet.
+    """
 
     @classmethod
     def default_facet(cls, config, facet_group_name):

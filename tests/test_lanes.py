@@ -943,7 +943,7 @@ class TestJackpotFacets(DatabaseTest):
         # A JackpotFacets object defaults to showing only books that
         # are currently available. Normal facet configuration is
         # ignored.
-        m = JackpotFacets.default_facets
+        m = JackpotFacets.default_facet
 
         default = m(None, JackpotFacets.AVAILABILITY_FACET_GROUP_NAME)
         eq_(Facets.AVAILABLE_NOW, default)
@@ -968,7 +968,7 @@ class TestJackpotFacets(DatabaseTest):
         m = JackpotFacets.available_facets
         available = m(None, JackpotFacets.AVAILABILITY_FACET_GROUP_NAME)
         eq_([Facets.AVAILABLE_NOW, Facets.AVAILABLE_NOT_NOW,
-             Facets.AVAILABLE_OPEN_ACCESS],
+             Facets.AVAILABLE_ALL, Facets.AVAILABLE_OPEN_ACCESS],
              available)
 
         # For other facet groups, the class defers to the Facets
