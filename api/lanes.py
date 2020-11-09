@@ -1282,14 +1282,22 @@ class KnownOverviewFacetsWorkList(WorkList):
 class JackpotFacets(Facets):
 
     @classmethod
+    def default_facet(cls, config, facet_group_name):
+        if facet_group_name != cls.AVAILABILITY_FACET_GROUP_NAME:
+            return super(JackpotFacets, cls).default_facet(
+                config, facet_group_name
+            )
+        return cls.AVAILABLE_NOW
+
+    @classmethod
     def available_facets(cls, config, facet_group_name):
         if facet_group_name != cls.AVAILABILITY_FACET_GROUP_NAME:
             return super(JackpotFacets, cls).available_facets(
                 config, facet_group_name
             )
 
-        return [Facets.AVAILABLE_NOW, Facets.AVAILABLE_NOT_NOW,
-                Facets.AVAILABLE_OPEN_ACCESS]
+        return [cls.AVAILABLE_NOW, cls.AVAILABLE_NOT_NOW,
+                cls.AVAILABLE_ALL, cls.AVAILABLE_OPEN_ACCESS]
 
 
 class JackpotWorkList(WorkList):

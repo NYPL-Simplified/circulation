@@ -50,6 +50,7 @@ from api.lanes import (
     CrawlableCustomListBasedLane,
     CrawlableFacets,
     DynamicLane,
+    JackpotFacets,
     JackpotWorkList,
     RecommendationLane,
     RelatedBooksLane,
@@ -1278,7 +1279,7 @@ class TestBaseController(CirculationControllerTest):
                               Classifier.AUDIENCE_YOUNG_ADULT]
         children_lane.target_age = tuple_to_numericrange((9, 12))
         children_lane.root_for_patron_type = ["child"]
-        
+
         adults_lane = self._lane()
         adults_lane.audiences = [Classifier.AUDIENCE_ADULT]
         adults_lane.root_for_patron_type = ["adult"]
@@ -2996,7 +2997,7 @@ class TestWorkController(CirculationControllerTest):
 
             # If we only ask for children's books by the same author,
             # we're fine.
-            response = m(contributor.sort_name, "eng", 
+            response = m(contributor.sort_name, "eng",
                          Classifier.AUDIENCE_CHILDREN)
             eq_(200, response.status_code)
 
@@ -4081,6 +4082,15 @@ class TestOPDSFeedController(CirculationControllerTest):
             lambda: self.manager.opds_feeds.qa_feed(None)
         )
 
+        # Bad faceting information -> Problem detail
+        with self.request_context_with_library("/?order=nosuchorder"):
+            response = self.manager.opds_feeds.qa_feed(None)
+            eq_(400, response.status_code)
+            eq_(
+                "http://librarysimplified.org/terms/problem/invalid-input",
+                response.uri
+            )
+
         # The AcquisitionFeed.groups method is tested in core, so we're
         # just going to test that appropriate values are passed into that
         # method:
@@ -4111,6 +4121,11 @@ class TestOPDSFeedController(CirculationControllerTest):
         worklist = kwargs.pop('worklist')
         assert isinstance(worklist, JackpotWorkList)
         eq_(self._default_library, worklist.get_library(self._db))
+
+        # Each child of the JackpotWorkList is based on a
+        # JackpotFacets object.
+        for child in worklist.children:
+            assert isinstance(child.facets, JackpotFacets)
 
         # Then a LibraryAnnotator object was created from the JackpotWorkList.
         annotator = kwargs.pop('annotator')

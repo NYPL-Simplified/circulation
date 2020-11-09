@@ -1128,6 +1128,8 @@ class OPDSFeedController(CirculationManagerController):
         )
 
         facets = load_facets_from_request(base_class=JackpotFacets)
+        if isinstance(facets, ProblemDetail):
+            return facets
 
         jwl = JackpotWorkList(library, facets)
         annotator = self.manager.annotator(jwl)
