@@ -407,7 +407,7 @@ class ProQuestOPDS2Importer(OPDS2Importer, BaseCirculationAPI, HasExternalIntegr
                     start_date=loan.start,
                     end_date=loan.end,
                     fulfillment_info=None,
-                    external_identifier=loan.external_identifier,
+                    external_identifier=None,
                 )
             )
 
@@ -447,7 +447,7 @@ class ProQuestOPDS2Importer(OPDS2Importer, BaseCirculationAPI, HasExternalIntegr
                     start_date=today,
                     end_date=expires,
                     fulfillment_info=None,
-                    external_identifier=licensepool.identifier.identifier,
+                    external_identifier=None,
                 )
 
                 self._logger.info(
@@ -479,7 +479,7 @@ class ProQuestOPDS2Importer(OPDS2Importer, BaseCirculationAPI, HasExternalIntegr
                     patron, configuration, licensepool.identifier.identifier
                 )
 
-                if isinstance(book, bytes):
+                if book.content is not None:
                     fulfillment_info = FulfillmentInfo(
                         licensepool.collection,
                         licensepool.data_source.name,
@@ -487,7 +487,7 @@ class ProQuestOPDS2Importer(OPDS2Importer, BaseCirculationAPI, HasExternalIntegr
                         licensepool.identifier.identifier,
                         content_link=None,
                         content_type=internal_format.delivery_mechanism.media_type,
-                        content=book,
+                        content=book.content,
                         content_expires=None,
                     )
                 else:
@@ -496,7 +496,7 @@ class ProQuestOPDS2Importer(OPDS2Importer, BaseCirculationAPI, HasExternalIntegr
                         licensepool.data_source.name,
                         licensepool.identifier.type,
                         licensepool.identifier.identifier,
-                        content_link=book,
+                        content_link=book.link,
                         content_type=internal_format.delivery_mechanism.media_type,
                         content=None,
                         content_expires=None,
