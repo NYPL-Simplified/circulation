@@ -85,6 +85,7 @@ class WorkGenre(Base):
     def __repr__(self):
         return "%s (%d%%)" % (self.genre.name, self.affinity*100)
 
+
 class Work(Base):
     APPEALS_URI = "http://librarysimplified.org/terms/appeals/"
 
@@ -874,6 +875,17 @@ class Work(Base):
         )
         return changed
 
+    def _get_default_audience(self):
+        """Return the default audience.
+
+        :return: Default audience
+        :rtype: Optional[str]
+        """
+        for license_pool in self.license_pools:
+            if license_pool.collection.default_audience:
+                return license_pool.collection.default_audience
+
+        return None
 
     def calculate_presentation(
         self, policy=None, search_index_client=None, exclude_search=False,
@@ -889,6 +901,8 @@ class Work(Base):
         * The best available summary for the work.
         * The overall popularity of the work.
         """
+        if not default_audience:
+            default_audience = self._get_default_audience()
 
         # Gather information up front so we can see if anything
         # actually changed.

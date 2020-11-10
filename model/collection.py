@@ -312,7 +312,6 @@ class Collection(Base, HasFullTableCache):
         elif isinstance(library, IntegrationClient):
             return self.external_integration.setting(key)
 
-
     DEFAULT_RESERVATION_PERIOD_KEY = 'default_reservation_period'
     STANDARD_DEFAULT_RESERVATION_PERIOD = 3
 
@@ -333,6 +332,34 @@ class Collection(Base, HasFullTableCache):
         new_value = int(new_value)
         self.external_integration.setting(
             self.DEFAULT_RESERVATION_PERIOD_KEY).value = str(new_value)
+
+    # When you import an OPDS feed, you may know the intended audience of the works (e.g. children or researchers),
+    # even though the OPDS feed may not contain that information.
+    # It should be possible to configure a collection with a default audience,
+    # so that books imported from the OPDS feed end up with the right audience.
+    DEFAULT_AUDIENCE_KEY = 'default_audience'
+
+    @hybrid_property
+    def default_audience(self):
+        """Return the default audience set up for this collection.
+
+        :return: Default audience
+        :rtype: Optional[str]
+        """
+        setting = self.external_integration.setting(self.DEFAULT_AUDIENCE_KEY)
+
+        return setting.value_or_default(None)
+
+    @default_audience.setter
+    def default_audience(self, new_value):
+        """Set the default audience for this collection.
+
+        :param new_value: New default audience
+        :type new_value: Optional[str]
+        """
+        setting = self.external_integration.setting(self.DEFAULT_AUDIENCE_KEY)
+
+        setting.value = str(new_value)
 
     def create_external_integration(self, protocol):
         """Create an ExternalIntegration for this Collection.
