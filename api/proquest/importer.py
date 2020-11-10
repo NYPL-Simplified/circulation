@@ -3,16 +3,16 @@ import logging
 from contextlib import contextmanager
 
 import six
-from flask_babel import lazy_gettext as _
-from requests import HTTPError
-from sqlalchemy import or_
-
 from api.circulation import BaseCirculationAPI, FulfillmentInfo, LoanInfo
 from api.circulation_exceptions import CannotFulfill, CannotLoan
 from api.proquest.client import ProQuestAPIClientConfiguration, ProQuestAPIClientFactory
 from api.proquest.credential import ProQuestCredentialManager
 from api.proquest.identifier import ProQuestIdentifierParser
-from api.saml.metadata import SAMLAttributes
+from api.saml.metadata.model import SAMLAttributeType
+from flask_babel import lazy_gettext as _
+from requests import HTTPError
+from sqlalchemy import or_
+
 from core.classifier import Classifier
 from core.exceptions import BaseError
 from core.model import Collection, Identifier, LicensePool, Loan, get_one
@@ -48,11 +48,9 @@ def parse_identifier(db, identifier):
     :type identifier: str
 
     :return: Identifier object
-    :rtype: Identifier
+    :rtype: core.model.identifier.Identifier
     """
-    identifier, _ = Identifier.parse(
-        db, identifier, ProQuestIdentifierParser()
-    )
+    identifier, _ = Identifier.parse(db, identifier, ProQuestIdentifierParser())
 
     return identifier
 
@@ -73,8 +71,8 @@ class ProQuestOPDS2ImporterConfiguration(ConfigurationGrouping):
     DEFAULT_TOKEN_EXPIRATION_TIMEOUT_SECONDS = 60 * 60
     TEST_AFFILIATION_ID = 1
     DEFAULT_AFFILIATION_ATTRIBUTES = (
-        SAMLAttributes.eduPersonPrincipalName.name,
-        SAMLAttributes.eduPersonScopedAffiliation.name,
+        SAMLAttributeType.eduPersonPrincipalName.name,
+        SAMLAttributeType.eduPersonScopedAffiliation.name,
     )
 
     data_source_name = ConfigurationMetadata(
@@ -113,7 +111,7 @@ class ProQuestOPDS2ImporterConfiguration(ConfigurationGrouping):
         default=list(DEFAULT_AFFILIATION_ATTRIBUTES),
         options=[
             ConfigurationOption(attribute.name, attribute.name)
-            for attribute in SAMLAttributes
+            for attribute in SAMLAttributeType
         ],
         format="narrow",
     )

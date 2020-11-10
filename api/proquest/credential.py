@@ -3,7 +3,8 @@ import json
 import logging
 from enum import Enum
 
-from api.saml.metadata import SAMLAttributes, SubjectJSONDecoder
+from api.saml.metadata.model import SAMLAttributeType, SAMLSubjectJSONDecoder
+
 from core.model import Credential, DataSource, DataSourceConstants, Patron
 from core.util import first_or_default, is_session
 from core.util.string_helpers import is_string
@@ -33,7 +34,7 @@ class ProQuestCredentialManager(object):
         """
         self._logger.debug("Started deserializing SAML token {0}".format(credential))
 
-        subject = json.loads(credential.credential, cls=SubjectJSONDecoder)
+        subject = json.loads(credential.credential, cls=SAMLSubjectJSONDecoder)
 
         self._logger.debug(
             "Finished deserializing SAML token {0}: {1}".format(credential, subject)
@@ -162,8 +163,8 @@ class ProQuestCredentialManager(object):
         db,
         patron,
         affiliation_attributes=(
-            SAMLAttributes.eduPersonPrincipalName.name,
-            SAMLAttributes.eduPersonScopedAffiliation.name,
+            SAMLAttributeType.eduPersonPrincipalName.name,
+            SAMLAttributeType.eduPersonScopedAffiliation.name,
         ),
     ):
         """Look up for patron's SAML affiliation ID.

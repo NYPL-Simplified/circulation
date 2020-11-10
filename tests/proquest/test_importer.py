@@ -1,20 +1,6 @@
 import datetime
 import json
 
-from flask import Response
-from freezegun import freeze_time
-from mock import MagicMock, call, create_autospec, patch
-from nose.tools import assert_raises, eq_
-from parameterized import parameterized
-from requests import HTTPError
-from webpub_manifest_parser.core.ast import CollectionList, PresentationMetadata
-from webpub_manifest_parser.opds2.ast import (
-    OPDS2Feed,
-    OPDS2FeedMetadata,
-    OPDS2Group,
-    OPDS2Publication,
-)
-
 from api.authenticator import BaseSAMLAuthenticationProvider
 from api.circulation_exceptions import CannotFulfill, CannotLoan
 from api.proquest.client import (
@@ -29,13 +15,27 @@ from api.proquest.importer import (
     ProQuestOPDS2ImporterConfiguration,
     ProQuestOPDS2ImportMonitor,
 )
-from api.saml.metadata import (
-    Attribute,
-    AttributeStatement,
-    SAMLAttributes,
-    Subject,
-    SubjectJSONEncoder,
+from api.saml.metadata.model import (
+    SAMLAttribute,
+    SAMLAttributeStatement,
+    SAMLAttributeType,
+    SAMLSubject,
+    SAMLSubjectJSONEncoder,
 )
+from flask import Response
+from freezegun import freeze_time
+from mock import MagicMock, call, create_autospec, patch
+from nose.tools import assert_raises, eq_
+from parameterized import parameterized
+from requests import HTTPError
+from webpub_manifest_parser.core.ast import CollectionList, PresentationMetadata
+from webpub_manifest_parser.opds2.ast import (
+    OPDS2Feed,
+    OPDS2FeedMetadata,
+    OPDS2Group,
+    OPDS2Publication,
+)
+
 from core.model import (
     Collection,
     CoverageRecord,
@@ -237,11 +237,13 @@ class TestProQuestAPIClient(DatabaseTest):
         affiliation_id = "12345"
         proquest_token = "1234567890"
 
-        saml_subject = Subject(
+        saml_subject = SAMLSubject(
             None,
-            AttributeStatement([Attribute(SAMLAttributes.uid.name, [affiliation_id])]),
+            SAMLAttributeStatement(
+                [SAMLAttribute(SAMLAttributeType.uid.name, [affiliation_id])]
+            ),
         )
-        saml_token = json.dumps(saml_subject, cls=SubjectJSONEncoder)
+        saml_token = json.dumps(saml_subject, cls=SAMLSubjectJSONEncoder)
         saml_datasource = DataSource.lookup(
             self._db,
             BaseSAMLAuthenticationProvider.TOKEN_DATA_SOURCE_NAME,
@@ -274,8 +276,8 @@ class TestProQuestAPIClient(DatabaseTest):
             self._configuration_storage, self._db, ProQuestOPDS2ImporterConfiguration
         ) as configuration:
             configuration.affiliation_attributes = (
-                SAMLAttributes.mail.name,
-                SAMLAttributes.uid.name,
+                SAMLAttributeType.mail.name,
+                SAMLAttributeType.uid.name,
             )
 
             with patch(
