@@ -3743,6 +3743,22 @@ class TestOPDSFeedController(CirculationControllerTest):
         library.setting(library.MINIMUM_FEATURED_QUALITY).value = 0.15
         library.setting(library.FEATURED_LANE_SIZE).value = 2
 
+        # Patron with root lane -> redirect to root lane
+        lane = self._lane()
+        lane.root_for_patron_type = ["1"]
+        self.default_patron.external_type = "1"
+        auth = dict(Authorization=self.valid_auth)
+        with self.request_context_with_library("/", headers=auth):
+            controller = self.manager.opds_feeds
+            response = controller.groups(None)
+            eq_(302, response.status_code)
+            expect_url = controller.cdn_url_for(
+                'acquisition_groups',
+                library_short_name=self._default_library.short_name,
+                lane_identifier=lane.id, _external=True
+            )
+            eq_(response.headers['Location'], expect_url)
+
         # Bad lane -> Problem detail
         with self.request_context_with_library("/"):
             response = self.manager.opds_feeds.groups(-1)
@@ -3779,7 +3795,12 @@ class TestOPDSFeedController(CirculationControllerTest):
                 self.page_called_with = kwargs
                 return Response("A paginated feed")
 
-        with self.request_context_with_library("/?entrypoint=Audio"):
+        # Earlier we tested an authenticated request for a patron with an
+        # external type. Now try an authenticated request for a patron with
+        # no external type, just to verify that nothing unusual happens
+        # for that kind of patron.
+        self.default_patron.external_type = None
+        with self.request_context_with_library("/?entrypoint=Audio", headers=auth):
             # In default_config, there are no LARGE_COLLECTION_LANGUAGES,
             # so the sole top-level lane is "World Languages", which covers the
             # SMALL and TINY_COLLECTION_LANGUAGES.
