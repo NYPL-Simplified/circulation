@@ -595,8 +595,8 @@ class AcquisitionFeed(OPDSFeed):
             )
 
         return CachedFeed.fetch(
-            _db=_db, worklist=worklist, facets=facets, pagination=pagination,
-            refresher_method=refresh, max_age=max_age,
+            _db=_db, worklist=worklist, pagination=pagination,
+            facets=facets, refresher_method=refresh, max_age=max_age,
             **response_kwargs
         )
 
@@ -701,7 +701,7 @@ class AcquisitionFeed(OPDSFeed):
 
         response_kwargs.setdefault('max_age', max_age)
         return CachedFeed.fetch(
-            _db, worklist=worklist, facets=facets, pagination=pagination,
+            _db, worklist=worklist, pagination=pagination, facets=facets,
             refresher_method=refresh, **response_kwargs
         )
 
@@ -714,7 +714,7 @@ class AcquisitionFeed(OPDSFeed):
         must be regenerated.
         """
         works = lane.works(
-            _db, facets=facets, pagination=pagination,
+            _db, pagination=pagination, facets=facets,
             search_engine=search_engine, debug=search_debug
         )
 
@@ -1812,8 +1812,8 @@ class NavigationFeed(OPDSFeed):
         return CachedFeed.fetch(
             _db,
             worklist=worklist,
-            facets=facets,
             pagination=None,
+            facets=facets,
             refresher_method=refresh,
             max_age=max_age,
             **response_kwargs
