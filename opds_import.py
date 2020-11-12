@@ -1,45 +1,27 @@
-from nose.tools import set_trace
-from io import (
-    StringIO,
-    BytesIO,
-)
-from collections import (
-    defaultdict,
-    Counter,
-)
 import datetime
-import dateutil
-import feedparser
 import logging
 import traceback
 import urllib
-from urlparse import urlparse, urljoin
-from sqlalchemy.orm import aliased
-from sqlalchemy.orm.session import Session
+from io import BytesIO, StringIO
+
+import dateutil
+import feedparser
+from config import CannotLoadConfiguration, IntegrationException
+from coverage import CoverageFailure
 from flask_babel import lazy_gettext as _
-
 from lxml import etree
-
-from monitor import CollectionMonitor
-from util import LanguageCodes
-from util.xmlparser import XMLParser
-from config import (
-    CannotLoadConfiguration,
-    Configuration,
-    IntegrationException,
-)
 from metadata_layer import (
     CirculationData,
-    Metadata,
-    IdentifierData,
     ContributorData,
+    IdentifierData,
     LinkData,
     MeasurementData,
-    SubjectData,
+    Metadata,
     ReplacementPolicy,
+    SubjectData,
     TimestampData,
 )
-
+from mirror import MirrorUploader
 from model import (
     Collection,
     CoverageRecord,
@@ -57,22 +39,18 @@ from model import (
     get_one,
 )
 from model.configuration import ExternalIntegrationLink
-from model.constants import MediaTypes
-from coverage import CoverageFailure
-from util.http import (
-    BadResponseException,
-    HTTP,
-)
-from util.opds_writer import (
-    OPDSFeed,
-    OPDSMessage,
-)
+from monitor import CollectionMonitor
+from nose.tools import set_trace
+from selftest import HasSelfTests, SelfTestResult
+from six.moves.urllib.parse import urljoin, urlparse
+from sqlalchemy.orm import aliased
+from sqlalchemy.orm.session import Session
+from util.http import HTTP, BadResponseException
+from util.opds_writer import OPDSFeed, OPDSMessage
 from util.string_helpers import base64
-from mirror import MirrorUploader
-from selftest import (
-    HasSelfTests,
-    SelfTestResult,
-)
+from util.xmlparser import XMLParser
+
+from .classifier import Classifier
 
 
 class AccessNotAuthenticated(Exception):
@@ -482,6 +460,8 @@ class OPDSImporter(object):
     NAME = ExternalIntegration.OPDS_IMPORT
     DESCRIPTION = _("Import books from a publicly-accessible OPDS feed.")
 
+    NO_DEFAULT_AUDIENCE = ''
+
     # These settings are used by all OPDS-derived import methods.
     BASE_SETTINGS = [
         {
@@ -494,6 +474,31 @@ class OPDSImporter(object):
             "key": Collection.DATA_SOURCE_NAME_SETTING,
             "label": _("Data source name"),
             "required": True,
+        },
+        {
+            "key": Collection.DEFAULT_AUDIENCE_KEY,
+            "label": _("Default audience"),
+            "description": _(
+                "If the vendor does not specify the target audience for their books, "
+                "assume the books have this target audience."
+            ),
+            "type": "select",
+            "format": "narrow",
+            "options": [
+               {
+                   "key": NO_DEFAULT_AUDIENCE,
+                   "label": _("No default audience")
+               }
+            ] + [
+                {
+                   "key": audience,
+                   "label": audience
+                }
+                for audience in sorted(Classifier.AUDIENCES)
+            ],
+            "default": NO_DEFAULT_AUDIENCE,
+            "required": False,
+            "readOnly": True
         },
     ]
 

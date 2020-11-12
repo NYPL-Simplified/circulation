@@ -104,7 +104,6 @@ class TestCollection(DatabaseTest):
         eq_([self.collection],
             Collection.by_protocol(self._db, overdrive).all())
 
-
     def test_by_datasource(self):
         """Collections can be found by their associated DataSource"""
         c1 = self._collection(data_source_name=DataSource.GUTENBERG)
@@ -708,10 +707,12 @@ class TestCollection(DatabaseTest):
 
     def test_restrict_to_ready_deliverable_works(self):
         """A partial test of restrict_to_ready_deliverable_works.
-        This only covers the bit that excludes audiobooks that come
-        from certain data sources. The other parts are tested
-        indirectly in lane.py, but could use a more explicit test
-        here.
+
+        This test covers the following cases:
+        1. The bit that excludes audiobooks from certain data sources.
+        2. Makes sure that self-hosted books and books with unlimited access are not get filtered out that come.
+
+        The other cases are tested indirectly in lane.py, but could use a more explicit test here.
         """
         # Create two audiobooks and one ebook.
         overdrive_audiobook = self._work(
@@ -728,6 +729,21 @@ class TestCollection(DatabaseTest):
             title="RBDigital Audiobook"
         )
         rbdigital_audiobook.presentation_edition.medium = Edition.AUDIO_MEDIUM
+
+        DataSource.lookup(self._db, DataSource.LCP, autocreate=True)
+        self_hosted_lcp_book = self._work(
+            data_source_name=DataSource.LCP,
+            title="Self-hosted LCP book",
+            with_license_pool=True,
+            self_hosted=True
+        )
+        unlimited_access_book = self._work(
+            data_source_name=DataSource.LCP,
+            title="Self-hosted LCP book",
+            with_license_pool=True,
+            unlimited_access=True
+        )
+
         def expect(qu, works):
             """Modify the query `qu` by calling
             restrict_to_ready_deliverable_works(), then verify that
@@ -750,15 +766,22 @@ class TestCollection(DatabaseTest):
         # When its value is set to the empty list, every work shows
         # up.
         setting.value = json.dumps([])
-        expect(qu, [overdrive_ebook, overdrive_audiobook, rbdigital_audiobook])
+        expect(
+            qu, [overdrive_ebook, overdrive_audiobook, rbdigital_audiobook, self_hosted_lcp_book, unlimited_access_book]
+        )
         # Putting a data source in the list excludes its audiobooks, but
         # not its ebooks.
         setting.value = json.dumps([DataSource.OVERDRIVE])
-        expect(qu, [overdrive_ebook, rbdigital_audiobook])
+        expect(
+            qu,
+            [overdrive_ebook, rbdigital_audiobook, self_hosted_lcp_book, unlimited_access_book]
+        )
         setting.value = json.dumps(
             [DataSource.OVERDRIVE, DataSource.RB_DIGITAL]
         )
-        expect(qu, [overdrive_ebook])
+        expect(
+            qu, [overdrive_ebook, self_hosted_lcp_book, unlimited_access_book]
+        )
 
     def test_delete(self):
         """Verify that Collection.delete will only operate on collections

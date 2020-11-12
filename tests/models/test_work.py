@@ -399,6 +399,25 @@ class TestWork(DatabaseTest):
         work.calculate_presentation()
         eq_(True, work.presentation_ready)
 
+    def test_calculate_presentation_uses_default_audience_set_as_collection_setting(self):
+        default_audience = Classifier.AUDIENCE_ADULT
+        collection = self._default_collection
+        collection.default_audience = default_audience
+        edition, pool = self._edition(
+            DataSource.GUTENBERG,
+            Identifier.GUTENBERG_ID,
+            collection=collection,
+            with_license_pool=True,
+            with_open_access_download=True
+        )
+        work = self._slow_work(presentation_edition=edition)
+        work.last_update_time = None
+        work.presentation_ready = True
+
+        work.calculate_presentation()
+
+        eq_(default_audience, work.audience)
+
     def test__choose_summary(self):
         # Test the _choose_summary helper method, called by
         # calculate_presentation().
@@ -676,7 +695,6 @@ class TestWork(DatabaseTest):
         only_pool.suppressed = True
         work.mark_licensepools_as_superceded()
         eq_(False, only_pool.superceded)
-
 
     def test_work_remains_viable_on_pools_suppressed(self):
         """ If a work has all of its pools suppressed, the work's author, title,
@@ -1616,6 +1634,7 @@ class TestWork(DatabaseTest):
         eq_([], self._db.query(Work).filter(Work.id==work.id).all())
         eq_(1, len(s.removed))
         eq_(s.removed, [work])
+
 
 class TestWorkConsolidation(DatabaseTest):
 
