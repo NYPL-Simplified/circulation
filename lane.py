@@ -1651,11 +1651,13 @@ class WorkList(object):
         """
         return facets
 
-    def groups(self, _db, include_sublanes=True, facets=None,
+    def groups(self, _db, include_sublanes=True, pagination=None, facets=None,
                search_engine=None, debug=False):
         """Extract a list of samples from each child of this WorkList.  This
         can be used to create a grouped acquisition feed for the WorkList.
 
+        :param pagination: A Pagination object which may affect how many
+            works each child of this WorkList may contribute.
         :param facets: A FeaturedFacets object that may restrict the works on view.
         :param search_engine: An ExternalSearchIndex to use when
             asking for the featured works in a given WorkList.
@@ -1669,7 +1671,7 @@ class WorkList(object):
             # We only need to find featured works for this lane,
             # not this lane plus its sublanes.
             adapted = self.overview_facets(_db, facets)
-            for work in self.works(_db, facets=adapted):
+            for work in self.works(_db, pagination=pagination, facets=adapted):
                 yield work, self
             return
 
@@ -1701,8 +1703,8 @@ class WorkList(object):
         # for any children that are Lanes, and call groups()
         # recursively for any children that are not.
         for work, worklist in self._groups_for_lanes(
-            _db, relevant_children, relevant_lanes, facets=facets,
-            search_engine=search_engine, debug=debug
+            _db, relevant_children, relevant_lanes, pagination=pagination,
+            facets=facets, search_engine=search_engine, debug=debug
         ):
             yield work, worklist
 
@@ -1892,12 +1894,16 @@ class WorkList(object):
         return results
 
     def _groups_for_lanes(
-        self, _db, relevant_lanes, queryable_lanes, facets,
+        self, _db, relevant_lanes, queryable_lanes, pagination, facets,
         search_engine=None, debug=False
     ):
         """Ask the search engine for groups of featurable works in the
         given lanes. Fill in gaps as necessary.
 
+        :param pagination: An optional Pagination object which will be
+           used to paginate each group individually. Note that this
+           means Pagination.page_loaded() method will be called once
+           for each group.
         :param facets: A FeaturedFacets object.
 
         :param search_engine: An ExternalSearchIndex to use when
@@ -1907,18 +1913,23 @@ class WorkList(object):
         :yield: A sequence of (Work, WorkList) 2-tuples, with each
             WorkList representing the child WorkList in which the Work is
             found.
+
         """
         library = self.get_library(_db)
-        target_size = library.featured_lane_size
+        if pagination is None:
+            # No pagination object was provided. Our target size is
+            # the featured lane size, but we'll ask for a few extra
+            # works for each lane, to reduce the risk that we end up
+            # reusing a book in two different lanes.
+            target_size = library.featured_lane_size
 
-        # We ask for a few extra works for each lane, to reduce the
-        # risk that we'll end up reusing a book in two different
-        # lanes.
-        ask_for_size = max(target_size+1, int(target_size * 1.10))
-        # TODO: we're reusing this pagination object, which means
-        # page_loaded will be called multiple times. Could this be a
-        # problem?
-        pagination = Pagination(size=ask_for_size)
+            # We ask for a few extra works for each lane, to reduce the
+            # risk that we'll end up reusing a book in two different
+            # lanes.
+            ask_for_size = max(target_size+1, int(target_size * 1.10))
+            pagination = Pagination(size=ask_for_size)
+        else:
+            target_size = pagination.size
 
         from external_search import ExternalSearchIndex
         search_engine = search_engine or ExternalSearchIndex.load(_db)
@@ -1931,9 +1942,8 @@ class WorkList(object):
         queryable_lane_set = set(queryable_lanes)
         works_and_lanes = list(
             self._featured_works_with_lanes(
-                _db, queryable_lanes, facets=facets,
-                pagination=pagination, search_engine=search_engine,
-                debug=debug
+                _db, queryable_lanes, pagination=pagination,
+                facets=facets, search_engine=search_engine, debug=debug
             )
         )
 
@@ -1994,12 +2004,13 @@ class WorkList(object):
                 # Lane at all. Do a whole separate query and plug it
                 # in at this point.
                 for x in lane.groups(
-                    _db, include_sublanes=False, facets=facets,
+                    _db, include_sublanes=False,
+                        pagination=pagination, facets=facets,
                 ):
                     yield x
 
     def _featured_works_with_lanes(
-        self, _db, lanes, facets, pagination, search_engine, debug=False
+        self, _db, lanes, pagination, facets, search_engine, debug=False
     ):
         """Find a sequence of works that can be used to
         populate this lane's grouped acquisition feed.
@@ -2998,12 +3009,14 @@ class Lane(Base, DatabaseBackedWorkList, HierarchyWorkList):
             size = self.size_by_entrypoint[entrypoint_name]
         return size
 
-    def groups(self, _db, include_sublanes=True, facets=None,
+    def groups(self, _db, include_sublanes=True, pagination=None, facets=None,
                search_engine=None, debug=False):
         """Return a list of (Work, Lane) 2-tuples
         describing a sequence of featured items for this lane and
         (optionally) its children.
 
+        :param pagination: A Pagination object which may affect how many
+            works each child of this WorkList may contribute.
         :param facets: A FeaturedFacets object.
         """
         clauses = []
@@ -3026,8 +3039,8 @@ class Lane(Base, DatabaseBackedWorkList, HierarchyWorkList):
         queryable_lanes = [x for x in relevant_lanes
                            if x == self or x.inherit_parent_restrictions]
         return self._groups_for_lanes(
-            _db, relevant_lanes, queryable_lanes, facets=facets,
-            search_engine=search_engine, debug=debug
+            _db, relevant_lanes, queryable_lanes, pagination=pagination,
+            facets=facets, search_engine=search_engine, debug=debug
         )
 
     def search(self, _db, query_string, search_client, pagination=None,

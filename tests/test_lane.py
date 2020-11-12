@@ -2034,15 +2034,14 @@ class TestWorkList(DatabaseTest):
         eq_((w1, child2), wwl3)
 
     def test_groups_propagates_facets(self):
-        """Verify that the Facets object passed into groups() is
-        propagated to the methods called by groups().
-        """
+        # Verify that the Facets object passed into groups() is
+        # propagated to the methods called by groups().
         class MockWorkList(WorkList):
 
             overview_facets_called_with = None
 
-            def works(self, _db, facets):
-                self.works_called_with = facets
+            def works(self, _db, pagination, facets):
+                self.works_called_with = (pagination, facets)
                 return []
 
             def overview_facets(self, _db, facets):
@@ -2050,9 +2049,10 @@ class TestWorkList(DatabaseTest):
                 return "A new faceting object"
 
             def _groups_for_lanes(
-                self, _db, relevant_children, relevant_lanes, facets, **kwargs
+                self, _db, relevant_children, relevant_lanes, pagination,
+                    facets, **kwargs
             ):
-                self._groups_for_lanes_called_with = facets
+                self._groups_for_lanes_called_with = (pagination, facets)
                 return []
 
         mock = MockWorkList()
@@ -2068,10 +2068,19 @@ class TestWorkList(DatabaseTest):
 
         # The _groups_for_lanes() method was called with the
         # (imaginary) list of sublanes and the original faceting
-        # object.  The _groups_for_lanes() implementation is
-        # responsible for giving each sublane a chance to adapt that
-        # faceting object to its own needs.
-        eq_(facets, mock._groups_for_lanes_called_with)
+        # object. No pagination was provided. The _groups_for_lanes()
+        # implementation is responsible for giving each sublane a
+        # chance to adapt that faceting object to its own needs.
+        eq_((None, facets), mock._groups_for_lanes_called_with)
+        mock._groups_for_lanes_called_with = None
+
+        # Now try the case where we want to use a pagination object to
+        # restrict the number of results per lane.
+        pagination = object()
+        [x for x in mock.groups(self._db, pagination=pagination,
+                                facets=facets)]
+        # The pagination object is propagated to _groups_for_lanes.
+        eq_((pagination, facets), mock._groups_for_lanes_called_with)
         mock._groups_for_lanes_called_with = None
 
         # Now try the situation where we're just trying to get _part_ of
@@ -2083,7 +2092,7 @@ class TestWorkList(DatabaseTest):
 
         # And the return value of overview_facets() was passed into
         # works()
-        eq_("A new faceting object", mock.works_called_with)
+        eq_((None, "A new faceting object"), mock.works_called_with)
 
         # _groups_for_lanes was not called.
         eq_(None, mock._groups_for_lanes_called_with)
@@ -4125,7 +4134,7 @@ class TestWorkListGroupsEndToEnd(EndToEndSearchTest):
             visible = True
             priority = 2
 
-            def groups(slf, _db, include_sublanes, facets=None):
+            def groups(slf, _db, include_sublanes, pagination=None, facets=None):
                 yield self.lq_litfic, slf
 
         mock = MockWorkList()
@@ -4165,11 +4174,11 @@ class TestWorkListGroups(DatabaseTest):
         class MockParent(WorkList):
 
             def _featured_works_with_lanes(
-                    self, _db, lanes, facets, *args, **kwargs
+                    self, _db, lanes, pagination, facets, *args, **kwargs
             ):
-                self._featured_works_with_lanes_called_with = (lanes, facets)
+                self._featured_works_with_lanes_called_with = (lanes, pagination, facets)
                 return super(MockParent, self)._featured_works_with_lanes(
-                    _db, lanes, facets, *args, **kwargs
+                    _db, lanes, pagination, facets, *args, **kwargs
                 )
 
         class MockChild(WorkList):
@@ -4182,8 +4191,8 @@ class TestWorkListGroups(DatabaseTest):
                 self.overview_facets_called_with = (_db, facets)
                 return "Custom facets for %s." % self.id
 
-            def works(self, _db, facets, *args, **kwargs):
-                self.works_called_with = facets
+            def works(self, _db, pagination, facets, *args, **kwargs):
+                self.works_called_with = (pagination, facets)
                 return [self.work]
 
         parent = MockParent()
@@ -4200,9 +4209,10 @@ class TestWorkListGroups(DatabaseTest):
         # are relevant, but neither one is queryable.
         relevant = parent.children
         queryable = []
+        pagination = Pagination(size=2)
         facets = FeaturedFacets(0)
         groups = list(
-            parent._groups_for_lanes(self._db, relevant, queryable, facets)
+            parent._groups_for_lanes(self._db, relevant, queryable, pagination, facets)
         )
 
         # Each sublane was asked in turn to provide works for the feed.
@@ -4213,7 +4223,7 @@ class TestWorkListGroups(DatabaseTest):
         # The original faceting object was passed into
         # _featured_works_with_lanes, but none of the lanes were
         # queryable, so it ended up doing nothing.
-        eq_(([], facets), parent._featured_works_with_lanes_called_with)
+        eq_(([], pagination, facets), parent._featured_works_with_lanes_called_with)
 
         # Each non-queryable sublane was given a chance to adapt that
         # faceting object to its own needs.
@@ -4222,8 +4232,26 @@ class TestWorkListGroups(DatabaseTest):
 
         # Each lane's adapted faceting object was then passed into
         # works().
-        eq_("Custom facets for Lane 1.", child1.works_called_with)
-        eq_("Custom facets for Lane 2.", child2.works_called_with)
+        eq_((pagination, "Custom facets for Lane 1."), child1.works_called_with)
+
+        eq_((pagination, "Custom facets for Lane 2."), child2.works_called_with)
+
+        # If no pagination object is passed in (the most common case),
+        # a new Pagination object is created based on the featured lane
+        # size for the library.
+        groups = list(
+            parent._groups_for_lanes(self._db, relevant, queryable, None,
+                                     facets)
+        )
+
+        (ignore1, pagination, ignore2) = parent._featured_works_with_lanes_called_with
+        assert isinstance(pagination, Pagination)
+
+        # For each sublane, we ask for 10% more items than we need to
+        # reduce the chance that we'll need to put the same item in
+        # multiple lanes.
+        eq_(int(self._default_library.featured_lane_size * 1.10),
+            pagination.size)
 
     def test_featured_works_with_lanes(self):
         # _featured_works_with_lanes builds a list of queries and
@@ -4292,7 +4320,7 @@ class TestWorkListGroups(DatabaseTest):
         facets = FeaturedFacets(0.1)
         pagination = object()
         results = parent._featured_works_with_lanes(
-            self._db, [child1, child2], facets, pagination, search_engine=search
+            self._db, [child1, child2], pagination, facets, search_engine=search
         )
         results = list(results)
 

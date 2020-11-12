@@ -564,7 +564,7 @@ class AcquisitionFeed(OPDSFeed):
 
     @classmethod
     def groups(cls, _db, title, url, worklist, annotator,
-               facets=None, max_age=None,
+               pagination=None, facets=None, max_age=None,
                search_engine=None, search_debug=False,
                **response_kwargs
     ):
@@ -575,6 +575,8 @@ class AcquisitionFeed(OPDSFeed):
         probably be unsatisfying. Call page() instead with an
         appropriate Facets object.
 
+        :param pagination: A Pagination object. No single child of this lane
+            will contain more than `pagination.size` items.
         :param facets: A GroupsFacet object.
 
         :param response_kwargs: Extra keyword arguments to pass into
@@ -587,20 +589,21 @@ class AcquisitionFeed(OPDSFeed):
 
         def refresh():
             return cls._generate_groups(
-                _db, title, url, worklist, annotator, facets,
-                search_engine, search_debug
+                _db=_db, title=title, url=url, worklist=worklist,
+                annotator=annotator, pagination=pagination, facets=facets,
+                search_engine=search_engine, search_debug=search_debug
             )
 
         return CachedFeed.fetch(
-            _db, worklist=worklist, facets=facets, pagination=None,
-            refresher_method=refresh, max_age=max_age,
+            _db=_db, worklist=worklist, pagination=pagination,
+            facets=facets, refresher_method=refresh, max_age=max_age,
             **response_kwargs
         )
 
     @classmethod
     def _generate_groups(
         cls, _db, title, url, worklist, annotator,
-        facets, search_engine, search_debug
+        pagination, facets, search_engine, search_debug
     ):
         """Internal method called by groups() when a grouped feed
         must be regenerated.
@@ -610,8 +613,8 @@ class AcquisitionFeed(OPDSFeed):
         # to make a normal grouped feed.
         works_and_lanes = [
             x for x in worklist.groups(
-                _db=_db, facets=facets, search_engine=search_engine,
-                debug=search_debug
+                _db=_db, pagination=pagination, facets=facets,
+                search_engine=search_engine, debug=search_debug
             )
         ]
         # Make a typical grouped feed.
@@ -698,7 +701,7 @@ class AcquisitionFeed(OPDSFeed):
 
         response_kwargs.setdefault('max_age', max_age)
         return CachedFeed.fetch(
-            _db, worklist=worklist, facets=facets, pagination=pagination,
+            _db, worklist=worklist, pagination=pagination, facets=facets,
             refresher_method=refresh, **response_kwargs
         )
 
@@ -711,7 +714,7 @@ class AcquisitionFeed(OPDSFeed):
         must be regenerated.
         """
         works = lane.works(
-            _db, facets=facets, pagination=pagination,
+            _db, pagination=pagination, facets=facets,
             search_engine=search_engine, debug=search_debug
         )
 
@@ -1809,8 +1812,8 @@ class NavigationFeed(OPDSFeed):
         return CachedFeed.fetch(
             _db,
             worklist=worklist,
-            facets=facets,
             pagination=None,
+            facets=facets,
             refresher_method=refresh,
             max_age=max_age,
             **response_kwargs
