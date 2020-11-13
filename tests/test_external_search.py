@@ -704,6 +704,9 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
         classics = Filter(series="Classics")
         expect(self.moby_dick, "moby", classics)
 
+        # This finds books that belong to _some_ series.
+        expect(self.moby_dick, "", Filter(series=True))
+
         # Find results based on genre.
 
         # If the entire search query is converted into a filter, every
@@ -3669,6 +3672,29 @@ class TestFilter(DatabaseTest):
         filter.fiction = False
         built_filters, subfilters = self.assert_filter_builds_to([{'term': {'fiction': 'nonfiction'}}], filter)
         eq_({}, subfilters)
+
+    def test_build_series(self):
+        # Test what happens when a series restriction is placed on a Filter.
+        f = Filter(series="Talking Hedgehog Mysteries")
+        built, nested = f.build()
+        eq_({}, nested)
+
+        # A match against a keyword field only matches on an exact
+        # string match.
+        eq_(
+            built.to_dict()['bool']['must'],
+            [{'term': {'series.keyword': 'Talking Hedgehog Mysteries'}}],
+        )
+
+        # Find books that are in _some_ series--which one doesn't
+        # matter.
+        f = Filter(series=True)
+        built, nested = f.build()
+        eq_({}, nested)
+        eq_(
+            built.to_dict()['bool']['must'],
+            [{'exists': {'field': 'series'}}]
+        )
 
     def test_sort_order(self):
         # Test the Filter.sort_order property.

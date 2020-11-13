@@ -2232,6 +2232,7 @@ class Filter(SearchBase):
         copies will be excluded from results.
 
         :param series: If this is set to a string, only books in a matching
+        series will be included. If set to True, books that belong to _any_
         series will be included.
 
         :param author: If this is set to a Contributor or
@@ -2441,7 +2442,11 @@ class Filter(SearchBase):
             f = chain(f, Term(fiction=value))
 
         if self.series:
-            f = chain(f, Term(**{"series.keyword": self.series}))
+            if self.series is True:
+                # The book must belong to _some_ series
+                f = chain(f, Exists(field="series"))
+            else:
+                f = chain(f, Term(**{"series.keyword": self.series}))
 
         if self.audiences:
             f = chain(f, Terms(audience=scrub_list(self.audiences)))
