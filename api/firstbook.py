@@ -21,7 +21,7 @@ from core.model import (
 
 class FirstBookAuthenticationAPI(BasicAuthenticationProvider):
 
-    NAME = 'First Book'
+    NAME = 'First Book (deprecated)'
 
     DESCRIPTION = _("""
         An authentication service for Open eBooks that authenticates
