@@ -12,6 +12,7 @@ expiringdict==1.2.1
 feedparser==5.2.1
 Flask==1.1.2
 Flask-Babel==1.0.0
+flask-sqlalchemy-session==1.1
 funcsigs==1.0.2
 futures==3.3.0
 # fuzzywuzzy is for author name manipulations

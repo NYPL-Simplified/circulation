@@ -1,14 +1,10 @@
 # encoding: utf-8
 # Credential, DRMDeviceIdentifier, DelegatedPatronIdentifier
-from nose.tools import set_trace
-
-from . import (
-    Base,
-    get_one,
-    get_one_or_create,
-)
-
 import datetime
+import uuid
+
+import sqlalchemy
+from nose.tools import set_trace
 from sqlalchemy import (
     Column,
     DateTime,
@@ -18,13 +14,14 @@ from sqlalchemy import (
     String,
     UniqueConstraint,
 )
-from sqlalchemy.orm import (
-    backref,
-    relationship,
-)
+from sqlalchemy.orm import backref, relationship
 from sqlalchemy.orm.session import Session
 from sqlalchemy.sql.expression import and_
-import uuid
+
+from ..util import is_session
+from ..util.string_helpers import is_string
+from . import Base, get_one, get_one_or_create
+
 
 class Credential(Base):
     """A place to store credentials for external services."""
@@ -89,36 +86,15 @@ class Credential(Base):
     IDENTIFIER_FROM_REMOTE_SERVICE = "Identifier Received From Remote Service"
 
     @classmethod
-    def lookup(self, _db, data_source, type, patron, refresher_method,
-               allow_persistent_token=False, allow_empty_token=False,
-               collection=None, force_refresh=False):
-        from datasource import DataSource
-        if isinstance(data_source, basestring):
-            data_source = DataSource.lookup(_db, data_source)
-        credential, is_new = get_one_or_create(
-            _db, Credential, data_source=data_source, type=type, patron=patron, collection=collection)
-        if (is_new
-            or force_refresh
-            or (not credential.expires and not allow_persistent_token)
-            or (not credential.credential and not allow_empty_token)
-            or (credential.expires
-                and credential.expires <= datetime.datetime.utcnow())):
-            if refresher_method:
-                refresher_method(credential)
-        return credential
+    def _filter_invalid_credential(cls, credential, allow_persistent_token):
+        """Filter out invalid credentials based on their expiration time and persistence.
 
-    @classmethod
-    def lookup_by_token(self, _db, data_source, type, token,
-                               allow_persistent_token=False):
-        """Look up a unique token.
-        Lookup will fail on expired tokens. Unless persistent tokens
-        are specifically allowed, lookup will fail on persistent tokens.
+        :param credential: Credential object
+        :type credential: Credential
+
+        :param allow_persistent_token: Boolean value indicating whether persistent tokens are allowed
+        :type allow_persistent_token: bool
         """
-
-        credential = get_one(
-            _db, Credential, data_source=data_source, type=type,
-            credential=token)
-
         if not credential:
             # No matching token.
             return None
@@ -136,6 +112,109 @@ class Credential(Base):
             return None
 
     @classmethod
+    def lookup(cls, _db, data_source, token_type, patron, refresher_method,
+               allow_persistent_token=False, allow_empty_token=False,
+               collection=None, force_refresh=False):
+        from datasource import DataSource
+        if is_string(data_source):
+            data_source = DataSource.lookup(_db, data_source)
+        credential, is_new = get_one_or_create(
+            _db, Credential, data_source=data_source, type=token_type, patron=patron, collection=collection)
+        if (is_new
+            or force_refresh
+            or (not credential.expires and not allow_persistent_token)
+            or (not credential.credential and not allow_empty_token)
+            or (credential.expires
+                and credential.expires <= datetime.datetime.utcnow())):
+            if refresher_method:
+                refresher_method(credential)
+        return credential
+
+    @classmethod
+    def lookup_by_token(
+            cls,
+            _db,
+            data_source,
+            token_type,
+            token,
+            allow_persistent_token=False
+    ):
+        """Look up a unique token.
+        Lookup will fail on expired tokens. Unless persistent tokens
+        are specifically allowed, lookup will fail on persistent tokens.
+        """
+
+        credential = get_one(
+            _db, Credential, data_source=data_source, type=token_type,
+            credential=token)
+
+        return cls._filter_invalid_credential(credential, allow_persistent_token)
+
+    @classmethod
+    def lookup_by_patron(
+            cls,
+            _db,
+            data_source_name,
+            token_type,
+            patron,
+            allow_persistent_token=False,
+            auto_create_datasource=True
+    ):
+        """Look up a unique token.
+        Lookup will fail on expired tokens. Unless persistent tokens
+        are specifically allowed, lookup will fail on persistent tokens.
+
+        :param _db: Database session
+        :type _db: sqlalchemy.orm.session.Session
+
+        :param data_source_name: Name of the data source
+        :type data_source_name: str
+
+        :param token_type: Token type
+        :type token_type: str
+
+        :param patron: Patron object
+        :type patron: core.model.patron.Patron
+
+        :param allow_persistent_token: Boolean value indicating whether persistent tokens are allowed or not
+        :type allow_persistent_token: bool
+
+        :param auto_create_datasource: Boolean value indicating whether
+            a data source should be created in the case it doesn't
+        :type auto_create_datasource: bool
+        """
+        from patron import Patron
+
+        if not is_session(_db):
+            raise ValueError('"_db" argument must be a valid SQLAlchemy session')
+        if not is_string(data_source_name) or not data_source_name:
+            raise ValueError('"data_source_name" argument must be a non-empty string')
+        if not is_string(token_type) or not token_type:
+            raise ValueError('"token_type" argument must be a non-empty string')
+        if not isinstance(patron, Patron):
+            raise ValueError('"patron" argument must be an instance of Patron class')
+        if not isinstance(allow_persistent_token, bool):
+            raise ValueError('"allow_persistent_token" argument must be boolean')
+        if not isinstance(auto_create_datasource, bool):
+            raise ValueError('"auto_create_datasource" argument must be boolean')
+
+        from datasource import DataSource
+        data_source = DataSource.lookup(
+            _db,
+            data_source_name,
+            autocreate=auto_create_datasource
+        )
+        credential = get_one(
+            _db,
+            Credential,
+            data_source=data_source,
+            type=token_type,
+            patron=patron
+        )
+
+        return cls._filter_invalid_credential(credential, allow_persistent_token)
+
+    @classmethod
     def lookup_and_expire_temporary_token(cls, _db, data_source, type, token):
         """Look up a temporary token and expire it immediately."""
         credential = cls.lookup_by_token(_db, data_source, type, token)
@@ -147,7 +226,13 @@ class Credential(Base):
 
     @classmethod
     def temporary_token_create(
-            self, _db, data_source, type, patron, duration, value=None
+            cls,
+            _db,
+            data_source,
+            token_type,
+            patron,
+            duration,
+            value=None
     ):
         """Create a temporary token for the given data_source/type/patron.
         The token will be good for the specified `duration`.
@@ -155,7 +240,7 @@ class Credential(Base):
         expires = datetime.datetime.utcnow() + duration
         token_string = value or str(uuid.uuid1())
         credential, is_new = get_one_or_create(
-            _db, Credential, data_source=data_source, type=type, patron=patron)
+            _db, Credential, data_source=data_source, type=token_type, patron=patron)
         # If there was already a token of this type for this patron,
         # the new one overwrites the old one.
         credential.credential=token_string
@@ -222,6 +307,7 @@ class DRMDeviceIdentifier(Base):
     id = Column(Integer, primary_key=True)
     credential_id = Column(Integer, ForeignKey('credentials.id'), index=True)
     device_identifier = Column(String(255), index=True)
+
 
 class DelegatedPatronIdentifier(Base):
     """This library is in charge of coming up with, and storing,

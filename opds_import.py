@@ -559,7 +559,7 @@ class OPDSImporter(object):
         """
         self._db = _db
         self.log = logging.getLogger("OPDS Importer")
-        self.collection = collection
+        self._collection_id = collection.id if collection else None
         if self.collection and not data_source_name:
             # Use the Collection data_source for OPDS import.
             data_source = self.collection.data_source
@@ -577,7 +577,7 @@ class OPDSImporter(object):
         self.identifier_mapping = identifier_mapping
         try:
             self.metadata_client = metadata_client or MetadataWranglerOPDSLookup.from_config(_db, collection=collection)
-        except CannotLoadConfiguration, e:
+        except CannotLoadConfiguration:
             # The Metadata Wrangler isn't configured, but we can import without it.
             self.log.warn("Metadata Wrangler integration couldn't be loaded, importing without it.")
             self.metadata_client = None
@@ -607,6 +607,18 @@ class OPDSImporter(object):
         # gutenberg.org.
         self.http_get = http_get or Representation.cautious_http_get
         self.map_from_collection = map_from_collection
+
+    @property
+    def collection(self):
+        """Returns an associated Collection object
+
+        :return: Associated Collection object
+        :rtype: Optional[Collection]
+        """
+        if self._collection_id:
+            return Collection.by_id(self._db, id=self._collection_id)
+
+        return None
 
     @property
     def data_source(self):
@@ -1981,16 +1993,13 @@ class OPDSImportMonitor(CollectionMonitor, HasSelfTests):
             )
         return imported_editions, failures
 
-    def run_once(self, progress_ignore):
+    def _get_feeds(self):
         feeds = []
         queue = [self.feed_url]
         seen_links = set([])
 
         # First, follow the feed's next links until we reach a page with
         # nothing new. If any link raises an exception, nothing will be imported.
-
-        total_imported = 0
-        total_failures = 0
 
         while queue:
             new_queue = []
@@ -2008,7 +2017,16 @@ class OPDSImportMonitor(CollectionMonitor, HasSelfTests):
 
         # Start importing at the end. If something fails, it will be easier to
         # pick up where we left off.
-        for link, feed in reversed(feeds):
+        feeds = reversed(feeds)
+
+        return feeds
+
+    def run_once(self, progress_ignore):
+        feeds = self._get_feeds()
+        total_imported = 0
+        total_failures = 0
+
+        for link, feed in feeds:
             self.log.info("Importing next feed: %s", link)
             imported_editions, failures = self.import_one_feed(feed)
             total_imported += len(imported_editions)

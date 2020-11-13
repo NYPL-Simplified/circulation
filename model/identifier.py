@@ -1,59 +1,58 @@
 # encoding: utf-8
 # Identifier, Equivalency
-from nose.tools import set_trace
-
-from . import (
-    Base,
-    create,
-    get_one,
-    get_one_or_create,
-    PresentationCalculationPolicy
-)
-from coverage import CoverageRecord
-from classification import (
-    Classification,
-    Subject,
-)
-from constants import (
-    IdentifierConstants,
-    LinkRelations,
-)
-from datasource import DataSource
-from licensing import (
-    LicensePoolDeliveryMechanism,
-    RightsStatus,
-)
-from measurement import Measurement
-
-from collections import defaultdict
 import datetime
-from functools import total_ordering
-import isbnlib
 import logging
 import random
+import urllib
+from abc import ABCMeta, abstractmethod
+from collections import defaultdict
+from functools import total_ordering
+
+import isbnlib
+import six
+from classification import Classification, Subject
+from constants import IdentifierConstants, LinkRelations
+from coverage import CoverageRecord
+from datasource import DataSource
+from licensing import LicensePoolDeliveryMechanism, RightsStatus
+from measurement import Measurement
 from sqlalchemy import (
     Boolean,
     Column,
     Float,
     ForeignKey,
-    func,
     Integer,
     String,
     UniqueConstraint,
+    func,
 )
-from sqlalchemy.orm import (
-    joinedload,
-    relationship,
-)
+from sqlalchemy.orm import joinedload, relationship
+from sqlalchemy.orm.exc import MultipleResultsFound, NoResultFound
 from sqlalchemy.orm.session import Session
 from sqlalchemy.sql import select
-from sqlalchemy.sql.expression import (
-    and_,
-    or_,
-)
-import urllib
+from sqlalchemy.sql.expression import and_, or_
+
 from ..util.string_helpers import native_string
 from ..util.summary import SummaryEvaluator
+from . import Base, PresentationCalculationPolicy, create, get_one, get_one_or_create
+
+
+@six.add_metaclass(ABCMeta)
+class IdentifierParser(object):
+    """Interface for identifier parsers."""
+
+    @abstractmethod
+    def parse(self, identifier_string):
+        """Parse a string containing an identifier, extract it and determine its type.
+
+        :param identifier_string: String containing an identifier
+        :type identifier_string: str
+
+        :return: 2-tuple containing the identifier's type and identifier itself or None
+            if the string contains an incorrect identifier
+        :rtype: Optional[Tuple[str, str]]
+        """
+        raise NotImplementedError()
 
 
 @total_ordering
@@ -367,18 +366,80 @@ class Identifier(Base, IdentifierConstants):
         return identifiers_by_urn, failures
 
     @classmethod
-    def parse_urn(cls, _db, identifier_string, must_support_license_pools=False):
-        type, identifier_string = cls.type_and_identifier_for_urn(identifier_string)
+    def _parse_urn(cls, _db, identifier_string, identifier_type, must_support_license_pools=False):
+        """Parse identifier string.
+
+        :param _db: Database session
+        :type _db: sqlalchemy.orm.session.Session
+
+        :param identifier_string: Identifier itself
+        :type identifier_string: str
+
+        :param identifier_type: Identifier's type
+        :type identifier_type: str
+
+        :param must_support_license_pools: Boolean value indicating whether there should be a DataSource that provides
+            licenses for books identified by the given identifier
+        :type must_support_license_pools: bool
+
+        :return: 2-tuple containing Identifier object and a boolean value indicating whether it's new
+        :rtype: Tuple[Identifier, bool]
+        """
         if must_support_license_pools:
             try:
-                ls = DataSource.license_source_for(_db, type)
+                _ = DataSource.license_source_for(_db, identifier_type)
             except NoResultFound:
                 raise Identifier.UnresolvableIdentifierException()
             except MultipleResultsFound:
-                 # This is fine.
+                # This is fine.
                 pass
 
-        return cls.for_foreign_id(_db, type, identifier_string)
+        return cls.for_foreign_id(_db, identifier_type, identifier_string)
+
+    @classmethod
+    def parse_urn(cls, _db, identifier_string, must_support_license_pools=False):
+        """Parse identifier string.
+
+        :param _db: Database session
+        :type _db: sqlalchemy.orm.session.Session
+
+        :param identifier_string: String containing an identifier
+        :type identifier_string: str
+
+        :param must_support_license_pools: Boolean value indicating whether there should be a DataSource that provides
+            licenses for books identified by the given identifier
+        :type must_support_license_pools: bool
+
+        :return: 2-tuple containing Identifier object and a boolean value indicating whether it's new
+        :rtype: Tuple[Identifier, bool]
+        """
+        identifier_type, identifier_string = cls.type_and_identifier_for_urn(identifier_string)
+
+        return cls._parse_urn(_db, identifier_string, identifier_type, must_support_license_pools)
+
+    @classmethod
+    def parse(cls, _db, identifier_string, parser, must_support_license_pools=False):
+        """Parse identifier string.
+
+        :param _db: Database session
+        :type _db: sqlalchemy.orm.session.Session
+
+        :param identifier_string: String containing an identifier
+        :type identifier_string: str
+
+        :param parser: Identifier parser
+        :type parser: IdentifierParser
+
+        :param must_support_license_pools: Boolean value indicating whether there should be a DataSource that provides
+            licenses for books identified by the given identifier
+        :type must_support_license_pools: bool
+
+        :return: 2-tuple containing Identifier object and a boolean value indicating whether it's new
+        :rtype: Tuple[Identifier, bool]
+        """
+        identifier_type, identifier_string = parser.parse(identifier_string)
+
+        return cls._parse_urn(_db, identifier_string, identifier_type, must_support_license_pools)
 
     def equivalent_to(self, data_source, identifier, strength):
         """Make one Identifier equivalent to another.
@@ -484,11 +545,7 @@ class Identifier(Base, IdentifierConstants):
         fetching, mirroring and scaling Representations as links are
         created. It might be good to move that code into here.
         """
-        from resource import (
-            Resource,
-            Hyperlink,
-            Representation,
-        )
+        from resource import Hyperlink, Representation, Resource
         _db = Session.object_session(self)
 
         # Find or create the Resource.
@@ -612,10 +669,7 @@ class Identifier(Base, IdentifierConstants):
     @classmethod
     def resources_for_identifier_ids(self, _db, identifier_ids, rel=None,
                                      data_source=None):
-        from resource import (
-            Resource,
-            Hyperlink,
-        )
+        from resource import Hyperlink, Resource
         resources = _db.query(Resource).join(Resource.links).filter(
                 Hyperlink.identifier_id.in_(identifier_ids))
         if data_source:
@@ -640,10 +694,7 @@ class Identifier(Base, IdentifierConstants):
     def best_cover_for(cls, _db, identifier_ids, rel=None):
         # Find all image resources associated with any of
         # these identifiers.
-        from resource import (
-            Resource,
-            Hyperlink,
-        )
+        from resource import Hyperlink, Resource
         rel = rel or Hyperlink.IMAGE
         images = cls.resources_for_identifier_ids(
             _db, identifier_ids, rel)

@@ -182,6 +182,7 @@ class ExternalIntegration(Base, HasFullTableCache):
     FEEDBOOKS = DataSourceConstants.FEEDBOOKS
     LCP = DataSourceConstants.LCP
     MANUAL = DataSourceConstants.MANUAL
+    PROQUEST = DataSourceConstants.PROQUEST
 
     # These protocols were used on the Content Server when mirroring
     # content from a given directory or directly from Project
@@ -523,6 +524,7 @@ class ExternalIntegration(Base, HasFullTableCache):
             if include_secrets or not setting.is_secret:
                 lines.append(explanation)
         return lines
+
 
 class ConfigurationSetting(Base, HasFullTableCache):
     """An extra piece of site configuration.
@@ -882,6 +884,8 @@ class ConfigurationAttributeType(Enum):
     TEXTAREA = 'textarea'
     SELECT = 'select'
     NUMBER = 'number'
+    LIST = 'list'
+    MENU = 'menu'
 
     def to_control_type(self):
         """Converts the value to a attribute type understandable by circulation-web
@@ -909,6 +913,7 @@ class ConfigurationAttribute(Enum):
     DEFAULT = 'default'
     OPTIONS = 'options'
     CATEGORY = 'category'
+    FORMAT = 'format'
 
 
 class ConfigurationOption(object):
@@ -1035,7 +1040,9 @@ class ConfigurationMetadata(object):
             default=None,
             options=None,
             category=None,
-            index=None):
+            format=None,
+            index=None
+    ):
         """Initializes a new instance of ConfigurationMetadata class
 
         :param key: Setting's key
@@ -1070,6 +1077,7 @@ class ConfigurationMetadata(object):
         self._default = default
         self._options = options
         self._category = category
+        self._format = format
 
         if index is not None:
             self._index = index
@@ -1188,6 +1196,15 @@ class ConfigurationMetadata(object):
         return self._category
 
     @property
+    def format(self):
+        """Returns the setting's format
+
+        :return: Setting's format
+        :rtype: string
+        """
+        return self._format
+
+    @property
     def index(self):
         return self._index
 
@@ -1224,7 +1241,8 @@ class ConfigurationMetadata(object):
                 [option.to_settings() for option in self.options]
                 if self.options
                 else None,
-            ConfigurationAttribute.CATEGORY.value: self.category
+            ConfigurationAttribute.CATEGORY.value: self.category,
+            ConfigurationAttribute.FORMAT.value: self.format
         }
 
 
@@ -1288,6 +1306,7 @@ class ConfigurationGrouping(HasConfigurationSettings):
             default_attribute = getattr(member, ConfigurationAttribute.DEFAULT.value, None)
             options_attribute = getattr(member, ConfigurationAttribute.OPTIONS.value, None)
             category_attribute = getattr(member, ConfigurationAttribute.CATEGORY.value, None)
+            format_attribute = getattr(member, ConfigurationAttribute.FORMAT.value, None)
 
             settings.append({
                 ConfigurationAttribute.KEY.value: key_attribute,
@@ -1300,7 +1319,8 @@ class ConfigurationGrouping(HasConfigurationSettings):
                     [option.to_settings() for option in options_attribute]
                     if options_attribute
                     else None,
-                ConfigurationAttribute.CATEGORY.value: category_attribute
+                ConfigurationAttribute.CATEGORY.value: category_attribute,
+                ConfigurationAttribute.FORMAT.value: format_attribute
             })
 
         return settings
