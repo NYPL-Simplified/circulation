@@ -307,29 +307,11 @@ class TestProQuestAPIClient(DatabaseTest):
             with assert_raises(expected_exception_class):
                 self._client.get_book(self._db, token, document_id)
 
-    @parameterized.expand(
-        [
-            (
-                "when_its_link_is_inside_json_document",
-                {
-                    "json": {
-                        ProQuestAPIClient.RESPONSE_STATUS_CODE_FIELD: 200,
-                        ProQuestAPIClient.DOWNLOAD_LINK_FIELD: "https://proquest.com/books/12345",
-                    }
-                },
-                Book(link=u"https://proquest.com/books/12345"),
-            ),
-            (
-                "when_it_is_passed_in_response_body",
-                {"content": "PDF Book12345"},
-                Book(content=bytes("PDF Book12345")),
-            ),
-        ]
-    )
-    def test_get_book_correctly_extracts_book(
-        self, _, response_arguments, expected_book
-    ):
+    def test_get_book_correctly_extracts_book_when_it_is_passed_in_response_body(self):
         # Arrange
+        response_arguments = {"content": "PDF Book12345"}
+        expected_book = Book(content=bytes("PDF Book12345"))
+
         token = "12345"
         document_id = "12345"
         download_link_service_url = URLUtility.build_url(
@@ -343,6 +325,49 @@ class TestProQuestAPIClient(DatabaseTest):
 
         with requests_mock.Mocker() as request_mock:
             request_mock.get(download_link_service_url, **response_arguments)
+
+            # Act
+            book = self._client.get_book(self._db, token, document_id)
+
+            # Assert
+            eq_(expected_book, book)
+            eq_(type(expected_book), type(book))
+
+    def test_get_book_correctly_extracts_book_when_its_link_is_inside_json_document(
+        self,
+    ):
+        # Arrange
+        download_link = "https://proquest.com/fulfill?documentID=12345"
+        book_link = u"https://proquest.com/books/12345"
+        expected_book = Book(link=book_link)
+
+        first_response_arguments = {
+            "json": {
+                ProQuestAPIClient.RESPONSE_STATUS_CODE_FIELD: 200,
+                ProQuestAPIClient.DOWNLOAD_LINK_FIELD: download_link,
+            }
+        }
+        second_response_arguments = {
+            "json": {
+                ProQuestAPIClient.RESPONSE_STATUS_CODE_FIELD: 200,
+                ProQuestAPIClient.DOWNLOAD_LINK_FIELD: book_link,
+            }
+        }
+
+        token = "12345"
+        document_id = "12345"
+        download_link_service_url = URLUtility.build_url(
+            DOWNLOAD_LINK_SERVICE_URL, {"docID": document_id}
+        )
+
+        with self._configuration_factory.create(
+            self._configuration_storage, self._db, ProQuestAPIClientConfiguration
+        ) as configuration:
+            configuration.download_link_service_url = DOWNLOAD_LINK_SERVICE_URL
+
+        with requests_mock.Mocker() as request_mock:
+            request_mock.get(download_link_service_url, **first_response_arguments)
+            request_mock.get(download_link, **second_response_arguments)
 
             # Act
             book = self._client.get_book(self._db, token, document_id)
