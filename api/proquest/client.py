@@ -626,6 +626,17 @@ class ProQuestAPIClient(object):
                         response, self.DOWNLOAD_LINK_FIELD
                     )
 
+                # The API just returns another link leading to the actual ACSM book.
+                link = response_json[self.DOWNLOAD_LINK_FIELD]
+                response, response_json = self._send_request(
+                    configuration, "get", link, {}, token, response_must_be_json=True
+                )
+
+                if self.DOWNLOAD_LINK_FIELD not in response_json:
+                    raise ProQuestAPIMissingJSONPropertyError(
+                        response, self.DOWNLOAD_LINK_FIELD
+                    )
+
                 return Book(link=response_json[self.DOWNLOAD_LINK_FIELD])
             else:
                 self._logger.info(
