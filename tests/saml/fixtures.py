@@ -791,11 +791,11 @@ CORRECT_ONE_SP_METADATA = \
     )
 
 
-MAIL = 'rosie.nairn@hilbertteam.net'
+MAIL = 'patron@example.com'
 GIVEN_NAME = 'Rosie'
 SURNAME = 'Nairn'
 UID = 'rosie.nairn'
-EDU_PERSON_PRINCIPAL_NAME = 'rosie.nairn@hilbertteam.net@example.org'
+EDU_PERSON_PRINCIPAL_NAME = 'patron@example.org'
 
 NAME_ID = 'AAdzZWNyZXQxhtrjeUiJ2AIkyiOUTM6w+oRFi6ZWMol5btG40ddzFNN4ELloaTpArM1WCG1jm0DX87Tl829ptqBKrIfYw2bQstEjOaACQJljoWmbTVKWrmr4Bx60lhMFHTawA7NHq6V9gwKngwdGP2yES6tn/w=='
 NAME_QUALIFIER = 'http://idp.hilbertteam.net/idp/shibboleth'

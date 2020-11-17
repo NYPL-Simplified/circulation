@@ -3,9 +3,11 @@ import json
 
 from flask import Response
 from freezegun import freeze_time
-from mock import MagicMock, create_autospec, patch
+from mock import MagicMock, call, create_autospec, patch
 from nose.tools import assert_raises, eq_
+from parameterized import parameterized
 from requests import HTTPError
+from webpub_manifest_parser.opds2.ast import OPDS2Feed, OPDS2FeedMetadata
 
 from api.authenticator import BaseSAMLAuthenticationProvider
 from api.circulation_exceptions import CannotFulfill, CannotLoan
@@ -14,6 +16,7 @@ from api.proquest.credential import ProQuestCredentialManager
 from api.proquest.importer import (
     ProQuestOPDS2Importer,
     ProQuestOPDS2ImporterConfiguration,
+    ProQuestOPDS2ImportMonitor,
 )
 from api.saml.metadata import (
     Attribute,
@@ -825,3 +828,71 @@ class TestProQuestAPIClient(DatabaseTest):
                 self._proquest_license_pool.identifier.identifier,
             )
             eq_(2, api_client_mock.get_book.call_count)
+
+
+PROQUEST_FEED_PAGE_1 = OPDS2Feed(
+    metadata=OPDS2FeedMetadata(
+        title="Page # 1", current_page=1, items_per_page=10, number_of_items=20
+    )
+)
+
+PROQUEST_FEED_PAGE_2 = OPDS2Feed(
+    metadata=OPDS2FeedMetadata(
+        title="Page # 2", current_page=1, items_per_page=10, number_of_items=20
+    )
+)
+
+
+class TestProQuestOPDS2ImportMonitor(DatabaseTest):
+    def setup(self, mock_search=True):
+        super(TestProQuestOPDS2ImportMonitor, self).setup()
+
+        self._proquest_data_source = DataSource.lookup(
+            self._db, DataSource.PROQUEST, autocreate=True
+        )
+        self._proquest_collection = self._collection(
+            protocol=ExternalIntegration.PROQUEST
+        )
+        self._proquest_collection.external_integration.set_setting(
+            Collection.DATA_SOURCE_NAME_SETTING, DataSource.PROQUEST
+        )
+
+    @parameterized.expand(
+        [
+            ("no_pages", [], []),
+            ("one_page", [PROQUEST_FEED_PAGE_1], [call(PROQUEST_FEED_PAGE_1)]),
+            (
+                "two_pages",
+                [PROQUEST_FEED_PAGE_1, PROQUEST_FEED_PAGE_2],
+                [call(PROQUEST_FEED_PAGE_1), call(PROQUEST_FEED_PAGE_2)],
+            ),
+        ]
+    )
+    def test(self, _, feeds, expected_calls):
+        """This tests makes sure that ProQuestOPDS2ImportMonitor correctly processes
+        any response returned by ProQuestAPIClient.download_all_feed_pages.
+
+        :param feeds: List of ProQuest OPDS 2.0 paged feeds
+        :type feeds: List[webpub_manifest_parser.opds2.ast.OPDS2Feed]
+
+        :param expected_calls: List of expected ProQuestOPDS2ImportMonitor.import_one_feed calls
+        :type expected_calls: List[call]
+        """
+        # Arrange
+        client = create_autospec(spec=ProQuestAPIClient)
+        client.download_all_feed_pages = MagicMock(return_value=feeds)
+
+        client_factory = create_autospec(spec=ProQuestAPIClientFactory)
+        client_factory.create = MagicMock(return_value=client)
+
+        monitor = ProQuestOPDS2ImportMonitor(
+            client_factory, self._db, self._proquest_collection, ProQuestOPDS2Importer
+        )
+        monitor.import_one_feed = MagicMock(return_value=([], []))
+
+        # Act
+        monitor.run_once(False)
+
+        # Assert
+        # Make sure that ProQuestOPDS2ImportMonitor.import_one_feed was called for each paged feed (if any)
+        monitor.import_one_feed.assert_has_calls(expected_calls)

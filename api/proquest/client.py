@@ -588,8 +588,8 @@ class ProQuestAPIClient(object):
         :param document_id: ProQuest Doc ID
         :type document_id: str
 
-        :return: Either an ACS link to the book or the book content
-        :rtype: Union[str, bytes]
+        :return: Book instance containing either an ACS link to the book or the book content
+        :rtype: Book
         """
         if not is_session(db):
             raise ValueError('"db" argument must be a valid SQLAlchemy session')

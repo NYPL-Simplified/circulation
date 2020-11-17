@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-"""Update the circulation manager server with new books from OPDS 2.0 import collections."""
+"""Import ProQuest OPDS 2.0 feeds into Circulation Manager."""
+
 import os
 import sys
 
