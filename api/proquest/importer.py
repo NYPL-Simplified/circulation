@@ -429,16 +429,21 @@ class ProQuestOPDS2Importer(OPDS2Importer, BaseCirculationAPI, HasExternalIntegr
         return delivery_mechanism
 
     def checkout(self, patron, pin, licensepool, internal_format):
+        """Checkout the book.
+
+        NOTE: This method requires the patron to have either:
+        - an active ProQuest JWT bearer token
+        - or a SAML affiliation ID which will be used to create a new ProQuest JWT bearer token.
+        """
         self._logger.info(
             "Started checking out '{0}' for patron {1}".format(internal_format, patron)
         )
 
         try:
             with self._get_configuration(self._db) as configuration:
-                days = self.collection.default_loan_period(patron.library)
-                today = datetime.datetime.utcnow()
-                expires = today + datetime.timedelta(days=days)
                 self._get_or_create_proquest_token(patron, configuration)
+
+                today = datetime.datetime.utcnow()
 
                 loan = LoanInfo(
                     licensepool.collection,
@@ -446,7 +451,7 @@ class ProQuestOPDS2Importer(OPDS2Importer, BaseCirculationAPI, HasExternalIntegr
                     identifier_type=licensepool.identifier.type,
                     identifier=licensepool.identifier.identifier,
                     start_date=today,
-                    end_date=expires,
+                    end_date=None,
                     fulfillment_info=None,
                     external_identifier=None,
                 )
@@ -470,6 +475,12 @@ class ProQuestOPDS2Importer(OPDS2Importer, BaseCirculationAPI, HasExternalIntegr
         part=None,
         fulfill_part_url=None,
     ):
+        """"Fulfill the loan.
+
+        NOTE: This method requires the patron to have either:
+        - an active ProQuest JWT bearer token
+        - or a SAML affiliation ID which will be used to create a new ProQuest JWT bearer token.
+        """
         self._logger.info(
             "Started fulfilling '{0}' for patron {1}".format(internal_format, patron)
         )
