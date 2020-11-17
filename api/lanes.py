@@ -1279,6 +1279,32 @@ class KnownOverviewFacetsWorkList(WorkList):
         return self.facets
 
 
+class JackpotFacets(Facets):
+    """A faceting object for a jackpot feed.
+
+    Unlike other faceting objects, AVAILABLE_NOT_NOW is an acceptable
+    option for the availability facet.
+    """
+
+    @classmethod
+    def default_facet(cls, config, facet_group_name):
+        if facet_group_name != cls.AVAILABILITY_FACET_GROUP_NAME:
+            return super(JackpotFacets, cls).default_facet(
+                config, facet_group_name
+            )
+        return cls.AVAILABLE_NOW
+
+    @classmethod
+    def available_facets(cls, config, facet_group_name):
+        if facet_group_name != cls.AVAILABILITY_FACET_GROUP_NAME:
+            return super(JackpotFacets, cls).available_facets(
+                config, facet_group_name
+            )
+
+        return [cls.AVAILABLE_NOW, cls.AVAILABLE_NOT_NOW,
+                cls.AVAILABLE_ALL, cls.AVAILABLE_OPEN_ACCESS]
+
+
 class JackpotWorkList(WorkList):
     """A WorkList guaranteed to, so far as possible, contain the exact
     selection of books necessary to perform common QA tasks.
@@ -1287,10 +1313,11 @@ class JackpotWorkList(WorkList):
     circulation managers and real books.
     """
 
-    def __init__(self, library):
+    def __init__(self, library, facets):
         """Constructor.
 
         :param library: A Library
+        :param facets: A Facets object.
         """
         super(JackpotWorkList, self).initialize(library)
 
@@ -1303,30 +1330,19 @@ class JackpotWorkList(WorkList):
         # every collection.
         for collection in sorted(library.collections, key=lambda x: x.name):
             for medium in Edition.FULFILLABLE_MEDIA:
-                for availability in [Facets.AVAILABLE_NOW]:
-                    facets = Facets.default(
-                        library, availability=availability
-                    )
-
-                    # Give each Worklist a name that is distinctive
-                    # and easy for a client to parse.
-                    if collection.data_source:
-                        data_source_name = collection.data_source.name
-                    else:
-                        data_source_name = "[Unknown]"
-                    display_name = "[Collection test] - License source {%s} - Medium {%s} - Availability {%s} - Collection name {%s}" % (data_source_name, medium, availability, collection.name)
-                    child = KnownOverviewFacetsWorkList(facets)
-                    child.initialize(
-                        library, media=[medium], display_name=display_name
-                    )
-                    child.collection_ids = [collection.id]
-                    self.children.append(child)
-
-            # TODO: Add other child lanes for other types of tests:
-            #  One lane for every collection containing only books
-            #   that are _not_ available.
-            #  A lane where all books belong to some series
-            #  A lane where all books use a particular DRM scheme/format
+                # Give each Worklist a name that is distinctive
+                # and easy for a client to parse.
+                if collection.data_source:
+                    data_source_name = collection.data_source.name
+                else:
+                    data_source_name = "[Unknown]"
+                display_name = "License source {%s} - Medium {%s} - Collection name {%s}" % (data_source_name, medium, collection.name)
+                child = KnownOverviewFacetsWorkList(facets)
+                child.initialize(
+                    library, media=[medium], display_name=display_name
+                )
+                child.collection_ids = [collection.id]
+                self.children.append(child)
 
     def works(self, _db, *args, **kwargs):
         """This worklist never has works of its own.
