@@ -1545,6 +1545,13 @@ class Work(Base):
         # The work quality field is stored in the main document, but
         # it's also stored here, so that we can apply a nested filter
         # that combines quality with other fields found only in the subdocument.
+
+        def explicit_bool(label, t):
+            # Ensure we always generate True/False instead of
+            # True/None. Elasticsearch can't filter on null values.
+            return t.label(label)
+            return case([(t, True)], else_=False).label(label)
+
         licensepools = select(
             [
                 LicensePool.id.label('licensepool_id'),
@@ -1552,16 +1559,23 @@ class Work(Base):
                 LicensePool.collection_id.label('collection_id'),
                 LicensePool.open_access.label('open_access'),
                 LicensePool.suppressed,
-                or_(
-                    LicensePool.unlimited_access,
-                    LicensePool.self_hosted,
-                    LicensePool.licenses_available > 0,
-                ).label('available'),
-                or_(
-                    LicensePool.unlimited_access,
-                    LicensePool.self_hosted,
-                    LicensePool.licenses_owned > 0
-                ).label('licensed'),
+
+                explicit_bool(
+                    'available',
+                    or_(
+                        LicensePool.unlimited_access,
+                        LicensePool.self_hosted,
+                        LicensePool.licenses_available > 0,
+                    )
+                ),
+                explicit_bool(
+                    'licensed',
+                    or_(
+                        LicensePool.unlimited_access,
+                        LicensePool.self_hosted,
+                        LicensePool.licenses_owned > 0
+                    )
+                ),
                 work_quality_column,
                 Edition.medium,
                 func.extract(
