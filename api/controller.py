@@ -1143,7 +1143,9 @@ class OPDSFeedController(CirculationManagerController):
             library_short_name=library.short_name,
         )
 
-        facets = load_facets_from_request(base_class=JackpotFacets)
+        facets = load_facets_from_request(
+            base_class=JackpotFacets, default_entrypoint=EverythingEntryPoint
+        )
         if isinstance(facets, ProblemDetail):
             return facets
 
