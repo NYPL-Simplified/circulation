@@ -672,18 +672,27 @@ class Facets(FacetsWithEntryPoint):
         # Apply any superclass criteria
         qu = super(Facets, self).modify_database_query(_db, qu)
 
+        available_now = or_(
+            LicensePool.open_access == True,
+            LicensePool.self_hosted == True,
+            LicensePool.licenses_available > 0
+        )
+
         if self.availability == self.AVAILABLE_NOW:
-            availability_clause = or_(
-                LicensePool.open_access == True,
-                LicensePool.licenses_available > 0
-            )
+            availability_clause = available_now
         elif self.availability == self.AVAILABLE_ALL:
             availability_clause = or_(
                 LicensePool.open_access == True,
+                LicensePool.self_hosted == True,
                 LicensePool.licenses_owned > 0
             )
         elif self.availability == self.AVAILABLE_OPEN_ACCESS:
+            # TODO: self-hosted content could be allowed here
+            # depending on what exactly the wording is.
             availability_clause = LicensePool.open_access == True
+        elif self.availability == self.AVAILABLE_NOT_NOW:
+            availability_clause = not_(available_now)
+
         qu = qu.filter(availability_clause)
 
         if self.collection == self.COLLECTION_FULL:
