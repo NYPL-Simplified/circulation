@@ -847,6 +847,22 @@ class OPDSFeedController(CirculationManagerController):
         """
         library = flask.request.library
 
+        # Special case: a patron with a root lane who attempts to access
+        # the library's top-level WorkList is redirected to their root
+        # lane (as though they had accessed the index controller)
+        # rather than being denied access.
+        if lane_identifier is None:
+            patron = self.request_patron
+            if patron is not None and patron.root_lane:
+                return redirect(
+                    self.cdn_url_for(
+                        'acquisition_groups',
+                        library_short_name=library.short_name,
+                        lane_identifier=patron.root_lane.id,
+                        _external=True
+                    )
+                )
+
         lane = self.load_lane(lane_identifier)
         if isinstance(lane, ProblemDetail):
             return lane
@@ -1134,12 +1150,13 @@ class OPDSFeedController(CirculationManagerController):
         jwl = JackpotWorkList(library, facets)
         annotator = self.manager.annotator(jwl)
 
-        # TODO: Make it possible to pass a pagination object into
-        # groups() to override the standard size of a grouped lane,
-        # improving performance.
+        # Since this feed will be consumed by an automated client, and
+        # we're choosing titles for specific purposes, there's no
+        # reason to put more than a single item in each group.
+        pagination = Pagination(size=1)
         return feed_class.groups(
-            _db=self._db, title="QA test feed", url=url, worklist=jwl,
-            annotator=annotator, search_engine=search_engine,
+            _db=self._db, title="QA test feed", url=url, pagination=pagination,
+            worklist=jwl, annotator=annotator, search_engine=search_engine,
             max_age=CachedFeed.IGNORE_CACHE
         )
 
