@@ -846,6 +846,22 @@ class OPDSFeedController(CirculationManagerController):
         """
         library = flask.request.library
 
+        # Special case: a patron with a root lane who attempts to access
+        # the library's top-level WorkList is redirected to their root
+        # lane (as though they had accessed the index controller)
+        # rather than being denied access.
+        if lane_identifier is None:
+            patron = self.request_patron
+            if patron is not None and patron.root_lane:
+                return redirect(
+                    self.cdn_url_for(
+                        'acquisition_groups',
+                        library_short_name=library.short_name,
+                        lane_identifier=patron.root_lane.id,
+                        _external=True
+                    )
+                )
+
         lane = self.load_lane(lane_identifier)
         if isinstance(lane, ProblemDetail):
             return lane
