@@ -55,13 +55,8 @@ class TestProQuestAPIClient(DatabaseTest):
         )
 
         self._proquest_patron = self._patron()
-        self._loan_period = self._proquest_collection.default_loan_period(
-            self._proquest_patron.library
-        )
         self._loan_start_date = datetime.datetime(2020, 1, 1)
-        self._loan_end_date = self._loan_start_date + datetime.timedelta(
-            days=self._loan_period
-        )
+        self._loan_end_date = None
         self._proquest_document_id = "12345"
         self._proquest_edition = self._edition(
             data_source_name=self._proquest_data_source.name,
