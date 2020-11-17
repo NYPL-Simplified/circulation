@@ -1336,7 +1336,7 @@ class JackpotWorkList(WorkList):
                     data_source_name = collection.data_source.name
                 else:
                     data_source_name = "[Unknown]"
-                display_name = "[Collection test] - License source {%s} - Medium {%s} - Collection name {%s}" % (data_source_name, medium, collection.name)
+                display_name = "License source {%s} - Medium {%s} - Collection name {%s}" % (data_source_name, medium, collection.name)
                 child = KnownOverviewFacetsWorkList(facets)
                 child.initialize(
                     library, media=[medium], display_name=display_name

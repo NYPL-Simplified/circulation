@@ -956,11 +956,6 @@ class TestJackpotFacets(DatabaseTest):
             eq_(m(self._default_library, group),
                 Facets.default_facet(self._default_library, group))
 
-        eq_(Facets.ORDER_SERIES_POSITION, SeriesFacets.DEFAULT_SORT_ORDER)
-        facets = SeriesFacets.default(self._default_library)
-        assert isinstance(facets, DefaultSortOrderFacets)
-        eq_(Facets.ORDER_SERIES_POSITION, facets.order)
-
     def test_available_facets(self):
         # A JackpotFacets object always has the same availability
         # facets. Normal facet configuration is ignored.
@@ -978,11 +973,6 @@ class TestJackpotFacets(DatabaseTest):
                       Facets.ORDER_FACET_GROUP_NAME):
             eq_(m(self._default_library, group),
                 Facets.available_facets(self._default_library, group))
-
-        eq_(Facets.ORDER_SERIES_POSITION, SeriesFacets.DEFAULT_SORT_ORDER)
-        facets = SeriesFacets.default(self._default_library)
-        assert isinstance(facets, DefaultSortOrderFacets)
-        eq_(Facets.ORDER_SERIES_POSITION, facets.order)
 
 
 class TestJackpotWorkList(DatabaseTest):
@@ -1043,23 +1033,23 @@ class TestJackpotWorkList(DatabaseTest):
             available_now
         )
 
-        eq_("[Collection test] - License source {[Unknown]} - Medium {Book} - Collection name {%s}" % self._default_collection.name,
+        eq_("License source {[Unknown]} - Medium {Book} - Collection name {%s}" % self._default_collection.name,
             default_ebooks.display_name)
         eq_([self._default_collection.id], default_ebooks.collection_ids)
         eq_([Edition.BOOK_MEDIUM], default_ebooks.media)
 
-        eq_("[Collection test] - License source {[Unknown]} - Medium {Audio} - Collection name {%s}" % self._default_collection.name,
+        eq_("License source {[Unknown]} - Medium {Audio} - Collection name {%s}" % self._default_collection.name,
             default_audio.display_name)
         eq_([self._default_collection.id], default_audio.collection_ids)
         eq_([Edition.AUDIO_MEDIUM], default_audio.media)
 
-        eq_("[Collection test] - License source {Overdrive} - Medium {Book} - Collection name {Test Overdrive Collection}",
+        eq_("License source {Overdrive} - Medium {Book} - Collection name {Test Overdrive Collection}",
             overdrive_ebooks.display_name)
         eq_([overdrive_collection.id], overdrive_ebooks.collection_ids)
         eq_([Edition.BOOK_MEDIUM], overdrive_ebooks.media)
 
 
-        eq_("[Collection test] - License source {Overdrive} - Medium {Audio} - Collection name {Test Overdrive Collection}",
+        eq_("License source {Overdrive} - Medium {Audio} - Collection name {Test Overdrive Collection}",
             overdrive_audio.display_name)
         eq_([overdrive_collection.id], overdrive_audio.collection_ids)
         eq_([Edition.AUDIO_MEDIUM], overdrive_audio.media)
