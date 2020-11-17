@@ -1,9 +1,9 @@
-import webpub_manifest_parser.opds2.ast as opds2_ast
 import datetime
 import logging
 from contextlib import contextmanager
 
 import six
+import webpub_manifest_parser.opds2.ast as opds2_ast
 from flask_babel import lazy_gettext as _
 from requests import HTTPError
 from six import StringIO
@@ -16,6 +16,7 @@ from api.proquest.client import ProQuestAPIClientConfiguration, ProQuestAPIClien
 from api.proquest.credential import ProQuestCredentialManager
 from api.proquest.identifier import ProQuestIdentifierParser
 from api.saml.metadata import SAMLAttributes
+from core.classifier import Classifier
 from core.exceptions import BaseError
 from core.model import Collection, Identifier, LicensePool, Loan, get_one
 from core.model.configuration import (
@@ -29,6 +30,7 @@ from core.model.configuration import (
     HasExternalIntegration,
 )
 from core.opds2_import import OPDS2Importer, OPDS2ImportMonitor
+from core.opds_import import OPDSImporter
 from core.util.string_helpers import is_string
 
 MISSING_AFFILIATION_ID = BaseError(
@@ -75,8 +77,19 @@ class ProQuestOPDS2ImporterConfiguration(ConfigurationGrouping):
         description=_(
             "Useful in the case if Circulation Manager cannot derive an audience from a book's classifications"
         ),
-        type=ConfigurationAttributeType.TEXT,
+        type=ConfigurationAttributeType.SELECT,
         required=False,
+        default=OPDSImporter.NO_DEFAULT_AUDIENCE,
+        options=[
+            ConfigurationOption(
+                key=OPDSImporter.NO_DEFAULT_AUDIENCE, label=_("No default audience")
+            )
+        ]
+        + [
+            ConfigurationOption(key=audience, label=audience)
+            for audience in sorted(Classifier.AUDIENCES)
+        ],
+        format="narrow",
     )
 
     token_expiration_timeout = ConfigurationMetadata(
@@ -363,7 +376,7 @@ class ProQuestOPDS2Importer(OPDS2Importer, BaseCirculationAPI, HasExternalIntegr
             iterations += 1
 
     def extract_next_links(self, feed):
-        """Extracts "next" links from the feed.
+        """Extract "next" links from the feed.
 
         :param feed: OPDS 2.0 feed
         :type feed: Union[str, opds2_ast.OPDS2Feed]
@@ -374,7 +387,10 @@ class ProQuestOPDS2Importer(OPDS2Importer, BaseCirculationAPI, HasExternalIntegr
         return []
 
     def patron_activity(self, patron, pin):
-        """Returns patron's loans
+        """Return patron's loans.
+
+        TODO This and code from ODLAPI should be refactored into a generic set of rules
+        for any situation where the CM, not the remote API, is responsible for managing loans and holds.
 
         :param patron: A Patron object for the patron who wants to check out the book
         :type patron: Patron
@@ -479,7 +495,7 @@ class ProQuestOPDS2Importer(OPDS2Importer, BaseCirculationAPI, HasExternalIntegr
         part=None,
         fulfill_part_url=None,
     ):
-        """"Fulfill the loan.
+        """Fulfill the loan.
 
         NOTE: This method requires the patron to have either:
         - an active ProQuest JWT bearer token
