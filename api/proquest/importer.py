@@ -62,6 +62,7 @@ class ProQuestOPDS2ImporterConfiguration(ConfigurationGrouping):
         description=_("Name of the data source associated with this collection."),
         type=ConfigurationAttributeType.TEXT,
         required=True,
+        default="ProQuest",
     )
 
     default_audience = ConfigurationMetadata(
@@ -549,6 +550,35 @@ class ProQuestOPDS2ImportMonitor(OPDS2ImportMonitor, HasExternalIntegration):
         self._feeds = None
         self._client = self._client_factory.create(self)
 
+        self._logger = logging.getLogger(__name__)
+
     def _get_feeds(self):
+        self._logger.info("Started fetching ProQuest paged OPDS 2.0 feeds")
+
+        processed_number_of_items = 0
+        total_number_of_items = None
+
         for feed in self._client.download_all_feed_pages(self._db):
+            if total_number_of_items is None:
+                total_number_of_items = (
+                    feed.metadata.number_of_items
+                    if feed.metadata.number_of_items
+                    else 0
+                )
+
+            processed_number_of_items += (
+                feed.metadata.items_per_page if feed.metadata.items_per_page else 0
+            )
+
+            self._logger.info(
+                "Page # {0}. Processed {0} items out of {1} ({2:.2f}%)".format(
+                    feed.metadata.current_page,
+                    processed_number_of_items,
+                    total_number_of_items,
+                    processed_number_of_items / total_number_of_items * 100.0,
+                )
+            )
+
             yield None, feed
+
+        self._logger.info("Finished fetching ProQuest paged OPDS 2.0 feeds")

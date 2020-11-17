@@ -8,7 +8,11 @@ from core.model import Identifier
 class TestProQuestIdentifierParser(object):
     @parameterized.expand(
         [
-            ("incorrect_identifier", "1234", None),
+            (
+                "incorrect_identifier",
+                "urn:librarysimplified.org/terms/id/Overdrive%20ID/adfcc11a-cc5b-4c82-8048-e005e4a90222",
+                None,
+            ),
             (
                 "correct_identifier",
                 "urn:proquest.com/document-id/12345",
