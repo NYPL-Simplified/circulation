@@ -1,3 +1,4 @@
+import webpub_manifest_parser.opds2.ast as opds2_ast
 import datetime
 import logging
 from contextlib import contextmanager
@@ -5,7 +6,9 @@ from contextlib import contextmanager
 import six
 from flask_babel import lazy_gettext as _
 from requests import HTTPError
+from six import StringIO
 from sqlalchemy import or_
+from webpub_manifest_parser.opds2.parsers import OPDS2DocumentParserFactory
 
 from api.circulation import BaseCirculationAPI, FulfillmentInfo, LoanInfo
 from api.circulation_exceptions import CannotFulfill, CannotLoan
@@ -26,6 +29,7 @@ from core.model.configuration import (
     HasExternalIntegration,
 )
 from core.opds2_import import OPDS2Importer, OPDS2ImportMonitor
+from core.util.string_helpers import is_string
 
 MISSING_AFFILIATION_ID = BaseError(
     _(
@@ -563,6 +567,52 @@ class ProQuestOPDS2ImportMonitor(OPDS2ImportMonitor, HasExternalIntegration):
 
         self._logger = logging.getLogger(__name__)
 
+    def _parse_feed(self, feed, silent=True):
+        """Parses the feed into OPDS2Feed object.
+
+        :param feed: OPDS 2.0 feed
+        :type feed: Union[str, opds2_ast.OPDS2Feed]
+
+        :param silent: Boolean value indicating whether to raise
+        :type silent: bool
+
+        :return: Parsed OPDS 2.0 feed
+        :rtype: opds2_ast.OPDS2Feed
+        """
+        parsed_feed = None
+
+        if is_string(feed):
+            try:
+                input_stream = StringIO(feed)
+                parser_factory = OPDS2DocumentParserFactory()
+                parser = parser_factory.create()
+
+                parsed_feed = parser.parse_stream(input_stream)
+            except BaseError:
+                self._logger.exception("Failed to parse the OPDS 2.0 feed")
+
+                if not silent:
+                    raise
+        elif isinstance(feed, dict):
+            try:
+                parser_factory = OPDS2DocumentParserFactory()
+                parser = parser_factory.create()
+
+                parsed_feed = parser.parse_json(feed)
+            except BaseError:
+                self._logger.exception("Failed to parse the OPDS 2.0 feed")
+
+                if not silent:
+                    raise
+        elif isinstance(feed, opds2_ast.OPDS2Feed):
+            parsed_feed = feed
+        else:
+            raise ValueError(
+                "Feed argument must be either string or OPDS2Feed instance"
+            )
+
+        return parsed_feed
+
     def _get_feeds(self):
         self._logger.info("Started fetching ProQuest paged OPDS 2.0 feeds")
 
@@ -570,6 +620,8 @@ class ProQuestOPDS2ImportMonitor(OPDS2ImportMonitor, HasExternalIntegration):
         total_number_of_items = None
 
         for feed in self._client.download_all_feed_pages(self._db):
+            feed = self._parse_feed(feed, silent=False)
+
             if total_number_of_items is None:
                 total_number_of_items = (
                     feed.metadata.number_of_items

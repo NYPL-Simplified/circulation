@@ -491,7 +491,7 @@ class ProQuestAPIClient(object):
         :type db: sqlalchemy.orm.session.Session
 
         :return: Iterable list of feed pages
-        :rtype: Iterable[str]
+        :rtype: Iterable[dict]
         """
         if not is_session(db):
             raise ValueError('"db" argument must be a valid SQLAlchemy session')
