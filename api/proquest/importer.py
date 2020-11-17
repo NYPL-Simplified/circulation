@@ -319,6 +319,8 @@ class ProQuestOPDS2Importer(OPDS2Importer, BaseCirculationAPI, HasExternalIntegr
 
             return token
         except Exception as exception:
+            self._logger.exception("Cannot create a ProQuest JWT bearer token")
+
             raise CannotCreateProQuestTokenError(exception)
 
     def _get_or_create_proquest_token(self, patron, configuration):
@@ -484,6 +486,8 @@ class ProQuestOPDS2Importer(OPDS2Importer, BaseCirculationAPI, HasExternalIntegr
 
                 return loan
         except BaseError as exception:
+            self._logger.exception("Failed to check out {0} for patron {1}")
+
             raise CannotLoan(six.ensure_text(str(exception)))
 
     def fulfill(
@@ -542,6 +546,8 @@ class ProQuestOPDS2Importer(OPDS2Importer, BaseCirculationAPI, HasExternalIntegr
 
                 return fulfillment_info
         except BaseError as exception:
+            self._logger.exception("Failed to fulfill out {0} for patron {1}")
+
             raise CannotFulfill(six.ensure_text(str(exception)))
 
     def external_integration(self, db):

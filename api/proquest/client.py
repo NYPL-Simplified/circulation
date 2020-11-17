@@ -616,7 +616,7 @@ class ProQuestAPIClient(object):
 
             if response_json:
                 self._logger.info(
-                    "Finished fetching a book link for Doc ID {0} using JWT token {1}: {2}".format(
+                    "Finished fetching a download link for Doc ID {0} using JWT token {1}: {2}".format(
                         document_id, token, response_json
                     )
                 )
@@ -628,19 +628,20 @@ class ProQuestAPIClient(object):
 
                 # The API just returns another link leading to the actual ACSM book.
                 link = response_json[self.DOWNLOAD_LINK_FIELD]
-                response, response_json = self._send_request(
-                    configuration, "get", link, {}, token, response_must_be_json=True
+                response, _ = self._send_request(
+                    configuration, "get", link, {}, token, response_must_be_json=False
                 )
 
-                if self.DOWNLOAD_LINK_FIELD not in response_json:
-                    raise ProQuestAPIMissingJSONPropertyError(
-                        response, self.DOWNLOAD_LINK_FIELD
+                self._logger.info(
+                    "Finished fetching an ACSM file for Doc ID {0} using JWT token {1}".format(
+                        document_id, token
                     )
+                )
 
-                return Book(link=response_json[self.DOWNLOAD_LINK_FIELD])
+                return Book(content=bytes(response.content))
             else:
                 self._logger.info(
-                    "Finished fetching a book link for Doc ID {0} using JWT token {1}".format(
+                    "Finished fetching an open-access book for Doc ID {0} using JWT token {1}".format(
                         document_id, token
                     )
                 )

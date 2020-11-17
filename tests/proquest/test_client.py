@@ -307,10 +307,11 @@ class TestProQuestAPIClient(DatabaseTest):
             with assert_raises(expected_exception_class):
                 self._client.get_book(self._db, token, document_id)
 
-    def test_get_book_correctly_extracts_book_when_it_is_passed_in_response_body(self):
+    def test_get_book_correctly_extracts_open_access_books(self):
         # Arrange
-        response_arguments = {"content": "PDF Book12345"}
-        expected_book = Book(content=bytes("PDF Book12345"))
+        book_content = "PDF Book12345"
+        response_arguments = {"content": book_content}
+        expected_open_access_book = Book(content=bytes(book_content))
 
         token = "12345"
         document_id = "12345"
@@ -330,16 +331,19 @@ class TestProQuestAPIClient(DatabaseTest):
             book = self._client.get_book(self._db, token, document_id)
 
             # Assert
-            eq_(expected_book, book)
-            eq_(type(expected_book), type(book))
+            eq_(expected_open_access_book, book)
+            eq_(type(expected_open_access_book), type(book))
 
-    def test_get_book_correctly_extracts_book_when_its_link_is_inside_json_document(
+    def test_get_book_correctly_extracts_acsm_books(
         self,
     ):
         # Arrange
+        acsm_file_content = """<fulfillmentToken fulfillmentType="loan" auth="user" xmlns="http://ns.adobe.com/adept">
+                <distributor>urn:uuid:9cb786e8-586a-4950-8901-fff8d2ee6025</distributor>
+            </fulfillmentToken
+"""
         download_link = "https://proquest.com/fulfill?documentID=12345"
-        book_link = u"https://proquest.com/books/12345"
-        expected_book = Book(link=book_link)
+        expected_acsm_book = Book(content=bytes(acsm_file_content))
 
         first_response_arguments = {
             "json": {
@@ -347,12 +351,7 @@ class TestProQuestAPIClient(DatabaseTest):
                 ProQuestAPIClient.DOWNLOAD_LINK_FIELD: download_link,
             }
         }
-        second_response_arguments = {
-            "json": {
-                ProQuestAPIClient.RESPONSE_STATUS_CODE_FIELD: 200,
-                ProQuestAPIClient.DOWNLOAD_LINK_FIELD: book_link,
-            }
-        }
+        second_response_arguments = {"content": acsm_file_content}
 
         token = "12345"
         document_id = "12345"
@@ -373,5 +372,5 @@ class TestProQuestAPIClient(DatabaseTest):
             book = self._client.get_book(self._db, token, document_id)
 
             # Assert
-            eq_(expected_book, book)
-            eq_(type(expected_book), type(book))
+            eq_(expected_acsm_book, book)
+            eq_(type(expected_acsm_book), type(book))
