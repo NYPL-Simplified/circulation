@@ -4148,6 +4148,11 @@ class TestOPDSFeedController(CirculationControllerTest):
         for child in worklist.children:
             assert isinstance(child.facets, JackpotFacets)
 
+            # Each JackpotFacets uses the EverythingEntryPoint, since
+            # the jackpot feed is designed to include all types of
+            # books.
+            eq_(EverythingEntryPoint, child.facets.entrypoint)
+
         # Then a LibraryAnnotator object was created from the JackpotWorkList.
         annotator = kwargs.pop('annotator')
         assert isinstance(annotator, LibraryAnnotator)
