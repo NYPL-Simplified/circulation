@@ -1117,7 +1117,9 @@ class TestWork(DatabaseTest):
             eq_(pool.suppressed, match['suppressed'])
             eq_(pool.data_source_id, match['data_source_id'])
 
+            assert isinstance(match['available'], bool)
             eq_(pool.licenses_available > 0, match['available'])
+            assert isinstance(match['licensed'], bool)
             eq_(pool.licenses_owned > 0, match['licensed'])
 
             # The work quality is stored in the main document, but
