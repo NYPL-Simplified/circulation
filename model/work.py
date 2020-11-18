@@ -1549,7 +1549,6 @@ class Work(Base):
         def explicit_bool(label, t):
             # Ensure we always generate True/False instead of
             # True/None. Elasticsearch can't filter on null values.
-            return t.label(label)
             return case([(t, True)], else_=False).label(label)
 
         licensepools = select(
