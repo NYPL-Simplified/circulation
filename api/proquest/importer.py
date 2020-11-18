@@ -359,7 +359,7 @@ class ProQuestOPDS2Importer(OPDS2Importer, BaseCirculationAPI, HasExternalIntegr
         :type document_id: str
 
         :return: Either an ACS link to the book or the book content
-        :rtype: Union[str, bytes]
+        :rtype: api.proquest.client.ProQuestBook
         """
         token = self._get_or_create_proquest_token(patron, configuration)
         iterations = 0
@@ -522,7 +522,9 @@ class ProQuestOPDS2Importer(OPDS2Importer, BaseCirculationAPI, HasExternalIntegr
                         licensepool.identifier.type,
                         licensepool.identifier.identifier,
                         content_link=None,
-                        content_type=internal_format.delivery_mechanism.media_type,
+                        content_type=book.content_type
+                        if book.content_type
+                        else internal_format.delivery_mechanism.media_type,
                         content=book.content,
                         content_expires=None,
                     )

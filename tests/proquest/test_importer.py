@@ -11,7 +11,11 @@ from webpub_manifest_parser.opds2.ast import OPDS2Feed, OPDS2FeedMetadata
 
 from api.authenticator import BaseSAMLAuthenticationProvider
 from api.circulation_exceptions import CannotFulfill, CannotLoan
-from api.proquest.client import Book, ProQuestAPIClient, ProQuestAPIClientFactory
+from api.proquest.client import (
+    ProQuestAPIClient,
+    ProQuestAPIClientFactory,
+    ProQuestBook,
+)
 from api.proquest.credential import ProQuestCredentialManager
 from api.proquest.importer import (
     ProQuestOPDS2Importer,
@@ -29,6 +33,7 @@ from core.model import (
     Collection,
     Credential,
     DataSource,
+    DeliveryMechanism,
     ExternalIntegration,
     Identifier,
 )
@@ -439,7 +444,7 @@ class TestProQuestAPIClient(DatabaseTest):
 
         # Arrange
         proquest_token = "1234567890"
-        book = Book(link="https://proquest.com/books/books.epub")
+        book = ProQuestBook(link="https://proquest.com/books/books.epub")
 
         api_client_mock = create_autospec(spec=ProQuestAPIClient)
         api_client_mock.get_book = MagicMock(return_value=book)
@@ -514,7 +519,7 @@ class TestProQuestAPIClient(DatabaseTest):
         # Arrange
         affiliation_id = "12345"
         proquest_token = "1234567890"
-        book = Book(content=bytes("Book"))
+        book = ProQuestBook(content=bytes("Book"))
 
         api_client_mock = create_autospec(spec=ProQuestAPIClient)
         api_client_mock.create_token = MagicMock(return_value=proquest_token)
@@ -722,7 +727,9 @@ class TestProQuestAPIClient(DatabaseTest):
         affiliation_id = "12345"
         expired_proquest_token = "1234567890"
         new_proquest_token = "1234567890_"
-        book = Book(content=bytes("Book"))
+        book = ProQuestBook(
+            content=bytes("Book"), content_type=DeliveryMechanism.ADOBE_DRM
+        )
 
         api_client_mock = create_autospec(spec=ProQuestAPIClient)
         api_client_mock.create_token = MagicMock(return_value=new_proquest_token)
@@ -769,7 +776,7 @@ class TestProQuestAPIClient(DatabaseTest):
             )
             eq_(None, fulfilment_info.content_link)
             eq_(
-                self._proquest_delivery_mechanism.delivery_mechanism.media_type,
+                book.content_type,
                 fulfilment_info.content_type,
             )
             eq_(book.content, fulfilment_info.content)

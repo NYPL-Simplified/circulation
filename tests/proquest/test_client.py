@@ -7,14 +7,14 @@ from parameterized import parameterized
 from requests import HTTPError
 
 from api.proquest.client import (
-    Book,
     ProQuestAPIClient,
     ProQuestAPIClientConfiguration,
     ProQuestAPIInvalidJSONResponseError,
     ProQuestAPIMissingJSONPropertyError,
+    ProQuestBook,
 )
 from api.util.url import URLUtility
-from core.model import ExternalIntegration
+from core.model import DeliveryMechanism, ExternalIntegration
 from core.model.configuration import (
     ConfigurationFactory,
     ConfigurationStorage,
@@ -311,7 +311,7 @@ class TestProQuestAPIClient(DatabaseTest):
         # Arrange
         book_content = "PDF Book12345"
         response_arguments = {"content": book_content}
-        expected_open_access_book = Book(content=bytes(book_content))
+        expected_open_access_book = ProQuestBook(content=bytes(book_content))
 
         token = "12345"
         document_id = "12345"
@@ -343,7 +343,9 @@ class TestProQuestAPIClient(DatabaseTest):
             </fulfillmentToken
 """
         download_link = "https://proquest.com/fulfill?documentID=12345"
-        expected_acsm_book = Book(content=bytes(acsm_file_content))
+        expected_acsm_book = ProQuestBook(
+            content=bytes(acsm_file_content), content_type=DeliveryMechanism.ADOBE_DRM
+        )
 
         first_response_arguments = {
             "json": {

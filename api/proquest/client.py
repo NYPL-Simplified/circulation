@@ -6,6 +6,7 @@ from flask_babel import lazy_gettext as _
 from requests import HTTPError, Request
 
 from core.exceptions import BaseError
+from core.model import DeliveryMechanism
 from core.model.configuration import (
     ConfigurationAttributeType,
     ConfigurationFactory,
@@ -131,22 +132,27 @@ class ProQuestAPIMissingJSONPropertyError(ProQuestAPIInvalidJSONResponseError):
         return self._missing_property
 
 
-class Book(object):
-    """POCO class containing book information."""
+class ProQuestBook(object):
+    """POCO class containing information about a ProQuest book."""
 
-    def __init__(self, link=None, content=None):
-        """Initialize a new instance of Book class.
+    def __init__(self, link=None, content=None, content_type=None):
+        """Initialize a new instance of ProQuestBook class.
 
         :param link: Book's link
         :type link: Optional[str]
 
         :param content: Book's content
-        :type content: Optional[Union[str, bytes]]
+        :type content: Optional[bytes]
+
+        :param content_type: Content type
+        :type content_type: Optional[str]
         """
         if link is not None and not is_string(link):
             raise ValueError("Argument 'link' must be a string")
         if content is not None and not isinstance(content, bytes):
             raise ValueError("Argument 'content' must be a bytes string")
+        if content_type is not None and not is_string(content_type):
+            raise ValueError("Argument 'content_type' must be a non-empty string")
         if link is not None and content is not None:
             raise ValueError(
                 "'link' and 'content' cannot be both set up at the same time"
@@ -154,6 +160,7 @@ class Book(object):
 
         self._link = link
         self._content = content
+        self._content_type = content_type
 
     def __eq__(self, other):
         """Compare self and other other book.
@@ -164,10 +171,14 @@ class Book(object):
         :return: Boolean value indicating whether self and other are equal to each to other
         :rtype: bool
         """
-        if not isinstance(other, Book):
+        if not isinstance(other, ProQuestBook):
             return False
 
-        return self.link == other.link and self.content == other.content
+        return (
+            self.link == other.link
+            and self.content == other.content
+            and self.content_type == other.content_type
+        )
 
     @property
     def link(self):
@@ -186,6 +197,15 @@ class Book(object):
         :rtype: Optional[Union[str, bytes]]
         """
         return self._content
+
+    @property
+    def content_type(self):
+        """Return the content type.
+
+        :return: Content type
+        :rtype: Optional[str]
+        """
+        return self._content_type
 
 
 class ProQuestAPIClient(object):
@@ -577,7 +597,8 @@ class ProQuestAPIClient(object):
 
         NOTE: There are two different cases to consider:
         - Open-access books: in this case ProQuest API returns the book content.
-        - ACS protected books: in this case ProQuest API returns a JSON document containing a link to the book.
+        - Adobe DRM copy protected books: in this case ProQuest API returns an ACSM file containing
+            information about downloading a digital publication.
 
         :param db: Database session
         :type db: sqlalchemy.orm.session.Session
@@ -589,7 +610,7 @@ class ProQuestAPIClient(object):
         :type document_id: str
 
         :return: Book instance containing either an ACS link to the book or the book content
-        :rtype: Book
+        :rtype: ProQuestBook
         """
         if not is_session(db):
             raise ValueError('"db" argument must be a valid SQLAlchemy session')
@@ -638,7 +659,10 @@ class ProQuestAPIClient(object):
                     )
                 )
 
-                return Book(content=bytes(response.content))
+                return ProQuestBook(
+                    content=bytes(response.content),
+                    content_type=DeliveryMechanism.ADOBE_DRM,
+                )
             else:
                 self._logger.info(
                     "Finished fetching an open-access book for Doc ID {0} using JWT token {1}".format(
@@ -646,7 +670,7 @@ class ProQuestAPIClient(object):
                     )
                 )
 
-                return Book(content=bytes(response.content))
+                return ProQuestBook(content=bytes(response.content))
 
 
 class ProQuestAPIClientFactory(object):
