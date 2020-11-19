@@ -95,7 +95,7 @@ class ProQuestOPDS2ImporterConfiguration(ConfigurationGrouping):
     token_expiration_timeout = ConfigurationMetadata(
         key="token_expiration_timeout",
         label=_("ProQuest JWT token's expiration timeout"),
-        description=_("Determines how long can a ProQuest JWT token be valid."),
+        description=_("Determines how long in seconds can a ProQuest JWT token be valid."),
         type=ConfigurationAttributeType.NUMBER,
         required=False,
         default=DEFAULT_TOKEN_EXPIRATION_TIMEOUT_SECONDS,
