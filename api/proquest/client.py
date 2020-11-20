@@ -152,7 +152,7 @@ class ProQuestBook(object):
         if content is not None and not isinstance(content, bytes):
             raise ValueError("Argument 'content' must be a bytes string")
         if content_type is not None and not is_string(content_type):
-            raise ValueError("Argument 'content_type' must be a non-empty string")
+            raise ValueError("Argument 'content_type' must be a string")
         if link is not None and content is not None:
             raise ValueError(
                 "'link' and 'content' cannot be both set up at the same time"
