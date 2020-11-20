@@ -71,31 +71,12 @@ class ProQuestOPDS2ImporterConfiguration(ConfigurationGrouping):
         default="ProQuest",
     )
 
-    default_audience = ConfigurationMetadata(
-        key=Collection.DEFAULT_AUDIENCE_KEY,
-        label=_("Default audience"),
-        description=_(
-            "Useful in the case if Circulation Manager cannot derive an audience from a book's classifications"
-        ),
-        type=ConfigurationAttributeType.SELECT,
-        required=False,
-        default=OPDSImporter.NO_DEFAULT_AUDIENCE,
-        options=[
-            ConfigurationOption(
-                key=OPDSImporter.NO_DEFAULT_AUDIENCE, label=_("No default audience")
-            )
-        ]
-        + [
-            ConfigurationOption(key=audience, label=audience)
-            for audience in sorted(Classifier.AUDIENCES)
-        ],
-        format="narrow",
-    )
-
     token_expiration_timeout = ConfigurationMetadata(
         key="token_expiration_timeout",
         label=_("ProQuest JWT token's expiration timeout"),
-        description=_("Determines how long in seconds can a ProQuest JWT token be valid."),
+        description=_(
+            "Determines how long in seconds can a ProQuest JWT token be valid."
+        ),
         type=ConfigurationAttributeType.NUMBER,
         required=False,
         default=DEFAULT_TOKEN_EXPIRATION_TIMEOUT_SECONDS,
@@ -121,6 +102,28 @@ class ProQuestOPDS2ImporterConfiguration(ConfigurationGrouping):
         description=_("Test SAML affiliation ID used for testing ProQuest API."),
         type=ConfigurationAttributeType.TEXT,
         required=False,
+    )
+
+    default_audience = ConfigurationMetadata(
+        key=Collection.DEFAULT_AUDIENCE_KEY,
+        label=_("Default audience"),
+        description=_(
+            "If ProQuest does not specify the target audience for their books, "
+            "assume the books have this target audience."
+        ),
+        type=ConfigurationAttributeType.SELECT,
+        required=False,
+        default=OPDSImporter.NO_DEFAULT_AUDIENCE,
+        options=[
+            ConfigurationOption(
+                key=OPDSImporter.NO_DEFAULT_AUDIENCE, label=_("No default audience")
+            )
+        ]
+        + [
+            ConfigurationOption(key=audience, label=audience)
+            for audience in sorted(Classifier.AUDIENCES)
+        ],
+        format="narrow",
     )
 
 
