@@ -21,11 +21,11 @@ from core.util.string_helpers import is_string
 class ProQuestAPIClientConfiguration(ConfigurationGrouping):
     """Contains configuration settings of ProQuest API client."""
 
-    DEFAULT_PAGE_SIZE = 500
+    DEFAULT_PAGE_SIZE = 5000
 
     books_catalog_service_url = ConfigurationMetadata(
         key="books_catalog_service_url",
-        label=_("BooksCatalog Service's URL"),
+        label=_("BooksCatalog service's URL"),
         description=_("URL of the BooksCatalog service endpoint"),
         type=ConfigurationAttributeType.TEXT,
         required=True,
@@ -45,7 +45,7 @@ class ProQuestAPIClientConfiguration(ConfigurationGrouping):
 
     partner_auth_token_service_url = ConfigurationMetadata(
         key="partner_auth_token_service_url",
-        label=_("PartnerAuthToken Service's URL"),
+        label=_("PartnerAuthToken service's URL"),
         description=_("URL of the PartnerAuthToken service endpoint."),
         type=ConfigurationAttributeType.TEXT,
         required=True,
@@ -53,7 +53,7 @@ class ProQuestAPIClientConfiguration(ConfigurationGrouping):
 
     download_link_service_url = ConfigurationMetadata(
         key="download_link_service_url",
-        label=_("DownloadLink Service's URL"),
+        label=_("DownloadLink service's URL"),
         description=_("URL of the DownloadLink service endpoint."),
         type=ConfigurationAttributeType.TEXT,
         required=True,
@@ -61,7 +61,7 @@ class ProQuestAPIClientConfiguration(ConfigurationGrouping):
 
     http_proxy_url = ConfigurationMetadata(
         key="http_proxy_url",
-        label=_("HTTP Proxy's URL"),
+        label=_("HTTP proxy's URL"),
         description=_("URL of the proxy handling HTTP traffic."),
         type=ConfigurationAttributeType.TEXT,
         required=False,
@@ -69,7 +69,7 @@ class ProQuestAPIClientConfiguration(ConfigurationGrouping):
 
     https_proxy_url = ConfigurationMetadata(
         key="https_proxy_url",
-        label=_("HTTPS Proxy's URL"),
+        label=_("HTTPS proxy's URL"),
         description=_("URL of the proxy handling HTTPS traffic."),
         type=ConfigurationAttributeType.TEXT,
         required=False,

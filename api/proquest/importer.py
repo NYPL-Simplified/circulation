@@ -85,7 +85,14 @@ class ProQuestOPDS2ImporterConfiguration(ConfigurationGrouping):
     affiliation_attributes = ConfigurationMetadata(
         key="affiliation_attributes",
         label=_("List of SAML attributes containing an affiliation ID"),
-        description=_(""),
+        description=_(
+            "ProQuest integration assumes that the SAML provider is used for authentication. "
+            "ProQuest JWT bearer tokens required by the most ProQuest API services "
+            "are created based on the affiliation ID - SAML attribute uniquely identifying the patron."
+            "This setting determines what attributes the ProQuest integration will use to look for affiliation IDs. "
+            "The ProQuest integration will investigate the specified attributes sequentially "
+            "and will take the first non-empty value."
+        ),
         type=ConfigurationAttributeType.MENU,
         required=False,
         default=list(DEFAULT_AFFILIATION_ATTRIBUTES),
@@ -99,7 +106,10 @@ class ProQuestOPDS2ImporterConfiguration(ConfigurationGrouping):
     test_affiliation_id = ConfigurationMetadata(
         key="test_affiliation_id",
         label=_("Test SAML affiliation ID"),
-        description=_("Test SAML affiliation ID used for testing ProQuest API."),
+        description=_(
+            "Test SAML affiliation ID used for testing ProQuest API. "
+            "Please contact ProQuest before using it."
+        ),
         type=ConfigurationAttributeType.TEXT,
         required=False,
     )
