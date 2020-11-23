@@ -46,7 +46,8 @@ cd circulation
 git checkout $version
 
 # Use https to access submodules.
-git config submodule.core.url https://github.com/NYPL-Simplified/server_core.git
+git submodule init
+git config submodule.core.url $(git config submodule.core.url | perl -p -e 's|git@(.*?):|https://\1/|g')
 git submodule update --init --recursive
 
 # Add a .version file to the directory. This file

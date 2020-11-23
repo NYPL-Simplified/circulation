@@ -60,6 +60,7 @@ from api.lanes import (
     CrawlableCollectionBasedLane,
     CrawlableFacets,
     CrawlableCustomListBasedLane,
+    JackpotFacets,
     JackpotWorkList,
     KnownOverviewFacetsWorkList,
     RecommendationLane,
@@ -736,7 +737,7 @@ class TestContributorLane(LaneTest):
 
     def test_initialization(self):
         assert_raises_regexp(
-            ValueError, 
+            ValueError,
             "ContributorLane can't be created without contributor",
             ContributorLane,
             self._default_library,
@@ -936,6 +937,44 @@ class TestKnownOverviewFacetsWorkList(DatabaseTest):
         eq_(known_facets, wl.overview_facets(self._db, some_other_facets))
 
 
+class TestJackpotFacets(DatabaseTest):
+
+    def test_default_facet(self):
+        # A JackpotFacets object defaults to showing only books that
+        # are currently available. Normal facet configuration is
+        # ignored.
+        m = JackpotFacets.default_facet
+
+        default = m(None, JackpotFacets.AVAILABILITY_FACET_GROUP_NAME)
+        eq_(Facets.AVAILABLE_NOW, default)
+
+        # For other facet groups, the class defers to the Facets
+        # superclass. (But this doesn't matter because it's not relevant
+        # to the creation of jackpot feeds.)
+        for group in (Facets.COLLECTION_FACET_GROUP_NAME,
+                      Facets.ORDER_FACET_GROUP_NAME):
+            eq_(m(self._default_library, group),
+                Facets.default_facet(self._default_library, group))
+
+    def test_available_facets(self):
+        # A JackpotFacets object always has the same availability
+        # facets. Normal facet configuration is ignored.
+
+        m = JackpotFacets.available_facets
+        available = m(None, JackpotFacets.AVAILABILITY_FACET_GROUP_NAME)
+        eq_([Facets.AVAILABLE_NOW, Facets.AVAILABLE_NOT_NOW,
+             Facets.AVAILABLE_ALL, Facets.AVAILABLE_OPEN_ACCESS],
+             available)
+
+        # For other facet groups, the class defers to the Facets
+        # superclass. (But this doesn't matter because it's not relevant
+        # to the creation of jackpot feeds.)
+        for group in (Facets.COLLECTION_FACET_GROUP_NAME,
+                      Facets.ORDER_FACET_GROUP_NAME):
+            eq_(m(self._default_library, group),
+                Facets.available_facets(self._default_library, group))
+
+
 class TestJackpotWorkList(DatabaseTest):
     """Test the 'jackpot' WorkList that always contains the information
     necessary to run a full suite of integration tests.
@@ -961,15 +1000,19 @@ class TestJackpotWorkList(DatabaseTest):
             data_source_name=DataSource.BIBLIOTHECA
         )
 
+        # Pass in a JackpotFacets object
+        facets = JackpotFacets.default(self._default_library)
+
         # The JackpotWorkList has no works of its own -- only its children
         # have works.
-        wl = JackpotWorkList(self._default_library)
+        wl = JackpotWorkList(self._default_library, facets)
         eq_([], wl.works(self._db))
 
         # Let's take a look at the children.
 
         # NOTE: This test is structured to make it easy to add other
-        # groups of children later on.
+        # groups of children later on. However it's more likely we will
+        # test other features with totally different feeds.
         children = list(wl.children)
         available_now = children[:4]
         children = children[4:]
@@ -978,10 +1021,11 @@ class TestJackpotWorkList(DatabaseTest):
         # KnownOverviewFacetsWorkLists. They only show works that are
         # currently available.
         for i in available_now:
+            # Each lane is associated with the JackpotFacets we passed
+            # in.
             assert isinstance(i, KnownOverviewFacetsWorkList)
-            facets = i.facets
-            eq_(self._default_library, facets.library)
-            eq_(Facets.AVAILABLE_NOW, facets.availability)
+            internal_facets = i.facets
+            eq_(facets, internal_facets)
 
         # These worklists show ebooks and audiobooks from the two
         # collections associated with the default library.
@@ -989,23 +1033,23 @@ class TestJackpotWorkList(DatabaseTest):
             available_now
         )
 
-        eq_("[Collection test] - License source {[Unknown]} - Medium {Book} - Availability {now} - Collection name {%s}" % self._default_collection.name, 
+        eq_("License source {[Unknown]} - Medium {Book} - Collection name {%s}" % self._default_collection.name,
             default_ebooks.display_name)
         eq_([self._default_collection.id], default_ebooks.collection_ids)
         eq_([Edition.BOOK_MEDIUM], default_ebooks.media)
 
-        eq_("[Collection test] - License source {[Unknown]} - Medium {Audio} - Availability {now} - Collection name {%s}" % self._default_collection.name,
+        eq_("License source {[Unknown]} - Medium {Audio} - Collection name {%s}" % self._default_collection.name,
             default_audio.display_name)
         eq_([self._default_collection.id], default_audio.collection_ids)
         eq_([Edition.AUDIO_MEDIUM], default_audio.media)
 
-        eq_("[Collection test] - License source {Overdrive} - Medium {Book} - Availability {now} - Collection name {Test Overdrive Collection}",
+        eq_("License source {Overdrive} - Medium {Book} - Collection name {Test Overdrive Collection}",
             overdrive_ebooks.display_name)
         eq_([overdrive_collection.id], overdrive_ebooks.collection_ids)
         eq_([Edition.BOOK_MEDIUM], overdrive_ebooks.media)
 
 
-        eq_("[Collection test] - License source {Overdrive} - Medium {Audio} - Availability {now} - Collection name {Test Overdrive Collection}",
+        eq_("License source {Overdrive} - Medium {Audio} - Collection name {Test Overdrive Collection}",
             overdrive_audio.display_name)
         eq_([overdrive_collection.id], overdrive_audio.collection_ids)
         eq_([Edition.AUDIO_MEDIUM], overdrive_audio.media)
