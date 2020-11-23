@@ -40,6 +40,53 @@ from .util.http import BadResponseException
 from .util.opds_writer import OPDSFeed
 
 
+def parse_feed(feed, silent=True):
+    """Parses the feed into OPDS2Feed object.
+
+    :param feed: OPDS 2.0 feed
+    :type feed: Union[str, opds2_ast.OPDS2Feed]
+
+    :param silent: Boolean value indicating whether to raise
+    :type silent: bool
+
+    :return: Parsed OPDS 2.0 feed
+    :rtype: opds2_ast.OPDS2Feed
+    """
+    parsed_feed = None
+
+    if is_string(feed):
+        try:
+            input_stream = StringIO(feed)
+            parser_factory = OPDS2DocumentParserFactory()
+            parser = parser_factory.create()
+
+            parsed_feed = parser.parse_stream(input_stream)
+        except BaseError:
+            logging.exception("Failed to parse the OPDS 2.0 feed")
+
+            if not silent:
+                raise
+    elif isinstance(feed, dict):
+        try:
+            parser_factory = OPDS2DocumentParserFactory()
+            parser = parser_factory.create()
+
+            parsed_feed = parser.parse_json(feed)
+        except BaseError:
+            logging.exception("Failed to parse the OPDS 2.0 feed")
+
+            if not silent:
+                raise
+    elif isinstance(feed, opds2_ast.OPDS2Feed):
+        parsed_feed = feed
+    else:
+        raise ValueError(
+            "Argument 'feed' must be either a string or instance of {0} class".format(opds2_ast.OPDS2Feed)
+        )
+
+    return parsed_feed
+
+
 class OPDS2Importer(OPDSImporter):
     """Imports editions and license pools from an OPDS 2.0 feed."""
 
@@ -484,9 +531,7 @@ class OPDS2Importer(OPDSImporter):
         :return: Identifier object
         :rtype: Identifier
         """
-        identifier, _ = Identifier.parse_urn(self._db, publication.metadata.identifier)
-
-        return identifier
+        return self._parse_identifier(publication.metadata.identifier)
 
     def _extract_publication_metadata(self, feed, publication, data_source_name):
         """Extract a Metadata object from webpub-manifest-parser's publication.
@@ -686,12 +731,15 @@ class OPDS2Importer(OPDSImporter):
         :return: An iterable list of publications containing in the feed
         :rtype: Iterable[opds2_ast.OPDS2Publication]
         """
-        for publication in feed.publications:
-            yield publication
-
-        for group in feed.groups:
-            for publication in group.publications:
+        if feed.publications:
+            for publication in feed.publications:
                 yield publication
+
+        if feed.groups:
+            for group in feed.groups:
+                if group.publications:
+                    for publication in group.publications:
+                        yield publication
 
     @staticmethod
     def _is_acquisition_link(link):
@@ -734,52 +782,6 @@ class OPDS2Importer(OPDSImporter):
 
         return open_access_rights_link
 
-    def _parse_feed(self, feed, silent=True):
-        """Parses the feed into OPDS2Feed object.
-
-        :param feed: OPDS 2.0 feed
-        :type feed: Union[str, opds2_ast.OPDS2Feed]
-
-        :param silent: Boolean value indicating whether to raise
-        :type silent: bool
-
-        :return: Parsed OPDS 2.0 feed
-        :rtype: opds2_ast.OPDS2Feed
-        """
-        parsed_feed = None
-
-        if is_string(feed):
-            try:
-                input_stream = StringIO(feed)
-                parser_factory = OPDS2DocumentParserFactory()
-                parser = parser_factory.create()
-
-                parsed_feed = parser.parse_stream(input_stream)
-            except BaseError:
-                self._logger.exception("Failed to parse the OPDS 2.0 feed")
-
-                if not silent:
-                    raise
-        elif isinstance(feed, dict):
-            try:
-                parser_factory = OPDS2DocumentParserFactory()
-                parser = parser_factory.create()
-
-                parsed_feed = parser.parse_json(feed)
-            except BaseError:
-                self._logger.exception("Failed to parse the OPDS 2.0 feed")
-
-                if not silent:
-                    raise
-        elif isinstance(feed, opds2_ast.OPDS2Feed):
-            parsed_feed = feed
-        else:
-            raise ValueError(
-                "Feed argument must be either string or OPDS2Feed instance"
-            )
-
-        return parsed_feed
-
     def extract_next_links(self, feed):
         """Extracts "next" links from the feed.
 
@@ -789,7 +791,7 @@ class OPDS2Importer(OPDSImporter):
         :return: List of "next" links
         :rtype: List[str]
         """
-        parsed_feed = self._parse_feed(feed)
+        parsed_feed = parse_feed(feed)
 
         if not parsed_feed:
             return []
@@ -808,7 +810,7 @@ class OPDS2Importer(OPDSImporter):
         :return: A list of 2-tuples containing publication's identifiers and their last modified dates
         :rtype: List[Tuple[str, datetime.datetime]]
         """
-        parsed_feed = self._parse_feed(feed)
+        parsed_feed = parse_feed(feed)
 
         if not parsed_feed:
             return []
@@ -830,7 +832,7 @@ class OPDS2Importer(OPDSImporter):
         :param feed_url: Feed URL used to resolve relative links
         :type feed_url: Optional[str]f
         """
-        feed = self._parse_feed(feed, silent=False)
+        feed = parse_feed(feed, silent=False)
         publication_metadata_dictionary = {}
         failures = {}
 
