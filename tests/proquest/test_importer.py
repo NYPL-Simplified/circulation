@@ -7,7 +7,13 @@ from mock import MagicMock, call, create_autospec, patch
 from nose.tools import assert_raises, eq_
 from parameterized import parameterized
 from requests import HTTPError
-from webpub_manifest_parser.opds2.ast import OPDS2Feed, OPDS2FeedMetadata
+from webpub_manifest_parser.core.ast import CollectionList, PresentationMetadata
+from webpub_manifest_parser.opds2.ast import (
+    OPDS2Feed,
+    OPDS2FeedMetadata,
+    OPDS2Group,
+    OPDS2Publication,
+)
 
 from api.authenticator import BaseSAMLAuthenticationProvider
 from api.circulation_exceptions import CannotFulfill, CannotLoan
@@ -17,6 +23,7 @@ from api.proquest.client import (
     ProQuestBook,
 )
 from api.proquest.credential import ProQuestCredentialManager
+from api.proquest.identifier import ProQuestIdentifierParser
 from api.proquest.importer import (
     ProQuestOPDS2Importer,
     ProQuestOPDS2ImporterConfiguration,
@@ -31,6 +38,7 @@ from api.saml.metadata import (
 )
 from core.model import (
     Collection,
+    CoverageRecord,
     Credential,
     DataSource,
     DeliveryMechanism,
@@ -832,16 +840,62 @@ class TestProQuestAPIClient(DatabaseTest):
             eq_(2, api_client_mock.get_book.call_count)
 
 
+PROQUEST_PUBLICATION_1 = OPDS2Publication(
+    metadata=PresentationMetadata(
+        identifier="urn:proquest.com/document-id/1",
+        modified=datetime.datetime(2020, 1, 31, 0, 0, 0),
+    )
+)
+
+PROQUEST_PUBLICATION_2 = OPDS2Publication(
+    metadata=PresentationMetadata(
+        identifier="urn:proquest.com/document-id/2",
+        modified=datetime.datetime(2020, 1, 30, 0, 0, 0),
+    )
+)
+
+PROQUEST_PUBLICATION_3 = OPDS2Publication(
+    metadata=PresentationMetadata(
+        identifier="urn:proquest.com/document-id/3",
+        modified=datetime.datetime(2020, 1, 29, 0, 0, 0),
+    )
+)
+
+PROQUEST_PUBLICATION_4 = OPDS2Publication(
+    metadata=PresentationMetadata(
+        identifier="urn:proquest.com/document-id/4",
+        modified=datetime.datetime(2020, 1, 28, 0, 0, 0),
+    )
+)
+
 PROQUEST_FEED_PAGE_1 = OPDS2Feed(
     metadata=OPDS2FeedMetadata(
         title="Page # 1", current_page=1, items_per_page=10, number_of_items=20
-    )
+    ),
+    groups=CollectionList(
+        [
+            OPDS2Group(
+                publications=CollectionList(
+                    [PROQUEST_PUBLICATION_1, PROQUEST_PUBLICATION_2]
+                )
+            )
+        ]
+    ),
 )
 
 PROQUEST_FEED_PAGE_2 = OPDS2Feed(
     metadata=OPDS2FeedMetadata(
-        title="Page # 2", current_page=1, items_per_page=10, number_of_items=20
-    )
+        title="Page # 2", current_page=2, items_per_page=10, number_of_items=20
+    ),
+    groups=CollectionList(
+        [
+            OPDS2Group(
+                publications=CollectionList(
+                    [PROQUEST_PUBLICATION_3, PROQUEST_PUBLICATION_4]
+                )
+            )
+        ]
+    ),
 )
 
 
@@ -870,9 +924,9 @@ class TestProQuestOPDS2ImportMonitor(DatabaseTest):
             ),
         ]
     )
-    def test(self, _, feeds, expected_calls):
-        """This tests makes sure that ProQuestOPDS2ImportMonitor correctly processes
-        any response returned by ProQuestAPIClient.download_all_feed_pages.
+    def test_monitor_correctly_processes_pages(self, _, feeds, expected_calls):
+        """This test makes sure that ProQuestOPDS2ImportMonitor correctly processes
+        any response returned by ProQuestAPIClient.download_all_feed_pages without having any prior CoverageRecords.
 
         :param feeds: List of ProQuest OPDS 2.0 paged feeds
         :type feeds: List[webpub_manifest_parser.opds2.ast.OPDS2Feed]
@@ -897,4 +951,81 @@ class TestProQuestOPDS2ImportMonitor(DatabaseTest):
 
         # Assert
         # Make sure that ProQuestOPDS2ImportMonitor.import_one_feed was called for each paged feed (if any)
+        monitor.import_one_feed.assert_has_calls(expected_calls)
+
+    def test_monitor_correctly_does_not_process_already_processed_pages(self):
+        """This test makes sure that the monitor has a short circuit breaker
+        which allows to not process already processed feeds.
+
+        The feed contains two pages:
+        - page # 1: publication # 1 and publication # 2
+        - page # 2: publication # 3 and publication # 4
+
+        Publication # 2, 3, and 4 were already processed and have coverage records.
+        Publication # 1 is a new one and doesn't have a coverage record.
+        It means the monitor must process the whole page # 1.
+        """
+        # Arrange
+        # There are two pages: page # 1 and page # 2
+        feeds = [PROQUEST_FEED_PAGE_1, PROQUEST_FEED_PAGE_2]
+        # But only the page # 1 will be processed
+        expected_calls = [call(PROQUEST_FEED_PAGE_1)]
+
+        identifier_parser = ProQuestIdentifierParser()
+
+        # Create Identifiers for publications # 2, 3, and 4
+        publication_2_identifier, _ = identifier, _ = Identifier.parse(
+            self._db, PROQUEST_PUBLICATION_2.metadata.identifier, identifier_parser
+        )
+        publication_3_identifier, _ = identifier, _ = Identifier.parse(
+            self._db, PROQUEST_PUBLICATION_3.metadata.identifier, identifier_parser
+        )
+        publication_4_identifier, _ = identifier, _ = Identifier.parse(
+            self._db, PROQUEST_PUBLICATION_4.metadata.identifier, identifier_parser
+        )
+
+        # Make sure that all the publications # 2, 3, and 4 were already processed
+        max_modified_date = max(
+            PROQUEST_PUBLICATION_2.metadata.modified,
+            PROQUEST_PUBLICATION_3.metadata.modified,
+            PROQUEST_PUBLICATION_4.metadata.modified,
+        )
+        coverage_date = max_modified_date + datetime.timedelta(days=1)
+
+        # Create coverage records for publications # 2, 3, and 4
+        CoverageRecord.add_for(
+            publication_2_identifier,
+            self._proquest_data_source,
+            operation=CoverageRecord.IMPORT_OPERATION,
+            timestamp=coverage_date,
+        )
+        CoverageRecord.add_for(
+            publication_3_identifier,
+            self._proquest_data_source,
+            operation=CoverageRecord.IMPORT_OPERATION,
+            timestamp=coverage_date,
+        )
+        CoverageRecord.add_for(
+            publication_4_identifier,
+            self._proquest_data_source,
+            operation=CoverageRecord.IMPORT_OPERATION,
+            timestamp=coverage_date,
+        )
+
+        client = create_autospec(spec=ProQuestAPIClient)
+        client.download_all_feed_pages = MagicMock(return_value=feeds)
+
+        client_factory = create_autospec(spec=ProQuestAPIClientFactory)
+        client_factory.create = MagicMock(return_value=client)
+
+        monitor = ProQuestOPDS2ImportMonitor(
+            client_factory, self._db, self._proquest_collection, ProQuestOPDS2Importer
+        )
+        monitor.import_one_feed = MagicMock(return_value=([], []))
+
+        # Act
+        monitor.run_once(False)
+
+        # Assert
+        # Make sure that ProQuestOPDS2ImportMonitor.import_one_feed was called only for the page # 1
         monitor.import_one_feed.assert_has_calls(expected_calls)

@@ -3,12 +3,9 @@ import logging
 from contextlib import contextmanager
 
 import six
-import webpub_manifest_parser.opds2.ast as opds2_ast
 from flask_babel import lazy_gettext as _
 from requests import HTTPError
-from six import StringIO
 from sqlalchemy import or_
-from webpub_manifest_parser.opds2.parsers import OPDS2DocumentParserFactory
 
 from api.circulation import BaseCirculationAPI, FulfillmentInfo, LoanInfo
 from api.circulation_exceptions import CannotFulfill, CannotLoan
@@ -29,9 +26,8 @@ from core.model.configuration import (
     ExternalIntegration,
     HasExternalIntegration,
 )
-from core.opds2_import import OPDS2Importer, OPDS2ImportMonitor
+from core.opds2_import import OPDS2Importer, OPDS2ImportMonitor, parse_feed
 from core.opds_import import OPDSImporter
-from core.util.string_helpers import is_string
 
 MISSING_AFFILIATION_ID = BaseError(
     _(
@@ -40,6 +36,25 @@ MISSING_AFFILIATION_ID = BaseError(
         "that patron has not yet been authenticated using the SAML authentication provider."
     )
 )
+
+
+def parse_identifier(db, identifier):
+    """Parse the identifier and return an Identifier object representing it.
+
+    :param db: Database session
+    :type db: sqlalchemy.orm.session.Session
+
+    :param identifier: String containing the identifier
+    :type identifier: str
+
+    :return: Identifier object
+    :rtype: Identifier
+    """
+    identifier, _ = Identifier.parse(
+        db, identifier, ProQuestIdentifierParser()
+    )
+
+    return identifier
 
 
 class CannotCreateProQuestTokenError(BaseError):
@@ -228,21 +243,6 @@ class ProQuestOPDS2Importer(OPDS2Importer, BaseCirculationAPI, HasExternalIntegr
         ) as configuration:
             yield configuration
 
-    def _extract_identifier(self, publication):
-        """Extract the publication's identifier from its metadata.
-
-        :param publication: Publication object
-        :type publication: opds2_core.OPDS2Publication
-
-        :return: Identifier object
-        :rtype: Identifier
-        """
-        identifier, _ = Identifier.parse(
-            self._db, publication.metadata.identifier, ProQuestIdentifierParser()
-        )
-
-        return identifier
-
     @staticmethod
     def _get_affiliation_attributes(configuration):
         """Return a configured list of SAML attributes which can contain affiliation ID.
@@ -389,6 +389,17 @@ class ProQuestOPDS2Importer(OPDS2Importer, BaseCirculationAPI, HasExternalIntegr
                     token = self._create_proquest_token(patron, configuration)
 
             iterations += 1
+
+    def _parse_identifier(self, identifier):
+        """Parse the identifier and return an Identifier object representing it.
+
+        :param identifier: String containing the identifier
+        :type identifier: str
+
+        :return: Identifier object
+        :rtype: Identifier
+        """
+        return parse_identifier(self._db, identifier)
 
     def extract_next_links(self, feed):
         """Extract "next" links from the feed.
@@ -604,51 +615,16 @@ class ProQuestOPDS2ImportMonitor(OPDS2ImportMonitor, HasExternalIntegration):
 
         self._logger = logging.getLogger(__name__)
 
-    def _parse_feed(self, feed, silent=True):
-        """Parses the feed into OPDS2Feed object.
+    def _parse_identifier(self, identifier):
+        """Extract the publication's identifier from its metadata.
 
-        :param feed: OPDS 2.0 feed
-        :type feed: Union[str, opds2_ast.OPDS2Feed]
+        :param identifier: String containing the identifier
+        :type identifier: str
 
-        :param silent: Boolean value indicating whether to raise
-        :type silent: bool
-
-        :return: Parsed OPDS 2.0 feed
-        :rtype: opds2_ast.OPDS2Feed
+        :return: Identifier object
+        :rtype: Identifier
         """
-        parsed_feed = None
-
-        if is_string(feed):
-            try:
-                input_stream = StringIO(feed)
-                parser_factory = OPDS2DocumentParserFactory()
-                parser = parser_factory.create()
-
-                parsed_feed = parser.parse_stream(input_stream)
-            except BaseError:
-                self._logger.exception("Failed to parse the OPDS 2.0 feed")
-
-                if not silent:
-                    raise
-        elif isinstance(feed, dict):
-            try:
-                parser_factory = OPDS2DocumentParserFactory()
-                parser = parser_factory.create()
-
-                parsed_feed = parser.parse_json(feed)
-            except BaseError:
-                self._logger.exception("Failed to parse the OPDS 2.0 feed")
-
-                if not silent:
-                    raise
-        elif isinstance(feed, opds2_ast.OPDS2Feed):
-            parsed_feed = feed
-        else:
-            raise ValueError(
-                "Feed argument must be either string or OPDS2Feed instance"
-            )
-
-        return parsed_feed
+        return parse_identifier(self._db, identifier)
 
     def _get_feeds(self):
         self._logger.info("Started fetching ProQuest paged OPDS 2.0 feeds")
@@ -657,7 +633,10 @@ class ProQuestOPDS2ImportMonitor(OPDS2ImportMonitor, HasExternalIntegration):
         total_number_of_items = None
 
         for feed in self._client.download_all_feed_pages(self._db):
-            feed = self._parse_feed(feed, silent=False)
+            feed = parse_feed(feed, silent=False)
+
+            if not self.feed_contains_new_data(feed):
+                break
 
             if total_number_of_items is None:
                 total_number_of_items = (
