@@ -598,7 +598,7 @@ class ProQuestAPIClient(object):
         NOTE: There are two different cases to consider:
         - Open-access books: in this case ProQuest API returns the book content.
         - Adobe DRM copy protected books: in this case ProQuest API returns an ACSM file containing
-            information about downloading a digital publication.
+        information about downloading a digital publication.
 
         :param db: Database session
         :type db: sqlalchemy.orm.session.Session
