@@ -63,7 +63,7 @@ def parse_identifier(db, identifier):
     :type identifier: str
 
     :return: Identifier object
-    :rtype: Identifier
+    :rtype: core.model.identifier.Identifier
     """
     identifier, _ = Identifier.parse_urn(db, identifier)
 
