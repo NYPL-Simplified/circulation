@@ -392,6 +392,8 @@ class TestOverdriveRepresentationExtractor(OverdriveTestWithAPI):
         eq_(2, consortial_data.licenses_available)
 
         class MockAPI(object):
+            # Pretend to be an API for an Overdrive Advantage collection with
+            # library ID 61.
             advantage_library_id = 61
 
         extractor = OverdriveRepresentationExtractor(MockAPI())
@@ -404,6 +406,24 @@ class TestOverdriveRepresentationExtractor(OverdriveTestWithAPI):
         # collection.
         eq_(0, advantage_data.patrons_in_hold_queue)
         eq_(0, consortial_data.patrons_in_hold_queue)
+
+        # If for whatever reason Overdrive doesn't mention the
+        # relevant collection at all, no collection-specific
+        # information is gleaned.
+        #
+        # TODO: It would probably be better not to return a
+        # CirculationData object at all, but this shouldn't happen in
+        # a real scenario.
+        class MockAPI(object):
+            # Pretend to be an API for an Overdrive Advantage collection with
+            # library ID 62.
+            advantage_library_id = 62
+        extractor = OverdriveRepresentationExtractor(MockAPI())
+        advantage_data = extractor.book_info_to_circulation(info)
+        eq_(None, advantage_data.licenses_owned)
+        eq_(None, advantage_data.licenses_available)
+        eq_(0, consortial_data.patrons_in_hold_queue)
+
 
     def test_not_found_error_to_circulationdata(self):
         raw, info = self.sample_json("overdrive_availability_not_found.json")
@@ -711,7 +731,7 @@ class TestOverdriveAdvantageAccount(OverdriveTestWithAPI):
         # So, create a "consortial" Collection to be the parent.
         parent = self._collection(
             name="Parent", protocol=ExternalIntegration.OVERDRIVE,
-            external_account_id="parent_id"
+            external_account_id="100"
         )
 
         # Now the account can be created as an Overdrive Advantage

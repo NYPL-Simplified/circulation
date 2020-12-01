@@ -279,13 +279,18 @@ class OverdriveAPI(object):
     def advantage_library_id(self):
         """The library ID for this library, as we should look for it in
         certain API documents served by Overdrive.
+
+        For ordinary collections, and for consortial collections
+        shared among libraries, this will be -1.
+
+        For Overdrive Advantage accounts, this will be the numeric
+        value of the Overdrive library ID.
         """
         if self.parent_library_id is None:
-            # This is what Overdrive calls a "consortial" collection,
-            # i.e. not an Overdrive Advantage collection.
+            # This is not an Overdrive Advantage collection.
             #
-            # Instead of looking for the library ID itself we should
-            # look for the constant -1.
+            # Instead of looking for the library ID itself in these
+            # documents, we should look for the constant -1.
             return -1
         return int(self.library_id)
 
@@ -648,6 +653,12 @@ class OverdriveRepresentationExtractor(object):
     log = logging.getLogger("Overdrive representation extractor")
 
     def __init__(self, api):
+        """Constructor.
+
+        :param api: An OverdriveAPI object. This will be used when deciding
+        which portions of a JSON representation are relevant to the active
+        Overdrive collection.
+        """
         self.library_id = api.advantage_library_id
 
     @classmethod
