@@ -717,7 +717,7 @@ class TestOverdriveAdvantageAccount(OverdriveTestWithAPI):
         # a Collection object.
 
         account = OverdriveAdvantageAccount(
-            "100", "200", "Library Name",
+            "parent_id", "child_id", "Library Name",
         )
 
         # We can't just create a Collection object for this object because
@@ -728,14 +728,13 @@ class TestOverdriveAdvantageAccount(OverdriveTestWithAPI):
             account.to_collection, self._db
         )
 
-        # So, create a "consortial" Collection to be the parent.
+        # So, create a Collection to be the parent.
         parent = self._collection(
             name="Parent", protocol=ExternalIntegration.OVERDRIVE,
-            external_account_id="100"
+            external_account_id="parent_id"
         )
 
-        # Now the account can be created as an Overdrive Advantage
-        # Collection.
+        # Now it works.
         p, collection = account.to_collection(self._db)
         eq_(p, parent)
         eq_(parent, collection.parent)
