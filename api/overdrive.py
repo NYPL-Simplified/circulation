@@ -1037,13 +1037,18 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
                 exc_info=e
             )
 
-        if status_code != 200:
+        # TODO: If you ask for a book that you know about, and
+        # Overdrive says the book doesn't exist in the collection,
+        # then it's appropriate to update an existing
+        # LicensePool. However we shouldn't be creating a *brand new*
+        # LicensePool for a book Overdrive says isn't in the
+        # collection.
+        if status_code not in (200, 404):
             self.log.error(
                 "Could not get availability for %s: status code %s",
                 book_id, status_code
             )
             return None, None, False
-
         if isinstance(content, basestring):
             content = json.loads(content)
         book.update(content)
