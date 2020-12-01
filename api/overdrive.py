@@ -1093,7 +1093,8 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
         pool's presentation_edition, promote it to presentation
         status.
         """
-        circulation = OverdriveRepresentationExtractor.book_info_to_circulation(
+        extractor = OverdriveRepresentationExtractor(self)
+        circulation = extractor.book_info_to_circulation(
             book
         )
         license_pool, circulation_changed = circulation.apply(
