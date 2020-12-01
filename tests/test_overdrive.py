@@ -272,23 +272,30 @@ class TestOverdriveAPI(OverdriveTestWithAPI):
             None
         )
 
-    def test_library_endpoint(self):
-        """Verify that Advantage collections and regular Overdrive
-        collections start at different endpoints.
-        """
-        # Here's an Overdrive collection.
+    def test_advantage_differences(self):
+        # Test the differences between Advantage collections and
+        # regular Overdrive collections.
+
+        # Here's a regular Overdrive collection.
         main = self._collection(
             protocol=ExternalIntegration.OVERDRIVE, external_account_id="1",
         )
         main.external_integration.username = "user"
         main.external_integration.password = "password"
-        main.external_integration.setting('website_id').value = '100'
+        main.external_integration.setting('website_id').value = '101'
         main.external_integration.setting('ils_name').value = 'default'
 
         # Here's an Overdrive API client for that collection.
         overdrive_main = MockOverdriveAPI(self._db, main)
+
+        # Note the "library" endpoint.
         eq_("https://api.overdrive.com/v1/libraries/1",
             overdrive_main._library_endpoint)
+
+        # The advantage_library_id of a non-Advantage Overdrive account
+        # is always -1.
+        eq_("1", overdrive_main.library_id)
+        eq_(-1, overdrive_main.advantage_library_id)
 
         # Here's an Overdrive Advantage collection associated with the
         # main Overdrive collection.
@@ -297,10 +304,20 @@ class TestOverdriveAPI(OverdriveTestWithAPI):
         )
         child.parent = main
         overdrive_child = MockOverdriveAPI(self._db, child)
+
+        # In URL-space, the "library" endpoint for the Advantage
+        # collection is beneath the the parent collection's "library"
+        # endpoint.
         eq_(
             'https://api.overdrive.com/v1/libraries/1/advantageAccounts/2',
             overdrive_child._library_endpoint
         )
+
+        # The advantage_library_id of an Advantage collection is the
+        # numeric value of its external_account_id.
+        eq_("2", overdrive_child.library_id)
+        eq_(2, overdrive_child.advantage_library_id)
+
 
 class TestOverdriveRepresentationExtractor(OverdriveTestWithAPI):
 
@@ -344,11 +361,12 @@ class TestOverdriveRepresentationExtractor(OverdriveTestWithAPI):
         eq_(expect, OverdriveRepresentationExtractor.link(raw, "first"))
 
 
-    def test_book_info_with_circulationdata(self):
+    def test_book_info_to_circulation(self):
         # Tests that can convert an overdrive json block into a CirculationData object.
 
         raw, info = self.sample_json("overdrive_availability_information.json")
-        circulationdata = OverdriveRepresentationExtractor.book_info_to_circulation(info)
+        extractor = OverdriveRepresentationExtractor(self.api)
+        circulationdata = extractor.book_info_to_circulation(info)
 
         # NOTE: It's not realistic for licenses_available and
         # patrons_in_hold_queue to both be nonzero; this is just to
@@ -363,13 +381,38 @@ class TestOverdriveRepresentationExtractor(OverdriveTestWithAPI):
         eq_((Identifier.OVERDRIVE_ID, '2a005d55-a417-4053-b90d-7a38ca6d2065'),
             (identifier.type, identifier.identifier))
 
+    def test_book_info_to_circulation_advantage(self):
+        # Overdrive Advantage accounts derive different information
+        # from the same API responses as regular Overdrive accounts.
+        raw, info = self.sample_json("overdrive_availability_advantage.json")
+
+        extractor = OverdriveRepresentationExtractor(self.api)
+        consortial_data = extractor.book_info_to_circulation(info)
+        eq_(2, consortial_data.licenses_owned)
+        eq_(2, consortial_data.licenses_available)
+
+        class MockAPI(object):
+            advantage_library_id = 61
+
+        extractor = OverdriveRepresentationExtractor(MockAPI())
+        advantage_data = extractor.book_info_to_circulation(info)
+        eq_(1, advantage_data.licenses_owned)
+        eq_(1, advantage_data.licenses_available)
+
+        # Both collections have the same information about active
+        # holds, because that information is not split out by
+        # collection.
+        eq_(0, advantage_data.patrons_in_hold_queue)
+        eq_(0, consortial_data.patrons_in_hold_queue)
+
     def test_not_found_error_to_circulationdata(self):
         raw, info = self.sample_json("overdrive_availability_not_found.json")
 
         # By default, a "NotFound" error can't be converted to a
         # CirculationData object, because we don't know _which_ book it
         # was that wasn't found.
-        m = OverdriveRepresentationExtractor.book_info_to_circulation
+        extractor = OverdriveRepresentationExtractor(self.api)
+        m = extractor.book_info_to_circulation
         eq_(None, m(info))
 
         # However, if an ID was added to `info` ahead of time (as the
@@ -650,12 +693,11 @@ class TestOverdriveAdvantageAccount(OverdriveTestWithAPI):
         eq_("The Common Community Library", ac2.name)
 
     def test_to_collection(self):
-        """Test that we can turn an OverdriveAdvantageAccount object into
-        a Collection object.
-        """
+        # Test that we can turn an OverdriveAdvantageAccount object into
+        # a Collection object.
 
         account = OverdriveAdvantageAccount(
-            "parent_id", "child_id", "Library Name",
+            "100", "200", "Library Name",
         )
 
         # We can't just create a Collection object for this object because
@@ -666,13 +708,14 @@ class TestOverdriveAdvantageAccount(OverdriveTestWithAPI):
             account.to_collection, self._db
         )
 
-        # So, create a Collection to be the parent.
+        # So, create a "consortial" Collection to be the parent.
         parent = self._collection(
             name="Parent", protocol=ExternalIntegration.OVERDRIVE,
             external_account_id="parent_id"
         )
 
-        # Now it works.
+        # Now the account can be created as an Overdrive Advantage
+        # Collection.
         p, collection = account.to_collection(self._db)
         eq_(p, parent)
         eq_(parent, collection.parent)

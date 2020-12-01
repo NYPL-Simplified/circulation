@@ -275,6 +275,20 @@ class OverdriveAPI(object):
             _db, cls.ILS_NAME_KEY, library, collection.external_integration
         )
 
+    @property
+    def advantage_library_id(self):
+        """The library ID for this library, as we should look for it in
+        certain API documents served by Overdrive.
+        """
+        if self.parent_library_id is None:
+            # This is what Overdrive calls a "consortial" collection,
+            # i.e. not an Overdrive Advantage collection.
+            #
+            # Instead of looking for the library ID itself we should
+            # look for the constant -1.
+            return -1
+        return int(self.library_id)
+
     def check_creds(self, force_refresh=False):
         """If the Bearer Token has expired, update it."""
         with self.lock:
@@ -633,6 +647,9 @@ class OverdriveRepresentationExtractor(object):
 
     log = logging.getLogger("Overdrive representation extractor")
 
+    def __init__(self, api):
+        self.library_id = api.advantage_library_id
+
     @classmethod
     def availability_link_list(cls, book_list):
         """:return: A list of dictionaries with keys `id`, `title`, `availability_link`.
@@ -809,8 +826,7 @@ class OverdriveRepresentationExtractor(object):
                 processed.append(cls.overdrive_role_to_simplified_role[x])
         return processed
 
-    @classmethod
-    def book_info_to_circulation(cls, book):
+    def book_info_to_circulation(self, book):
         """ Note:  The json data passed into this method is from a different file/stream
         from the json data that goes into the book_info_to_metadata() method.
         """
@@ -864,10 +880,9 @@ class OverdriveRepresentationExtractor(object):
         elif book.get('isOwnedByCollections') is not False:
             # We own this book.
             for account in book.get('accounts', []):
-                # Only keep track of copies owned by the account we're
-                # asking about; Overdrive Advantage accounts are
-                # tracked separately.
-                if account.get('id') != -1:
+                # Only keep track of copies owned by the collection
+                # we're tracking.
+                if account.get('id') != self.library_id:
                     continue
 
                 if 'copiesOwned' in account:
