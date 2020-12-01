@@ -350,11 +350,38 @@ class TestOverdriveRepresentationExtractor(OverdriveTestWithAPI):
         raw, info = self.sample_json("overdrive_availability_information.json")
         circulationdata = OverdriveRepresentationExtractor.book_info_to_circulation(info)
 
+        # NOTE: It's not realistic for licenses_available and
+        # patrons_in_hold_queue to both be nonzero; this is just to
+        # verify that the test picks up whatever data is in the
+        # document.
+        eq_(3, circulationdata.licenses_owned)
+        eq_(1, circulationdata.licenses_available)
+        eq_(10, circulationdata.patrons_in_hold_queue)
+
         # Related IDs.
         identifier = circulationdata.primary_identifier(self._db)
         eq_((Identifier.OVERDRIVE_ID, '2a005d55-a417-4053-b90d-7a38ca6d2065'),
             (identifier.type, identifier.identifier))
 
+    def test_not_found_error_to_circulationdata(self):
+        raw, info = self.sample_json("overdrive_availability_not_found.json")
+
+        # By default, a "NotFound" error can't be converted to a
+        # CirculationData object, because we don't know _which_ book it
+        # was that wasn't found.
+        m = OverdriveRepresentationExtractor.book_info_to_circulation
+        eq_(None, m(info))
+
+        # However, if an ID was added to `info` ahead of time (as the
+        # circulation code does), we do know, and we can create a
+        # CirculationData.
+        identifier = self._identifier(identifier_type=Identifier.OVERDRIVE_ID)
+        info['id'] = identifier.identifier
+        data = m(info)
+        eq_(identifier, data.primary_identifier(self._db))
+        eq_(0, data.licenses_owned)
+        eq_(0, data.licenses_available)
+        eq_(0, data.patrons_in_hold_queue)
 
     def test_book_info_with_metadata(self):
         # Tests that can convert an overdrive json block into a Metadata object.
