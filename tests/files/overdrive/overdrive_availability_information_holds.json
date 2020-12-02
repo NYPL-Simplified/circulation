@@ -1,21 +1,21 @@
 {
-    "available": true,
-    "collections": [
+    "accounts": [
         {
             "copiesAvailable": 0,
             "copiesOwned": 5,
-            "id": "New York Public Library (NY)",
-            "numberOfHolds": 10
+            "id": -1
         }
     ],
+    "availabilityType": "Normal",
+    "available": false,
     "copiesAvailable": 0,
     "copiesOwned": 5,
-    "id": "2a005d55-a417-4053-b90d-7a38ca6d2065",
     "links": {
         "self": {
-            "href": "http://api.overdrive.com/v1/collections/collection-id/products/2a005d55-a417-4053-b90d-7a38ca6d2065/availability",
+            "href": "https://api.overdrive.com/v2/collections/v1L1BCgAAAA2C/products/2a005d55-a417-4053-b90d-7a38ca6d2065/availability",
             "type": "application/vnd.overdrive.api+json"
         }
     },
-    "numberOfHolds": 10
+    "numberOfHolds": 10,
+    "reserveId": "2a005d55-a417-4053-b90d-7a38ca6d2065"
 }

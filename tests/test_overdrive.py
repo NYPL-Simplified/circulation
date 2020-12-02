@@ -1126,9 +1126,8 @@ class TestOverdriveAPI(OverdriveAPITest):
         eq_(Edition.BOOK_MEDIUM, edition.medium)
 
     def test_update_availability(self):
-        """Test the Overdrive implementation of the update_availability
-        method defined by the CirculationAPI interface.
-        """
+        # Test the Overdrive implementation of the update_availability
+        # method defined by the CirculationAPI interface.
 
         # Create a LicensePool that needs updating.
         edition, pool = self._edition(
@@ -1169,7 +1168,7 @@ class TestOverdriveAPI(OverdriveAPITest):
         # The availability information has been updated, as has the
         # date the availability information was last checked.
         eq_(5, pool.licenses_owned)
-        eq_(5, pool.licenses_available)
+        eq_(1, pool.licenses_available)
         eq_(0, pool.patrons_in_hold_queue)
         assert pool.last_checked is not None
 
