@@ -282,7 +282,7 @@ class TestOverdriveAPI(OverdriveTestWithAPI):
         )
         main.external_integration.username = "user"
         main.external_integration.password = "password"
-        main.external_integration.setting('website_id').value = '101'
+        main.external_integration.setting('website_id').value = '100'
         main.external_integration.setting('ils_name').value = 'default'
 
         # Here's an Overdrive API client for that collection.
