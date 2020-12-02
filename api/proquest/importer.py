@@ -635,8 +635,11 @@ class ProQuestOPDS2ImportMonitor(OPDS2ImportMonitor, HasExternalIntegration):
         for feed in self._client.download_all_feed_pages(self._db):
             feed = parse_feed(feed, silent=False)
 
-            if not self.feed_contains_new_data(feed):
-                break
+            # FIXME: We cannot short-circuit the feed import process
+            #  because ProQuest feed is not ordered by the publication's modified date.
+            #  This issue will be addressed in https://jira.nypl.org/browse/SIMPLY-3343
+            # if not self.feed_contains_new_data(feed):
+            #     break
 
             if total_number_of_items is None:
                 total_number_of_items = (
