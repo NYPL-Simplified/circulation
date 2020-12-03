@@ -99,6 +99,9 @@ class Configuration(ConfigurationConstants):
     # ConfigurationSetting key for the base url of the app.
     BASE_URL_KEY = u'base_url'
 
+    # ConfigurationSetting to enable the MeasurementReaper script
+    MEASUREMENT_REAPER = 'measurement_reaper_enabled'
+
     # Policies, mostly circulation specific
     POLICIES = "policies"
     LANES_POLICY = "lanes"
@@ -200,6 +203,12 @@ class Configuration(ConfigurationConstants):
             "description": _("Audiobooks from these data sources will be hidden from the collection, even if they would otherwise show up as available."),
             "default": None,
             "required": True,
+        },
+        {
+            "key": MEASUREMENT_REAPER,
+            "label": _("Cleanup old measurement data"), "type": "select",
+            "description": _("If this settings is 'true' old book measurement data will be cleaned out of the database. Some sites may want to keep this data for later analysis."),
+            "options": { "true": "true", "false": "false" }, "default": "true",
         },
     ]
 
