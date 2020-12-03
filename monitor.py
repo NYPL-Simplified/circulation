@@ -1,46 +1,37 @@
-from nose.tools import set_trace
 import datetime
-import os
 import logging
-import time
 import traceback
+
 from sqlalchemy.orm import defer
-from sqlalchemy.sql import select
-from sqlalchemy.sql.functions import func
 from sqlalchemy.sql.expression import (
-    or_,
     and_,
-    outerjoin, delete,
+    or_,
 )
 
 import log # This sets the appropriate log format and level.
-from model.configuration import ConfigurationSetting
 from config import Configuration
-
-from coverage import CoverageFailure
 from metadata_layer import TimestampData
 from model import (
-    get_one,
-    get_one_or_create,
     CachedFeed,
     CirculationEvent,
     Collection,
     CollectionMissing,
     CoverageRecord,
     Credential,
-    Edition,
-    ExternalIntegration,
     CustomListEntry,
+    Edition,
     Identifier,
     LicensePool,
+    Measurement,
     Patron,
     PresentationCalculationPolicy,
     Subject,
     Timestamp,
     Work,
-    WorkCoverageRecord,
-    Measurement,
+    get_one,
+    get_one_or_create,
 )
+from model.configuration import ConfigurationSetting
 
 
 class Monitor(object):
