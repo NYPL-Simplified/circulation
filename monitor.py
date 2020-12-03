@@ -907,7 +907,6 @@ ReaperMonitor.REGISTRY.append(CollectionReaper)
 class MeasurementReaper(ReaperMonitor):
     """Remove measurements that are not the most recent"""
     MODEL_CLASS = Measurement
-    MEASUREMENT_REAPER_ENABLED = 'MeasurementReaper.enabled'
 
     def run(self):
         enabled = ConfigurationSetting.sitewide(self._db, Configuration.MEASUREMENT_REAPER).bool_value
