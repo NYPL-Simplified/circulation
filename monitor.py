@@ -10,11 +10,13 @@ from sqlalchemy.sql.functions import func
 from sqlalchemy.sql.expression import (
     or_,
     and_,
-    outerjoin,
+    outerjoin, delete,
 )
 
 import log # This sets the appropriate log format and level.
+from model.configuration import ConfigurationSetting
 from config import Configuration
+
 from coverage import CoverageFailure
 from metadata_layer import TimestampData
 from model import (
@@ -37,6 +39,7 @@ from model import (
     Timestamp,
     Work,
     WorkCoverageRecord,
+    Measurement,
 )
 
 
@@ -771,10 +774,10 @@ class ReaperMonitor(Monitor):
     REGISTRY = []
 
     def __init__(self, *args, **kwargs):
-        self.SERVICE_NAME = "Reaper for %s.%s" % (
-            self.MODEL_CLASS.__name__,
-            self.TIMESTAMP_FIELD
-        )
+        self.SERVICE_NAME = "Reaper for %s" % self.MODEL_CLASS.__name__
+        if self.TIMESTAMP_FIELD is not None:
+            self.SERVICE_NAME += ".%s" % self.TIMESTAMP_FIELD
+
         super(ReaperMonitor, self).__init__(*args, **kwargs)
 
     @property
@@ -899,6 +902,29 @@ class CollectionReaper(ReaperMonitor):
         """
         collection.delete()
 ReaperMonitor.REGISTRY.append(CollectionReaper)
+
+
+class MeasurementReaper(ReaperMonitor):
+    """Remove measurements that are not the most recent"""
+    MODEL_CLASS = Measurement
+
+    def run(self):
+        enabled = ConfigurationSetting.sitewide(self._db, Configuration.MEASUREMENT_REAPER).bool_value
+        if enabled is not None and not enabled:
+            self.log.info("{} skipped because it is disabled in configuration.".format(self.service_name))
+            return
+        return super(ReaperMonitor, self).run()
+
+    @property
+    def where_clause(self):
+        return Measurement.is_most_recent == False
+
+    def run_once(self, *args, **kwargs):
+        rows_deleted = self.query().delete()
+        self._db.commit()
+        return TimestampData(achievements=u"Items deleted: %d" % rows_deleted)
+
+ReaperMonitor.REGISTRY.append(MeasurementReaper)
 
 
 class ScrubberMonitor(ReaperMonitor):

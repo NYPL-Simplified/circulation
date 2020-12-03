@@ -7,6 +7,7 @@ from nose.tools import (
 )
 import datetime
 
+from ..config import Configuration
 from . import DatabaseTest
 
 from ..testing import (
@@ -35,7 +36,7 @@ from ..model import (
     Subject,
     Timestamp,
     Work,
-    WorkCoverageRecord,
+    WorkCoverageRecord, Measurement, get_one_or_create, ConfigurationSetting,
 )
 
 from ..monitor import (
@@ -62,7 +63,7 @@ from ..monitor import (
     SweepMonitor,
     TimelineMonitor,
     WorkReaper,
-    WorkSweepMonitor,
+    WorkSweepMonitor, MeasurementReaper,
 )
 
 class MockMonitor(Monitor):
@@ -1145,6 +1146,57 @@ class TestCollectionReaper(DatabaseTest):
         # one is unaffected.
         eq_([c1], self._db.query(Collection).all())
         eq_("Items deleted: 1", result.achievements)
+
+
+class TestMeasurementReaper(DatabaseTest):
+
+    def test_query(self):
+        # This reaper is looking for measurements that are not current.
+        measurement, created = get_one_or_create(
+            self._db, Measurement,
+            is_most_recent=True)
+        reaper = MeasurementReaper(self._db)
+        eq_([], reaper.query().all())
+        measurement.is_most_recent = False
+        eq_([measurement], reaper.query().all())
+
+    def test_run_once(self):
+        # End-to-end test
+        measurement1, created = get_one_or_create(
+            self._db, Measurement,
+            quantity_measured=u"answer",
+            value=12,
+            is_most_recent=True)
+        measurement2, created = get_one_or_create(
+            self._db, Measurement,
+            quantity_measured=u"answer",
+            value=42,
+            is_most_recent=False)
+        reaper = MeasurementReaper(self._db)
+        result = reaper.run_once()
+        eq_([measurement1], self._db.query(Measurement).all())
+        eq_("Items deleted: 1", result.achievements)
+
+    def test_disable(self):
+        # This reaper can be disabled with a configuration setting
+        enabled = ConfigurationSetting.sitewide(self._db, Configuration.MEASUREMENT_REAPER)
+        enabled.value = False
+        measurement1, created = get_one_or_create(
+            self._db, Measurement,
+            quantity_measured=u"answer",
+            value=12,
+            is_most_recent=True)
+        measurement2, created = get_one_or_create(
+            self._db, Measurement,
+            quantity_measured=u"answer",
+            value=42,
+            is_most_recent=False)
+        reaper = MeasurementReaper(self._db)
+        reaper.run()
+        eq_([measurement1, measurement2], self._db.query(Measurement).all())
+        enabled.value = True
+        reaper.run()
+        eq_([measurement1], self._db.query(Measurement).all())
 
 
 class TestScrubberMonitor(DatabaseTest):
