@@ -1,44 +1,37 @@
-from nose.tools import (
-    eq_,
-    ok_,
-    set_trace,
-    assert_raises,
-    assert_raises_regexp,
-)
 import datetime
 
-from ..config import Configuration
-from . import DatabaseTest
-
-from ..testing import (
-    AlwaysSuccessfulCoverageProvider,
-    NeverSuccessfulCoverageProvider,
-    BrokenCoverageProvider,
+from nose.tools import (
+    assert_raises,
+    assert_raises_regexp,
+    eq_,
+    ok_,
 )
 
+from . import DatabaseTest
+from ..config import Configuration
 from ..metadata_layer import TimestampData
-
 from ..model import (
-    create,
-    get_one,
     CachedFeed,
     CirculationEvent,
-    CustomList,
     Collection,
     CollectionMissing,
+    ConfigurationSetting,
     Credential,
     DataSource,
     Edition,
     ExternalIntegration,
     Genre,
     Identifier,
+    Measurement,
     Patron,
     Subject,
     Timestamp,
     Work,
-    WorkCoverageRecord, Measurement, get_one_or_create, ConfigurationSetting,
+    WorkCoverageRecord,
+    create,
+    get_one,
+    get_one_or_create,
 )
-
 from ..monitor import (
     CachedFeedReaper,
     CirculationEventLocationScrubber,
@@ -51,6 +44,7 @@ from ..monitor import (
     EditionSweepMonitor,
     IdentifierSweepMonitor,
     MakePresentationReadyMonitor,
+    MeasurementReaper,
     Monitor,
     NotPresentationReadyWorkSweepMonitor,
     OPDSEntryCacheMonitor,
@@ -63,8 +57,13 @@ from ..monitor import (
     SweepMonitor,
     TimelineMonitor,
     WorkReaper,
-    WorkSweepMonitor, MeasurementReaper,
+    WorkSweepMonitor,
 )
+from ..testing import (
+    AlwaysSuccessfulCoverageProvider,
+    NeverSuccessfulCoverageProvider,
+)
+
 
 class MockMonitor(Monitor):
 
@@ -186,7 +185,7 @@ class TestMonitor(DatabaseTest):
             def run_once(self, progress):
                 return TimestampData(start=start, finish=finish, counter=-100)
         monitor = Mock(self._db, self._default_collection)
-        monitor.run()        
+        monitor.run()
 
         timestamp = monitor.timestamp()
         eq_(start, timestamp.start)
