@@ -497,6 +497,7 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
         self.ya_romance.presentation_edition.subtitle = (
             "Modern Fairytale Series, Volume 7"
         )
+        self.ya_romance.presentation_edition.series = "Modern Fairytales"
 
         self.no_age = _work()
         self.no_age.summary_text = "President Barack Obama's election in 2008 energized the United States"
@@ -705,7 +706,7 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
         expect(self.moby_dick, "moby", classics)
 
         # This finds books that belong to _some_ series.
-        expect(self.moby_dick, "", Filter(series=True))
+        expect([self.moby_dick, self.ya_romance], "", Filter(series=True))
 
         # Find results based on genre.
 
