@@ -6,7 +6,17 @@ set -x
 repo="$1"
 version="$2"
 
-apt-get update && $minimal_apt_get_install python-dev \
+# Install the nodesource nodejs package
+# This lets us use node 10 and avoids dependency conflict between node and libxmlsec1 over the
+# version of the ssl library that we find from package managemnet
+curl -sSL https://deb.nodesource.com/gpgkey/nodesource.gpg.key | apt-key add -
+echo "deb https://deb.nodesource.com/node_10.x bionic main" >> /etc/apt/sources.list.d/nodesource.list
+echo "deb-src https://deb.nodesource.com/node_10.x bionic main" >> /etc/apt/sources.list.d/nodesource.list
+
+# Add packages we need to build the app and its dependancies
+apt-get update
+$minimal_apt_get_install --no-upgrade \
+  python-dev \
   python2.7 \
   python-nose \
   python-setuptools \
@@ -17,23 +27,11 @@ apt-get update && $minimal_apt_get_install python-dev \
   libffi-dev \
   libjpeg-dev \
   nodejs \
-  npm \
+  libssl-dev \
   libpq-dev \
-  libxml2-dev \
-  libltdl-dev \
-  libxmlsec1 libxmlsec1-openssl libxslt1.1 libxslt-dev
-
-# Build `xmlsec1` locally to avoid dependency conflict
-# between `libssl-dev` and `libssl1.0-dev`.
-(
-  XMLSEC_VERSION="1.2.30"
-  cd /tmp && \
-  curl -L -O "http://www.aleksey.com/xmlsec/download/xmlsec1-${XMLSEC_VERSION}.tar.gz" && \
-  tar xfz "xmlsec1-${XMLSEC_VERSION}.tar.gz" && \
-  cd "xmlsec1-${XMLSEC_VERSION}" && \
-  ./configure && make && make install
-)
-rm -rf "/tmp/xmlsec1-${XMLSEC_VERSION}"
+  libxmlsec1-dev \
+  libxmlsec1-openssl \
+  libxml2-dev
 
 # Create a user.
 useradd -ms /bin/bash -U simplified
