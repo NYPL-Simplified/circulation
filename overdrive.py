@@ -111,7 +111,7 @@ class OverdriveAPI(object):
     ALL_PRODUCTS_ENDPOINT = "%(host)s/v1/collections/%(collection_token)s/products?sort=%(sort)s"
     METADATA_ENDPOINT = "%(host)s/v1/collections/%(collection_token)s/products/%(item_id)s/metadata"
     EVENTS_ENDPOINT = "%(host)s/v1/collections/%(collection_token)s/products?lastUpdateTime=%(lastupdatetime)s&sort=%(sort)s&limit=%(limit)s"
-    AVAILABILITY_ENDPOINT = "%(host)s/v1/collections/%(collection_token)s/products/%(product_id)s/availability"
+    AVAILABILITY_ENDPOINT = "%(host)s/v2/collections/%(collection_token)s/products/%(product_id)s/availability"
 
     PATRON_INFORMATION_ENDPOINT = "%(patron_host)s/v1/patrons/me"
     CHECKOUTS_ENDPOINT = "%(patron_host)s/v1/patrons/me/checkouts"
@@ -274,6 +274,25 @@ class OverdriveAPI(object):
         return ConfigurationSetting.for_library_and_externalintegration(
             _db, cls.ILS_NAME_KEY, library, collection.external_integration
         )
+
+    @property
+    def advantage_library_id(self):
+        """The library ID for this library, as we should look for it in
+        certain API documents served by Overdrive.
+
+        For ordinary collections, and for consortial collections
+        shared among libraries, this will be -1.
+
+        For Overdrive Advantage accounts, this will be the numeric
+        value of the Overdrive library ID.
+        """
+        if self.parent_library_id is None:
+            # This is not an Overdrive Advantage collection.
+            #
+            # Instead of looking for the library ID itself in these
+            # documents, we should look for the constant -1.
+            return -1
+        return int(self.library_id)
 
     def check_creds(self, force_refresh=False):
         """If the Bearer Token has expired, update it."""
@@ -633,6 +652,15 @@ class OverdriveRepresentationExtractor(object):
 
     log = logging.getLogger("Overdrive representation extractor")
 
+    def __init__(self, api):
+        """Constructor.
+
+        :param api: An OverdriveAPI object. This will be used when deciding
+        which portions of a JSON representation are relevant to the active
+        Overdrive collection.
+        """
+        self.library_id = api.advantage_library_id
+
     @classmethod
     def availability_link_list(cls, book_list):
         """:return: A list of dictionaries with keys `id`, `title`, `availability_link`.
@@ -809,9 +837,7 @@ class OverdriveRepresentationExtractor(object):
                 processed.append(cls.overdrive_role_to_simplified_role[x])
         return processed
 
-
-    @classmethod
-    def book_info_to_circulation(cls, book):
+    def book_info_to_circulation(self, book):
         """ Note:  The json data passed into this method is from a different file/stream
         from the json data that goes into the book_info_to_metadata() method.
         """
@@ -823,27 +849,65 @@ class OverdriveRepresentationExtractor(object):
         licenses_available = None
         patrons_in_hold_queue = None
 
+        # TODO: The only reason this works for a NotFound error is the
+        # circulation code sticks the known book ID into `book` ahead
+        # of time. That's a code smell indicating that this system
+        # needs to be refactored.
+        if 'reserveId' in book and not 'id' in book:
+            book['id'] = book['reserveId']
         if not 'id' in book:
             return None
         overdrive_id = book['id']
         primary_identifier = IdentifierData(
             Identifier.OVERDRIVE_ID, overdrive_id
         )
-        if (book.get('isOwnedByCollections') is not False):
+
+        # TODO: We might be able to use this information to avoid the
+        # need for explicit configuration of Advantage collections, or
+        # at least to keep Advantage collections more up-to-date than
+        # they would be otherwise, as a side effect of updating
+        # regular Overdrive collections.
+
+        # TODO: this would be the place to handle simultaneous use
+        # titles -- these can be detected with
+        # availabilityType="AlwaysAvailable" and have their
+        # .licenses_owned set to LicensePool.UNLIMITED_ACCESS.
+        # see http://developer.overdrive.com/apis/library-availability-new
+
+        # TODO: Cost-per-circ titles
+        # (availabilityType="LimitedAvailablility") can be handled
+        # similarly, though those can abruptly become unavailable, so
+        # UNLIMITED_ACCESS is probably not appropriate.
+
+        error_code = book.get('errorCode')
+        # TODO: It's not clear what other error codes there might be.
+        # The current behavior will respond to errors other than
+        # NotFound by leaving the book alone, but this might not be
+        # the right behavior.
+        if error_code == 'NotFound':
+            licenses_owned = 0
+            licenses_available = 0
+            patrons_in_hold_queue = 0
+        elif book.get('isOwnedByCollections') is not False:
             # We own this book.
-            for collection in book['collections']:
-                if 'copiesOwned' in collection:
+            for account in book.get('accounts', []):
+                # Only keep track of copies owned by the collection
+                # we're tracking.
+                if account.get('id') != self.library_id:
+                    continue
+
+                if 'copiesOwned' in account:
                     if licenses_owned is None:
                         licenses_owned = 0
-                    licenses_owned += int(collection['copiesOwned'])
-                if 'copiesAvailable' in collection:
+                    licenses_owned += int(account['copiesOwned'])
+                if 'copiesAvailable' in account:
                     if licenses_available is None:
                         licenses_available = 0
-                    licenses_available += int(collection['copiesAvailable'])
-                if 'numberOfHolds' in collection:
-                    if patrons_in_hold_queue is None:
-                        patrons_in_hold_queue = 0
-                    patrons_in_hold_queue += collection['numberOfHolds']
+                    licenses_available += int(account['copiesAvailable'])
+            if 'numberOfHolds' in book:
+                if patrons_in_hold_queue is None:
+                    patrons_in_hold_queue = 0
+                patrons_in_hold_queue += book['numberOfHolds']
         return CirculationData(
             data_source=DataSource.OVERDRIVE,
             primary_identifier=primary_identifier,

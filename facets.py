@@ -25,6 +25,8 @@ class FacetConstants(object):
     AVAILABLE_NOW = "now"
     AVAILABLE_ALL = "all"
     AVAILABLE_OPEN_ACCESS = "always"
+    AVAILABLE_NOT_NOW = "not_now" # Used only in QA jackpot feeds -- real patrons don't
+                                  # want to see this.
     AVAILABILITY_FACETS = [
         AVAILABLE_NOW,
         AVAILABLE_ALL,

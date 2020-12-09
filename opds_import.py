@@ -53,6 +53,23 @@ from util.xmlparser import XMLParser
 from .classifier import Classifier
 
 
+def parse_identifier(db, identifier):
+    """Parse the identifier and return an Identifier object representing it.
+
+    :param db: Database session
+    :type db: sqlalchemy.orm.session.Session
+
+    :param identifier: String containing the identifier
+    :type identifier: str
+
+    :return: Identifier object
+    :rtype: Identifier
+    """
+    identifier, _ = Identifier.parse_urn(db, identifier)
+
+    return identifier
+
+
 class AccessNotAuthenticated(Exception):
     """No authentication is configured for this service"""
     pass
@@ -699,6 +716,17 @@ class OPDSImporter(object):
         )
         return False
 
+    def _parse_identifier(self, identifier):
+        """Parse the identifier and return an Identifier object representing it.
+
+        :param identifier: String containing the identifier
+        :type identifier: str
+
+        :return: Identifier object
+        :rtype: Identifier
+        """
+        return parse_identifier(self._db, identifier)
+
     def import_from_feed(self, feed, feed_url=None):
 
         # Keep track of editions that were imported. Pools and works
@@ -1061,7 +1089,6 @@ class OPDSImporter(object):
                 # log that something very wrong happened.
                 logging.error("Tried to parse an element without a valid identifier.  feed=%s" % feed)
         return values, failures
-
 
     @classmethod
     def extract_metadata_from_elementtree(cls, feed, data_source, feed_url=None, do_get=None):
@@ -1822,6 +1849,17 @@ class OPDSImportMonitor(CollectionMonitor, HasSelfTests):
             headers['Accept'] = self._get_accept_header()
         return headers
 
+    def _parse_identifier(self, identifier):
+        """Extract the publication's identifier from its metadata.
+
+        :param identifier: String containing the identifier
+        :type identifier: str
+
+        :return: Identifier object
+        :rtype: Identifier
+        """
+        return parse_identifier(self._db, identifier)
+
     def opds_url(self, collection):
         """Returns the OPDS import URL for the given collection.
 
@@ -1854,7 +1892,7 @@ class OPDSImportMonitor(CollectionMonitor, HasSelfTests):
         new_data = False
         for identifier, remote_updated in last_update_dates:
 
-            identifier, ignore = Identifier.parse_urn(self._db, identifier)
+            identifier = self._parse_identifier(identifier)
             if not identifier:
                 # Maybe this is new, maybe not, but we can't associate
                 # the information with an Identifier, so we can't do

@@ -1,43 +1,37 @@
-from nose.tools import (
-    eq_,
-    ok_,
-    set_trace,
-    assert_raises,
-    assert_raises_regexp,
-)
 import datetime
 
-from . import DatabaseTest
-
-from ..testing import (
-    AlwaysSuccessfulCoverageProvider,
-    NeverSuccessfulCoverageProvider,
-    BrokenCoverageProvider,
+from nose.tools import (
+    assert_raises,
+    assert_raises_regexp,
+    eq_,
+    ok_,
 )
 
+from . import DatabaseTest
+from ..config import Configuration
 from ..metadata_layer import TimestampData
-
 from ..model import (
-    create,
-    get_one,
     CachedFeed,
     CirculationEvent,
-    CustomList,
     Collection,
     CollectionMissing,
+    ConfigurationSetting,
     Credential,
     DataSource,
     Edition,
     ExternalIntegration,
     Genre,
     Identifier,
+    Measurement,
     Patron,
     Subject,
     Timestamp,
     Work,
     WorkCoverageRecord,
+    create,
+    get_one,
+    get_one_or_create,
 )
-
 from ..monitor import (
     CachedFeedReaper,
     CirculationEventLocationScrubber,
@@ -50,6 +44,7 @@ from ..monitor import (
     EditionSweepMonitor,
     IdentifierSweepMonitor,
     MakePresentationReadyMonitor,
+    MeasurementReaper,
     Monitor,
     NotPresentationReadyWorkSweepMonitor,
     OPDSEntryCacheMonitor,
@@ -64,6 +59,11 @@ from ..monitor import (
     WorkReaper,
     WorkSweepMonitor,
 )
+from ..testing import (
+    AlwaysSuccessfulCoverageProvider,
+    NeverSuccessfulCoverageProvider,
+)
+
 
 class MockMonitor(Monitor):
 
@@ -185,7 +185,7 @@ class TestMonitor(DatabaseTest):
             def run_once(self, progress):
                 return TimestampData(start=start, finish=finish, counter=-100)
         monitor = Mock(self._db, self._default_collection)
-        monitor.run()        
+        monitor.run()
 
         timestamp = monitor.timestamp()
         eq_(start, timestamp.start)
@@ -1145,6 +1145,57 @@ class TestCollectionReaper(DatabaseTest):
         # one is unaffected.
         eq_([c1], self._db.query(Collection).all())
         eq_("Items deleted: 1", result.achievements)
+
+
+class TestMeasurementReaper(DatabaseTest):
+
+    def test_query(self):
+        # This reaper is looking for measurements that are not current.
+        measurement, created = get_one_or_create(
+            self._db, Measurement,
+            is_most_recent=True)
+        reaper = MeasurementReaper(self._db)
+        eq_([], reaper.query().all())
+        measurement.is_most_recent = False
+        eq_([measurement], reaper.query().all())
+
+    def test_run_once(self):
+        # End-to-end test
+        measurement1, created = get_one_or_create(
+            self._db, Measurement,
+            quantity_measured=u"answer",
+            value=12,
+            is_most_recent=True)
+        measurement2, created = get_one_or_create(
+            self._db, Measurement,
+            quantity_measured=u"answer",
+            value=42,
+            is_most_recent=False)
+        reaper = MeasurementReaper(self._db)
+        result = reaper.run_once()
+        eq_([measurement1], self._db.query(Measurement).all())
+        eq_("Items deleted: 1", result.achievements)
+
+    def test_disable(self):
+        # This reaper can be disabled with a configuration setting
+        enabled = ConfigurationSetting.sitewide(self._db, Configuration.MEASUREMENT_REAPER)
+        enabled.value = False
+        measurement1, created = get_one_or_create(
+            self._db, Measurement,
+            quantity_measured=u"answer",
+            value=12,
+            is_most_recent=True)
+        measurement2, created = get_one_or_create(
+            self._db, Measurement,
+            quantity_measured=u"answer",
+            value=42,
+            is_most_recent=False)
+        reaper = MeasurementReaper(self._db)
+        reaper.run()
+        eq_([measurement1, measurement2], self._db.query(Measurement).all())
+        enabled.value = True
+        reaper.run()
+        eq_([measurement1], self._db.query(Measurement).all())
 
 
 class TestScrubberMonitor(DatabaseTest):
