@@ -2443,8 +2443,12 @@ class Filter(SearchBase):
 
         if self.series:
             if self.series is True:
-                # The book must belong to _some_ series
+                # The book must belong to _some_ series.
+                #
+                # That is, series must exist (have a non-null value) and
+                # have a value other than the empty string.
                 f = chain(f, Exists(field="series"))
+                f = chain(f, Bool(must_not=[Term(**{"series.keyword": ""})]))
             else:
                 f = chain(f, Term(**{"series.keyword": self.series}))
 

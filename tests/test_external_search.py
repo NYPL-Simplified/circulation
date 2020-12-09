@@ -502,6 +502,10 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
         self.no_age = _work()
         self.no_age.summary_text = "President Barack Obama's election in 2008 energized the United States"
 
+        # Set the series to the empty string rather than None -- this isn't counted
+        # as the book belonging to a series.
+        self.no_age.presentation_edition.series = ""
+
         self.age_4_5 = _work()
         self.age_4_5.target_age = NumericRange(4, 5, '[]')
         self.age_4_5.summary_text = "President Barack Obama's election in 2008 energized the United States"
@@ -3712,11 +3716,16 @@ class TestFilter(DatabaseTest):
         # matter.
         f = Filter(series=True)
         built, nested = f.build()
+
         eq_({}, nested)
+        # The book must have an indexed series.
         eq_(
             built.to_dict()['bool']['must'],
             [{'exists': {'field': 'series'}}]
         )
+
+        # But the 'series' that got indexed must not be the empty string.
+        assert {'term': {'series.keyword': ''}} in built.to_dict()['bool']['must_not']
 
     def test_sort_order(self):
         # Test the Filter.sort_order property.
