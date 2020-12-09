@@ -1,5 +1,6 @@
 import datetime
-from json import JSONEncoder
+from json import JSONEncoder, JSONDecoder
+from json.decoder import WHITESPACE
 
 from enum import Enum
 from onelogin.saml2.constants import OneLogin_Saml2_Constants
@@ -1032,6 +1033,55 @@ class SubjectJSONEncoder(JSONEncoder):
             }
 
         return result
+
+
+class SubjectJSONDecoder(JSONDecoder):
+    """Subject's JSON decoder."""
+
+    def decode(self, raw_subject, _w=WHITESPACE.match):
+        """Decode a JSON document into Subject object.
+
+        :param raw_subject: String containing JSON document
+        :type raw_subject: str
+
+        :param _w: Regular expression used to match white spaces
+        :type _w: RegEx
+
+        :return: Subject object
+        :rtype: api.saml.metadata.Subject
+        """
+        raw_subject = super(SubjectJSONDecoder, self).decode(raw_subject, _w)
+        attribute_statement = None
+        name_id = None
+
+        if 'name_id' in raw_subject:
+            raw_name_id_dict = raw_subject['name_id']
+            raw_name_format = raw_name_id_dict['name_format']
+            raw_name_id = raw_name_id_dict['name_id']
+            raw_name_qualifier = raw_name_id_dict['name_qualifier']
+            raw_sp_name_qualifier = raw_name_id_dict['sp_name_qualifier']
+            name_id = NameID(
+                raw_name_format,
+                raw_name_qualifier,
+                raw_sp_name_qualifier,
+                raw_name_id
+            )
+
+        if 'attributes' in raw_subject:
+            raw_attributes = raw_subject['attributes']
+            attributes = []
+
+            for raw_attribute_name in raw_attributes:
+                raw_attribute_values = raw_attributes[raw_attribute_name]
+                attribute = Attribute(raw_attribute_name, raw_attribute_values)
+
+                attributes.append(attribute)
+
+            attribute_statement = AttributeStatement(attributes)
+
+        subject = Subject(name_id, attribute_statement)
+
+        return subject
 
 
 class SubjectUIDExtractor(object):

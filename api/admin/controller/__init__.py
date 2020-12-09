@@ -88,6 +88,7 @@ from core.selftest import HasSelfTests
 from core.util.flask_util import OPDSFeedResponse
 from core.util.http import HTTP
 from core.util.problem_detail import ProblemDetail
+from api.proquest.importer import ProQuestOPDS2Importer
 
 
 def setup_admin_controllers(manager):
@@ -1284,20 +1285,22 @@ class SettingsController(AdminCirculationManagerController):
 
     NO_MIRROR_INTEGRATION = u"NO_MIRROR"
 
-    PROVIDER_APIS = [OPDSImporter,
-                     OPDSForDistributorsAPI,
-                     OPDS2Importer,
-                     OverdriveAPI,
-                     OdiloAPI,
-                     BibliothecaAPI,
-                     Axis360API,
-                     RBDigitalAPI,
-                     EnkiAPI,
-                     ODLAPI,
-                     SharedODLAPI,
-                     FeedbooksOPDSImporter,
-                     LCPAPI
-                     ]
+    PROVIDER_APIS = [
+        OPDSImporter,
+        OPDSForDistributorsAPI,
+        OPDS2Importer,
+        ProQuestOPDS2Importer,
+        OverdriveAPI,
+        OdiloAPI,
+        BibliothecaAPI,
+        Axis360API,
+        RBDigitalAPI,
+        EnkiAPI,
+        ODLAPI,
+        SharedODLAPI,
+        FeedbooksOPDSImporter,
+        LCPAPI
+    ]
 
     @classmethod
     def _get_integration_protocols(cls, provider_apis, protocol_name_attr="__module__"):

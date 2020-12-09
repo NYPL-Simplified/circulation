@@ -69,11 +69,19 @@ class SAMLMetadataParser(object):
         """
         certificates = []
 
+        self._logger.info('Started parsing {0} certificates'.format(len(certificate_nodes)))
+
         try:
             for certificate_node in certificate_nodes:
-                certificates.append(''.join(OneLogin_Saml2_Utils.element_text(certificate_node).split()))
+                certificate = ''.join(OneLogin_Saml2_Utils.element_text(certificate_node).split())
+
+                self._logger.info('Found the following certificate: {0}'.format(certificate))
+
+                certificates.append(certificate)
         except XMLSyntaxError as exception:
             raise SAMLMetadataParsingError(inner_exception=exception)
+
+        self._logger.info('Finished parsing {0} certificates: {1}'.format(len(certificate_nodes), certificates))
 
         return certificates
 

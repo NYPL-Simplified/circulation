@@ -1,4 +1,6 @@
-from api.saml.metadata import Binding
+import re
+
+from api.saml.metadata import Binding, NameIDFormat
 
 NAME_ID_FORMAT_1 = 'urn:mace:shibboleth:1.0:nameIdentifier'
 NAME_ID_FORMAT_2 = 'urn:oasis:names:tc:SAML:2.0:nameid-format:transient'
@@ -789,6 +791,46 @@ CORRECT_ONE_SP_METADATA = \
     )
 
 
+MAIL = 'patron@example.com'
+GIVEN_NAME = 'Rosie'
+SURNAME = 'Nairn'
+UID = 'rosie.nairn'
+EDU_PERSON_PRINCIPAL_NAME = 'patron@example.org'
+
+NAME_ID = 'AAdzZWNyZXQxhtrjeUiJ2AIkyiOUTM6w+oRFi6ZWMol5btG40ddzFNN4ELloaTpArM1WCG1jm0DX87Tl829ptqBKrIfYw2bQstEjOaACQJljoWmbTVKWrmr4Bx60lhMFHTawA7NHq6V9gwKngwdGP2yES6tn/w=='
+NAME_QUALIFIER = 'http://idp.hilbertteam.net/idp/shibboleth'
+NAME_FORMAT = NameIDFormat.TRANSIENT.value
+SP_NAME_QUALIFIER = 'http://cm.hilbertteam.net/metadata/'
+
+JSON_DOCUMENT_WITH_SAML_SUBJECT = \
+    '''{{
+    "attributes": {{
+        "mail": ["{0}"],
+        "givenName": ["{1}"],
+        "surname": ["{2}"],
+        "uid": ["{3}"],
+        "eduPersonPrincipalName": ["{4}"]
+    }},
+    "name_id": {{
+        "name_id": "{5}",
+        "name_qualifier": "{6}",
+        "name_format": "{7}",
+        "sp_name_qualifier": "{8}"
+    }}
+}}
+'''.format(
+        MAIL,
+        GIVEN_NAME,
+        SURNAME,
+        UID,
+        EDU_PERSON_PRINCIPAL_NAME,
+        NAME_ID,
+        NAME_QUALIFIER,
+        NAME_FORMAT,
+        SP_NAME_QUALIFIER
+    )
+
+
 def strip_certificate(certificate):
     """
     Converts certificate to a one-line format
@@ -804,3 +846,20 @@ def strip_certificate(certificate):
         .replace('\n', '')\
         .replace('-----BEGIN CERTIFICATE-----', '')\
         .replace('-----END CERTIFICATE-----', '')
+
+
+def strip_json(string_value):
+    """Strip a string containing a JSON document and remove all redundant white-space symbols.
+
+    :param string_value: String containing a JSON document
+    :type string_value: str
+
+    :return: String containing a JSON document without redundant white-space symbols
+    :rtype: str
+    """
+    result = string_value.replace('\n', '')
+    result = re.sub(r'{\s+', '{', result)
+    result = re.sub(r'\s+}', '}', result)
+    result = re.sub(r',\s+', ', ', result)
+
+    return result

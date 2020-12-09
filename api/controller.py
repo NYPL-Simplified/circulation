@@ -153,8 +153,8 @@ class CirculationManager(object):
         if not testing:
             try:
                 self.config = Configuration.load(_db)
-            except CannotLoadConfiguration, e:
-                self.log.error("Could not load configuration file: %s" % e)
+            except CannotLoadConfiguration as exception:
+                self.log.exception("Could not load configuration file: {0}".format(exception))
                 sys.exit()
 
         self.testing = testing
