@@ -710,7 +710,9 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
         expect(self.moby_dick, "moby", classics)
 
         # This finds books that belong to _some_ series.
-        expect([self.moby_dick, self.ya_romance], "", Filter(series=True))
+        some_series = Filter(series=True)
+        expect([self.moby_dick, self.ya_romance], "", some_series,
+               ordered=False)
 
         # Find results based on genre.
 
