@@ -3,19 +3,20 @@ import logging
 from contextlib import contextmanager
 
 import six
+from flask_babel import lazy_gettext as _
+from requests import HTTPError
+from sqlalchemy import or_
+from webpub_manifest_parser.utils import encode
+
 from api.circulation import BaseCirculationAPI, FulfillmentInfo, LoanInfo
 from api.circulation_exceptions import CannotFulfill, CannotLoan
 from api.proquest.client import ProQuestAPIClientConfiguration, ProQuestAPIClientFactory
 from api.proquest.credential import ProQuestCredentialManager
 from api.proquest.identifier import ProQuestIdentifierParser
 from api.saml.metadata.model import SAMLAttributeType
-from flask_babel import lazy_gettext as _
-from requests import HTTPError
-from sqlalchemy import or_
-
 from core.classifier import Classifier
 from core.exceptions import BaseError
-from core.model import Collection, Identifier, LicensePool, Loan, get_one
+from core.model import Collection, Hyperlink, Identifier, LicensePool, Loan, get_one
 from core.model.configuration import (
     ConfigurationAttributeType,
     ConfigurationFactory,
@@ -388,6 +389,51 @@ class ProQuestOPDS2Importer(OPDS2Importer, BaseCirculationAPI, HasExternalIntegr
 
             iterations += 1
 
+    def _extract_image_links(self, publication, feed_self_url):
+        """Extracts a list of LinkData objects containing information about artwork.
+
+        :param publication: Publication object
+        :type publication: ast_core.Publication
+
+        :param feed_self_url: Feed's self URL
+        :type feed_self_url: str
+
+        :return: List of links metadata
+        :rtype: List[LinkData]
+        """
+        self._logger.debug(
+            u"Started extracting image links from {0}".format(
+                encode(publication.images)
+            )
+        )
+
+        image_links = []
+
+        for image_link in publication.images.links:
+            thumbnail_link = self._extract_link(
+                image_link,
+                feed_self_url,
+                default_link_rel=Hyperlink.THUMBNAIL_IMAGE,
+            )
+            thumbnail_link.rel = Hyperlink.THUMBNAIL_IMAGE
+
+            cover_link = self._extract_link(
+                image_link,
+                feed_self_url,
+                default_link_rel=Hyperlink.IMAGE,
+            )
+            cover_link.rel = Hyperlink.IMAGE
+            cover_link.thumbnail = thumbnail_link
+            image_links.append(cover_link)
+
+        self._logger.debug(
+            u"Finished extracting image links from {0}: {1}".format(
+                encode(publication.images), encode(image_links)
+            )
+        )
+
+        return image_links
+
     def _parse_identifier(self, identifier):
         """Parse the identifier and return an Identifier object representing it.
 
@@ -627,6 +673,7 @@ class ProQuestOPDS2ImportMonitor(OPDS2ImportMonitor, HasExternalIntegration):
     def _get_feeds(self):
         self._logger.info("Started fetching ProQuest paged OPDS 2.0 feeds")
 
+        page = 1
         processed_number_of_items = 0
         total_number_of_items = None
 
@@ -651,13 +698,15 @@ class ProQuestOPDS2ImportMonitor(OPDS2ImportMonitor, HasExternalIntegration):
             )
 
             self._logger.info(
-                "Page # {0}. Processed {0} items out of {1} ({2:.2f}%)".format(
-                    feed.metadata.current_page,
+                "Page # {0}. Processed {1} items out of {2} ({3:.2f}%)".format(
+                    page,
                     processed_number_of_items,
                     total_number_of_items,
                     processed_number_of_items / total_number_of_items * 100.0,
                 )
             )
+
+            page += 1
 
             yield None, feed
 
