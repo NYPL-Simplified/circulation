@@ -1,6 +1,13 @@
 import datetime
 import json
 
+from flask import Response
+from freezegun import freeze_time
+from mock import MagicMock, call, create_autospec, patch
+from nose.tools import assert_raises, eq_
+from parameterized import parameterized
+from requests import HTTPError
+
 from api.authenticator import BaseSAMLAuthenticationProvider
 from api.circulation_exceptions import CannotFulfill, CannotLoan
 from api.proquest.client import (
@@ -22,20 +29,7 @@ from api.saml.metadata.model import (
     SAMLSubject,
     SAMLSubjectJSONEncoder,
 )
-from flask import Response
-from freezegun import freeze_time
-from mock import MagicMock, call, create_autospec, patch
-from nose.tools import assert_raises, eq_
-from parameterized import parameterized
-from requests import HTTPError
-from webpub_manifest_parser.core.ast import CollectionList, PresentationMetadata
-from webpub_manifest_parser.opds2.ast import (
-    OPDS2Feed,
-    OPDS2FeedMetadata,
-    OPDS2Group,
-    OPDS2Publication,
-)
-
+from core.metadata_layer import LinkData
 from core.model import (
     Collection,
     CoverageRecord,
@@ -43,6 +37,7 @@ from core.model import (
     DataSource,
     DeliveryMechanism,
     ExternalIntegration,
+    Hyperlink,
     Identifier,
 )
 from core.model.configuration import (
@@ -51,11 +46,12 @@ from core.model.configuration import (
     HasExternalIntegration,
 )
 from core.testing import DatabaseTest
+from tests.proquest import fixtures
 
 
-class TestProQuestAPIClient(DatabaseTest):
+class TestProQuestOPDS2Importer(DatabaseTest):
     def setup(self, mock_search=True):
-        super(TestProQuestAPIClient, self).setup()
+        super(TestProQuestOPDS2Importer, self).setup()
 
         self._proquest_data_source = DataSource.lookup(
             self._db, DataSource.PROQUEST, autocreate=True
@@ -841,64 +837,39 @@ class TestProQuestAPIClient(DatabaseTest):
             )
             eq_(2, api_client_mock.get_book.call_count)
 
+    def test_correctly_imports_covers(self):
+        # We want to make sure that ProQuestOPDS2Importer
+        # correctly processes cover links in the ProQuest feed
+        # and generates LinkData for both, the full cover and thumbnail.
 
-PROQUEST_PUBLICATION_1 = OPDS2Publication(
-    metadata=PresentationMetadata(
-        identifier="urn:proquest.com/document-id/1",
-        modified=datetime.datetime(2020, 1, 31, 0, 0, 0),
-    )
-)
+        # Act
+        importer = ProQuestOPDS2Importer(self._db, self._proquest_collection)
 
-PROQUEST_PUBLICATION_2 = OPDS2Publication(
-    metadata=PresentationMetadata(
-        identifier="urn:proquest.com/document-id/2",
-        modified=datetime.datetime(2020, 1, 30, 0, 0, 0),
-    )
-)
+        result = importer.extract_feed_data(fixtures.PROQUEST_RAW_FEED)
 
-PROQUEST_PUBLICATION_3 = OPDS2Publication(
-    metadata=PresentationMetadata(
-        identifier="urn:proquest.com/document-id/3",
-        modified=datetime.datetime(2020, 1, 29, 0, 0, 0),
-    )
-)
+        # Assert
+        eq_(2, len(result))
+        publication_metadata_dictionary = result[0]
 
-PROQUEST_PUBLICATION_4 = OPDS2Publication(
-    metadata=PresentationMetadata(
-        identifier="urn:proquest.com/document-id/4",
-        modified=datetime.datetime(2020, 1, 28, 0, 0, 0),
-    )
-)
-
-PROQUEST_FEED_PAGE_1 = OPDS2Feed(
-    metadata=OPDS2FeedMetadata(
-        title="Page # 1", current_page=1, items_per_page=10, number_of_items=20
-    ),
-    groups=CollectionList(
-        [
-            OPDS2Group(
-                publications=CollectionList(
-                    [PROQUEST_PUBLICATION_1, PROQUEST_PUBLICATION_2]
-                )
-            )
+        eq_(
+            True,
+            fixtures.PROQUEST_RAW_PUBLICATION_ID in publication_metadata_dictionary,
+        )
+        publication_metadata = publication_metadata_dictionary[
+            fixtures.PROQUEST_RAW_PUBLICATION_ID
         ]
-    ),
-)
 
-PROQUEST_FEED_PAGE_2 = OPDS2Feed(
-    metadata=OPDS2FeedMetadata(
-        title="Page # 2", current_page=2, items_per_page=10, number_of_items=20
-    ),
-    groups=CollectionList(
-        [
-            OPDS2Group(
-                publications=CollectionList(
-                    [PROQUEST_PUBLICATION_3, PROQUEST_PUBLICATION_4]
-                )
-            )
-        ]
-    ),
-)
+        eq_(1, len(publication_metadata.links))
+
+        [full_cover_link] = publication_metadata.links
+        eq_(True, isinstance(full_cover_link, LinkData))
+        eq_(fixtures.PROQUEST_RAW_PUBLICATION_COVER_HREF, full_cover_link.href)
+        eq_(Hyperlink.IMAGE, full_cover_link.rel)
+
+        thumbnail_cover_link = full_cover_link.thumbnail
+        eq_(True, isinstance(thumbnail_cover_link, LinkData))
+        eq_(fixtures.PROQUEST_RAW_PUBLICATION_COVER_HREF, thumbnail_cover_link.href)
+        eq_(Hyperlink.THUMBNAIL_IMAGE, thumbnail_cover_link.rel)
 
 
 class TestProQuestOPDS2ImportMonitor(DatabaseTest):
@@ -918,11 +889,18 @@ class TestProQuestOPDS2ImportMonitor(DatabaseTest):
     @parameterized.expand(
         [
             ("no_pages", [], []),
-            ("one_page", [PROQUEST_FEED_PAGE_1], [call(PROQUEST_FEED_PAGE_1)]),
+            (
+                "one_page",
+                [fixtures.PROQUEST_FEED_PAGE_1],
+                [call(fixtures.PROQUEST_FEED_PAGE_1)],
+            ),
             (
                 "two_pages",
-                [PROQUEST_FEED_PAGE_1, PROQUEST_FEED_PAGE_2],
-                [call(PROQUEST_FEED_PAGE_1), call(PROQUEST_FEED_PAGE_2)],
+                [fixtures.PROQUEST_FEED_PAGE_1, fixtures.PROQUEST_FEED_PAGE_2],
+                [
+                    call(fixtures.PROQUEST_FEED_PAGE_1),
+                    call(fixtures.PROQUEST_FEED_PAGE_2),
+                ],
             ),
         ]
     )
@@ -969,28 +947,34 @@ class TestProQuestOPDS2ImportMonitor(DatabaseTest):
         """
         # Arrange
         # There are two pages: page # 1 and page # 2
-        feeds = [PROQUEST_FEED_PAGE_1, PROQUEST_FEED_PAGE_2]
+        feeds = [fixtures.PROQUEST_FEED_PAGE_1, fixtures.PROQUEST_FEED_PAGE_2]
         # But only the page # 1 will be processed
-        expected_calls = [call(PROQUEST_FEED_PAGE_1)]
+        expected_calls = [call(fixtures.PROQUEST_FEED_PAGE_1)]
 
         identifier_parser = ProQuestIdentifierParser()
 
         # Create Identifiers for publications # 2, 3, and 4
         publication_2_identifier, _ = identifier, _ = Identifier.parse(
-            self._db, PROQUEST_PUBLICATION_2.metadata.identifier, identifier_parser
+            self._db,
+            fixtures.PROQUEST_PUBLICATION_2.metadata.identifier,
+            identifier_parser,
         )
         publication_3_identifier, _ = identifier, _ = Identifier.parse(
-            self._db, PROQUEST_PUBLICATION_3.metadata.identifier, identifier_parser
+            self._db,
+            fixtures.PROQUEST_PUBLICATION_3.metadata.identifier,
+            identifier_parser,
         )
         publication_4_identifier, _ = identifier, _ = Identifier.parse(
-            self._db, PROQUEST_PUBLICATION_4.metadata.identifier, identifier_parser
+            self._db,
+            fixtures.PROQUEST_PUBLICATION_4.metadata.identifier,
+            identifier_parser,
         )
 
         # Make sure that all the publications # 2, 3, and 4 were already processed
         max_modified_date = max(
-            PROQUEST_PUBLICATION_2.metadata.modified,
-            PROQUEST_PUBLICATION_3.metadata.modified,
-            PROQUEST_PUBLICATION_4.metadata.modified,
+            fixtures.PROQUEST_PUBLICATION_2.metadata.modified,
+            fixtures.PROQUEST_PUBLICATION_3.metadata.modified,
+            fixtures.PROQUEST_PUBLICATION_4.metadata.modified,
         )
         coverage_date = max_modified_date + datetime.timedelta(days=1)
 
