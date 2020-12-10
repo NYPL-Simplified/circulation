@@ -1118,6 +1118,22 @@ class SAMLSubject(object):
         """
         return self._name_id
 
+    @name_id.setter
+    def name_id(self, value):
+        """Set the name ID.
+
+        :param value: New name ID
+        :type value: Optional[SAMLNameID]
+        """
+        if value and not isinstance(value, SAMLNameID):
+            raise ValueError(
+                "Argument 'value' must be either None or an instance of {0} class".format(
+                    SAMLNameID
+                )
+            )
+
+        self._name_id = value
+
     @property
     def attribute_statement(self):
         """Returns the attribute statement
