@@ -76,6 +76,25 @@ class SAMLConfiguration(ConfigurationGrouping):
         required=False,
     )
 
+    session_lifetime = ConfigurationMetadata(
+        key="saml_session_lifetime",
+        label=_("Session Lifetime"),
+        description=_(
+            "This configuration setting determines how long "
+            "a session created by the SAML authentication provider will live in days. "
+            "By default it's empty meaning that the lifetime of the Circulation Manager's session "
+            "is exactly the same as the lifetime of the IdP's session. "
+            "Setting this value to a specific number will override this behaviour."
+            "<br>"
+            "NOTE: This setting affects the session's lifetime only Circulation Manager's side. "
+            "Accessing content protected by SAML will still be governed by the IdP and patrons "
+            "will have to reauthenticate each time the IdP's session expires."
+        ),
+        type=ConfigurationAttributeType.NUMBER,
+        required=False,
+        default=None,
+    )
+
     filter_expression = ConfigurationMetadata(
         key="saml_filter_expression",
         label=_("Filter Expression"),

@@ -28,8 +28,9 @@ from api.saml.metadata.model import (
     SAMLSubjectJSONEncoder,
     SAMLUIInfo,
 )
-from api.saml.metadata.parser import SAMLSubjectParser
+from api.saml.metadata.parser import SAMLSubjectParser, SAMLMetadataParser
 from api.saml.provider import SAML_INVALID_SUBJECT, SAMLWebSSOAuthenticationProvider
+from core.model.configuration import HasExternalIntegration, ConfigurationStorage
 from core.python_expression_dsl.evaluator import DSLEvaluationVisitor, DSLEvaluator
 from core.python_expression_dsl.parser import DSLParser
 from core.util.problem_detail import ProblemDetail
@@ -104,6 +105,25 @@ IDENTITY_PROVIDER_WITHOUT_DISPLAY_NAMES = SAMLIdentityProviderMetadata(
 
 
 class TestSAMLWebSSOAuthenticationProvider(ControllerTest):
+    def setup(self, _db=None, set_up_circulation_manager=True):
+        super(TestSAMLWebSSOAuthenticationProvider, self).setup(
+            _db, set_up_circulation_manager
+        )
+
+        metadata_parser = SAMLMetadataParser()
+
+        self._external_integration_association = create_autospec(
+            spec=HasExternalIntegration
+        )
+        self._external_integration_association.external_integration = MagicMock(
+            return_value=self._integration
+        )
+
+        self._configuration_storage = ConfigurationStorage(
+            self._external_integration_association
+        )
+        self._configuration_factory = SAMLConfigurationFactory(metadata_parser)
+
     @parameterized.expand(
         [
             (
@@ -375,6 +395,28 @@ class TestSAMLWebSSOAuthenticationProvider(ControllerTest):
                 ),
             ),
             (
+                "subject_has_unique_id_and_custom_session_lifetime",
+                SAMLSubject(
+                    None,
+                    SAMLAttributeStatement(
+                        [
+                            SAMLAttribute(
+                                name=SAMLAttributeType.eduPersonUniqueId.name,
+                                values=["12345"],
+                            )
+                        ]
+                    ),
+                ),
+                PatronData(
+                    permanent_id="12345",
+                    authorization_identifier="12345",
+                    external_type="A",
+                    complete=True,
+                ),
+                datetime.datetime(2020, 1, 1) + datetime.timedelta(days=42),
+                42,
+            ),
+            (
                 "subject_has_unique_id_and_non_default_expiration_timeout",
                 SAMLSubject(
                     None,
@@ -395,26 +437,68 @@ class TestSAMLWebSSOAuthenticationProvider(ControllerTest):
                     complete=True,
                 ),
             ),
+            (
+                "subject_has_unique_id_non_default_expiration_timeout_and_custom_session_lifetime",
+                SAMLSubject(
+                    None,
+                    SAMLAttributeStatement(
+                        [
+                            SAMLAttribute(
+                                name=SAMLAttributeType.eduPersonUniqueId.name,
+                                values=["12345"],
+                            )
+                        ]
+                    ),
+                    valid_till=datetime.timedelta(days=1),
+                ),
+                PatronData(
+                    permanent_id="12345",
+                    authorization_identifier="12345",
+                    external_type="A",
+                    complete=True,
+                ),
+                datetime.datetime(2020, 1, 1) + datetime.timedelta(days=42),
+                42,
+            ),
         ]
     )
     @freeze_time("2020-01-01 00:00:00")
-    def test_saml_callback(self, _, subject, expected_result):
+    def test_saml_callback(
+        self,
+        _,
+        subject,
+        expected_patron_data,
+        expected_expiration_time=None,
+        cm_session_lifetime=None,
+    ):
+        # This test makes sure that SAMLWebSSOAuthenticationProvider.saml_callback
+        # correctly processes a SAML subject and returns right PatronData.
+
         # Arrange
         provider = SAMLWebSSOAuthenticationProvider(
             self._default_library, self._integration
         )
         expected_credential = json.dumps(subject, cls=SAMLSubjectJSONEncoder)
 
+        if expected_expiration_time is None and subject is not None:
+            expected_expiration_time = datetime.datetime.utcnow() + subject.valid_till
+
+        if cm_session_lifetime is not None:
+            with self._configuration_factory.create(
+                self._configuration_storage, self._db, SAMLConfiguration
+            ) as configuration:
+                configuration.session_lifetime = cm_session_lifetime
+
         # Act
         result = provider.saml_callback(self._db, subject)
 
         # Assert
         if isinstance(result, ProblemDetail):
-            eq_(result.response, expected_result.response)
+            eq_(result.response, expected_patron_data.response)
         else:
             credential, patron, patron_data = result
 
             eq_(expected_credential, credential.credential)
-            eq_(expected_result.permanent_id, patron.external_identifier)
-            eq_(expected_result, patron_data)
-            eq_(datetime.datetime.utcnow() + subject.valid_till, credential.expires)
+            eq_(expected_patron_data.permanent_id, patron.external_identifier)
+            eq_(expected_patron_data, patron_data)
+            eq_(expected_expiration_time, credential.expires)
