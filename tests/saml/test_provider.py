@@ -27,6 +27,7 @@ from api.saml.metadata.model import (
     SAMLSubject,
     SAMLSubjectJSONEncoder,
     SAMLUIInfo,
+    SAMLNameID,
 )
 from api.saml.metadata.parser import SAMLSubjectParser, SAMLMetadataParser
 from api.saml.provider import SAML_INVALID_SUBJECT, SAMLWebSSOAuthenticationProvider
@@ -395,6 +396,58 @@ class TestSAMLWebSSOAuthenticationProvider(ControllerTest):
                 ),
             ),
             (
+                "subject_has_unique_id_and_persistent_name_id",
+                SAMLSubject(
+                    SAMLNameID(
+                        SAMLNameIDFormat.PERSISTENT.value,
+                        "name-qualifier",
+                        "sp-name-qualifier",
+                        "12345",
+                    ),
+                    SAMLAttributeStatement(
+                        [
+                            SAMLAttribute(
+                                name=SAMLAttributeType.eduPersonUniqueId.name,
+                                values=["12345"],
+                            )
+                        ]
+                    ),
+                ),
+                PatronData(
+                    permanent_id="12345",
+                    authorization_identifier="12345",
+                    external_type="A",
+                    complete=True,
+                ),
+                None,
+            ),
+            (
+                "subject_has_unique_id_and_transient_name_id",
+                SAMLSubject(
+                    SAMLNameID(
+                        SAMLNameIDFormat.TRANSIENT.value,
+                        "name-qualifier",
+                        "sp-name-qualifier",
+                        "12345",
+                    ),
+                    SAMLAttributeStatement(
+                        [
+                            SAMLAttribute(
+                                name=SAMLAttributeType.eduPersonUniqueId.name,
+                                values=["12345"],
+                            )
+                        ]
+                    ),
+                ),
+                PatronData(
+                    permanent_id="12345",
+                    authorization_identifier="12345",
+                    external_type="A",
+                    complete=True,
+                ),
+                '{"attributes": {"eduPersonUniqueId": ["12345"]}}',
+            ),
+            (
                 "subject_has_unique_id_and_custom_session_lifetime",
                 SAMLSubject(
                     None,
@@ -413,6 +466,7 @@ class TestSAMLWebSSOAuthenticationProvider(ControllerTest):
                     external_type="A",
                     complete=True,
                 ),
+                None,
                 datetime.datetime(2020, 1, 1) + datetime.timedelta(days=42),
                 42,
             ),
@@ -457,6 +511,7 @@ class TestSAMLWebSSOAuthenticationProvider(ControllerTest):
                     external_type="A",
                     complete=True,
                 ),
+                None,
                 datetime.datetime(2020, 1, 1) + datetime.timedelta(days=42),
                 42,
             ),
@@ -468,6 +523,7 @@ class TestSAMLWebSSOAuthenticationProvider(ControllerTest):
         _,
         subject,
         expected_patron_data,
+        expected_credential=None,
         expected_expiration_time=None,
         cm_session_lifetime=None,
     ):
@@ -478,7 +534,9 @@ class TestSAMLWebSSOAuthenticationProvider(ControllerTest):
         provider = SAMLWebSSOAuthenticationProvider(
             self._default_library, self._integration
         )
-        expected_credential = json.dumps(subject, cls=SAMLSubjectJSONEncoder)
+
+        if expected_credential is None:
+            expected_credential = json.dumps(subject, cls=SAMLSubjectJSONEncoder)
 
         if expected_expiration_time is None and subject is not None:
             expected_expiration_time = datetime.datetime.utcnow() + subject.valid_till

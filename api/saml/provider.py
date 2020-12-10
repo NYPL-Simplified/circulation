@@ -1,6 +1,7 @@
 import datetime
 import json
 import logging
+from copy import deepcopy
 
 from contextlib2 import contextmanager
 from flask import url_for
@@ -14,6 +15,7 @@ from api.saml.configuration.validator import SAMLSettingsValidator
 from api.saml.metadata.filter import SAMLSubjectFilter
 from api.saml.metadata.model import (
     SAMLLocalizedMetadataItem,
+    SAMLNameIDFormat,
     SAMLSubject,
     SAMLSubjectJSONEncoder,
     SAMLSubjectUIDExtractor,
@@ -209,9 +211,32 @@ class SAMLWebSSOAuthenticationProvider(
             )
             return [SAMLLocalizedMetadataItem(display_name, language="en")]
 
-    def _create_token(self, db, patron, subject, cm_session_lifetime):
-        """Creates a Credential object that ties the given patron to the
-        given provider token.
+    @staticmethod
+    def _create_token_value(subject):
+        """Serialize the SAML subject.
+
+        :param subject: SAML subject
+        :type subject: api.saml.metadata.model.SAMLSubject
+
+        :return: Token value
+        :rtype: str
+        """
+        subject = deepcopy(subject)
+
+        # We should not save a transient Name ID because it changes each time
+        if (
+            subject.name_id
+            and subject.name_id.name_format == SAMLNameIDFormat.TRANSIENT.value
+        ):
+            subject.name_id = None
+
+        token_value = json.dumps(subject, cls=SAMLSubjectJSONEncoder)
+
+        return token_value
+
+    def _create_token(self, db, patron, subject, cm_session_lifetime=None):
+        """Create a Credential object that ties the given patron to the
+            given provider token.
 
         :param db: Database session
         :type db: sqlalchemy.orm.session.Session
@@ -228,12 +253,13 @@ class SAMLWebSSOAuthenticationProvider(
         :return: Credential object
         :rtype: Credential
         """
-        token = json.dumps(subject, cls=SAMLSubjectJSONEncoder)
-        data_source, ignore = self._get_token_data_source(db)
         session_lifetime = subject.valid_till
 
         if cm_session_lifetime is not None:
             session_lifetime = datetime.timedelta(days=int(cm_session_lifetime))
+
+        token = self._create_token_value(subject)
+        data_source, ignore = self._get_token_data_source(db)
 
         return Credential.temporary_token_create(
             db, data_source, self.TOKEN_TYPE, patron, session_lifetime, token
