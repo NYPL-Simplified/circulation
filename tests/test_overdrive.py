@@ -110,8 +110,19 @@ class TestOverdriveAPI(OverdriveTestWithAPI):
         eq_("default", self.api.ils_name(l2))
 
     def test_make_link_safe(self):
+        # Unsafe characters are escaped.
         eq_("http://foo.com?q=%2B%3A%7B%7D",
             OverdriveAPI.make_link_safe("http://foo.com?q=+:{}"))
+
+        # Links to version 1 of the availability API are converted
+        # to links to version 2.
+        v1 = "https://qa.api.overdrive.com/v1/collections/abcde/products/12345/availability"
+        v2 = "https://qa.api.overdrive.com/v2/collections/abcde/products/12345/availability"
+        eq_(v2, OverdriveAPI.make_link_safe(v1))
+
+        # Links to other endpoints are not converted
+        leave_alone = "https://qa.api.overdrive.com/v1/collections/abcde/products/12345"
+        eq_(leave_alone, OverdriveAPI.make_link_safe(leave_alone))
 
     def test_hosts(self):
         c = OverdriveAPI
