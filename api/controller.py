@@ -121,6 +121,7 @@ from lanes import (
     load_lanes,
     ContributorFacets,
     ContributorLane,
+    HasSeriesFacets,
     JackpotFacets,
     JackpotWorkList,
     RecommendationLane,
@@ -1127,39 +1128,68 @@ class OPDSFeedController(CirculationManagerController):
             facets=facets
         )
 
-    def qa_feed(self, feed_class=AcquisitionFeed):
-        """Create an OPDS feed containing the information necessary to
-        run a full set of integration tests against this server and
-        the vendors it relies on.
-        """
-
+    def _qa_feed(self, feed_method, feed_title, controller_name, facet_class,
+                 worklist_factory):
         library = flask.request.library
         search_engine = self.search_engine
         if isinstance(search_engine, ProblemDetail):
             return search_engine
 
         url = self.url_for(
-            "qa_feed",
+            controller_name,
             library_short_name=library.short_name,
         )
 
         facets = load_facets_from_request(
-            base_class=JackpotFacets, default_entrypoint=EverythingEntryPoint
+            base_class=facet_class, default_entrypoint=EverythingEntryPoint
         )
         if isinstance(facets, ProblemDetail):
             return facets
 
-        jwl = JackpotWorkList(library, facets)
-        annotator = self.manager.annotator(jwl)
+        worklist = worklist_factory(library, facets)
+        annotator = self.manager.annotator(worklist)
 
         # Since this feed will be consumed by an automated client, and
         # we're choosing titles for specific purposes, there's no
         # reason to put more than a single item in each group.
         pagination = Pagination(size=1)
-        return feed_class.groups(
-            _db=self._db, title="QA test feed", url=url, pagination=pagination,
-            worklist=jwl, annotator=annotator, search_engine=search_engine,
-            max_age=CachedFeed.IGNORE_CACHE
+        return feed_method(
+            _db=self._db, title=feed_title, url=url, pagination=pagination,
+            worklist=worklist, annotator=annotator, search_engine=search_engine,
+            facets=facets, max_age=CachedFeed.IGNORE_CACHE
+        )
+
+    def qa_feed(self, feed_class=AcquisitionFeed):
+        """Create an OPDS feed containing the information necessary to
+        run a full set of integration tests against this server and
+        the vendors it relies on.
+        """
+        def factory(library, facets):
+            return JackpotWorkList(facets)
+
+        return self._qa_feed(
+            feed_method=feed_class.groups,
+            feed_title="QA test feed",
+            controller_name="qa_feed",
+            facet_class=JackpotFacets,
+            worklist_factory=factory
+        )
+
+    def qa_series_feed(self, feed_class=AcquisitionFeed):
+        """Create an OPDS feed containing books that belong to _some_
+        series, without regard to _which_ series.
+        """
+        def factory(library, facets):
+            wl = WorkList()
+            wl.initialize(library)
+            return wl
+
+        return self._qa_feed(
+            feed_method=feed_class.page,
+            feed_title="QA series test feed",
+            controller_name="qa_series_feed",
+            facet_class=HasSeriesFacets,
+            worklist_factory=factory
         )
 
 
