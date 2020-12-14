@@ -792,12 +792,27 @@ class ProQuestOPDS2ImportMonitor(OPDS2ImportMonitor, HasExternalIntegration):
     def _get_feeds(self):
         self._logger.info("Started fetching ProQuest paged OPDS 2.0 feeds")
 
+        feeds = []
+
+        self._logger.info("Started downloading feed pages")
+
+        for feed in self._client.download_all_feed_pages(self._db):
+            feeds.append(feed)
+
+        self._logger.info("Finished downloading {0} feed pages".format(len(feeds)))
+
         page = 1
         processed_number_of_items = 0
         total_number_of_items = None
 
-        for feed in self._client.download_all_feed_pages(self._db):
+        self._logger.info("Started processing feed pages")
+
+        for feed in feeds:
+            self._logger.info("Page # {0}. Started parsing the feed".format(page))
+
             feed = parse_feed(feed, silent=False)
+
+            self._logger.info("Page # {0}. Finished parsing the feed".format(page))
 
             # FIXME: We cannot short-circuit the feed import process
             #  because ProQuest feed is not ordered by the publication's modified date.
@@ -828,5 +843,7 @@ class ProQuestOPDS2ImportMonitor(OPDS2ImportMonitor, HasExternalIntegration):
             page += 1
 
             yield None, feed
+
+        self._logger.info("Finished processing {0} feed pages".format(len(feeds)))
 
         self._logger.info("Finished fetching ProQuest paged OPDS 2.0 feeds")
