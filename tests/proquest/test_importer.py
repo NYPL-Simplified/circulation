@@ -1,13 +1,6 @@
 import datetime
 import json
 
-from flask import Response
-from freezegun import freeze_time
-from mock import MagicMock, call, create_autospec, patch
-from nose.tools import assert_raises, eq_
-from parameterized import parameterized
-from requests import HTTPError
-
 from api.authenticator import BaseSAMLAuthenticationProvider
 from api.circulation_exceptions import CannotFulfill, CannotLoan
 from api.proquest.client import (
@@ -46,6 +39,12 @@ from core.model.configuration import (
     HasExternalIntegration,
 )
 from core.testing import DatabaseTest
+from flask import Response
+from freezegun import freeze_time
+from mock import MagicMock, call, create_autospec, patch
+from nose.tools import assert_raises, eq_
+from parameterized import parameterized
+from requests import HTTPError
 from tests.proquest import fixtures
 
 
@@ -233,6 +232,11 @@ class TestProQuestOPDS2Importer(DatabaseTest):
         affiliation_id = "12345"
         proquest_token = "1234567890"
 
+        custom_affiliation_attributes = (
+            SAMLAttributeType.mail.name,
+            SAMLAttributeType.uid.name,
+        )
+
         saml_subject = SAMLSubject(
             None,
             SAMLAttributeStatement(
@@ -271,10 +275,7 @@ class TestProQuestOPDS2Importer(DatabaseTest):
         with self._configuration_factory.create(
             self._configuration_storage, self._db, ProQuestOPDS2ImporterConfiguration
         ) as configuration:
-            configuration.affiliation_attributes = (
-                SAMLAttributeType.mail.name,
-                SAMLAttributeType.uid.name,
-            )
+            configuration.affiliation_attributes = custom_affiliation_attributes
 
             with patch(
                 "api.proquest.importer.ProQuestAPIClientFactory"
@@ -321,7 +322,7 @@ class TestProQuestOPDS2Importer(DatabaseTest):
                 credential_manager_mock.lookup_patron_affiliation_id.assert_called_once_with(
                     self._db,
                     self._proquest_patron,
-                    configuration.affiliation_attributes,
+                    custom_affiliation_attributes,
                 )
 
                 # 3. Assert that ProQuest.create_token was called when CM tried to create
@@ -446,21 +447,29 @@ class TestProQuestOPDS2Importer(DatabaseTest):
     @freeze_time("2020-01-01 00:00:00")
     def test_fulfil_lookups_for_existing_token(self):
         # We want to test that fulfil operation always is always preceded by
-        # checking for a ProQuest JWT bearer token. # Without a valid JWT token, fulfil operation will fail.
+        # checking for a ProQuest JWT bearer token.
+        # Without a valid JWT token, fulfil operation will fail.
+        # Additionally, we want to test that Circulation Manager handles downloading of DRM-free books.
 
         # Arrange
         proquest_token = "1234567890"
-        book = ProQuestBook(link="https://proquest.com/books/books.epub")
+        proquest_token_expires_in = datetime.datetime.utcnow() + datetime.timedelta(
+            hours=1
+        )
+        proquest_credential = Credential(
+            credential=proquest_token, expires=proquest_token_expires_in
+        )
+        drm_free_book = ProQuestBook(link="https://proquest.com/books/books.epub")
 
         api_client_mock = create_autospec(spec=ProQuestAPIClient)
-        api_client_mock.get_book = MagicMock(return_value=book)
+        api_client_mock.get_book = MagicMock(return_value=drm_free_book)
 
         api_client_factory_mock = create_autospec(spec=ProQuestAPIClientFactory)
         api_client_factory_mock.create = MagicMock(return_value=api_client_mock)
 
         credential_manager_mock = create_autospec(spec=ProQuestCredentialManager)
         credential_manager_mock.lookup_proquest_token = MagicMock(
-            return_value=proquest_token
+            return_value=proquest_credential
         )
 
         with patch(
@@ -489,20 +498,35 @@ class TestProQuestOPDS2Importer(DatabaseTest):
                 self._proquest_license_pool.identifier.type,
                 fulfilment_info.identifier_type,
             )
-            eq_(book.link, fulfilment_info.content_link)
+
+            # Make sure that the fulfilment info doesn't contain a link but instead contains a JSON document
+            # which is used to pass the book's link and the ProQuest token to the client app.
+            eq_(None, fulfilment_info.content_link)
+            eq_(DeliveryMechanism.BEARER_TOKEN, fulfilment_info.content_type)
+            eq_(True, fulfilment_info.content is not None)
+
+            token_document = json.loads(fulfilment_info.content)
+            eq_("Bearer", token_document["token_type"])
+            eq_(proquest_token, token_document["access_token"])
             eq_(
-                self._proquest_delivery_mechanism.delivery_mechanism.media_type,
+                (
+                    proquest_token_expires_in - datetime.datetime.utcnow()
+                ).total_seconds(),
+                token_document["expires_in"],
+            )
+            eq_(drm_free_book.link, token_document["location"])
+            eq_(
+                DeliveryMechanism.BEARER_TOKEN,
                 fulfilment_info.content_type,
             )
-            eq_(None, fulfilment_info.content)
-            eq_(None, fulfilment_info.content_expires)
+            eq_(proquest_token_expires_in, fulfilment_info.content_expires)
 
             # Assert than ProQuestOPDS2Importer correctly created an instance of ProQuestAPIClient.
             api_client_factory_mock.create.assert_called_once_with(importer)
 
             # 1. Assert that ProQuestCredentialManager.lookup_proquest_token
             # was called when CM tried to fetch an existing token.
-            credential_manager_mock.lookup_proquest_token.assert_called_once_with(
+            credential_manager_mock.lookup_proquest_token.assert_called_with(
                 self._db, self._proquest_patron
             )
 
@@ -525,6 +549,7 @@ class TestProQuestOPDS2Importer(DatabaseTest):
         # Arrange
         affiliation_id = "12345"
         proquest_token = "1234567890"
+        proquest_credential = Credential(credential=proquest_token)
         book = ProQuestBook(content=bytes("Book"))
 
         api_client_mock = create_autospec(spec=ProQuestAPIClient)
@@ -539,7 +564,7 @@ class TestProQuestOPDS2Importer(DatabaseTest):
             return_value=affiliation_id
         )
         credential_manager_mock.lookup_proquest_token = MagicMock(
-            side_effect=[None, proquest_token]
+            side_effect=[None, proquest_credential]
         )
 
         with patch(
@@ -581,7 +606,7 @@ class TestProQuestOPDS2Importer(DatabaseTest):
 
             # 1. Assert that ProQuestCredentialManager.lookup_proquest_token
             # was called when CM tried to fetch an nonexistent token.
-            credential_manager_mock.lookup_proquest_token.assert_called_once_with(
+            credential_manager_mock.lookup_proquest_token.assert_called_with(
                 self._db, self._proquest_patron
             )
 
@@ -721,26 +746,42 @@ class TestProQuestOPDS2Importer(DatabaseTest):
 
     @freeze_time("2020-01-01 00:00:00")
     def test_fulfil_refreshes_expired_token(self):
-        # By default ProQuest JWT bearer tokens should be valid for 1 hour but since they are controlled by ProQuest
-        # we cannot be sure that they will not change this setting.
+        # By default ProQuest JWT bearer tokens should be valid for 1 hour but
+        # since they are controlled by ProQuest we cannot be sure that they will not change this setting.
         # We want to test that fulfil operation automatically refreshes an expired token:
         # 1. CM fetches a token from the storage.
         # 2. CM tries to download the book using the token but ProQuest API returns 401 status code.
         # 3. CM generates a new token.
         # 4. CM tries to generate a book using the new token.
+        # Additionally, we want to test that Circulation Manager handles downloading of ACSM files.
 
         # Arrange
         affiliation_id = "12345"
         expired_proquest_token = "1234567890"
+        expired_proquest_token_expired_in = (
+            datetime.datetime.utcnow() - datetime.timedelta(minutes=1)
+        )
+        expired_proquest_token_credential = Credential(
+            credential=expired_proquest_token, expires=expired_proquest_token_expired_in
+        )
         new_proquest_token = "1234567890_"
-        book = ProQuestBook(
-            content=bytes("Book"), content_type=DeliveryMechanism.ADOBE_DRM
+        new_proquest_token_expires_in = datetime.datetime.utcnow() + datetime.timedelta(
+            hours=1
+        )
+        new_proquest_token_credential = Credential(
+            credential=new_proquest_token, expires=new_proquest_token_expires_in
+        )
+        adobe_drm_protected_book = ProQuestBook(
+            content=bytes("ACSM file"), content_type=DeliveryMechanism.ADOBE_DRM
         )
 
         api_client_mock = create_autospec(spec=ProQuestAPIClient)
         api_client_mock.create_token = MagicMock(return_value=new_proquest_token)
         api_client_mock.get_book = MagicMock(
-            side_effect=[HTTPError(response=Response(status=401)), book]
+            side_effect=[
+                HTTPError(response=Response(status=401)),
+                adobe_drm_protected_book,
+            ]
         )
 
         api_client_factory_mock = create_autospec(spec=ProQuestAPIClientFactory)
@@ -751,7 +792,10 @@ class TestProQuestOPDS2Importer(DatabaseTest):
             return_value=affiliation_id
         )
         credential_manager_mock.lookup_proquest_token = MagicMock(
-            return_value=expired_proquest_token
+            return_value=expired_proquest_token_credential
+        )
+        credential_manager_mock.save_proquest_token = MagicMock(
+            return_value=new_proquest_token_credential
         )
 
         with patch(
@@ -780,12 +824,14 @@ class TestProQuestOPDS2Importer(DatabaseTest):
                 self._proquest_license_pool.identifier.type,
                 fulfilment_info.identifier_type,
             )
+
+            # Make sure that fulfilment info contains content of the ACSM file not a link.
             eq_(None, fulfilment_info.content_link)
             eq_(
-                book.content_type,
+                adobe_drm_protected_book.content_type,
                 fulfilment_info.content_type,
             )
-            eq_(book.content, fulfilment_info.content)
+            eq_(adobe_drm_protected_book.content, fulfilment_info.content)
             eq_(None, fulfilment_info.content_expires)
 
             # Assert than ProQuestOPDS2Importer correctly created an instance of ProQuestAPIClient.
@@ -793,7 +839,7 @@ class TestProQuestOPDS2Importer(DatabaseTest):
 
             # 1. Assert that ProQuestCredentialManager.lookup_proquest_token
             # was called when CM tried to fetch a existing token.
-            credential_manager_mock.lookup_proquest_token.assert_called_once_with(
+            credential_manager_mock.lookup_proquest_token.assert_called_with(
                 self._db, self._proquest_patron
             )
 

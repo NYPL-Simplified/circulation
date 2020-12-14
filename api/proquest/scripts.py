@@ -2,7 +2,6 @@ import logging
 
 from api.proquest.client import ProQuestAPIClientFactory
 from api.proquest.importer import ProQuestOPDS2ImportMonitor
-
 from core.scripts import OPDSImportScript
 
 
