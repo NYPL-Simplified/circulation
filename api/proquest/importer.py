@@ -588,10 +588,10 @@ class ProQuestOPDS2Importer(OPDS2Importer, BaseCirculationAPI, HasExternalIntegr
             .filter(
                 Collection.id == self._collection_id,
                 Loan.patron == patron,
-                or_(Loan.start is None, Loan.start <= now),
-                or_(Loan.end is None, Loan.end > now),
+                or_(Loan.start == None, Loan.start <= now),
+                or_(Loan.end == None, Loan.end > now),
             )
-        )
+        ).all()
 
         loan_info_objects = []
 
