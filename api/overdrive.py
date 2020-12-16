@@ -981,16 +981,6 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
             return True
         raise CannotReleaseHold(response.content)
 
-    def _correct_availability_link(self, url):
-        # Update an availability link from v1 to v2.
-        # The Overdrive API sometimes serves v1 availability links,
-        # but we want to always use v2.
-        v1 = self.endpoint("%(host)s/v1/collections/")
-        v2 = self.endpoint("%(host)s/v2/collections/")
-        if url.startswith(v1):
-            url = url.replace(v1, v2)
-        return url
-
     def circulation_lookup(self, book):
         if isinstance(book, basestring):
             book_id = book
@@ -1003,9 +993,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
         else:
             book_id = book['id']
             circulation_link = book['availability_link']
-            circulation_link = self._correct_availability_link(
-                circulation_link
-            )
+            circulation_link = self.make_link_safe(circulation_link)
         return book, self.get(circulation_link, {})
 
     def update_formats(self, licensepool):
