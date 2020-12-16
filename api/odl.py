@@ -115,6 +115,12 @@ class ODLAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
             "required": True,
         },
         {
+            "key": ExternalIntegration.CUSTOM_ACCEPT_HEADER,
+            "label": _("Custom accept header"),
+            "required": False,
+            "description": _("Some servers expect an accept header to decide which file to send. You can use */* if the server doesn't expect anything. The default values if left blank is: 'application/atom+xml;profile=opds-catalog;kind=acquisition, application/atom+xml;q=0.9, application/xml;q=0.8, */*;q=0.1'"),
+        },
+        {
             "key": Collection.DEFAULT_RESERVATION_PERIOD_KEY,
             "label": _("Default Reservation Period (in Days)"),
             "description": _("The number of days a patron has to check out a book after a hold becomes available."),
@@ -173,6 +179,8 @@ class ODLAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
 
         self.username = collection.external_integration.username
         self.password = collection.external_integration.password
+        self.custom_accept_header = collection.external_integration.custom_accept_header
+
         self.analytics = Analytics(_db)
 
     def internal_format(self, delivery_mechanism):
@@ -188,12 +196,11 @@ class ODLAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
         """Make a normal HTTP request, but include an authentication
         header with the credentials for the collection.
         """
-
-        username = self.username
-        password = self.password
-        headers = dict(headers or {})
-        auth_header = "Basic %s" % base64.b64encode("%s:%s" % (username, password))
-        headers['Authorization'] = auth_header
+        headers = dict(headers) if headers else {}
+        headers['Authorization'] = "Basic %s" % base64.b64encode("%s:%s" % (self.username,
+                                                                            self.password))
+        if self.custom_accept_header:
+            headers["Accept"] = self.custom_accept_header
 
         return HTTP.get_with_timeout(url, headers=headers)
 
