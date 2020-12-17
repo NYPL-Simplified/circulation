@@ -675,6 +675,7 @@ class Facets(FacetsWithEntryPoint):
         available_now = or_(
             LicensePool.open_access == True,
             LicensePool.self_hosted == True,
+            LicensePool.unlimited_access == True,
             LicensePool.licenses_available > 0
         )
 
@@ -684,7 +685,8 @@ class Facets(FacetsWithEntryPoint):
             availability_clause = or_(
                 LicensePool.open_access == True,
                 LicensePool.self_hosted == True,
-                LicensePool.licenses_owned > 0
+                LicensePool.licenses_owned > 0,
+                LicensePool.unlimited_access
             )
         elif self.availability == self.AVAILABLE_OPEN_ACCESS:
             # TODO: self-hosted content could be allowed here
