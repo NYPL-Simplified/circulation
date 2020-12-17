@@ -7,6 +7,7 @@ import flask
 import json
 from werkzeug.datastructures import MultiDict
 from api.admin.exceptions import *
+from api.app import initialize_database
 from core.model import (
     AdminRole,
     ConfigurationSetting,
@@ -16,7 +17,14 @@ from core.model import (
 )
 from test_controller import SettingsControllerTest
 
+
 class TestAdminAuthServices(SettingsControllerTest):
+    @classmethod
+    def setup_class(cls):
+        super(TestAdminAuthServices, cls).setup_class()
+
+        initialize_database(autoinitialize=False)
+
     def test_admin_auth_services_get_with_no_services(self):
         with self.request_context_with_admin("/"):
             response = self.manager.admin_auth_services_controller.process_admin_auth_services()

@@ -1593,7 +1593,7 @@ class DirectoryImportScript(TimestampScript):
         :type collection_type: CollectionType
 
         :param identifier: Book's identifier
-        :type identifier: Identifier
+        :type identifier: core.model.identifier.Identifier,
 
         :param data_source: DataSource object
         :type data_source: DataSource

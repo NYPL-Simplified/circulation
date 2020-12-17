@@ -1,2 +1,0 @@
-#!/bin/sh
-TESTING=true PYTHONWARNINGS=ignore nosetests tests

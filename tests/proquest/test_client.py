@@ -1,11 +1,6 @@
 import json
 
 import requests_mock
-from mock import MagicMock, create_autospec
-from nose.tools import assert_raises, eq_
-from parameterized import parameterized
-from requests import HTTPError
-
 from api.proquest.client import (
     ProQuestAPIClient,
     ProQuestAPIClientConfiguration,
@@ -14,6 +9,11 @@ from api.proquest.client import (
     ProQuestBook,
 )
 from api.util.url import URLUtility
+from mock import MagicMock, create_autospec
+from nose.tools import assert_raises, eq_
+from parameterized import parameterized
+from requests import HTTPError
+
 from core.model import DeliveryMechanism, ExternalIntegration
 from core.model.configuration import (
     ConfigurationFactory,

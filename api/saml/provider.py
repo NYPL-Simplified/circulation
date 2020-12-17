@@ -2,39 +2,51 @@ import datetime
 import json
 import logging
 
+from contextlib2 import contextmanager
 from flask import url_for
 from flask_babel import lazy_gettext as _
 
 from api.authenticator import BaseSAMLAuthenticationProvider, PatronData
 from api.problem_details import *
-from api.saml.auth import SAMLAuthenticationManagerFactory
-from api.saml.configuration import SAMLConfiguration
-from api.saml.metadata import Subject, SubjectUIDExtractor, SubjectJSONEncoder, LocalizableMetadataItem
-from api.saml.parser import SAMLMetadataParser
-from api.saml.validator import SAMLSettingsValidator
-from core.model import Credential, get_one_or_create, DataSource
-from core.model.configuration import HasExternalIntegration
+from api.saml.auth import SAMLAuthenticationManager, SAMLAuthenticationManagerFactory
+from api.saml.configuration.model import SAMLConfiguration, SAMLConfigurationFactory
+from api.saml.configuration.validator import SAMLSettingsValidator
+from api.saml.metadata.filter import SAMLSubjectFilter
+from api.saml.metadata.model import (
+    SAMLLocalizedMetadataItem,
+    SAMLSubject,
+    SAMLSubjectJSONEncoder,
+    SAMLSubjectUIDExtractor,
+)
+from api.saml.metadata.parser import SAMLMetadataParser
+from core.model import Credential, DataSource, get_one_or_create
+from core.model.configuration import ConfigurationStorage, HasExternalIntegration
+from core.python_expression_dsl.evaluator import DSLEvaluationVisitor, DSLEvaluator
+from core.python_expression_dsl.parser import DSLParser
 from core.util.problem_detail import ProblemDetail
 
 SAML_INVALID_SUBJECT = pd(
-    'http://librarysimplified.org/terms/problem/saml/invalid-subject',
+    "http://librarysimplified.org/terms/problem/saml/invalid-subject",
     status_code=401,
-    title=_('SAML invalid subject.'),
-    detail=_('SAML invalid subject.')
+    title=_("SAML invalid subject."),
+    detail=_("SAML invalid subject."),
 )
 
 
-class SAMLWebSSOAuthenticationProvider(BaseSAMLAuthenticationProvider, HasExternalIntegration):
+class SAMLWebSSOAuthenticationProvider(
+    BaseSAMLAuthenticationProvider, HasExternalIntegration
+):
     """SAML authentication provider implementing Web Browser SSO profile using the following bindings:
     - HTTP-Redirect Binding for requests
     - HTTP-POST Binding for responses
     """
 
-    NAME = 'SAML 2.0 Web SSO'
+    NAME = "SAML 2.0 Web SSO"
 
     DESCRIPTION = _(
-        '''SAML 2.0 authentication provider implementing the Web SSO profile using the following bindings:
-         HTTP-Redirect for requests and HTTP-POST for responses''')
+        """SAML 2.0 authentication provider implementing the Web SSO profile using the following bindings:
+         HTTP-Redirect for requests and HTTP-POST for responses."""
+    )
 
     def __init__(self, library, integration, analytics=None):
         """Initializes a new instance of SAMLAuthenticationProvider class
@@ -56,7 +68,9 @@ class SAMLWebSSOAuthenticationProvider(BaseSAMLAuthenticationProvider, HasExtern
         )
 
         self._logger = logging.getLogger(__name__)
-        self._authentication_manager = None
+        self._configuration_storage = ConfigurationStorage(self)
+        self._configuration_factory = SAMLConfigurationFactory(SAMLMetadataParser())
+        self._authentication_manager_factory = SAMLAuthenticationManagerFactory()
 
     def _authentication_flow_document(self, db):
         """Creates a Authentication Flow object for use in an Authentication for OPDS document.
@@ -133,31 +147,44 @@ class SAMLWebSSOAuthenticationProvider(BaseSAMLAuthenticationProvider, HasExtern
         :return: Authentication Flow object for use in an Authentication for OPDS document
         :rtype: Dict
         """
-        flow_doc = {
-            'type': self.FLOW_TYPE,
-            'description': self.NAME,
-            'links': []
-        }
+        flow_doc = {"type": self.FLOW_TYPE, "description": self.NAME, "links": []}
 
-        configuration = self.get_authentication_manager(db).configuration
+        with self._configuration_factory.create(
+            self._configuration_storage, db, SAMLConfiguration
+        ) as configuration:
+            configuration = self.get_authentication_manager(configuration).configuration
 
-        for index, identity_provider in enumerate(configuration.configuration.get_identity_providers(db)):
-            link = {
-                'rel': 'authenticate',
-                'href': self._create_authenticate_url(db, identity_provider.entity_id),
-                'display_names': self._join_ui_info_items(self._get_idp_display_names(index + 1, identity_provider)),
-                'descriptions': self._join_ui_info_items(identity_provider.ui_info.descriptions),
-                'information_urls': self._join_ui_info_items(identity_provider.ui_info.information_urls),
-                'privacy_statement_urls': self._join_ui_info_items(
-                    identity_provider.ui_info.privacy_statement_urls),
-                'logo_urls': self._join_ui_info_items(identity_provider.ui_info.logo_urls)
-            }
+            for index, identity_provider in enumerate(
+                configuration.configuration.get_identity_providers(db)
+            ):
+                link = {
+                    "rel": "authenticate",
+                    "href": self._create_authenticate_url(
+                        db, identity_provider.entity_id
+                    ),
+                    "display_names": self._join_ui_info_items(
+                        self._get_idp_display_names(index + 1, identity_provider)
+                    ),
+                    "descriptions": self._join_ui_info_items(
+                        identity_provider.ui_info.descriptions
+                    ),
+                    "information_urls": self._join_ui_info_items(
+                        identity_provider.ui_info.information_urls
+                    ),
+                    "privacy_statement_urls": self._join_ui_info_items(
+                        identity_provider.ui_info.privacy_statement_urls
+                    ),
+                    "logo_urls": self._join_ui_info_items(
+                        identity_provider.ui_info.logo_urls
+                    ),
+                }
 
-            flow_doc['links'].append(link)
+                flow_doc["links"].append(link)
 
-        return flow_doc
+            return flow_doc
 
-    def _get_idp_display_names(self, identity_provider_index, identity_provider):
+    @staticmethod
+    def _get_idp_display_names(identity_provider_index, identity_provider):
         """Returns a list of IdP's display names:
         - first, it checks UIInfo.display_names
         - secondly, it checks Organization.organization_display_names
@@ -177,10 +204,10 @@ class SAMLWebSSOAuthenticationProvider(BaseSAMLAuthenticationProvider, HasExtern
         elif identity_provider.organization.organization_display_names:
             return identity_provider.organization.organization_display_names
         else:
-            display_name = SAMLConfiguration.IDP_DISPLAY_NAME_DEFAULT_TEMPLATE.format(identity_provider_index)
-            return [
-                LocalizableMetadataItem(display_name, language='en')
-            ]
+            display_name = SAMLConfiguration.IDP_DISPLAY_NAME_DEFAULT_TEMPLATE.format(
+                identity_provider_index
+            )
+            return [SAMLLocalizedMetadataItem(display_name, language="en")]
 
     def _create_token(self, db, patron, token, valid_till):
         """Creates a Credential object that ties the given patron to the
@@ -222,11 +249,11 @@ class SAMLWebSSOAuthenticationProvider(BaseSAMLAuthenticationProvider, HasExtern
         library = self.library(db)
 
         return url_for(
-            'saml_authenticate',
+            "saml_authenticate",
             _external=True,
             library_short_name=library.short_name,
             provider=self.NAME,
-            idp_entity_id=idp_entity_id
+            idp_entity_id=idp_entity_id,
         )
 
     def _create_authentication_manager(self, db):
@@ -255,11 +282,10 @@ class SAMLWebSSOAuthenticationProvider(BaseSAMLAuthenticationProvider, HasExtern
         # FIXME: This code will probably not work in a situation where a library has multiple SAML
         #  authentication mechanisms for its patrons.
         #  It'll look up a Credential from this data source but it won't be able to tell which IdP it came from.
-        return get_one_or_create(
-            db, DataSource, name=self.TOKEN_DATA_SOURCE_NAME
-        )
+        return get_one_or_create(db, DataSource, name=self.TOKEN_DATA_SOURCE_NAME)
 
-    def _join_ui_info_items(self, *ui_info_item_lists):
+    @staticmethod
+    def _join_ui_info_items(*ui_info_item_lists):
         """Joins all UI info items (like, display names, descriptions, etc.) to a single list of dicts
 
         :param ui_info_item_lists: List of child LocalizableMetadataInfo objects
@@ -274,10 +300,12 @@ class SAMLWebSSOAuthenticationProvider(BaseSAMLAuthenticationProvider, HasExtern
             for ui_info_item_list in ui_info_item_lists:
                 if ui_info_item_list:
                     for ui_info_item in ui_info_item_list:
-                        result.append({
-                            'value': ui_info_item.value,
-                            'language': ui_info_item.language
-                        })
+                        result.append(
+                            {
+                                "value": ui_info_item.value,
+                                "language": ui_info_item.language,
+                            }
+                        )
 
         return result
 
@@ -305,9 +333,7 @@ class SAMLWebSSOAuthenticationProvider(BaseSAMLAuthenticationProvider, HasExtern
         :rtype: Union[Patron, ProblemDetail]
         """
         data_source, ignore = self._get_token_data_source(db)
-        credential = Credential.lookup_by_token(
-            db, data_source, self.TOKEN_TYPE, token
-        )
+        credential = Credential.lookup_by_token(db, data_source, self.TOKEN_TYPE, token)
         if credential:
             return credential.patron
 
@@ -316,19 +342,35 @@ class SAMLWebSSOAuthenticationProvider(BaseSAMLAuthenticationProvider, HasExtern
         # to get a new token.
         return None
 
-    def get_authentication_manager(self, db):
-        """Returns SAML authentication manager used by this provider
+    @contextmanager
+    def get_configuration(self, db):
+        """Return a SAMLConfiguration object.
 
         :param db: Database session
         :type db: sqlalchemy.orm.session.Session
 
+        :return: SAMLConfiguration object
+        :rtype: api.saml.configuration.model.SAMLConfiguration
+        """
+        with self._configuration_factory.create(
+            self._configuration_storage, db, SAMLConfiguration
+        ) as configuration:
+            yield configuration
+
+    def get_authentication_manager(self, configuration):
+        """Returns SAML authentication manager used by this provider
+
+        :param configuration: SAMLConfiguration object
+        :type configuration: api.saml.configuration.model.SAMLConfiguration
+
         :return: SAML authentication manager used by this provider
         :rtype: SAMLAuthenticationManager
         """
-        if self._authentication_manager is None:
-            self._authentication_manager = self._create_authentication_manager(db)
+        authentication_manager = self._authentication_manager_factory.create(
+            configuration
+        )
 
-        return self._authentication_manager
+        return authentication_manager
 
     def remote_patron_lookup(self, subject):
         """Creates a PatronData object based on Subject object containing SAML Subject and AttributeStatement
@@ -341,25 +383,25 @@ class SAMLWebSSOAuthenticationProvider(BaseSAMLAuthenticationProvider, HasExtern
         :rtype: Union[PatronData, ProblemDetail]
         """
         if not subject:
-            return SAML_INVALID_SUBJECT.detailed('Subject is empty')
+            return SAML_INVALID_SUBJECT.detailed("Subject is empty")
 
         if isinstance(subject, PatronData):
             return subject
 
-        if not isinstance(subject, Subject):
-            return SAML_INVALID_SUBJECT.detailed('Incorrect subject type')
+        if not isinstance(subject, SAMLSubject):
+            return SAML_INVALID_SUBJECT.detailed("Incorrect subject type")
 
-        extractor = SubjectUIDExtractor()
+        extractor = SAMLSubjectUIDExtractor()
         uid = extractor.extract(subject)
 
         if uid is None:
-            return SAML_INVALID_SUBJECT.detailed('Subject does not have a unique ID')
+            return SAML_INVALID_SUBJECT.detailed("Subject does not have a unique ID")
 
         patron_data = PatronData(
             permanent_id=uid,
             authorization_identifier=uid,
-            external_type='A',
-            complete=True
+            external_type="A",
+            complete=True,
         )
 
         return patron_data
@@ -391,14 +433,20 @@ class SAMLWebSSOAuthenticationProvider(BaseSAMLAuthenticationProvider, HasExtern
         patron, is_new = patron_data.get_or_create_patron(db, self.library_id)
 
         # Create a credential for the Patron
-        token = json.dumps(subject, cls=SubjectJSONEncoder)
+        token = json.dumps(subject, cls=SAMLSubjectJSONEncoder)
         credential, is_new = self._create_token(db, patron, token, subject.valid_till)
 
         return credential, patron, patron_data
 
 
 def validator_factory():
-    return SAMLSettingsValidator(SAMLMetadataParser())
+    metadata_parser = SAMLMetadataParser()
+    parser = DSLParser()
+    visitor = DSLEvaluationVisitor()
+    evaluator = DSLEvaluator(parser, visitor)
+    subject_filter = SAMLSubjectFilter(evaluator)
+
+    return SAMLSettingsValidator(metadata_parser, subject_filter)
 
 
 AuthenticationProvider = SAMLWebSSOAuthenticationProvider
