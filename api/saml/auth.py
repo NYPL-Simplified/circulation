@@ -1,5 +1,4 @@
 import logging
-from urlparse import urlparse
 
 import six
 from flask import request
