@@ -209,7 +209,7 @@ class SAMLWebSSOAuthenticationProvider(
             )
             return [SAMLLocalizedMetadataItem(display_name, language="en")]
 
-    def _create_token(self, db, patron, token, valid_till):
+    def _create_token(self, db, patron, subject, cm_session_lifetime):
         """Creates a Credential object that ties the given patron to the
         given provider token.
 
@@ -219,18 +219,24 @@ class SAMLWebSSOAuthenticationProvider(
         :param patron: Patron object
         :type patron: Patron
 
-        :param token: Token containing SAML subject's metadata
-        :type token: Dict
+        :param subject: SAML subject
+        :type subject: api.saml.metadata.model.SAMLSubject
 
-        :param valid_till: The time till which the SAML subject is valid
-        :type valid_till: datetime.timedelta
+        :param cm_session_lifetime: (Optional) Circulation Manager's session lifetime expressed in days
+        :type cm_session_lifetime: Optional[int]
 
         :return: Credential object
         :rtype: Credential
         """
+        token = json.dumps(subject, cls=SAMLSubjectJSONEncoder)
         data_source, ignore = self._get_token_data_source(db)
+        session_lifetime = subject.valid_till
+
+        if cm_session_lifetime:
+            session_lifetime = datetime.timedelta(days=int(cm_session_lifetime))
+
         return Credential.temporary_token_create(
-            db, data_source, self.TOKEN_TYPE, patron, valid_till, token
+            db, data_source, self.TOKEN_TYPE, patron, session_lifetime, token
         )
 
     def _create_authenticate_url(self, db, idp_entity_id):
@@ -255,20 +261,6 @@ class SAMLWebSSOAuthenticationProvider(
             provider=self.NAME,
             idp_entity_id=idp_entity_id,
         )
-
-    def _create_authentication_manager(self, db):
-        """Creates a new SAML authentication manager
-
-        :param db: Database session
-        :type db: sqlalchemy.orm.session.Session
-
-        :return: SAML authentication manager
-        :rtype: SAMLAuthenticationManager
-        """
-        authentication_manager_factory = SAMLAuthenticationManagerFactory()
-        authentication_manager = authentication_manager_factory.create(self)
-
-        return authentication_manager
 
     def _get_token_data_source(self, db):
         """Returns a token data source
@@ -433,10 +425,12 @@ class SAMLWebSSOAuthenticationProvider(
         patron, is_new = patron_data.get_or_create_patron(db, self.library_id)
 
         # Create a credential for the Patron
-        token = json.dumps(subject, cls=SAMLSubjectJSONEncoder)
-        credential, is_new = self._create_token(db, patron, token, subject.valid_till)
+        with self.get_configuration(db) as configuration:
+            credential, is_new = self._create_token(
+                db, patron, subject, configuration.session_lifetime
+            )
 
-        return credential, patron, patron_data
+            return credential, patron, patron_data
 
 
 def validator_factory():
