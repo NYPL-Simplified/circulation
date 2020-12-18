@@ -532,6 +532,29 @@ class OPDSImporter(object):
             "label": _("Password"),
             "description": _("If HTTP Basic authentication is required to access the OPDS feed (it usually isn't), enter the password here."),
         },
+        {
+            "key": ExternalIntegration.CUSTOM_ACCEPT_HEADER,
+            "label": _("Custom accept header"),
+            "required": False,
+            "description": _("Some servers expect an accept header to decide which file to send. You can use */* if the server doesn't expect anything. The default values if left blank is: 'application/atom+xml;profile=opds-catalog;kind=acquisition, application/atom+xml;q=0.9, application/xml;q=0.8, */*;q=0.1'"),
+        },
+        {
+            "key": ExternalIntegration.CUSTOM_IDENTIFIER,
+            "label": _("Identifer"),
+            "required": False,
+            "description": _("Which book identifier to use as ID."),
+            "type": "select",
+            "options": [
+               {
+                   "key": "",
+                   "label": _("(Default) Use <id>")
+               },
+               {
+                   "key": ExternalIntegration.DCTERMS_IDENTIFIER,
+                   "label": _("Use <dcterms:identifier> first, if not exist use <id>")
+               },
+            ],
+        },
     ]
 
     # Subclasses of OPDSImporter may define a different parser class that's
@@ -727,7 +750,7 @@ class OPDSImporter(object):
         """
         return parse_identifier(self._db, identifier)
 
-    def import_from_feed(self, feed, feed_url=None):
+    def import_from_feed(self, feed, feed_url=None, custom_identifier=None):
 
         # Keep track of editions that were imported. Pools and works
         # for those editions may be looked up or created.
@@ -739,7 +762,7 @@ class OPDSImporter(object):
 
         # If parsing the overall feed throws an exception, we should address that before
         # moving on. Let the exception propagate.
-        metadata_objs, failures = self.extract_feed_data(feed, feed_url)
+        metadata_objs, failures = self.extract_feed_data(feed, feed_url, custom_identifier)
         # make editions.  if have problem, make sure associated pool and work aren't created.
         for key, metadata in metadata_objs.iteritems():
             # key is identifier.urn here
@@ -904,7 +927,7 @@ class OPDSImporter(object):
 
         self.identifier_mapping = mapping
 
-    def extract_feed_data(self, feed, feed_url=None):
+    def extract_feed_data(self, feed, feed_url=None, custom_identifier=None):
         """Turn an OPDS feed into lists of Metadata and CirculationData objects,
         with associated messages and next_links.
         """
@@ -929,7 +952,18 @@ class OPDSImporter(object):
         metadata = {}
         circulationdata = {}
         for id, m_data_dict in fp_metadata.items():
-            external_identifier, ignore = Identifier.parse_urn(self._db, id)
+            xml_data_dict = xml_data_meta.get(id, {})
+
+            external_identifier = None
+            if custom_identifier == ExternalIntegration.DCTERMS_IDENTIFIER:
+                dcterms_ids = xml_data_dict.get('dcterms_identifiers', [])
+                if len(dcterms_ids) > 0:
+                    external_identifier, ignore = Identifier.for_foreign_id(
+                            self._db, dcterms_ids[0].type, dcterms_ids[0].identifier)
+
+            if external_identifier is None:
+                external_identifier, ignore = Identifier.parse_urn(self._db, id)
+
             if self.identifier_mapping:
                 internal_identifier = self.identifier_mapping.get(
                     external_identifier, external_identifier)
@@ -946,7 +980,6 @@ class OPDSImporter(object):
             )
 
             # form the Metadata object
-            xml_data_dict = xml_data_meta.get(id, {})
             combined_meta = self.combine(m_data_dict, xml_data_dict)
             if combined_meta.get('data_source') is None:
                 combined_meta['data_source'] = self.data_source_name
@@ -1425,7 +1458,6 @@ class OPDSImporter(object):
 
         :return: A 2-tuple (identifier, kwargs)
         """
-
         identifier = parser._xpath1(entry_tag, 'atom:id')
         if identifier is None or not identifier.text:
             # This <entry> tag doesn't identify a book so we
@@ -1463,7 +1495,10 @@ class OPDSImporter(object):
             v = cls.extract_identifier(id_tag)
             if v:
                 alternate_identifiers.append(v)
-        data['identifiers'] = alternate_identifiers
+        data['dcterms_identifiers'] = alternate_identifiers
+
+        # If exist another identifer, add here
+        data['identifiers'] = data['dcterms_identifiers']
 
         data['contributors'] = []
         for author_tag in parser._xpath(entry_tag, 'atom:author'):
@@ -1787,6 +1822,9 @@ class OPDSImportMonitor(CollectionMonitor, HasSelfTests):
         self.force_reimport = force_reimport
         self.username = collection.external_integration.username
         self.password = collection.external_integration.password
+        self.custom_accept_header = collection.external_integration.custom_accept_header
+        self.custom_identifier= collection.external_integration.custom_identifier
+
         self.importer = import_class(
             _db, collection=collection, **import_class_kwargs
         )
@@ -1828,25 +1866,24 @@ class OPDSImportMonitor(CollectionMonitor, HasSelfTests):
         return response.status_code, response.headers, response.content
 
     def _get_accept_header(self):
-        types = dict(
-            opds_acquisition=OPDSFeed.ACQUISITION_FEED_TYPE,
-            atom="application/atom+xml",
-            xml="application/xml",
-            anything="*/*",
-        )
-        accept_header = "%(opds_acquisition)s, %(atom)s;q=0.9, %(xml)s;q=0.8, %(anything)s;q=0.1" % types
-
-        return accept_header
+        return ','.join([
+            OPDSFeed.ACQUISITION_FEED_TYPE,
+            "application/atom+xml;q=0.9",
+            "application/xml;q=0.8",
+            "*/*;q=0.1",
+        ])
 
     def _update_headers(self, headers):
-        headers = dict(headers or {})
+        headers = dict(headers) if headers else {}
         if self.username and self.password and not 'Authorization' in headers:
-            creds = "%s:%s" % (self.username, self.password)
-            auth_header = "Basic %s" % base64.b64encode(creds)
-            headers['Authorization'] = auth_header
+            headers['Authorization'] = "Basic %s" % base64.b64encode("%s:%s" % (self.username,
+                                                                                self.password))
 
-        if not 'Accept' in headers:
+        if self.custom_accept_header:
+            headers['Accept'] = self.custom_accept_header
+        elif not 'Accept' in headers:
             headers['Accept'] = self._get_accept_header()
+
         return headers
 
     def _parse_identifier(self, identifier):
@@ -2013,7 +2050,8 @@ class OPDSImportMonitor(CollectionMonitor, HasSelfTests):
         # mark a book as presentation-ready if possible.
         imported_editions, pools, works, failures = self.importer.import_from_feed(
             feed,
-            feed_url=self.opds_url(self.collection)
+            feed_url=self.opds_url(self.collection),
+            custom_identifier=self.custom_identifier
         )
 
         # Create CoverageRecords for the successful imports.

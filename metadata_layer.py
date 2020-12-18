@@ -1360,6 +1360,7 @@ class Metadata(MetaToModelUtility):
             data_source_last_updated=None,
             # Note: brought back to keep callers of bibliographic extraction process_one() methods simple.
             circulation=None,
+            **kwargs
     ):
         # data_source is where the data comes from (e.g. overdrive, metadata wrangler, admin interface),
         # and not necessarily where the associated Identifier's LicencePool's lending licenses are coming from.
