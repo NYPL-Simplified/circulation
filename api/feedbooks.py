@@ -102,7 +102,7 @@ class FeedbooksOPDSImporter(OPDSImporter):
             self.new_css = content
 
 
-    def extract_feed_data(self, feed, feed_url=None):
+    def extract_feed_data(self, feed, feed_url=None, custom_identifier=None):
         metadata, failures = super(FeedbooksOPDSImporter, self).extract_feed_data(
             feed, feed_url
         )
