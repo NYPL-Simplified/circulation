@@ -121,6 +121,23 @@ class ODLAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
             "description": _("Some servers expect an accept header to decide which file to send. You can use */* if the server doesn't expect anything. The default values if left blank is: 'application/atom+xml;profile=opds-catalog;kind=acquisition, application/atom+xml;q=0.9, application/xml;q=0.8, */*;q=0.1'"),
         },
         {
+            "key": ExternalIntegration.CUSTOM_IDENTIFIER,
+            "label": _("Identifer"),
+            "required": False,
+            "description": _("Which book identifier to use as ID."),
+            "type": "select",
+            "options": [
+               {
+                   "key": "",
+                   "label": _("(Default) Use <id>")
+               },
+               {
+                   "key": ExternalIntegration.DCTERMS_IDENTIFIER,
+                   "label": _("Use <dcterms:identifier> first, if not exist use <id>")
+               },
+            ],
+        },
+        {
             "key": Collection.DEFAULT_RESERVATION_PERIOD_KEY,
             "label": _("Default Reservation Period (in Days)"),
             "description": _("The number of days a patron has to check out a book after a hold becomes available."),
