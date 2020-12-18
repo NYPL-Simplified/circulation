@@ -1,8 +1,7 @@
-from nose.tools import eq_
-from parameterized import parameterized
-
 from api.proquest.identifier import ProQuestIdentifierParser
 from core.model import Identifier
+from nose.tools import eq_
+from parameterized import parameterized
 
 
 class TestProQuestIdentifierParser(object):

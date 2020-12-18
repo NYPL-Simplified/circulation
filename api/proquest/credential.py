@@ -3,7 +3,7 @@ import json
 import logging
 from enum import Enum
 
-from api.saml.metadata import SAMLAttributes, SubjectJSONDecoder
+from api.saml.metadata.model import SAMLAttributeType, SAMLSubjectJSONDecoder
 from core.model import Credential, DataSource, DataSourceConstants, Patron
 from core.util import first_or_default, is_session
 from core.util.string_helpers import is_string
@@ -33,7 +33,7 @@ class ProQuestCredentialManager(object):
         """
         self._logger.debug("Started deserializing SAML token {0}".format(credential))
 
-        subject = json.loads(credential.credential, cls=SubjectJSONDecoder)
+        subject = json.loads(credential.credential, cls=SAMLSubjectJSONDecoder)
 
         self._logger.debug(
             "Finished deserializing SAML token {0}: {1}".format(credential, subject)
@@ -81,8 +81,8 @@ class ProQuestCredentialManager(object):
         :param patron: Patron object
         :type patron: core.model.patron.Patron
 
-        :return: ProQuest JWT bearer token (if any)
-        :rtype: Optional[str]
+        :return: Credential object containing the existing ProQuest JWT bearer token (if any)
+        :rtype: Optional[core.model.credential.Credential]
         """
         if not is_session(db):
             raise ValueError('"db" argument must be a valid SQLAlchemy session')
@@ -105,7 +105,7 @@ class ProQuestCredentialManager(object):
         )
 
         if credential:
-            return credential.credential
+            return credential
 
         return None
 
@@ -123,6 +123,9 @@ class ProQuestCredentialManager(object):
 
         :param token: ProQuest JWT bearer token
         :type token: str
+
+        :return: Credential object containing a new ProQuest JWT bearer token
+        :rtype: Optional[core.model.credential.Credential]
         """
         if not is_session(db):
             raise ValueError('"db" argument must be a valid SQLAlchemy session')
@@ -157,13 +160,15 @@ class ProQuestCredentialManager(object):
             )
         )
 
+        return credential
+
     def lookup_patron_affiliation_id(
         self,
         db,
         patron,
         affiliation_attributes=(
-            SAMLAttributes.eduPersonPrincipalName.name,
-            SAMLAttributes.eduPersonScopedAffiliation.name,
+            SAMLAttributeType.eduPersonPrincipalName.name,
+            SAMLAttributeType.eduPersonScopedAffiliation.name,
         ),
     ):
         """Look up for patron's SAML affiliation ID.

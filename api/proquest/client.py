@@ -2,9 +2,6 @@ import logging
 from contextlib import contextmanager
 
 import requests
-from flask_babel import lazy_gettext as _
-from requests import HTTPError, Request
-
 from core.exceptions import BaseError
 from core.model import DeliveryMechanism
 from core.model.configuration import (
@@ -16,6 +13,8 @@ from core.model.configuration import (
 )
 from core.util import is_session
 from core.util.string_helpers import is_string
+from flask_babel import lazy_gettext as _
+from requests import HTTPError, Request
 
 
 class ProQuestAPIClientConfiguration(ConfigurationGrouping):
@@ -218,6 +217,7 @@ class ProQuestAPIClient(object):
     RESPONSE_OPDS_FEED_FIELD = "opdsFeed"
     TOKEN_FIELD = "token"
     DOWNLOAD_LINK_FIELD = "downloadLink"
+    DRM_FREE_DOWNLOAD_LINK_KEYWORD = "getDrmFreeFile"
 
     SUCCESS_STATUS_CODE = 200
 
@@ -647,8 +647,25 @@ class ProQuestAPIClient(object):
                         response, self.DOWNLOAD_LINK_FIELD
                     )
 
-                # The API just returns another link leading to the actual ACSM book.
+                # The API returns another link leading to either a DRM-free book or ACSM file:
+                # - DRM-free books are publicly accessible, meaning that their download links
+                #   are not protected by IP whitelisting and we shall pass the link to the client
+                #   to avoid proxying the content through Circulation Manager.
+                # - DRM-protected download links are protected by IP whitelisting
+                #   and can be called only from Circulation Manager,
+                #   meaning that Circulation Manager has to download an ACSM file
+                #   and proxy it to the client.
+                #   However, it shouldn't incur any bad consequences because
+                #   ACSM files are usually relatively small.
                 link = response_json[self.DOWNLOAD_LINK_FIELD]
+
+                # In the case of DRM-free books we return a link immediately
+                # and we'll pass it to the client app.
+                if self.DRM_FREE_DOWNLOAD_LINK_KEYWORD in link:
+                    return ProQuestBook(link=link)
+
+                # In the case of Adobe DRM-protected books we have to download an ACSM file
+                # and pass its content to the client app.
                 response, _ = self._send_request(
                     configuration, "get", link, {}, token, response_must_be_json=False
                 )
