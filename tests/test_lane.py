@@ -998,6 +998,10 @@ class TestDatabaseBackedFacets(DatabaseTest):
         licensed_p2.licenses_owned = 1
         licensed_p2.licenses_available = 1
 
+        # A high-quality work with unlimited access.
+        unlimited_access_high = self._work(with_license_pool=True, unlimited_access=True)
+        unlimited_access_high.quality = 0.8
+
         qu = DatabaseBackedWorkList.base_query(self._db)
         def facetify(collection=Facets.COLLECTION_FULL,
                      available=Facets.AVAILABLE_ALL,
@@ -1013,20 +1017,20 @@ class TestDatabaseBackedFacets(DatabaseTest):
         library = self._default_library
         library.setting(Library.ALLOW_HOLDS).value = "True"
         everything = facetify()
-        eq_(4, everything.count())
+        eq_(5, everything.count())
 
         # If we disallow holds, we lose one book even when we ask for
         # everything.
         library.setting(Library.ALLOW_HOLDS).value = "False"
         everything = facetify()
-        eq_(3, everything.count())
+        eq_(4, everything.count())
         assert licensed_high not in everything
 
         library.setting(Library.ALLOW_HOLDS).value = "True"
         # Even when holds are allowed, if we restrict to books
         # currently available we lose the unavailable book.
         available_now = facetify(available=Facets.AVAILABLE_NOW)
-        eq_(3, available_now.count())
+        eq_(4, available_now.count())
         assert licensed_high not in available_now
 
         # If we restrict to open-access books we lose the two licensed
@@ -1035,11 +1039,12 @@ class TestDatabaseBackedFacets(DatabaseTest):
         eq_(2, open_access.count())
         assert licensed_high not in open_access
         assert licensed_low not in open_access
+        assert unlimited_access_high not in open_access
 
         # If we restrict to the featured collection we lose the two
         # low-quality books.
         featured_collection = facetify(collection=Facets.COLLECTION_FEATURED)
-        eq_(2, featured_collection.count())
+        eq_(3, featured_collection.count())
         assert open_access_low not in featured_collection
         assert licensed_low not in featured_collection
 
@@ -1047,7 +1052,7 @@ class TestDatabaseBackedFacets(DatabaseTest):
         # is called and used properly.
         title_order = facetify(order=Facets.ORDER_TITLE)
         eq_([open_access_high.id, open_access_low.id, licensed_high.id,
-             licensed_low.id],
+             licensed_low.id, unlimited_access_high.id],
             [x.id for x in title_order])
         eq_(
             ['sort_title', 'sort_author', 'id'],
@@ -1056,7 +1061,7 @@ class TestDatabaseBackedFacets(DatabaseTest):
 
         # This sort order is not supported, so the default is used.
         unsupported_order = facetify(order=Facets.ORDER_ADDED_TO_COLLECTION)
-        eq_([licensed_low.id, licensed_high.id, open_access_low.id,
+        eq_([unlimited_access_high.id, licensed_low.id, licensed_high.id, open_access_low.id,
              open_access_high.id],
             [x.id for x in unsupported_order])
         eq_(
