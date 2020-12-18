@@ -89,9 +89,36 @@ class TestProQuestOPDS2Importer(DatabaseTest):
         self._configuration_factory = ConfigurationFactory()
 
     @freeze_time("2020-01-01 00:00:00")
+    def test_patron_activity(self):
+        # We want to test that ProQuestOPDS2Importer.patron_activity returns actual loans made by patrons.
+
+        # Arrange
+        proquest_token = "1234567890"
+        credential_manager_mock = create_autospec(spec=ProQuestCredentialManager)
+        credential_manager_mock.lookup_proquest_token = MagicMock(
+            return_value=proquest_token
+        )
+        importer = ProQuestOPDS2Importer(self._db, self._proquest_collection)
+        loan, _ = self._proquest_license_pool.loan_to(self._proquest_patron)
+
+        # Act
+        remote_loan_infos = importer.patron_activity(self._proquest_patron, None)
+        [remote_loan_info] = remote_loan_infos
+
+        eq_(loan.license_pool.collection_id, remote_loan_info.collection_id)
+        eq_(loan.license_pool.data_source.name, remote_loan_info.data_source_name)
+        eq_(loan.license_pool.identifier.type, remote_loan_info.identifier_type)
+        eq_(loan.license_pool.identifier.identifier, remote_loan_info.identifier)
+        eq_(loan.start, remote_loan_info.start_date)
+        eq_(loan.end, remote_loan_info.end_date)
+        eq_(None, remote_loan_info.fulfillment_info)
+        eq_(None, remote_loan_info.external_identifier)
+
+    @freeze_time("2020-01-01 00:00:00")
     def test_checkout_lookups_for_existing_token(self):
         # We want to test that checkout operation always is always preceded by
-        # checking for a ProQuest JWT bearer token. # Without a valid JWT token, checkout operation will fail.
+        # checking for a ProQuest JWT bearer token.
+        # Without a valid JWT token, checkout operation will fail.
 
         # Arrange
         proquest_token = "1234567890"
