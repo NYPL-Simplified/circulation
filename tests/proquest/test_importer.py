@@ -218,9 +218,43 @@ class TestProQuestOPDS2Importer(DatabaseTest):
                 proquest_token,
             )
 
+    @parameterized.expand(
+        [
+            (
+                "tuple",
+                (
+                    SAMLAttributeType.mail.name,
+                    SAMLAttributeType.uid.name,
+                ),
+            ),
+            (
+                "list",
+                [
+                    SAMLAttributeType.mail.name,
+                    SAMLAttributeType.uid.name,
+                ],
+            ),
+            (
+                "tuple_string",
+                "({0}, {1})".format(
+                    SAMLAttributeType.mail.name,
+                    SAMLAttributeType.uid.name,
+                ),
+            ),
+            (
+                "list_string",
+                json.dumps(
+                    [
+                        SAMLAttributeType.mail.name,
+                        SAMLAttributeType.uid.name,
+                    ]
+                ),
+            ),
+        ]
+    )
     @freeze_time("2020-01-01 00:00:00")
     def test_checkout_creates_new_token_using_affiliation_id_from_custom_saml_attribute(
-        self,
+        self, _, custom_affiliation_attributes
     ):
         # We want to test that checkout operation without an existing ProQuest JWT bearer token leads to the following:
         # 1. Circulation Manager (CM) lookups for an existing token and doesn't find any.
@@ -232,7 +266,7 @@ class TestProQuestOPDS2Importer(DatabaseTest):
         affiliation_id = "12345"
         proquest_token = "1234567890"
 
-        custom_affiliation_attributes = (
+        expected_affiliation_attributes = (
             SAMLAttributeType.mail.name,
             SAMLAttributeType.uid.name,
         )
@@ -322,7 +356,7 @@ class TestProQuestOPDS2Importer(DatabaseTest):
                 credential_manager_mock.lookup_patron_affiliation_id.assert_called_once_with(
                     self._db,
                     self._proquest_patron,
-                    custom_affiliation_attributes,
+                    expected_affiliation_attributes,
                 )
 
                 # 3. Assert that ProQuest.create_token was called when CM tried to create
