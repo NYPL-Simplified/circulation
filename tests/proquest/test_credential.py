@@ -10,6 +10,9 @@ from api.saml.metadata.model import (
     SAMLSubject,
     SAMLSubjectJSONEncoder,
 )
+from nose.tools import eq_
+from parameterized import parameterized
+
 from core.model import Credential, DataSource
 from core.testing import DatabaseTest
 from nose.tools import eq_
