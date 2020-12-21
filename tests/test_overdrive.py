@@ -1178,12 +1178,42 @@ class TestOverdriveAPI(OverdriveAPITest):
         """
         self.api.queue_response(200, content="foo")
 
+        # If passed an identifier, we'll use the endpoint() method to
+        # construct a v2 availability URL and make a request to
+        # it.
         book, (status_code, headers, content) = self.api.circulation_lookup(
-            "an identifier"
+            "an-identifier"
         )
-        eq_(dict(id="an identifier"), book)
+        eq_(dict(id="an-identifier"), book)
         eq_(200, status_code)
         eq_("foo", content)
+
+        request_url, ignore1, ignore2 = self.api.requests.pop()
+        expect_url = self.api.endpoint(
+                self.api.AVAILABILITY_ENDPOINT,
+                collection_token=self.api.collection_token,
+                product_id="an-identifier"
+            )
+        eq_(request_url, expect_url)
+        assert "/v2/collections" in request_url
+
+        # If passed the result of an API call that includes an
+        # availability link, we'll clean up the URL in the link and
+        # use it to get our availability data.
+        self.api.queue_response(200, content="foo")
+        v1 = "https://qa.api.overdrive.com/v1/collections/abcde/products/12345/availability"
+        v2 = "https://qa.api.overdrive.com/v2/collections/abcde/products/12345/availability"
+        previous_result = dict(availability_link=v1)
+        book, (status_code, headers, content) = self.api.circulation_lookup(
+            previous_result
+        )
+        eq_(previous_result, book)
+        eq_(200, status_code)
+        eq_("foo", content)
+        request_url, ignore1, ignore2 = self.api.requests.pop()
+
+        # The v1 URL was converted to a v2 url.
+        eq_(v2, request_url)
 
     def test_update_licensepool_error(self):
         # Create an identifier.
