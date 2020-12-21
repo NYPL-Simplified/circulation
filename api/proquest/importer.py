@@ -1,21 +1,28 @@
 import datetime
+import json
 import logging
 from contextlib import contextmanager
 
 import six
-from flask_babel import lazy_gettext as _
-from requests import HTTPError
-from sqlalchemy import or_
-
+import webpub_manifest_parser.opds2.ast as opds2_ast
 from api.circulation import BaseCirculationAPI, FulfillmentInfo, LoanInfo
 from api.circulation_exceptions import CannotFulfill, CannotLoan
 from api.proquest.client import ProQuestAPIClientConfiguration, ProQuestAPIClientFactory
 from api.proquest.credential import ProQuestCredentialManager
 from api.proquest.identifier import ProQuestIdentifierParser
-from api.saml.metadata import SAMLAttributes
+from api.saml.metadata.model import SAMLAttributeType
 from core.classifier import Classifier
 from core.exceptions import BaseError
-from core.model import Collection, Identifier, LicensePool, Loan, get_one
+from core.model import (
+    Collection,
+    DeliveryMechanism,
+    Hyperlink,
+    Identifier,
+    LicensePool,
+    Loan,
+    MediaTypes,
+    get_one,
+)
 from core.model.configuration import (
     ConfigurationAttributeType,
     ConfigurationFactory,
@@ -28,6 +35,11 @@ from core.model.configuration import (
 )
 from core.opds2_import import OPDS2Importer, OPDS2ImportMonitor, parse_feed
 from core.opds_import import OPDSImporter
+from core.util.string_helpers import is_string
+from flask_babel import lazy_gettext as _
+from requests import HTTPError
+from sqlalchemy import or_
+from webpub_manifest_parser.utils import encode
 
 MISSING_AFFILIATION_ID = BaseError(
     _(
@@ -48,11 +60,9 @@ def parse_identifier(db, identifier):
     :type identifier: str
 
     :return: Identifier object
-    :rtype: Identifier
+    :rtype: core.model.identifier.Identifier
     """
-    identifier, _ = Identifier.parse(
-        db, identifier, ProQuestIdentifierParser()
-    )
+    identifier, _ = Identifier.parse(db, identifier, ProQuestIdentifierParser())
 
     return identifier
 
@@ -73,8 +83,8 @@ class ProQuestOPDS2ImporterConfiguration(ConfigurationGrouping):
     DEFAULT_TOKEN_EXPIRATION_TIMEOUT_SECONDS = 60 * 60
     TEST_AFFILIATION_ID = 1
     DEFAULT_AFFILIATION_ATTRIBUTES = (
-        SAMLAttributes.eduPersonPrincipalName.name,
-        SAMLAttributes.eduPersonScopedAffiliation.name,
+        SAMLAttributeType.eduPersonPrincipalName.name,
+        SAMLAttributeType.eduPersonScopedAffiliation.name,
     )
 
     data_source_name = ConfigurationMetadata(
@@ -113,7 +123,7 @@ class ProQuestOPDS2ImporterConfiguration(ConfigurationGrouping):
         default=list(DEFAULT_AFFILIATION_ATTRIBUTES),
         options=[
             ConfigurationOption(attribute.name, attribute.name)
-            for attribute in SAMLAttributes
+            for attribute in SAMLAttributeType
         ],
         format="narrow",
     )
@@ -253,10 +263,33 @@ class ProQuestOPDS2Importer(OPDS2Importer, BaseCirculationAPI, HasExternalIntegr
         :return: Configured list of SAML attributes which can contain affiliation ID
         :rtype: List[str]
         """
+        affiliation_attributes = (
+            ProQuestOPDS2ImporterConfiguration.DEFAULT_AFFILIATION_ATTRIBUTES
+        )
+
         if configuration.affiliation_attributes:
-            return configuration.affiliation_attributes
-        else:
-            return ProQuestOPDS2ImporterConfiguration.DEFAULT_AFFILIATION_ATTRIBUTES
+            if isinstance(configuration.affiliation_attributes, list):
+                affiliation_attributes = configuration.affiliation_attributes
+            elif is_string(configuration.affiliation_attributes):
+                affiliation_attributes = tuple(
+                    map(
+                        str.strip,
+                        str(configuration.affiliation_attributes)
+                        .replace("[", "")
+                        .replace("]", "")
+                        .replace("(", "")
+                        .replace(")", "")
+                        .replace("'", "")
+                        .replace('"', "")
+                        .split(","),
+                    )
+                )
+            else:
+                raise ValueError(
+                    "Configuration setting 'affiliation_attributes' has an incorrect format"
+                )
+
+        return affiliation_attributes
 
     def _get_patron_affiliation_id(self, patron, configuration):
         """Get a patron's affiliation ID.
@@ -311,7 +344,7 @@ class ProQuestOPDS2Importer(OPDS2Importer, BaseCirculationAPI, HasExternalIntegr
         :type configuration: ProQuestOPDS2ImporterConfiguration
 
         :return: ProQuest JWT bearer token
-        :rtype: str
+        :rtype: core.model.credential.Credential
         """
         affiliation_id = self._get_patron_affiliation_id(patron, configuration)
 
@@ -322,8 +355,7 @@ class ProQuestOPDS2Importer(OPDS2Importer, BaseCirculationAPI, HasExternalIntegr
                 if configuration.token_expiration_timeout
                 else ProQuestOPDS2ImporterConfiguration.DEFAULT_TOKEN_EXPIRATION_TIMEOUT_SECONDS
             )
-
-            self._credential_manager.save_proquest_token(
+            token = self._credential_manager.save_proquest_token(
                 self._db,
                 patron,
                 datetime.timedelta(seconds=token_expiration_timeout),
@@ -346,7 +378,7 @@ class ProQuestOPDS2Importer(OPDS2Importer, BaseCirculationAPI, HasExternalIntegr
         :type configuration: ProQuestOPDS2ImporterConfiguration
 
         :return: ProQuest JWT bearer token
-        :rtype: str
+        :rtype: core.model.credential.Credential
         """
         token = self._credential_manager.lookup_proquest_token(self._db, patron)
 
@@ -379,7 +411,9 @@ class ProQuestOPDS2Importer(OPDS2Importer, BaseCirculationAPI, HasExternalIntegr
 
         while True:
             try:
-                book = self._api_client.get_book(self._db, token, document_id)
+                book = self._api_client.get_book(
+                    self._db, token.credential, document_id
+                )
 
                 return book
             except HTTPError as exception:
@@ -389,6 +423,125 @@ class ProQuestOPDS2Importer(OPDS2Importer, BaseCirculationAPI, HasExternalIntegr
                     token = self._create_proquest_token(patron, configuration)
 
             iterations += 1
+
+    def _extract_image_links(self, publication, feed_self_url):
+        """Extracts a list of LinkData objects containing information about artwork.
+
+        :param publication: Publication object
+        :type publication: ast_core.Publication
+
+        :param feed_self_url: Feed's self URL
+        :type feed_self_url: str
+
+        :return: List of links metadata
+        :rtype: List[LinkData]
+        """
+        self._logger.debug(
+            u"Started extracting image links from {0}".format(
+                encode(publication.images)
+            )
+        )
+
+        image_links = []
+
+        for image_link in publication.images.links:
+            thumbnail_link = self._extract_link(
+                image_link,
+                feed_self_url,
+                default_link_rel=Hyperlink.THUMBNAIL_IMAGE,
+            )
+            thumbnail_link.rel = Hyperlink.THUMBNAIL_IMAGE
+
+            cover_link = self._extract_link(
+                image_link,
+                feed_self_url,
+                default_link_rel=Hyperlink.IMAGE,
+            )
+            cover_link.rel = Hyperlink.IMAGE
+            cover_link.thumbnail = thumbnail_link
+            image_links.append(cover_link)
+
+        self._logger.debug(
+            u"Finished extracting image links from {0}: {1}".format(
+                encode(publication.images), encode(image_links)
+            )
+        )
+
+        return image_links
+
+    def _extract_media_types_and_drm_scheme_from_link(self, link):
+        """Extract information about content's media type and used DRM schema from the link.
+
+        We consider viable the following two options:
+        1. DRM-free books
+        {
+            "rel": "http://opds-spec.org/acquisition",
+            "href": "http://distributor.com/bookID",
+            "type": "application/epub+zip"
+        }
+
+        2. DRM-protected books
+        {
+            "rel": "http://opds-spec.org/acquisition",
+            "href": "http://distributor.com/bookID",
+            "type": "application/vnd.adobe.adept+xml",
+            "properties": {
+                "indirectAcquisition": [
+                    {
+                        "type": "application/epub+zip"
+                    }
+                ]
+            }
+        }
+
+        :param link: Link object
+        :type link: ast_core.Link
+
+        :return: 2-tuple containing information about the content's media type and its DRM schema
+        :rtype: List[Tuple[str, str]]
+        """
+        self._logger.debug(
+            u"Started extracting media types and a DRM scheme from {0}".format(
+                encode(link)
+            )
+        )
+
+        media_types_and_drm_scheme = []
+
+        if link.properties:
+            if (
+                not link.properties.availability
+                or link.properties.availability.state
+                == opds2_ast.OPDS2AvailabilityType.AVAILABLE.value
+            ):
+                drm_scheme = (
+                    link.type
+                    if link.type in DeliveryMechanism.KNOWN_DRM_TYPES
+                    else DeliveryMechanism.NO_DRM
+                )
+
+                for acquisition_object in link.properties.indirect_acquisition:
+                    media_types_and_drm_scheme.append(
+                        (acquisition_object.type, drm_scheme)
+                    )
+        else:
+            if (
+                link.type in MediaTypes.BOOK_MEDIA_TYPES
+                or link.type in MediaTypes.AUDIOBOOK_MEDIA_TYPES
+            ):
+                # Despite the fact that the book is DRM-free, we set its DRM type as DeliveryMechanism.BEARER_TOKEN.
+                # We need it to allow the book to be downloaded by a client app.
+                media_types_and_drm_scheme.append(
+                    (link.type, DeliveryMechanism.BEARER_TOKEN)
+                )
+
+        self._logger.debug(
+            u"Finished extracting media types and a DRM scheme from {0}: {1}".format(
+                encode(link), encode(media_types_and_drm_scheme)
+            )
+        )
+
+        return media_types_and_drm_scheme
 
     def _parse_identifier(self, identifier):
         """Parse the identifier and return an Identifier object representing it.
@@ -435,10 +588,10 @@ class ProQuestOPDS2Importer(OPDS2Importer, BaseCirculationAPI, HasExternalIntegr
             .filter(
                 Collection.id == self._collection_id,
                 Loan.patron == patron,
-                or_(Loan.start is None, Loan.start <= now),
-                or_(Loan.end is None, Loan.end > now),
+                or_(Loan.start == None, Loan.start <= now),
+                or_(Loan.end == None, Loan.end > now),
             )
-        )
+        ).all()
 
         loan_info_objects = []
 
@@ -535,6 +688,7 @@ class ProQuestOPDS2Importer(OPDS2Importer, BaseCirculationAPI, HasExternalIntegr
 
         try:
             with self._get_configuration(self._db) as configuration:
+                token = self._get_or_create_proquest_token(patron, configuration)
                 book = self._get_book(
                     patron, configuration, licensepool.identifier.identifier
                 )
@@ -553,15 +707,24 @@ class ProQuestOPDS2Importer(OPDS2Importer, BaseCirculationAPI, HasExternalIntegr
                         content_expires=None,
                     )
                 else:
-                    fulfillment_info = FulfillmentInfo(
+                    now = datetime.datetime.utcnow()
+                    expires_in = (token.expires - now).total_seconds()
+                    token_document = dict(
+                        token_type="Bearer",
+                        access_token=token.credential,
+                        expires_in=expires_in,
+                        location=book.link,
+                    )
+
+                    return FulfillmentInfo(
                         licensepool.collection,
                         licensepool.data_source.name,
                         licensepool.identifier.type,
                         licensepool.identifier.identifier,
-                        content_link=book.link,
-                        content_type=internal_format.delivery_mechanism.media_type,
-                        content=None,
-                        content_expires=None,
+                        content_link=None,
+                        content_type=DeliveryMechanism.BEARER_TOKEN,
+                        content=json.dumps(token_document),
+                        content_expires=token.expires,
                     )
 
                 self._logger.info(
@@ -629,11 +792,27 @@ class ProQuestOPDS2ImportMonitor(OPDS2ImportMonitor, HasExternalIntegration):
     def _get_feeds(self):
         self._logger.info("Started fetching ProQuest paged OPDS 2.0 feeds")
 
+        feeds = []
+
+        self._logger.info("Started downloading feed pages")
+
+        for feed in self._client.download_all_feed_pages(self._db):
+            feeds.append(feed)
+
+        self._logger.info("Finished downloading {0} feed pages".format(len(feeds)))
+
+        page = 1
         processed_number_of_items = 0
         total_number_of_items = None
 
-        for feed in self._client.download_all_feed_pages(self._db):
+        self._logger.info("Started processing feed pages")
+
+        for feed in feeds:
+            self._logger.info("Page # {0}. Started parsing the feed".format(page))
+
             feed = parse_feed(feed, silent=False)
+
+            self._logger.info("Page # {0}. Finished parsing the feed".format(page))
 
             # FIXME: We cannot short-circuit the feed import process
             #  because ProQuest feed is not ordered by the publication's modified date.
@@ -653,14 +832,18 @@ class ProQuestOPDS2ImportMonitor(OPDS2ImportMonitor, HasExternalIntegration):
             )
 
             self._logger.info(
-                "Page # {0}. Processed {0} items out of {1} ({2:.2f}%)".format(
-                    feed.metadata.current_page,
+                "Page # {0}. Processed {1} items out of {2} ({3:.2f}%)".format(
+                    page,
                     processed_number_of_items,
                     total_number_of_items,
                     processed_number_of_items / total_number_of_items * 100.0,
                 )
             )
 
+            page += 1
+
             yield None, feed
+
+        self._logger.info("Finished processing {0} feed pages".format(len(feeds)))
 
         self._logger.info("Finished fetching ProQuest paged OPDS 2.0 feeds")

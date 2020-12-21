@@ -1,20 +1,22 @@
 import datetime
 import json
 
+from api.authenticator import BaseSAMLAuthenticationProvider
+from api.proquest.credential import ProQuestCredentialManager, ProQuestCredentialType
+from api.saml.metadata.model import (
+    SAMLAttribute,
+    SAMLAttributeStatement,
+    SAMLAttributeType,
+    SAMLSubject,
+    SAMLSubjectJSONEncoder,
+)
 from nose.tools import eq_
 from parameterized import parameterized
 
-from api.authenticator import BaseSAMLAuthenticationProvider
-from api.proquest.credential import ProQuestCredentialManager, ProQuestCredentialType
-from api.saml.metadata import (
-    Attribute,
-    AttributeStatement,
-    SAMLAttributes,
-    Subject,
-    SubjectJSONEncoder,
-)
 from core.model import Credential, DataSource
 from core.testing import DatabaseTest
+from nose.tools import eq_
+from parameterized import parameterized
 from tests.saml import fixtures
 
 
@@ -56,7 +58,8 @@ class TestProQuestCredentialManager(DatabaseTest):
         token = credential_manager.lookup_proquest_token(self._db, patron)
 
         # Assert
-        eq_(expected_token, token)
+        eq_(True, isinstance(token, Credential))
+        eq_(expected_token, token.credential)
 
     def test_save_proquest_token_saves_token(self):
         # Arrange
@@ -83,22 +86,22 @@ class TestProQuestCredentialManager(DatabaseTest):
             ("when_there_is_no_token", None, None),
             (
                 "when_subject_does_not_contain_affiliation_id_attributes",
-                Subject(
+                SAMLSubject(
                     None,
-                    AttributeStatement(
-                        [Attribute(SAMLAttributes.mail.name, [fixtures.MAIL])]
+                    SAMLAttributeStatement(
+                        [SAMLAttribute(SAMLAttributeType.mail.name, [fixtures.MAIL])]
                     ),
                 ),
                 None,
             ),
             (
                 "when_subject_contains_affiliation_id_attribute",
-                Subject(
+                SAMLSubject(
                     None,
-                    AttributeStatement(
+                    SAMLAttributeStatement(
                         [
-                            Attribute(
-                                SAMLAttributes.eduPersonPrincipalName.name,
+                            SAMLAttribute(
+                                SAMLAttributeType.eduPersonPrincipalName.name,
                                 [fixtures.EDU_PERSON_PRINCIPAL_NAME],
                             ),
                         ]
@@ -108,12 +111,12 @@ class TestProQuestCredentialManager(DatabaseTest):
             ),
             (
                 "when_subject_contains_multiple_affiliation_id_attributes",
-                Subject(
+                SAMLSubject(
                     None,
-                    AttributeStatement(
+                    SAMLAttributeStatement(
                         [
-                            Attribute(
-                                SAMLAttributes.eduPersonPrincipalName.name,
+                            SAMLAttribute(
+                                SAMLAttributeType.eduPersonPrincipalName.name,
                                 ["12345", fixtures.EDU_PERSON_PRINCIPAL_NAME],
                             ),
                         ]
@@ -123,19 +126,19 @@ class TestProQuestCredentialManager(DatabaseTest):
             ),
             (
                 "with_custom_affiliation_attributes",
-                Subject(
+                SAMLSubject(
                     None,
-                    AttributeStatement(
+                    SAMLAttributeStatement(
                         [
-                            Attribute(
-                                SAMLAttributes.mail.name,
+                            SAMLAttribute(
+                                SAMLAttributeType.mail.name,
                                 ["12345@example.com"],
                             ),
                         ]
                     ),
                 ),
                 "12345@example.com",
-                (SAMLAttributes.mail.name,),
+                (SAMLAttributeType.mail.name,),
             ),
         ]
     )
@@ -147,7 +150,7 @@ class TestProQuestCredentialManager(DatabaseTest):
         patron = self._patron()
 
         if subject:
-            expected_token = json.dumps(subject, cls=SubjectJSONEncoder)
+            expected_token = json.dumps(subject, cls=SAMLSubjectJSONEncoder)
 
             data_source = DataSource.lookup(
                 self._db,

@@ -13,6 +13,8 @@ class DatabaseTest(BaseDatabaseTest):
 
         self._integration = self._external_integration(
             protocol=SAMLWebSSOAuthenticationProvider.NAME,
-            goal=ExternalIntegration.PATRON_AUTH_GOAL
+            goal=ExternalIntegration.PATRON_AUTH_GOAL,
         )
-        self._authentication_provider = SAMLWebSSOAuthenticationProvider(self._default_library, self._integration)
+        self._authentication_provider = SAMLWebSSOAuthenticationProvider(
+            self._default_library, self._integration
+        )
