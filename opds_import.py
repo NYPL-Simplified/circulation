@@ -539,7 +539,7 @@ class OPDSImporter(object):
             "description": _("Some servers expect an accept header to decide which file to send. You can use */* if the server doesn't expect anything. The default values if left blank is: 'application/atom+xml;profile=opds-catalog;kind=acquisition, application/atom+xml;q=0.9, application/xml;q=0.8, */*;q=0.1'"),
         },
         {
-            "key": ExternalIntegration.CUSTOM_IDENTIFIER,
+            "key": ExternalIntegration.PRIMARY_IDENTIFIER_SOURCE,
             "label": _("Identifer"),
             "required": False,
             "description": _("Which book identifier to use as ID."),
@@ -750,7 +750,8 @@ class OPDSImporter(object):
         """
         return parse_identifier(self._db, identifier)
 
-    def import_from_feed(self, feed, feed_url=None, custom_identifier=None):
+    def import_from_feed(self, feed, feed_url=None,
+                         primary_identifier_source=None):
 
         # Keep track of editions that were imported. Pools and works
         # for those editions may be looked up or created.
@@ -762,7 +763,8 @@ class OPDSImporter(object):
 
         # If parsing the overall feed throws an exception, we should address that before
         # moving on. Let the exception propagate.
-        metadata_objs, failures = self.extract_feed_data(feed, feed_url, custom_identifier)
+        metadata_objs, failures = self.extract_feed_data(feed, feed_url,
+            primary_identifier_source)
         # make editions.  if have problem, make sure associated pool and work aren't created.
         for key, metadata in metadata_objs.iteritems():
             # key is identifier.urn here
@@ -927,7 +929,8 @@ class OPDSImporter(object):
 
         self.identifier_mapping = mapping
 
-    def extract_feed_data(self, feed, feed_url=None, custom_identifier=None):
+    def extract_feed_data(self, feed, feed_url=None,
+                          primary_identifier_source=None):
         """Turn an OPDS feed into lists of Metadata and CirculationData objects,
         with associated messages and next_links.
         """
@@ -955,7 +958,7 @@ class OPDSImporter(object):
             xml_data_dict = xml_data_meta.get(id, {})
 
             external_identifier = None
-            if custom_identifier == ExternalIntegration.DCTERMS_IDENTIFIER:
+            if primary_identifier_source == ExternalIntegration.DCTERMS_IDENTIFIER:
                 dcterms_ids = xml_data_dict.get('dcterms_identifiers', [])
                 if len(dcterms_ids) > 0:
                     external_identifier, ignore = Identifier.for_foreign_id(
@@ -1823,7 +1826,7 @@ class OPDSImportMonitor(CollectionMonitor, HasSelfTests):
         self.username = collection.external_integration.username
         self.password = collection.external_integration.password
         self.custom_accept_header = collection.external_integration.custom_accept_header
-        self.custom_identifier= collection.external_integration.custom_identifier
+        self.primary_identifier_source = collection.external_integration.primary_identifier_source
 
         self.importer = import_class(
             _db, collection=collection, **import_class_kwargs
@@ -2051,7 +2054,7 @@ class OPDSImportMonitor(CollectionMonitor, HasSelfTests):
         imported_editions, pools, works, failures = self.importer.import_from_feed(
             feed,
             feed_url=self.opds_url(self.collection),
-            custom_identifier=self.custom_identifier
+            primary_identifier_source=self.primary_identifier_source
         )
 
         # Create CoverageRecords for the successful imports.

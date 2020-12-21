@@ -542,10 +542,11 @@ class TestOPDSImporter(OPDSImporterTest):
         )
         metadata, failures = importer.extract_feed_data(
             self.feed_with_id_and_dcterms_identifier,
-            custom_identifier=ExternalIntegration.DCTERMS_IDENTIFIER
+            primary_identifier_source=ExternalIntegration.DCTERMS_IDENTIFIER
         )
 
         # First book doesn't have <dcterms:identifier>, so <id> must be used as identifier
+        print(metadata)
         book_1 = metadata.get('https://root.uri/1')
         assert_not_equal(book_1, None)
         # Seconf book have <id> and <dcterms:identifier>, so <dcters:identifier> must be used as id
@@ -559,7 +560,7 @@ class TestOPDSImporter(OPDSImporterTest):
         )
         metadata, failures = importer.extract_feed_data(
             self.feed_with_id_and_dcterms_identifier,
-            custom_identifier=None
+            primary_identifier_source=None
         )
 
         book_1 = metadata.get('https://root.uri/1')

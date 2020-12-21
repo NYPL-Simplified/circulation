@@ -269,7 +269,7 @@ class ExternalIntegration(Base, HasFullTableCache):
     CUSTOM_ACCEPT_HEADER = u"custom_accept_header"
 
     # If want to use an identifier different from <id>, use this config.
-    CUSTOM_IDENTIFIER = u"custom_identifier"
+    PRIMARY_IDENTIFIER_SOURCE = u"PRIMARY_IDENTIFIER_SOURCE"
     DCTERMS_IDENTIFIER = u"first_dcterms_identifier"
 
     _cache = HasFullTableCache.RESET
@@ -504,12 +504,13 @@ class ExternalIntegration(Base, HasFullTableCache):
         return self.set_setting(self.CUSTOM_ACCEPT_HEADER, new_custom_accept_header)
 
     @hybrid_property
-    def custom_identifier(self):
-        return self.setting(self.CUSTOM_IDENTIFIER).value
+    def primary_identifier_source(self):
+        return self.setting(self.PRIMARY_IDENTIFIER_SOURCE).value
 
-    @custom_identifier.setter
-    def custom_identifier(self, new_custom_identifier):
-        return self.set_setting(self.CUSTOM_IDENTIFIER, new_custom_identifier)
+    @primary_identifier_source.setter
+    def primary_identifier_source(self, new_primary_identifier_source):
+        return self.set_setting(self.PRIMARY_IDENTIFIER_SOURCE,
+                                new_primary_identifier_source)
 
     def explain(self, library=None, include_secrets=False):
         """Create a series of human-readable strings to explain an
