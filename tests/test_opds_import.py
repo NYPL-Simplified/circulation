@@ -535,7 +535,7 @@ class TestOPDSImporter(OPDSImporterTest):
         [failure] = failures.values()
         eq_(u"202: I'm working to locate a source for this identifier.", failure.exception)
 
-    def test_use_dcterm_identifier_as_id(self):
+    def test_use_dcterm_identifier_as_id_with_id_and_dcterms_identifier(self):
         data_source_name = "Data source name " + self._str
         importer = OPDSImporter(
             self._db, collection=None, data_source_name=data_source_name
@@ -546,11 +546,25 @@ class TestOPDSImporter(OPDSImporterTest):
         )
 
         # First book doesn't have <dcterms:identifier>, so <id> must be used as identifier
-        print(metadata)
         book_1 = metadata.get('https://root.uri/1')
         assert_not_equal(book_1, None)
         # Seconf book have <id> and <dcterms:identifier>, so <dcters:identifier> must be used as id
         book_2 = metadata.get('urn:isbn:9781468316438')
+        assert_not_equal(book_2, None)
+
+    def test_use_id_with_existing_dcterms_identifier(self):
+        data_source_name = "Data source name " + self._str
+        importer = OPDSImporter(
+            self._db, collection=None, data_source_name=data_source_name
+        )
+        metadata, failures = importer.extract_feed_data(
+            self.feed_with_id_and_dcterms_identifier,
+            custom_identifier=None
+        )
+
+        book_1 = metadata.get('https://root.uri/1')
+        assert_not_equal(book_1, None)
+        book_2 = metadata.get('https://root.uri/2')
         assert_not_equal(book_2, None)
 
     def test_extract_link(self):
