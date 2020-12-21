@@ -57,4 +57,6 @@ uWSGI==2.0.19.1
 # watchtower is for Cloudwatch logging integration
 watchtower==0.8.0
 Werkzeug==1.0.1
+
+multipledispatch==0.6.0
 webpub-manifest-parser

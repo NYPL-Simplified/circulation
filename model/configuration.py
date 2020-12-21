@@ -1294,9 +1294,12 @@ class ConfigurationGrouping(HasConfigurationSettings):
         self._configuration_storage.save(self._db, setting_name, setting_value)
 
     @classmethod
-    def to_settings(cls):
-        settings = []
+    def to_settings_generator(cls):
+        """Return a generator object returning settings in a format understandable by circulation-web.
 
+        :return: list of settings in a format understandable by circulation-web.
+        :rtype: List[Dict]
+        """
         for name, member in ConfigurationMetadata.get_configuration_metadata(cls):
             key_attribute = getattr(member, ConfigurationAttribute.KEY.value, None)
             label_attribute = getattr(member, ConfigurationAttribute.LABEL.value, None)
@@ -1306,9 +1309,8 @@ class ConfigurationGrouping(HasConfigurationSettings):
             default_attribute = getattr(member, ConfigurationAttribute.DEFAULT.value, None)
             options_attribute = getattr(member, ConfigurationAttribute.OPTIONS.value, None)
             category_attribute = getattr(member, ConfigurationAttribute.CATEGORY.value, None)
-            format_attribute = getattr(member, ConfigurationAttribute.FORMAT.value, None)
 
-            settings.append({
+            yield {
                 ConfigurationAttribute.KEY.value: key_attribute,
                 ConfigurationAttribute.LABEL.value: label_attribute,
                 ConfigurationAttribute.DESCRIPTION.value: description_attribute,
@@ -1319,19 +1321,25 @@ class ConfigurationGrouping(HasConfigurationSettings):
                     [option.to_settings() for option in options_attribute]
                     if options_attribute
                     else None,
-                ConfigurationAttribute.CATEGORY.value: category_attribute,
-                ConfigurationAttribute.FORMAT.value: format_attribute
-            })
+                ConfigurationAttribute.CATEGORY.value: category_attribute
+            }
 
-        return settings
+    @classmethod
+    def to_settings(cls):
+        """Return a list of settings in a format understandable by circulation-web.
+
+        :return: list of settings in a format understandable by circulation-web.
+        :rtype: List[Dict]
+        """
+        return list(cls.to_settings_generator())
 
 
 class ConfigurationFactory(object):
-    """Factory creating new instances of ConfigurationBucket class descendants"""
+    """Factory creating new instances of ConfigurationGrouping class descendants."""
 
     @contextmanager
-    def create(self, configuration_storage, db, configuration_bucket_class):
-        """Creates a new instance of ConfigurationFactory
+    def create(self, configuration_storage, db, configuration_grouping_class):
+        """Create a new instance of ConfigurationGrouping.
 
         :param configuration_storage: ConfigurationStorage object
         :type configuration_storage: ConfigurationStorage
@@ -1339,11 +1347,11 @@ class ConfigurationFactory(object):
         :param db: Database session
         :type db: sqlalchemy.orm.session.Session
 
-        :param configuration_bucket_class: Configuration bucket's class
-        :type configuration_bucket_class: type
+        :param configuration_grouping_class: Configuration bucket's class
+        :type configuration_grouping_class: Type[ConfigurationGrouping]
 
-        :return: Configuration bucket instance
+        :return: ConfigurationGrouping instance
         :rtype: ConfigurationGrouping
         """
-        with configuration_bucket_class(configuration_storage, db) as configuration_bucket:
+        with configuration_grouping_class(configuration_storage, db) as configuration_bucket:
             yield configuration_bucket

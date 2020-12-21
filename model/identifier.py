@@ -383,7 +383,7 @@ class Identifier(Base, IdentifierConstants):
         :type must_support_license_pools: bool
 
         :return: 2-tuple containing Identifier object and a boolean value indicating whether it's new
-        :rtype: Tuple[Identifier, bool]
+        :rtype: Tuple[core.model.identifier.Identifier, bool]
         """
         if must_support_license_pools:
             try:
@@ -411,7 +411,7 @@ class Identifier(Base, IdentifierConstants):
         :type must_support_license_pools: bool
 
         :return: 2-tuple containing Identifier object and a boolean value indicating whether it's new
-        :rtype: Tuple[Identifier, bool]
+        :rtype: Tuple[core.model.identifier.Identifier, bool]
         """
         identifier_type, identifier_string = cls.type_and_identifier_for_urn(identifier_string)
 
@@ -435,7 +435,7 @@ class Identifier(Base, IdentifierConstants):
         :type must_support_license_pools: bool
 
         :return: 2-tuple containing Identifier object and a boolean value indicating whether it's new
-        :rtype: Tuple[Identifier, bool]
+        :rtype: Tuple[core.model.identifier.Identifier, bool]
         """
         identifier_type, identifier_string = parser.parse(identifier_string)
 
