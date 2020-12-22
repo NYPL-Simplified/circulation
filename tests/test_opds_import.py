@@ -549,9 +549,17 @@ class TestOPDSImporter(OPDSImporterTest):
         # First book doesn't have <dcterms:identifier>, so <id> must be used as identifier
         book_1 = metadata.get('https://root.uri/1')
         assert_not_equal(book_1, None)
-        # Seconf book have <id> and <dcterms:identifier>, so <dcters:identifier> must be used as id
+        # Second book have <id> and <dcterms:identifier>, so <dcters:identifier> must be used as id
         book_2 = metadata.get('urn:isbn:9781468316438')
         assert_not_equal(book_2, None)
+        # Verify if id was add in the end of identifier
+        book_2_identifiers = book_2.identifiers
+        found = False
+        for entry in book_2.identifiers:
+            if entry.identifier == 'https://root.uri/2':
+                found = True
+                break
+        eq_(found, True)
 
     def test_use_id_with_existing_dcterms_identifier(self):
         data_source_name = "Data source name " + self._str

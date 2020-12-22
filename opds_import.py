@@ -972,10 +972,24 @@ class OPDSImporter(object):
 
             external_identifier = None
             if self.primary_identifier_source == ExternalIntegration.DCTERMS_IDENTIFIER:
+                # If it should use <dcterms:identifier> as the primary identifier, it must use the
+                # first value from the dcterms identifier, that came from the metadata as an
+                # IdentifierData object and it must be validated as a foreign_id before be used
+                # as and external_identifier.
                 dcterms_ids = xml_data_dict.get('dcterms_identifiers', [])
                 if len(dcterms_ids) > 0:
                     external_identifier, ignore = Identifier.for_foreign_id(
-                            self._db, dcterms_ids[0].type, dcterms_ids[0].identifier)
+                            self._db, dcterms_ids[0].type, dcterms_ids[0].identifier
+                    )
+                    # the external identifier will be add later, so it must be removed at this point
+                    new_identifiers = dcterms_ids[1:]
+                    # Id must be in the identifiers with lower weight.
+                    id_type, id_identifier = Identifier.type_and_identifier_for_urn(id)
+                    id_weight = (dcterms_ids[-1].weight-0.1
+                                            if dcterms_ids[-1].weight > 0.2
+                                            else 0.1)
+                    new_identifiers.append(IdentifierData(id_type, id_identifier, id_weight))
+                    xml_data_dict['identifiers'] = new_identifiers
 
             if external_identifier is None:
                 external_identifier, ignore = Identifier.parse_urn(self._db, id)
