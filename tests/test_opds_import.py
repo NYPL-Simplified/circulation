@@ -573,13 +573,8 @@ class TestOPDSImporter(OPDSImporterTest):
             '9781683351504',
             '9780312939458',
         ]
-        for target_identifier in expected_identifier:
-            found = False
-            for entry in book_3.identifiers:
-                if entry.identifier == target_identifier:
-                    found = True
-                    break
-            ok_(found, "Cannot find %s" % target_identifier)
+        result_identifier = [entry.identifier for entry in book_3.identifiers]
+        eq_(set(expected_identifier), set(result_identifier))
 
     def test_use_id_with_existing_dcterms_identifier(self):
         data_source_name = "Data source name " + self._str
