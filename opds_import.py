@@ -576,7 +576,8 @@ class OPDSImporter(object):
     def __init__(self, _db, collection, data_source_name=None,
                  identifier_mapping=None, http_get=None,
                  metadata_client=None, content_modifier=None,
-                 map_from_collection=None, mirrors=None
+                 map_from_collection=None, mirrors=None,
+                 primary_identifier_source=None
     ):
         """:param collection: LicensePools created by this OPDS import
         will be associated with the given Collection. If this is None,
@@ -602,6 +603,14 @@ class OPDSImporter(object):
         :param content_modifier: A function that may modify-in-place
         representations (such as images and EPUB documents) as they
         come in from the network.
+
+        :param map_from_collection
+
+        :param mirrors
+
+        :param primary_identifier_source: a string to define which identifier
+        must be the primary identifier. If there is no primary_identifier_source
+        <id> will be used.
         """
         self._db = _db
         self.log = logging.getLogger("OPDS Importer")
@@ -653,6 +662,7 @@ class OPDSImporter(object):
         # gutenberg.org.
         self.http_get = http_get or Representation.cautious_http_get
         self.map_from_collection = map_from_collection
+        self.primary_identifier_source = primary_identifier_source
 
     @property
     def collection(self):
@@ -756,8 +766,7 @@ class OPDSImporter(object):
         """
         return parse_identifier(self._db, identifier)
 
-    def import_from_feed(self, feed, feed_url=None,
-                         primary_identifier_source=None):
+    def import_from_feed(self, feed, feed_url=None):
 
         # Keep track of editions that were imported. Pools and works
         # for those editions may be looked up or created.
@@ -769,8 +778,7 @@ class OPDSImporter(object):
 
         # If parsing the overall feed throws an exception, we should address that before
         # moving on. Let the exception propagate.
-        metadata_objs, failures = self.extract_feed_data(feed, feed_url,
-            primary_identifier_source)
+        metadata_objs, failures = self.extract_feed_data(feed, feed_url)
         # make editions.  if have problem, make sure associated pool and work aren't created.
         for key, metadata in metadata_objs.iteritems():
             # key is identifier.urn here
@@ -935,8 +943,7 @@ class OPDSImporter(object):
 
         self.identifier_mapping = mapping
 
-    def extract_feed_data(self, feed, feed_url=None,
-                          primary_identifier_source=None):
+    def extract_feed_data(self, feed, feed_url=None):
         """Turn an OPDS feed into lists of Metadata and CirculationData objects,
         with associated messages and next_links.
         """
@@ -964,7 +971,7 @@ class OPDSImporter(object):
             xml_data_dict = xml_data_meta.get(id, {})
 
             external_identifier = None
-            if primary_identifier_source == ExternalIntegration.DCTERMS_IDENTIFIER:
+            if self.primary_identifier_source == ExternalIntegration.DCTERMS_IDENTIFIER:
                 dcterms_ids = xml_data_dict.get('dcterms_identifiers', [])
                 if len(dcterms_ids) > 0:
                     external_identifier, ignore = Identifier.for_foreign_id(
@@ -1832,10 +1839,11 @@ class OPDSImportMonitor(CollectionMonitor, HasSelfTests):
         self.username = collection.external_integration.username
         self.password = collection.external_integration.password
         self.custom_accept_header = collection.external_integration.custom_accept_header
-        self.primary_identifier_source = collection.external_integration.primary_identifier_source
 
         self.importer = import_class(
-            _db, collection=collection, **import_class_kwargs
+            _db, collection=collection,
+            primary_identifier_source=collection.external_integration.primary_identifier_source,
+            **import_class_kwargs
         )
         super(OPDSImportMonitor, self).__init__(_db, collection)
 
@@ -2059,8 +2067,7 @@ class OPDSImportMonitor(CollectionMonitor, HasSelfTests):
         # mark a book as presentation-ready if possible.
         imported_editions, pools, works, failures = self.importer.import_from_feed(
             feed,
-            feed_url=self.opds_url(self.collection),
-            primary_identifier_source=self.primary_identifier_source
+            feed_url=self.opds_url(self.collection)
         )
 
         # Create CoverageRecords for the successful imports.

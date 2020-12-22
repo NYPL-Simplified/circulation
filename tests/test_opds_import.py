@@ -538,11 +538,12 @@ class TestOPDSImporter(OPDSImporterTest):
     def test_use_dcterm_identifier_as_id_with_id_and_dcterms_identifier(self):
         data_source_name = "Data source name " + self._str
         importer = OPDSImporter(
-            self._db, collection=None, data_source_name=data_source_name
-        )
-        metadata, failures = importer.extract_feed_data(
-            self.feed_with_id_and_dcterms_identifier,
+            self._db, collection=None, data_source_name=data_source_name,
             primary_identifier_source=ExternalIntegration.DCTERMS_IDENTIFIER
+        )
+
+        metadata, failures = importer.extract_feed_data(
+            self.feed_with_id_and_dcterms_identifier
         )
 
         # First book doesn't have <dcterms:identifier>, so <id> must be used as identifier
@@ -556,11 +557,12 @@ class TestOPDSImporter(OPDSImporterTest):
     def test_use_id_with_existing_dcterms_identifier(self):
         data_source_name = "Data source name " + self._str
         importer = OPDSImporter(
-            self._db, collection=None, data_source_name=data_source_name
-        )
-        metadata, failures = importer.extract_feed_data(
-            self.feed_with_id_and_dcterms_identifier,
+            self._db, collection=None, data_source_name=data_source_name,
             primary_identifier_source=None
+        )
+
+        metadata, failures = importer.extract_feed_data(
+            self.feed_with_id_and_dcterms_identifier
         )
 
         book_1 = metadata.get('https://root.uri/1')
