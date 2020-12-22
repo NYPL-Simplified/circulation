@@ -823,8 +823,7 @@ class OPDS2Importer(OPDSImporter):
 
         return dates
 
-    def extract_feed_data(self, feed, feed_url=None,
-                          primary_identifier_source=None):
+    def extract_feed_data(self, feed, feed_url=None):
         """Turn an OPDS 2.0 feed into lists of Metadata and CirculationData objects.
 
         :param feed: OPDS 2.0 feed

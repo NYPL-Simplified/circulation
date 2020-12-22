@@ -981,9 +981,7 @@ class OPDSImporter(object):
                     new_identifiers = dcterms_ids[1:]
                     # Id must be in the identifiers with lower weight.
                     id_type, id_identifier = Identifier.type_and_identifier_for_urn(id)
-                    id_weight = (dcterms_ids[-1].weight-0.1
-                                            if dcterms_ids[-1].weight > 0.2
-                                            else 0.1)
+                    id_weight = 1
                     new_identifiers.append(IdentifierData(id_type, id_identifier, id_weight))
                     xml_data_dict['identifiers'] = new_identifiers
 
