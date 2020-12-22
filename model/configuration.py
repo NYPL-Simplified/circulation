@@ -269,7 +269,7 @@ class ExternalIntegration(Base, HasFullTableCache):
     CUSTOM_ACCEPT_HEADER = u"custom_accept_header"
 
     # If want to use an identifier different from <id>, use this config.
-    PRIMARY_IDENTIFIER_SOURCE = u"PRIMARY_IDENTIFIER_SOURCE"
+    PRIMARY_IDENTIFIER_SOURCE = u"primary_identifier_source"
     DCTERMS_IDENTIFIER = u"first_dcterms_identifier"
 
     _cache = HasFullTableCache.RESET
