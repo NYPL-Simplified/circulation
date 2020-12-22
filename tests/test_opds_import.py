@@ -547,7 +547,6 @@ class TestOPDSImporter(OPDSImporterTest):
         )
 
         # First book doesn't have <dcterms:identifier>, so <id> must be used as identifier
-        print(metadata)
         book_1 = metadata.get('https://root.uri/1')
         assert_not_equal(book_1, None)
         # Seconf book have <id> and <dcterms:identifier>, so <dcters:identifier> must be used as id
