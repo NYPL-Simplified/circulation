@@ -597,6 +597,8 @@ class TestOPDSImporter(OPDSImporterTest):
         assert_not_equal(book_1, None)
         book_2 = metadata.get('https://root.uri/2')
         assert_not_equal(book_2, None)
+        book_3 = metadata.get('https://root.uri/3')
+        assert_not_equal(book_3, None)
 
     def test_extract_link(self):
         no_rel = AtomFeed.E.link(href="http://foo/")
