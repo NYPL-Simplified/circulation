@@ -67,6 +67,7 @@ from core.util.http import (
     BadResponseException,
     RemoteIntegrationException,
 )
+from core.util.opds_writer import OPDSFeed
 from flask import url_for
 from core.testing import (
     DatabaseTest,
@@ -118,10 +119,16 @@ class ODLAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
             "key": ExternalIntegration.CUSTOM_ACCEPT_HEADER,
             "label": _("Custom accept header"),
             "required": False,
-            "description": _("Some servers expect an accept header to decide which file to send. You can use */* if the server doesn't expect anything. The default values if left blank is: 'application/atom+xml;profile=opds-catalog;kind=acquisition, application/atom+xml;q=0.9, application/xml;q=0.8, */*;q=0.1'"),
+            "description": _("Some servers expect an accept header to decide which file to send. You can use */* if the server doesn't expect anything."),
+            "default": ','.join([
+                OPDSFeed.ACQUISITION_FEED_TYPE,
+                "application/atom+xml;q=0.9",
+                "application/xml;q=0.8",
+                "*/*;q=0.1",
+            ])
         },
         {
-            "key": ExternalIntegration.CUSTOM_IDENTIFIER,
+            "key": ExternalIntegration.PRIMARY_IDENTIFIER_SOURCE,
             "label": _("Identifer"),
             "required": False,
             "description": _("Which book identifier to use as ID."),
