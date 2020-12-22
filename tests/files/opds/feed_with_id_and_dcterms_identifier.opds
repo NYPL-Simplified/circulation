@@ -49,4 +49,25 @@
   <opds:price currencycode="USD">01.01</opds:price>
 </link>
 </entry>
+<entry schema:additionalType="http://schema.org/Ebook">
+<title>Book 3</title>
+<id>https://root.uri/3</id>
+<dcterms:identifier xsi:type="dcterms:URI">urn:ISBN:9781683351993</dcterms:identifier>
+<dcterms:identifier xsi:type="dcterms:URI">urn:ISBN:9781683351504</dcterms:identifier>
+<dcterms:identifier xsi:type="dcterms:URI">urn:ISBN:9780312939458</dcterms:identifier>
+<author>
+  <name>Author 3</name>
+  <uri>https://book.uri</uri>
+</author>
+<published>2020-01-010T01:00:00Z</published>
+<updated>2020-01-01T01:01:00Z</updated>
+<dcterms:language>en</dcterms:language>
+<dcterms:publisher>The Overlook Press</dcterms:publisher>
+<dcterms:issued>2019-02-18</dcterms:issued>
+<summary>Book 3 summary.</summary>
+<category label="Fiction" term="FBFIC000000" scheme="http://www.feedbooks.com/categories"/>
+<link type="text/html" rel="http://opds-spec.org/acquisition/buy" href="https://book.uri/buy">
+  <opds:price currencycode="USD">01.01</opds:price>
+</link>
+</entry>
 </feed>

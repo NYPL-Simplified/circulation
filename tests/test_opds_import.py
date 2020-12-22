@@ -6,6 +6,7 @@ from StringIO import StringIO
 from nose.tools import (
     set_trace,
     eq_,
+    ok_,
     assert_not_equal,
     assert_raises,
     assert_raises_regexp
@@ -537,9 +538,10 @@ class TestOPDSImporter(OPDSImporterTest):
 
     def test_use_dcterm_identifier_as_id_with_id_and_dcterms_identifier(self):
         data_source_name = "Data source name " + self._str
+        collection_to_test = self._default_collection
+        collection_to_test.primary_identifier_source = ExternalIntegration.DCTERMS_IDENTIFIER
         importer = OPDSImporter(
-            self._db, collection=None, data_source_name=data_source_name,
-            primary_identifier_source=ExternalIntegration.DCTERMS_IDENTIFIER
+            self._db, collection=collection_to_test, data_source_name=data_source_name,
         )
 
         metadata, failures = importer.extract_feed_data(
@@ -560,12 +562,31 @@ class TestOPDSImporter(OPDSImporterTest):
                 found = True
                 break
         eq_(found, True)
+        # Third book has more than one dcterms:identifers, all of then must be present as metadata identifier
+        book_3 = metadata.get('urn:isbn:9781683351993')
+        assert_not_equal(book_2, None)
+        # Verify if id was add in the end of identifier
+        book_3_identifiers = book_3.identifiers
+        expected_identifier = [
+            '9781683351993',
+            'https://root.uri/3',
+            '9781683351504',
+            '9780312939458',
+        ]
+        for target_identifier in expected_identifier:
+            found = False
+            for entry in book_3.identifiers:
+                if entry.identifier == target_identifier:
+                    found = True
+                    break
+            ok_(found, "Cannot find %s" % target_identifier)
 
     def test_use_id_with_existing_dcterms_identifier(self):
         data_source_name = "Data source name " + self._str
+        collection_to_test = self._default_collection
+        collection_to_test.primary_identifier_source = None
         importer = OPDSImporter(
-            self._db, collection=None, data_source_name=data_source_name,
-            primary_identifier_source=None
+            self._db, collection=collection_to_test, data_source_name=data_source_name,
         )
 
         metadata, failures = importer.extract_feed_data(

@@ -577,7 +577,6 @@ class OPDSImporter(object):
                  identifier_mapping=None, http_get=None,
                  metadata_client=None, content_modifier=None,
                  map_from_collection=None, mirrors=None,
-                 primary_identifier_source=None
     ):
         """:param collection: LicensePools created by this OPDS import
         will be associated with the given Collection. If this is None,
@@ -607,10 +606,6 @@ class OPDSImporter(object):
         :param map_from_collection
 
         :param mirrors
-
-        :param primary_identifier_source: a string to define which identifier
-        must be the primary identifier. If there is no primary_identifier_source
-        <id> will be used.
         """
         self._db = _db
         self.log = logging.getLogger("OPDS Importer")
@@ -641,6 +636,7 @@ class OPDSImporter(object):
         # If not, then attempt to create one.
         covers_mirror = mirrors.get(ExternalIntegrationLink.COVERS, None) if mirrors else None
         books_mirror = mirrors.get(ExternalIntegrationLink.OPEN_ACCESS_BOOKS, None) if mirrors else None
+        self.primary_identifier_source = None
         if collection:
             if not covers_mirror:
                 # If this Collection is configured to mirror the assets it
@@ -653,6 +649,7 @@ class OPDSImporter(object):
                 books_mirror = MirrorUploader.for_collection(
                     collection, ExternalIntegrationLink.OPEN_ACCESS_BOOKS
                 )
+            self.primary_identifier_source = collection.primary_identifier_source
 
         self.mirrors = dict(covers_mirror=covers_mirror, books_mirror=books_mirror)
         self.content_modifier = content_modifier
@@ -662,7 +659,6 @@ class OPDSImporter(object):
         # gutenberg.org.
         self.http_get = http_get or Representation.cautious_http_get
         self.map_from_collection = map_from_collection
-        self.primary_identifier_source = primary_identifier_source
 
     @property
     def collection(self):
@@ -1856,7 +1852,6 @@ class OPDSImportMonitor(CollectionMonitor, HasSelfTests):
 
         self.importer = import_class(
             _db, collection=collection,
-            primary_identifier_source=collection.external_integration.primary_identifier_source,
             **import_class_kwargs
         )
         super(OPDSImportMonitor, self).__init__(_db, collection)
