@@ -275,6 +275,16 @@ class Collection(Base, HasFullTableCache):
         for child in self.children:
             child.protocol = new_protocol
 
+    @hybrid_property
+    def primary_identifier_source(self):
+        """ Identify if should try to use another identifier than <id> """
+        return self.external_integration.primary_identifier_source
+
+    @primary_identifier_source.setter
+    def primary_identifier_source(self, new_primary_identifier_source):
+        """ Modify the primary identifier source in use by this Collection."""
+        self.external_integration.primary_identifier_source = new_primary_identifier_source
+
     # For collections that can control the duration of the loans they
     # create, the durations are stored in these settings and new loans are
     # expected to be created using these settings. For collections

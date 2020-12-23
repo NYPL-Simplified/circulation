@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns:dcterms="http://purl.org/dc/terms/" xmlns:thr="http://purl.org/syndication/thread/1.0" xmlns:app="http://www.w3.org/2007/app" xmlns:opensearch="http://a9.com/-/spec/opensearch/1.1/" xmlns="http://www.w3.org/2005/Atom" xmlns:opds="http://opds-spec.org/2010/catalog" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xml:lang="en" xmlns:odl="http://opds-spec.org/odl" xmlns:schema="http://schema.org/" xmlns:opf="http://www.idpf.org/2007/opf">
+  <id>https://root.url</id>
+  <title>Books</title>
+  <updated>2020-01-01T01:00:02Z</updated>
+  <icon>/favicon.ico</icon>
+  <author>
+    <name>Na,e</name>
+    <uri>https://root.uri</uri>
+    <email>a@a.a</email>
+  </author>
+  <link rel="self" type="application/atom+xml;profile=odl; charset=utf-8" href="https://root.url"/>
+<opensearch:totalResults>3</opensearch:totalResults>
+<opensearch:itemsPerPage>3</opensearch:itemsPerPage>
+<entry schema:additionalType="http://schema.org/Ebook">
+<title>Book 1</title>
+<id>https://root.uri/1</id>
+<author>
+  <name>Author 1</name>
+  <uri>https://book.uri</uri>
+</author>
+<published>2020-01-010T01:00:00Z</published>
+<updated>2020-01-01T01:01:00Z</updated>
+<dcterms:language>en</dcterms:language>
+<dcterms:publisher>The Overlook Press</dcterms:publisher>
+<dcterms:issued>2019-02-18</dcterms:issued>
+<summary>Book 1 summary.</summary>
+<category label="Fiction" term="FBFIC000000" scheme="http://www.feedbooks.com/categories"/>
+<link type="text/html" rel="http://opds-spec.org/acquisition/buy" href="https://book.uri/buy">
+  <opds:price currencycode="USD">01.01</opds:price>
+</link>
+</entry>
+<entry schema:additionalType="http://schema.org/Ebook">
+<title>Book 2</title>
+<id>https://root.uri/2</id>
+<dcterms:identifier xsi:type="dcterms:URI">urn:ISBN:9781468316438</dcterms:identifier>
+<author>
+  <name>Author 2</name>
+  <uri>https://book.uri</uri>
+</author>
+<published>2020-01-010T01:00:00Z</published>
+<updated>2020-01-01T01:01:00Z</updated>
+<dcterms:language>en</dcterms:language>
+<dcterms:publisher>The Overlook Press</dcterms:publisher>
+<dcterms:issued>2019-02-18</dcterms:issued>
+<summary>Book 2 summary.</summary>
+<category label="Fiction" term="FBFIC000000" scheme="http://www.feedbooks.com/categories"/>
+<link type="text/html" rel="http://opds-spec.org/acquisition/buy" href="https://book.uri/buy">
+  <opds:price currencycode="USD">01.01</opds:price>
+</link>
+</entry>
+<entry schema:additionalType="http://schema.org/Ebook">
+<title>Book 3</title>
+<id>https://root.uri/3</id>
+<dcterms:identifier xsi:type="dcterms:URI">urn:ISBN:9781683351993</dcterms:identifier>
+<dcterms:identifier xsi:type="dcterms:URI">urn:ISBN:9781683351504</dcterms:identifier>
+<dcterms:identifier xsi:type="dcterms:URI">urn:ISBN:9780312939458</dcterms:identifier>
+<author>
+  <name>Author 3</name>
+  <uri>https://book.uri</uri>
+</author>
+<published>2020-01-010T01:00:00Z</published>
+<updated>2020-01-01T01:01:00Z</updated>
+<dcterms:language>en</dcterms:language>
+<dcterms:publisher>The Overlook Press</dcterms:publisher>
+<dcterms:issued>2019-02-18</dcterms:issued>
+<summary>Book 3 summary.</summary>
+<category label="Fiction" term="FBFIC000000" scheme="http://www.feedbooks.com/categories"/>
+<link type="text/html" rel="http://opds-spec.org/acquisition/buy" href="https://book.uri/buy">
+  <opds:price currencycode="USD">01.01</opds:price>
+</link>
+</entry>
+</feed>
