@@ -6,6 +6,8 @@ from StringIO import StringIO
 from nose.tools import (
     set_trace,
     eq_,
+    ok_,
+    assert_not_equal,
     assert_raises,
     assert_raises_regexp
 )
@@ -426,6 +428,7 @@ class OPDSImporterTest(OPDSTest):
         self.content_server_feed = self.sample_opds("content_server.opds")
         self.content_server_mini_feed = self.sample_opds("content_server_mini.opds")
         self.audiobooks_opds = self.sample_opds("audiobooks.opds")
+        self.feed_with_id_and_dcterms_identifier = self.sample_opds("feed_with_id_and_dcterms_identifier.opds")
         self._default_collection.external_integration.setting('data_source').value = (
             DataSource.OA_CONTENT_SERVER
         )
@@ -532,6 +535,65 @@ class TestOPDSImporter(OPDSImporterTest):
 
         [failure] = failures.values()
         eq_(u"202: I'm working to locate a source for this identifier.", failure.exception)
+
+    def test_use_dcterm_identifier_as_id_with_id_and_dcterms_identifier(self):
+        data_source_name = "Data source name " + self._str
+        collection_to_test = self._default_collection
+        collection_to_test.primary_identifier_source = ExternalIntegration.DCTERMS_IDENTIFIER
+        importer = OPDSImporter(
+            self._db, collection=collection_to_test, data_source_name=data_source_name,
+        )
+
+        metadata, failures = importer.extract_feed_data(
+            self.feed_with_id_and_dcterms_identifier
+        )
+
+        # First book doesn't have <dcterms:identifier>, so <id> must be used as identifier
+        book_1 = metadata.get('https://root.uri/1')
+        assert_not_equal(book_1, None)
+        # Second book have <id> and <dcterms:identifier>, so <dcters:identifier> must be used as id
+        book_2 = metadata.get('urn:isbn:9781468316438')
+        assert_not_equal(book_2, None)
+        # Verify if id was add in the end of identifier
+        book_2_identifiers = book_2.identifiers
+        found = False
+        for entry in book_2.identifiers:
+            if entry.identifier == 'https://root.uri/2':
+                found = True
+                break
+        eq_(found, True)
+        # Third book has more than one dcterms:identifers, all of then must be present as metadata identifier
+        book_3 = metadata.get('urn:isbn:9781683351993')
+        assert_not_equal(book_2, None)
+        # Verify if id was add in the end of identifier
+        book_3_identifiers = book_3.identifiers
+        expected_identifier = [
+            '9781683351993',
+            'https://root.uri/3',
+            '9781683351504',
+            '9780312939458',
+        ]
+        result_identifier = [entry.identifier for entry in book_3.identifiers]
+        eq_(set(expected_identifier), set(result_identifier))
+
+    def test_use_id_with_existing_dcterms_identifier(self):
+        data_source_name = "Data source name " + self._str
+        collection_to_test = self._default_collection
+        collection_to_test.primary_identifier_source = None
+        importer = OPDSImporter(
+            self._db, collection=collection_to_test, data_source_name=data_source_name,
+        )
+
+        metadata, failures = importer.extract_feed_data(
+            self.feed_with_id_and_dcterms_identifier
+        )
+
+        book_1 = metadata.get('https://root.uri/1')
+        assert_not_equal(book_1, None)
+        book_2 = metadata.get('https://root.uri/2')
+        assert_not_equal(book_2, None)
+        book_3 = metadata.get('https://root.uri/3')
+        assert_not_equal(book_3, None)
 
     def test_extract_link(self):
         no_rel = AtomFeed.E.link(href="http://foo/")
@@ -2517,12 +2579,22 @@ class TestOPDSImportMonitor(OPDSImporterTest):
             import_class=OPDSImporter
         )
 
-        # _update_headers return a new dictionary. By default, only an
-        # Accept header is added.
+        # _update_headers return a new dictionary. An Accept header will be setted
+        # using the value of custom_accept_header. If the value is not set a
+        # default value will be used.
         headers = {'Some other': 'header'}
         new_headers = monitor._update_headers(headers)
         eq_(['Some other'], headers.keys())
         eq_(['Some other', 'Accept'], new_headers.keys())
+
+        # If a custom_accept_header exist, will be used instead a default value
+        new_headers = monitor._update_headers(headers)
+        old_value = new_headers['Accept']
+        target_value = old_value + "more characters"
+        monitor.custom_accept_header = target_value
+        new_headers = monitor._update_headers(headers)
+        eq_(new_headers['Accept'], target_value)
+        assert_not_equal(old_value, target_value)
 
         # If the monitor has a username and password, an Authorization
         # header using HTTP Basic Authentication is also added.
@@ -2539,3 +2611,4 @@ class TestOPDSImportMonitor(OPDSImporterTest):
         headers = dict(expect)
         new_headers = monitor._update_headers(headers)
         eq_(headers, expect)
+
