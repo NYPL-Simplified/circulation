@@ -533,8 +533,9 @@ class OverdriveAPI(object):
         """
         parts = list(urlparse.urlsplit(url))
         parts[2] = urllib.quote(parts[2])
+        endings = ("/availability", "/availability/")
         if (parts[2].startswith("/v1/collections/")
-            and parts[2].endswith("/availability")):
+            and any(parts[2].endswith(x) for x in endings)):
             parts[2] = parts[2].replace(
                 "/v1/collections/", "/v2/collections/", 1
             )

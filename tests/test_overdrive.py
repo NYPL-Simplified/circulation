@@ -120,6 +120,12 @@ class TestOverdriveAPI(OverdriveTestWithAPI):
         v2 = "https://qa.api.overdrive.com/v2/collections/abcde/products/12345/availability"
         eq_(v2, OverdriveAPI.make_link_safe(v1))
 
+        # We also handle the case of a trailing slash, just in case Overdrive
+        # starts serving links with trailing slashes.
+        v1 = v1 + "/"
+        v2 = v2 + "/"
+        eq_(v2, OverdriveAPI.make_link_safe(v1))
+
         # Links to other endpoints are not converted
         leave_alone = "https://qa.api.overdrive.com/v1/collections/abcde/products/12345"
         eq_(leave_alone, OverdriveAPI.make_link_safe(leave_alone))
