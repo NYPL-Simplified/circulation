@@ -991,8 +991,9 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
             )
             book = dict(id=book_id)
         else:
-            book_id = book['id']
             circulation_link = book['availability_link']
+            # Make sure we use v2 of the availability API,
+            # even if Overdrive gave us a link to v1.
             circulation_link = self.make_link_safe(circulation_link)
         return book, self.get(circulation_link, {})
 
