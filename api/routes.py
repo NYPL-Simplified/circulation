@@ -494,6 +494,7 @@ def series(series_name, languages, audiences):
 
 @library_route('/works/<identifier_type>/<path:identifier>')
 @has_library
+@allows_auth
 @allows_patron_web
 @returns_problem_detail
 @compressible
