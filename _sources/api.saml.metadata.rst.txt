@@ -1,0 +1,53 @@
+api.saml.metadata package
+=========================
+
+Subpackages
+-----------
+
+.. toctree::
+
+    api.saml.metadata.federations
+
+Submodules
+----------
+
+api.saml.metadata.filter module
+-------------------------------
+
+.. automodule:: api.saml.metadata.filter
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+api.saml.metadata.model module
+------------------------------
+
+.. automodule:: api.saml.metadata.model
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+api.saml.metadata.monitor module
+--------------------------------
+
+.. automodule:: api.saml.metadata.monitor
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+api.saml.metadata.parser module
+-------------------------------
+
+.. automodule:: api.saml.metadata.parser
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+
+Module contents
+---------------
+
+.. automodule:: api.saml.metadata
+    :members:
+    :undoc-members:
+    :show-inheritance:

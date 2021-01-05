@@ -1,0 +1,961 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>core.python_expression_dsl package &#8212; Library Simplified Circulation Manager  documentation</title>
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="_static/language_data.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="core.resources package" href="core.resources.html" />
+    <link rel="prev" title="core.model package" href="core.model.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="core-python-expression-dsl-package">
+<h1>core.python_expression_dsl package<a class="headerlink" href="#core-python-expression-dsl-package" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="module-core.python_expression_dsl.ast">
+<span id="core-python-expression-dsl-ast-module"></span><h2>core.python_expression_dsl.ast module<a class="headerlink" href="#module-core.python_expression_dsl.ast" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="core.python_expression_dsl.ast.BinaryArithmeticExpression">
+<em class="property">class </em><code class="descclassname">core.python_expression_dsl.ast.</code><code class="descname">BinaryArithmeticExpression</code><span class="sig-paren">(</span><em>operator</em>, <em>left_argument</em>, <em>right_argument</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/python_expression_dsl/ast.html#BinaryArithmeticExpression"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.python_expression_dsl.ast.BinaryArithmeticExpression" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#core.python_expression_dsl.ast.BinaryExpression" title="core.python_expression_dsl.ast.BinaryExpression"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.python_expression_dsl.ast.BinaryExpression</span></code></a></p>
+<p>Represents a binary arithmetic expression.</p>
+</dd></dl>
+
+<dl class="class">
+<dt id="core.python_expression_dsl.ast.BinaryBooleanExpression">
+<em class="property">class </em><code class="descclassname">core.python_expression_dsl.ast.</code><code class="descname">BinaryBooleanExpression</code><span class="sig-paren">(</span><em>operator</em>, <em>left_argument</em>, <em>right_argument</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/python_expression_dsl/ast.html#BinaryBooleanExpression"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.python_expression_dsl.ast.BinaryBooleanExpression" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#core.python_expression_dsl.ast.BinaryExpression" title="core.python_expression_dsl.ast.BinaryExpression"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.python_expression_dsl.ast.BinaryExpression</span></code></a></p>
+<p>Represents a binary boolean expression.</p>
+</dd></dl>
+
+<dl class="class">
+<dt id="core.python_expression_dsl.ast.BinaryExpression">
+<em class="property">class </em><code class="descclassname">core.python_expression_dsl.ast.</code><code class="descname">BinaryExpression</code><span class="sig-paren">(</span><em>operator</em>, <em>left_argument</em>, <em>right_argument</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/python_expression_dsl/ast.html#BinaryExpression"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.python_expression_dsl.ast.BinaryExpression" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#core.python_expression_dsl.ast.Expression" title="core.python_expression_dsl.ast.Expression"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.python_expression_dsl.ast.Expression</span></code></a></p>
+<p>Represents a binary expression.</p>
+<dl class="attribute">
+<dt id="core.python_expression_dsl.ast.BinaryExpression.left_argument">
+<code class="descname">left_argument</code><a class="headerlink" href="#core.python_expression_dsl.ast.BinaryExpression.left_argument" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return the expression’s left argument.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Expression’s left argument</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference internal" href="#core.python_expression_dsl.ast.Node" title="core.python_expression_dsl.ast.Node">Node</a></td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="core.python_expression_dsl.ast.BinaryExpression.operator">
+<code class="descname">operator</code><a class="headerlink" href="#core.python_expression_dsl.ast.BinaryExpression.operator" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return the expression’s operator.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Expression’s operator</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference internal" href="#core.python_expression_dsl.ast.Operator" title="core.python_expression_dsl.ast.Operator">Operator</a></td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="core.python_expression_dsl.ast.BinaryExpression.right_argument">
+<code class="descname">right_argument</code><a class="headerlink" href="#core.python_expression_dsl.ast.BinaryExpression.right_argument" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return the expression’s right argument.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Expression’s right argument</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference internal" href="#core.python_expression_dsl.ast.Node" title="core.python_expression_dsl.ast.Node">Node</a></td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="core.python_expression_dsl.ast.ComparisonExpression">
+<em class="property">class </em><code class="descclassname">core.python_expression_dsl.ast.</code><code class="descname">ComparisonExpression</code><span class="sig-paren">(</span><em>operator</em>, <em>left_argument</em>, <em>right_argument</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/python_expression_dsl/ast.html#ComparisonExpression"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.python_expression_dsl.ast.ComparisonExpression" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#core.python_expression_dsl.ast.BinaryExpression" title="core.python_expression_dsl.ast.BinaryExpression"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.python_expression_dsl.ast.BinaryExpression</span></code></a></p>
+<p>Represents a comparison expression.</p>
+</dd></dl>
+
+<dl class="class">
+<dt id="core.python_expression_dsl.ast.DotExpression">
+<em class="property">class </em><code class="descclassname">core.python_expression_dsl.ast.</code><code class="descname">DotExpression</code><span class="sig-paren">(</span><em>expressions</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/python_expression_dsl/ast.html#DotExpression"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.python_expression_dsl.ast.DotExpression" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#core.python_expression_dsl.ast.Expression" title="core.python_expression_dsl.ast.Expression"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.python_expression_dsl.ast.Expression</span></code></a></p>
+<p>Represents a dotted expression.</p>
+<dl class="attribute">
+<dt id="core.python_expression_dsl.ast.DotExpression.expressions">
+<code class="descname">expressions</code><a class="headerlink" href="#core.python_expression_dsl.ast.DotExpression.expressions" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return the list of nested expressions.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">List of nested expressions</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">List[<a class="reference internal" href="#core.python_expression_dsl.ast.Expression" title="core.python_expression_dsl.ast.Expression">Expression</a>]</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="core.python_expression_dsl.ast.Expression">
+<em class="property">class </em><code class="descclassname">core.python_expression_dsl.ast.</code><code class="descname">Expression</code><a class="reference internal" href="_modules/core/python_expression_dsl/ast.html#Expression"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.python_expression_dsl.ast.Expression" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#core.python_expression_dsl.ast.Node" title="core.python_expression_dsl.ast.Node"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.python_expression_dsl.ast.Node</span></code></a></p>
+<p>Base class for AST nodes representing different types of expressions.</p>
+</dd></dl>
+
+<dl class="class">
+<dt id="core.python_expression_dsl.ast.FunctionCallExpression">
+<em class="property">class </em><code class="descclassname">core.python_expression_dsl.ast.</code><code class="descname">FunctionCallExpression</code><span class="sig-paren">(</span><em>function</em>, <em>arguments</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/python_expression_dsl/ast.html#FunctionCallExpression"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.python_expression_dsl.ast.FunctionCallExpression" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#core.python_expression_dsl.ast.Expression" title="core.python_expression_dsl.ast.Expression"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.python_expression_dsl.ast.Expression</span></code></a></p>
+<p>Represents a function call expression.</p>
+<dl class="attribute">
+<dt id="core.python_expression_dsl.ast.FunctionCallExpression.arguments">
+<code class="descname">arguments</code><a class="headerlink" href="#core.python_expression_dsl.ast.FunctionCallExpression.arguments" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return a list of arguments.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">List of arguments</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">List[<a class="reference internal" href="#core.python_expression_dsl.ast.Expression" title="core.python_expression_dsl.ast.Expression">Expression</a>]</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="core.python_expression_dsl.ast.FunctionCallExpression.function">
+<code class="descname">function</code><a class="headerlink" href="#core.python_expression_dsl.ast.FunctionCallExpression.function" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return the identifier representing the function.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Identifier representing the function</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference internal" href="#core.python_expression_dsl.ast.Identifier" title="core.python_expression_dsl.ast.Identifier">core.python_expression_dsl.ast.Identifier</a></td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="core.python_expression_dsl.ast.Identifier">
+<em class="property">class </em><code class="descclassname">core.python_expression_dsl.ast.</code><code class="descname">Identifier</code><span class="sig-paren">(</span><em>value</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/python_expression_dsl/ast.html#Identifier"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.python_expression_dsl.ast.Identifier" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#core.python_expression_dsl.ast.ScalarValue" title="core.python_expression_dsl.ast.ScalarValue"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.python_expression_dsl.ast.ScalarValue</span></code></a></p>
+<p>Represents an identifier.</p>
+</dd></dl>
+
+<dl class="class">
+<dt id="core.python_expression_dsl.ast.Node">
+<em class="property">class </em><code class="descclassname">core.python_expression_dsl.ast.</code><code class="descname">Node</code><a class="reference internal" href="_modules/core/python_expression_dsl/ast.html#Node"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.python_expression_dsl.ast.Node" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#core.python_expression_dsl.ast.Visitable" title="core.python_expression_dsl.ast.Visitable"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.python_expression_dsl.ast.Visitable</span></code></a></p>
+<p>Base class for all AST nodes.</p>
+<dl class="method">
+<dt id="core.python_expression_dsl.ast.Node.accept">
+<code class="descname">accept</code><span class="sig-paren">(</span><em>visitor</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/python_expression_dsl/ast.html#Node.accept"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.python_expression_dsl.ast.Node.accept" title="Permalink to this definition">¶</a></dt>
+<dd><p>Accept  the specified visitor.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>visitor</strong> (<a class="reference internal" href="#core.python_expression_dsl.ast.Visitor" title="core.python_expression_dsl.ast.Visitor"><em>Visitor</em></a>) – Visitor object</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">Evaluated result</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body">Any</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="core.python_expression_dsl.ast.Number">
+<em class="property">class </em><code class="descclassname">core.python_expression_dsl.ast.</code><code class="descname">Number</code><span class="sig-paren">(</span><em>value</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/python_expression_dsl/ast.html#Number"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.python_expression_dsl.ast.Number" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#core.python_expression_dsl.ast.ScalarValue" title="core.python_expression_dsl.ast.ScalarValue"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.python_expression_dsl.ast.ScalarValue</span></code></a></p>
+<p>Represents a number.</p>
+</dd></dl>
+
+<dl class="class">
+<dt id="core.python_expression_dsl.ast.Operator">
+<em class="property">class </em><code class="descclassname">core.python_expression_dsl.ast.</code><code class="descname">Operator</code><a class="reference internal" href="_modules/core/python_expression_dsl/ast.html#Operator"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.python_expression_dsl.ast.Operator" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">enum.Enum</span></code></p>
+<p>Enumeration containing different types of available operators.</p>
+<dl class="attribute">
+<dt id="core.python_expression_dsl.ast.Operator.ADDITION">
+<code class="descname">ADDITION</code><em class="property"> = 'ADDITION'</em><a class="headerlink" href="#core.python_expression_dsl.ast.Operator.ADDITION" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.python_expression_dsl.ast.Operator.CONJUNCTION">
+<code class="descname">CONJUNCTION</code><em class="property"> = 'CONJUNCTION'</em><a class="headerlink" href="#core.python_expression_dsl.ast.Operator.CONJUNCTION" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.python_expression_dsl.ast.Operator.DISJUNCTION">
+<code class="descname">DISJUNCTION</code><em class="property"> = 'DISJUNCTION'</em><a class="headerlink" href="#core.python_expression_dsl.ast.Operator.DISJUNCTION" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.python_expression_dsl.ast.Operator.DIVISION">
+<code class="descname">DIVISION</code><em class="property"> = 'DIVISION'</em><a class="headerlink" href="#core.python_expression_dsl.ast.Operator.DIVISION" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.python_expression_dsl.ast.Operator.EQUAL">
+<code class="descname">EQUAL</code><em class="property"> = 'EQUAL'</em><a class="headerlink" href="#core.python_expression_dsl.ast.Operator.EQUAL" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.python_expression_dsl.ast.Operator.EXPONENTIATION">
+<code class="descname">EXPONENTIATION</code><em class="property"> = 'EXPONENTIATION'</em><a class="headerlink" href="#core.python_expression_dsl.ast.Operator.EXPONENTIATION" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.python_expression_dsl.ast.Operator.GREATER">
+<code class="descname">GREATER</code><em class="property"> = 'GREATER'</em><a class="headerlink" href="#core.python_expression_dsl.ast.Operator.GREATER" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.python_expression_dsl.ast.Operator.GREATER_OR_EQUAL">
+<code class="descname">GREATER_OR_EQUAL</code><em class="property"> = 'GREATER_OR_EQUAL'</em><a class="headerlink" href="#core.python_expression_dsl.ast.Operator.GREATER_OR_EQUAL" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.python_expression_dsl.ast.Operator.IN">
+<code class="descname">IN</code><em class="property"> = 'IN'</em><a class="headerlink" href="#core.python_expression_dsl.ast.Operator.IN" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.python_expression_dsl.ast.Operator.INVERSION">
+<code class="descname">INVERSION</code><em class="property"> = 'INVERSION'</em><a class="headerlink" href="#core.python_expression_dsl.ast.Operator.INVERSION" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.python_expression_dsl.ast.Operator.LESS">
+<code class="descname">LESS</code><em class="property"> = 'LESS'</em><a class="headerlink" href="#core.python_expression_dsl.ast.Operator.LESS" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.python_expression_dsl.ast.Operator.LESS_OR_EQUAL">
+<code class="descname">LESS_OR_EQUAL</code><em class="property"> = 'LESS_OR_EQUAL'</em><a class="headerlink" href="#core.python_expression_dsl.ast.Operator.LESS_OR_EQUAL" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.python_expression_dsl.ast.Operator.MULTIPLICATION">
+<code class="descname">MULTIPLICATION</code><em class="property"> = 'MULTIPLICATION'</em><a class="headerlink" href="#core.python_expression_dsl.ast.Operator.MULTIPLICATION" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.python_expression_dsl.ast.Operator.NEGATION">
+<code class="descname">NEGATION</code><em class="property"> = 'NEGATION'</em><a class="headerlink" href="#core.python_expression_dsl.ast.Operator.NEGATION" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.python_expression_dsl.ast.Operator.NOT_EQUAL">
+<code class="descname">NOT_EQUAL</code><em class="property"> = 'NOT_EQUAL'</em><a class="headerlink" href="#core.python_expression_dsl.ast.Operator.NOT_EQUAL" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.python_expression_dsl.ast.Operator.SUBTRACTION">
+<code class="descname">SUBTRACTION</code><em class="property"> = 'SUBTRACTION'</em><a class="headerlink" href="#core.python_expression_dsl.ast.Operator.SUBTRACTION" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="core.python_expression_dsl.ast.ScalarValue">
+<em class="property">class </em><code class="descclassname">core.python_expression_dsl.ast.</code><code class="descname">ScalarValue</code><span class="sig-paren">(</span><em>value</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/python_expression_dsl/ast.html#ScalarValue"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.python_expression_dsl.ast.ScalarValue" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#core.python_expression_dsl.ast.Node" title="core.python_expression_dsl.ast.Node"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.python_expression_dsl.ast.Node</span></code></a></p>
+<p>Represents a scalar value.</p>
+<dl class="attribute">
+<dt id="core.python_expression_dsl.ast.ScalarValue.value">
+<code class="descname">value</code><a class="headerlink" href="#core.python_expression_dsl.ast.ScalarValue.value" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return the value.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Value</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">Any</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="core.python_expression_dsl.ast.SliceExpression">
+<em class="property">class </em><code class="descclassname">core.python_expression_dsl.ast.</code><code class="descname">SliceExpression</code><span class="sig-paren">(</span><em>array</em>, <em>slice_expression</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/python_expression_dsl/ast.html#SliceExpression"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.python_expression_dsl.ast.SliceExpression" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#core.python_expression_dsl.ast.Expression" title="core.python_expression_dsl.ast.Expression"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.python_expression_dsl.ast.Expression</span></code></a></p>
+<p>Represents a slice expression.</p>
+<dl class="attribute">
+<dt id="core.python_expression_dsl.ast.SliceExpression.array">
+<code class="descname">array</code><a class="headerlink" href="#core.python_expression_dsl.ast.SliceExpression.array" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return the array node.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Array node</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference internal" href="#core.python_expression_dsl.ast.Node" title="core.python_expression_dsl.ast.Node">Node</a></td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="core.python_expression_dsl.ast.SliceExpression.slice">
+<code class="descname">slice</code><a class="headerlink" href="#core.python_expression_dsl.ast.SliceExpression.slice" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return the slice expression.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Slice expression</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference internal" href="#core.python_expression_dsl.ast.Expression" title="core.python_expression_dsl.ast.Expression">Expression</a></td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="core.python_expression_dsl.ast.String">
+<em class="property">class </em><code class="descclassname">core.python_expression_dsl.ast.</code><code class="descname">String</code><span class="sig-paren">(</span><em>value</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/python_expression_dsl/ast.html#String"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.python_expression_dsl.ast.String" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#core.python_expression_dsl.ast.ScalarValue" title="core.python_expression_dsl.ast.ScalarValue"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.python_expression_dsl.ast.ScalarValue</span></code></a></p>
+<p>Represents an string.</p>
+</dd></dl>
+
+<dl class="class">
+<dt id="core.python_expression_dsl.ast.UnaryArithmeticExpression">
+<em class="property">class </em><code class="descclassname">core.python_expression_dsl.ast.</code><code class="descname">UnaryArithmeticExpression</code><span class="sig-paren">(</span><em>operator</em>, <em>argument</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/python_expression_dsl/ast.html#UnaryArithmeticExpression"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.python_expression_dsl.ast.UnaryArithmeticExpression" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#core.python_expression_dsl.ast.UnaryExpression" title="core.python_expression_dsl.ast.UnaryExpression"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.python_expression_dsl.ast.UnaryExpression</span></code></a></p>
+<p>Represents an unary arithmetic expression.</p>
+</dd></dl>
+
+<dl class="class">
+<dt id="core.python_expression_dsl.ast.UnaryBooleanExpression">
+<em class="property">class </em><code class="descclassname">core.python_expression_dsl.ast.</code><code class="descname">UnaryBooleanExpression</code><span class="sig-paren">(</span><em>operator</em>, <em>argument</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/python_expression_dsl/ast.html#UnaryBooleanExpression"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.python_expression_dsl.ast.UnaryBooleanExpression" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#core.python_expression_dsl.ast.UnaryExpression" title="core.python_expression_dsl.ast.UnaryExpression"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.python_expression_dsl.ast.UnaryExpression</span></code></a></p>
+<p>Represents an unary boolean expression.</p>
+</dd></dl>
+
+<dl class="class">
+<dt id="core.python_expression_dsl.ast.UnaryExpression">
+<em class="property">class </em><code class="descclassname">core.python_expression_dsl.ast.</code><code class="descname">UnaryExpression</code><span class="sig-paren">(</span><em>operator</em>, <em>argument</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/python_expression_dsl/ast.html#UnaryExpression"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.python_expression_dsl.ast.UnaryExpression" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#core.python_expression_dsl.ast.Expression" title="core.python_expression_dsl.ast.Expression"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.python_expression_dsl.ast.Expression</span></code></a></p>
+<p>Represents an unary expression.</p>
+<dl class="attribute">
+<dt id="core.python_expression_dsl.ast.UnaryExpression.argument">
+<code class="descname">argument</code><a class="headerlink" href="#core.python_expression_dsl.ast.UnaryExpression.argument" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return the expression’s argument.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Expression’s argument</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference internal" href="#core.python_expression_dsl.ast.Node" title="core.python_expression_dsl.ast.Node">Node</a></td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="core.python_expression_dsl.ast.UnaryExpression.operator">
+<code class="descname">operator</code><a class="headerlink" href="#core.python_expression_dsl.ast.UnaryExpression.operator" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return the expression’s operator.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Expression’s operator</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference internal" href="#core.python_expression_dsl.ast.Operator" title="core.python_expression_dsl.ast.Operator">Operator</a></td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="core.python_expression_dsl.ast.Visitable">
+<em class="property">class </em><code class="descclassname">core.python_expression_dsl.ast.</code><code class="descname">Visitable</code><a class="reference internal" href="_modules/core/python_expression_dsl/ast.html#Visitable"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.python_expression_dsl.ast.Visitable" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Interface for objects walkable by AST visitors.</p>
+<dl class="method">
+<dt id="core.python_expression_dsl.ast.Visitable.accept">
+<code class="descname">accept</code><span class="sig-paren">(</span><em>visitor</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/python_expression_dsl/ast.html#Visitable.accept"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.python_expression_dsl.ast.Visitable.accept" title="Permalink to this definition">¶</a></dt>
+<dd><p>Accept  the specified visitor.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>visitor</strong> (<a class="reference internal" href="#core.python_expression_dsl.ast.Visitor" title="core.python_expression_dsl.ast.Visitor"><em>Visitor</em></a>) – Visitor object</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">Evaluated result</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body">Any</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="core.python_expression_dsl.ast.Visitor">
+<em class="property">class </em><code class="descclassname">core.python_expression_dsl.ast.</code><code class="descname">Visitor</code><a class="reference internal" href="_modules/core/python_expression_dsl/ast.html#Visitor"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.python_expression_dsl.ast.Visitor" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Interface for visitors walking through abstract syntax trees (AST).</p>
+<dl class="method">
+<dt id="core.python_expression_dsl.ast.Visitor.visit">
+<code class="descname">visit</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/python_expression_dsl/ast.html#Visitor.visit"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.python_expression_dsl.ast.Visitor.visit" title="Permalink to this definition">¶</a></dt>
+<dd><p>Process the specified node.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>node</strong> (<a class="reference internal" href="#core.python_expression_dsl.ast.Node" title="core.python_expression_dsl.ast.Node"><em>Node</em></a>) – AST node</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-core.python_expression_dsl.evaluator">
+<span id="core-python-expression-dsl-evaluator-module"></span><h2>core.python_expression_dsl.evaluator module<a class="headerlink" href="#module-core.python_expression_dsl.evaluator" title="Permalink to this headline">¶</a></h2>
+<dl class="exception">
+<dt id="core.python_expression_dsl.evaluator.DSLEvaluationError">
+<em class="property">exception </em><code class="descclassname">core.python_expression_dsl.evaluator.</code><code class="descname">DSLEvaluationError</code><span class="sig-paren">(</span><em>message=None</em>, <em>inner_exception=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/python_expression_dsl/evaluator.html#DSLEvaluationError"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.python_expression_dsl.evaluator.DSLEvaluationError" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.html#core.exceptions.BaseError" title="core.exceptions.BaseError"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.exceptions.BaseError</span></code></a></p>
+<p>Raised when evaluation of a DSL expression fails.</p>
+</dd></dl>
+
+<dl class="class">
+<dt id="core.python_expression_dsl.evaluator.DSLEvaluationVisitor">
+<em class="property">class </em><code class="descclassname">core.python_expression_dsl.evaluator.</code><code class="descname">DSLEvaluationVisitor</code><span class="sig-paren">(</span><em>context=None</em>, <em>safe_classes=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/python_expression_dsl/evaluator.html#DSLEvaluationVisitor"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.python_expression_dsl.evaluator.DSLEvaluationVisitor" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#core.python_expression_dsl.ast.Visitor" title="core.python_expression_dsl.ast.Visitor"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.python_expression_dsl.ast.Visitor</span></code></a></p>
+<p>Visitor traversing expression’s AST and evaluating it.</p>
+<dl class="attribute">
+<dt id="core.python_expression_dsl.evaluator.DSLEvaluationVisitor.ARITHMETIC_OPERATORS">
+<code class="descname">ARITHMETIC_OPERATORS</code><em class="property"> = {&lt;Operator.DIVISION: 'DIVISION'&gt;: &lt;built-in function truediv&gt;, &lt;Operator.EXPONENTIATION: 'EXPONENTIATION'&gt;: &lt;built-in function pow&gt;, &lt;Operator.ADDITION: 'ADDITION'&gt;: &lt;built-in function add&gt;, &lt;Operator.NEGATION: 'NEGATION'&gt;: &lt;built-in function neg&gt;, &lt;Operator.SUBTRACTION: 'SUBTRACTION'&gt;: &lt;built-in function sub&gt;, &lt;Operator.MULTIPLICATION: 'MULTIPLICATION'&gt;: &lt;built-in function mul&gt;}</em><a class="headerlink" href="#core.python_expression_dsl.evaluator.DSLEvaluationVisitor.ARITHMETIC_OPERATORS" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.python_expression_dsl.evaluator.DSLEvaluationVisitor.BOOLEAN_OPERATORS">
+<code class="descname">BOOLEAN_OPERATORS</code><em class="property"> = {&lt;Operator.INVERSION: 'INVERSION'&gt;: &lt;built-in function not_&gt;, &lt;Operator.CONJUNCTION: 'CONJUNCTION'&gt;: &lt;built-in function and_&gt;, &lt;Operator.DISJUNCTION: 'DISJUNCTION'&gt;: &lt;built-in function or_&gt;}</em><a class="headerlink" href="#core.python_expression_dsl.evaluator.DSLEvaluationVisitor.BOOLEAN_OPERATORS" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.python_expression_dsl.evaluator.DSLEvaluationVisitor.BUILTIN_CLASSES">
+<code class="descname">BUILTIN_CLASSES</code><em class="property"> = [&lt;type 'float'&gt;, &lt;type 'int'&gt;, &lt;type 'str'&gt;]</em><a class="headerlink" href="#core.python_expression_dsl.evaluator.DSLEvaluationVisitor.BUILTIN_CLASSES" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.python_expression_dsl.evaluator.DSLEvaluationVisitor.BUILTIN_FUNCTIONS">
+<code class="descname">BUILTIN_FUNCTIONS</code><em class="property"> = {'abs': &lt;built-in function abs&gt;, 'all': &lt;built-in function all&gt;, 'any': &lt;built-in function any&gt;, 'float': &lt;type 'float'&gt;, 'int': &lt;type 'int'&gt;, 'len': &lt;built-in function len&gt;, 'max': &lt;built-in function max&gt;, 'min': &lt;built-in function min&gt;, 'str': &lt;type 'str'&gt;}</em><a class="headerlink" href="#core.python_expression_dsl.evaluator.DSLEvaluationVisitor.BUILTIN_FUNCTIONS" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.python_expression_dsl.evaluator.DSLEvaluationVisitor.COMPARISON_OPERATORS">
+<code class="descname">COMPARISON_OPERATORS</code><em class="property"> = {&lt;Operator.NOT_EQUAL: 'NOT_EQUAL'&gt;: &lt;built-in function ne&gt;, &lt;Operator.LESS_OR_EQUAL: 'LESS_OR_EQUAL'&gt;: &lt;built-in function le&gt;, &lt;Operator.LESS: 'LESS'&gt;: &lt;built-in function lt&gt;, &lt;Operator.GREATER_OR_EQUAL: 'GREATER_OR_EQUAL'&gt;: &lt;built-in function ge&gt;, &lt;Operator.EQUAL: 'EQUAL'&gt;: &lt;built-in function eq&gt;, &lt;Operator.IN: 'IN'&gt;: &lt;function &lt;lambda&gt;&gt;, &lt;Operator.GREATER: 'GREATER'&gt;: &lt;built-in function gt&gt;}</em><a class="headerlink" href="#core.python_expression_dsl.evaluator.DSLEvaluationVisitor.COMPARISON_OPERATORS" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.python_expression_dsl.evaluator.DSLEvaluationVisitor.context">
+<code class="descname">context</code><a class="headerlink" href="#core.python_expression_dsl.evaluator.DSLEvaluationVisitor.context" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return the evaluation context.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Evaluation context</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">Union[Dict, object]</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="core.python_expression_dsl.evaluator.DSLEvaluationVisitor.safe_classes">
+<code class="descname">safe_classes</code><a class="headerlink" href="#core.python_expression_dsl.evaluator.DSLEvaluationVisitor.safe_classes" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return a list of classes which methods can be called.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">List of safe classes which methods can be called</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">List[type]</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="core.python_expression_dsl.evaluator.DSLEvaluationVisitor.visit">
+<code class="descname">visit</code><a class="headerlink" href="#core.python_expression_dsl.evaluator.DSLEvaluationVisitor.visit" title="Permalink to this definition">¶</a></dt>
+<dd><p>Dispatch methods based on type signature</p>
+<dl class="docutils">
+<dt>See Also:</dt>
+<dd>Dispatcher</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="core.python_expression_dsl.evaluator.DSLEvaluator">
+<em class="property">class </em><code class="descclassname">core.python_expression_dsl.evaluator.</code><code class="descname">DSLEvaluator</code><span class="sig-paren">(</span><em>parser</em>, <em>visitor</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/python_expression_dsl/evaluator.html#DSLEvaluator"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.python_expression_dsl.evaluator.DSLEvaluator" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Evaluates the expression.</p>
+<dl class="method">
+<dt id="core.python_expression_dsl.evaluator.DSLEvaluator.evaluate">
+<code class="descname">evaluate</code><span class="sig-paren">(</span><em>expression</em>, <em>context=None</em>, <em>safe_classes=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/python_expression_dsl/evaluator.html#DSLEvaluator.evaluate"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.python_expression_dsl.evaluator.DSLEvaluator.evaluate" title="Permalink to this definition">¶</a></dt>
+<dd><p>Evaluate the expression and return the resulting value.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>expression</strong> (<em>str</em>) – String containing the expression</li>
+<li><strong>context</strong> (<em>Union</em><em>[</em><em>Dict</em><em>, </em><em>object</em><em>]</em>) – Evaluation context</li>
+<li><strong>safe_classes</strong> (<em>List</em><em>[</em><em>type</em><em>]</em>) – List of classes which methods can be called</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">Evaluation result</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">Any</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="core.python_expression_dsl.evaluator.DSLEvaluator.parser">
+<code class="descname">parser</code><a class="headerlink" href="#core.python_expression_dsl.evaluator.DSLEvaluator.parser" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return the parser used by this evaluator.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Parser used by this evaluator</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference internal" href="#core.python_expression_dsl.parser.DSLParser" title="core.python_expression_dsl.parser.DSLParser">DSLParser</a></td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-core.python_expression_dsl.parser">
+<span id="core-python-expression-dsl-parser-module"></span><h2>core.python_expression_dsl.parser module<a class="headerlink" href="#module-core.python_expression_dsl.parser" title="Permalink to this headline">¶</a></h2>
+<dl class="exception">
+<dt id="core.python_expression_dsl.parser.DSLParseError">
+<em class="property">exception </em><code class="descclassname">core.python_expression_dsl.parser.</code><code class="descname">DSLParseError</code><span class="sig-paren">(</span><em>message=None</em>, <em>inner_exception=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/python_expression_dsl/parser.html#DSLParseError"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.python_expression_dsl.parser.DSLParseError" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.html#core.exceptions.BaseError" title="core.exceptions.BaseError"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.exceptions.BaseError</span></code></a></p>
+<p>Raised when expression has an incorrect format.</p>
+</dd></dl>
+
+<dl class="class">
+<dt id="core.python_expression_dsl.parser.DSLParser">
+<em class="property">class </em><code class="descclassname">core.python_expression_dsl.parser.</code><code class="descname">DSLParser</code><a class="reference internal" href="_modules/core/python_expression_dsl/parser.html#DSLParser"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.python_expression_dsl.parser.DSLParser" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Parses expressions into AST objects.</p>
+<dl class="attribute">
+<dt id="core.python_expression_dsl.parser.DSLParser.ADDITION_OPERATOR">
+<code class="descname">ADDITION_OPERATOR</code><em class="property"> = &quot;+&quot;</em><a class="headerlink" href="#core.python_expression_dsl.parser.DSLParser.ADDITION_OPERATOR" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.python_expression_dsl.parser.DSLParser.ADDITIVE_OPERATOR">
+<code class="descname">ADDITIVE_OPERATOR</code><em class="property"> = {&quot;+&quot; | &quot;-&quot;}</em><a class="headerlink" href="#core.python_expression_dsl.parser.DSLParser.ADDITIVE_OPERATOR" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.python_expression_dsl.parser.DSLParser.COMMA">
+<code class="descname">COMMA</code><em class="property"> = Suppress:(&quot;,&quot;)</em><a class="headerlink" href="#core.python_expression_dsl.parser.DSLParser.COMMA" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.python_expression_dsl.parser.DSLParser.COMPARISON_OPERATOR">
+<code class="descname">COMPARISON_OPERATOR</code><em class="property"> = {{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;}</em><a class="headerlink" href="#core.python_expression_dsl.parser.DSLParser.COMPARISON_OPERATOR" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.python_expression_dsl.parser.DSLParser.CONJUNCTION_OPERATOR">
+<code class="descname">CONJUNCTION_OPERATOR</code><em class="property"> = &quot;and&quot;</em><a class="headerlink" href="#core.python_expression_dsl.parser.DSLParser.CONJUNCTION_OPERATOR" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.python_expression_dsl.parser.DSLParser.DEFAULT_ERROR_MESSAGE">
+<code class="descname">DEFAULT_ERROR_MESSAGE</code><em class="property"> = 'Could not parse the expression'</em><a class="headerlink" href="#core.python_expression_dsl.parser.DSLParser.DEFAULT_ERROR_MESSAGE" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.python_expression_dsl.parser.DSLParser.DISJUNCTION_OPERATOR">
+<code class="descname">DISJUNCTION_OPERATOR</code><em class="property"> = &quot;or&quot;</em><a class="headerlink" href="#core.python_expression_dsl.parser.DSLParser.DISJUNCTION_OPERATOR" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.python_expression_dsl.parser.DSLParser.DIVISION_OPERATOR">
+<code class="descname">DIVISION_OPERATOR</code><em class="property"> = &quot;/&quot;</em><a class="headerlink" href="#core.python_expression_dsl.parser.DSLParser.DIVISION_OPERATOR" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.python_expression_dsl.parser.DSLParser.EQUAL_OPERATOR">
+<code class="descname">EQUAL_OPERATOR</code><em class="property"> = &quot;==&quot;</em><a class="headerlink" href="#core.python_expression_dsl.parser.DSLParser.EQUAL_OPERATOR" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.python_expression_dsl.parser.DSLParser.FULL_STOP">
+<code class="descname">FULL_STOP</code><em class="property"> = Suppress:(&quot;.&quot;)</em><a class="headerlink" href="#core.python_expression_dsl.parser.DSLParser.FULL_STOP" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.python_expression_dsl.parser.DSLParser.GREATER_OPERATOR">
+<code class="descname">GREATER_OPERATOR</code><em class="property"> = &quot;&gt;&quot;</em><a class="headerlink" href="#core.python_expression_dsl.parser.DSLParser.GREATER_OPERATOR" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.python_expression_dsl.parser.DSLParser.GREATER_OR_EQUAL_OPERATOR">
+<code class="descname">GREATER_OR_EQUAL_OPERATOR</code><em class="property"> = &quot;&gt;=&quot;</em><a class="headerlink" href="#core.python_expression_dsl.parser.DSLParser.GREATER_OR_EQUAL_OPERATOR" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.python_expression_dsl.parser.DSLParser.IDENTIFIER">
+<code class="descname">IDENTIFIER</code><em class="property"> = W:(ABCD..., ABCD...)</em><a class="headerlink" href="#core.python_expression_dsl.parser.DSLParser.IDENTIFIER" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.python_expression_dsl.parser.DSLParser.INVERSION_OPERATOR">
+<code class="descname">INVERSION_OPERATOR</code><em class="property"> = &quot;not&quot;</em><a class="headerlink" href="#core.python_expression_dsl.parser.DSLParser.INVERSION_OPERATOR" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.python_expression_dsl.parser.DSLParser.IN_OPERATOR">
+<code class="descname">IN_OPERATOR</code><em class="property"> = &quot;in&quot;</em><a class="headerlink" href="#core.python_expression_dsl.parser.DSLParser.IN_OPERATOR" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.python_expression_dsl.parser.DSLParser.LEFT_BRACKET">
+<code class="descname">LEFT_BRACKET</code><em class="property"> = Suppress:(&quot;[&quot;)</em><a class="headerlink" href="#core.python_expression_dsl.parser.DSLParser.LEFT_BRACKET" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.python_expression_dsl.parser.DSLParser.LEFT_PAREN">
+<code class="descname">LEFT_PAREN</code><em class="property"> = Suppress:(&quot;(&quot;)</em><a class="headerlink" href="#core.python_expression_dsl.parser.DSLParser.LEFT_PAREN" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.python_expression_dsl.parser.DSLParser.LESS_OPERATOR">
+<code class="descname">LESS_OPERATOR</code><em class="property"> = &quot;&lt;&quot;</em><a class="headerlink" href="#core.python_expression_dsl.parser.DSLParser.LESS_OPERATOR" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.python_expression_dsl.parser.DSLParser.LESS_OR_EQUAL_OPERATOR">
+<code class="descname">LESS_OR_EQUAL_OPERATOR</code><em class="property"> = &quot;&lt;=&quot;</em><a class="headerlink" href="#core.python_expression_dsl.parser.DSLParser.LESS_OR_EQUAL_OPERATOR" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.python_expression_dsl.parser.DSLParser.MULTIPLICATION_OPERATOR">
+<code class="descname">MULTIPLICATION_OPERATOR</code><em class="property"> = &quot;*&quot;</em><a class="headerlink" href="#core.python_expression_dsl.parser.DSLParser.MULTIPLICATION_OPERATOR" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.python_expression_dsl.parser.DSLParser.MULTIPLICATIVE_OPERATOR">
+<code class="descname">MULTIPLICATIVE_OPERATOR</code><em class="property"> = {&quot;*&quot; | &quot;/&quot;}</em><a class="headerlink" href="#core.python_expression_dsl.parser.DSLParser.MULTIPLICATIVE_OPERATOR" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.python_expression_dsl.parser.DSLParser.NEGATION_OPERATOR">
+<code class="descname">NEGATION_OPERATOR</code><em class="property"> = &quot;-&quot;</em><a class="headerlink" href="#core.python_expression_dsl.parser.DSLParser.NEGATION_OPERATOR" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.python_expression_dsl.parser.DSLParser.NOT_EQUAL_OPERATOR">
+<code class="descname">NOT_EQUAL_OPERATOR</code><em class="property"> = &quot;!=&quot;</em><a class="headerlink" href="#core.python_expression_dsl.parser.DSLParser.NOT_EQUAL_OPERATOR" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.python_expression_dsl.parser.DSLParser.NUMBER">
+<code class="descname">NUMBER</code><em class="property"> = Re:('[+-]?\\d+(?:\\.\\d*)?(?:[eE][+-]?\\d+)?')</em><a class="headerlink" href="#core.python_expression_dsl.parser.DSLParser.NUMBER" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.python_expression_dsl.parser.DSLParser.PARSE_ERROR_MESSAGE_REGEX">
+<code class="descname">PARSE_ERROR_MESSAGE_REGEX</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x4c39400&gt;</em><a class="headerlink" href="#core.python_expression_dsl.parser.DSLParser.PARSE_ERROR_MESSAGE_REGEX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.python_expression_dsl.parser.DSLParser.POWER_OPERATOR">
+<code class="descname">POWER_OPERATOR</code><em class="property"> = &quot;**&quot;</em><a class="headerlink" href="#core.python_expression_dsl.parser.DSLParser.POWER_OPERATOR" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.python_expression_dsl.parser.DSLParser.RIGHT_BRACKET">
+<code class="descname">RIGHT_BRACKET</code><em class="property"> = Suppress:(&quot;]&quot;)</em><a class="headerlink" href="#core.python_expression_dsl.parser.DSLParser.RIGHT_BRACKET" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.python_expression_dsl.parser.DSLParser.RIGHT_PAREN">
+<code class="descname">RIGHT_PAREN</code><em class="property"> = Suppress:(&quot;)&quot;)</em><a class="headerlink" href="#core.python_expression_dsl.parser.DSLParser.RIGHT_PAREN" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.python_expression_dsl.parser.DSLParser.STRING">
+<code class="descname">STRING</code><em class="property"> = {quoted string, starting with ' ending with ' | quoted string, starting with &quot; ending with &quot;}</em><a class="headerlink" href="#core.python_expression_dsl.parser.DSLParser.STRING" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.python_expression_dsl.parser.DSLParser.SUBTRACTION_OPERATOR">
+<code class="descname">SUBTRACTION_OPERATOR</code><em class="property"> = &quot;-&quot;</em><a class="headerlink" href="#core.python_expression_dsl.parser.DSLParser.SUBTRACTION_OPERATOR" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.python_expression_dsl.parser.DSLParser.arithmetic_expression">
+<code class="descname">arithmetic_expression</code><em class="property"> = Forward: {{Forward: {{[&quot;-&quot;]... {{{{{{Re:('[+-]?\\d+(?:\\.\\d*)?(?:[eE][+-]?\\d+)?') | {quoted string, starting with ' ending with ' | quoted string, starting with &quot; ending with &quot;}} | Group:({{{W:(ABCD..., ABCD...) Suppress:(&quot;[&quot;)} {{{[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}} [{&quot;and&quot; {[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}}}]...} [{&quot;or&quot; {{[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}} [{&quot;and&quot; {[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}}}]...}}]...}} Suppress:(&quot;]&quot;)})} | Group:({{Suppress:(&quot;(&quot;) {{{[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}} [{&quot;and&quot; {[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}}}]...} [{&quot;or&quot; {{[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}} [{&quot;and&quot; {[&quot;not&quot;]... {: ... [{</em><a class="headerlink" href="#core.python_expression_dsl.parser.DSLParser.arithmetic_expression" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.python_expression_dsl.parser.DSLParser.atom">
+<code class="descname">atom</code><em class="property"> = {[&quot;-&quot;]... {{{{{{Re:('[+-]?\\d+(?:\\.\\d*)?(?:[eE][+-]?\\d+)?') | {quoted string, starting with ' ending with ' | quoted string, starting with &quot; ending with &quot;}} | Group:({{{W:(ABCD..., ABCD...) Suppress:(&quot;[&quot;)} {{{[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}} [{&quot;and&quot; {[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}}}]...} [{&quot;or&quot; {{[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}} [{&quot;and&quot; {[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}}}]...}}]...}} Suppress:(&quot;]&quot;)})} | Group:({{Suppress:(&quot;(&quot;) {{{[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}} [{&quot;and&quot; {[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}}}]...} [{&quot;or&quot; {{[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}} [{&quot;and&quot; {[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}}}]...}}]...}} Suppress:(&quot;)&quot;)})} | Group:({{{W:(ABCD..., ABCD...) Suppress:(&quot;(&quot;)} [{{{{[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}} [{&quot;and&quot; {[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}}}]...} [{&quot;or&quot; {{[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}} [{&quot;and&quot; {[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}}}]...}}]...} [{Suppress:(&quot;,&quot;) {{{[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}} [{&quot;and&quot; {[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}}}]...} [{&quot;or&quot; {{[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}} [{&quot;and&quot; {[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}}}]...}}]...}}]...}]...} Suppress:(&quot;)&quot;)})} | Group:({W:(ABCD..., ABCD...) [{Suppress:(&quot;.&quot;) {{{[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}} [{&quot;and&quot; {[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}}}]...} [{&quot;or&quot; {{[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}} [{&quot;and&quot; {[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}}}]...}}]...}}]...})} | W:(ABCD..., ABCD...)}}</em><a class="headerlink" href="#core.python_expression_dsl.parser.DSLParser.atom" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.python_expression_dsl.parser.DSLParser.comparison_expression">
+<code class="descname">comparison_expression</code><em class="property"> = {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}</em><a class="headerlink" href="#core.python_expression_dsl.parser.DSLParser.comparison_expression" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.python_expression_dsl.parser.DSLParser.conjunction_expression">
+<code class="descname">conjunction_expression</code><em class="property"> = {{[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}} [{&quot;and&quot; {[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}}}]...}</em><a class="headerlink" href="#core.python_expression_dsl.parser.DSLParser.conjunction_expression" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.python_expression_dsl.parser.DSLParser.disjunction_expression">
+<code class="descname">disjunction_expression</code><em class="property"> = {{{[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}} [{&quot;and&quot; {[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}}}]...} [{&quot;or&quot; {{[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}} [{&quot;and&quot; {[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}}}]...}}]...}</em><a class="headerlink" href="#core.python_expression_dsl.parser.DSLParser.disjunction_expression" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.python_expression_dsl.parser.DSLParser.dot_expression">
+<code class="descname">dot_expression</code><em class="property"> = Group:({W:(ABCD..., ABCD...) [{Suppress:(&quot;.&quot;) {{{[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}} [{&quot;and&quot; {[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}}}]...} [{&quot;or&quot; {{[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}} [{&quot;and&quot; {[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}}}]...}}]...}}]...})</em><a class="headerlink" href="#core.python_expression_dsl.parser.DSLParser.dot_expression" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.python_expression_dsl.parser.DSLParser.expression">
+<code class="descname">expression</code><em class="property"> = {{{[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}} [{&quot;and&quot; {[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}}}]...} [{&quot;or&quot; {{[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}} [{&quot;and&quot; {[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}}}]...}}]...}</em><a class="headerlink" href="#core.python_expression_dsl.parser.DSLParser.expression" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.python_expression_dsl.parser.DSLParser.factor">
+<code class="descname">factor</code><em class="property"> = Forward: {{[&quot;-&quot;]... {{{{{{Re:('[+-]?\\d+(?:\\.\\d*)?(?:[eE][+-]?\\d+)?') | {quoted string, starting with ' ending with ' | quoted string, starting with &quot; ending with &quot;}} | Group:({{{W:(ABCD..., ABCD...) Suppress:(&quot;[&quot;)} {{{[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}} [{&quot;and&quot; {[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}}}]...} [{&quot;or&quot; {{[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}} [{&quot;and&quot; {[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}}}]...}}]...}} Suppress:(&quot;]&quot;)})} | Group:({{Suppress:(&quot;(&quot;) {{{[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}} [{&quot;and&quot; {[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}}}]...} [{&quot;or&quot; {{[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}} [{&quot;and&quot; {[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; </em><a class="headerlink" href="#core.python_expression_dsl.parser.DSLParser.factor" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.python_expression_dsl.parser.DSLParser.function_call_arguments">
+<code class="descname">function_call_arguments</code><em class="property"> = [{{{{[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}} [{&quot;and&quot; {[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}}}]...} [{&quot;or&quot; {{[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}} [{&quot;and&quot; {[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}}}]...}}]...} [{Suppress:(&quot;,&quot;) {{{[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}} [{&quot;and&quot; {[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}}}]...} [{&quot;or&quot; {{[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}} [{&quot;and&quot; {[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}}}]...}}]...}}]...}]...</em><a class="headerlink" href="#core.python_expression_dsl.parser.DSLParser.function_call_arguments" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.python_expression_dsl.parser.DSLParser.function_call_expression">
+<code class="descname">function_call_expression</code><em class="property"> = Group:({{{W:(ABCD..., ABCD...) Suppress:(&quot;(&quot;)} [{{{{[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}} [{&quot;and&quot; {[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}}}]...} [{&quot;or&quot; {{[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}} [{&quot;and&quot; {[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}}}]...}}]...} [{Suppress:(&quot;,&quot;) {{{[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}} [{&quot;and&quot; {[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}}}]...} [{&quot;or&quot; {{[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}} [{&quot;and&quot; {[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}}}]...}}]...}}]...}]...} Suppress:(&quot;)&quot;)})</em><a class="headerlink" href="#core.python_expression_dsl.parser.DSLParser.function_call_expression" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.python_expression_dsl.parser.DSLParser.inversion_expression">
+<code class="descname">inversion_expression</code><em class="property"> = {[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}}</em><a class="headerlink" href="#core.python_expression_dsl.parser.DSLParser.inversion_expression" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.python_expression_dsl.parser.DSLParser.parenthesized_expression">
+<code class="descname">parenthesized_expression</code><em class="property"> = Group:({{Suppress:(&quot;(&quot;) {{{[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}} [{&quot;and&quot; {[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}}}]...} [{&quot;or&quot; {{[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}} [{&quot;and&quot; {[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}}}]...}}]...}} Suppress:(&quot;)&quot;)})</em><a class="headerlink" href="#core.python_expression_dsl.parser.DSLParser.parenthesized_expression" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="core.python_expression_dsl.parser.DSLParser.parse">
+<code class="descname">parse</code><span class="sig-paren">(</span><em>expression</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/python_expression_dsl/parser.html#DSLParser.parse"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.python_expression_dsl.parser.DSLParser.parse" title="Permalink to this definition">¶</a></dt>
+<dd><p>Parse the expression and transform it into AST.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>expression</strong> (<em>str</em>) – String containing the expression</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">AST node</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference internal" href="#core.python_expression_dsl.ast.Node" title="core.python_expression_dsl.ast.Node">core.python_expression_dsl.ast.Node</a></td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="core.python_expression_dsl.parser.DSLParser.slice">
+<code class="descname">slice</code><em class="property"> = {{{[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}} [{&quot;and&quot; {[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}}}]...} [{&quot;or&quot; {{[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}} [{&quot;and&quot; {[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}}}]...}}]...}</em><a class="headerlink" href="#core.python_expression_dsl.parser.DSLParser.slice" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.python_expression_dsl.parser.DSLParser.slice_expression">
+<code class="descname">slice_expression</code><em class="property"> = Group:({{{W:(ABCD..., ABCD...) Suppress:(&quot;[&quot;)} {{{[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}} [{&quot;and&quot; {[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}}}]...} [{&quot;or&quot; {{[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}} [{&quot;and&quot; {[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}}}]...}}]...}} Suppress:(&quot;]&quot;)})</em><a class="headerlink" href="#core.python_expression_dsl.parser.DSLParser.slice_expression" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.python_expression_dsl.parser.DSLParser.term">
+<code class="descname">term</code><em class="property"> = {Forward: {{[&quot;-&quot;]... {{{{{{Re:('[+-]?\\d+(?:\\.\\d*)?(?:[eE][+-]?\\d+)?') | {quoted string, starting with ' ending with ' | quoted string, starting with &quot; ending with &quot;}} | Group:({{{W:(ABCD..., ABCD...) Suppress:(&quot;[&quot;)} {{{[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}} [{&quot;and&quot; {[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}}}]...} [{&quot;or&quot; {{[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}} [{&quot;and&quot; {[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}}}]...}}]...}} Suppress:(&quot;]&quot;)})} | Group:({{Suppress:(&quot;(&quot;) {{{[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}} [{&quot;and&quot; {[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}}}]...} [{&quot;or&quot; {{[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}} [{&quot;and&quot; {[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot;  [{{&quot;*&quot; | &quot;/&quot;} Forward: {{[&quot;-&quot;]... {{{{{{Re:('[+-]?\\d+(?:\\.\\d*)?(?:[eE][+-]?\\d+)?') | {quoted string, starting with ' ending with ' | quoted string, starting with &quot; ending with &quot;}} | Group:({{{W:(ABCD..., ABCD...) Suppress:(&quot;[&quot;)} {{{[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}} [{&quot;and&quot; {[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}}}]...} [{&quot;or&quot; {{[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}} [{&quot;and&quot; {[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}}}]...}}]...}} Suppress:(&quot;]&quot;)})} | Group:({{Suppress:(&quot;(&quot;) {{{[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}} [{&quot;and&quot; {[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}}}]...} [{&quot;or&quot; {{[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; | &quot;!=&quot;} | &quot;&gt;=&quot;} | &quot;&gt;&quot;} | &quot;&lt;=&quot;} | &quot;&lt;&quot;} | &quot;in&quot;} : ...}]...}} [{&quot;and&quot; {[&quot;not&quot;]... {: ... [{{{{{{{&quot;==&quot; }]...}</em><a class="headerlink" href="#core.python_expression_dsl.parser.DSLParser.term" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-core.python_expression_dsl">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-core.python_expression_dsl" title="Permalink to this headline">¶</a></h2>
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">Library Simplified Circulation Manager</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="modules.html">circulation</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="api.html">api package</a></li>
+<li class="toctree-l2"><a class="reference internal" href="app.html">app module</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="core.html">core package</a></li>
+<li class="toctree-l2"><a class="reference internal" href="scripts.html">scripts module</a></li>
+</ul>
+</li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+  <li><a href="modules.html">circulation</a><ul>
+  <li><a href="core.html">core package</a><ul>
+      <li>Previous: <a href="core.model.html" title="previous chapter">core.model package</a></li>
+      <li>Next: <a href="core.resources.html" title="next chapter">core.resources package</a></li>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="_sources/core.python_expression_dsl.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

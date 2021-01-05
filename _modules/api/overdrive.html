@@ -1026,8 +1026,10 @@
             <span class="p">)</span>
             <span class="n">book</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="n">book_id</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">book_id</span> <span class="o">=</span> <span class="n">book</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">]</span>
             <span class="n">circulation_link</span> <span class="o">=</span> <span class="n">book</span><span class="p">[</span><span class="s1">&#39;availability_link&#39;</span><span class="p">]</span>
+            <span class="c1"># Make sure we use v2 of the availability API,</span>
+            <span class="c1"># even if Overdrive gave us a link to v1.</span>
+            <span class="n">circulation_link</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">make_link_safe</span><span class="p">(</span><span class="n">circulation_link</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">book</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">circulation_link</span><span class="p">,</span> <span class="p">{})</span></div>
 
 <div class="viewcode-block" id="OverdriveAPI.update_formats"><a class="viewcode-back" href="../../api.html#api.overdrive.OverdriveAPI.update_formats">[docs]</a>    <span class="k">def</span> <span class="nf">update_formats</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">):</span>
@@ -1072,13 +1074,18 @@
                 <span class="n">exc_info</span><span class="o">=</span><span class="n">e</span>
             <span class="p">)</span>
 
-        <span class="k">if</span> <span class="n">status_code</span> <span class="o">!=</span> <span class="mi">200</span><span class="p">:</span>
+        <span class="c1"># TODO: If you ask for a book that you know about, and</span>
+        <span class="c1"># Overdrive says the book doesn&#39;t exist in the collection,</span>
+        <span class="c1"># then it&#39;s appropriate to update an existing</span>
+        <span class="c1"># LicensePool. However we shouldn&#39;t be creating a *brand new*</span>
+        <span class="c1"># LicensePool for a book Overdrive says isn&#39;t in the</span>
+        <span class="c1"># collection.</span>
+        <span class="k">if</span> <span class="n">status_code</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">200</span><span class="p">,</span> <span class="mi">404</span><span class="p">):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
                 <span class="s2">&quot;Could not get availability for </span><span class="si">%s</span><span class="s2">: status code </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
                 <span class="n">book_id</span><span class="p">,</span> <span class="n">status_code</span>
             <span class="p">)</span>
             <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">False</span>
-
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">content</span><span class="p">,</span> <span class="n">basestring</span><span class="p">):</span>
             <span class="n">content</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">content</span><span class="p">)</span>
         <span class="n">book</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">content</span><span class="p">)</span>
@@ -1123,7 +1130,8 @@
 <span class="sd">        pool&#39;s presentation_edition, promote it to presentation</span>
 <span class="sd">        status.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">circulation</span> <span class="o">=</span> <span class="n">OverdriveRepresentationExtractor</span><span class="o">.</span><span class="n">book_info_to_circulation</span><span class="p">(</span>
+        <span class="n">extractor</span> <span class="o">=</span> <span class="n">OverdriveRepresentationExtractor</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="n">circulation</span> <span class="o">=</span> <span class="n">extractor</span><span class="o">.</span><span class="n">book_info_to_circulation</span><span class="p">(</span>
             <span class="n">book</span>
         <span class="p">)</span>
         <span class="n">license_pool</span><span class="p">,</span> <span class="n">circulation_changed</span> <span class="o">=</span> <span class="n">circulation</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>

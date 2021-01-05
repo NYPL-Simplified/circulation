@@ -36,40 +36,54 @@
 <span></span><span class="kn">import</span> <span class="nn">datetime</span>
 <span class="kn">import</span> <span class="nn">json</span>
 <span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">from</span> <span class="nn">copy</span> <span class="kn">import</span> <span class="n">deepcopy</span>
 
+<span class="kn">from</span> <span class="nn">contextlib2</span> <span class="kn">import</span> <span class="n">contextmanager</span>
 <span class="kn">from</span> <span class="nn">flask</span> <span class="kn">import</span> <span class="n">url_for</span>
 <span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
 
 <span class="kn">from</span> <span class="nn">api.authenticator</span> <span class="kn">import</span> <span class="n">BaseSAMLAuthenticationProvider</span><span class="p">,</span> <span class="n">PatronData</span>
 <span class="kn">from</span> <span class="nn">api.problem_details</span> <span class="kn">import</span> <span class="o">*</span>
-<span class="kn">from</span> <span class="nn">api.saml.auth</span> <span class="kn">import</span> <span class="n">SAMLAuthenticationManagerFactory</span>
-<span class="kn">from</span> <span class="nn">api.saml.configuration</span> <span class="kn">import</span> <span class="n">SAMLConfiguration</span>
-<span class="kn">from</span> <span class="nn">api.saml.metadata</span> <span class="kn">import</span> <span class="n">Subject</span><span class="p">,</span> <span class="n">SubjectUIDExtractor</span><span class="p">,</span> <span class="n">SubjectJSONEncoder</span><span class="p">,</span> <span class="n">LocalizableMetadataItem</span>
-<span class="kn">from</span> <span class="nn">api.saml.parser</span> <span class="kn">import</span> <span class="n">SAMLMetadataParser</span>
-<span class="kn">from</span> <span class="nn">api.saml.validator</span> <span class="kn">import</span> <span class="n">SAMLSettingsValidator</span>
-<span class="kn">from</span> <span class="nn">core.model</span> <span class="kn">import</span> <span class="n">Credential</span><span class="p">,</span> <span class="n">get_one_or_create</span><span class="p">,</span> <span class="n">DataSource</span>
-<span class="kn">from</span> <span class="nn">core.model.configuration</span> <span class="kn">import</span> <span class="n">HasExternalIntegration</span>
+<span class="kn">from</span> <span class="nn">api.saml.auth</span> <span class="kn">import</span> <span class="n">SAMLAuthenticationManager</span><span class="p">,</span> <span class="n">SAMLAuthenticationManagerFactory</span>
+<span class="kn">from</span> <span class="nn">api.saml.configuration.model</span> <span class="kn">import</span> <span class="n">SAMLConfiguration</span><span class="p">,</span> <span class="n">SAMLConfigurationFactory</span>
+<span class="kn">from</span> <span class="nn">api.saml.configuration.validator</span> <span class="kn">import</span> <span class="n">SAMLSettingsValidator</span>
+<span class="kn">from</span> <span class="nn">api.saml.metadata.filter</span> <span class="kn">import</span> <span class="n">SAMLSubjectFilter</span>
+<span class="kn">from</span> <span class="nn">api.saml.metadata.model</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">SAMLLocalizedMetadataItem</span><span class="p">,</span>
+    <span class="n">SAMLNameIDFormat</span><span class="p">,</span>
+    <span class="n">SAMLSubject</span><span class="p">,</span>
+    <span class="n">SAMLSubjectJSONEncoder</span><span class="p">,</span>
+    <span class="n">SAMLSubjectUIDExtractor</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">api.saml.metadata.parser</span> <span class="kn">import</span> <span class="n">SAMLMetadataParser</span>
+<span class="kn">from</span> <span class="nn">core.model</span> <span class="kn">import</span> <span class="n">Credential</span><span class="p">,</span> <span class="n">DataSource</span><span class="p">,</span> <span class="n">get_one_or_create</span>
+<span class="kn">from</span> <span class="nn">core.model.configuration</span> <span class="kn">import</span> <span class="n">ConfigurationStorage</span><span class="p">,</span> <span class="n">HasExternalIntegration</span>
+<span class="kn">from</span> <span class="nn">core.python_expression_dsl.evaluator</span> <span class="kn">import</span> <span class="n">DSLEvaluationVisitor</span><span class="p">,</span> <span class="n">DSLEvaluator</span>
+<span class="kn">from</span> <span class="nn">core.python_expression_dsl.parser</span> <span class="kn">import</span> <span class="n">DSLParser</span>
 <span class="kn">from</span> <span class="nn">core.util.problem_detail</span> <span class="kn">import</span> <span class="n">ProblemDetail</span>
 
 <span class="n">SAML_INVALID_SUBJECT</span> <span class="o">=</span> <span class="n">pd</span><span class="p">(</span>
-    <span class="s1">&#39;http://librarysimplified.org/terms/problem/saml/invalid-subject&#39;</span><span class="p">,</span>
+    <span class="s2">&quot;http://librarysimplified.org/terms/problem/saml/invalid-subject&quot;</span><span class="p">,</span>
     <span class="n">status_code</span><span class="o">=</span><span class="mi">401</span><span class="p">,</span>
-    <span class="n">title</span><span class="o">=</span><span class="n">_</span><span class="p">(</span><span class="s1">&#39;SAML invalid subject.&#39;</span><span class="p">),</span>
-    <span class="n">detail</span><span class="o">=</span><span class="n">_</span><span class="p">(</span><span class="s1">&#39;SAML invalid subject.&#39;</span><span class="p">)</span>
+    <span class="n">title</span><span class="o">=</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;SAML invalid subject.&quot;</span><span class="p">),</span>
+    <span class="n">detail</span><span class="o">=</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;SAML invalid subject.&quot;</span><span class="p">),</span>
 <span class="p">)</span>
 
 
-<div class="viewcode-block" id="SAMLWebSSOAuthenticationProvider"><a class="viewcode-back" href="../../../api.saml.html#api.saml.provider.SAMLWebSSOAuthenticationProvider">[docs]</a><span class="k">class</span> <span class="nc">SAMLWebSSOAuthenticationProvider</span><span class="p">(</span><span class="n">BaseSAMLAuthenticationProvider</span><span class="p">,</span> <span class="n">HasExternalIntegration</span><span class="p">):</span>
+<div class="viewcode-block" id="SAMLWebSSOAuthenticationProvider"><a class="viewcode-back" href="../../../api.saml.html#api.saml.provider.SAMLWebSSOAuthenticationProvider">[docs]</a><span class="k">class</span> <span class="nc">SAMLWebSSOAuthenticationProvider</span><span class="p">(</span>
+    <span class="n">BaseSAMLAuthenticationProvider</span><span class="p">,</span> <span class="n">HasExternalIntegration</span>
+<span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;SAML authentication provider implementing Web Browser SSO profile using the following bindings:</span>
 <span class="sd">    - HTTP-Redirect Binding for requests</span>
 <span class="sd">    - HTTP-POST Binding for responses</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="n">NAME</span> <span class="o">=</span> <span class="s1">&#39;SAML 2.0 Web SSO&#39;</span>
+    <span class="n">NAME</span> <span class="o">=</span> <span class="s2">&quot;SAML 2.0 Web SSO&quot;</span>
 
     <span class="n">DESCRIPTION</span> <span class="o">=</span> <span class="n">_</span><span class="p">(</span>
-        <span class="sd">&#39;&#39;&#39;SAML 2.0 authentication provider implementing the Web SSO profile using the following bindings:</span>
-<span class="sd">         HTTP-Redirect for requests and HTTP-POST for responses&#39;&#39;&#39;</span><span class="p">)</span>
+        <span class="sd">&quot;&quot;&quot;SAML 2.0 authentication provider implementing the Web SSO profile using the following bindings:</span>
+<span class="sd">         HTTP-Redirect for requests and HTTP-POST for responses.&quot;&quot;&quot;</span>
+    <span class="p">)</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">integration</span><span class="p">,</span> <span class="n">analytics</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Initializes a new instance of SAMLAuthenticationProvider class</span>
@@ -91,7 +105,9 @@
         <span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_authentication_manager</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_configuration_storage</span> <span class="o">=</span> <span class="n">ConfigurationStorage</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_configuration_factory</span> <span class="o">=</span> <span class="n">SAMLConfigurationFactory</span><span class="p">(</span><span class="n">SAMLMetadataParser</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_authentication_manager_factory</span> <span class="o">=</span> <span class="n">SAMLAuthenticationManagerFactory</span><span class="p">()</span>
 
     <span class="k">def</span> <span class="nf">_authentication_flow_document</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">db</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Creates a Authentication Flow object for use in an Authentication for OPDS document.</span>
@@ -168,31 +184,44 @@
 <span class="sd">        :return: Authentication Flow object for use in an Authentication for OPDS document</span>
 <span class="sd">        :rtype: Dict</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">flow_doc</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">FLOW_TYPE</span><span class="p">,</span>
-            <span class="s1">&#39;description&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">NAME</span><span class="p">,</span>
-            <span class="s1">&#39;links&#39;</span><span class="p">:</span> <span class="p">[]</span>
-        <span class="p">}</span>
+        <span class="n">flow_doc</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">FLOW_TYPE</span><span class="p">,</span> <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">NAME</span><span class="p">,</span> <span class="s2">&quot;links&quot;</span><span class="p">:</span> <span class="p">[]}</span>
 
-        <span class="n">configuration</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_authentication_manager</span><span class="p">(</span><span class="n">db</span><span class="p">)</span><span class="o">.</span><span class="n">configuration</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_configuration_factory</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_configuration_storage</span><span class="p">,</span> <span class="n">db</span><span class="p">,</span> <span class="n">SAMLConfiguration</span>
+        <span class="p">)</span> <span class="k">as</span> <span class="n">configuration</span><span class="p">:</span>
+            <span class="n">configuration</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_authentication_manager</span><span class="p">(</span><span class="n">configuration</span><span class="p">)</span><span class="o">.</span><span class="n">configuration</span>
 
-        <span class="k">for</span> <span class="n">index</span><span class="p">,</span> <span class="n">identity_provider</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">configuration</span><span class="o">.</span><span class="n">configuration</span><span class="o">.</span><span class="n">get_identity_providers</span><span class="p">(</span><span class="n">db</span><span class="p">)):</span>
-            <span class="n">link</span> <span class="o">=</span> <span class="p">{</span>
-                <span class="s1">&#39;rel&#39;</span><span class="p">:</span> <span class="s1">&#39;authenticate&#39;</span><span class="p">,</span>
-                <span class="s1">&#39;href&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_authenticate_url</span><span class="p">(</span><span class="n">db</span><span class="p">,</span> <span class="n">identity_provider</span><span class="o">.</span><span class="n">entity_id</span><span class="p">),</span>
-                <span class="s1">&#39;display_names&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_join_ui_info_items</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_get_idp_display_names</span><span class="p">(</span><span class="n">index</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">identity_provider</span><span class="p">)),</span>
-                <span class="s1">&#39;descriptions&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_join_ui_info_items</span><span class="p">(</span><span class="n">identity_provider</span><span class="o">.</span><span class="n">ui_info</span><span class="o">.</span><span class="n">descriptions</span><span class="p">),</span>
-                <span class="s1">&#39;information_urls&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_join_ui_info_items</span><span class="p">(</span><span class="n">identity_provider</span><span class="o">.</span><span class="n">ui_info</span><span class="o">.</span><span class="n">information_urls</span><span class="p">),</span>
-                <span class="s1">&#39;privacy_statement_urls&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_join_ui_info_items</span><span class="p">(</span>
-                    <span class="n">identity_provider</span><span class="o">.</span><span class="n">ui_info</span><span class="o">.</span><span class="n">privacy_statement_urls</span><span class="p">),</span>
-                <span class="s1">&#39;logo_urls&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_join_ui_info_items</span><span class="p">(</span><span class="n">identity_provider</span><span class="o">.</span><span class="n">ui_info</span><span class="o">.</span><span class="n">logo_urls</span><span class="p">)</span>
-            <span class="p">}</span>
+            <span class="k">for</span> <span class="n">index</span><span class="p">,</span> <span class="n">identity_provider</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span>
+                <span class="n">configuration</span><span class="o">.</span><span class="n">configuration</span><span class="o">.</span><span class="n">get_identity_providers</span><span class="p">(</span><span class="n">db</span><span class="p">)</span>
+            <span class="p">):</span>
+                <span class="n">link</span> <span class="o">=</span> <span class="p">{</span>
+                    <span class="s2">&quot;rel&quot;</span><span class="p">:</span> <span class="s2">&quot;authenticate&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;href&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_authenticate_url</span><span class="p">(</span>
+                        <span class="n">db</span><span class="p">,</span> <span class="n">identity_provider</span><span class="o">.</span><span class="n">entity_id</span>
+                    <span class="p">),</span>
+                    <span class="s2">&quot;display_names&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_join_ui_info_items</span><span class="p">(</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">_get_idp_display_names</span><span class="p">(</span><span class="n">index</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">identity_provider</span><span class="p">)</span>
+                    <span class="p">),</span>
+                    <span class="s2">&quot;descriptions&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_join_ui_info_items</span><span class="p">(</span>
+                        <span class="n">identity_provider</span><span class="o">.</span><span class="n">ui_info</span><span class="o">.</span><span class="n">descriptions</span>
+                    <span class="p">),</span>
+                    <span class="s2">&quot;information_urls&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_join_ui_info_items</span><span class="p">(</span>
+                        <span class="n">identity_provider</span><span class="o">.</span><span class="n">ui_info</span><span class="o">.</span><span class="n">information_urls</span>
+                    <span class="p">),</span>
+                    <span class="s2">&quot;privacy_statement_urls&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_join_ui_info_items</span><span class="p">(</span>
+                        <span class="n">identity_provider</span><span class="o">.</span><span class="n">ui_info</span><span class="o">.</span><span class="n">privacy_statement_urls</span>
+                    <span class="p">),</span>
+                    <span class="s2">&quot;logo_urls&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_join_ui_info_items</span><span class="p">(</span>
+                        <span class="n">identity_provider</span><span class="o">.</span><span class="n">ui_info</span><span class="o">.</span><span class="n">logo_urls</span>
+                    <span class="p">),</span>
+                <span class="p">}</span>
 
-            <span class="n">flow_doc</span><span class="p">[</span><span class="s1">&#39;links&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">link</span><span class="p">)</span>
+                <span class="n">flow_doc</span><span class="p">[</span><span class="s2">&quot;links&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">link</span><span class="p">)</span>
 
-        <span class="k">return</span> <span class="n">flow_doc</span>
+            <span class="k">return</span> <span class="n">flow_doc</span>
 
-    <span class="k">def</span> <span class="nf">_get_idp_display_names</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identity_provider_index</span><span class="p">,</span> <span class="n">identity_provider</span><span class="p">):</span>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_get_idp_display_names</span><span class="p">(</span><span class="n">identity_provider_index</span><span class="p">,</span> <span class="n">identity_provider</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Returns a list of IdP&#39;s display names:</span>
 <span class="sd">        - first, it checks UIInfo.display_names</span>
 <span class="sd">        - secondly, it checks Organization.organization_display_names</span>
@@ -212,14 +241,37 @@
         <span class="k">elif</span> <span class="n">identity_provider</span><span class="o">.</span><span class="n">organization</span><span class="o">.</span><span class="n">organization_display_names</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">identity_provider</span><span class="o">.</span><span class="n">organization</span><span class="o">.</span><span class="n">organization_display_names</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">display_name</span> <span class="o">=</span> <span class="n">SAMLConfiguration</span><span class="o">.</span><span class="n">IDP_DISPLAY_NAME_DEFAULT_TEMPLATE</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">identity_provider_index</span><span class="p">)</span>
-            <span class="k">return</span> <span class="p">[</span>
-                <span class="n">LocalizableMetadataItem</span><span class="p">(</span><span class="n">display_name</span><span class="p">,</span> <span class="n">language</span><span class="o">=</span><span class="s1">&#39;en&#39;</span><span class="p">)</span>
-            <span class="p">]</span>
+            <span class="n">display_name</span> <span class="o">=</span> <span class="n">SAMLConfiguration</span><span class="o">.</span><span class="n">IDP_DISPLAY_NAME_DEFAULT_TEMPLATE</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                <span class="n">identity_provider_index</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="p">[</span><span class="n">SAMLLocalizedMetadataItem</span><span class="p">(</span><span class="n">display_name</span><span class="p">,</span> <span class="n">language</span><span class="o">=</span><span class="s2">&quot;en&quot;</span><span class="p">)]</span>
 
-    <span class="k">def</span> <span class="nf">_create_token</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">db</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">token</span><span class="p">,</span> <span class="n">valid_till</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Creates a Credential object that ties the given patron to the</span>
-<span class="sd">        given provider token.</span>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_create_token_value</span><span class="p">(</span><span class="n">subject</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Serialize the SAML subject.</span>
+
+<span class="sd">        :param subject: SAML subject</span>
+<span class="sd">        :type subject: api.saml.metadata.model.SAMLSubject</span>
+
+<span class="sd">        :return: Token value</span>
+<span class="sd">        :rtype: str</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">subject</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">subject</span><span class="p">)</span>
+
+        <span class="c1"># We should not save a transient Name ID because it changes each time</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="n">subject</span><span class="o">.</span><span class="n">name_id</span>
+            <span class="ow">and</span> <span class="n">subject</span><span class="o">.</span><span class="n">name_id</span><span class="o">.</span><span class="n">name_format</span> <span class="o">==</span> <span class="n">SAMLNameIDFormat</span><span class="o">.</span><span class="n">TRANSIENT</span><span class="o">.</span><span class="n">value</span>
+        <span class="p">):</span>
+            <span class="n">subject</span><span class="o">.</span><span class="n">name_id</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="n">token_value</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">subject</span><span class="p">,</span> <span class="bp">cls</span><span class="o">=</span><span class="n">SAMLSubjectJSONEncoder</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">token_value</span>
+
+    <span class="k">def</span> <span class="nf">_create_token</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">db</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">subject</span><span class="p">,</span> <span class="n">cm_session_lifetime</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create a Credential object that ties the given patron to the</span>
+<span class="sd">            given provider token.</span>
 
 <span class="sd">        :param db: Database session</span>
 <span class="sd">        :type db: sqlalchemy.orm.session.Session</span>
@@ -227,18 +279,25 @@
 <span class="sd">        :param patron: Patron object</span>
 <span class="sd">        :type patron: Patron</span>
 
-<span class="sd">        :param token: Token containing SAML subject&#39;s metadata</span>
-<span class="sd">        :type token: Dict</span>
+<span class="sd">        :param subject: SAML subject</span>
+<span class="sd">        :type subject: api.saml.metadata.model.SAMLSubject</span>
 
-<span class="sd">        :param valid_till: The time till which the SAML subject is valid</span>
-<span class="sd">        :type valid_till: datetime.timedelta</span>
+<span class="sd">        :param cm_session_lifetime: (Optional) Circulation Manager&#39;s session lifetime expressed in days</span>
+<span class="sd">        :type cm_session_lifetime: Optional[int]</span>
 
 <span class="sd">        :return: Credential object</span>
 <span class="sd">        :rtype: Credential</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">session_lifetime</span> <span class="o">=</span> <span class="n">subject</span><span class="o">.</span><span class="n">valid_till</span>
+
+        <span class="k">if</span> <span class="n">cm_session_lifetime</span><span class="p">:</span>
+            <span class="n">session_lifetime</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">timedelta</span><span class="p">(</span><span class="n">days</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">cm_session_lifetime</span><span class="p">))</span>
+
+        <span class="n">token</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_token_value</span><span class="p">(</span><span class="n">subject</span><span class="p">)</span>
         <span class="n">data_source</span><span class="p">,</span> <span class="n">ignore</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_token_data_source</span><span class="p">(</span><span class="n">db</span><span class="p">)</span>
+
         <span class="k">return</span> <span class="n">Credential</span><span class="o">.</span><span class="n">temporary_token_create</span><span class="p">(</span>
-            <span class="n">db</span><span class="p">,</span> <span class="n">data_source</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">TOKEN_TYPE</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">valid_till</span><span class="p">,</span> <span class="n">token</span>
+            <span class="n">db</span><span class="p">,</span> <span class="n">data_source</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">TOKEN_TYPE</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">session_lifetime</span><span class="p">,</span> <span class="n">token</span>
         <span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">_create_authenticate_url</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">db</span><span class="p">,</span> <span class="n">idp_entity_id</span><span class="p">):</span>
@@ -257,26 +316,12 @@
         <span class="n">library</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">library</span><span class="p">(</span><span class="n">db</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">url_for</span><span class="p">(</span>
-            <span class="s1">&#39;saml_authenticate&#39;</span><span class="p">,</span>
+            <span class="s2">&quot;saml_authenticate&quot;</span><span class="p">,</span>
             <span class="n">_external</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
             <span class="n">library_short_name</span><span class="o">=</span><span class="n">library</span><span class="o">.</span><span class="n">short_name</span><span class="p">,</span>
             <span class="n">provider</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">NAME</span><span class="p">,</span>
-            <span class="n">idp_entity_id</span><span class="o">=</span><span class="n">idp_entity_id</span>
+            <span class="n">idp_entity_id</span><span class="o">=</span><span class="n">idp_entity_id</span><span class="p">,</span>
         <span class="p">)</span>
-
-    <span class="k">def</span> <span class="nf">_create_authentication_manager</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">db</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Creates a new SAML authentication manager</span>
-
-<span class="sd">        :param db: Database session</span>
-<span class="sd">        :type db: sqlalchemy.orm.session.Session</span>
-
-<span class="sd">        :return: SAML authentication manager</span>
-<span class="sd">        :rtype: SAMLAuthenticationManager</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">authentication_manager_factory</span> <span class="o">=</span> <span class="n">SAMLAuthenticationManagerFactory</span><span class="p">()</span>
-        <span class="n">authentication_manager</span> <span class="o">=</span> <span class="n">authentication_manager_factory</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
-
-        <span class="k">return</span> <span class="n">authentication_manager</span>
 
     <span class="k">def</span> <span class="nf">_get_token_data_source</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">db</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Returns a token data source</span>
@@ -290,11 +335,10 @@
         <span class="c1"># FIXME: This code will probably not work in a situation where a library has multiple SAML</span>
         <span class="c1">#  authentication mechanisms for its patrons.</span>
         <span class="c1">#  It&#39;ll look up a Credential from this data source but it won&#39;t be able to tell which IdP it came from.</span>
-        <span class="k">return</span> <span class="n">get_one_or_create</span><span class="p">(</span>
-            <span class="n">db</span><span class="p">,</span> <span class="n">DataSource</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">TOKEN_DATA_SOURCE_NAME</span>
-        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">get_one_or_create</span><span class="p">(</span><span class="n">db</span><span class="p">,</span> <span class="n">DataSource</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">TOKEN_DATA_SOURCE_NAME</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_join_ui_info_items</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">ui_info_item_lists</span><span class="p">):</span>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_join_ui_info_items</span><span class="p">(</span><span class="o">*</span><span class="n">ui_info_item_lists</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Joins all UI info items (like, display names, descriptions, etc.) to a single list of dicts</span>
 
 <span class="sd">        :param ui_info_item_lists: List of child LocalizableMetadataInfo objects</span>
@@ -309,10 +353,12 @@
             <span class="k">for</span> <span class="n">ui_info_item_list</span> <span class="ow">in</span> <span class="n">ui_info_item_lists</span><span class="p">:</span>
                 <span class="k">if</span> <span class="n">ui_info_item_list</span><span class="p">:</span>
                     <span class="k">for</span> <span class="n">ui_info_item</span> <span class="ow">in</span> <span class="n">ui_info_item_list</span><span class="p">:</span>
-                        <span class="n">result</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
-                            <span class="s1">&#39;value&#39;</span><span class="p">:</span> <span class="n">ui_info_item</span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
-                            <span class="s1">&#39;language&#39;</span><span class="p">:</span> <span class="n">ui_info_item</span><span class="o">.</span><span class="n">language</span>
-                        <span class="p">})</span>
+                        <span class="n">result</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                            <span class="p">{</span>
+                                <span class="s2">&quot;value&quot;</span><span class="p">:</span> <span class="n">ui_info_item</span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
+                                <span class="s2">&quot;language&quot;</span><span class="p">:</span> <span class="n">ui_info_item</span><span class="o">.</span><span class="n">language</span><span class="p">,</span>
+                            <span class="p">}</span>
+                        <span class="p">)</span>
 
         <span class="k">return</span> <span class="n">result</span>
 
@@ -340,9 +386,7 @@
 <span class="sd">        :rtype: Union[Patron, ProblemDetail]</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">data_source</span><span class="p">,</span> <span class="n">ignore</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_token_data_source</span><span class="p">(</span><span class="n">db</span><span class="p">)</span>
-        <span class="n">credential</span> <span class="o">=</span> <span class="n">Credential</span><span class="o">.</span><span class="n">lookup_by_token</span><span class="p">(</span>
-            <span class="n">db</span><span class="p">,</span> <span class="n">data_source</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">TOKEN_TYPE</span><span class="p">,</span> <span class="n">token</span>
-        <span class="p">)</span>
+        <span class="n">credential</span> <span class="o">=</span> <span class="n">Credential</span><span class="o">.</span><span class="n">lookup_by_token</span><span class="p">(</span><span class="n">db</span><span class="p">,</span> <span class="n">data_source</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">TOKEN_TYPE</span><span class="p">,</span> <span class="n">token</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">credential</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">credential</span><span class="o">.</span><span class="n">patron</span>
 
@@ -351,19 +395,35 @@
         <span class="c1"># to get a new token.</span>
         <span class="k">return</span> <span class="kc">None</span></div>
 
-<div class="viewcode-block" id="SAMLWebSSOAuthenticationProvider.get_authentication_manager"><a class="viewcode-back" href="../../../api.saml.html#api.saml.provider.SAMLWebSSOAuthenticationProvider.get_authentication_manager">[docs]</a>    <span class="k">def</span> <span class="nf">get_authentication_manager</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">db</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Returns SAML authentication manager used by this provider</span>
+<div class="viewcode-block" id="SAMLWebSSOAuthenticationProvider.get_configuration"><a class="viewcode-back" href="../../../api.saml.html#api.saml.provider.SAMLWebSSOAuthenticationProvider.get_configuration">[docs]</a>    <span class="nd">@contextmanager</span>
+    <span class="k">def</span> <span class="nf">get_configuration</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">db</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return a SAMLConfiguration object.</span>
 
 <span class="sd">        :param db: Database session</span>
 <span class="sd">        :type db: sqlalchemy.orm.session.Session</span>
 
+<span class="sd">        :return: SAMLConfiguration object</span>
+<span class="sd">        :rtype: api.saml.configuration.model.SAMLConfiguration</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_configuration_factory</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_configuration_storage</span><span class="p">,</span> <span class="n">db</span><span class="p">,</span> <span class="n">SAMLConfiguration</span>
+        <span class="p">)</span> <span class="k">as</span> <span class="n">configuration</span><span class="p">:</span>
+            <span class="k">yield</span> <span class="n">configuration</span></div>
+
+<div class="viewcode-block" id="SAMLWebSSOAuthenticationProvider.get_authentication_manager"><a class="viewcode-back" href="../../../api.saml.html#api.saml.provider.SAMLWebSSOAuthenticationProvider.get_authentication_manager">[docs]</a>    <span class="k">def</span> <span class="nf">get_authentication_manager</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">configuration</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns SAML authentication manager used by this provider</span>
+
+<span class="sd">        :param configuration: SAMLConfiguration object</span>
+<span class="sd">        :type configuration: api.saml.configuration.model.SAMLConfiguration</span>
+
 <span class="sd">        :return: SAML authentication manager used by this provider</span>
 <span class="sd">        :rtype: SAMLAuthenticationManager</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_authentication_manager</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_authentication_manager</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_authentication_manager</span><span class="p">(</span><span class="n">db</span><span class="p">)</span>
+        <span class="n">authentication_manager</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_authentication_manager_factory</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
+            <span class="n">configuration</span>
+        <span class="p">)</span>
 
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_authentication_manager</span></div>
+        <span class="k">return</span> <span class="n">authentication_manager</span></div>
 
 <div class="viewcode-block" id="SAMLWebSSOAuthenticationProvider.remote_patron_lookup"><a class="viewcode-back" href="../../../api.saml.html#api.saml.provider.SAMLWebSSOAuthenticationProvider.remote_patron_lookup">[docs]</a>    <span class="k">def</span> <span class="nf">remote_patron_lookup</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subject</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Creates a PatronData object based on Subject object containing SAML Subject and AttributeStatement</span>
@@ -376,25 +436,25 @@
 <span class="sd">        :rtype: Union[PatronData, ProblemDetail]</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">subject</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">SAML_INVALID_SUBJECT</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="s1">&#39;Subject is empty&#39;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">SAML_INVALID_SUBJECT</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="s2">&quot;Subject is empty&quot;</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">subject</span><span class="p">,</span> <span class="n">PatronData</span><span class="p">):</span>
             <span class="k">return</span> <span class="n">subject</span>
 
-        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">subject</span><span class="p">,</span> <span class="n">Subject</span><span class="p">):</span>
-            <span class="k">return</span> <span class="n">SAML_INVALID_SUBJECT</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="s1">&#39;Incorrect subject type&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">subject</span><span class="p">,</span> <span class="n">SAMLSubject</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">SAML_INVALID_SUBJECT</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="s2">&quot;Incorrect subject type&quot;</span><span class="p">)</span>
 
-        <span class="n">extractor</span> <span class="o">=</span> <span class="n">SubjectUIDExtractor</span><span class="p">()</span>
+        <span class="n">extractor</span> <span class="o">=</span> <span class="n">SAMLSubjectUIDExtractor</span><span class="p">()</span>
         <span class="n">uid</span> <span class="o">=</span> <span class="n">extractor</span><span class="o">.</span><span class="n">extract</span><span class="p">(</span><span class="n">subject</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">uid</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">SAML_INVALID_SUBJECT</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="s1">&#39;Subject does not have a unique ID&#39;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">SAML_INVALID_SUBJECT</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="s2">&quot;Subject does not have a unique ID&quot;</span><span class="p">)</span>
 
         <span class="n">patron_data</span> <span class="o">=</span> <span class="n">PatronData</span><span class="p">(</span>
             <span class="n">permanent_id</span><span class="o">=</span><span class="n">uid</span><span class="p">,</span>
             <span class="n">authorization_identifier</span><span class="o">=</span><span class="n">uid</span><span class="p">,</span>
-            <span class="n">external_type</span><span class="o">=</span><span class="s1">&#39;A&#39;</span><span class="p">,</span>
-            <span class="n">complete</span><span class="o">=</span><span class="kc">True</span>
+            <span class="n">external_type</span><span class="o">=</span><span class="s2">&quot;A&quot;</span><span class="p">,</span>
+            <span class="n">complete</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
         <span class="p">)</span>
 
         <span class="k">return</span> <span class="n">patron_data</span></div>
@@ -426,14 +486,22 @@
         <span class="n">patron</span><span class="p">,</span> <span class="n">is_new</span> <span class="o">=</span> <span class="n">patron_data</span><span class="o">.</span><span class="n">get_or_create_patron</span><span class="p">(</span><span class="n">db</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">library_id</span><span class="p">)</span>
 
         <span class="c1"># Create a credential for the Patron</span>
-        <span class="n">token</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">subject</span><span class="p">,</span> <span class="bp">cls</span><span class="o">=</span><span class="n">SubjectJSONEncoder</span><span class="p">)</span>
-        <span class="n">credential</span><span class="p">,</span> <span class="n">is_new</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_token</span><span class="p">(</span><span class="n">db</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">token</span><span class="p">,</span> <span class="n">subject</span><span class="o">.</span><span class="n">valid_till</span><span class="p">)</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_configuration</span><span class="p">(</span><span class="n">db</span><span class="p">)</span> <span class="k">as</span> <span class="n">configuration</span><span class="p">:</span>
+            <span class="n">credential</span><span class="p">,</span> <span class="n">is_new</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_token</span><span class="p">(</span>
+                <span class="n">db</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">subject</span><span class="p">,</span> <span class="n">configuration</span><span class="o">.</span><span class="n">session_lifetime</span>
+            <span class="p">)</span>
 
-        <span class="k">return</span> <span class="n">credential</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">patron_data</span></div></div>
+            <span class="k">return</span> <span class="n">credential</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">patron_data</span></div></div>
 
 
 <div class="viewcode-block" id="validator_factory"><a class="viewcode-back" href="../../../api.saml.html#api.saml.provider.validator_factory">[docs]</a><span class="k">def</span> <span class="nf">validator_factory</span><span class="p">():</span>
-    <span class="k">return</span> <span class="n">SAMLSettingsValidator</span><span class="p">(</span><span class="n">SAMLMetadataParser</span><span class="p">())</span></div>
+    <span class="n">metadata_parser</span> <span class="o">=</span> <span class="n">SAMLMetadataParser</span><span class="p">()</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">DSLParser</span><span class="p">()</span>
+    <span class="n">visitor</span> <span class="o">=</span> <span class="n">DSLEvaluationVisitor</span><span class="p">()</span>
+    <span class="n">evaluator</span> <span class="o">=</span> <span class="n">DSLEvaluator</span><span class="p">(</span><span class="n">parser</span><span class="p">,</span> <span class="n">visitor</span><span class="p">)</span>
+    <span class="n">subject_filter</span> <span class="o">=</span> <span class="n">SAMLSubjectFilter</span><span class="p">(</span><span class="n">evaluator</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">SAMLSettingsValidator</span><span class="p">(</span><span class="n">metadata_parser</span><span class="p">,</span> <span class="n">subject_filter</span><span class="p">)</span></div>
 
 
 <span class="n">AuthenticationProvider</span> <span class="o">=</span> <span class="n">SAMLWebSSOAuthenticationProvider</span>

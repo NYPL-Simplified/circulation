@@ -287,10 +287,10 @@
         <span class="k">if</span> <span class="n">works_index</span> <span class="ow">and</span> <span class="n">integration</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">in_testing</span><span class="p">:</span>
             <span class="k">try</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">set_works_index_and_alias</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
-            <span class="k">except</span> <span class="n">RequestError</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">except</span> <span class="n">RequestError</span><span class="p">:</span>
                 <span class="c1"># This is almost certainly a problem with our code,</span>
                 <span class="c1"># not a communications error.</span>
-                <span class="k">raise</span> <span class="n">e</span>
+                <span class="k">raise</span>
             <span class="k">except</span> <span class="n">ElasticsearchException</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="n">CannotLoadConfiguration</span><span class="p">(</span>
                     <span class="s2">&quot;Exception communicating with Elasticsearch server: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span>
@@ -2267,6 +2267,7 @@
 <span class="sd">        copies will be excluded from results.</span>
 
 <span class="sd">        :param series: If this is set to a string, only books in a matching</span>
+<span class="sd">        series will be included. If set to True, books that belong to _any_</span>
 <span class="sd">        series will be included.</span>
 
 <span class="sd">        :param author: If this is set to a Contributor or</span>
@@ -2476,7 +2477,15 @@
             <span class="n">f</span> <span class="o">=</span> <span class="n">chain</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">Term</span><span class="p">(</span><span class="n">fiction</span><span class="o">=</span><span class="n">value</span><span class="p">))</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">series</span><span class="p">:</span>
-            <span class="n">f</span> <span class="o">=</span> <span class="n">chain</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">Term</span><span class="p">(</span><span class="o">**</span><span class="p">{</span><span class="s2">&quot;series.keyword&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">series</span><span class="p">}))</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">series</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+                <span class="c1"># The book must belong to _some_ series.</span>
+                <span class="c1">#</span>
+                <span class="c1"># That is, series must exist (have a non-null value) and</span>
+                <span class="c1"># have a value other than the empty string.</span>
+                <span class="n">f</span> <span class="o">=</span> <span class="n">chain</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">Exists</span><span class="p">(</span><span class="n">field</span><span class="o">=</span><span class="s2">&quot;series&quot;</span><span class="p">))</span>
+                <span class="n">f</span> <span class="o">=</span> <span class="n">chain</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">Bool</span><span class="p">(</span><span class="n">must_not</span><span class="o">=</span><span class="p">[</span><span class="n">Term</span><span class="p">(</span><span class="o">**</span><span class="p">{</span><span class="s2">&quot;series.keyword&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">})]))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">f</span> <span class="o">=</span> <span class="n">chain</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">Term</span><span class="p">(</span><span class="o">**</span><span class="p">{</span><span class="s2">&quot;series.keyword&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">series</span><span class="p">}))</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">audiences</span><span class="p">:</span>
             <span class="n">f</span> <span class="o">=</span> <span class="n">chain</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">Terms</span><span class="p">(</span><span class="n">audience</span><span class="o">=</span><span class="n">scrub_list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">audiences</span><span class="p">)))</span>
@@ -2511,6 +2520,13 @@
         <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">availability</span><span class="o">==</span><span class="n">FacetConstants</span><span class="o">.</span><span class="n">AVAILABLE_OPEN_ACCESS</span><span class="p">:</span>
             <span class="c1"># Only open-access books should be displayed.</span>
             <span class="n">nested_filters</span><span class="p">[</span><span class="s1">&#39;licensepools&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">open_access</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">availability</span><span class="o">==</span><span class="n">FacetConstants</span><span class="o">.</span><span class="n">AVAILABLE_NOT_NOW</span><span class="p">:</span>
+            <span class="c1"># Only books that are _not_ currently available should be displayed.</span>
+            <span class="n">not_open_access</span> <span class="o">=</span> <span class="n">Term</span><span class="p">(</span><span class="o">**</span><span class="p">{</span><span class="s1">&#39;licensepools.open_access&#39;</span> <span class="p">:</span> <span class="kc">False</span><span class="p">})</span>
+            <span class="n">not_available</span> <span class="o">=</span> <span class="n">Term</span><span class="p">(</span><span class="o">**</span><span class="p">{</span><span class="s1">&#39;licensepools.available&#39;</span> <span class="p">:</span> <span class="kc">False</span><span class="p">})</span>
+            <span class="n">nested_filters</span><span class="p">[</span><span class="s1">&#39;licensepools&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="n">Bool</span><span class="p">(</span><span class="n">must</span><span class="o">=</span><span class="p">[</span><span class="n">not_open_access</span><span class="p">,</span> <span class="n">not_available</span><span class="p">])</span>
+            <span class="p">)</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">subcollection</span><span class="o">==</span><span class="n">FacetConstants</span><span class="o">.</span><span class="n">COLLECTION_FEATURED</span><span class="p">:</span>
             <span class="c1"># Exclude books with a quality of less than the library&#39;s</span>

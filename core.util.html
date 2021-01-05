@@ -627,7 +627,7 @@ human-readable names to ISO-639-2 language codes.</p>
 
 <dl class="attribute">
 <dt id="core.util.languages.LanguageNames.name_re">
-<code class="descname">name_re</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x27da5a0&gt;</em><a class="headerlink" href="#core.util.languages.LanguageNames.name_re" title="Permalink to this definition">¶</a></dt>
+<code class="descname">name_re</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x31ccaf0&gt;</em><a class="headerlink" href="#core.util.languages.LanguageNames.name_re" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -981,17 +981,17 @@ identifier.</p>
 
 <dl class="attribute">
 <dt id="core.util.permanent_work_id.WorkIDCalculator.commonAuthorPrefixPattern">
-<code class="descname">commonAuthorPrefixPattern</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x2bbc960&gt;</em><a class="headerlink" href="#core.util.permanent_work_id.WorkIDCalculator.commonAuthorPrefixPattern" title="Permalink to this definition">¶</a></dt>
+<code class="descname">commonAuthorPrefixPattern</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x349d140&gt;</em><a class="headerlink" href="#core.util.permanent_work_id.WorkIDCalculator.commonAuthorPrefixPattern" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="core.util.permanent_work_id.WorkIDCalculator.commonAuthorSuffixPattern">
-<code class="descname">commonAuthorSuffixPattern</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x2bbd1d0&gt;</em><a class="headerlink" href="#core.util.permanent_work_id.WorkIDCalculator.commonAuthorSuffixPattern" title="Permalink to this definition">¶</a></dt>
+<code class="descname">commonAuthorSuffixPattern</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x349bc50&gt;</em><a class="headerlink" href="#core.util.permanent_work_id.WorkIDCalculator.commonAuthorSuffixPattern" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="core.util.permanent_work_id.WorkIDCalculator.commonSubtitlesPattern">
-<code class="descname">commonSubtitlesPattern</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x2ba0e60&gt;</em><a class="headerlink" href="#core.util.permanent_work_id.WorkIDCalculator.commonSubtitlesPattern" title="Permalink to this definition">¶</a></dt>
+<code class="descname">commonSubtitlesPattern</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x349c0c0&gt;</em><a class="headerlink" href="#core.util.permanent_work_id.WorkIDCalculator.commonSubtitlesPattern" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -1202,6 +1202,29 @@ those who inspect the problem document.</p>
 
 </dd></dl>
 
+<dl class="exception">
+<dt id="core.util.problem_detail.ProblemError">
+<em class="property">exception </em><code class="descclassname">core.util.problem_detail.</code><code class="descname">ProblemError</code><span class="sig-paren">(</span><em>problem_detail</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/util/problem_detail.html#ProblemError"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.util.problem_detail.ProblemError" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.html#core.exceptions.BaseError" title="core.exceptions.BaseError"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.exceptions.BaseError</span></code></a></p>
+<p>Exception class allowing to raise and catch ProblemDetail objects.</p>
+<dl class="attribute">
+<dt id="core.util.problem_detail.ProblemError.problem_detail">
+<code class="descname">problem_detail</code><a class="headerlink" href="#core.util.problem_detail.ProblemError.problem_detail" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return the ProblemDetail object associated with this exception.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">ProblemDetail object associated with this exception</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference internal" href="#core.util.problem_detail.ProblemDetail" title="core.util.problem_detail.ProblemDetail">ProblemDetail</a></td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
 <dl class="function">
 <dt id="core.util.problem_detail.json">
 <code class="descclassname">core.util.problem_detail.</code><code class="descname">json</code><span class="sig-paren">(</span><em>type</em>, <em>status</em>, <em>title</em>, <em>detail=None</em>, <em>instance=None</em>, <em>debug_message=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/util/problem_detail.html#json"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.util.problem_detail.json" title="Permalink to this definition">¶</a></dt>
@@ -1271,6 +1294,28 @@ worrying about encoding to bytes and then decoding.</p>
 <code class="descname">wrap</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/util/string_helpers.html#UnicodeAwareBase64.wrap"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.util.string_helpers.UnicodeAwareBase64.wrap" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
+</dd></dl>
+
+<dl class="function">
+<dt id="core.util.string_helpers.is_string">
+<code class="descclassname">core.util.string_helpers.</code><code class="descname">is_string</code><span class="sig-paren">(</span><em>value</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/util/string_helpers.html#is_string"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.util.string_helpers.is_string" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return a boolean value indicating whether the value is a string or not.</p>
+<p>This method is compatible with both Python 2.7 and Python 3.x.
+NOTE:
+1. We can’t use isinstance(string_value, str) because strings in Python 2.7 can have “unicode” type.
+2. We can’t use isinstance(string_value, basestring) because “basestring” type is not available in Python 3.x.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>value</strong> (<em>Any</em>) – Value</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">Boolean value indicating whether the value is a string or not</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body">bool</td>
+</tr>
+</tbody>
+</table>
 </dd></dl>
 
 <dl class="function">
@@ -1869,9 +1914,51 @@ completely different words, the difference will be 1.</p>
 </dd></dl>
 
 <dl class="function">
+<dt id="core.util.chunks">
+<code class="descclassname">core.util.</code><code class="descname">chunks</code><span class="sig-paren">(</span><em>lst</em>, <em>chunk_size</em>, <em>start_index=0</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/util.html#chunks"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.util.chunks" title="Permalink to this definition">¶</a></dt>
+<dd><p>Yield successive n-sized chunks from lst.</p>
+</dd></dl>
+
+<dl class="function">
 <dt id="core.util.fast_query_count">
 <code class="descclassname">core.util.</code><code class="descname">fast_query_count</code><span class="sig-paren">(</span><em>query</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/util.html#fast_query_count"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.util.fast_query_count" title="Permalink to this definition">¶</a></dt>
 <dd><p>Counts the results of a query without using super-slow subquery</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="core.util.first_or_default">
+<code class="descclassname">core.util.</code><code class="descname">first_or_default</code><span class="sig-paren">(</span><em>collection</em>, <em>default=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/util.html#first_or_default"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.util.first_or_default" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return first element of the specified collection or the default value if the collection is empty.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>collection</strong> (<em>Iterable</em>) – Collection</li>
+<li><strong>default</strong> (<em>Any</em>) – Default value</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="core.util.is_session">
+<code class="descclassname">core.util.</code><code class="descname">is_session</code><span class="sig-paren">(</span><em>value</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/util.html#is_session"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.util.is_session" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return a boolean value indicating whether the value is a valid SQLAlchemy session.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>value</strong> (<em>Any</em>) – Value</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">Boolean value indicating whether the value is a valid SQLAlchemy session or not</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body">bool</td>
+</tr>
+</tbody>
+</table>
 </dd></dl>
 
 <dl class="function">

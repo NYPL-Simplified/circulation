@@ -41,6 +41,7 @@
 <span class="p">)</span>
 
 <span class="kn">from</span> <span class="nn">lxml</span> <span class="kn">import</span> <span class="n">etree</span>
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="kn">import</span> <span class="n">Session</span>
 
 <span class="kn">from</span> <span class="nn">cdn</span> <span class="kn">import</span> <span class="n">cdnify</span>
@@ -598,7 +599,7 @@
 
 <div class="viewcode-block" id="AcquisitionFeed.groups"><a class="viewcode-back" href="../../core.html#core.opds.AcquisitionFeed.groups">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">groups</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">worklist</span><span class="p">,</span> <span class="n">annotator</span><span class="p">,</span>
-               <span class="n">facets</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_age</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+               <span class="n">pagination</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">facets</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_age</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                <span class="n">search_engine</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">search_debug</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
                <span class="o">**</span><span class="n">response_kwargs</span>
     <span class="p">):</span>
@@ -609,11 +610,13 @@
 <span class="sd">        probably be unsatisfying. Call page() instead with an</span>
 <span class="sd">        appropriate Facets object.</span>
 
+<span class="sd">        :param pagination: A Pagination object. No single child of this lane</span>
+<span class="sd">            will contain more than `pagination.size` items.</span>
 <span class="sd">        :param facets: A GroupsFacet object.</span>
 
 <span class="sd">        :param response_kwargs: Extra keyword arguments to pass into</span>
 <span class="sd">            the OPDSFeedResponse constructor.</span>
-<span class="sd">        </span>
+
 <span class="sd">        :return: An OPDSFeedResponse containing the feed.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">annotator</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_make_annotator</span><span class="p">(</span><span class="n">annotator</span><span class="p">)</span>
@@ -621,20 +624,21 @@
 
         <span class="k">def</span> <span class="nf">refresh</span><span class="p">():</span>
             <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_generate_groups</span><span class="p">(</span>
-                <span class="n">_db</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">worklist</span><span class="p">,</span> <span class="n">annotator</span><span class="p">,</span> <span class="n">facets</span><span class="p">,</span>
-                <span class="n">search_engine</span><span class="p">,</span> <span class="n">search_debug</span>
+                <span class="n">_db</span><span class="o">=</span><span class="n">_db</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="n">title</span><span class="p">,</span> <span class="n">url</span><span class="o">=</span><span class="n">url</span><span class="p">,</span> <span class="n">worklist</span><span class="o">=</span><span class="n">worklist</span><span class="p">,</span>
+                <span class="n">annotator</span><span class="o">=</span><span class="n">annotator</span><span class="p">,</span> <span class="n">pagination</span><span class="o">=</span><span class="n">pagination</span><span class="p">,</span> <span class="n">facets</span><span class="o">=</span><span class="n">facets</span><span class="p">,</span>
+                <span class="n">search_engine</span><span class="o">=</span><span class="n">search_engine</span><span class="p">,</span> <span class="n">search_debug</span><span class="o">=</span><span class="n">search_debug</span>
             <span class="p">)</span>
 
         <span class="k">return</span> <span class="n">CachedFeed</span><span class="o">.</span><span class="n">fetch</span><span class="p">(</span>
-            <span class="n">_db</span><span class="p">,</span> <span class="n">worklist</span><span class="o">=</span><span class="n">worklist</span><span class="p">,</span> <span class="n">facets</span><span class="o">=</span><span class="n">facets</span><span class="p">,</span> <span class="n">pagination</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-            <span class="n">refresher_method</span><span class="o">=</span><span class="n">refresh</span><span class="p">,</span> <span class="n">max_age</span><span class="o">=</span><span class="n">max_age</span><span class="p">,</span>
+            <span class="n">_db</span><span class="o">=</span><span class="n">_db</span><span class="p">,</span> <span class="n">worklist</span><span class="o">=</span><span class="n">worklist</span><span class="p">,</span> <span class="n">pagination</span><span class="o">=</span><span class="n">pagination</span><span class="p">,</span>
+            <span class="n">facets</span><span class="o">=</span><span class="n">facets</span><span class="p">,</span> <span class="n">refresher_method</span><span class="o">=</span><span class="n">refresh</span><span class="p">,</span> <span class="n">max_age</span><span class="o">=</span><span class="n">max_age</span><span class="p">,</span>
             <span class="o">**</span><span class="n">response_kwargs</span>
         <span class="p">)</span></div>
 
     <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">_generate_groups</span><span class="p">(</span>
         <span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">worklist</span><span class="p">,</span> <span class="n">annotator</span><span class="p">,</span>
-        <span class="n">facets</span><span class="p">,</span> <span class="n">search_engine</span><span class="p">,</span> <span class="n">search_debug</span>
+        <span class="n">pagination</span><span class="p">,</span> <span class="n">facets</span><span class="p">,</span> <span class="n">search_engine</span><span class="p">,</span> <span class="n">search_debug</span>
     <span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Internal method called by groups() when a grouped feed</span>
 <span class="sd">        must be regenerated.</span>
@@ -644,8 +648,8 @@
         <span class="c1"># to make a normal grouped feed.</span>
         <span class="n">works_and_lanes</span> <span class="o">=</span> <span class="p">[</span>
             <span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">worklist</span><span class="o">.</span><span class="n">groups</span><span class="p">(</span>
-                <span class="n">_db</span><span class="o">=</span><span class="n">_db</span><span class="p">,</span> <span class="n">facets</span><span class="o">=</span><span class="n">facets</span><span class="p">,</span> <span class="n">search_engine</span><span class="o">=</span><span class="n">search_engine</span><span class="p">,</span>
-                <span class="n">debug</span><span class="o">=</span><span class="n">search_debug</span>
+                <span class="n">_db</span><span class="o">=</span><span class="n">_db</span><span class="p">,</span> <span class="n">pagination</span><span class="o">=</span><span class="n">pagination</span><span class="p">,</span> <span class="n">facets</span><span class="o">=</span><span class="n">facets</span><span class="p">,</span>
+                <span class="n">search_engine</span><span class="o">=</span><span class="n">search_engine</span><span class="p">,</span> <span class="n">debug</span><span class="o">=</span><span class="n">search_debug</span>
             <span class="p">)</span>
         <span class="p">]</span>
         <span class="c1"># Make a typical grouped feed.</span>
@@ -732,7 +736,7 @@
 
         <span class="n">response_kwargs</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s1">&#39;max_age&#39;</span><span class="p">,</span> <span class="n">max_age</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">CachedFeed</span><span class="o">.</span><span class="n">fetch</span><span class="p">(</span>
-            <span class="n">_db</span><span class="p">,</span> <span class="n">worklist</span><span class="o">=</span><span class="n">worklist</span><span class="p">,</span> <span class="n">facets</span><span class="o">=</span><span class="n">facets</span><span class="p">,</span> <span class="n">pagination</span><span class="o">=</span><span class="n">pagination</span><span class="p">,</span>
+            <span class="n">_db</span><span class="p">,</span> <span class="n">worklist</span><span class="o">=</span><span class="n">worklist</span><span class="p">,</span> <span class="n">pagination</span><span class="o">=</span><span class="n">pagination</span><span class="p">,</span> <span class="n">facets</span><span class="o">=</span><span class="n">facets</span><span class="p">,</span>
             <span class="n">refresher_method</span><span class="o">=</span><span class="n">refresh</span><span class="p">,</span> <span class="o">**</span><span class="n">response_kwargs</span>
         <span class="p">)</span></div>
 
@@ -745,7 +749,7 @@
 <span class="sd">        must be regenerated.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">works</span> <span class="o">=</span> <span class="n">lane</span><span class="o">.</span><span class="n">works</span><span class="p">(</span>
-            <span class="n">_db</span><span class="p">,</span> <span class="n">facets</span><span class="o">=</span><span class="n">facets</span><span class="p">,</span> <span class="n">pagination</span><span class="o">=</span><span class="n">pagination</span><span class="p">,</span>
+            <span class="n">_db</span><span class="p">,</span> <span class="n">pagination</span><span class="o">=</span><span class="n">pagination</span><span class="p">,</span> <span class="n">facets</span><span class="o">=</span><span class="n">facets</span><span class="p">,</span>
             <span class="n">search_engine</span><span class="o">=</span><span class="n">search_engine</span><span class="p">,</span> <span class="n">debug</span><span class="o">=</span><span class="n">search_debug</span>
         <span class="p">)</span>
 
@@ -1028,9 +1032,13 @@
             <span class="n">previous_url</span> <span class="o">=</span> <span class="n">annotator</span><span class="o">.</span><span class="n">search_url</span><span class="p">(</span><span class="n">lane</span><span class="p">,</span> <span class="n">query</span><span class="p">,</span> <span class="n">previous_page</span><span class="p">,</span> <span class="n">facets</span><span class="p">)</span>
             <span class="n">AcquisitionFeed</span><span class="o">.</span><span class="n">add_link_to_feed</span><span class="p">(</span><span class="n">feed</span><span class="o">=</span><span class="n">opds_feed</span><span class="o">.</span><span class="n">feed</span><span class="p">,</span> <span class="n">rel</span><span class="o">=</span><span class="s2">&quot;previous&quot;</span><span class="p">,</span> <span class="n">href</span><span class="o">=</span><span class="n">previous_url</span><span class="p">)</span>
 
-        <span class="c1"># Add &quot;up&quot; link and breadcrumbs</span>
+        <span class="c1"># Add &quot;up&quot; link.</span>
         <span class="n">AcquisitionFeed</span><span class="o">.</span><span class="n">add_link_to_feed</span><span class="p">(</span><span class="n">feed</span><span class="o">=</span><span class="n">opds_feed</span><span class="o">.</span><span class="n">feed</span><span class="p">,</span> <span class="n">rel</span><span class="o">=</span><span class="s2">&quot;up&quot;</span><span class="p">,</span> <span class="n">href</span><span class="o">=</span><span class="n">annotator</span><span class="o">.</span><span class="n">lane_url</span><span class="p">(</span><span class="n">lane</span><span class="p">),</span> <span class="n">title</span><span class="o">=</span><span class="n">unicode</span><span class="p">(</span><span class="n">lane</span><span class="o">.</span><span class="n">display_name</span><span class="p">))</span>
-        <span class="n">opds_feed</span><span class="o">.</span><span class="n">add_breadcrumbs</span><span class="p">(</span><span class="n">lane</span><span class="p">,</span> <span class="n">include_lane</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="c1"># We do not add breadcrumbs to this feed since you&#39;re not</span>
+        <span class="c1"># technically searching the this lane; you are searching the</span>
+        <span class="c1"># library&#39;s entire collection, using _some_ of the constraints</span>
+        <span class="c1"># imposed by this lane (notably language and audience).</span>
 
         <span class="n">annotator</span><span class="o">.</span><span class="n">annotate_feed</span><span class="p">(</span><span class="n">opds_feed</span><span class="p">,</span> <span class="n">lane</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">OPDSFeedResponse</span><span class="p">(</span><span class="n">response</span><span class="o">=</span><span class="n">unicode</span><span class="p">(</span><span class="n">opds_feed</span><span class="p">),</span> <span class="o">**</span><span class="n">response_kwargs</span><span class="p">)</span></div>
@@ -1444,43 +1452,93 @@
 <div class="viewcode-block" id="AcquisitionFeed.add_breadcrumbs"><a class="viewcode-back" href="../../core.html#core.opds.AcquisitionFeed.add_breadcrumbs">[docs]</a>    <span class="k">def</span> <span class="nf">add_breadcrumbs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">lane</span><span class="p">,</span> <span class="n">include_lane</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">entrypoint</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Add list of ancestor links in a breadcrumbs element.</span>
 
+<span class="sd">        :param lane: Add breadcrumbs from up to this lane.</span>
+<span class="sd">        :param include_lane: Include `lane` itself in the breadcrumbs.</span>
+<span class="sd">        :param entrypoint: The currently selected entrypoint, if any.</span>
+
 <span class="sd">        TODO: The switchover from &quot;no entry point&quot; to &quot;entry point&quot; needs</span>
 <span class="sd">        its own breadcrumb link.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="c1"># Ensure that lane isn&#39;t top-level before proceeding</span>
+        <span class="k">if</span> <span class="n">entrypoint</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">entrypoint_query</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">entrypoint_query</span> <span class="o">=</span> <span class="s2">&quot;?entrypoint=&quot;</span> <span class="o">+</span> <span class="n">entrypoint</span><span class="o">.</span><span class="n">INTERNAL_NAME</span>
 
-        <span class="n">entrypointQuery</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;?entrypoint=&quot;</span> <span class="o">+</span> <span class="n">entrypoint</span><span class="o">.</span><span class="n">INTERNAL_NAME</span><span class="p">)</span> <span class="k">if</span> <span class="n">entrypoint</span> <span class="o">!=</span> <span class="kc">None</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span>
+        <span class="c1"># Breadcrumbs for lanes may be end up being cut off by a</span>
+        <span class="c1"># patron-type-specific root lane. If so, that lane -- not the</span>
+        <span class="c1"># site root -- should become the first breadcrumb.</span>
+        <span class="n">site_root_lane</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">usable_parentage</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">if</span> <span class="n">lane</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">ancestor</span> <span class="ow">in</span> <span class="p">[</span><span class="n">lane</span><span class="p">]</span> <span class="o">+</span> <span class="nb">list</span><span class="p">(</span><span class="n">lane</span><span class="o">.</span><span class="n">parentage</span><span class="p">):</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ancestor</span><span class="p">,</span> <span class="n">Lane</span><span class="p">)</span> <span class="ow">and</span> <span class="n">ancestor</span><span class="o">.</span><span class="n">root_for_patron_type</span><span class="p">:</span>
+                    <span class="c1"># Root lane for a specific patron type. The root is</span>
+                    <span class="c1"># treated specially, so it should not be added to</span>
+                    <span class="c1"># usable_parentage. Any lanes between this lane and the</span>
+                    <span class="c1"># library root should not be included at all.</span>
+                    <span class="n">site_root_lane</span> <span class="o">=</span> <span class="n">ancestor</span>
+                    <span class="k">break</span>
+
+                <span class="k">if</span> <span class="n">ancestor</span> <span class="o">!=</span> <span class="n">lane</span> <span class="ow">or</span> <span class="n">include_lane</span><span class="p">:</span>
+                    <span class="c1"># A lane may appear in its own breadcrumbs</span>
+                    <span class="c1"># only if include_lane is True.</span>
+                    <span class="n">usable_parentage</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ancestor</span><span class="p">)</span>
+
         <span class="n">annotator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">annotator</span>
-        <span class="k">if</span> <span class="n">annotator</span><span class="o">.</span><span class="n">lane_url</span><span class="p">(</span><span class="n">lane</span><span class="p">)</span> <span class="o">!=</span> <span class="n">annotator</span><span class="o">.</span><span class="n">default_lane_url</span><span class="p">():</span>
-            <span class="n">breadcrumbs</span> <span class="o">=</span> <span class="n">AtomFeed</span><span class="o">.</span><span class="n">makeelement</span><span class="p">(</span><span class="s2">&quot;{</span><span class="si">%s</span><span class="s2">}breadcrumbs&quot;</span> <span class="o">%</span> <span class="n">AtomFeed</span><span class="o">.</span><span class="n">SIMPLIFIED_NS</span><span class="p">)</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="n">lane</span> <span class="o">==</span> <span class="n">site_root_lane</span> <span class="ow">or</span>
+            <span class="p">(</span>
+                <span class="n">site_root_lane</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span>
+                <span class="n">annotator</span><span class="o">.</span><span class="n">lane_url</span><span class="p">(</span><span class="n">lane</span><span class="p">)</span> <span class="o">==</span> <span class="n">annotator</span><span class="o">.</span><span class="n">default_lane_url</span><span class="p">()</span>
+            <span class="p">)</span>
+        <span class="p">):</span>
+            <span class="c1"># There are no extra breadcrumbs: either we are at the</span>
+            <span class="c1"># site root, or we are at a lane that is the root for a</span>
+            <span class="c1"># specific patron type.</span>
+            <span class="k">return</span>
 
-            <span class="c1"># Add root link</span>
+        <span class="c1"># Start work on a simplified:breadcrumbs tag.</span>
+        <span class="n">breadcrumbs</span> <span class="o">=</span> <span class="n">AtomFeed</span><span class="o">.</span><span class="n">makeelement</span><span class="p">(</span>
+            <span class="s2">&quot;{</span><span class="si">%s</span><span class="s2">}breadcrumbs&quot;</span> <span class="o">%</span> <span class="n">AtomFeed</span><span class="o">.</span><span class="n">SIMPLIFIED_NS</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Add root link. This is either the link to the site root</span>
+        <span class="c1"># or to the root lane for some patron type.</span>
+        <span class="k">if</span> <span class="n">site_root_lane</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">root_url</span> <span class="o">=</span> <span class="n">annotator</span><span class="o">.</span><span class="n">default_lane_url</span><span class="p">()</span>
+            <span class="n">root_title</span> <span class="o">=</span> <span class="n">annotator</span><span class="o">.</span><span class="n">top_level_title</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">root_url</span> <span class="o">=</span> <span class="n">annotator</span><span class="o">.</span><span class="n">lane_url</span><span class="p">(</span><span class="n">site_root_lane</span><span class="p">)</span>
+            <span class="n">root_title</span> <span class="o">=</span> <span class="n">site_root_lane</span><span class="o">.</span><span class="n">display_name</span>
+        <span class="n">root_link</span> <span class="o">=</span> <span class="n">AtomFeed</span><span class="o">.</span><span class="n">link</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="n">root_title</span><span class="p">,</span> <span class="n">href</span><span class="o">=</span><span class="n">root_url</span><span class="p">)</span>
+        <span class="n">breadcrumbs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">root_link</span><span class="p">)</span>
+
+        <span class="c1"># Add entrypoint selection link</span>
+        <span class="k">if</span> <span class="n">entrypoint</span><span class="p">:</span>
             <span class="n">breadcrumbs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-                <span class="n">AtomFeed</span><span class="o">.</span><span class="n">link</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="n">annotator</span><span class="o">.</span><span class="n">top_level_title</span><span class="p">(),</span> <span class="n">href</span><span class="o">=</span><span class="n">root_url</span><span class="p">)</span>
+                <span class="n">AtomFeed</span><span class="o">.</span><span class="n">link</span><span class="p">(</span>
+                    <span class="n">title</span><span class="o">=</span><span class="n">entrypoint</span><span class="o">.</span><span class="n">INTERNAL_NAME</span><span class="p">,</span>
+                    <span class="n">href</span><span class="o">=</span><span class="n">root_url</span> <span class="o">+</span> <span class="n">entrypoint_query</span>
+                <span class="p">)</span>
             <span class="p">)</span>
 
-            <span class="k">if</span> <span class="n">entrypoint</span><span class="p">:</span>
-                <span class="n">breadcrumbs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-                    <span class="n">AtomFeed</span><span class="o">.</span><span class="n">link</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="n">entrypoint</span><span class="o">.</span><span class="n">INTERNAL_NAME</span><span class="p">,</span> <span class="n">href</span><span class="o">=</span><span class="n">root_url</span> <span class="o">+</span> <span class="n">entrypointQuery</span><span class="p">)</span>
+        <span class="c1"># Add links for all usable lanes between `lane` and `site_root_lane`</span>
+        <span class="c1"># (possibly including `lane` itself).</span>
+        <span class="k">for</span> <span class="n">ancestor</span> <span class="ow">in</span> <span class="nb">reversed</span><span class="p">(</span><span class="n">usable_parentage</span><span class="p">):</span>
+            <span class="n">lane_url</span> <span class="o">=</span> <span class="n">annotator</span><span class="o">.</span><span class="n">lane_url</span><span class="p">(</span><span class="n">ancestor</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">lane_url</span> <span class="o">==</span> <span class="n">root_url</span><span class="p">:</span>
+                <span class="c1"># Root lane for the entire site.</span>
+                <span class="k">break</span>
+
+            <span class="n">breadcrumbs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="n">AtomFeed</span><span class="o">.</span><span class="n">link</span><span class="p">(</span>
+                    <span class="n">title</span><span class="o">=</span><span class="n">ancestor</span><span class="o">.</span><span class="n">display_name</span><span class="p">,</span>
+                    <span class="n">href</span><span class="o">=</span><span class="n">lane_url</span> <span class="o">+</span> <span class="n">entrypoint_query</span>
                 <span class="p">)</span>
+            <span class="p">)</span>
 
-            <span class="c1"># Add links for all visible ancestors that aren&#39;t root</span>
-            <span class="k">for</span> <span class="n">ancestor</span> <span class="ow">in</span> <span class="nb">reversed</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">lane</span><span class="o">.</span><span class="n">parentage</span><span class="p">)):</span>
-                <span class="n">lane_url</span> <span class="o">=</span> <span class="n">annotator</span><span class="o">.</span><span class="n">lane_url</span><span class="p">(</span><span class="n">ancestor</span><span class="p">)</span>
-                <span class="k">if</span> <span class="n">lane_url</span> <span class="o">!=</span> <span class="n">root_url</span><span class="p">:</span>
-                    <span class="n">breadcrumbs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-                        <span class="n">AtomFeed</span><span class="o">.</span><span class="n">link</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="n">ancestor</span><span class="o">.</span><span class="n">display_name</span><span class="p">,</span> <span class="n">href</span><span class="o">=</span><span class="n">lane_url</span> <span class="o">+</span> <span class="n">entrypointQuery</span><span class="p">)</span>
-                    <span class="p">)</span>
-
-            <span class="c1"># Include link to lane</span>
-            <span class="c1"># For search, breadcrumbs include the searched lane</span>
-            <span class="k">if</span> <span class="n">include_lane</span><span class="p">:</span>
-                <span class="n">breadcrumbs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-                    <span class="n">AtomFeed</span><span class="o">.</span><span class="n">link</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="n">lane</span><span class="o">.</span><span class="n">display_name</span><span class="p">,</span> <span class="n">href</span><span class="o">=</span><span class="n">annotator</span><span class="o">.</span><span class="n">lane_url</span><span class="p">(</span><span class="n">lane</span><span class="p">)</span> <span class="o">+</span> <span class="n">entrypointQuery</span><span class="p">)</span>
-                <span class="p">)</span>
-
-            <span class="bp">self</span><span class="o">.</span><span class="n">feed</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">breadcrumbs</span><span class="p">)</span></div>
+        <span class="c1"># Append the breadcrumbs to the feed.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">feed</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">breadcrumbs</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="AcquisitionFeed.minimal_opds_entry"><a class="viewcode-back" href="../../core.html#core.opds.AcquisitionFeed.minimal_opds_entry">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">minimal_opds_entry</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">cover</span><span class="p">,</span> <span class="n">description</span><span class="p">,</span> <span class="n">quality</span><span class="p">,</span>
@@ -1789,8 +1847,8 @@
         <span class="k">return</span> <span class="n">CachedFeed</span><span class="o">.</span><span class="n">fetch</span><span class="p">(</span>
             <span class="n">_db</span><span class="p">,</span>
             <span class="n">worklist</span><span class="o">=</span><span class="n">worklist</span><span class="p">,</span>
-            <span class="n">facets</span><span class="o">=</span><span class="n">facets</span><span class="p">,</span>
             <span class="n">pagination</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">facets</span><span class="o">=</span><span class="n">facets</span><span class="p">,</span>
             <span class="n">refresher_method</span><span class="o">=</span><span class="n">refresh</span><span class="p">,</span>
             <span class="n">max_age</span><span class="o">=</span><span class="n">max_age</span><span class="p">,</span>
             <span class="o">**</span><span class="n">response_kwargs</span>

@@ -371,7 +371,7 @@ metadata and directories containing ebook and cover files.</p>
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
 <li><strong>collection_type</strong> (<a class="reference internal" href="core.html#core.scripts.CollectionType" title="core.scripts.CollectionType"><em>CollectionType</em></a>) – Collection’s type: open access/protected access</li>
-<li><strong>identifier</strong> (<a class="reference internal" href="core.model.html#core.model.identifier.Identifier" title="core.model.identifier.Identifier"><em>Identifier</em></a>) – Book’s identifier</li>
+<li><strong>identifier</strong> (<a class="reference internal" href="core.model.html#core.model.identifier.Identifier" title="core.model.identifier.Identifier"><em>core.model.identifier.Identifier</em></a><em>,</em>) – Book’s identifier</li>
 <li><strong>data_source</strong> (<a class="reference internal" href="core.model.html#core.model.datasource.DataSource" title="core.model.datasource.DataSource"><em>DataSource</em></a>) – DataSource object</li>
 <li><strong>ebook_directory</strong> (<em>string</em>) – Directory containing books</li>
 <li><strong>mirrors</strong> (<em>Dict</em><em>[</em><em>string</em><em>, </em><a class="reference internal" href="core.html#core.mirror.MirrorUploader" title="core.mirror.MirrorUploader"><em>MirrorUploader</em></a><em>]</em>) – Dictionary containing mirrors for books and their covers</li>
@@ -438,7 +438,7 @@ if no book cover can be found.</td>
 
 <dl class="method">
 <dt id="scripts.DirectoryImportScript.load_metadata">
-<code class="descname">load_metadata</code><span class="sig-paren">(</span><em>metadata_file</em>, <em>metadata_format</em>, <em>data_source_name</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/scripts.html#DirectoryImportScript.load_metadata"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#scripts.DirectoryImportScript.load_metadata" title="Permalink to this definition">¶</a></dt>
+<code class="descname">load_metadata</code><span class="sig-paren">(</span><em>metadata_file</em>, <em>metadata_format</em>, <em>data_source_name</em>, <em>default_medium_type</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/scripts.html#DirectoryImportScript.load_metadata"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#scripts.DirectoryImportScript.load_metadata" title="Permalink to this definition">¶</a></dt>
 <dd><p>Read a metadata file and convert the data into Metadata records.</p>
 </dd></dl>
 
@@ -449,7 +449,7 @@ if no book cover can be found.</td>
 
 <dl class="method">
 <dt id="scripts.DirectoryImportScript.run_with_arguments">
-<code class="descname">run_with_arguments</code><span class="sig-paren">(</span><em>collection_name</em>, <em>collection_type</em>, <em>data_source_name</em>, <em>metadata_file</em>, <em>metadata_format</em>, <em>cover_directory</em>, <em>ebook_directory</em>, <em>rights_uri</em>, <em>dry_run</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/scripts.html#DirectoryImportScript.run_with_arguments"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#scripts.DirectoryImportScript.run_with_arguments" title="Permalink to this definition">¶</a></dt>
+<code class="descname">run_with_arguments</code><span class="sig-paren">(</span><em>collection_name</em>, <em>collection_type</em>, <em>data_source_name</em>, <em>metadata_file</em>, <em>metadata_format</em>, <em>cover_directory</em>, <em>ebook_directory</em>, <em>rights_uri</em>, <em>dry_run</em>, <em>default_medium_type=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/scripts.html#DirectoryImportScript.run_with_arguments"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#scripts.DirectoryImportScript.run_with_arguments" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">

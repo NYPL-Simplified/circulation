@@ -91,6 +91,14 @@
 <li class="toctree-l2"><a class="reference internal" href="core.model.html#module-core.model">Module contents</a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="core.python_expression_dsl.html">core.python_expression_dsl package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="core.python_expression_dsl.html#submodules">Submodules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="core.python_expression_dsl.html#module-core.python_expression_dsl.ast">core.python_expression_dsl.ast module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="core.python_expression_dsl.html#module-core.python_expression_dsl.evaluator">core.python_expression_dsl.evaluator module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="core.python_expression_dsl.html#module-core.python_expression_dsl.parser">core.python_expression_dsl.parser module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="core.python_expression_dsl.html#module-core.python_expression_dsl">Module contents</a></li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="core.resources.html">core.resources package</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="core.resources.html#module-core.resources">Module contents</a></li>
 </ul>
@@ -365,11 +373,6 @@ the request.</li>
 </dd></dl>
 
 <dl class="function">
-<dt id="core.app_server.load_lending_policy">
-<code class="descclassname">core.app_server.</code><code class="descname">load_lending_policy</code><span class="sig-paren">(</span><em>policy</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/app_server.html#load_lending_policy"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.app_server.load_lending_policy" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="function">
 <dt id="core.app_server.load_pagination_from_request">
 <code class="descclassname">core.app_server.</code><code class="descname">load_pagination_from_request</code><span class="sig-paren">(</span><em>base_class=&lt;class 'core.lane.Pagination'&gt;</em>, <em>base_class_constructor_kwargs=None</em>, <em>default_size=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/app_server.html#load_pagination_from_request"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.app_server.load_pagination_from_request" title="Permalink to this definition">¶</a></dt>
 <dd><p>Figure out which Pagination object this request is asking for.</p>
@@ -622,6 +625,11 @@ server.</p>
 <dd></dd></dl>
 
 <dl class="attribute">
+<dt id="core.config.Configuration.MEASUREMENT_REAPER">
+<code class="descname">MEASUREMENT_REAPER</code><em class="property"> = 'measurement_reaper_enabled'</em><a class="headerlink" href="#core.config.Configuration.MEASUREMENT_REAPER" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
 <dt id="core.config.Configuration.MINIMUM_FEATURED_QUALITY">
 <code class="descname">MINIMUM_FEATURED_QUALITY</code><em class="property"> = 'minimum_featured_quality'</em><a class="headerlink" href="#core.config.Configuration.MINIMUM_FEATURED_QUALITY" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -653,7 +661,7 @@ server.</p>
 
 <dl class="attribute">
 <dt id="core.config.Configuration.SITEWIDE_SETTINGS">
-<code class="descname">SITEWIDE_SETTINGS</code><em class="property"> = [{'format': 'url', 'required': True, 'key': u'base_url', 'label': l'Base url of the application'}, {'default': 'INFO', 'type': 'select', 'options': [{'key': 'DEBUG', 'label': l'Debug'}, {'key': 'INFO', 'label': l'Info'}, {'key': 'WARN', 'label': l'Warn'}, {'key': 'ERROR', 'label': l'Error'}], 'key': 'log_level', 'label': l'Log Level'}, {'default': 'simplified', 'required': True, 'description': l'Log messages originating from this application will be tagged with this name. If you run multiple instances, giving each one a different application name will help you determine which instance is having problems.', 'key': 'log_app', 'label': l'Application name'}, {'description': l'Database logs are extremely verbose, so unless you're diagnosing a database-related problem, it's a good idea to set a higher log level for database messages.', 'default': 'WARN', 'label': l'Database Log Level', 'key': 'database_log_level', 'type': 'select', 'options': [{'key': 'DEBUG', 'label': l'Debug'}, {'key': 'INFO', 'label': l'Info'}, {'key': 'WARN', 'label': l'Warn'}, {'key': 'ERROR', 'label': l'Error'}]}, {'default': None, 'required': True, 'description': l'Audiobooks from these data sources will be hidden from the collection, even if they would otherwise show up as available.', 'key': 'excluded_audio_data_sources', 'label': l'Excluded audiobook sources'}]</em><a class="headerlink" href="#core.config.Configuration.SITEWIDE_SETTINGS" title="Permalink to this definition">¶</a></dt>
+<code class="descname">SITEWIDE_SETTINGS</code><em class="property"> = [{'format': 'url', 'required': True, 'key': u'base_url', 'label': l'Base url of the application'}, {'default': 'INFO', 'type': 'select', 'options': [{'key': 'DEBUG', 'label': l'Debug'}, {'key': 'INFO', 'label': l'Info'}, {'key': 'WARN', 'label': l'Warn'}, {'key': 'ERROR', 'label': l'Error'}], 'key': 'log_level', 'label': l'Log Level'}, {'default': 'simplified', 'required': True, 'description': l'Log messages originating from this application will be tagged with this name. If you run multiple instances, giving each one a different application name will help you determine which instance is having problems.', 'key': 'log_app', 'label': l'Application name'}, {'description': l'Database logs are extremely verbose, so unless you're diagnosing a database-related problem, it's a good idea to set a higher log level for database messages.', 'default': 'WARN', 'label': l'Database Log Level', 'key': 'database_log_level', 'type': 'select', 'options': [{'key': 'DEBUG', 'label': l'Debug'}, {'key': 'INFO', 'label': l'Info'}, {'key': 'WARN', 'label': l'Warn'}, {'key': 'ERROR', 'label': l'Error'}]}, {'default': None, 'required': True, 'description': l'Audiobooks from these data sources will be hidden from the collection, even if they would otherwise show up as available.', 'key': 'excluded_audio_data_sources', 'label': l'Excluded audiobook sources'}, {'description': l'If this settings is 'true' old book measurement data will be cleaned out of the database. Some sites may want to keep this data for later analysis.', 'default': 'true', 'label': l'Cleanup old measurement data', 'key': 'measurement_reaper_enabled', 'type': 'select', 'options': {'false': 'false', 'true': 'true'}}]</em><a class="headerlink" href="#core.config.Configuration.SITEWIDE_SETTINGS" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -3372,6 +3380,11 @@ if the library does not have that facet configured.</p>
 <dd></dd></dl>
 
 <dl class="attribute">
+<dt id="core.facets.FacetConstants.AVAILABLE_NOT_NOW">
+<code class="descname">AVAILABLE_NOT_NOW</code><em class="property"> = 'not_now'</em><a class="headerlink" href="#core.facets.FacetConstants.AVAILABLE_NOT_NOW" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
 <dt id="core.facets.FacetConstants.AVAILABLE_NOW">
 <code class="descname">AVAILABLE_NOW</code><em class="property"> = 'now'</em><a class="headerlink" href="#core.facets.FacetConstants.AVAILABLE_NOW" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -4058,9 +4071,37 @@ with ‘more featurable’ works tending to be at the top.</p>
 </dd></dl>
 
 <dl class="class">
+<dt id="core.lane.HierarchyWorkList">
+<em class="property">class </em><code class="descclassname">core.lane.</code><code class="descname">HierarchyWorkList</code><a class="reference internal" href="_modules/core/lane.html#HierarchyWorkList"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.lane.HierarchyWorkList" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#core.lane.WorkList" title="core.lane.WorkList"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.lane.WorkList</span></code></a></p>
+<p>A WorkList representing part of a hierarchical view of a a
+library’s collection. (As opposed to a non-hierarchical view such
+as search results or “books by author X”.)</p>
+<dl class="method">
+<dt id="core.lane.HierarchyWorkList.accessible_to">
+<code class="descname">accessible_to</code><span class="sig-paren">(</span><em>patron</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/lane.html#HierarchyWorkList.accessible_to"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.lane.HierarchyWorkList.accessible_to" title="Permalink to this definition">¶</a></dt>
+<dd><p>As a matter of library policy, is the given <cite>Patron</cite> allowed
+to access this <cite>WorkList</cite>?</p>
+<p>Most of the logic is inherited from <cite>WorkList</cite>, but there’s also
+a restriction based on the site hierarchy.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>patron</strong> – A Patron</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">A boolean</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
 <dt id="core.lane.Lane">
 <em class="property">class </em><code class="descclassname">core.lane.</code><code class="descname">Lane</code><span class="sig-paren">(</span><em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/lane.html#Lane"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.lane.Lane" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">sqlalchemy.ext.declarative.api.Base</span></code>, <a class="reference internal" href="#core.lane.DatabaseBackedWorkList" title="core.lane.DatabaseBackedWorkList"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.lane.DatabaseBackedWorkList</span></code></a></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">sqlalchemy.ext.declarative.api.Base</span></code>, <a class="reference internal" href="#core.lane.DatabaseBackedWorkList" title="core.lane.DatabaseBackedWorkList"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.lane.DatabaseBackedWorkList</span></code></a>, <a class="reference internal" href="#core.lane.HierarchyWorkList" title="core.lane.HierarchyWorkList"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.lane.HierarchyWorkList</span></code></a></p>
 <p>A WorkList that draws its search criteria from a row in a
 database table.</p>
 <p>A Lane corresponds roughly to a section in a branch library or
@@ -4178,9 +4219,8 @@ consider genres at all.</td>
 
 <dl class="attribute">
 <dt id="core.lane.Lane.genres">
-<code class="descname">genres</code><a class="headerlink" href="#core.lane.Lane.genres" title="Permalink to this definition">¶</a></dt>
-<dd><p>A descriptor that presents a read/write view of an object attribute.</p>
-</dd></dl>
+<code class="descname">genres</code><em class="property"> = ObjectAssociationProxyInstance(AssociationProxy('lane_genres', 'genre'))</em><a class="headerlink" href="#core.lane.Lane.genres" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
 
 <dl class="method">
 <dt id="core.lane.Lane.get_library">
@@ -4190,7 +4230,7 @@ consider genres at all.</td>
 
 <dl class="method">
 <dt id="core.lane.Lane.groups">
-<code class="descname">groups</code><span class="sig-paren">(</span><em>_db</em>, <em>include_sublanes=True</em>, <em>facets=None</em>, <em>search_engine=None</em>, <em>debug=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/lane.html#Lane.groups"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.lane.Lane.groups" title="Permalink to this definition">¶</a></dt>
+<code class="descname">groups</code><span class="sig-paren">(</span><em>_db</em>, <em>include_sublanes=True</em>, <em>pagination=None</em>, <em>facets=None</em>, <em>search_engine=None</em>, <em>debug=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/lane.html#Lane.groups"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.lane.Lane.groups" title="Permalink to this definition">¶</a></dt>
 <dd><p>Return a list of (Work, Lane) 2-tuples
 describing a sequence of featured items for this lane and
 (optionally) its children.</p>
@@ -4198,7 +4238,12 @@ describing a sequence of featured items for this lane and
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>facets</strong> – A FeaturedFacets object.</td>
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>pagination</strong> – A Pagination object which may affect how many
+works each child of this WorkList may contribute.</li>
+<li><strong>facets</strong> – A FeaturedFacets object.</li>
+</ul>
+</td>
 </tr>
 </tbody>
 </table>
@@ -4218,6 +4263,22 @@ describing a sequence of featured items for this lane and
 <dt id="core.lane.Lane.inherit_parent_restrictions">
 <code class="descname">inherit_parent_restrictions</code><a class="headerlink" href="#core.lane.Lane.inherit_parent_restrictions" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
+
+<dl class="method">
+<dt id="core.lane.Lane.is_self_or_descendant">
+<code class="descname">is_self_or_descendant</code><span class="sig-paren">(</span><em>ancestor</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/lane.html#Lane.is_self_or_descendant"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.lane.Lane.is_self_or_descendant" title="Permalink to this definition">¶</a></dt>
+<dd><p>Is this WorkList the given WorkList or one of its descendants?</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>ancestor</strong> – A WorkList.</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">A boolean.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
 
 <dl class="attribute">
 <dt id="core.lane.Lane.lane_genres">
@@ -4272,6 +4333,11 @@ internally.</p>
 <dl class="attribute">
 <dt id="core.lane.Lane.media">
 <code class="descname">media</code><a class="headerlink" href="#core.lane.Lane.media" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.lane.Lane.parent">
+<code class="descname">parent</code><a class="headerlink" href="#core.lane.Lane.parent" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -4390,6 +4456,11 @@ CustomLists?</p>
 </dd></dl>
 
 <dl class="attribute">
+<dt id="core.lane.LaneGenre.genre">
+<code class="descname">genre</code><a class="headerlink" href="#core.lane.LaneGenre.genre" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
 <dt id="core.lane.LaneGenre.genre_id">
 <code class="descname">genre_id</code><a class="headerlink" href="#core.lane.LaneGenre.genre_id" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -4402,6 +4473,11 @@ CustomLists?</p>
 <dl class="attribute">
 <dt id="core.lane.LaneGenre.inclusive">
 <code class="descname">inclusive</code><a class="headerlink" href="#core.lane.LaneGenre.inclusive" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.lane.LaneGenre.lane">
+<code class="descname">lane</code><a class="headerlink" href="#core.lane.LaneGenre.lane" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -4600,6 +4676,14 @@ DatabaseBackedFacets.</p>
 </dd></dl>
 
 <dl class="class">
+<dt id="core.lane.TopLevelWorkList">
+<em class="property">class </em><code class="descclassname">core.lane.</code><code class="descname">TopLevelWorkList</code><a class="reference internal" href="_modules/core/lane.html#TopLevelWorkList"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.lane.TopLevelWorkList" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#core.lane.HierarchyWorkList" title="core.lane.HierarchyWorkList"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.lane.HierarchyWorkList</span></code></a></p>
+<p>A special WorkList representing the top-level view of
+a library’s collection.</p>
+</dd></dl>
+
+<dl class="class">
 <dt id="core.lane.WorkList">
 <em class="property">class </em><code class="descclassname">core.lane.</code><code class="descname">WorkList</code><a class="reference internal" href="_modules/core/lane.html#WorkList"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.lane.WorkList" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
@@ -4615,6 +4699,13 @@ in generating an OPDS feed.</p>
 <dt id="core.lane.WorkList.MAX_CACHE_AGE">
 <code class="descname">MAX_CACHE_AGE</code><em class="property"> = 600</em><a class="headerlink" href="#core.lane.WorkList.MAX_CACHE_AGE" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
+
+<dl class="method">
+<dt id="core.lane.WorkList.accessible_to">
+<code class="descname">accessible_to</code><span class="sig-paren">(</span><em>patron</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/lane.html#WorkList.accessible_to"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.lane.WorkList.accessible_to" title="Permalink to this definition">¶</a></dt>
+<dd><p>As a matter of library policy, is the given <cite>Patron</cite> allowed
+to access this <cite>WorkList</cite>?</p>
+</dd></dl>
 
 <dl class="method">
 <dt id="core.lane.WorkList.append_child">
@@ -4673,7 +4764,7 @@ captures its position within the heirarchy.</p>
 
 <dl class="method">
 <dt id="core.lane.WorkList.groups">
-<code class="descname">groups</code><span class="sig-paren">(</span><em>_db</em>, <em>include_sublanes=True</em>, <em>facets=None</em>, <em>search_engine=None</em>, <em>debug=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/lane.html#WorkList.groups"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.lane.WorkList.groups" title="Permalink to this definition">¶</a></dt>
+<code class="descname">groups</code><span class="sig-paren">(</span><em>_db</em>, <em>include_sublanes=True</em>, <em>pagination=None</em>, <em>facets=None</em>, <em>search_engine=None</em>, <em>debug=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/lane.html#WorkList.groups"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.lane.WorkList.groups" title="Permalink to this definition">¶</a></dt>
 <dd><p>Extract a list of samples from each child of this WorkList.  This
 can be used to create a grouped acquisition feed for the WorkList.</p>
 <table class="docutils field-list" frame="void" rules="none">
@@ -4681,6 +4772,8 @@ can be used to create a grouped acquisition feed for the WorkList.</p>
 <col class="field-body" />
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>pagination</strong> – A Pagination object which may affect how many
+works each child of this WorkList may contribute.</li>
 <li><strong>facets</strong> – A FeaturedFacets object that may restrict the works on view.</li>
 <li><strong>search_engine</strong> – An ExternalSearchIndex to use when
 asking for the featured works in a given WorkList.</li>
@@ -4789,6 +4882,22 @@ some other WorkList.</li>
 different ways of slicing up this WorkList.</li>
 </ul>
 </td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="core.lane.WorkList.is_self_or_descendant">
+<code class="descname">is_self_or_descendant</code><span class="sig-paren">(</span><em>ancestor</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/lane.html#WorkList.is_self_or_descendant"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.lane.WorkList.is_self_or_descendant" title="Permalink to this definition">¶</a></dt>
+<dd><p>Is this WorkList the given WorkList or one of its descendants?</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>ancestor</strong> – A WorkList.</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">A boolean.</td>
 </tr>
 </tbody>
 </table>
@@ -5150,7 +5259,7 @@ it is formatted using formatException() and appended to the message.</p>
 
 <dl class="attribute">
 <dt id="core.log.JSONFormatter.hostname">
-<code class="descname">hostname</code><em class="property"> = 'travis-job-441a6f95-20bb-43f0-a271-1face4d2757e'</em><a class="headerlink" href="#core.log.JSONFormatter.hostname" title="Permalink to this definition">¶</a></dt>
+<code class="descname">hostname</code><em class="property"> = 'travis-job-3a0010ab-53bf-4b77-a90a-1ad83f667027'</em><a class="headerlink" href="#core.log.JSONFormatter.hostname" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -5983,7 +6092,7 @@ the best available information in the database.</p>
 
 <dl class="classmethod">
 <dt id="core.metadata_layer.MARCExtractor.parse">
-<em class="property">classmethod </em><code class="descname">parse</code><span class="sig-paren">(</span><em>file</em>, <em>data_source_name</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/metadata_layer.html#MARCExtractor.parse"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.metadata_layer.MARCExtractor.parse" title="Permalink to this definition">¶</a></dt>
+<em class="property">classmethod </em><code class="descname">parse</code><span class="sig-paren">(</span><em>file</em>, <em>data_source_name</em>, <em>default_medium_type=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/metadata_layer.html#MARCExtractor.parse"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.metadata_layer.MARCExtractor.parse" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="classmethod">
@@ -6023,7 +6132,7 @@ mirror that too.</p>
 
 <dl class="class">
 <dt id="core.metadata_layer.Metadata">
-<em class="property">class </em><code class="descclassname">core.metadata_layer.</code><code class="descname">Metadata</code><span class="sig-paren">(</span><em>data_source</em>, <em>title=None</em>, <em>subtitle=None</em>, <em>sort_title=None</em>, <em>language=None</em>, <em>medium=None</em>, <em>series=None</em>, <em>series_position=None</em>, <em>publisher=None</em>, <em>imprint=None</em>, <em>issued=None</em>, <em>published=None</em>, <em>primary_identifier=None</em>, <em>identifiers=None</em>, <em>recommendations=None</em>, <em>subjects=None</em>, <em>contributors=None</em>, <em>measurements=None</em>, <em>links=None</em>, <em>data_source_last_updated=None</em>, <em>circulation=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/metadata_layer.html#Metadata"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.metadata_layer.Metadata" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="descclassname">core.metadata_layer.</code><code class="descname">Metadata</code><span class="sig-paren">(</span><em>data_source</em>, <em>title=None</em>, <em>subtitle=None</em>, <em>sort_title=None</em>, <em>language=None</em>, <em>medium=None</em>, <em>series=None</em>, <em>series_position=None</em>, <em>publisher=None</em>, <em>imprint=None</em>, <em>issued=None</em>, <em>published=None</em>, <em>primary_identifier=None</em>, <em>identifiers=None</em>, <em>recommendations=None</em>, <em>subjects=None</em>, <em>contributors=None</em>, <em>measurements=None</em>, <em>links=None</em>, <em>data_source_last_updated=None</em>, <em>circulation=None</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/metadata_layer.html#Metadata"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.metadata_layer.Metadata" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="#core.metadata_layer.MetaToModelUtility" title="core.metadata_layer.MetaToModelUtility"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.metadata_layer.MetaToModelUtility</span></code></a></p>
 <p>A (potentially partial) set of metadata for a published work.</p>
 <dl class="attribute">
@@ -6742,6 +6851,54 @@ and handle exceptions.</p>
 </dd></dl>
 
 <dl class="class">
+<dt id="core.monitor.MeasurementReaper">
+<em class="property">class </em><code class="descclassname">core.monitor.</code><code class="descname">MeasurementReaper</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/monitor.html#MeasurementReaper"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.monitor.MeasurementReaper" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#core.monitor.ReaperMonitor" title="core.monitor.ReaperMonitor"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.monitor.ReaperMonitor</span></code></a></p>
+<p>Remove measurements that are not the most recent</p>
+<dl class="attribute">
+<dt id="core.monitor.MeasurementReaper.MODEL_CLASS">
+<code class="descname">MODEL_CLASS</code><a class="headerlink" href="#core.monitor.MeasurementReaper.MODEL_CLASS" title="Permalink to this definition">¶</a></dt>
+<dd><p>alias of <a class="reference internal" href="core.model.html#core.model.measurement.Measurement" title="core.model.measurement.Measurement"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.model.measurement.Measurement</span></code></a></p>
+</dd></dl>
+
+<dl class="method">
+<dt id="core.monitor.MeasurementReaper.run">
+<code class="descname">run</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/monitor.html#MeasurementReaper.run"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.monitor.MeasurementReaper.run" title="Permalink to this definition">¶</a></dt>
+<dd><p>Do all the work that has piled up since the
+last time the Monitor ran to completion.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="core.monitor.MeasurementReaper.run_once">
+<code class="descname">run_once</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/monitor.html#MeasurementReaper.run_once"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.monitor.MeasurementReaper.run_once" title="Permalink to this definition">¶</a></dt>
+<dd><p>Do the actual work of the Monitor.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>progress</strong> – A TimestampData representing the
+work done by the Monitor up to this point.</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">A TimestampData representing how you want the
+Monitor’s entry in the <cite>timestamps</cite> table to look like
+from this point on.  NOTE: Modifying the incoming
+<cite>progress</cite> and returning it is generally a bad idea,
+because the incoming <cite>progress</cite> is full of old
+data. Instead, return a new TimestampData containing data
+for only the fields you want to set.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="core.monitor.MeasurementReaper.where_clause">
+<code class="descname">where_clause</code><a class="headerlink" href="#core.monitor.MeasurementReaper.where_clause" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
 <dt id="core.monitor.Monitor">
 <em class="property">class </em><code class="descclassname">core.monitor.</code><code class="descname">Monitor</code><span class="sig-paren">(</span><em>_db</em>, <em>collection=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/monitor.html#Monitor"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.monitor.Monitor" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
@@ -7032,7 +7189,7 @@ that information, improving performance.</p>
 
 <dl class="attribute">
 <dt id="core.monitor.ReaperMonitor.REGISTRY">
-<code class="descname">REGISTRY</code><em class="property"> = [&lt;class 'core.monitor.CachedFeedReaper'&gt;, &lt;class 'core.monitor.CredentialReaper'&gt;, &lt;class 'core.monitor.PatronRecordReaper'&gt;, &lt;class 'core.monitor.WorkReaper'&gt;, &lt;class 'core.monitor.CollectionReaper'&gt;, &lt;class 'core.monitor.CirculationEventLocationScrubber'&gt;, &lt;class 'core.monitor.PatronNeighborhoodScrubber'&gt;, &lt;class 'api.monitor.LoanReaper'&gt;, &lt;class 'api.monitor.HoldReaper'&gt;, &lt;class 'api.monitor.IdlingAnnotationReaper'&gt;]</em><a class="headerlink" href="#core.monitor.ReaperMonitor.REGISTRY" title="Permalink to this definition">¶</a></dt>
+<code class="descname">REGISTRY</code><em class="property"> = [&lt;class 'core.monitor.CachedFeedReaper'&gt;, &lt;class 'core.monitor.CredentialReaper'&gt;, &lt;class 'core.monitor.PatronRecordReaper'&gt;, &lt;class 'core.monitor.WorkReaper'&gt;, &lt;class 'core.monitor.CollectionReaper'&gt;, &lt;class 'core.monitor.MeasurementReaper'&gt;, &lt;class 'core.monitor.CirculationEventLocationScrubber'&gt;, &lt;class 'core.monitor.PatronNeighborhoodScrubber'&gt;, &lt;class 'api.monitor.LoanReaper'&gt;, &lt;class 'api.monitor.HoldReaper'&gt;, &lt;class 'api.monitor.IdlingAnnotationReaper'&gt;]</em><a class="headerlink" href="#core.monitor.ReaperMonitor.REGISTRY" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -7443,6 +7600,19 @@ breadcrumb links.</p>
 <dt id="core.opds.AcquisitionFeed.add_breadcrumbs">
 <code class="descname">add_breadcrumbs</code><span class="sig-paren">(</span><em>lane</em>, <em>include_lane=False</em>, <em>entrypoint=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/opds.html#AcquisitionFeed.add_breadcrumbs"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.opds.AcquisitionFeed.add_breadcrumbs" title="Permalink to this definition">¶</a></dt>
 <dd><p>Add list of ancestor links in a breadcrumbs element.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>lane</strong> – Add breadcrumbs from up to this lane.</li>
+<li><strong>include_lane</strong> – Include <cite>lane</cite> itself in the breadcrumbs.</li>
+<li><strong>entrypoint</strong> – The currently selected entrypoint, if any.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
 <p>TODO: The switchover from “no entry point” to “entry point” needs
 its own breadcrumb link.</p>
 </dd></dl>
@@ -7562,7 +7732,7 @@ admin interface modifies the feed after it’s generated.</p>
 
 <dl class="classmethod">
 <dt id="core.opds.AcquisitionFeed.groups">
-<em class="property">classmethod </em><code class="descname">groups</code><span class="sig-paren">(</span><em>_db</em>, <em>title</em>, <em>url</em>, <em>worklist</em>, <em>annotator</em>, <em>facets=None</em>, <em>max_age=None</em>, <em>search_engine=None</em>, <em>search_debug=False</em>, <em>**response_kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/opds.html#AcquisitionFeed.groups"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.opds.AcquisitionFeed.groups" title="Permalink to this definition">¶</a></dt>
+<em class="property">classmethod </em><code class="descname">groups</code><span class="sig-paren">(</span><em>_db</em>, <em>title</em>, <em>url</em>, <em>worklist</em>, <em>annotator</em>, <em>pagination=None</em>, <em>facets=None</em>, <em>max_age=None</em>, <em>search_engine=None</em>, <em>search_debug=False</em>, <em>**response_kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/opds.html#AcquisitionFeed.groups"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.opds.AcquisitionFeed.groups" title="Permalink to this definition">¶</a></dt>
 <dd><p>The acquisition feed for ‘featured’ items from a given lane’s
 sublanes, organized into per-lane groups.</p>
 <p>NOTE: If the lane has no sublanes, a grouped feed will
@@ -7573,6 +7743,8 @@ appropriate Facets object.</p>
 <col class="field-body" />
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>pagination</strong> – A Pagination object. No single child of this lane
+will contain more than <cite>pagination.size</cite> items.</li>
 <li><strong>facets</strong> – A GroupsFacet object.</li>
 <li><strong>response_kwargs</strong> – Extra keyword arguments to pass into
 the OPDSFeedResponse constructor.</li>
@@ -8240,6 +8412,125 @@ identifiers for the work.</td>
 </dd></dl>
 
 </div>
+<div class="section" id="module-core.opds2_import">
+<span id="core-opds2-import-module"></span><h2>core.opds2_import module<a class="headerlink" href="#module-core.opds2_import" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="core.opds2_import.OPDS2ImportMonitor">
+<em class="property">class </em><code class="descclassname">core.opds2_import.</code><code class="descname">OPDS2ImportMonitor</code><span class="sig-paren">(</span><em>_db</em>, <em>collection</em>, <em>import_class</em>, <em>force_reimport=False</em>, <em>**import_class_kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/opds2_import.html#OPDS2ImportMonitor"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.opds2_import.OPDS2ImportMonitor" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#core.opds_import.OPDSImportMonitor" title="core.opds_import.OPDSImportMonitor"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.opds_import.OPDSImportMonitor</span></code></a></p>
+<dl class="attribute">
+<dt id="core.opds2_import.OPDS2ImportMonitor.MEDIA_TYPE">
+<code class="descname">MEDIA_TYPE</code><em class="property"> = ('application/opds+json', 'application/json')</em><a class="headerlink" href="#core.opds2_import.OPDS2ImportMonitor.MEDIA_TYPE" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.opds2_import.OPDS2ImportMonitor.PROTOCOL">
+<code class="descname">PROTOCOL</code><em class="property"> = u'OPDS 2.0 Import'</em><a class="headerlink" href="#core.opds2_import.OPDS2ImportMonitor.PROTOCOL" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="core.opds2_import.OPDS2Importer">
+<em class="property">class </em><code class="descclassname">core.opds2_import.</code><code class="descname">OPDS2Importer</code><span class="sig-paren">(</span><em>db</em>, <em>collection</em>, <em>data_source_name=None</em>, <em>identifier_mapping=None</em>, <em>http_get=None</em>, <em>metadata_client=None</em>, <em>content_modifier=None</em>, <em>map_from_collection=None</em>, <em>mirrors=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/opds2_import.html#OPDS2Importer"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.opds2_import.OPDS2Importer" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#core.opds_import.OPDSImporter" title="core.opds_import.OPDSImporter"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.opds_import.OPDSImporter</span></code></a></p>
+<p>Imports editions and license pools from an OPDS 2.0 feed.</p>
+<dl class="attribute">
+<dt id="core.opds2_import.OPDS2Importer.DESCRIPTION">
+<code class="descname">DESCRIPTION</code><em class="property"> = l'Import books from a publicly-accessible OPDS 2.0 feed.'</em><a class="headerlink" href="#core.opds2_import.OPDS2Importer.DESCRIPTION" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.opds2_import.OPDS2Importer.NAME">
+<code class="descname">NAME</code><em class="property"> = u'OPDS 2.0 Import'</em><a class="headerlink" href="#core.opds2_import.OPDS2Importer.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.opds2_import.OPDS2Importer.NEXT_LINK_RELATION">
+<code class="descname">NEXT_LINK_RELATION</code><em class="property"> = u'next'</em><a class="headerlink" href="#core.opds2_import.OPDS2Importer.NEXT_LINK_RELATION" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="core.opds2_import.OPDS2Importer.extract_feed_data">
+<code class="descname">extract_feed_data</code><span class="sig-paren">(</span><em>feed</em>, <em>feed_url=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/opds2_import.html#OPDS2Importer.extract_feed_data"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.opds2_import.OPDS2Importer.extract_feed_data" title="Permalink to this definition">¶</a></dt>
+<dd><p>Turn an OPDS 2.0 feed into lists of Metadata and CirculationData objects.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>feed</strong> (<em>Union</em><em>[</em><em>str</em><em>, </em><em>opds2_ast.OPDS2Feed</em><em>]</em>) – OPDS 2.0 feed</li>
+<li><strong>feed_url</strong> (<em>Optional</em><em>[</em><em>str</em><em>]</em><em>f</em>) – Feed URL used to resolve relative links</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="core.opds2_import.OPDS2Importer.extract_last_update_dates">
+<code class="descname">extract_last_update_dates</code><span class="sig-paren">(</span><em>feed</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/opds2_import.html#OPDS2Importer.extract_last_update_dates"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.opds2_import.OPDS2Importer.extract_last_update_dates" title="Permalink to this definition">¶</a></dt>
+<dd><p>Extract last update date of the feed.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>feed</strong> (<em>Union</em><em>[</em><em>str</em><em>, </em><em>opds2_ast.OPDS2Feed</em><em>]</em>) – OPDS 2.0 feed</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">A list of 2-tuples containing publication’s identifiers and their last modified dates</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body">List[Tuple[str, datetime.datetime]]</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="core.opds2_import.OPDS2Importer.extract_next_links">
+<code class="descname">extract_next_links</code><span class="sig-paren">(</span><em>feed</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/opds2_import.html#OPDS2Importer.extract_next_links"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.opds2_import.OPDS2Importer.extract_next_links" title="Permalink to this definition">¶</a></dt>
+<dd><p>Extracts “next” links from the feed.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>feed</strong> (<em>Union</em><em>[</em><em>str</em><em>, </em><em>opds2_ast.OPDS2Feed</em><em>]</em>) – OPDS 2.0 feed</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">List of “next” links</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body">List[str]</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="function">
+<dt id="core.opds2_import.parse_feed">
+<code class="descclassname">core.opds2_import.</code><code class="descname">parse_feed</code><span class="sig-paren">(</span><em>feed</em>, <em>silent=True</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/opds2_import.html#parse_feed"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.opds2_import.parse_feed" title="Permalink to this definition">¶</a></dt>
+<dd><p>Parses the feed into OPDS2Feed object.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>feed</strong> (<em>Union</em><em>[</em><em>str</em><em>, </em><em>opds2_ast.OPDS2Feed</em><em>]</em>) – OPDS 2.0 feed</li>
+<li><strong>silent</strong> (<em>bool</em>) – Boolean value indicating whether to raise</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">Parsed OPDS 2.0 feed</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">opds2_ast.OPDS2Feed</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</div>
 <div class="section" id="module-core.opds_import">
 <span id="core-opds-import-module"></span><h2>core.opds_import module<a class="headerlink" href="#module-core.opds_import" title="Permalink to this headline">¶</a></h2>
 <dl class="exception">
@@ -8561,7 +8852,7 @@ our internal content server, and also when our content server asks for data
 from external content servers.</p>
 <dl class="attribute">
 <dt id="core.opds_import.OPDSImporter.BASE_SETTINGS">
-<code class="descname">BASE_SETTINGS</code><em class="property"> = [{'format': 'url', 'required': True, 'key': u'external_account_id', 'label': l'URL'}, {'required': True, 'key': u'data_source', 'label': l'Data source name'}]</em><a class="headerlink" href="#core.opds_import.OPDSImporter.BASE_SETTINGS" title="Permalink to this definition">¶</a></dt>
+<code class="descname">BASE_SETTINGS</code><em class="property"> = [{'format': 'url', 'required': True, 'key': u'external_account_id', 'label': l'URL'}, {'required': True, 'key': u'data_source', 'label': l'Data source name'}, {'readOnly': True, 'description': l'If the vendor does not specify the target audience for their books, assume the books have this target audience.', 'key': 'default_audience', 'format': 'narrow', 'default': '', 'required': False, 'type': 'select', 'options': [{'key': '', 'label': l'No default audience'}, {'key': 'Adult', 'label': 'Adult'}, {'key': 'Adults Only', 'label': 'Adults Only'}, {'key': 'All Ages', 'label': 'All Ages'}, {'key': 'Children', 'label': 'Children'}, {'key': 'Research', 'label': 'Research'}, {'key': 'Young Adult', 'label': 'Young Adult'}], 'label': l'Default audience'}]</em><a class="headerlink" href="#core.opds_import.OPDSImporter.BASE_SETTINGS" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -8580,6 +8871,11 @@ from external content servers.</p>
 <dd></dd></dl>
 
 <dl class="attribute">
+<dt id="core.opds_import.OPDSImporter.NO_DEFAULT_AUDIENCE">
+<code class="descname">NO_DEFAULT_AUDIENCE</code><em class="property"> = ''</em><a class="headerlink" href="#core.opds_import.OPDSImporter.NO_DEFAULT_AUDIENCE" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
 <dt id="core.opds_import.OPDSImporter.PARSER_CLASS">
 <code class="descname">PARSER_CLASS</code><a class="headerlink" href="#core.opds_import.OPDSImporter.PARSER_CLASS" title="Permalink to this definition">¶</a></dt>
 <dd><p>alias of <a class="reference internal" href="#core.opds_import.OPDSXMLParser" title="core.opds_import.OPDSXMLParser"><code class="xref py py-class docutils literal notranslate"><span class="pre">OPDSXMLParser</span></code></a></p>
@@ -8587,7 +8883,7 @@ from external content servers.</p>
 
 <dl class="attribute">
 <dt id="core.opds_import.OPDSImporter.SETTINGS">
-<code class="descname">SETTINGS</code><em class="property"> = [{'format': 'url', 'required': True, 'key': u'external_account_id', 'label': l'URL'}, {'required': True, 'key': u'data_source', 'label': l'Data source name'}, {'description': l'If HTTP Basic authentication is required to access the OPDS feed (it usually isn't), enter the username here.', 'key': u'username', 'label': l'Username'}, {'description': l'If HTTP Basic authentication is required to access the OPDS feed (it usually isn't), enter the password here.', 'key': u'password', 'label': l'Password'}]</em><a class="headerlink" href="#core.opds_import.OPDSImporter.SETTINGS" title="Permalink to this definition">¶</a></dt>
+<code class="descname">SETTINGS</code><em class="property"> = [{'format': 'url', 'required': True, 'key': u'external_account_id', 'label': l'URL'}, {'required': True, 'key': u'data_source', 'label': l'Data source name'}, {'readOnly': True, 'description': l'If the vendor does not specify the target audience for their books, assume the books have this target audience.', 'key': 'default_audience', 'format': 'narrow', 'default': '', 'required': False, 'type': 'select', 'options': [{'key': '', 'label': l'No default audience'}, {'key': 'Adult', 'label': 'Adult'}, {'key': 'Adults Only', 'label': 'Adults Only'}, {'key': 'All Ages', 'label': 'All Ages'}, {'key': 'Children', 'label': 'Children'}, {'key': 'Research', 'label': 'Research'}, {'key': 'Young Adult', 'label': 'Young Adult'}], 'label': l'Default audience'}, {'description': l'If HTTP Basic authentication is required to access the OPDS feed (it usually isn't), enter the username here.', 'key': u'username', 'label': l'Username'}, {'description': l'If HTTP Basic authentication is required to access the OPDS feed (it usually isn't), enter the password here.', 'key': u'password', 'label': l'Password'}, {'default': 'application/atom+xml;profile=opds-catalog;kind=acquisition,application/atom+xml;q=0.9,application/xml;q=0.8,*/*;q=0.1', 'required': False, 'description': l'Some servers expect an accept header to decide which file to send. You can use */* if the server doesn't expect anything.', 'key': u'custom_accept_header', 'label': l'Custom accept header'}, {'description': l'Which book identifier to use as ID.', 'required': False, 'label': l'Identifer', 'key': u'primary_identifier_source', 'type': 'select', 'options': [{'key': '', 'label': l'(Default) Use &lt;id&gt;'}, {'key': u'first_dcterms_identifier', 'label': l'Use &lt;dcterms:identifier&gt; first, if not exist use &lt;id&gt;'}]}]</em><a class="headerlink" href="#core.opds_import.OPDSImporter.SETTINGS" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -8604,6 +8900,11 @@ even theoretically, be turned into a LicensePool.</p>
 that can actually be retrieved.</p>
 </dd></dl>
 
+<dl class="attribute">
+<dt id="core.opds_import.OPDSImporter.audience">
+<code class="descname">audience</code><em class="property"> = 'Young Adult'</em><a class="headerlink" href="#core.opds_import.OPDSImporter.audience" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
 <dl class="method">
 <dt id="core.opds_import.OPDSImporter.build_identifier_mapping">
 <code class="descname">build_identifier_mapping</code><span class="sig-paren">(</span><em>external_urns</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/opds_import.html#OPDSImporter.build_identifier_mapping"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.opds_import.OPDSImporter.build_identifier_mapping" title="Permalink to this definition">¶</a></dt>
@@ -8613,6 +8914,22 @@ engineer an identifier mapping.</p>
 instance data, since a single OPDSImporter might import
 multiple pages of a feed. However, the code as written should
 work.</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="core.opds_import.OPDSImporter.collection">
+<code class="descname">collection</code><a class="headerlink" href="#core.opds_import.OPDSImporter.collection" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns an associated Collection object</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Associated Collection object</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">Optional[<a class="reference internal" href="core.model.html#core.model.collection.Collection" title="core.model.collection.Collection">Collection</a>]</td>
+</tr>
+</tbody>
+</table>
 </dd></dl>
 
 <dl class="classmethod">
@@ -8688,9 +9005,9 @@ used as keyword arguments to the Metadata contructor.</p>
 <dd><p>Turn an &lt;atom:author&gt; tag into a ContributorData object.</p>
 </dd></dl>
 
-<dl class="classmethod">
+<dl class="method">
 <dt id="core.opds_import.OPDSImporter.extract_data_from_feedparser">
-<em class="property">classmethod </em><code class="descname">extract_data_from_feedparser</code><span class="sig-paren">(</span><em>feed</em>, <em>data_source</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/opds_import.html#OPDSImporter.extract_data_from_feedparser"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.opds_import.OPDSImporter.extract_data_from_feedparser" title="Permalink to this definition">¶</a></dt>
+<code class="descname">extract_data_from_feedparser</code><span class="sig-paren">(</span><em>feed</em>, <em>data_source</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/opds_import.html#OPDSImporter.extract_data_from_feedparser"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.opds_import.OPDSImporter.extract_data_from_feedparser" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -8706,9 +9023,9 @@ with associated messages and next_links.</p>
 <dd><p>Turn a &lt;dcterms:identifier&gt; tag into an IdentifierData object.</p>
 </dd></dl>
 
-<dl class="classmethod">
+<dl class="method">
 <dt id="core.opds_import.OPDSImporter.extract_last_update_dates">
-<em class="property">classmethod </em><code class="descname">extract_last_update_dates</code><span class="sig-paren">(</span><em>feed</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/opds_import.html#OPDSImporter.extract_last_update_dates"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.opds_import.OPDSImporter.extract_last_update_dates" title="Permalink to this definition">¶</a></dt>
+<code class="descname">extract_last_update_dates</code><span class="sig-paren">(</span><em>feed</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/opds_import.html#OPDSImporter.extract_last_update_dates"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.opds_import.OPDSImporter.extract_last_update_dates" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="classmethod">
@@ -8829,9 +9146,9 @@ CirculationData in it.</p>
 <code class="descname">import_from_feed</code><span class="sig-paren">(</span><em>feed</em>, <em>feed_url=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/opds_import.html#OPDSImporter.import_from_feed"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.opds_import.OPDSImporter.import_from_feed" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="classmethod">
+<dl class="method">
 <dt id="core.opds_import.OPDSImporter.last_update_date_for_feedparser_entry">
-<em class="property">classmethod </em><code class="descname">last_update_date_for_feedparser_entry</code><span class="sig-paren">(</span><em>entry</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/opds_import.html#OPDSImporter.last_update_date_for_feedparser_entry"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.opds_import.OPDSImporter.last_update_date_for_feedparser_entry" title="Permalink to this definition">¶</a></dt>
+<code class="descname">last_update_date_for_feedparser_entry</code><span class="sig-paren">(</span><em>entry</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/opds_import.html#OPDSImporter.last_update_date_for_feedparser_entry"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.opds_import.OPDSImporter.last_update_date_for_feedparser_entry" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="classmethod">
@@ -8934,6 +9251,30 @@ given edition’s primary identifier.</p>
 
 </dd></dl>
 
+<dl class="function">
+<dt id="core.opds_import.parse_identifier">
+<code class="descclassname">core.opds_import.</code><code class="descname">parse_identifier</code><span class="sig-paren">(</span><em>db</em>, <em>identifier</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/opds_import.html#parse_identifier"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.opds_import.parse_identifier" title="Permalink to this definition">¶</a></dt>
+<dd><p>Parse the identifier and return an Identifier object representing it.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>db</strong> (<em>sqlalchemy.orm.session.Session</em>) – Database session</li>
+<li><strong>identifier</strong> (<em>str</em>) – String containing the identifier</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">Identifier object</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last"><a class="reference internal" href="core.model.html#core.model.identifier.Identifier" title="core.model.identifier.Identifier">core.model.identifier.Identifier</a></p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
 </div>
 <div class="section" id="module-core.opensearch">
 <span id="core-opensearch-module"></span><h2>core.opensearch module<a class="headerlink" href="#module-core.opensearch" title="Permalink to this headline">¶</a></h2>
@@ -9034,7 +9375,7 @@ whether to queue a response in a given test.</p>
 
 <dl class="attribute">
 <dt id="core.overdrive.OverdriveAPI.AVAILABILITY_ENDPOINT">
-<code class="descname">AVAILABILITY_ENDPOINT</code><em class="property"> = '%(host)s/v1/collections/%(collection_token)s/products/%(product_id)s/availability'</em><a class="headerlink" href="#core.overdrive.OverdriveAPI.AVAILABILITY_ENDPOINT" title="Permalink to this definition">¶</a></dt>
+<code class="descname">AVAILABILITY_ENDPOINT</code><em class="property"> = '%(host)s/v2/collections/%(collection_token)s/products/%(product_id)s/availability'</em><a class="headerlink" href="#core.overdrive.OverdriveAPI.AVAILABILITY_ENDPOINT" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -9177,6 +9518,17 @@ whether to queue a response in a given test.</p>
 <code class="descname">WEBSITE_ID</code><em class="property"> = u'website_id'</em><a class="headerlink" href="#core.overdrive.OverdriveAPI.WEBSITE_ID" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
+<dl class="attribute">
+<dt id="core.overdrive.OverdriveAPI.advantage_library_id">
+<code class="descname">advantage_library_id</code><a class="headerlink" href="#core.overdrive.OverdriveAPI.advantage_library_id" title="Permalink to this definition">¶</a></dt>
+<dd><p>The library ID for this library, as we should look for it in
+certain API documents served by Overdrive.</p>
+<p>For ordinary collections, and for consortial collections
+shared among libraries, this will be -1.</p>
+<p>For Overdrive Advantage accounts, this will be the numeric
+value of the Overdrive library ID.</p>
+</dd></dl>
+
 <dl class="method">
 <dt id="core.overdrive.OverdriveAPI.all_ids">
 <code class="descname">all_ids</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/overdrive.html#OverdriveAPI.all_ids"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.overdrive.OverdriveAPI.all_ids" title="Permalink to this definition">¶</a></dt>
@@ -9289,8 +9641,10 @@ for the given collection and library.</p>
 <dt id="core.overdrive.OverdriveAPI.make_link_safe">
 <em class="property">classmethod </em><code class="descname">make_link_safe</code><span class="sig-paren">(</span><em>url</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/overdrive.html#OverdriveAPI.make_link_safe"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.overdrive.OverdriveAPI.make_link_safe" title="Permalink to this definition">¶</a></dt>
 <dd><p>Turn a server-provided link into a link the server will accept!</p>
-<p>This is completely obnoxious and I have complained about it to
+<p>The {} part is completely obnoxious and I have complained about it to
 Overdrive.</p>
+<p>The availability part is to make sure we always use v2 of the
+availability API, even if Overdrive sent us a link to v1.</p>
 </dd></dl>
 
 <dl class="method">
@@ -9424,7 +9778,7 @@ WorkCoverageProvider, and must be handled in a subclass.</p>
 
 <dl class="class">
 <dt id="core.overdrive.OverdriveRepresentationExtractor">
-<em class="property">class </em><code class="descclassname">core.overdrive.</code><code class="descname">OverdriveRepresentationExtractor</code><a class="reference internal" href="_modules/core/overdrive.html#OverdriveRepresentationExtractor"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.overdrive.OverdriveRepresentationExtractor" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="descclassname">core.overdrive.</code><code class="descname">OverdriveRepresentationExtractor</code><span class="sig-paren">(</span><em>api</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/overdrive.html#OverdriveRepresentationExtractor"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.overdrive.OverdriveRepresentationExtractor" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>Extract useful information from Overdrive’s JSON representations.</p>
 <dl class="attribute">
@@ -9445,9 +9799,9 @@ WorkCoverageProvider, and must be handled in a subclass.</p>
 </table>
 </dd></dl>
 
-<dl class="classmethod">
+<dl class="method">
 <dt id="core.overdrive.OverdriveRepresentationExtractor.book_info_to_circulation">
-<em class="property">classmethod </em><code class="descname">book_info_to_circulation</code><span class="sig-paren">(</span><em>book</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/overdrive.html#OverdriveRepresentationExtractor.book_info_to_circulation"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.overdrive.OverdriveRepresentationExtractor.book_info_to_circulation" title="Permalink to this definition">¶</a></dt>
+<code class="descname">book_info_to_circulation</code><span class="sig-paren">(</span><em>book</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/overdrive.html#OverdriveRepresentationExtractor.book_info_to_circulation"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.overdrive.OverdriveRepresentationExtractor.book_info_to_circulation" title="Permalink to this definition">¶</a></dt>
 <dd><p>Note:  The json data passed into this method is from a different file/stream
 from the json data that goes into the book_info_to_metadata() method.</p>
 </dd></dl>
@@ -9535,7 +9889,7 @@ from the json data that goes into the book_info_to_circulation() method.</p>
 
 <dl class="attribute">
 <dt id="core.s3.MinIOUploader.SETTINGS">
-<code class="descname">SETTINGS</code><em class="property"> = [{'category': None, 'description': '', 'key': u'username', 'default': None, 'required': False, 'type': None, 'options': None, 'label': l'Access Key'}, {'category': None, 'description': l'If the &lt;em&gt;Access Key&lt;/em&gt; and &lt;em&gt;Secret Key&lt;/em&gt; are not given here credentials will be used as outlined in the &lt;a href=&quot;https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html#configuring-credentials&quot;&gt;Boto3 documenation&lt;/a&gt;. If &lt;em&gt;Access Key&lt;/em&gt; is given, &lt;em&gt;Secrent Key&lt;/em&gt; must also be given.', 'key': u'password', 'default': None, 'required': False, 'type': None, 'options': None, 'label': l'Secret Key'}, {'category': None, 'description': l'All book cover images encountered will be mirrored to this S3 bucket. Large images will be scaled down, and the scaled-down copies will also be uploaded to this bucket. &lt;p&gt;The bucket must already exist&amp;mdash;it will not be created automatically.&lt;/p&gt;', 'key': u'book_covers_bucket', 'default': None, 'required': False, 'type': None, 'options': None, 'label': l'Book Covers Bucket'}, {'category': None, 'description': l'All open-access books encountered will be uploaded to this S3 bucket. &lt;p&gt;The bucket must already exist&amp;mdash;it will not be created automatically.&lt;/p&gt;', 'key': u'open_access_content_bucket', 'default': None, 'required': False, 'type': None, 'options': None, 'label': l'Open Access Content Bucket'}, {'category': None, 'description': l'Self-hosted books will be uploaded to this S3 bucket. &lt;p&gt;The bucket must already exist&amp;mdash;it will not be created automatically.&lt;/p&gt;', 'key': u'protected_content_bucket', 'default': None, 'required': False, 'type': None, 'options': None, 'label': l'Protected Access Content Bucket'}, {'category': None, 'description': l'All generated MARC files will be uploaded to this S3 bucket. &lt;p&gt;The bucket must already exist&amp;mdash;it will not be created automatically.&lt;/p&gt;', 'key': u'marc_bucket', 'default': None, 'required': False, 'type': None, 'options': None, 'label': l'MARC File Bucket'}, {'category': None, 'description': l'S3 region which will be used for storing the content.', 'key': u's3_region', 'default': u'us-east-1', 'required': False, 'type': 'select', 'options': [{'key': u'af-south-1', 'label': u'af-south-1'}, {'key': u'ap-east-1', 'label': u'ap-east-1'}, {'key': u'ap-northeast-1', 'label': u'ap-northeast-1'}, {'key': u'ap-northeast-2', 'label': u'ap-northeast-2'}, {'key': u'ap-south-1', 'label': u'ap-south-1'}, {'key': u'ap-southeast-1', 'label': u'ap-southeast-1'}, {'key': u'ap-southeast-2', 'label': u'ap-southeast-2'}, {'key': u'ca-central-1', 'label': u'ca-central-1'}, {'key': u'eu-central-1', 'label': u'eu-central-1'}, {'key': u'eu-north-1', 'label': u'eu-north-1'}, {'key': u'eu-south-1', 'label': u'eu-south-1'}, {'key': u'eu-west-1', 'label': u'eu-west-1'}, {'key': u'eu-west-2', 'label': u'eu-west-2'}, {'key': u'eu-west-3', 'label': u'eu-west-3'}, {'key': u'me-south-1', 'label': u'me-south-1'}, {'key': u'sa-east-1', 'label': u'sa-east-1'}, {'key': u'us-east-1', 'label': u'us-east-1'}, {'key': u'us-east-2', 'label': u'us-east-2'}, {'key': u'us-west-1', 'label': u'us-west-1'}, {'key': u'us-west-2', 'label': u'us-west-2'}], 'label': l'S3 region'}, {'category': None, 'description': l'Buckets created after September 30, 2020, will support only virtual hosted-style requests. Path-style requests will continue to be supported for buckets created on or before this date. For more information, see &lt;a href=&quot;https://aws.amazon.com/blogs/aws/amazon-s3-path-deprecation-plan-the-rest-of-the-story/&quot;&gt;Amazon S3 Path Deprecation Plan - The Rest of the Story&lt;/a&gt;.', 'key': u's3_addressing_style', 'default': u'us-east-1', 'required': False, 'type': 'select', 'options': [{'key': 'virtual', 'label': l'Virtual'}, {'key': 'path', 'label': l'Path'}, {'key': 'auto', 'label': l'Auto'}], 'label': l'S3 addressing style'}, {'category': None, 'description': l'Time in seconds for the presigned URL to remain valid', 'key': u's3_presigned_url_expiration', 'default': 3600, 'required': False, 'type': 'number', 'options': None, 'label': l'S3 presigned URL expiration'}, {'category': None, 'description': l'A file mirrored to S3 is available at &lt;code&gt;http://{bucket}.s3.{region}.amazonaws.com/{filename}&lt;/code&gt;. If you've set up your DNS so that http://[bucket]/ or https://[bucket]/ points to the appropriate S3 bucket, you can configure this S3 integration to shorten the URLs. &lt;p&gt;If you haven't set up your S3 buckets, don't change this from the default -- you'll get URLs that don't work.&lt;/p&gt;', 'key': u'bucket_name_transform', 'default': u'identity', 'required': False, 'type': 'select', 'options': [{'key': u'identity', 'label': l'S3 Default: https://{bucket}.s3.{region}.amazonaws.com/{file}'}, {'key': u'https', 'label': l'HTTPS: https://{bucket}/{file}'}, {'key': u'http', 'label': l'HTTP: http://{bucket}/{file}'}], 'label': l'URL format'}, {'category': None, 'description': l'MinIO's endpoint URL', 'key': 'ENDPOINT_URL', 'default': None, 'required': True, 'type': None, 'options': None, 'label': l'Endpoint URL'}]</em><a class="headerlink" href="#core.s3.MinIOUploader.SETTINGS" title="Permalink to this definition">¶</a></dt>
+<code class="descname">SETTINGS</code><em class="property"> = [{'category': None, 'description': '', 'key': u'username', 'default': None, 'required': False, 'type': None, 'options': None, 'label': l'Access Key'}, {'category': None, 'description': l'If the &lt;em&gt;Access Key&lt;/em&gt; and &lt;em&gt;Secret Key&lt;/em&gt; are not given here credentials will be used as outlined in the &lt;a href=&quot;https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html#configuring-credentials&quot;&gt;Boto3 documenation&lt;/a&gt;. If &lt;em&gt;Access Key&lt;/em&gt; is given, &lt;em&gt;Secrent Key&lt;/em&gt; must also be given.', 'key': u'password', 'default': None, 'required': False, 'type': None, 'options': None, 'label': l'Secret Key'}, {'category': None, 'description': l'All book cover images encountered will be mirrored to this S3 bucket. Large images will be scaled down, and the scaled-down copies will also be uploaded to this bucket. &lt;p&gt;The bucket must already exist&amp;mdash;it will not be created automatically.&lt;/p&gt;', 'key': u'book_covers_bucket', 'default': None, 'required': False, 'type': None, 'options': None, 'label': l'Book Covers Bucket'}, {'category': None, 'description': l'All open-access books encountered will be uploaded to this S3 bucket. &lt;p&gt;The bucket must already exist&amp;mdash;it will not be created automatically.&lt;/p&gt;', 'key': u'open_access_content_bucket', 'default': None, 'required': False, 'type': None, 'options': None, 'label': l'Open Access Content Bucket'}, {'category': None, 'description': l'Self-hosted books will be uploaded to this S3 bucket. &lt;p&gt;The bucket must already exist&amp;mdash;it will not be created automatically.&lt;/p&gt;', 'key': u'protected_content_bucket', 'default': None, 'required': False, 'type': None, 'options': None, 'label': l'Protected Access Content Bucket'}, {'category': None, 'description': l'All generated MARC files will be uploaded to this S3 bucket. &lt;p&gt;The bucket must already exist&amp;mdash;it will not be created automatically.&lt;/p&gt;', 'key': u'marc_bucket', 'default': None, 'required': False, 'type': None, 'options': None, 'label': l'MARC File Bucket'}, {'category': None, 'description': l'S3 region which will be used for storing the content.', 'key': u's3_region', 'default': u'us-east-1', 'required': False, 'type': 'select', 'options': [{'key': u'af-south-1', 'label': u'af-south-1'}, {'key': u'ap-east-1', 'label': u'ap-east-1'}, {'key': u'ap-northeast-1', 'label': u'ap-northeast-1'}, {'key': u'ap-northeast-2', 'label': u'ap-northeast-2'}, {'key': u'ap-south-1', 'label': u'ap-south-1'}, {'key': u'ap-southeast-1', 'label': u'ap-southeast-1'}, {'key': u'ap-southeast-2', 'label': u'ap-southeast-2'}, {'key': u'ca-central-1', 'label': u'ca-central-1'}, {'key': u'eu-central-1', 'label': u'eu-central-1'}, {'key': u'eu-north-1', 'label': u'eu-north-1'}, {'key': u'eu-south-1', 'label': u'eu-south-1'}, {'key': u'eu-west-1', 'label': u'eu-west-1'}, {'key': u'eu-west-2', 'label': u'eu-west-2'}, {'key': u'eu-west-3', 'label': u'eu-west-3'}, {'key': u'me-south-1', 'label': u'me-south-1'}, {'key': u'sa-east-1', 'label': u'sa-east-1'}, {'key': u'us-east-1', 'label': u'us-east-1'}, {'key': u'us-east-2', 'label': u'us-east-2'}, {'key': u'us-west-1', 'label': u'us-west-1'}, {'key': u'us-west-2', 'label': u'us-west-2'}], 'label': l'S3 region'}, {'category': None, 'description': l'Buckets created after September 30, 2020, will support only virtual hosted-style requests. Path-style requests will continue to be supported for buckets created on or before this date. For more information, see &lt;a href=&quot;https://aws.amazon.com/blogs/aws/amazon-s3-path-deprecation-plan-the-rest-of-the-story/&quot;&gt;Amazon S3 Path Deprecation Plan - The Rest of the Story&lt;/a&gt;.', 'key': u's3_addressing_style', 'default': u'us-east-1', 'required': False, 'type': 'select', 'options': [{'key': 'virtual', 'label': l'Virtual'}, {'key': 'path', 'label': l'Path'}, {'key': 'auto', 'label': l'Auto'}], 'label': l'S3 addressing style'}, {'category': None, 'description': l'Time in seconds for the presigned URL to remain valid', 'key': u's3_presigned_url_expiration', 'default': 3600, 'required': False, 'type': 'number', 'options': None, 'label': l'S3 presigned URL expiration'}, {'category': None, 'description': l'A file mirrored to S3 is available at &lt;code&gt;http://{bucket}.s3.{region}.amazonaws.com/{filename}&lt;/code&gt;. If you've set up your DNS so that http://[bucket]/ or https://[bucket]/ points to the appropriate S3 bucket, you can configure this S3 integration to shorten the URLs. &lt;p&gt;If you haven't set up your S3 buckets, don't change this from the default -- you'll get URLs that don't work.&lt;/p&gt;', 'key': u'bucket_name_transform', 'default': u'identity', 'required': False, 'type': 'select', 'options': [{'key': u'identity', 'label': l'S3 Default: https://{bucket}.s3.{region}.amazonaws.com/{file}'}, {'key': u'https', 'label': l'HTTPS: https://{bucket}/{file}'}, {'key': u'http', 'label': l'HTTP: http://{bucket}/{file}'}], 'label': l'URL format'}, {'category': None, 'description': l'MinIO's endpoint URL', 'key': 'ENDPOINT_URL', 'format': None, 'default': None, 'required': True, 'type': None, 'options': None, 'label': l'Endpoint URL'}]</em><a class="headerlink" href="#core.s3.MinIOUploader.SETTINGS" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>

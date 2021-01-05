@@ -116,12 +116,14 @@
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">core.model.configuration</span> <span class="kn">import</span> <span class="n">ExternalIntegrationLink</span>
 <span class="kn">from</span> <span class="nn">core.opds</span> <span class="kn">import</span> <span class="n">AcquisitionFeed</span>
+<span class="kn">from</span> <span class="nn">core.opds2_import</span> <span class="kn">import</span> <span class="n">OPDS2Importer</span>
 <span class="kn">from</span> <span class="nn">core.opds_import</span> <span class="kn">import</span> <span class="p">(</span><span class="n">OPDSImporter</span><span class="p">,</span> <span class="n">OPDSImportMonitor</span><span class="p">)</span>
 <span class="kn">from</span> <span class="nn">core.s3</span> <span class="kn">import</span> <span class="n">S3UploaderConfiguration</span>
 <span class="kn">from</span> <span class="nn">core.selftest</span> <span class="kn">import</span> <span class="n">HasSelfTests</span>
 <span class="kn">from</span> <span class="nn">core.util.flask_util</span> <span class="kn">import</span> <span class="n">OPDSFeedResponse</span>
 <span class="kn">from</span> <span class="nn">core.util.http</span> <span class="kn">import</span> <span class="n">HTTP</span>
 <span class="kn">from</span> <span class="nn">core.util.problem_detail</span> <span class="kn">import</span> <span class="n">ProblemDetail</span>
+<span class="kn">from</span> <span class="nn">api.proquest.importer</span> <span class="kn">import</span> <span class="n">ProQuestOPDS2Importer</span>
 
 
 <div class="viewcode-block" id="setup_admin_controllers"><a class="viewcode-back" href="../../../api.admin.controller.html#api.admin.controller.setup_admin_controllers">[docs]</a><span class="k">def</span> <span class="nf">setup_admin_controllers</span><span class="p">(</span><span class="n">manager</span><span class="p">):</span>
@@ -1318,19 +1320,22 @@
 
     <span class="n">NO_MIRROR_INTEGRATION</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;NO_MIRROR&quot;</span>
 
-    <span class="n">PROVIDER_APIS</span> <span class="o">=</span> <span class="p">[</span><span class="n">OPDSImporter</span><span class="p">,</span>
-                     <span class="n">OPDSForDistributorsAPI</span><span class="p">,</span>
-                     <span class="n">OverdriveAPI</span><span class="p">,</span>
-                     <span class="n">OdiloAPI</span><span class="p">,</span>
-                     <span class="n">BibliothecaAPI</span><span class="p">,</span>
-                     <span class="n">Axis360API</span><span class="p">,</span>
-                     <span class="n">RBDigitalAPI</span><span class="p">,</span>
-                     <span class="n">EnkiAPI</span><span class="p">,</span>
-                     <span class="n">ODLAPI</span><span class="p">,</span>
-                     <span class="n">SharedODLAPI</span><span class="p">,</span>
-                     <span class="n">FeedbooksOPDSImporter</span><span class="p">,</span>
-                     <span class="n">LCPAPI</span>
-                     <span class="p">]</span>
+    <span class="n">PROVIDER_APIS</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">OPDSImporter</span><span class="p">,</span>
+        <span class="n">OPDSForDistributorsAPI</span><span class="p">,</span>
+        <span class="n">OPDS2Importer</span><span class="p">,</span>
+        <span class="n">ProQuestOPDS2Importer</span><span class="p">,</span>
+        <span class="n">OverdriveAPI</span><span class="p">,</span>
+        <span class="n">OdiloAPI</span><span class="p">,</span>
+        <span class="n">BibliothecaAPI</span><span class="p">,</span>
+        <span class="n">Axis360API</span><span class="p">,</span>
+        <span class="n">RBDigitalAPI</span><span class="p">,</span>
+        <span class="n">EnkiAPI</span><span class="p">,</span>
+        <span class="n">ODLAPI</span><span class="p">,</span>
+        <span class="n">SharedODLAPI</span><span class="p">,</span>
+        <span class="n">FeedbooksOPDSImporter</span><span class="p">,</span>
+        <span class="n">LCPAPI</span>
+    <span class="p">]</span>
 
     <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">_get_integration_protocols</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">provider_apis</span><span class="p">,</span> <span class="n">protocol_name_attr</span><span class="o">=</span><span class="s2">&quot;__module__&quot;</span><span class="p">):</span>
@@ -1426,7 +1431,7 @@
                     <span class="k">else</span><span class="p">:</span>
                         <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">NO_MIRROR_INTEGRATION</span>
                 <span class="k">else</span><span class="p">:</span>
-                    <span class="k">if</span> <span class="n">setting</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;type&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;list&quot;</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">setting</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;type&quot;</span><span class="p">)</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;list&quot;</span><span class="p">,</span> <span class="s2">&quot;menu&quot;</span><span class="p">):</span>
                         <span class="n">value</span> <span class="o">=</span> <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">for_externalintegration</span><span class="p">(</span>
                             <span class="n">key</span><span class="p">,</span> <span class="n">service</span><span class="p">)</span><span class="o">.</span><span class="n">json_value</span>
                     <span class="k">else</span><span class="p">:</span>
@@ -1448,28 +1453,75 @@
             <span class="n">services</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">service_info</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">services</span>
 
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_get_menu_values</span><span class="p">(</span><span class="n">setting_key</span><span class="p">,</span> <span class="n">form</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;circulation-web returns &quot;menu&quot; values in a different format not compatible with werkzeug.MultiDict semantics:</span>
+<span class="sd">            {setting_key}_{menu} = {value_in_the_dropdown_box}</span>
+<span class="sd">            {setting_key}_{setting_value1} = {setting_label1}</span>
+<span class="sd">            {setting_key}_{setting_value2} = {setting_label2}</span>
+<span class="sd">            ...</span>
+<span class="sd">            {setting_key}_{setting_valueN} = {setting_labelN}</span>
+
+<span class="sd">        It means we can&#39;t use werkzeug.MultiDict.getlist method and have to extract them manually.</span>
+
+<span class="sd">        :param setting_key: Setting&#39;s key</span>
+<span class="sd">        :type setting_key: str</span>
+
+<span class="sd">        :param form: Multi-dictionary containing input values submitted by the user</span>
+<span class="sd">            and sent back to CM by circulation-web</span>
+<span class="sd">        :type form: werkzeug.MultiDict</span>
+
+<span class="sd">        :return: List of &quot;menu&quot; values</span>
+<span class="sd">        :rtype: List[str]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">values</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">for</span> <span class="n">form_item_key</span> <span class="ow">in</span> <span class="n">form</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">setting_key</span> <span class="ow">in</span> <span class="n">form_item_key</span><span class="p">:</span>
+                <span class="n">value</span> <span class="o">=</span> <span class="n">form_item_key</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">setting_key</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">lstrip</span><span class="p">(</span><span class="s1">&#39;_&#39;</span><span class="p">)</span>
+
+                <span class="k">if</span> <span class="n">value</span> <span class="o">!=</span> <span class="s1">&#39;menu&#39;</span><span class="p">:</span>
+                    <span class="n">values</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">values</span>
+
     <span class="k">def</span> <span class="nf">_set_integration_setting</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">integration</span><span class="p">,</span> <span class="n">setting</span><span class="p">):</span>
-        <span class="n">key</span> <span class="o">=</span> <span class="n">setting</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;key&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">setting</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;type&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;list&quot;</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">setting</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;options&quot;</span><span class="p">):</span>
-            <span class="n">value</span> <span class="o">=</span> <span class="p">[</span><span class="n">item</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">getlist</span><span class="p">(</span><span class="n">key</span><span class="p">)</span> <span class="k">if</span> <span class="n">item</span><span class="p">]</span>
+        <span class="n">setting_key</span> <span class="o">=</span> <span class="n">setting</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;key&quot;</span><span class="p">)</span>
+        <span class="n">setting_type</span> <span class="o">=</span> <span class="n">setting</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;type&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">setting_type</span> <span class="o">==</span> <span class="s2">&quot;list&quot;</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">setting</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;options&quot;</span><span class="p">):</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="p">[</span><span class="n">item</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">getlist</span><span class="p">(</span><span class="n">setting_key</span><span class="p">)</span> <span class="k">if</span> <span class="n">item</span><span class="p">]</span>
             <span class="k">if</span> <span class="n">value</span><span class="p">:</span>
                 <span class="n">value</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">setting_type</span> <span class="o">==</span> <span class="s1">&#39;menu&#39;</span><span class="p">:</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_menu_values</span><span class="p">(</span><span class="n">setting_key</span><span class="p">,</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">value</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">setting_key</span><span class="p">)</span>
+
         <span class="k">if</span> <span class="n">value</span> <span class="ow">and</span> <span class="n">setting</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;options&quot;</span><span class="p">):</span>
             <span class="c1"># This setting can only take on values that are in its</span>
             <span class="c1"># list of options.</span>
-            <span class="n">allowed</span> <span class="o">=</span> <span class="p">[</span><span class="n">option</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;key&quot;</span><span class="p">)</span> <span class="k">for</span> <span class="n">option</span> <span class="ow">in</span> <span class="n">setting</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;options&quot;</span><span class="p">)]</span>
-            <span class="k">if</span> <span class="n">value</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">allowed</span><span class="p">:</span>
-                <span class="k">return</span> <span class="n">INVALID_CONFIGURATION_OPTION</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="n">_</span><span class="p">(</span>
-                    <span class="s2">&quot;The configuration value for </span><span class="si">%(setting)s</span><span class="s2"> is invalid.&quot;</span><span class="p">,</span>
-                    <span class="n">setting</span><span class="o">=</span><span class="n">setting</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;label&quot;</span><span class="p">),</span>
-                <span class="p">))</span>
+            <span class="n">allowed_values</span> <span class="o">=</span> <span class="p">[</span><span class="n">option</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;key&quot;</span><span class="p">)</span> <span class="k">for</span> <span class="n">option</span> <span class="ow">in</span> <span class="n">setting</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;options&quot;</span><span class="p">)]</span>
+            <span class="n">submitted_values</span> <span class="o">=</span> <span class="n">value</span>
+
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">submitted_values</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+                <span class="n">submitted_values</span> <span class="o">=</span> <span class="p">[</span><span class="n">submitted_values</span><span class="p">]</span>
+
+            <span class="k">for</span> <span class="n">submitted_value</span> <span class="ow">in</span> <span class="n">submitted_values</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">submitted_value</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">allowed_values</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="n">INVALID_CONFIGURATION_OPTION</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="n">_</span><span class="p">(</span>
+                        <span class="s2">&quot;The configuration value for </span><span class="si">%(setting)s</span><span class="s2"> is invalid.&quot;</span><span class="p">,</span>
+                        <span class="n">setting</span><span class="o">=</span><span class="n">setting</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;label&quot;</span><span class="p">),</span>
+                    <span class="p">))</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">value</span> <span class="ow">and</span> <span class="n">setting</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;required&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="s2">&quot;default&quot;</span> <span class="ow">in</span> <span class="n">setting</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
             <span class="k">return</span> <span class="n">INCOMPLETE_CONFIGURATION</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span>
                 <span class="n">_</span><span class="p">(</span><span class="s2">&quot;The configuration is missing a required setting: </span><span class="si">%(setting)s</span><span class="s2">&quot;</span><span class="p">,</span>
                   <span class="n">setting</span><span class="o">=</span><span class="n">setting</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;label&quot;</span><span class="p">)))</span>
-        <span class="n">integration</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="n">key</span><span class="p">)</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="n">value</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+
+        <span class="n">integration</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="n">setting_key</span><span class="p">)</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="n">value</span>
 
     <span class="k">def</span> <span class="nf">_set_integration_library</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">integration</span><span class="p">,</span> <span class="n">library_info</span><span class="p">,</span> <span class="n">protocol</span><span class="p">):</span>
         <span class="n">library</span> <span class="o">=</span> <span class="n">get_one</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">Library</span><span class="p">,</span> <span class="n">short_name</span><span class="o">=</span><span class="n">library_info</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;short_name&quot;</span><span class="p">))</span>

@@ -120,6 +120,7 @@
     <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> (</span><span class="si">%d%%</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">genre</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">affinity</span><span class="o">*</span><span class="mi">100</span><span class="p">)</span></div>
 
+
 <div class="viewcode-block" id="Work"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Work">[docs]</a><span class="k">class</span> <span class="nc">Work</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
     <span class="n">APPEALS_URI</span> <span class="o">=</span> <span class="s2">&quot;http://librarysimplified.org/terms/appeals/&quot;</span>
 
@@ -816,6 +817,16 @@
             <span class="n">language</span> <span class="o">=</span> <span class="n">LanguageCodes</span><span class="o">.</span><span class="n">three_to_two</span><span class="p">[</span><span class="n">language</span><span class="p">]</span>
         <span class="k">return</span> <span class="n">language</span>
 
+<div class="viewcode-block" id="Work.age_appropriate_for_patron"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Work.age_appropriate_for_patron">[docs]</a>    <span class="k">def</span> <span class="nf">age_appropriate_for_patron</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Is this Work age-appropriate for the given Patron?</span>
+
+<span class="sd">        :param patron: A Patron.</span>
+<span class="sd">        :return: A boolean</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">patron</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">return</span> <span class="n">patron</span><span class="o">.</span><span class="n">work_is_age_appropriate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">audience</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">target_age</span><span class="p">)</span></div>
+
 <div class="viewcode-block" id="Work.set_presentation_edition"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Work.set_presentation_edition">[docs]</a>    <span class="k">def</span> <span class="nf">set_presentation_edition</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">new_presentation_edition</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot; Sets presentation edition and lets owned pools and editions know.</span>
 <span class="sd">            Raises exception if edition to set to is None.</span>
@@ -899,6 +910,17 @@
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">changed</span></div>
 
+    <span class="k">def</span> <span class="nf">_get_default_audience</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return the default audience.</span>
+
+<span class="sd">        :return: Default audience</span>
+<span class="sd">        :rtype: Optional[str]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">license_pool</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">license_pools</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">license_pool</span><span class="o">.</span><span class="n">collection</span><span class="o">.</span><span class="n">default_audience</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">license_pool</span><span class="o">.</span><span class="n">collection</span><span class="o">.</span><span class="n">default_audience</span>
+
+        <span class="k">return</span> <span class="kc">None</span>
 
 <div class="viewcode-block" id="Work.calculate_presentation"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Work.calculate_presentation">[docs]</a>    <span class="k">def</span> <span class="nf">calculate_presentation</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">policy</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">search_index_client</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">exclude_search</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
@@ -914,6 +936,8 @@
 <span class="sd">        * The best available summary for the work.</span>
 <span class="sd">        * The overall popularity of the work.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">default_audience</span><span class="p">:</span>
+            <span class="n">default_audience</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_default_audience</span><span class="p">()</span>
 
         <span class="c1"># Gather information up front so we can see if anything</span>
         <span class="c1"># actually changed.</span>
@@ -1556,6 +1580,12 @@
         <span class="c1"># The work quality field is stored in the main document, but</span>
         <span class="c1"># it&#39;s also stored here, so that we can apply a nested filter</span>
         <span class="c1"># that combines quality with other fields found only in the subdocument.</span>
+
+        <span class="k">def</span> <span class="nf">explicit_bool</span><span class="p">(</span><span class="n">label</span><span class="p">,</span> <span class="n">t</span><span class="p">):</span>
+            <span class="c1"># Ensure we always generate True/False instead of</span>
+            <span class="c1"># True/None. Elasticsearch can&#39;t filter on null values.</span>
+            <span class="k">return</span> <span class="n">case</span><span class="p">([(</span><span class="n">t</span><span class="p">,</span> <span class="kc">True</span><span class="p">)],</span> <span class="n">else_</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span><span class="o">.</span><span class="n">label</span><span class="p">(</span><span class="n">label</span><span class="p">)</span>
+
         <span class="n">licensepools</span> <span class="o">=</span> <span class="n">select</span><span class="p">(</span>
             <span class="p">[</span>
                 <span class="n">LicensePool</span><span class="o">.</span><span class="n">id</span><span class="o">.</span><span class="n">label</span><span class="p">(</span><span class="s1">&#39;licensepool_id&#39;</span><span class="p">),</span>
@@ -1563,16 +1593,23 @@
                 <span class="n">LicensePool</span><span class="o">.</span><span class="n">collection_id</span><span class="o">.</span><span class="n">label</span><span class="p">(</span><span class="s1">&#39;collection_id&#39;</span><span class="p">),</span>
                 <span class="n">LicensePool</span><span class="o">.</span><span class="n">open_access</span><span class="o">.</span><span class="n">label</span><span class="p">(</span><span class="s1">&#39;open_access&#39;</span><span class="p">),</span>
                 <span class="n">LicensePool</span><span class="o">.</span><span class="n">suppressed</span><span class="p">,</span>
-                <span class="n">or_</span><span class="p">(</span>
-                    <span class="n">LicensePool</span><span class="o">.</span><span class="n">unlimited_access</span><span class="p">,</span>
-                    <span class="n">LicensePool</span><span class="o">.</span><span class="n">self_hosted</span><span class="p">,</span>
-                    <span class="n">LicensePool</span><span class="o">.</span><span class="n">licenses_available</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span>
-                <span class="p">)</span><span class="o">.</span><span class="n">label</span><span class="p">(</span><span class="s1">&#39;available&#39;</span><span class="p">),</span>
-                <span class="n">or_</span><span class="p">(</span>
-                    <span class="n">LicensePool</span><span class="o">.</span><span class="n">unlimited_access</span><span class="p">,</span>
-                    <span class="n">LicensePool</span><span class="o">.</span><span class="n">self_hosted</span><span class="p">,</span>
-                    <span class="n">LicensePool</span><span class="o">.</span><span class="n">licenses_owned</span> <span class="o">&gt;</span> <span class="mi">0</span>
-                <span class="p">)</span><span class="o">.</span><span class="n">label</span><span class="p">(</span><span class="s1">&#39;licensed&#39;</span><span class="p">),</span>
+
+                <span class="n">explicit_bool</span><span class="p">(</span>
+                    <span class="s1">&#39;available&#39;</span><span class="p">,</span>
+                    <span class="n">or_</span><span class="p">(</span>
+                        <span class="n">LicensePool</span><span class="o">.</span><span class="n">unlimited_access</span><span class="p">,</span>
+                        <span class="n">LicensePool</span><span class="o">.</span><span class="n">self_hosted</span><span class="p">,</span>
+                        <span class="n">LicensePool</span><span class="o">.</span><span class="n">licenses_available</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span>
+                    <span class="p">)</span>
+                <span class="p">),</span>
+                <span class="n">explicit_bool</span><span class="p">(</span>
+                    <span class="s1">&#39;licensed&#39;</span><span class="p">,</span>
+                    <span class="n">or_</span><span class="p">(</span>
+                        <span class="n">LicensePool</span><span class="o">.</span><span class="n">unlimited_access</span><span class="p">,</span>
+                        <span class="n">LicensePool</span><span class="o">.</span><span class="n">self_hosted</span><span class="p">,</span>
+                        <span class="n">LicensePool</span><span class="o">.</span><span class="n">licenses_owned</span> <span class="o">&gt;</span> <span class="mi">0</span>
+                    <span class="p">)</span>
+                <span class="p">),</span>
                 <span class="n">work_quality_column</span><span class="p">,</span>
                 <span class="n">Edition</span><span class="o">.</span><span class="n">medium</span><span class="p">,</span>
                 <span class="n">func</span><span class="o">.</span><span class="n">extract</span><span class="p">(</span>

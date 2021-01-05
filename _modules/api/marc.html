@@ -37,6 +37,7 @@
 <span class="kn">from</span> <span class="nn">pymarc</span> <span class="kn">import</span> <span class="n">Field</span>
 <span class="kn">import</span> <span class="nn">urllib</span>
 
+<span class="kn">from</span> <span class="nn">core.config</span> <span class="kn">import</span> <span class="n">Configuration</span>
 <span class="kn">from</span> <span class="nn">core.marc</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Annotator</span><span class="p">,</span>
     <span class="n">MARCExporter</span><span class="p">,</span>
@@ -50,6 +51,8 @@
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">library</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">LibraryAnnotator</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">library</span> <span class="o">=</span> <span class="n">library</span>
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="n">library</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">base_url</span> <span class="o">=</span> <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">sitewide</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">Configuration</span><span class="o">.</span><span class="n">BASE_URL_KEY</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
 
 <div class="viewcode-block" id="LibraryAnnotator.value"><a class="viewcode-back" href="../../api.html#api.marc.LibraryAnnotator.value">[docs]</a>    <span class="k">def</span> <span class="nf">value</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">integration</span><span class="p">):</span>
         <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="n">integration</span><span class="p">)</span>
@@ -95,16 +98,25 @@
             <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">library_id</span><span class="o">==</span><span class="n">library</span><span class="o">.</span><span class="n">id</span>
         <span class="p">)</span> <span class="k">if</span> <span class="n">s</span><span class="o">.</span><span class="n">value</span><span class="p">]</span>
 
-        <span class="k">for</span> <span class="n">setting</span> <span class="ow">in</span> <span class="n">settings</span><span class="p">:</span>
+        <span class="n">qualified_identifier</span> <span class="o">=</span> <span class="n">urllib</span><span class="o">.</span><span class="n">quote</span><span class="p">(</span><span class="n">identifier</span><span class="o">.</span><span class="n">type</span> <span class="o">+</span> <span class="s2">&quot;/&quot;</span> <span class="o">+</span> <span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span> <span class="n">safe</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">web_client_base_url</span> <span class="ow">in</span> <span class="n">settings</span><span class="p">:</span>
+            <span class="n">link</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">{}</span><span class="s2">/</span><span class="si">{}</span><span class="s2">/works/</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">base_url</span><span class="p">,</span>
+                <span class="n">library</span><span class="o">.</span><span class="n">short_name</span><span class="p">,</span>
+                <span class="n">qualified_identifier</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">encoded_link</span> <span class="o">=</span> <span class="n">urllib</span><span class="o">.</span><span class="n">quote</span><span class="p">(</span><span class="n">link</span><span class="p">,</span> <span class="n">safe</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">)</span>
+            <span class="n">url</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">{}</span><span class="s2">/book/</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                <span class="n">web_client_base_url</span><span class="p">,</span>
+                <span class="n">encoded_link</span>
+            <span class="p">)</span>
             <span class="n">record</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span>
                 <span class="n">Field</span><span class="p">(</span>
                     <span class="n">tag</span><span class="o">=</span><span class="s2">&quot;856&quot;</span><span class="p">,</span>
                     <span class="n">indicators</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;4&quot;</span><span class="p">,</span> <span class="s2">&quot;0&quot;</span><span class="p">],</span>
-                    <span class="n">subfields</span><span class="o">=</span><span class="p">[</span>
-                        <span class="s2">&quot;u&quot;</span><span class="p">,</span> <span class="n">setting</span> <span class="o">+</span> <span class="s2">&quot;/book/&quot;</span> <span class="o">+</span> <span class="n">urllib</span><span class="o">.</span><span class="n">quote</span><span class="p">(</span><span class="n">identifier</span><span class="o">.</span><span class="n">type</span> <span class="o">+</span> <span class="s2">&quot;/&quot;</span> <span class="o">+</span> <span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span> <span class="n">safe</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">)</span>
-                    <span class="p">]))</span></div></div>
-
-
+                    <span class="n">subfields</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;u&quot;</span><span class="p">,</span> <span class="n">url</span><span class="p">],</span>
+                <span class="p">))</span></div></div>
 </pre></div>
 
           </div>

@@ -1,6 +1,14 @@
 api.saml package
 ================
 
+Subpackages
+-----------
+
+.. toctree::
+
+    api.saml.configuration
+    api.saml.metadata
+
 Submodules
 ----------
 
@@ -8,14 +16,6 @@ api.saml.auth module
 --------------------
 
 .. automodule:: api.saml.auth
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-api.saml.configuration module
------------------------------
-
-.. automodule:: api.saml.configuration
     :members:
     :undoc-members:
     :show-inheritance:
@@ -28,42 +28,10 @@ api.saml.controller module
     :undoc-members:
     :show-inheritance:
 
-api.saml.loader module
-----------------------
-
-.. automodule:: api.saml.loader
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-api.saml.metadata module
-------------------------
-
-.. automodule:: api.saml.metadata
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-api.saml.parser module
-----------------------
-
-.. automodule:: api.saml.parser
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 api.saml.provider module
 ------------------------
 
 .. automodule:: api.saml.provider
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-api.saml.validator module
--------------------------
-
-.. automodule:: api.saml.validator
     :members:
     :undoc-members:
     :show-inheritance:

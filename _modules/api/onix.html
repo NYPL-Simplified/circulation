@@ -51,11 +51,10 @@
     <span class="n">Classification</span><span class="p">,</span>
     <span class="n">Identifier</span><span class="p">,</span>
     <span class="n">Contributor</span><span class="p">,</span>
-    <span class="n">Edition</span><span class="p">,</span>
     <span class="n">Hyperlink</span><span class="p">,</span>
     <span class="n">Representation</span><span class="p">,</span>
     <span class="n">Subject</span><span class="p">,</span>
-    <span class="n">LicensePool</span><span class="p">)</span>
+    <span class="n">LicensePool</span><span class="p">,</span> <span class="n">EditionConstants</span><span class="p">)</span>
 <span class="kn">from</span> <span class="nn">core.util.xmlparser</span> <span class="kn">import</span> <span class="n">XMLParser</span>
 
 
@@ -214,10 +213,15 @@
         <span class="s1">&#39;Z99&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">UNKNOWN_ROLE</span><span class="p">,</span> <span class="c1"># Other creative responsibility</span>
     <span class="p">}</span>
 
+    <span class="n">PRODUCT_CONTENT_TYPES</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s1">&#39;10&#39;</span><span class="p">:</span> <span class="n">EditionConstants</span><span class="o">.</span><span class="n">BOOK_MEDIUM</span><span class="p">,</span>  <span class="c1"># Text (eye-readable)</span>
+        <span class="s1">&#39;01&#39;</span><span class="p">:</span> <span class="n">EditionConstants</span><span class="o">.</span><span class="n">AUDIO_MEDIUM</span>  <span class="c1"># Audiobook</span>
+    <span class="p">}</span>
+
     <span class="n">_logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 
 <div class="viewcode-block" id="ONIXExtractor.parse"><a class="viewcode-back" href="../../api.html#api.onix.ONIXExtractor.parse">[docs]</a>    <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">parse</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">file</span><span class="p">,</span> <span class="n">data_source_name</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">parse</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">file</span><span class="p">,</span> <span class="n">data_source_name</span><span class="p">,</span> <span class="n">default_medium</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="n">metadata_records</span> <span class="o">=</span> <span class="p">[]</span>
 
         <span class="c1"># TODO: ONIX has plain language &#39;reference names&#39; and short tags that</span>
@@ -235,6 +239,13 @@
                 <span class="n">title_without_prefix</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">text_of_optional_subtag</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="s1">&#39;descriptivedetail/titledetail/titleelement/b031&#39;</span><span class="p">)</span>
                 <span class="k">if</span> <span class="n">title_prefix</span> <span class="ow">and</span> <span class="n">title_without_prefix</span><span class="p">:</span>
                     <span class="n">title</span> <span class="o">=</span> <span class="n">title_prefix</span> <span class="o">+</span> <span class="s2">&quot; &quot;</span> <span class="o">+</span> <span class="n">title_without_prefix</span>
+
+            <span class="n">medium</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">text_of_optional_subtag</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="s1">&#39;b385&#39;</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">medium</span> <span class="ow">and</span> <span class="n">default_medium</span><span class="p">:</span>
+                <span class="n">medium</span> <span class="o">=</span> <span class="n">default_medium</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">medium</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">PRODUCT_CONTENT_TYPES</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">medium</span><span class="p">,</span> <span class="n">EditionConstants</span><span class="o">.</span><span class="n">BOOK_MEDIUM</span><span class="p">)</span>
 
             <span class="n">subtitle</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">text_of_optional_subtag</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="s1">&#39;descriptivedetail/titledetail/titleelement/b029&#39;</span><span class="p">)</span>
             <span class="n">language</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">text_of_optional_subtag</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="s1">&#39;descriptivedetail/language/b252&#39;</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">&quot;eng&quot;</span>
@@ -353,7 +364,7 @@
                 <span class="n">title</span><span class="o">=</span><span class="n">title</span><span class="p">,</span>
                 <span class="n">subtitle</span><span class="o">=</span><span class="n">subtitle</span><span class="p">,</span>
                 <span class="n">language</span><span class="o">=</span><span class="n">language</span><span class="p">,</span>
-                <span class="n">medium</span><span class="o">=</span><span class="n">Edition</span><span class="o">.</span><span class="n">BOOK_MEDIUM</span><span class="p">,</span>
+                <span class="n">medium</span><span class="o">=</span><span class="n">medium</span><span class="p">,</span>
                 <span class="n">publisher</span><span class="o">=</span><span class="n">publisher</span><span class="p">,</span>
                 <span class="n">imprint</span><span class="o">=</span><span class="n">imprint</span><span class="p">,</span>
                 <span class="n">issued</span><span class="o">=</span><span class="n">issued</span><span class="p">,</span>

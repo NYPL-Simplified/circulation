@@ -76,6 +76,7 @@
     <span class="n">BIBBLIO</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Bibblio&quot;</span>
     <span class="n">ENKI</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Enki&quot;</span>
     <span class="n">LCP</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;LCP&quot;</span>
+    <span class="n">PROQUEST</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;ProQuest&quot;</span>
 
     <span class="n">DEPRECATED_NAMES</span> <span class="o">=</span> <span class="p">{</span>
         <span class="sa">u</span><span class="s2">&quot;3M&quot;</span> <span class="p">:</span> <span class="n">BIBLIOTHECA</span><span class="p">,</span>
@@ -161,6 +162,7 @@
     <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">medium_to_additional_type</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
         <span class="n">additional_type_to_medium</span><span class="p">[</span><span class="n">v</span><span class="p">]</span> <span class="o">=</span> <span class="n">k</span>
 
+    <span class="n">additional_type_to_medium</span><span class="p">[</span><span class="sa">u</span><span class="s2">&quot;http://schema.org/Book&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">BOOK_MEDIUM</span>
 
     <span class="c1"># Map the medium constants to the strings used when generating</span>
     <span class="c1"># permanent work IDs.</span>
@@ -173,6 +175,7 @@
         <span class="n">IMAGE_MEDIUM</span><span class="p">:</span> <span class="s2">&quot;image&quot;</span><span class="p">,</span>
         <span class="n">COURSEWARE_MEDIUM</span><span class="p">:</span> <span class="s2">&quot;courseware&quot;</span>
     <span class="p">}</span></div>
+
 
 <div class="viewcode-block" id="IdentifierConstants"><a class="viewcode-back" href="../../../core.model.html#core.model.constants.IdentifierConstants">[docs]</a><span class="k">class</span> <span class="nc">IdentifierConstants</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
     <span class="c1"># Common types of identifiers.</span>
@@ -197,6 +200,7 @@
     <span class="n">BIBBLIO_CONTENT_ITEM_ID</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Bibblio Content Item ID&quot;</span>
     <span class="n">ENKI_ID</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Enki ID&quot;</span>
     <span class="n">SUDOC_CALL_NUMBER</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;SuDoc Call Number&quot;</span>
+    <span class="n">PROQUEST_ID</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;ProQuest Doc ID&quot;</span>
 
     <span class="n">DEPRECATED_NAMES</span> <span class="o">=</span> <span class="p">{</span>
         <span class="sa">u</span><span class="s2">&quot;3M ID&quot;</span> <span class="p">:</span> <span class="n">BIBLIOTHECA_ID</span><span class="p">,</span>
@@ -268,6 +272,7 @@
     <span class="n">OCTET_STREAM_MEDIA_TYPE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;application/octet-stream&quot;</span>
     <span class="n">TEXT_PLAIN</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;text/plain&quot;</span>
     <span class="n">AUDIOBOOK_MANIFEST_MEDIA_TYPE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;application/audiobook+json&quot;</span>
+    <span class="n">AUDIOBOOK_PACKAGE_MEDIA_TYPE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;application/audiobook+zip&quot;</span>
     <span class="n">MARC_MEDIA_TYPE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;application/marc&quot;</span>
 
     <span class="c1"># To distinguish internally between Overdrive&#39;s audiobook and</span>
@@ -280,6 +285,7 @@
     <span class="n">AUDIOBOOK_MEDIA_TYPES</span> <span class="o">=</span> <span class="p">[</span>
         <span class="n">OVERDRIVE_AUDIOBOOK_MANIFEST_MEDIA_TYPE</span><span class="p">,</span>
         <span class="n">AUDIOBOOK_MANIFEST_MEDIA_TYPE</span><span class="p">,</span>
+        <span class="n">AUDIOBOOK_PACKAGE_MEDIA_TYPE</span>
     <span class="p">]</span>
 
     <span class="n">BOOK_MEDIA_TYPES</span> <span class="o">=</span> <span class="p">[</span>
@@ -332,11 +338,12 @@
             <span class="p">(</span><span class="n">TEXT_HTML_MEDIA_TYPE</span><span class="p">,</span> <span class="s2">&quot;html&quot;</span><span class="p">),</span>
             <span class="p">(</span><span class="n">APPLICATION_XML_MEDIA_TYPE</span><span class="p">,</span> <span class="s2">&quot;xml&quot;</span><span class="p">),</span>
             <span class="p">(</span><span class="n">AUDIOBOOK_MANIFEST_MEDIA_TYPE</span><span class="p">,</span> <span class="s2">&quot;audiobook-manifest&quot;</span><span class="p">),</span>
+            <span class="p">(</span><span class="n">AUDIOBOOK_PACKAGE_MEDIA_TYPE</span><span class="p">,</span> <span class="s2">&quot;audiobook&quot;</span><span class="p">),</span>
             <span class="p">(</span><span class="n">SCORM_MEDIA_TYPE</span><span class="p">,</span> <span class="s2">&quot;zip&quot;</span><span class="p">)</span>
         <span class="p">]</span>
     <span class="p">)</span>
 
-    <span class="n">COMMON_EBOOK_EXTENSIONS</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;.epub&#39;</span><span class="p">,</span> <span class="s1">&#39;.pdf&#39;</span><span class="p">]</span>
+    <span class="n">COMMON_EBOOK_EXTENSIONS</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;.epub&#39;</span><span class="p">,</span> <span class="s1">&#39;.pdf&#39;</span><span class="p">,</span> <span class="s1">&#39;.audiobook&#39;</span><span class="p">]</span>
     <span class="n">COMMON_IMAGE_EXTENSIONS</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;.jpg&#39;</span><span class="p">,</span> <span class="s1">&#39;.jpeg&#39;</span><span class="p">,</span> <span class="s1">&#39;.png&#39;</span><span class="p">,</span> <span class="s1">&#39;.gif&#39;</span><span class="p">]</span>
 
     <span class="c1"># Invert FILE_EXTENSIONS and add some extra guesses.</span>

@@ -156,7 +156,7 @@
                 <span class="c1"># on this server, and the tables don&#39;t exist yet.</span>
                 <span class="k">pass</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="n">e</span></div>
+                <span class="k">raise</span></div>
 
 
 <div class="viewcode-block" id="package_teardown"><a class="viewcode-back" href="../../core.html#core.testing.package_teardown">[docs]</a><span class="k">def</span> <span class="nf">package_teardown</span><span class="p">():</span>
@@ -373,11 +373,21 @@
             <span class="nb">id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_str</span>
         <span class="k">return</span> <span class="n">Identifier</span><span class="o">.</span><span class="n">for_foreign_id</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">identifier_type</span><span class="p">,</span> <span class="nb">id</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
 
-    <span class="k">def</span> <span class="nf">_edition</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data_source_name</span><span class="o">=</span><span class="n">DataSource</span><span class="o">.</span><span class="n">GUTENBERG</span><span class="p">,</span>
-                 <span class="n">identifier_type</span><span class="o">=</span><span class="n">Identifier</span><span class="o">.</span><span class="n">GUTENBERG_ID</span><span class="p">,</span>
-                 <span class="n">with_license_pool</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">with_open_access_download</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-                 <span class="n">title</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">language</span><span class="o">=</span><span class="s2">&quot;eng&quot;</span><span class="p">,</span> <span class="n">authors</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">identifier_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-                 <span class="n">series</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">collection</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">publicationDate</span><span class="o">=</span><span class="kc">None</span>
+    <span class="k">def</span> <span class="nf">_edition</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">data_source_name</span><span class="o">=</span><span class="n">DataSource</span><span class="o">.</span><span class="n">GUTENBERG</span><span class="p">,</span>
+            <span class="n">identifier_type</span><span class="o">=</span><span class="n">Identifier</span><span class="o">.</span><span class="n">GUTENBERG_ID</span><span class="p">,</span>
+            <span class="n">with_license_pool</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="n">with_open_access_download</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="n">title</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">language</span><span class="o">=</span><span class="s2">&quot;eng&quot;</span><span class="p">,</span>
+            <span class="n">authors</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">identifier_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">series</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">collection</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">publication_date</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">self_hosted</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="n">unlimited_access</span><span class="o">=</span><span class="kc">False</span>
     <span class="p">):</span>
         <span class="nb">id</span> <span class="o">=</span> <span class="n">identifier_id</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_str</span>
         <span class="n">source</span> <span class="o">=</span> <span class="n">DataSource</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">data_source_name</span><span class="p">)</span>
@@ -395,7 +405,7 @@
             <span class="n">authors</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_str</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">authors</span><span class="p">,</span> <span class="n">basestring</span><span class="p">):</span>
             <span class="n">authors</span> <span class="o">=</span> <span class="p">[</span><span class="n">authors</span><span class="p">]</span>
-        <span class="k">if</span> <span class="n">authors</span> <span class="o">!=</span> <span class="p">[]:</span>
+        <span class="k">if</span> <span class="n">authors</span><span class="p">:</span>
             <span class="n">primary_author_name</span> <span class="o">=</span> <span class="n">unicode</span><span class="p">(</span><span class="n">authors</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
             <span class="n">contributor</span> <span class="o">=</span> <span class="n">wr</span><span class="o">.</span><span class="n">add_contributor</span><span class="p">(</span><span class="n">primary_author_name</span><span class="p">,</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">PRIMARY_AUTHOR_ROLE</span><span class="p">)</span>
             <span class="c1"># add_contributor assumes authors[0] is a sort_name,</span>
@@ -406,24 +416,40 @@
 
         <span class="k">for</span> <span class="n">author</span> <span class="ow">in</span> <span class="n">authors</span><span class="p">[</span><span class="mi">1</span><span class="p">:]:</span>
             <span class="n">wr</span><span class="o">.</span><span class="n">add_contributor</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="n">author</span><span class="p">),</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">AUTHOR_ROLE</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">publicationDate</span><span class="p">:</span>
-            <span class="n">wr</span><span class="o">.</span><span class="n">published</span> <span class="o">=</span> <span class="n">publicationDate</span>
+        <span class="k">if</span> <span class="n">publication_date</span><span class="p">:</span>
+            <span class="n">wr</span><span class="o">.</span><span class="n">published</span> <span class="o">=</span> <span class="n">publication_date</span>
 
         <span class="k">if</span> <span class="n">with_license_pool</span> <span class="ow">or</span> <span class="n">with_open_access_download</span><span class="p">:</span>
             <span class="n">pool</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_licensepool</span><span class="p">(</span>
                 <span class="n">wr</span><span class="p">,</span> <span class="n">data_source_name</span><span class="o">=</span><span class="n">data_source_name</span><span class="p">,</span>
                 <span class="n">with_open_access_download</span><span class="o">=</span><span class="n">with_open_access_download</span><span class="p">,</span>
-                <span class="n">collection</span><span class="o">=</span><span class="n">collection</span>
+                <span class="n">collection</span><span class="o">=</span><span class="n">collection</span><span class="p">,</span>
+                <span class="n">self_hosted</span><span class="o">=</span><span class="n">self_hosted</span><span class="p">,</span>
+                <span class="n">unlimited_access</span><span class="o">=</span><span class="n">unlimited_access</span>
             <span class="p">)</span>
 
             <span class="n">pool</span><span class="o">.</span><span class="n">set_presentation_edition</span><span class="p">()</span>
             <span class="k">return</span> <span class="n">wr</span><span class="p">,</span> <span class="n">pool</span>
         <span class="k">return</span> <span class="n">wr</span>
 
-    <span class="k">def</span> <span class="nf">_work</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">authors</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">genre</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">language</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-              <span class="n">audience</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">fiction</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">with_license_pool</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-              <span class="n">with_open_access_download</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">quality</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">series</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-              <span class="n">presentation_edition</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">collection</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">data_source_name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">_work</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">title</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">authors</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">genre</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">language</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">audience</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">fiction</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">with_license_pool</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="n">with_open_access_download</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="n">quality</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
+            <span class="n">series</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">presentation_edition</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">collection</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">data_source_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">self_hosted</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="n">unlimited_access</span><span class="o">=</span><span class="kc">False</span>
+    <span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Create a Work.</span>
 
 <span class="sd">        For performance reasons, this method does not generate OPDS</span>
@@ -457,11 +483,20 @@
                 <span class="n">data_source_name</span><span class="o">=</span><span class="n">data_source_name</span><span class="p">,</span>
                 <span class="n">series</span><span class="o">=</span><span class="n">series</span><span class="p">,</span>
                 <span class="n">collection</span><span class="o">=</span><span class="n">collection</span><span class="p">,</span>
+                <span class="n">self_hosted</span><span class="o">=</span><span class="n">self_hosted</span><span class="p">,</span>
+                <span class="n">unlimited_access</span><span class="o">=</span><span class="n">unlimited_access</span>
             <span class="p">)</span>
             <span class="k">if</span> <span class="n">with_license_pool</span><span class="p">:</span>
                 <span class="n">presentation_edition</span><span class="p">,</span> <span class="n">pool</span> <span class="o">=</span> <span class="n">presentation_edition</span>
                 <span class="k">if</span> <span class="n">with_open_access_download</span><span class="p">:</span>
                     <span class="n">pool</span><span class="o">.</span><span class="n">open_access</span> <span class="o">=</span> <span class="kc">True</span>
+                <span class="k">if</span> <span class="n">self_hosted</span><span class="p">:</span>
+                    <span class="n">pool</span><span class="o">.</span><span class="n">open_access</span> <span class="o">=</span> <span class="kc">False</span>
+                    <span class="n">pool</span><span class="o">.</span><span class="n">self_hosted</span> <span class="o">=</span> <span class="kc">True</span>
+                <span class="k">if</span> <span class="n">unlimited_access</span><span class="p">:</span>
+                    <span class="n">pool</span><span class="o">.</span><span class="n">open_access</span> <span class="o">=</span> <span class="kc">False</span>
+                    <span class="n">pool</span><span class="o">.</span><span class="n">unlimited_access</span> <span class="o">=</span> <span class="kc">True</span>
+
                 <span class="n">pools</span> <span class="o">=</span> <span class="p">[</span><span class="n">pool</span><span class="p">]</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">pools</span> <span class="o">=</span> <span class="n">presentation_edition</span><span class="o">.</span><span class="n">license_pools</span>
@@ -578,23 +613,30 @@
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">record</span>
 
-    <span class="k">def</span> <span class="nf">_licensepool</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">edition</span><span class="p">,</span> <span class="n">open_access</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-                     <span class="n">data_source_name</span><span class="o">=</span><span class="n">DataSource</span><span class="o">.</span><span class="n">GUTENBERG</span><span class="p">,</span>
-                     <span class="n">with_open_access_download</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-                     <span class="n">set_edition_as_presentation</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-                     <span class="n">collection</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">_licensepool</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">edition</span><span class="p">,</span>
+            <span class="n">open_access</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">data_source_name</span><span class="o">=</span><span class="n">DataSource</span><span class="o">.</span><span class="n">GUTENBERG</span><span class="p">,</span>
+            <span class="n">with_open_access_download</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="n">set_edition_as_presentation</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="n">collection</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">self_hosted</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="n">unlimited_access</span><span class="o">=</span><span class="kc">False</span>
+    <span class="p">):</span>
         <span class="n">source</span> <span class="o">=</span> <span class="n">DataSource</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">data_source_name</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">edition</span><span class="p">:</span>
             <span class="n">edition</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_edition</span><span class="p">(</span><span class="n">data_source_name</span><span class="p">)</span>
         <span class="n">collection</span> <span class="o">=</span> <span class="n">collection</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_default_collection</span>
         <span class="n">pool</span><span class="p">,</span> <span class="n">ignore</span> <span class="o">=</span> <span class="n">get_one_or_create</span><span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">LicensePool</span><span class="p">,</span>
-            <span class="n">create_method_kwargs</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span>
-                <span class="n">open_access</span><span class="o">=</span><span class="n">open_access</span><span class="p">),</span>
+            <span class="n">create_method_kwargs</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">open_access</span><span class="o">=</span><span class="n">open_access</span><span class="p">),</span>
             <span class="n">identifier</span><span class="o">=</span><span class="n">edition</span><span class="o">.</span><span class="n">primary_identifier</span><span class="p">,</span>
             <span class="n">data_source</span><span class="o">=</span><span class="n">source</span><span class="p">,</span>
             <span class="n">collection</span><span class="o">=</span><span class="n">collection</span><span class="p">,</span>
-            <span class="n">availability_time</span><span class="o">=</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+            <span class="n">availability_time</span><span class="o">=</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">(),</span>
+            <span class="n">self_hosted</span><span class="o">=</span><span class="n">self_hosted</span><span class="p">,</span>
+            <span class="n">unlimited_access</span><span class="o">=</span><span class="n">unlimited_access</span>
         <span class="p">)</span>
 
         <span class="k">if</span> <span class="n">set_edition_as_presentation</span><span class="p">:</span>
@@ -621,7 +663,6 @@
                 <span class="n">url</span><span class="p">,</span> <span class="n">media_type</span><span class="p">,</span> <span class="s2">&quot;Dummy content&quot;</span><span class="p">,</span> <span class="n">mirrored</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
             <span class="n">link</span><span class="o">.</span><span class="n">resource</span><span class="o">.</span><span class="n">representation</span> <span class="o">=</span> <span class="n">representation</span>
         <span class="k">else</span><span class="p">:</span>
-
             <span class="c1"># Add a DeliveryMechanism for this licensepool</span>
             <span class="n">pool</span><span class="o">.</span><span class="n">set_delivery_mechanism</span><span class="p">(</span>
                 <span class="n">MediaTypes</span><span class="o">.</span><span class="n">EPUB_MEDIA_TYPE</span><span class="p">,</span>
@@ -629,7 +670,9 @@
                 <span class="n">RightsStatus</span><span class="o">.</span><span class="n">UNKNOWN</span><span class="p">,</span>
                 <span class="kc">None</span>
             <span class="p">)</span>
-            <span class="n">pool</span><span class="o">.</span><span class="n">licenses_owned</span> <span class="o">=</span> <span class="n">pool</span><span class="o">.</span><span class="n">licenses_available</span> <span class="o">=</span> <span class="mi">1</span>
+
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">unlimited_access</span><span class="p">:</span>
+                <span class="n">pool</span><span class="o">.</span><span class="n">licenses_owned</span> <span class="o">=</span> <span class="n">pool</span><span class="o">.</span><span class="n">licenses_available</span> <span class="o">=</span> <span class="mi">1</span>
 
         <span class="k">return</span> <span class="n">pool</span>
 
@@ -755,7 +798,7 @@
             <span class="n">integration</span><span class="o">.</span><span class="n">set_setting</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">integration</span>
-    
+
     <span class="k">def</span> <span class="nf">_external_integration_link</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">integration</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">library</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                                     <span class="n">other_integration</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">purpose</span><span class="o">=</span><span class="s2">&quot;covers_mirror&quot;</span><span class="p">):</span>
 

@@ -205,6 +205,7 @@
 
     <span class="c1"># Supported protocols for ExternalIntegrations with LICENSE_GOAL.</span>
     <span class="n">OPDS_IMPORT</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;OPDS Import&#39;</span>
+    <span class="n">OPDS2_IMPORT</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;OPDS 2.0 Import&#39;</span>
     <span class="n">OVERDRIVE</span> <span class="o">=</span> <span class="n">DataSourceConstants</span><span class="o">.</span><span class="n">OVERDRIVE</span>
     <span class="n">ODILO</span> <span class="o">=</span> <span class="n">DataSourceConstants</span><span class="o">.</span><span class="n">ODILO</span>
     <span class="n">BIBLIOTHECA</span> <span class="o">=</span> <span class="n">DataSourceConstants</span><span class="o">.</span><span class="n">BIBLIOTHECA</span>
@@ -216,6 +217,7 @@
     <span class="n">FEEDBOOKS</span> <span class="o">=</span> <span class="n">DataSourceConstants</span><span class="o">.</span><span class="n">FEEDBOOKS</span>
     <span class="n">LCP</span> <span class="o">=</span> <span class="n">DataSourceConstants</span><span class="o">.</span><span class="n">LCP</span>
     <span class="n">MANUAL</span> <span class="o">=</span> <span class="n">DataSourceConstants</span><span class="o">.</span><span class="n">MANUAL</span>
+    <span class="n">PROQUEST</span> <span class="o">=</span> <span class="n">DataSourceConstants</span><span class="o">.</span><span class="n">PROQUEST</span>
 
     <span class="c1"># These protocols were used on the Content Server when mirroring</span>
     <span class="c1"># content from a given directory or directly from Project</span>
@@ -297,6 +299,13 @@
     <span class="c1"># &#39;password&#39;.</span>
     <span class="n">USERNAME</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;username&quot;</span>
     <span class="n">PASSWORD</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;password&quot;</span>
+
+    <span class="c1"># If the request should use a custom headers, put it here.</span>
+    <span class="n">CUSTOM_ACCEPT_HEADER</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;custom_accept_header&quot;</span>
+
+    <span class="c1"># If want to use an identifier different from &lt;id&gt;, use this config.</span>
+    <span class="n">PRIMARY_IDENTIFIER_SOURCE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;primary_identifier_source&quot;</span>
+    <span class="n">DCTERMS_IDENTIFIER</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;first_dcterms_identifier&quot;</span>
 
     <span class="n">_cache</span> <span class="o">=</span> <span class="n">HasFullTableCache</span><span class="o">.</span><span class="n">RESET</span>
     <span class="n">_id_cache</span> <span class="o">=</span> <span class="n">HasFullTableCache</span><span class="o">.</span><span class="n">RESET</span>
@@ -521,6 +530,23 @@
     <span class="k">def</span> <span class="nf">password</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">new_password</span><span class="p">):</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">set_setting</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">PASSWORD</span><span class="p">,</span> <span class="n">new_password</span><span class="p">)</span>
 
+    <span class="nd">@hybrid_property</span>
+    <span class="k">def</span> <span class="nf">custom_accept_header</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">CUSTOM_ACCEPT_HEADER</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+
+    <span class="nd">@custom_accept_header</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">custom_accept_header</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">new_custom_accept_header</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">set_setting</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">CUSTOM_ACCEPT_HEADER</span><span class="p">,</span> <span class="n">new_custom_accept_header</span><span class="p">)</span>
+
+    <span class="nd">@hybrid_property</span>
+    <span class="k">def</span> <span class="nf">primary_identifier_source</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">PRIMARY_IDENTIFIER_SOURCE</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+
+    <span class="nd">@primary_identifier_source</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">primary_identifier_source</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">new_primary_identifier_source</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">set_setting</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">PRIMARY_IDENTIFIER_SOURCE</span><span class="p">,</span>
+                                <span class="n">new_primary_identifier_source</span><span class="p">)</span>
+
 <div class="viewcode-block" id="ExternalIntegration.explain"><a class="viewcode-back" href="../../../core.model.html#api.lcp.encrypt.ExternalIntegration.explain">[docs]</a>    <span class="k">def</span> <span class="nf">explain</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">library</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">include_secrets</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Create a series of human-readable strings to explain an</span>
 <span class="sd">        ExternalIntegration&#39;s settings.</span>
@@ -557,6 +583,7 @@
             <span class="k">if</span> <span class="n">include_secrets</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">setting</span><span class="o">.</span><span class="n">is_secret</span><span class="p">:</span>
                 <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">explanation</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">lines</span></div></div>
+
 
 <div class="viewcode-block" id="ConfigurationSetting"><a class="viewcode-back" href="../../../core.model.html#api.lcp.encrypt.ConfigurationSetting">[docs]</a><span class="k">class</span> <span class="nc">ConfigurationSetting</span><span class="p">(</span><span class="n">Base</span><span class="p">,</span> <span class="n">HasFullTableCache</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;An extra piece of site configuration.</span>
@@ -791,9 +818,7 @@
     <span class="c1"># As of this release of the software, this is our best guess as to</span>
     <span class="c1"># which data sources should have their audiobooks excluded from</span>
     <span class="c1"># lanes.</span>
-    <span class="n">EXCLUDED_AUDIO_DATA_SOURCES_DEFAULT</span> <span class="o">=</span> <span class="p">[</span>
-        <span class="n">DataSourceConstants</span><span class="o">.</span><span class="n">OVERDRIVE</span>
-    <span class="p">]</span>
+    <span class="n">EXCLUDED_AUDIO_DATA_SOURCES_DEFAULT</span> <span class="o">=</span> <span class="p">[]</span>
 
 <div class="viewcode-block" id="ConfigurationSetting.excluded_audio_data_sources"><a class="viewcode-back" href="../../../core.model.html#api.lcp.encrypt.ConfigurationSetting.excluded_audio_data_sources">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">excluded_audio_data_sources</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">):</span>
@@ -918,6 +943,8 @@
     <span class="n">TEXTAREA</span> <span class="o">=</span> <span class="s1">&#39;textarea&#39;</span>
     <span class="n">SELECT</span> <span class="o">=</span> <span class="s1">&#39;select&#39;</span>
     <span class="n">NUMBER</span> <span class="o">=</span> <span class="s1">&#39;number&#39;</span>
+    <span class="n">LIST</span> <span class="o">=</span> <span class="s1">&#39;list&#39;</span>
+    <span class="n">MENU</span> <span class="o">=</span> <span class="s1">&#39;menu&#39;</span>
 
 <div class="viewcode-block" id="ConfigurationAttributeType.to_control_type"><a class="viewcode-back" href="../../../core.model.html#api.lcp.encrypt.ConfigurationAttributeType.to_control_type">[docs]</a>    <span class="k">def</span> <span class="nf">to_control_type</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Converts the value to a attribute type understandable by circulation-web</span>
@@ -944,7 +971,8 @@
     <span class="n">REQUIRED</span> <span class="o">=</span> <span class="s1">&#39;required&#39;</span>
     <span class="n">DEFAULT</span> <span class="o">=</span> <span class="s1">&#39;default&#39;</span>
     <span class="n">OPTIONS</span> <span class="o">=</span> <span class="s1">&#39;options&#39;</span>
-    <span class="n">CATEGORY</span> <span class="o">=</span> <span class="s1">&#39;category&#39;</span></div>
+    <span class="n">CATEGORY</span> <span class="o">=</span> <span class="s1">&#39;category&#39;</span>
+    <span class="n">FORMAT</span> <span class="o">=</span> <span class="s1">&#39;format&#39;</span></div>
 
 
 <div class="viewcode-block" id="ConfigurationOption"><a class="viewcode-back" href="../../../core.model.html#api.lcp.encrypt.ConfigurationOption">[docs]</a><span class="k">class</span> <span class="nc">ConfigurationOption</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
@@ -1071,7 +1099,9 @@
             <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
             <span class="n">options</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
             <span class="n">category</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-            <span class="n">index</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+            <span class="nb">format</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">index</span><span class="o">=</span><span class="kc">None</span>
+    <span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Initializes a new instance of ConfigurationMetadata class</span>
 
 <span class="sd">        :param key: Setting&#39;s key</span>
@@ -1106,6 +1136,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_default</span> <span class="o">=</span> <span class="n">default</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_options</span> <span class="o">=</span> <span class="n">options</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_category</span> <span class="o">=</span> <span class="n">category</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_format</span> <span class="o">=</span> <span class="nb">format</span>
 
         <span class="k">if</span> <span class="n">index</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_index</span> <span class="o">=</span> <span class="n">index</span>
@@ -1224,6 +1255,15 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_category</span>
 
     <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">format</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns the setting&#39;s format</span>
+
+<span class="sd">        :return: Setting&#39;s format</span>
+<span class="sd">        :rtype: string</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_format</span>
+
+    <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">index</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_index</span>
 
@@ -1260,7 +1300,8 @@
                 <span class="p">[</span><span class="n">option</span><span class="o">.</span><span class="n">to_settings</span><span class="p">()</span> <span class="k">for</span> <span class="n">option</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="p">]</span>
                 <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span>
                 <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
-            <span class="n">ConfigurationAttribute</span><span class="o">.</span><span class="n">CATEGORY</span><span class="o">.</span><span class="n">value</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">category</span>
+            <span class="n">ConfigurationAttribute</span><span class="o">.</span><span class="n">CATEGORY</span><span class="o">.</span><span class="n">value</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">category</span><span class="p">,</span>
+            <span class="n">ConfigurationAttribute</span><span class="o">.</span><span class="n">FORMAT</span><span class="o">.</span><span class="n">value</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">format</span>
         <span class="p">}</span></div></div>
 
 
@@ -1311,10 +1352,13 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_configuration_storage</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">setting_name</span><span class="p">,</span> <span class="n">setting_value</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="ConfigurationGrouping.to_settings"><a class="viewcode-back" href="../../../core.model.html#api.lcp.encrypt.ConfigurationGrouping.to_settings">[docs]</a>    <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">to_settings</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
-        <span class="n">settings</span> <span class="o">=</span> <span class="p">[]</span>
+<div class="viewcode-block" id="ConfigurationGrouping.to_settings_generator"><a class="viewcode-back" href="../../../core.model.html#api.lcp.encrypt.ConfigurationGrouping.to_settings_generator">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">to_settings_generator</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return a generator object returning settings in a format understandable by circulation-web.</span>
 
+<span class="sd">        :return: list of settings in a format understandable by circulation-web.</span>
+<span class="sd">        :rtype: List[Dict]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">member</span> <span class="ow">in</span> <span class="n">ConfigurationMetadata</span><span class="o">.</span><span class="n">get_configuration_metadata</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
             <span class="n">key_attribute</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">member</span><span class="p">,</span> <span class="n">ConfigurationAttribute</span><span class="o">.</span><span class="n">KEY</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
             <span class="n">label_attribute</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">member</span><span class="p">,</span> <span class="n">ConfigurationAttribute</span><span class="o">.</span><span class="n">LABEL</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
@@ -1325,7 +1369,7 @@
             <span class="n">options_attribute</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">member</span><span class="p">,</span> <span class="n">ConfigurationAttribute</span><span class="o">.</span><span class="n">OPTIONS</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
             <span class="n">category_attribute</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">member</span><span class="p">,</span> <span class="n">ConfigurationAttribute</span><span class="o">.</span><span class="n">CATEGORY</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
 
-            <span class="n">settings</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
+            <span class="k">yield</span> <span class="p">{</span>
                 <span class="n">ConfigurationAttribute</span><span class="o">.</span><span class="n">KEY</span><span class="o">.</span><span class="n">value</span><span class="p">:</span> <span class="n">key_attribute</span><span class="p">,</span>
                 <span class="n">ConfigurationAttribute</span><span class="o">.</span><span class="n">LABEL</span><span class="o">.</span><span class="n">value</span><span class="p">:</span> <span class="n">label_attribute</span><span class="p">,</span>
                 <span class="n">ConfigurationAttribute</span><span class="o">.</span><span class="n">DESCRIPTION</span><span class="o">.</span><span class="n">value</span><span class="p">:</span> <span class="n">description_attribute</span><span class="p">,</span>
@@ -1337,17 +1381,24 @@
                     <span class="k">if</span> <span class="n">options_attribute</span>
                     <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
                 <span class="n">ConfigurationAttribute</span><span class="o">.</span><span class="n">CATEGORY</span><span class="o">.</span><span class="n">value</span><span class="p">:</span> <span class="n">category_attribute</span>
-            <span class="p">})</span>
+            <span class="p">}</span></div>
 
-        <span class="k">return</span> <span class="n">settings</span></div></div>
+<div class="viewcode-block" id="ConfigurationGrouping.to_settings"><a class="viewcode-back" href="../../../core.model.html#api.lcp.encrypt.ConfigurationGrouping.to_settings">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">to_settings</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return a list of settings in a format understandable by circulation-web.</span>
+
+<span class="sd">        :return: list of settings in a format understandable by circulation-web.</span>
+<span class="sd">        :rtype: List[Dict]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">to_settings_generator</span><span class="p">())</span></div></div>
 
 
 <div class="viewcode-block" id="ConfigurationFactory"><a class="viewcode-back" href="../../../core.model.html#api.lcp.encrypt.ConfigurationFactory">[docs]</a><span class="k">class</span> <span class="nc">ConfigurationFactory</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Factory creating new instances of ConfigurationBucket class descendants&quot;&quot;&quot;</span>
+    <span class="sd">&quot;&quot;&quot;Factory creating new instances of ConfigurationGrouping class descendants.&quot;&quot;&quot;</span>
 
 <div class="viewcode-block" id="ConfigurationFactory.create"><a class="viewcode-back" href="../../../core.model.html#api.lcp.encrypt.ConfigurationFactory.create">[docs]</a>    <span class="nd">@contextmanager</span>
-    <span class="k">def</span> <span class="nf">create</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">configuration_storage</span><span class="p">,</span> <span class="n">db</span><span class="p">,</span> <span class="n">configuration_bucket_class</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Creates a new instance of ConfigurationFactory</span>
+    <span class="k">def</span> <span class="nf">create</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">configuration_storage</span><span class="p">,</span> <span class="n">db</span><span class="p">,</span> <span class="n">configuration_grouping_class</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create a new instance of ConfigurationGrouping.</span>
 
 <span class="sd">        :param configuration_storage: ConfigurationStorage object</span>
 <span class="sd">        :type configuration_storage: ConfigurationStorage</span>
@@ -1355,13 +1406,13 @@
 <span class="sd">        :param db: Database session</span>
 <span class="sd">        :type db: sqlalchemy.orm.session.Session</span>
 
-<span class="sd">        :param configuration_bucket_class: Configuration bucket&#39;s class</span>
-<span class="sd">        :type configuration_bucket_class: type</span>
+<span class="sd">        :param configuration_grouping_class: Configuration bucket&#39;s class</span>
+<span class="sd">        :type configuration_grouping_class: Type[ConfigurationGrouping]</span>
 
-<span class="sd">        :return: Configuration bucket instance</span>
+<span class="sd">        :return: ConfigurationGrouping instance</span>
 <span class="sd">        :rtype: ConfigurationGrouping</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">with</span> <span class="n">configuration_bucket_class</span><span class="p">(</span><span class="n">configuration_storage</span><span class="p">,</span> <span class="n">db</span><span class="p">)</span> <span class="k">as</span> <span class="n">configuration_bucket</span><span class="p">:</span>
+        <span class="k">with</span> <span class="n">configuration_grouping_class</span><span class="p">(</span><span class="n">configuration_storage</span><span class="p">,</span> <span class="n">db</span><span class="p">)</span> <span class="k">as</span> <span class="n">configuration_bucket</span><span class="p">:</span>
             <span class="k">yield</span> <span class="n">configuration_bucket</span></div></div>
 </pre></div>
 

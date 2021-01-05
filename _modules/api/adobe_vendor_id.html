@@ -774,8 +774,11 @@
         <span class="p">):</span>
             <span class="k">raise</span> <span class="n">CannotLoadConfiguration</span><span class="p">(</span>
                 <span class="s2">&quot;Short Client Token configuration is incomplete. &quot;</span>
-                <span class="s2">&quot;vendor_id, username, password and &quot;</span>
-                <span class="s2">&quot;Library website_url must all be defined.&quot;</span><span class="p">)</span>
+                <span class="s2">&quot;vendor_id (</span><span class="si">%s</span><span class="s2">), username (</span><span class="si">%s</span><span class="s2">), password (</span><span class="si">%s</span><span class="s2">) and &quot;</span>
+                <span class="s2">&quot;Library website_url (</span><span class="si">%s</span><span class="s2">) must all be defined.&quot;</span> <span class="o">%</span> <span class="p">(</span>
+                    <span class="n">vendor_id</span><span class="p">,</span> <span class="n">library_uri</span><span class="p">,</span> <span class="n">library_short_name</span><span class="p">,</span> <span class="n">secret</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
         <span class="k">if</span> <span class="s1">&#39;|&#39;</span> <span class="ow">in</span> <span class="n">library_short_name</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">CannotLoadConfiguration</span><span class="p">(</span>
                 <span class="s2">&quot;Library short name cannot contain the pipe character.&quot;</span>

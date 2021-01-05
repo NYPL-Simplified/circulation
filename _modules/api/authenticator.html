@@ -58,7 +58,7 @@
 <span class="kn">from</span> <span class="nn">api.announcements</span> <span class="kn">import</span> <span class="n">Announcements</span>
 <span class="kn">from</span> <span class="nn">api.custom_patron_catalog</span> <span class="kn">import</span> <span class="n">CustomPatronCatalog</span>
 <span class="kn">from</span> <span class="nn">api.opds</span> <span class="kn">import</span> <span class="n">LibraryAnnotator</span>
-<span class="kn">from</span> <span class="nn">api.saml.configuration</span> <span class="kn">import</span> <span class="n">SAMLConfiguration</span>
+<span class="kn">from</span> <span class="nn">api.saml.configuration.model</span> <span class="kn">import</span> <span class="n">SAMLSettings</span>
 <span class="kn">from</span> <span class="nn">config</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Configuration</span><span class="p">,</span>
     <span class="n">CannotLoadConfiguration</span><span class="p">,</span>
@@ -1758,15 +1758,25 @@
     <span class="n">TEST_IDENTIFIER</span> <span class="o">=</span> <span class="s1">&#39;test_identifier&#39;</span>
     <span class="n">TEST_PASSWORD</span> <span class="o">=</span> <span class="s1">&#39;test_password&#39;</span>
 
+    <span class="n">TEST_IDENTIFIER_DESCRIPTION_FOR_REQUIRED_PASSWORD</span> <span class="o">=</span> <span class="n">_</span><span class="p">(</span>
+        <span class="s2">&quot;A valid identifier that can be used to test that patron authentication is working.&quot;</span>
+    <span class="p">)</span>
+    <span class="n">TEST_IDENTIFIER_DESCRIPTION_FOR_OPTIONAL_PASSWORD</span> <span class="o">=</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">{}</span><span class="s2"> </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+        <span class="n">TEST_IDENTIFIER_DESCRIPTION_FOR_REQUIRED_PASSWORD</span><span class="p">,</span>
+        <span class="s2">&quot;An optional Test Password for this identifier can be set in the next section.&quot;</span><span class="p">,</span>
+    <span class="p">))</span>
+    <span class="n">TEST_PASSWORD_DESCRIPTION_REQUIRED</span> <span class="o">=</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;The password for the Test Identifier.&quot;</span><span class="p">)</span>
+    <span class="n">TEST_PASSWORD_DESCRIPTION_OPTIONAL</span> <span class="o">=</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;The password for the Test Identifier (above, in previous section).&quot;</span><span class="p">)</span>
+
     <span class="n">SETTINGS</span> <span class="o">=</span> <span class="p">[</span>
         <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">TEST_IDENTIFIER</span><span class="p">,</span>
           <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Test Identifier&quot;</span><span class="p">),</span>
-          <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;A valid identifier that can be used to test that patron authentication is working.&quot;</span><span class="p">),</span>
+          <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">TEST_IDENTIFIER_DESCRIPTION_FOR_OPTIONAL_PASSWORD</span><span class="p">,</span>
           <span class="s2">&quot;required&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
         <span class="p">},</span>
         <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">TEST_PASSWORD</span><span class="p">,</span>
           <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Test Password&quot;</span><span class="p">),</span>
-          <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;The password for the test identifier.&quot;</span><span class="p">),</span>
+          <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">TEST_PASSWORD_DESCRIPTION_OPTIONAL</span><span class="p">,</span>
         <span class="p">},</span>
         <span class="p">{</span> <span class="s2">&quot;key&quot;</span> <span class="p">:</span> <span class="n">IDENTIFIER_BARCODE_FORMAT</span><span class="p">,</span>
           <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Patron identifier barcode format&quot;</span><span class="p">),</span>
@@ -1916,8 +1926,11 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">authenticated_patron</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">header</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">test_password</span></div>
 
 <div class="viewcode-block" id="BasicAuthenticationProvider.testing_patron_or_bust"><a class="viewcode-back" href="../../api.html#api.authenticator.BasicAuthenticationProvider.testing_patron_or_bust">[docs]</a>    <span class="k">def</span> <span class="nf">testing_patron_or_bust</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Look up the Patron object reserved for testing purposes,</span>
-<span class="sd">        raising CannotLoadConfiguration if none is configured.</span>
+        <span class="sd">&quot;&quot;&quot;Look up the Patron object reserved for testing purposes.</span>
+
+<span class="sd">        :raise:CannotLoadConfiguration: If no test patron is configured.</span>
+<span class="sd">        :raise:IntegrationException: If the returned patron is not a Patron object.</span>
+<span class="sd">        :return: A 2-tuple (Patron, password)</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">test_username</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">CannotLoadConfiguration</span><span class="p">(</span>
@@ -1925,13 +1938,22 @@
             <span class="p">)</span>
 
         <span class="n">patron</span><span class="p">,</span> <span class="n">password</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">testing_patron</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">Patron</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">patron</span><span class="p">,</span> <span class="n">password</span>
+
         <span class="k">if</span> <span class="ow">not</span> <span class="n">patron</span><span class="p">:</span>
-            <span class="c1"># We ran to completion but ended up with no patron.</span>
-            <span class="k">raise</span> <span class="n">IntegrationException</span><span class="p">(</span>
+            <span class="n">message</span> <span class="o">=</span>  <span class="p">(</span>
                 <span class="s2">&quot;Remote declined to authenticate the test patron.&quot;</span><span class="p">,</span>
                 <span class="s2">&quot;The patron may not exist or its password may be wrong.&quot;</span>
             <span class="p">)</span>
-        <span class="k">return</span> <span class="n">patron</span><span class="p">,</span> <span class="n">password</span></div>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
+            <span class="n">message</span> <span class="o">=</span> <span class="s2">&quot;Test patron lookup returned a problem detail - </span><span class="si">{}</span><span class="s2">: </span><span class="si">{}</span><span class="s2"> (</span><span class="si">{}</span><span class="s2">)&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                    <span class="n">patron</span><span class="o">.</span><span class="n">title</span><span class="p">,</span> <span class="n">patron</span><span class="o">.</span><span class="n">detail</span><span class="p">,</span> <span class="n">patron</span><span class="o">.</span><span class="n">uri</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">message</span> <span class="o">=</span> <span class="s2">&quot;Test patron lookup returned invalid value for patron: </span><span class="si">{!r}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">patron</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="n">IntegrationException</span><span class="p">(</span><span class="n">message</span><span class="p">)</span></div>
+
 
     <span class="k">def</span> <span class="nf">_run_self_tests</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Verify the credentials of the test patron for this integration,</span>
@@ -2666,58 +2688,7 @@
     <span class="n">TOKEN_TYPE</span> <span class="o">=</span> <span class="s2">&quot;SAML 2.0 token&quot;</span>
     <span class="n">TOKEN_DATA_SOURCE_NAME</span> <span class="o">=</span> <span class="s1">&#39;SAML 2.0&#39;</span>
 
-    <span class="n">SETTINGS</span> <span class="o">=</span> <span class="p">[</span>
-       <span class="p">{</span>
-           <span class="s1">&#39;key&#39;</span><span class="p">:</span> <span class="n">SAMLConfiguration</span><span class="o">.</span><span class="n">SP_XML_METADATA</span><span class="p">,</span>
-           <span class="s1">&#39;label&#39;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s1">&#39;Service Provider</span><span class="se">\&#39;</span><span class="s1">s XML metadata&#39;</span><span class="p">),</span>
-           <span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;textarea&#39;</span><span class="p">,</span>
-           <span class="s1">&#39;description&#39;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s1">&#39;SAML metadata of the Circulation Manager</span><span class="se">\&#39;</span><span class="s1">s Service Provider in an XML format. &#39;</span>
-                            <span class="s1">&#39;MUST contain exactly one SPSSODescriptor tag with at least one &#39;</span>
-                            <span class="s1">&#39;AssertionConsumerService tag with Binding attribute set to &#39;</span>
-                            <span class="s1">&#39;urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST&#39;</span><span class="p">),</span>
-           <span class="s1">&#39;category&#39;</span><span class="p">:</span> <span class="s1">&#39;SP&#39;</span><span class="p">,</span>
-           <span class="s1">&#39;required&#39;</span><span class="p">:</span> <span class="kc">True</span>
-       <span class="p">},</span>
-       <span class="p">{</span>
-           <span class="s1">&#39;key&#39;</span><span class="p">:</span> <span class="n">SAMLConfiguration</span><span class="o">.</span><span class="n">SP_PRIVATE_KEY</span><span class="p">,</span>
-           <span class="s1">&#39;label&#39;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s1">&#39;Service Provider</span><span class="se">\&#39;</span><span class="s1">s private key&#39;</span><span class="p">),</span>
-           <span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;textarea&#39;</span><span class="p">,</span>
-           <span class="s1">&#39;description&#39;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s1">&#39;Private key used for encrypting SAML requests&#39;</span><span class="p">),</span>
-           <span class="s1">&#39;category&#39;</span><span class="p">:</span> <span class="s1">&#39;SP&#39;</span><span class="p">,</span>
-           <span class="s1">&#39;required&#39;</span><span class="p">:</span> <span class="kc">False</span>
-       <span class="p">},</span>
-       <span class="p">{</span>
-           <span class="s1">&#39;key&#39;</span><span class="p">:</span> <span class="n">SAMLConfiguration</span><span class="o">.</span><span class="n">STRICT</span><span class="p">,</span>
-           <span class="s1">&#39;label&#39;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s1">&#39;Service Provider</span><span class="se">\&#39;</span><span class="s1">s strict mode&#39;</span><span class="p">),</span>
-           <span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;number&#39;</span><span class="p">,</span>
-           <span class="s1">&#39;description&#39;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span>
-               <span class="s1">&#39;If strict is True, then the Python Toolkit will reject unsigned or unencrypted messages &#39;</span>
-               <span class="s1">&#39;if it expects them to be signed or encrypted. Also it will reject the messages &#39;</span>
-               <span class="s1">&#39;if the SAML standard is not strictly followed. Destination, NameId, Conditions ... &#39;</span>
-               <span class="s1">&#39;are validated too.&#39;</span><span class="p">),</span>
-           <span class="s1">&#39;category&#39;</span><span class="p">:</span> <span class="s1">&#39;SP&#39;</span><span class="p">,</span>
-           <span class="s1">&#39;required&#39;</span><span class="p">:</span> <span class="kc">False</span>
-       <span class="p">},</span>
-       <span class="p">{</span>
-           <span class="s1">&#39;key&#39;</span><span class="p">:</span> <span class="n">SAMLConfiguration</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">,</span>
-           <span class="s1">&#39;label&#39;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s1">&#39;Service Provider</span><span class="se">\&#39;</span><span class="s1">s debug mode&#39;</span><span class="p">),</span>
-           <span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;number&#39;</span><span class="p">,</span>
-           <span class="s1">&#39;description&#39;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s1">&#39;Enable debug mode (outputs errors)&#39;</span><span class="p">),</span>
-           <span class="s1">&#39;category&#39;</span><span class="p">:</span> <span class="s1">&#39;SP&#39;</span><span class="p">,</span>
-           <span class="s1">&#39;required&#39;</span><span class="p">:</span> <span class="kc">False</span>
-       <span class="p">},</span>
-       <span class="p">{</span>
-           <span class="s1">&#39;key&#39;</span><span class="p">:</span> <span class="n">SAMLConfiguration</span><span class="o">.</span><span class="n">IDP_XML_METADATA</span><span class="p">,</span>
-           <span class="s1">&#39;label&#39;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s1">&#39;Identity Provider</span><span class="se">\&#39;</span><span class="s1">s XML metadata&#39;</span><span class="p">),</span>
-           <span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;textarea&#39;</span><span class="p">,</span>
-           <span class="s1">&#39;description&#39;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s1">&#39;SAML metadata of Identity Providers in an XML format. &#39;</span>
-                            <span class="s1">&#39;MAY contain multiple IDPSSODescriptor tags but each of them MUST contain &#39;</span>
-                            <span class="s1">&#39;at least one SingleSignOnService tag with Binding attribute set to &#39;</span>
-                            <span class="s1">&#39;urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect&#39;</span><span class="p">),</span>
-           <span class="s1">&#39;category&#39;</span><span class="p">:</span> <span class="s1">&#39;IDP&#39;</span><span class="p">,</span>
-           <span class="s1">&#39;required&#39;</span><span class="p">:</span> <span class="kc">True</span>
-       <span class="p">}</span>
-    <span class="p">]</span> <span class="o">+</span> <span class="n">AuthenticationProvider</span><span class="o">.</span><span class="n">SETTINGS</span>
+    <span class="n">SETTINGS</span> <span class="o">=</span> <span class="n">SAMLSettings</span><span class="p">()</span>
 
     <span class="n">LIBRARY_SETTINGS</span> <span class="o">=</span> <span class="p">[]</span></div>
 </pre></div>

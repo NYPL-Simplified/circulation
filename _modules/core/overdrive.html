@@ -146,7 +146,7 @@
     <span class="n">ALL_PRODUCTS_ENDPOINT</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%(host)s</span><span class="s2">/v1/collections/</span><span class="si">%(collection_token)s</span><span class="s2">/products?sort=</span><span class="si">%(sort)s</span><span class="s2">&quot;</span>
     <span class="n">METADATA_ENDPOINT</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%(host)s</span><span class="s2">/v1/collections/</span><span class="si">%(collection_token)s</span><span class="s2">/products/</span><span class="si">%(item_id)s</span><span class="s2">/metadata&quot;</span>
     <span class="n">EVENTS_ENDPOINT</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%(host)s</span><span class="s2">/v1/collections/</span><span class="si">%(collection_token)s</span><span class="s2">/products?lastUpdateTime=</span><span class="si">%(lastupdatetime)s</span><span class="s2">&amp;sort=</span><span class="si">%(sort)s</span><span class="s2">&amp;limit=</span><span class="si">%(limit)s</span><span class="s2">&quot;</span>
-    <span class="n">AVAILABILITY_ENDPOINT</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%(host)s</span><span class="s2">/v1/collections/</span><span class="si">%(collection_token)s</span><span class="s2">/products/</span><span class="si">%(product_id)s</span><span class="s2">/availability&quot;</span>
+    <span class="n">AVAILABILITY_ENDPOINT</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%(host)s</span><span class="s2">/v2/collections/</span><span class="si">%(collection_token)s</span><span class="s2">/products/</span><span class="si">%(product_id)s</span><span class="s2">/availability&quot;</span>
 
     <span class="n">PATRON_INFORMATION_ENDPOINT</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%(patron_host)s</span><span class="s2">/v1/patrons/me&quot;</span>
     <span class="n">CHECKOUTS_ENDPOINT</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%(patron_host)s</span><span class="s2">/v1/patrons/me/checkouts&quot;</span>
@@ -309,6 +309,25 @@
         <span class="k">return</span> <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">for_library_and_externalintegration</span><span class="p">(</span>
             <span class="n">_db</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">ILS_NAME_KEY</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">collection</span><span class="o">.</span><span class="n">external_integration</span>
         <span class="p">)</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">advantage_library_id</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;The library ID for this library, as we should look for it in</span>
+<span class="sd">        certain API documents served by Overdrive.</span>
+
+<span class="sd">        For ordinary collections, and for consortial collections</span>
+<span class="sd">        shared among libraries, this will be -1.</span>
+
+<span class="sd">        For Overdrive Advantage accounts, this will be the numeric</span>
+<span class="sd">        value of the Overdrive library ID.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent_library_id</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># This is not an Overdrive Advantage collection.</span>
+            <span class="c1">#</span>
+            <span class="c1"># Instead of looking for the library ID itself in these</span>
+            <span class="c1"># documents, we should look for the constant -1.</span>
+            <span class="k">return</span> <span class="o">-</span><span class="mi">1</span>
+        <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">library_id</span><span class="p">)</span>
 
 <div class="viewcode-block" id="OverdriveAPI.check_creds"><a class="viewcode-back" href="../../core.html#core.overdrive.OverdriveAPI.check_creds">[docs]</a>    <span class="k">def</span> <span class="nf">check_creds</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">force_refresh</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;If the Bearer Token has expired, update it.&quot;&quot;&quot;</span>
@@ -541,11 +560,20 @@
     <span class="k">def</span> <span class="nf">make_link_safe</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Turn a server-provided link into a link the server will accept!</span>
 
-<span class="sd">        This is completely obnoxious and I have complained about it to</span>
+<span class="sd">        The {} part is completely obnoxious and I have complained about it to</span>
 <span class="sd">        Overdrive.</span>
+
+<span class="sd">        The availability part is to make sure we always use v2 of the</span>
+<span class="sd">        availability API, even if Overdrive sent us a link to v1.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">parts</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">urlparse</span><span class="o">.</span><span class="n">urlsplit</span><span class="p">(</span><span class="n">url</span><span class="p">))</span>
         <span class="n">parts</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">urllib</span><span class="o">.</span><span class="n">quote</span><span class="p">(</span><span class="n">parts</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
+        <span class="n">endings</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;/availability&quot;</span><span class="p">,</span> <span class="s2">&quot;/availability/&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">parts</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;/v1/collections/&quot;</span><span class="p">)</span>
+            <span class="ow">and</span> <span class="nb">any</span><span class="p">(</span><span class="n">parts</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">endings</span><span class="p">)):</span>
+            <span class="n">parts</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">parts</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span>
+                <span class="s2">&quot;/v1/collections/&quot;</span><span class="p">,</span> <span class="s2">&quot;/v2/collections/&quot;</span><span class="p">,</span> <span class="mi">1</span>
+            <span class="p">)</span>
         <span class="n">query_string</span> <span class="o">=</span> <span class="n">parts</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span>
         <span class="n">query_string</span> <span class="o">=</span> <span class="n">query_string</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;+&quot;</span><span class="p">,</span> <span class="s2">&quot;%2B&quot;</span><span class="p">)</span>
         <span class="n">query_string</span> <span class="o">=</span> <span class="n">query_string</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;:&quot;</span><span class="p">,</span> <span class="s2">&quot;%3A&quot;</span><span class="p">)</span>
@@ -667,6 +695,15 @@
     <span class="sd">&quot;&quot;&quot;Extract useful information from Overdrive&#39;s JSON representations.&quot;&quot;&quot;</span>
 
     <span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">&quot;Overdrive representation extractor&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">api</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Constructor.</span>
+
+<span class="sd">        :param api: An OverdriveAPI object. This will be used when deciding</span>
+<span class="sd">        which portions of a JSON representation are relevant to the active</span>
+<span class="sd">        Overdrive collection.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">library_id</span> <span class="o">=</span> <span class="n">api</span><span class="o">.</span><span class="n">advantage_library_id</span>
 
 <div class="viewcode-block" id="OverdriveRepresentationExtractor.availability_link_list"><a class="viewcode-back" href="../../core.html#core.overdrive.OverdriveRepresentationExtractor.availability_link_list">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">availability_link_list</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">book_list</span><span class="p">):</span>
@@ -844,9 +881,7 @@
                 <span class="n">processed</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">overdrive_role_to_simplified_role</span><span class="p">[</span><span class="n">x</span><span class="p">])</span>
         <span class="k">return</span> <span class="n">processed</span></div>
 
-
-<div class="viewcode-block" id="OverdriveRepresentationExtractor.book_info_to_circulation"><a class="viewcode-back" href="../../core.html#core.overdrive.OverdriveRepresentationExtractor.book_info_to_circulation">[docs]</a>    <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">book_info_to_circulation</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">book</span><span class="p">):</span>
+<div class="viewcode-block" id="OverdriveRepresentationExtractor.book_info_to_circulation"><a class="viewcode-back" href="../../core.html#core.overdrive.OverdriveRepresentationExtractor.book_info_to_circulation">[docs]</a>    <span class="k">def</span> <span class="nf">book_info_to_circulation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">book</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot; Note:  The json data passed into this method is from a different file/stream</span>
 <span class="sd">        from the json data that goes into the book_info_to_metadata() method.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -858,27 +893,64 @@
         <span class="n">licenses_available</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="n">patrons_in_hold_queue</span> <span class="o">=</span> <span class="kc">None</span>
 
+        <span class="c1"># TODO: The only reason this works for a NotFound error is the</span>
+        <span class="c1"># circulation code sticks the known book ID into `book` ahead</span>
+        <span class="c1"># of time. That&#39;s a code smell indicating that this system</span>
+        <span class="c1"># needs to be refactored.</span>
+        <span class="k">if</span> <span class="s1">&#39;reserveId&#39;</span> <span class="ow">in</span> <span class="n">book</span> <span class="ow">and</span> <span class="ow">not</span> <span class="s1">&#39;id&#39;</span> <span class="ow">in</span> <span class="n">book</span><span class="p">:</span>
+            <span class="n">book</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">book</span><span class="p">[</span><span class="s1">&#39;reserveId&#39;</span><span class="p">]</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="s1">&#39;id&#39;</span> <span class="ow">in</span> <span class="n">book</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">None</span>
         <span class="n">overdrive_id</span> <span class="o">=</span> <span class="n">book</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">]</span>
         <span class="n">primary_identifier</span> <span class="o">=</span> <span class="n">IdentifierData</span><span class="p">(</span>
             <span class="n">Identifier</span><span class="o">.</span><span class="n">OVERDRIVE_ID</span><span class="p">,</span> <span class="n">overdrive_id</span>
         <span class="p">)</span>
-        <span class="k">if</span> <span class="p">(</span><span class="n">book</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;isOwnedByCollections&#39;</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">False</span><span class="p">):</span>
+        <span class="c1"># TODO: We might be able to use this information to avoid the</span>
+        <span class="c1"># need for explicit configuration of Advantage collections, or</span>
+        <span class="c1"># at least to keep Advantage collections more up-to-date than</span>
+        <span class="c1"># they would be otherwise, as a side effect of updating</span>
+        <span class="c1"># regular Overdrive collections.</span>
+
+        <span class="c1"># TODO: this would be the place to handle simultaneous use</span>
+        <span class="c1"># titles -- these can be detected with</span>
+        <span class="c1"># availabilityType=&quot;AlwaysAvailable&quot; and have their</span>
+        <span class="c1"># .licenses_owned set to LicensePool.UNLIMITED_ACCESS.</span>
+        <span class="c1"># see http://developer.overdrive.com/apis/library-availability-new</span>
+
+        <span class="c1"># TODO: Cost-per-circ titles</span>
+        <span class="c1"># (availabilityType=&quot;LimitedAvailablility&quot;) can be handled</span>
+        <span class="c1"># similarly, though those can abruptly become unavailable, so</span>
+        <span class="c1"># UNLIMITED_ACCESS is probably not appropriate.</span>
+
+        <span class="n">error_code</span> <span class="o">=</span> <span class="n">book</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;errorCode&#39;</span><span class="p">)</span>
+        <span class="c1"># TODO: It&#39;s not clear what other error codes there might be.</span>
+        <span class="c1"># The current behavior will respond to errors other than</span>
+        <span class="c1"># NotFound by leaving the book alone, but this might not be</span>
+        <span class="c1"># the right behavior.</span>
+        <span class="k">if</span> <span class="n">error_code</span> <span class="o">==</span> <span class="s1">&#39;NotFound&#39;</span><span class="p">:</span>
+            <span class="n">licenses_owned</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="n">licenses_available</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="n">patrons_in_hold_queue</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">elif</span> <span class="n">book</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;isOwnedByCollections&#39;</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">False</span><span class="p">:</span>
             <span class="c1"># We own this book.</span>
-            <span class="k">for</span> <span class="n">collection</span> <span class="ow">in</span> <span class="n">book</span><span class="p">[</span><span class="s1">&#39;collections&#39;</span><span class="p">]:</span>
-                <span class="k">if</span> <span class="s1">&#39;copiesOwned&#39;</span> <span class="ow">in</span> <span class="n">collection</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">account</span> <span class="ow">in</span> <span class="n">book</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;accounts&#39;</span><span class="p">,</span> <span class="p">[]):</span>
+                <span class="c1"># Only keep track of copies owned by the collection</span>
+                <span class="c1"># we&#39;re tracking.</span>
+                <span class="k">if</span> <span class="n">account</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;id&#39;</span><span class="p">)</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">library_id</span><span class="p">:</span>
+                    <span class="k">continue</span>
+
+                <span class="k">if</span> <span class="s1">&#39;copiesOwned&#39;</span> <span class="ow">in</span> <span class="n">account</span><span class="p">:</span>
                     <span class="k">if</span> <span class="n">licenses_owned</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
                         <span class="n">licenses_owned</span> <span class="o">=</span> <span class="mi">0</span>
-                    <span class="n">licenses_owned</span> <span class="o">+=</span> <span class="nb">int</span><span class="p">(</span><span class="n">collection</span><span class="p">[</span><span class="s1">&#39;copiesOwned&#39;</span><span class="p">])</span>
-                <span class="k">if</span> <span class="s1">&#39;copiesAvailable&#39;</span> <span class="ow">in</span> <span class="n">collection</span><span class="p">:</span>
+                    <span class="n">licenses_owned</span> <span class="o">+=</span> <span class="nb">int</span><span class="p">(</span><span class="n">account</span><span class="p">[</span><span class="s1">&#39;copiesOwned&#39;</span><span class="p">])</span>
+                <span class="k">if</span> <span class="s1">&#39;copiesAvailable&#39;</span> <span class="ow">in</span> <span class="n">account</span><span class="p">:</span>
                     <span class="k">if</span> <span class="n">licenses_available</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
                         <span class="n">licenses_available</span> <span class="o">=</span> <span class="mi">0</span>
-                    <span class="n">licenses_available</span> <span class="o">+=</span> <span class="nb">int</span><span class="p">(</span><span class="n">collection</span><span class="p">[</span><span class="s1">&#39;copiesAvailable&#39;</span><span class="p">])</span>
-                <span class="k">if</span> <span class="s1">&#39;numberOfHolds&#39;</span> <span class="ow">in</span> <span class="n">collection</span><span class="p">:</span>
-                    <span class="k">if</span> <span class="n">patrons_in_hold_queue</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-                        <span class="n">patrons_in_hold_queue</span> <span class="o">=</span> <span class="mi">0</span>
-                    <span class="n">patrons_in_hold_queue</span> <span class="o">+=</span> <span class="n">collection</span><span class="p">[</span><span class="s1">&#39;numberOfHolds&#39;</span><span class="p">]</span>
+                    <span class="n">licenses_available</span> <span class="o">+=</span> <span class="nb">int</span><span class="p">(</span><span class="n">account</span><span class="p">[</span><span class="s1">&#39;copiesAvailable&#39;</span><span class="p">])</span>
+            <span class="k">if</span> <span class="s1">&#39;numberOfHolds&#39;</span> <span class="ow">in</span> <span class="n">book</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">patrons_in_hold_queue</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">patrons_in_hold_queue</span> <span class="o">=</span> <span class="mi">0</span>
+                <span class="n">patrons_in_hold_queue</span> <span class="o">+=</span> <span class="n">book</span><span class="p">[</span><span class="s1">&#39;numberOfHolds&#39;</span><span class="p">]</span>
         <span class="k">return</span> <span class="n">CirculationData</span><span class="p">(</span>
             <span class="n">data_source</span><span class="o">=</span><span class="n">DataSource</span><span class="o">.</span><span class="n">OVERDRIVE</span><span class="p">,</span>
             <span class="n">primary_identifier</span><span class="o">=</span><span class="n">primary_identifier</span><span class="p">,</span>

@@ -1,0 +1,54 @@
+api.proquest package
+====================
+
+Submodules
+----------
+
+api.proquest.client module
+--------------------------
+
+.. automodule:: api.proquest.client
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+api.proquest.credential module
+------------------------------
+
+.. automodule:: api.proquest.credential
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+api.proquest.identifier module
+------------------------------
+
+.. automodule:: api.proquest.identifier
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+api.proquest.importer module
+----------------------------
+
+.. automodule:: api.proquest.importer
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+api.proquest.scripts module
+---------------------------
+
+.. automodule:: api.proquest.scripts
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+
+Module contents
+---------------
+
+.. automodule:: api.proquest
+    :members:
+    :undoc-members:
+    :show-inheritance:

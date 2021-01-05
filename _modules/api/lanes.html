@@ -886,7 +886,20 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">WorkBasedLane</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">append_child</span><span class="p">(</span><span class="n">worklist</span><span class="p">)</span>
         <span class="n">worklist</span><span class="o">.</span><span class="n">languages</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">languages</span>
-        <span class="n">worklist</span><span class="o">.</span><span class="n">audiences</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">audiences</span></div></div>
+        <span class="n">worklist</span><span class="o">.</span><span class="n">audiences</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">audiences</span></div>
+
+<div class="viewcode-block" id="WorkBasedLane.accessible_to"><a class="viewcode-back" href="../../api.html#api.lanes.WorkBasedLane.accessible_to">[docs]</a>    <span class="k">def</span> <span class="nf">accessible_to</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;In addition to the restrictions imposed by the superclass, a lane</span>
+<span class="sd">        based on a specific Work is accessible to a Patron only if the</span>
+<span class="sd">        Work itself is age-appropriate for the patron.</span>
+
+<span class="sd">        :param patron: A Patron</span>
+<span class="sd">        :return: A boolean</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">superclass_ok</span> <span class="o">=</span> <span class="nb">super</span><span class="p">(</span><span class="n">WorkBasedLane</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">accessible_to</span><span class="p">(</span><span class="n">patron</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">superclass_ok</span> <span class="ow">and</span> <span class="p">(</span>
+            <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">work</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">work</span><span class="o">.</span><span class="n">age_appropriate_for_patron</span><span class="p">(</span><span class="n">patron</span><span class="p">)</span>
+        <span class="p">)</span></div></div>
 
 
 <div class="viewcode-block" id="RecommendationLane"><a class="viewcode-back" href="../../api.html#api.lanes.RecommendationLane">[docs]</a><span class="k">class</span> <span class="nc">RecommendationLane</span><span class="p">(</span><span class="n">WorkBasedLane</span><span class="p">):</span>
@@ -1277,6 +1290,101 @@
     <span class="k">def</span> <span class="nf">url_arguments</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">kwargs</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">list_name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">customlist_name</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">ROUTE</span><span class="p">,</span> <span class="n">kwargs</span></div>
+
+<div class="viewcode-block" id="KnownOverviewFacetsWorkList"><a class="viewcode-back" href="../../api.html#api.lanes.KnownOverviewFacetsWorkList">[docs]</a><span class="k">class</span> <span class="nc">KnownOverviewFacetsWorkList</span><span class="p">(</span><span class="n">WorkList</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A WorkList whose defining feature is that the Facets object</span>
+<span class="sd">    to be used when generating a grouped feed is known in advance.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">facets</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Constructor.</span>
+
+<span class="sd">        :param facets: A Facets object to be used when generating a grouped</span>
+<span class="sd">           feed.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">KnownOverviewFacetsWorkList</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">facets</span> <span class="o">=</span> <span class="n">facets</span>
+
+<div class="viewcode-block" id="KnownOverviewFacetsWorkList.overview_facets"><a class="viewcode-back" href="../../api.html#api.lanes.KnownOverviewFacetsWorkList.overview_facets">[docs]</a>    <span class="k">def</span> <span class="nf">overview_facets</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">facets</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return the faceting object to be used when generating a grouped</span>
+<span class="sd">        feed.</span>
+<span class="sd">        </span>
+<span class="sd">        :param _db: Ignored -- only present for API compatibility.</span>
+<span class="sd">        :param facets: Ignored -- only present for API compatibility.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">facets</span></div></div>
+
+
+<div class="viewcode-block" id="JackpotFacets"><a class="viewcode-back" href="../../api.html#api.lanes.JackpotFacets">[docs]</a><span class="k">class</span> <span class="nc">JackpotFacets</span><span class="p">(</span><span class="n">Facets</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A faceting object for a jackpot feed.</span>
+
+<span class="sd">    Unlike other faceting objects, AVAILABLE_NOT_NOW is an acceptable</span>
+<span class="sd">    option for the availability facet.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="JackpotFacets.default_facet"><a class="viewcode-back" href="../../api.html#api.lanes.JackpotFacets.default_facet">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">default_facet</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">facet_group_name</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">facet_group_name</span> <span class="o">!=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">AVAILABILITY_FACET_GROUP_NAME</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">super</span><span class="p">(</span><span class="n">JackpotFacets</span><span class="p">,</span> <span class="bp">cls</span><span class="p">)</span><span class="o">.</span><span class="n">default_facet</span><span class="p">(</span>
+                <span class="n">config</span><span class="p">,</span> <span class="n">facet_group_name</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">AVAILABLE_NOW</span></div>
+
+<div class="viewcode-block" id="JackpotFacets.available_facets"><a class="viewcode-back" href="../../api.html#api.lanes.JackpotFacets.available_facets">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">available_facets</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">facet_group_name</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">facet_group_name</span> <span class="o">!=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">AVAILABILITY_FACET_GROUP_NAME</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">super</span><span class="p">(</span><span class="n">JackpotFacets</span><span class="p">,</span> <span class="bp">cls</span><span class="p">)</span><span class="o">.</span><span class="n">available_facets</span><span class="p">(</span>
+                <span class="n">config</span><span class="p">,</span> <span class="n">facet_group_name</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="p">[</span><span class="bp">cls</span><span class="o">.</span><span class="n">AVAILABLE_NOW</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">AVAILABLE_NOT_NOW</span><span class="p">,</span>
+                <span class="bp">cls</span><span class="o">.</span><span class="n">AVAILABLE_ALL</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">AVAILABLE_OPEN_ACCESS</span><span class="p">]</span></div></div>
+
+
+<div class="viewcode-block" id="JackpotWorkList"><a class="viewcode-back" href="../../api.html#api.lanes.JackpotWorkList">[docs]</a><span class="k">class</span> <span class="nc">JackpotWorkList</span><span class="p">(</span><span class="n">WorkList</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A WorkList guaranteed to, so far as possible, contain the exact</span>
+<span class="sd">    selection of books necessary to perform common QA tasks.</span>
+
+<span class="sd">    This makes it easy to write integration tests that work on real</span>
+<span class="sd">    circulation managers and real books.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">facets</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Constructor.</span>
+
+<span class="sd">        :param library: A Library</span>
+<span class="sd">        :param facets: A Facets object.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">JackpotWorkList</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">initialize</span><span class="p">(</span><span class="n">library</span><span class="p">)</span>
+
+        <span class="c1"># Initialize a list of child Worklists; one for each test that</span>
+        <span class="c1"># a client might need to run.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">children</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="c1"># Add one or more WorkLists for every collection in the</span>
+        <span class="c1"># system, so that a client can test borrowing a book from</span>
+        <span class="c1"># every collection.</span>
+        <span class="k">for</span> <span class="n">collection</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">library</span><span class="o">.</span><span class="n">collections</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">name</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">medium</span> <span class="ow">in</span> <span class="n">Edition</span><span class="o">.</span><span class="n">FULFILLABLE_MEDIA</span><span class="p">:</span>
+                <span class="c1"># Give each Worklist a name that is distinctive</span>
+                <span class="c1"># and easy for a client to parse.</span>
+                <span class="k">if</span> <span class="n">collection</span><span class="o">.</span><span class="n">data_source</span><span class="p">:</span>
+                    <span class="n">data_source_name</span> <span class="o">=</span> <span class="n">collection</span><span class="o">.</span><span class="n">data_source</span><span class="o">.</span><span class="n">name</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">data_source_name</span> <span class="o">=</span> <span class="s2">&quot;[Unknown]&quot;</span>
+                <span class="n">display_name</span> <span class="o">=</span> <span class="s2">&quot;License source {</span><span class="si">%s</span><span class="s2">} - Medium {</span><span class="si">%s</span><span class="s2">} - Collection name {</span><span class="si">%s</span><span class="s2">}&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">data_source_name</span><span class="p">,</span> <span class="n">medium</span><span class="p">,</span> <span class="n">collection</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+                <span class="n">child</span> <span class="o">=</span> <span class="n">KnownOverviewFacetsWorkList</span><span class="p">(</span><span class="n">facets</span><span class="p">)</span>
+                <span class="n">child</span><span class="o">.</span><span class="n">initialize</span><span class="p">(</span>
+                    <span class="n">library</span><span class="p">,</span> <span class="n">media</span><span class="o">=</span><span class="p">[</span><span class="n">medium</span><span class="p">],</span> <span class="n">display_name</span><span class="o">=</span><span class="n">display_name</span>
+                <span class="p">)</span>
+                <span class="n">child</span><span class="o">.</span><span class="n">collection_ids</span> <span class="o">=</span> <span class="p">[</span><span class="n">collection</span><span class="o">.</span><span class="n">id</span><span class="p">]</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">children</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">child</span><span class="p">)</span>
+
+<div class="viewcode-block" id="JackpotWorkList.works"><a class="viewcode-back" href="../../api.html#api.lanes.JackpotWorkList.works">[docs]</a>    <span class="k">def</span> <span class="nf">works</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;This worklist never has works of its own.</span>
+
+<span class="sd">        Only its children have works.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">[]</span></div></div>
 </pre></div>
 
           </div>

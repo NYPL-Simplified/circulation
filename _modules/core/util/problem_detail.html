@@ -39,8 +39,11 @@
 <span class="sd">&quot;&quot;&quot;</span>
 <span class="kn">import</span> <span class="nn">json</span> <span class="k">as</span> <span class="nn">j</span>
 <span class="kn">import</span> <span class="nn">logging</span>
+
 <span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">LazyString</span>
 <span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
+
+<span class="kn">from</span> <span class="nn">..exceptions</span> <span class="kn">import</span> <span class="n">BaseError</span>
 
 <span class="n">JSON_MEDIA_TYPE</span> <span class="o">=</span> <span class="s2">&quot;application/api-problem+json&quot;</span>
 
@@ -54,6 +57,7 @@
     <span class="k">if</span> <span class="n">debug_message</span><span class="p">:</span>
         <span class="n">d</span><span class="p">[</span><span class="s1">&#39;debug_message&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">debug_message</span>
     <span class="k">return</span> <span class="n">j</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">d</span><span class="p">)</span></div>
+
 
 <div class="viewcode-block" id="ProblemDetail"><a class="viewcode-back" href="../../../core.util.html#api.circulation_exceptions.ProblemDetail">[docs]</a><span class="k">class</span> <span class="nc">ProblemDetail</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
 
@@ -113,7 +117,36 @@
         <span class="k">return</span> <span class="n">ProblemDetail</span><span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">uri</span><span class="p">,</span> <span class="n">status_code</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">status_code</span><span class="p">,</span> <span class="n">title</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">title</span><span class="p">,</span>
             <span class="n">detail</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">detail</span><span class="p">,</span> <span class="n">instance</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">instance</span><span class="p">,</span> <span class="n">debug_message</span>
-        <span class="p">)</span></div></div>
+        <span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s2">&quot;&lt;ProblemDetail(uri=</span><span class="si">{0}</span><span class="s2">, title=</span><span class="si">{1}</span><span class="s2">, status_code=</span><span class="si">{2}</span><span class="s2">, detail=</span><span class="si">{3}</span><span class="s2">, instance=</span><span class="si">{4}</span><span class="s2">, debug_message=</span><span class="si">{5}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">uri</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">title</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">status_code</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">detail</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">instance</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">debug_message</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ProblemError"><a class="viewcode-back" href="../../../core.util.html#api.circulation_exceptions.ProblemError">[docs]</a><span class="k">class</span> <span class="nc">ProblemError</span><span class="p">(</span><span class="n">BaseError</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Exception class allowing to raise and catch ProblemDetail objects.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">problem_detail</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Initialize a new instance of ProblemError class.</span>
+
+<span class="sd">        :param problem_detail: ProblemDetail object</span>
+<span class="sd">        :type problem_detail: ProblemDetail</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">problem_detail</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Argument &quot;problem_detail&quot; must be an instance of ProblemDetail class&#39;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_problem_detail</span> <span class="o">=</span> <span class="n">problem_detail</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">problem_detail</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return the ProblemDetail object associated with this exception.</span>
+
+<span class="sd">        :return: ProblemDetail object associated with this exception</span>
+<span class="sd">        :rtype: ProblemDetail</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_problem_detail</span></div>
 </pre></div>
 
           </div>

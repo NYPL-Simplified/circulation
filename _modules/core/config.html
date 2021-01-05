@@ -134,6 +134,9 @@
     <span class="c1"># ConfigurationSetting key for the base url of the app.</span>
     <span class="n">BASE_URL_KEY</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;base_url&#39;</span>
 
+    <span class="c1"># ConfigurationSetting to enable the MeasurementReaper script</span>
+    <span class="n">MEASUREMENT_REAPER</span> <span class="o">=</span> <span class="s1">&#39;measurement_reaper_enabled&#39;</span>
+
     <span class="c1"># Policies, mostly circulation specific</span>
     <span class="n">POLICIES</span> <span class="o">=</span> <span class="s2">&quot;policies&quot;</span>
     <span class="n">LANES_POLICY</span> <span class="o">=</span> <span class="s2">&quot;lanes&quot;</span>
@@ -235,6 +238,12 @@
             <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Audiobooks from these data sources will be hidden from the collection, even if they would otherwise show up as available.&quot;</span><span class="p">),</span>
             <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
             <span class="s2">&quot;required&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">MEASUREMENT_REAPER</span><span class="p">,</span>
+            <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Cleanup old measurement data&quot;</span><span class="p">),</span> <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;select&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;If this settings is &#39;true&#39; old book measurement data will be cleaned out of the database. Some sites may want to keep this data for later analysis.&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;options&quot;</span><span class="p">:</span> <span class="p">{</span> <span class="s2">&quot;true&quot;</span><span class="p">:</span> <span class="s2">&quot;true&quot;</span><span class="p">,</span> <span class="s2">&quot;false&quot;</span><span class="p">:</span> <span class="s2">&quot;false&quot;</span> <span class="p">},</span> <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="s2">&quot;true&quot;</span><span class="p">,</span>
         <span class="p">},</span>
     <span class="p">]</span>
 

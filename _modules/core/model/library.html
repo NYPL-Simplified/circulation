@@ -35,6 +35,7 @@
   <h1>Source code for core.model.library</h1><div class="highlight"><pre>
 <span></span><span class="c1"># encoding: utf-8</span>
 <span class="c1"># Library</span>
+<span class="kn">from</span> <span class="nn">expiringdict</span> <span class="kn">import</span> <span class="n">ExpiringDict</span>
 <span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
 
 <span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="p">(</span>
@@ -151,6 +152,11 @@
 
     <span class="n">_cache</span> <span class="o">=</span> <span class="n">HasFullTableCache</span><span class="o">.</span><span class="n">RESET</span>
     <span class="n">_id_cache</span> <span class="o">=</span> <span class="n">HasFullTableCache</span><span class="o">.</span><span class="n">RESET</span>
+
+    <span class="c1"># A class-wide cache mapping library ID to the calculated value</span>
+    <span class="c1"># used for Library.has_root_lane.  This is invalidated whenever</span>
+    <span class="c1"># Lane configuration changes, and it will also expire on its own.</span>
+    <span class="n">_has_root_lane_cache</span> <span class="o">=</span> <span class="n">ExpiringDict</span><span class="p">(</span><span class="n">max_len</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">max_age_seconds</span><span class="o">=</span><span class="mi">3600</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="s1">&#39;&lt;Library: name=&quot;</span><span class="si">%s</span><span class="s1">&quot;, short name=&quot;</span><span class="si">%s</span><span class="s1">&quot;, uuid=&quot;</span><span class="si">%s</span><span class="s1">&quot;, library registry short name=&quot;</span><span class="si">%s</span><span class="s1">&quot;&gt;&#39;</span> <span class="o">%</span> <span class="p">(</span>
@@ -326,6 +332,36 @@
 <div class="viewcode-block" id="Library.enabled_facets_setting"><a class="viewcode-back" href="../../../core.model.html#core.model.library.Library.enabled_facets_setting">[docs]</a>    <span class="k">def</span> <span class="nf">enabled_facets_setting</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">group_name</span><span class="p">):</span>
         <span class="n">key</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ENABLED_FACETS_KEY_PREFIX</span> <span class="o">+</span> <span class="n">group_name</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="n">key</span><span class="p">)</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">has_root_lanes</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Does this library have any lanes that act as the root</span>
+<span class="sd">        lane for a certain patron type?</span>
+
+<span class="sd">        :return: A boolean</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="c1"># NOTE: Although this fact is derived from the Lanes, not the</span>
+        <span class="c1"># Library, the result is stored in the Library object for</span>
+        <span class="c1"># performance reasons.</span>
+        <span class="c1">#</span>
+        <span class="c1"># This makes it important to clear the cache of Library</span>
+        <span class="c1"># objects whenever the Lane configuration changes. Otherwise a</span>
+        <span class="c1"># library that went from not having root lanes, to having them</span>
+        <span class="c1"># (or vice versa) might not see the change take effect without</span>
+        <span class="c1"># a server restart.</span>
+        <span class="n">value</span> <span class="o">=</span> <span class="n">Library</span><span class="o">.</span><span class="n">_has_root_lane_cache</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="kn">from</span> <span class="nn">..lane</span> <span class="kn">import</span> <span class="n">Lane</span>
+            <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+            <span class="n">root_lanes</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Lane</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+                <span class="n">Lane</span><span class="o">.</span><span class="n">library</span><span class="o">==</span><span class="bp">self</span>
+            <span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+                <span class="n">Lane</span><span class="o">.</span><span class="n">root_for_patron_type</span><span class="o">!=</span><span class="kc">None</span>
+            <span class="p">)</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="p">(</span><span class="n">root_lanes</span><span class="o">.</span><span class="n">count</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
+            <span class="n">Library</span><span class="o">.</span><span class="n">_has_root_lane_cache</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+        <span class="k">return</span> <span class="n">value</span>
 
 <div class="viewcode-block" id="Library.restrict_to_ready_deliverable_works"><a class="viewcode-back" href="../../../core.model.html#core.model.library.Library.restrict_to_ready_deliverable_works">[docs]</a>    <span class="k">def</span> <span class="nf">restrict_to_ready_deliverable_works</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">query</span><span class="p">,</span> <span class="n">collection_ids</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">show_suppressed</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>

@@ -1,0 +1,504 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>api.saml.configuration package &#8212; Library Simplified Circulation Manager  documentation</title>
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="_static/language_data.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="api.saml.metadata package" href="api.saml.metadata.html" />
+    <link rel="prev" title="api.saml package" href="api.saml.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="api-saml-configuration-package">
+<h1>api.saml.configuration package<a class="headerlink" href="#api-saml-configuration-package" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="module-api.saml.configuration.model">
+<span id="api-saml-configuration-model-module"></span><h2>api.saml.configuration.model module<a class="headerlink" href="#module-api.saml.configuration.model" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="api.saml.configuration.model.SAMLConfiguration">
+<em class="property">class </em><code class="descclassname">api.saml.configuration.model.</code><code class="descname">SAMLConfiguration</code><span class="sig-paren">(</span><em>configuration_storage</em>, <em>db</em>, <em>metadata_parser</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/configuration/model.html#SAMLConfiguration"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.configuration.model.SAMLConfiguration" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.model.html#core.model.configuration.ConfigurationGrouping" title="core.model.configuration.ConfigurationGrouping"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.model.configuration.ConfigurationGrouping</span></code></a></p>
+<p>Contains SP and IdP settings.</p>
+<dl class="attribute">
+<dt id="api.saml.configuration.model.SAMLConfiguration.IDP_DISPLAY_NAME_DEFAULT_TEMPLATE">
+<code class="descname">IDP_DISPLAY_NAME_DEFAULT_TEMPLATE</code><em class="property"> = 'Identity Provider #{0}'</em><a class="headerlink" href="#api.saml.configuration.model.SAMLConfiguration.IDP_DISPLAY_NAME_DEFAULT_TEMPLATE" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.saml.configuration.model.SAMLConfiguration.federated_identity_provider_entity_ids">
+<code class="descname">federated_identity_provider_entity_ids</code><a class="headerlink" href="#api.saml.configuration.model.SAMLConfiguration.federated_identity_provider_entity_ids" title="Permalink to this definition">¶</a></dt>
+<dd><p>Contains configuration metadata</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="api.saml.configuration.model.SAMLConfiguration.filter_expression">
+<code class="descname">filter_expression</code><a class="headerlink" href="#api.saml.configuration.model.SAMLConfiguration.filter_expression" title="Permalink to this definition">¶</a></dt>
+<dd><p>Contains configuration metadata</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="api.saml.configuration.model.SAMLConfiguration.get_identity_providers">
+<code class="descname">get_identity_providers</code><span class="sig-paren">(</span><em>db</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/configuration/model.html#SAMLConfiguration.get_identity_providers"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.configuration.model.SAMLConfiguration.get_identity_providers" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns identity providers</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>db</strong> (<em>sqlalchemy.orm.session.Session</em>) – Database session</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">List of IdentityProviderMetadata objects</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body">List[IdentityProviderMetadata]</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Raise:</th><td class="field-body">ConfigurationError</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="api.saml.configuration.model.SAMLConfiguration.get_service_provider">
+<code class="descname">get_service_provider</code><span class="sig-paren">(</span><em>db</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/configuration/model.html#SAMLConfiguration.get_service_provider"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.configuration.model.SAMLConfiguration.get_service_provider" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns service provider</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>db</strong> (<em>sqlalchemy.orm.session.Session</em>) – Database session</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">ServiceProviderMetadata object</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body">ServiceProviderMetadata</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Raise:</th><td class="field-body">ConfigurationError</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="api.saml.configuration.model.SAMLConfiguration.non_federated_identity_provider_xml_metadata">
+<code class="descname">non_federated_identity_provider_xml_metadata</code><a class="headerlink" href="#api.saml.configuration.model.SAMLConfiguration.non_federated_identity_provider_xml_metadata" title="Permalink to this definition">¶</a></dt>
+<dd><p>Contains configuration metadata</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="api.saml.configuration.model.SAMLConfiguration.service_provider_debug_mode">
+<code class="descname">service_provider_debug_mode</code><a class="headerlink" href="#api.saml.configuration.model.SAMLConfiguration.service_provider_debug_mode" title="Permalink to this definition">¶</a></dt>
+<dd><p>Contains configuration metadata</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="api.saml.configuration.model.SAMLConfiguration.service_provider_private_key">
+<code class="descname">service_provider_private_key</code><a class="headerlink" href="#api.saml.configuration.model.SAMLConfiguration.service_provider_private_key" title="Permalink to this definition">¶</a></dt>
+<dd><p>Contains configuration metadata</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="api.saml.configuration.model.SAMLConfiguration.service_provider_strict_mode">
+<code class="descname">service_provider_strict_mode</code><a class="headerlink" href="#api.saml.configuration.model.SAMLConfiguration.service_provider_strict_mode" title="Permalink to this definition">¶</a></dt>
+<dd><p>Contains configuration metadata</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="api.saml.configuration.model.SAMLConfiguration.service_provider_xml_metadata">
+<code class="descname">service_provider_xml_metadata</code><a class="headerlink" href="#api.saml.configuration.model.SAMLConfiguration.service_provider_xml_metadata" title="Permalink to this definition">¶</a></dt>
+<dd><p>Contains configuration metadata</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="api.saml.configuration.model.SAMLConfiguration.session_lifetime">
+<code class="descname">session_lifetime</code><a class="headerlink" href="#api.saml.configuration.model.SAMLConfiguration.session_lifetime" title="Permalink to this definition">¶</a></dt>
+<dd><p>Contains configuration metadata</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="exception">
+<dt id="api.saml.configuration.model.SAMLConfigurationError">
+<em class="property">exception </em><code class="descclassname">api.saml.configuration.model.</code><code class="descname">SAMLConfigurationError</code><span class="sig-paren">(</span><em>message=None</em>, <em>inner_exception=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/configuration/model.html#SAMLConfigurationError"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.configuration.model.SAMLConfigurationError" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.html#core.exceptions.BaseError" title="core.exceptions.BaseError"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.exceptions.BaseError</span></code></a></p>
+<p>Raised in the case of any configuration errors.</p>
+</dd></dl>
+
+<dl class="class">
+<dt id="api.saml.configuration.model.SAMLConfigurationFactory">
+<em class="property">class </em><code class="descclassname">api.saml.configuration.model.</code><code class="descname">SAMLConfigurationFactory</code><span class="sig-paren">(</span><em>parser</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/configuration/model.html#SAMLConfigurationFactory"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.configuration.model.SAMLConfigurationFactory" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.model.html#core.model.configuration.ConfigurationFactory" title="core.model.configuration.ConfigurationFactory"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.model.configuration.ConfigurationFactory</span></code></a></p>
+<p>Factory creating new instances of SAMLConfiguration class.</p>
+<dl class="method">
+<dt id="api.saml.configuration.model.SAMLConfigurationFactory.create">
+<code class="descname">create</code><span class="sig-paren">(</span><em>**kwds</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/configuration/model.html#SAMLConfigurationFactory.create"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.configuration.model.SAMLConfigurationFactory.create" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create a new instance of SAMLConfiguration.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>configuration_storage</strong> (<a class="reference internal" href="core.model.html#core.model.configuration.ConfigurationStorage" title="core.model.configuration.ConfigurationStorage"><em>ConfigurationStorage</em></a>) – ConfigurationStorage object</li>
+<li><strong>db</strong> (<em>sqlalchemy.orm.session.Session</em>) – Database session</li>
+<li><strong>configuration_grouping_class</strong> (<em>Type</em><em>[</em><a class="reference internal" href="core.model.html#core.model.configuration.ConfigurationGrouping" title="core.model.configuration.ConfigurationGrouping"><em>ConfigurationGrouping</em></a><em>]</em>) – Configuration bucket’s class</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">SAMLConfiguration object</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last"><a class="reference internal" href="#api.saml.configuration.model.SAMLConfiguration" title="api.saml.configuration.model.SAMLConfiguration">SAMLConfiguration</a></p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="api.saml.configuration.model.SAMLOneLoginConfiguration">
+<em class="property">class </em><code class="descclassname">api.saml.configuration.model.</code><code class="descname">SAMLOneLoginConfiguration</code><span class="sig-paren">(</span><em>configuration</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/configuration/model.html#SAMLOneLoginConfiguration"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.configuration.model.SAMLOneLoginConfiguration" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Converts metadata objects to the OneLogin’s SAML Toolkit format</p>
+<dl class="attribute">
+<dt id="api.saml.configuration.model.SAMLOneLoginConfiguration.ASSERTION_CONSUMER_SERVICE">
+<code class="descname">ASSERTION_CONSUMER_SERVICE</code><em class="property"> = 'assertionConsumerService'</em><a class="headerlink" href="#api.saml.configuration.model.SAMLOneLoginConfiguration.ASSERTION_CONSUMER_SERVICE" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.saml.configuration.model.SAMLOneLoginConfiguration.AUTHN_REQUESTS_SIGNED">
+<code class="descname">AUTHN_REQUESTS_SIGNED</code><em class="property"> = 'authnRequestsSigned'</em><a class="headerlink" href="#api.saml.configuration.model.SAMLOneLoginConfiguration.AUTHN_REQUESTS_SIGNED" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.saml.configuration.model.SAMLOneLoginConfiguration.BINDING">
+<code class="descname">BINDING</code><em class="property"> = 'binding'</em><a class="headerlink" href="#api.saml.configuration.model.SAMLOneLoginConfiguration.BINDING" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.saml.configuration.model.SAMLOneLoginConfiguration.DEBUG">
+<code class="descname">DEBUG</code><em class="property"> = 'debug'</em><a class="headerlink" href="#api.saml.configuration.model.SAMLOneLoginConfiguration.DEBUG" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.saml.configuration.model.SAMLOneLoginConfiguration.ENCRYPTION">
+<code class="descname">ENCRYPTION</code><em class="property"> = 'encryption'</em><a class="headerlink" href="#api.saml.configuration.model.SAMLOneLoginConfiguration.ENCRYPTION" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.saml.configuration.model.SAMLOneLoginConfiguration.ENTITY_ID">
+<code class="descname">ENTITY_ID</code><em class="property"> = 'entityId'</em><a class="headerlink" href="#api.saml.configuration.model.SAMLOneLoginConfiguration.ENTITY_ID" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.saml.configuration.model.SAMLOneLoginConfiguration.IDP">
+<code class="descname">IDP</code><em class="property"> = 'idp'</em><a class="headerlink" href="#api.saml.configuration.model.SAMLOneLoginConfiguration.IDP" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.saml.configuration.model.SAMLOneLoginConfiguration.NAME_ID_FORMAT">
+<code class="descname">NAME_ID_FORMAT</code><em class="property"> = 'NameIDFormat'</em><a class="headerlink" href="#api.saml.configuration.model.SAMLOneLoginConfiguration.NAME_ID_FORMAT" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.saml.configuration.model.SAMLOneLoginConfiguration.PRIVATE_KEY">
+<code class="descname">PRIVATE_KEY</code><em class="property"> = 'privateKey'</em><a class="headerlink" href="#api.saml.configuration.model.SAMLOneLoginConfiguration.PRIVATE_KEY" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.saml.configuration.model.SAMLOneLoginConfiguration.SECURITY">
+<code class="descname">SECURITY</code><em class="property"> = 'security'</em><a class="headerlink" href="#api.saml.configuration.model.SAMLOneLoginConfiguration.SECURITY" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.saml.configuration.model.SAMLOneLoginConfiguration.SIGNING">
+<code class="descname">SIGNING</code><em class="property"> = 'signing'</em><a class="headerlink" href="#api.saml.configuration.model.SAMLOneLoginConfiguration.SIGNING" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.saml.configuration.model.SAMLOneLoginConfiguration.SINGLE_SIGN_ON_SERVICE">
+<code class="descname">SINGLE_SIGN_ON_SERVICE</code><em class="property"> = 'singleSignOnService'</em><a class="headerlink" href="#api.saml.configuration.model.SAMLOneLoginConfiguration.SINGLE_SIGN_ON_SERVICE" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.saml.configuration.model.SAMLOneLoginConfiguration.SP">
+<code class="descname">SP</code><em class="property"> = 'sp'</em><a class="headerlink" href="#api.saml.configuration.model.SAMLOneLoginConfiguration.SP" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.saml.configuration.model.SAMLOneLoginConfiguration.STRICT">
+<code class="descname">STRICT</code><em class="property"> = 'strict'</em><a class="headerlink" href="#api.saml.configuration.model.SAMLOneLoginConfiguration.STRICT" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.saml.configuration.model.SAMLOneLoginConfiguration.URL">
+<code class="descname">URL</code><em class="property"> = 'url'</em><a class="headerlink" href="#api.saml.configuration.model.SAMLOneLoginConfiguration.URL" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.saml.configuration.model.SAMLOneLoginConfiguration.X509_CERT">
+<code class="descname">X509_CERT</code><em class="property"> = 'x509cert'</em><a class="headerlink" href="#api.saml.configuration.model.SAMLOneLoginConfiguration.X509_CERT" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.saml.configuration.model.SAMLOneLoginConfiguration.X509_CERT_MULTI">
+<code class="descname">X509_CERT_MULTI</code><em class="property"> = 'x509certMulti'</em><a class="headerlink" href="#api.saml.configuration.model.SAMLOneLoginConfiguration.X509_CERT_MULTI" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.saml.configuration.model.SAMLOneLoginConfiguration.configuration">
+<code class="descname">configuration</code><a class="headerlink" href="#api.saml.configuration.model.SAMLOneLoginConfiguration.configuration" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns original configuration</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Original configuration</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference internal" href="#api.saml.configuration.model.SAMLConfiguration" title="api.saml.configuration.model.SAMLConfiguration">api.saml.configuration.model.SAMLConfiguration</a></td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="api.saml.configuration.model.SAMLOneLoginConfiguration.get_identity_provider_settings">
+<code class="descname">get_identity_provider_settings</code><span class="sig-paren">(</span><em>db</em>, <em>idp_entity_id</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/configuration/model.html#SAMLOneLoginConfiguration.get_identity_provider_settings"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.configuration.model.SAMLOneLoginConfiguration.get_identity_provider_settings" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a dictionary containing identity provider’s settings in a OneLogin’s SAML Toolkit format</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>db</strong> (<em>sqlalchemy.orm.session.Session</em>) – Database session</li>
+<li><strong>idp_entity_id</strong> (<em>string</em>) – IdP’s entity ID</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">Dictionary containing identity provider’s settings in a OneLogin’s SAML Toolkit format</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">Dict</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="api.saml.configuration.model.SAMLOneLoginConfiguration.get_service_provider_settings">
+<code class="descname">get_service_provider_settings</code><span class="sig-paren">(</span><em>db</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/configuration/model.html#SAMLOneLoginConfiguration.get_service_provider_settings"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.configuration.model.SAMLOneLoginConfiguration.get_service_provider_settings" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a dictionary containing service provider’s settings in the OneLogin’s SAML Toolkit format</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>db</strong> (<em>sqlalchemy.orm.session.Session</em>) – Database session</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">Dictionary containing service provider’s settings in the OneLogin’s SAML Toolkit format</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body">Dict</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="api.saml.configuration.model.SAMLOneLoginConfiguration.get_settings">
+<code class="descname">get_settings</code><span class="sig-paren">(</span><em>db</em>, <em>idp_entity_id</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/configuration/model.html#SAMLOneLoginConfiguration.get_settings"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.configuration.model.SAMLOneLoginConfiguration.get_settings" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a dictionary containing SP’s and IdP’s settings in the OneLogin’s SAML Toolkit format</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>db</strong> (<em>sqlalchemy.orm.session.Session</em>) – Database session</li>
+<li><strong>idp_entity_id</strong> (<em>string</em>) – IdP’s entity ID</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">Dictionary containing SP’s and IdP’s settings in the OneLogin’s SAML Toolkit format</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">Dict</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="api.saml.configuration.model.SAMLSettings">
+<em class="property">class </em><code class="descclassname">api.saml.configuration.model.</code><code class="descname">SAMLSettings</code><a class="reference internal" href="_modules/api/saml/configuration/model.html#SAMLSettings"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.configuration.model.SAMLSettings" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></p>
+<p>Converts SAMLConfiguration to SETTINGS-compatible dictionary.</p>
+<p>Once a database session becomes available,
+this class updates SAMLConfiguration with a list of available federated IdPs.</p>
+</dd></dl>
+
+</div>
+<div class="section" id="module-api.saml.configuration.validator">
+<span id="api-saml-configuration-validator-module"></span><h2>api.saml.configuration.validator module<a class="headerlink" href="#module-api.saml.configuration.validator" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="api.saml.configuration.validator.ProviderType">
+<em class="property">class </em><code class="descclassname">api.saml.configuration.validator.</code><code class="descname">ProviderType</code><a class="reference internal" href="_modules/api/saml/configuration/validator.html#ProviderType"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.configuration.validator.ProviderType" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">enum.Enum</span></code></p>
+<dl class="attribute">
+<dt id="api.saml.configuration.validator.ProviderType.IdentityProvider">
+<code class="descname">IdentityProvider</code><em class="property"> = 'IdP'</em><a class="headerlink" href="#api.saml.configuration.validator.ProviderType.IdentityProvider" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.saml.configuration.validator.ProviderType.ServiceProvider">
+<code class="descname">ServiceProvider</code><em class="property"> = 'SP'</em><a class="headerlink" href="#api.saml.configuration.validator.ProviderType.ServiceProvider" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="api.saml.configuration.validator.SAMLSettingsValidator">
+<em class="property">class </em><code class="descclassname">api.saml.configuration.validator.</code><code class="descname">SAMLSettingsValidator</code><span class="sig-paren">(</span><em>metadata_parser</em>, <em>subject_filter</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/configuration/validator.html#SAMLSettingsValidator"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.configuration.validator.SAMLSettingsValidator" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="api.admin.html#api.admin.validator.Validator" title="api.admin.validator.Validator"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.admin.validator.Validator</span></code></a></p>
+<p>Validates SAMLAuthenticationProvider’s settings submitted by a user</p>
+<dl class="method">
+<dt id="api.saml.configuration.validator.SAMLSettingsValidator.validate">
+<code class="descname">validate</code><span class="sig-paren">(</span><em>settings</em>, <em>content</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/configuration/validator.html#SAMLSettingsValidator.validate"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.configuration.validator.SAMLSettingsValidator.validate" title="Permalink to this definition">¶</a></dt>
+<dd><p>Validates provider’s setting values submitted by the user</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>settings</strong> (<em>Optional</em><em>[</em><a class="reference internal" href="core.util.html#core.util.problem_detail.ProblemDetail" title="core.util.problem_detail.ProblemDetail"><em>ProblemDetail</em></a><em>]</em>) – Dictionary containing provider’s settings (SAMLAuthenticationProvider.SETTINGS)</li>
+<li><strong>content</strong> (<em>werkzeug.datastructures.MultiDict</em>) – Dictionary containing submitted form’s metadata</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">ProblemDetail in the case of any errors, None if validation succeeded</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">Optional[<a class="reference internal" href="core.util.html#core.util.problem_detail.ProblemDetail" title="core.util.problem_detail.ProblemDetail">core.util.problem_detail.ProblemDetail</a>]</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-api.saml.configuration">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-api.saml.configuration" title="Permalink to this headline">¶</a></h2>
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">Library Simplified Circulation Manager</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="modules.html">circulation</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="api.html">api package</a></li>
+<li class="toctree-l2"><a class="reference internal" href="app.html">app module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="core.html">core package</a></li>
+<li class="toctree-l2"><a class="reference internal" href="scripts.html">scripts module</a></li>
+</ul>
+</li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+  <li><a href="modules.html">circulation</a><ul>
+  <li><a href="api.html">api package</a><ul>
+  <li><a href="api.saml.html">api.saml package</a><ul>
+      <li>Previous: <a href="api.saml.html" title="previous chapter">api.saml package</a></li>
+      <li>Next: <a href="api.saml.metadata.html" title="next chapter">api.saml.metadata package</a></li>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="_sources/api.saml.configuration.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

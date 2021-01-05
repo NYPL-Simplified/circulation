@@ -33,46 +33,40 @@
           <div class="body" role="main">
             
   <h1>Source code for core.monitor</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
-<span class="kn">import</span> <span class="nn">datetime</span>
-<span class="kn">import</span> <span class="nn">os</span>
+<span></span><span class="kn">import</span> <span class="nn">datetime</span>
 <span class="kn">import</span> <span class="nn">logging</span>
-<span class="kn">import</span> <span class="nn">time</span>
 <span class="kn">import</span> <span class="nn">traceback</span>
+
 <span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="kn">import</span> <span class="n">defer</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.sql</span> <span class="kn">import</span> <span class="n">select</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.sql.functions</span> <span class="kn">import</span> <span class="n">func</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy.sql.expression</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">or_</span><span class="p">,</span>
     <span class="n">and_</span><span class="p">,</span>
-    <span class="n">outerjoin</span><span class="p">,</span>
+    <span class="n">or_</span><span class="p">,</span>
 <span class="p">)</span>
 
 <span class="kn">import</span> <span class="nn">log</span> <span class="c1"># This sets the appropriate log format and level.</span>
 <span class="kn">from</span> <span class="nn">config</span> <span class="kn">import</span> <span class="n">Configuration</span>
-<span class="kn">from</span> <span class="nn">coverage</span> <span class="kn">import</span> <span class="n">CoverageFailure</span>
 <span class="kn">from</span> <span class="nn">metadata_layer</span> <span class="kn">import</span> <span class="n">TimestampData</span>
 <span class="kn">from</span> <span class="nn">model</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">get_one</span><span class="p">,</span>
-    <span class="n">get_one_or_create</span><span class="p">,</span>
     <span class="n">CachedFeed</span><span class="p">,</span>
     <span class="n">CirculationEvent</span><span class="p">,</span>
     <span class="n">Collection</span><span class="p">,</span>
     <span class="n">CollectionMissing</span><span class="p">,</span>
     <span class="n">CoverageRecord</span><span class="p">,</span>
     <span class="n">Credential</span><span class="p">,</span>
-    <span class="n">Edition</span><span class="p">,</span>
-    <span class="n">ExternalIntegration</span><span class="p">,</span>
     <span class="n">CustomListEntry</span><span class="p">,</span>
+    <span class="n">Edition</span><span class="p">,</span>
     <span class="n">Identifier</span><span class="p">,</span>
     <span class="n">LicensePool</span><span class="p">,</span>
+    <span class="n">Measurement</span><span class="p">,</span>
     <span class="n">Patron</span><span class="p">,</span>
     <span class="n">PresentationCalculationPolicy</span><span class="p">,</span>
     <span class="n">Subject</span><span class="p">,</span>
     <span class="n">Timestamp</span><span class="p">,</span>
     <span class="n">Work</span><span class="p">,</span>
-    <span class="n">WorkCoverageRecord</span><span class="p">,</span>
+    <span class="n">get_one</span><span class="p">,</span>
+    <span class="n">get_one_or_create</span><span class="p">,</span>
 <span class="p">)</span>
+<span class="kn">from</span> <span class="nn">model.configuration</span> <span class="kn">import</span> <span class="n">ConfigurationSetting</span>
 
 
 <div class="viewcode-block" id="Monitor"><a class="viewcode-back" href="../../core.html#core.monitor.Monitor">[docs]</a><span class="k">class</span> <span class="nc">Monitor</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
@@ -229,11 +223,11 @@
                 <span class="c1"># This will be treated the same as an unhandled</span>
                 <span class="c1"># exception, below.</span>
                 <span class="n">exception</span> <span class="o">=</span> <span class="n">new_timestamp</span><span class="o">.</span><span class="n">exception</span>
-        <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
             <span class="n">this_run_finish</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span>
                 <span class="s2">&quot;Error running </span><span class="si">%s</span><span class="s2"> monitor. Timestamp will not be updated.&quot;</span><span class="p">,</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">service_name</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="n">e</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">service_name</span>
             <span class="p">)</span>
             <span class="n">exception</span> <span class="o">=</span> <span class="n">traceback</span><span class="o">.</span><span class="n">format_exc</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">exception</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -806,10 +800,10 @@
     <span class="n">REGISTRY</span> <span class="o">=</span> <span class="p">[]</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">SERVICE_NAME</span> <span class="o">=</span> <span class="s2">&quot;Reaper for </span><span class="si">%s</span><span class="s2">.</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">MODEL_CLASS</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">TIMESTAMP_FIELD</span>
-        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">SERVICE_NAME</span> <span class="o">=</span> <span class="s2">&quot;Reaper for </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">MODEL_CLASS</span><span class="o">.</span><span class="vm">__name__</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">TIMESTAMP_FIELD</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">SERVICE_NAME</span> <span class="o">+=</span> <span class="s2">&quot;.</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">TIMESTAMP_FIELD</span>
+
         <span class="nb">super</span><span class="p">(</span><span class="n">ReaperMonitor</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
 
     <span class="nd">@property</span>
@@ -934,6 +928,29 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">collection</span><span class="o">.</span><span class="n">delete</span><span class="p">()</span></div></div>
 <span class="n">ReaperMonitor</span><span class="o">.</span><span class="n">REGISTRY</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">CollectionReaper</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="MeasurementReaper"><a class="viewcode-back" href="../../core.html#core.monitor.MeasurementReaper">[docs]</a><span class="k">class</span> <span class="nc">MeasurementReaper</span><span class="p">(</span><span class="n">ReaperMonitor</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Remove measurements that are not the most recent&quot;&quot;&quot;</span>
+    <span class="n">MODEL_CLASS</span> <span class="o">=</span> <span class="n">Measurement</span>
+
+<div class="viewcode-block" id="MeasurementReaper.run"><a class="viewcode-back" href="../../core.html#core.monitor.MeasurementReaper.run">[docs]</a>    <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">enabled</span> <span class="o">=</span> <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">sitewide</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">Configuration</span><span class="o">.</span><span class="n">MEASUREMENT_REAPER</span><span class="p">)</span><span class="o">.</span><span class="n">bool_value</span>
+        <span class="k">if</span> <span class="n">enabled</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">enabled</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">{}</span><span class="s2"> skipped because it is disabled in configuration.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">service_name</span><span class="p">))</span>
+            <span class="k">return</span>
+        <span class="k">return</span> <span class="nb">super</span><span class="p">(</span><span class="n">ReaperMonitor</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">run</span><span class="p">()</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">where_clause</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">Measurement</span><span class="o">.</span><span class="n">is_most_recent</span> <span class="o">==</span> <span class="kc">False</span>
+
+<div class="viewcode-block" id="MeasurementReaper.run_once"><a class="viewcode-back" href="../../core.html#core.monitor.MeasurementReaper.run_once">[docs]</a>    <span class="k">def</span> <span class="nf">run_once</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">rows_deleted</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="p">()</span><span class="o">.</span><span class="n">delete</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">TimestampData</span><span class="p">(</span><span class="n">achievements</span><span class="o">=</span><span class="sa">u</span><span class="s2">&quot;Items deleted: </span><span class="si">%d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">rows_deleted</span><span class="p">)</span></div></div>
+
+<span class="n">ReaperMonitor</span><span class="o">.</span><span class="n">REGISTRY</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">MeasurementReaper</span><span class="p">)</span>
 
 
 <div class="viewcode-block" id="ScrubberMonitor"><a class="viewcode-back" href="../../core.html#core.monitor.ScrubberMonitor">[docs]</a><span class="k">class</span> <span class="nc">ScrubberMonitor</span><span class="p">(</span><span class="n">ReaperMonitor</span><span class="p">):</span>

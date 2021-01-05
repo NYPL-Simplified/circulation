@@ -1,0 +1,734 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>api.saml.configuration.model &#8212; Library Simplified Circulation Manager  documentation</title>
+    <link rel="stylesheet" href="../../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../../" src="../../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for api.saml.configuration.model</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">from</span> <span class="nn">threading</span> <span class="kn">import</span> <span class="n">Lock</span>
+
+<span class="kn">from</span> <span class="nn">contextlib2</span> <span class="kn">import</span> <span class="n">contextmanager</span>
+<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
+<span class="kn">from</span> <span class="nn">onelogin.saml2.settings</span> <span class="kn">import</span> <span class="n">OneLogin_Saml2_Settings</span>
+
+<span class="kn">from</span> <span class="nn">api.saml.metadata.federations</span> <span class="kn">import</span> <span class="n">incommon</span>
+<span class="kn">from</span> <span class="nn">api.saml.metadata.federations.model</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">SAMLFederatedIdentityProvider</span><span class="p">,</span>
+    <span class="n">SAMLFederation</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">api.saml.metadata.model</span> <span class="kn">import</span> <span class="n">SAMLServiceProviderMetadata</span>
+<span class="kn">from</span> <span class="nn">api.saml.metadata.parser</span> <span class="kn">import</span> <span class="n">SAMLMetadataParser</span>
+<span class="kn">from</span> <span class="nn">core.exceptions</span> <span class="kn">import</span> <span class="n">BaseError</span>
+<span class="kn">from</span> <span class="nn">core.model.configuration</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">ConfigurationAttributeType</span><span class="p">,</span>
+    <span class="n">ConfigurationFactory</span><span class="p">,</span>
+    <span class="n">ConfigurationGrouping</span><span class="p">,</span>
+    <span class="n">ConfigurationMetadata</span><span class="p">,</span>
+    <span class="n">ConfigurationOption</span><span class="p">,</span>
+<span class="p">)</span>
+
+
+<div class="viewcode-block" id="SAMLConfigurationError"><a class="viewcode-back" href="../../../../api.saml.configuration.html#api.saml.configuration.model.SAMLConfigurationError">[docs]</a><span class="k">class</span> <span class="nc">SAMLConfigurationError</span><span class="p">(</span><span class="n">BaseError</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Raised in the case of any configuration errors.&quot;&quot;&quot;</span></div>
+
+
+<div class="viewcode-block" id="SAMLConfiguration"><a class="viewcode-back" href="../../../../api.saml.configuration.html#api.saml.configuration.model.SAMLConfiguration">[docs]</a><span class="k">class</span> <span class="nc">SAMLConfiguration</span><span class="p">(</span><span class="n">ConfigurationGrouping</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Contains SP and IdP settings.&quot;&quot;&quot;</span>
+
+    <span class="n">service_provider_xml_metadata</span> <span class="o">=</span> <span class="n">ConfigurationMetadata</span><span class="p">(</span>
+        <span class="n">key</span><span class="o">=</span><span class="s2">&quot;sp_xml_metadata&quot;</span><span class="p">,</span>
+        <span class="n">label</span><span class="o">=</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;Service Provider&#39;s XML Metadata&quot;</span><span class="p">),</span>
+        <span class="n">description</span><span class="o">=</span><span class="n">_</span><span class="p">(</span>
+            <span class="s2">&quot;SAML metadata of the Circulation Manager&#39;s Service Provider in an XML format. &quot;</span>
+            <span class="s2">&quot;MUST contain exactly one SPSSODescriptor tag with at least one &quot;</span>
+            <span class="s2">&quot;AssertionConsumerService tag with Binding attribute set to &quot;</span>
+            <span class="s2">&quot;urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST.&quot;</span>
+        <span class="p">),</span>
+        <span class="nb">type</span><span class="o">=</span><span class="n">ConfigurationAttributeType</span><span class="o">.</span><span class="n">TEXTAREA</span><span class="p">,</span>
+        <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">service_provider_private_key</span> <span class="o">=</span> <span class="n">ConfigurationMetadata</span><span class="p">(</span>
+        <span class="n">key</span><span class="o">=</span><span class="s2">&quot;sp_private_key&quot;</span><span class="p">,</span>
+        <span class="n">label</span><span class="o">=</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;Service Provider&#39;s Private Key&quot;</span><span class="p">),</span>
+        <span class="n">description</span><span class="o">=</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;Private key used for encrypting SAML requests.&quot;</span><span class="p">),</span>
+        <span class="nb">type</span><span class="o">=</span><span class="n">ConfigurationAttributeType</span><span class="o">.</span><span class="n">TEXTAREA</span><span class="p">,</span>
+        <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">federated_identity_provider_entity_ids</span> <span class="o">=</span> <span class="n">ConfigurationMetadata</span><span class="p">(</span>
+        <span class="n">key</span><span class="o">=</span><span class="s2">&quot;saml_federated_idp_entity_ids&quot;</span><span class="p">,</span>
+        <span class="n">label</span><span class="o">=</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;List of Federated IdPs&quot;</span><span class="p">),</span>
+        <span class="n">description</span><span class="o">=</span><span class="n">_</span><span class="p">(</span>
+            <span class="s2">&quot;List of federated (for example, from InCommon Federation) IdPs supported by this authentication provider. &quot;</span>
+            <span class="s2">&quot;Try to type the name of the IdP to find it in the list.&quot;</span>
+        <span class="p">),</span>
+        <span class="nb">type</span><span class="o">=</span><span class="n">ConfigurationAttributeType</span><span class="o">.</span><span class="n">MENU</span><span class="p">,</span>
+        <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">options</span><span class="o">=</span><span class="p">[],</span>
+        <span class="n">default</span><span class="o">=</span><span class="p">[],</span>
+        <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;narrow&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">non_federated_identity_provider_xml_metadata</span> <span class="o">=</span> <span class="n">ConfigurationMetadata</span><span class="p">(</span>
+        <span class="n">key</span><span class="o">=</span><span class="s2">&quot;idp_xml_metadata&quot;</span><span class="p">,</span>
+        <span class="n">label</span><span class="o">=</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;Identity Provider&#39;s XML metadata&quot;</span><span class="p">),</span>
+        <span class="n">description</span><span class="o">=</span><span class="n">_</span><span class="p">(</span>
+            <span class="s2">&quot;SAML metadata of Identity Providers in an XML format. &quot;</span>
+            <span class="s2">&quot;MAY contain multiple IDPSSODescriptor tags but each of them MUST contain &quot;</span>
+            <span class="s2">&quot;at least one SingleSignOnService tag with Binding attribute set to &quot;</span>
+            <span class="s2">&quot;urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect.&quot;</span>
+        <span class="p">),</span>
+        <span class="nb">type</span><span class="o">=</span><span class="n">ConfigurationAttributeType</span><span class="o">.</span><span class="n">TEXTAREA</span><span class="p">,</span>
+        <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">session_lifetime</span> <span class="o">=</span> <span class="n">ConfigurationMetadata</span><span class="p">(</span>
+        <span class="n">key</span><span class="o">=</span><span class="s2">&quot;saml_session_lifetime&quot;</span><span class="p">,</span>
+        <span class="n">label</span><span class="o">=</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;Session Lifetime&quot;</span><span class="p">),</span>
+        <span class="n">description</span><span class="o">=</span><span class="n">_</span><span class="p">(</span>
+            <span class="s2">&quot;This configuration setting determines how long &quot;</span>
+            <span class="s2">&quot;a session created by the SAML authentication provider will live in days. &quot;</span>
+            <span class="s2">&quot;By default it&#39;s empty meaning that the lifetime of the Circulation Manager&#39;s session &quot;</span>
+            <span class="s2">&quot;is exactly the same as the lifetime of the IdP&#39;s session. &quot;</span>
+            <span class="s2">&quot;Setting this value to a specific number will override this behaviour.&quot;</span>
+            <span class="s2">&quot;&lt;br&gt;&quot;</span>
+            <span class="s2">&quot;NOTE: This setting affects the session&#39;s lifetime only Circulation Manager&#39;s side. &quot;</span>
+            <span class="s2">&quot;Accessing content protected by SAML will still be governed by the IdP and patrons &quot;</span>
+            <span class="s2">&quot;will have to reauthenticate each time the IdP&#39;s session expires.&quot;</span>
+        <span class="p">),</span>
+        <span class="nb">type</span><span class="o">=</span><span class="n">ConfigurationAttributeType</span><span class="o">.</span><span class="n">NUMBER</span><span class="p">,</span>
+        <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">filter_expression</span> <span class="o">=</span> <span class="n">ConfigurationMetadata</span><span class="p">(</span>
+        <span class="n">key</span><span class="o">=</span><span class="s2">&quot;saml_filter_expression&quot;</span><span class="p">,</span>
+        <span class="n">label</span><span class="o">=</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;Filter Expression&quot;</span><span class="p">),</span>
+        <span class="n">description</span><span class="o">=</span><span class="n">_</span><span class="p">(</span>
+            <span class="s2">&quot;Python expression used for filtering out patrons by their SAML attributes.&quot;</span>
+            <span class="s2">&quot;&lt;br&gt;&quot;</span>
+            <span class="s2">&quot;&lt;br&gt;&quot;</span>
+            <span class="s1">&#39;For example, if you want to authenticate using SAML only patrons having &quot;eresources&quot; &#39;</span>
+            <span class="s1">&#39;as the value of their &quot;eduPersonEntitlement&quot; then you need to use the following expression:&#39;</span>
+            <span class="s2">&quot;&lt;br&gt;&quot;</span>
+            <span class="s2">&quot;&lt;pre&gt;&quot;</span>
+            <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">&quot;urn:mace:nyu.edu:entl:lib:eresources&quot; == subject.attribute_statement.attributes[&quot;eduPersonEntitlement&quot;].values[0]</span>
+<span class="sd">&quot;&quot;&quot;</span>
+            <span class="s2">&quot;&lt;/pre&gt;&quot;</span>
+            <span class="s2">&quot;&lt;br&gt;&quot;</span>
+            <span class="s1">&#39;If &quot;eduPersonEntitlement&quot; can have multiple values, you can use the following expression:&#39;</span>
+            <span class="s2">&quot;&lt;br&gt;&quot;</span>
+            <span class="s2">&quot;&lt;pre&gt;&quot;</span>
+            <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">&quot;urn:mace:nyu.edu:entl:lib:eresources&quot; in subject.attribute_statement.attributes[&quot;eduPersonEntitlement&quot;].values</span>
+<span class="sd">&quot;&quot;&quot;</span>
+            <span class="s2">&quot;&lt;/pre&gt;&quot;</span>
+        <span class="p">),</span>
+        <span class="nb">type</span><span class="o">=</span><span class="n">ConfigurationAttributeType</span><span class="o">.</span><span class="n">TEXTAREA</span><span class="p">,</span>
+        <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">service_provider_strict_mode</span> <span class="o">=</span> <span class="n">ConfigurationMetadata</span><span class="p">(</span>
+        <span class="n">key</span><span class="o">=</span><span class="s2">&quot;strict&quot;</span><span class="p">,</span>
+        <span class="n">label</span><span class="o">=</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;Service Provider&#39;s Strict Mode&quot;</span><span class="p">),</span>
+        <span class="n">description</span><span class="o">=</span><span class="n">_</span><span class="p">(</span>
+            <span class="s2">&quot;If strict is 1, then the Python Toolkit will reject unsigned or unencrypted messages &quot;</span>
+            <span class="s2">&quot;if it expects them to be signed or encrypted. Also, it will reject the messages &quot;</span>
+            <span class="s2">&quot;if the SAML standard is not strictly followed.&quot;</span>
+        <span class="p">),</span>
+        <span class="nb">type</span><span class="o">=</span><span class="n">ConfigurationAttributeType</span><span class="o">.</span><span class="n">NUMBER</span><span class="p">,</span>
+        <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">service_provider_debug_mode</span> <span class="o">=</span> <span class="n">ConfigurationMetadata</span><span class="p">(</span>
+        <span class="n">key</span><span class="o">=</span><span class="s2">&quot;debug&quot;</span><span class="p">,</span>
+        <span class="n">label</span><span class="o">=</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;Service Provider&#39;s Debug Mode&quot;</span><span class="p">),</span>
+        <span class="n">description</span><span class="o">=</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;Enable debug mode (outputs errors).&quot;</span><span class="p">),</span>
+        <span class="nb">type</span><span class="o">=</span><span class="n">ConfigurationAttributeType</span><span class="o">.</span><span class="n">NUMBER</span><span class="p">,</span>
+        <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">IDP_DISPLAY_NAME_DEFAULT_TEMPLATE</span> <span class="o">=</span> <span class="s2">&quot;Identity Provider #</span><span class="si">{0}</span><span class="s2">&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">configuration_storage</span><span class="p">,</span> <span class="n">db</span><span class="p">,</span> <span class="n">metadata_parser</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Initializes a new instance of SAMLConfiguration class</span>
+
+<span class="sd">        :param configuration_storage: SAML configuration storage</span>
+<span class="sd">        :type configuration_storage: ConfigurationStorage</span>
+
+<span class="sd">        :param metadata_parser: SAML metadata parser</span>
+<span class="sd">        :type metadata_parser: SAMLMetadataParser</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">SAMLConfiguration</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">configuration_storage</span><span class="p">,</span> <span class="n">db</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_metadata_parser</span> <span class="o">=</span> <span class="n">metadata_parser</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_identity_providers</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_service_provider</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">def</span> <span class="nf">_get_federated_identity_providers</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">db</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return a list of federated IdPs corresponding to the entity IDs selected by the admin.</span>
+
+<span class="sd">        :param db: Database session</span>
+<span class="sd">        :type db: sqlalchemy.orm.session.Session</span>
+
+<span class="sd">        :return: List of SAMLFederatedIdP objects</span>
+<span class="sd">        :rtype: List[api.saml.metadata.federations.model.SAMLFederatedIdP]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">federated_identity_provider_entity_ids</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">[]</span>
+
+        <span class="n">federated_identity_provider_entity_ids</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">federated_identity_provider_entity_ids</span>
+        <span class="p">)</span>
+
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">SAMLFederatedIdentityProvider</span><span class="p">)</span>
+            <span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+                <span class="n">SAMLFederatedIdentityProvider</span><span class="o">.</span><span class="n">entity_id</span><span class="o">.</span><span class="n">in_</span><span class="p">(</span>
+                    <span class="n">federated_identity_provider_entity_ids</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+            <span class="o">.</span><span class="n">all</span><span class="p">()</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_load_identity_providers</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">db</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Loads IdP settings from the library&#39;s configuration settings</span>
+
+<span class="sd">        :param db: Database session</span>
+<span class="sd">        :type db: sqlalchemy.orm.session.Session</span>
+
+<span class="sd">        :return: List of IdentityProviderMetadata objects</span>
+<span class="sd">        :rtype: List[IdentityProviderMetadata]</span>
+
+<span class="sd">        :raise: SAMLParsingError</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">identity_providers</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">non_federated_identity_provider_xml_metadata</span><span class="p">:</span>
+            <span class="n">parsing_results</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metadata_parser</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">non_federated_identity_provider_xml_metadata</span>
+            <span class="p">)</span>
+            <span class="n">identity_providers</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="n">parsing_result</span><span class="o">.</span><span class="n">provider</span> <span class="k">for</span> <span class="n">parsing_result</span> <span class="ow">in</span> <span class="n">parsing_results</span>
+            <span class="p">]</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">federated_identity_provider_entity_ids</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">identity_provider_metadata</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_federated_identity_providers</span><span class="p">(</span>
+                <span class="n">db</span>
+            <span class="p">):</span>
+                <span class="n">parsing_results</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metadata_parser</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span>
+                    <span class="n">identity_provider_metadata</span><span class="o">.</span><span class="n">xml_metadata</span>
+                <span class="p">)</span>
+
+                <span class="k">for</span> <span class="n">parsing_result</span> <span class="ow">in</span> <span class="n">parsing_results</span><span class="p">:</span>
+                    <span class="n">identity_providers</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">parsing_result</span><span class="o">.</span><span class="n">provider</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">identity_providers</span>
+
+    <span class="k">def</span> <span class="nf">_load_service_provider</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">db</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Loads SP settings from the library&#39;s configuration settings</span>
+
+<span class="sd">        :param db: Database session</span>
+<span class="sd">        :type db: sqlalchemy.orm.session.Session</span>
+
+<span class="sd">        :return: SAMLServiceProviderMetadata object</span>
+<span class="sd">        :rtype: SAMLServiceProviderMetadata</span>
+
+<span class="sd">        :raise: SAMLParsingError</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">parsing_results</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metadata_parser</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">service_provider_xml_metadata</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">parsing_results</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">parsing_results</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">SAMLConfigurationError</span><span class="p">(</span>
+                <span class="n">_</span><span class="p">(</span><span class="s2">&quot;SAML Service Provider&#39;s configuration is not correct&quot;</span><span class="p">)</span>
+            <span class="p">)</span>
+
+        <span class="n">parsing_result</span> <span class="o">=</span> <span class="n">parsing_results</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">service_provider</span> <span class="o">=</span> <span class="n">parsing_result</span><span class="o">.</span><span class="n">provider</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">service_provider</span><span class="p">,</span> <span class="n">SAMLServiceProviderMetadata</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="n">SAMLConfigurationError</span><span class="p">(</span>
+                <span class="n">_</span><span class="p">(</span><span class="s2">&quot;SAML Service Provider&#39;s configuration is not correct&quot;</span><span class="p">)</span>
+            <span class="p">)</span>
+
+        <span class="n">service_provider</span><span class="o">.</span><span class="n">private_key</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">service_provider_private_key</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">service_provider_private_key</span>
+            <span class="k">else</span> <span class="s2">&quot;&quot;</span>
+        <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">service_provider</span>
+
+<div class="viewcode-block" id="SAMLConfiguration.get_identity_providers"><a class="viewcode-back" href="../../../../api.saml.configuration.html#api.saml.configuration.model.SAMLConfiguration.get_identity_providers">[docs]</a>    <span class="k">def</span> <span class="nf">get_identity_providers</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">db</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns identity providers</span>
+
+<span class="sd">        :param db: Database session</span>
+<span class="sd">        :type db: sqlalchemy.orm.session.Session</span>
+
+<span class="sd">        :return: List of IdentityProviderMetadata objects</span>
+<span class="sd">        :rtype: List[IdentityProviderMetadata]</span>
+
+<span class="sd">        :raise: ConfigurationError</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_identity_providers</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_identity_providers</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_load_identity_providers</span><span class="p">(</span><span class="n">db</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_identity_providers</span></div>
+
+<div class="viewcode-block" id="SAMLConfiguration.get_service_provider"><a class="viewcode-back" href="../../../../api.saml.configuration.html#api.saml.configuration.model.SAMLConfiguration.get_service_provider">[docs]</a>    <span class="k">def</span> <span class="nf">get_service_provider</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">db</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns service provider</span>
+
+<span class="sd">        :param db: Database session</span>
+<span class="sd">        :type db: sqlalchemy.orm.session.Session</span>
+
+<span class="sd">        :return: ServiceProviderMetadata object</span>
+<span class="sd">        :rtype: ServiceProviderMetadata</span>
+
+<span class="sd">        :raise: ConfigurationError</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_service_provider</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_service_provider</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_load_service_provider</span><span class="p">(</span><span class="n">db</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_service_provider</span></div></div>
+
+
+<div class="viewcode-block" id="SAMLSettings"><a class="viewcode-back" href="../../../../api.saml.configuration.html#api.saml.configuration.model.SAMLSettings">[docs]</a><span class="k">class</span> <span class="nc">SAMLSettings</span><span class="p">(</span><span class="nb">dict</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Converts SAMLConfiguration to SETTINGS-compatible dictionary.</span>
+
+<span class="sd">    Once a database session becomes available,</span>
+<span class="sd">    this class updates SAMLConfiguration with a list of available federated IdPs.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">_mutex</span> <span class="o">=</span> <span class="n">Lock</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="fm">__get__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">instance</span><span class="p">,</span> <span class="n">owner</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return a SETTINGS-compatible dictionary.</span>
+
+<span class="sd">        :return: SETTINGS-compatible dictionary</span>
+<span class="sd">        :rtype: Dict</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mutex</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">SAMLConfiguration</span><span class="o">.</span><span class="n">federated_identity_provider_entity_ids</span><span class="o">.</span><span class="n">options</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="kn">from</span> <span class="nn">api.app</span> <span class="kn">import</span> <span class="n">app</span>
+
+                    <span class="c1"># 1. Load all InCommon IdPs from the database</span>
+                    <span class="n">incommon_federated_identity_providers</span> <span class="o">=</span> <span class="p">(</span>
+                        <span class="n">app</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span>
+                            <span class="n">SAMLFederatedIdentityProvider</span><span class="o">.</span><span class="n">entity_id</span><span class="p">,</span>
+                            <span class="n">SAMLFederatedIdentityProvider</span><span class="o">.</span><span class="n">display_name</span><span class="p">,</span>
+                        <span class="p">)</span>
+                        <span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">SAMLFederation</span><span class="p">)</span>
+                        <span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">SAMLFederation</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="n">incommon</span><span class="o">.</span><span class="n">FEDERATION_TYPE</span><span class="p">)</span>
+                        <span class="o">.</span><span class="n">order_by</span><span class="p">(</span><span class="n">SAMLFederatedIdentityProvider</span><span class="o">.</span><span class="n">display_name</span><span class="p">)</span>
+                    <span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
+
+                    <span class="c1"># 2. Convert SAMLFederatedIdentityProvider objects to ConfigurationOption objects</span>
+                    <span class="n">configuration_options</span> <span class="o">=</span> <span class="p">[]</span>
+                    <span class="k">for</span> <span class="p">(</span>
+                        <span class="n">incommon_federated_identity_provider</span>
+                    <span class="p">)</span> <span class="ow">in</span> <span class="n">incommon_federated_identity_providers</span><span class="p">:</span>
+                        <span class="n">configuration_options</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                            <span class="n">ConfigurationOption</span><span class="p">(</span>
+                                <span class="n">key</span><span class="o">=</span><span class="n">incommon_federated_identity_provider</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+                                <span class="n">label</span><span class="o">=</span><span class="n">incommon_federated_identity_provider</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+                            <span class="p">)</span>
+                        <span class="p">)</span>
+
+                    <span class="c1"># 3. Update SAMLConfiguration.federated_identity_provider_entity_ids.options</span>
+                    <span class="n">SAMLConfiguration</span><span class="o">.</span><span class="n">federated_identity_provider_entity_ids</span> <span class="o">=</span> <span class="n">ConfigurationMetadata</span><span class="p">(</span>
+                        <span class="n">SAMLConfiguration</span><span class="o">.</span><span class="n">federated_identity_provider_entity_ids</span><span class="o">.</span><span class="n">key</span><span class="p">,</span>
+                        <span class="n">SAMLConfiguration</span><span class="o">.</span><span class="n">federated_identity_provider_entity_ids</span><span class="o">.</span><span class="n">label</span><span class="p">,</span>
+                        <span class="n">SAMLConfiguration</span><span class="o">.</span><span class="n">federated_identity_provider_entity_ids</span><span class="o">.</span><span class="n">description</span><span class="p">,</span>
+                        <span class="n">SAMLConfiguration</span><span class="o">.</span><span class="n">federated_identity_provider_entity_ids</span><span class="o">.</span><span class="n">type</span><span class="p">,</span>
+                        <span class="n">SAMLConfiguration</span><span class="o">.</span><span class="n">federated_identity_provider_entity_ids</span><span class="o">.</span><span class="n">required</span><span class="p">,</span>
+                        <span class="n">SAMLConfiguration</span><span class="o">.</span><span class="n">federated_identity_provider_entity_ids</span><span class="o">.</span><span class="n">default</span><span class="p">,</span>
+                        <span class="n">configuration_options</span><span class="p">,</span>
+                        <span class="n">SAMLConfiguration</span><span class="o">.</span><span class="n">federated_identity_provider_entity_ids</span><span class="o">.</span><span class="n">category</span><span class="p">,</span>
+                        <span class="n">SAMLConfiguration</span><span class="o">.</span><span class="n">federated_identity_provider_entity_ids</span><span class="o">.</span><span class="n">format</span><span class="p">,</span>
+                        <span class="n">SAMLConfiguration</span><span class="o">.</span><span class="n">federated_identity_provider_entity_ids</span><span class="o">.</span><span class="n">index</span><span class="p">,</span>
+                    <span class="p">)</span>
+                <span class="k">except</span><span class="p">:</span>
+                    <span class="k">pass</span>
+
+            <span class="c1"># 4. Return updated settings</span>
+            <span class="k">return</span> <span class="n">SAMLConfiguration</span><span class="o">.</span><span class="n">to_settings</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="SAMLConfigurationFactory"><a class="viewcode-back" href="../../../../api.saml.configuration.html#api.saml.configuration.model.SAMLConfigurationFactory">[docs]</a><span class="k">class</span> <span class="nc">SAMLConfigurationFactory</span><span class="p">(</span><span class="n">ConfigurationFactory</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Factory creating new instances of SAMLConfiguration class.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parser</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Initialize a new instance of SAMLConfigurationFactory class.</span>
+
+<span class="sd">        :param parser: SAMLMetadataParser object</span>
+<span class="sd">        :type parser: api.saml.metadata.parser.SAMLMetadataParser</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">parser</span><span class="p">,</span> <span class="n">SAMLMetadataParser</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Argument &#39;parser&#39; must be an instance of </span><span class="si">{0}</span><span class="s2"> class&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                    <span class="n">SAMLMetadataParser</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_parser</span> <span class="o">=</span> <span class="n">parser</span>
+
+<div class="viewcode-block" id="SAMLConfigurationFactory.create"><a class="viewcode-back" href="../../../../api.saml.configuration.html#api.saml.configuration.model.SAMLConfigurationFactory.create">[docs]</a>    <span class="nd">@contextmanager</span>
+    <span class="k">def</span> <span class="nf">create</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">configuration_storage</span><span class="p">,</span> <span class="n">db</span><span class="p">,</span> <span class="n">configuration_grouping_class</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create a new instance of SAMLConfiguration.</span>
+
+<span class="sd">        :param configuration_storage: ConfigurationStorage object</span>
+<span class="sd">        :type configuration_storage: ConfigurationStorage</span>
+
+<span class="sd">        :param db: Database session</span>
+<span class="sd">        :type db: sqlalchemy.orm.session.Session</span>
+
+<span class="sd">        :param configuration_grouping_class: Configuration bucket&#39;s class</span>
+<span class="sd">        :type configuration_grouping_class: Type[ConfigurationGrouping]</span>
+
+<span class="sd">        :return: SAMLConfiguration object</span>
+<span class="sd">        :rtype: SAMLConfiguration</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">issubclass</span><span class="p">(</span><span class="n">configuration_grouping_class</span><span class="p">,</span> <span class="n">SAMLConfiguration</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Argument &#39;configuration_grouping_class&#39; must be a subclass of </span><span class="si">{0}</span><span class="s2"> class&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                    <span class="n">SAMLConfiguration</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+
+        <span class="k">with</span> <span class="n">configuration_grouping_class</span><span class="p">(</span>
+            <span class="n">configuration_storage</span><span class="p">,</span> <span class="n">db</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parser</span>
+        <span class="p">)</span> <span class="k">as</span> <span class="n">configuration_bucket</span><span class="p">:</span>
+            <span class="k">yield</span> <span class="n">configuration_bucket</span></div></div>
+
+
+<div class="viewcode-block" id="SAMLOneLoginConfiguration"><a class="viewcode-back" href="../../../../api.saml.configuration.html#api.saml.configuration.model.SAMLOneLoginConfiguration">[docs]</a><span class="k">class</span> <span class="nc">SAMLOneLoginConfiguration</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Converts metadata objects to the OneLogin&#39;s SAML Toolkit format&quot;&quot;&quot;</span>
+
+    <span class="n">DEBUG</span> <span class="o">=</span> <span class="s2">&quot;debug&quot;</span>
+    <span class="n">STRICT</span> <span class="o">=</span> <span class="s2">&quot;strict&quot;</span>
+
+    <span class="n">ENTITY_ID</span> <span class="o">=</span> <span class="s2">&quot;entityId&quot;</span>
+    <span class="n">URL</span> <span class="o">=</span> <span class="s2">&quot;url&quot;</span>
+    <span class="n">BINDING</span> <span class="o">=</span> <span class="s2">&quot;binding&quot;</span>
+    <span class="n">X509_CERT</span> <span class="o">=</span> <span class="s2">&quot;x509cert&quot;</span>
+    <span class="n">X509_CERT_MULTI</span> <span class="o">=</span> <span class="s2">&quot;x509certMulti&quot;</span>
+    <span class="n">SIGNING</span> <span class="o">=</span> <span class="s2">&quot;signing&quot;</span>
+    <span class="n">ENCRYPTION</span> <span class="o">=</span> <span class="s2">&quot;encryption&quot;</span>
+
+    <span class="n">IDP</span> <span class="o">=</span> <span class="s2">&quot;idp&quot;</span>
+    <span class="n">SINGLE_SIGN_ON_SERVICE</span> <span class="o">=</span> <span class="s2">&quot;singleSignOnService&quot;</span>
+
+    <span class="n">SP</span> <span class="o">=</span> <span class="s2">&quot;sp&quot;</span>
+    <span class="n">ASSERTION_CONSUMER_SERVICE</span> <span class="o">=</span> <span class="s2">&quot;assertionConsumerService&quot;</span>
+    <span class="n">NAME_ID_FORMAT</span> <span class="o">=</span> <span class="s2">&quot;NameIDFormat&quot;</span>
+    <span class="n">PRIVATE_KEY</span> <span class="o">=</span> <span class="s2">&quot;privateKey&quot;</span>
+
+    <span class="n">SECURITY</span> <span class="o">=</span> <span class="s2">&quot;security&quot;</span>
+    <span class="n">AUTHN_REQUESTS_SIGNED</span> <span class="o">=</span> <span class="s2">&quot;authnRequestsSigned&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">configuration</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Initializes a new instance of SAMLOneLoginConfiguration class</span>
+
+<span class="sd">        :param configuration: Configuration object containing SAML metadata</span>
+<span class="sd">        :type configuration: api.saml.configuration.model.SAMLConfiguration</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_configuration</span> <span class="o">=</span> <span class="n">configuration</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_service_provider</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_identity_providers</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="k">def</span> <span class="nf">_get_identity_provider_settings</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identity_provider</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Converts ServiceProviderMetadata object to the OneLogin&#39;s SAML Toolkit format</span>
+
+<span class="sd">        :param identity_provider: IdentityProviderMetadata object</span>
+<span class="sd">        :type identity_provider: IdentityProviderMetadata</span>
+
+<span class="sd">        :return: Dictionary containing service provider&#39;s settings in the OneLogin&#39;s SAML Toolkit format</span>
+<span class="sd">        :rtype: Dict</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">onelogin_identity_provider</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">IDP</span><span class="p">:</span> <span class="p">{</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">ENTITY_ID</span><span class="p">:</span> <span class="n">identity_provider</span><span class="o">.</span><span class="n">entity_id</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">SINGLE_SIGN_ON_SERVICE</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">URL</span><span class="p">:</span> <span class="n">identity_provider</span><span class="o">.</span><span class="n">sso_service</span><span class="o">.</span><span class="n">url</span><span class="p">,</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">BINDING</span><span class="p">:</span> <span class="n">identity_provider</span><span class="o">.</span><span class="n">sso_service</span><span class="o">.</span><span class="n">binding</span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
+                <span class="p">},</span>
+            <span class="p">},</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">SECURITY</span><span class="p">:</span> <span class="p">{</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">AUTHN_REQUESTS_SIGNED</span><span class="p">:</span> <span class="n">identity_provider</span><span class="o">.</span><span class="n">want_authn_requests_signed</span>
+            <span class="p">},</span>
+        <span class="p">}</span>
+
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="nb">len</span><span class="p">(</span><span class="n">identity_provider</span><span class="o">.</span><span class="n">signing_certificates</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span>
+            <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">identity_provider</span><span class="o">.</span><span class="n">encryption_certificates</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span>
+            <span class="ow">and</span> <span class="n">identity_provider</span><span class="o">.</span><span class="n">signing_certificates</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="o">==</span> <span class="n">identity_provider</span><span class="o">.</span><span class="n">encryption_certificates</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="p">):</span>
+            <span class="n">onelogin_identity_provider</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">IDP</span><span class="p">][</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">X509_CERT</span>
+            <span class="p">]</span> <span class="o">=</span> <span class="n">identity_provider</span><span class="o">.</span><span class="n">signing_certificates</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">identity_provider</span><span class="o">.</span><span class="n">signing_certificates</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">X509_CERT_MULTI</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">onelogin_identity_provider</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">IDP</span><span class="p">]:</span>
+                    <span class="n">onelogin_identity_provider</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">IDP</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">X509_CERT_MULTI</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+
+                <span class="n">onelogin_identity_provider</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">IDP</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">X509_CERT_MULTI</span><span class="p">][</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">SIGNING</span>
+                <span class="p">]</span> <span class="o">=</span> <span class="n">identity_provider</span><span class="o">.</span><span class="n">signing_certificates</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">identity_provider</span><span class="o">.</span><span class="n">encryption_certificates</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">X509_CERT_MULTI</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">onelogin_identity_provider</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">IDP</span><span class="p">]:</span>
+                    <span class="n">onelogin_identity_provider</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">IDP</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">X509_CERT_MULTI</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+
+                <span class="n">onelogin_identity_provider</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">IDP</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">X509_CERT_MULTI</span><span class="p">][</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">ENCRYPTION</span>
+                <span class="p">]</span> <span class="o">=</span> <span class="n">identity_provider</span><span class="o">.</span><span class="n">encryption_certificates</span>
+
+        <span class="k">return</span> <span class="n">onelogin_identity_provider</span>
+
+    <span class="k">def</span> <span class="nf">_get_service_provider_settings</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">service_provider</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Converts ServiceProviderMetadata object to the OneLogin&#39;s SAML Toolkit format</span>
+
+<span class="sd">        :param service_provider: ServiceProviderMetadata object</span>
+<span class="sd">        :type service_provider: ServiceProviderMetadata</span>
+
+<span class="sd">        :return: Dictionary containing service provider&#39;s settings in the OneLogin&#39;s SAML Toolkit format</span>
+<span class="sd">        :rtype: Dict</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">onelogin_service_provider</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">SP</span><span class="p">:</span> <span class="p">{</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">ENTITY_ID</span><span class="p">:</span> <span class="n">service_provider</span><span class="o">.</span><span class="n">entity_id</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">ASSERTION_CONSUMER_SERVICE</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">URL</span><span class="p">:</span> <span class="n">service_provider</span><span class="o">.</span><span class="n">acs_service</span><span class="o">.</span><span class="n">url</span><span class="p">,</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">BINDING</span><span class="p">:</span> <span class="n">service_provider</span><span class="o">.</span><span class="n">acs_service</span><span class="o">.</span><span class="n">binding</span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
+                <span class="p">},</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">NAME_ID_FORMAT</span><span class="p">:</span> <span class="n">service_provider</span><span class="o">.</span><span class="n">name_id_format</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">X509_CERT</span><span class="p">:</span> <span class="n">service_provider</span><span class="o">.</span><span class="n">certificate</span>
+                <span class="k">if</span> <span class="n">service_provider</span><span class="o">.</span><span class="n">certificate</span>
+                <span class="k">else</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">PRIVATE_KEY</span><span class="p">:</span> <span class="n">service_provider</span><span class="o">.</span><span class="n">private_key</span>
+                <span class="k">if</span> <span class="n">service_provider</span><span class="o">.</span><span class="n">private_key</span>
+                <span class="k">else</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+            <span class="p">},</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">SECURITY</span><span class="p">:</span> <span class="p">{</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">AUTHN_REQUESTS_SIGNED</span><span class="p">:</span> <span class="n">service_provider</span><span class="o">.</span><span class="n">authn_requests_signed</span>
+            <span class="p">},</span>
+        <span class="p">}</span>
+
+        <span class="k">return</span> <span class="n">onelogin_service_provider</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">configuration</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns original configuration</span>
+
+<span class="sd">        :return: Original configuration</span>
+<span class="sd">        :rtype: api.saml.configuration.model.SAMLConfiguration</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_configuration</span>
+
+<div class="viewcode-block" id="SAMLOneLoginConfiguration.get_identity_provider_settings"><a class="viewcode-back" href="../../../../api.saml.configuration.html#api.saml.configuration.model.SAMLOneLoginConfiguration.get_identity_provider_settings">[docs]</a>    <span class="k">def</span> <span class="nf">get_identity_provider_settings</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">db</span><span class="p">,</span> <span class="n">idp_entity_id</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns a dictionary containing identity provider&#39;s settings in a OneLogin&#39;s SAML Toolkit format</span>
+
+<span class="sd">        :param db: Database session</span>
+<span class="sd">        :type db: sqlalchemy.orm.session.Session</span>
+
+<span class="sd">        :param idp_entity_id: IdP&#39;s entity ID</span>
+<span class="sd">        :type idp_entity_id: string</span>
+
+<span class="sd">        :return: Dictionary containing identity provider&#39;s settings in a OneLogin&#39;s SAML Toolkit format</span>
+<span class="sd">        :rtype: Dict</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">idp_entity_id</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_identity_providers</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_identity_providers</span><span class="p">[</span><span class="n">idp_entity_id</span><span class="p">]</span>
+
+        <span class="n">identity_providers</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">idp</span>
+            <span class="k">for</span> <span class="n">idp</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_configuration</span><span class="o">.</span><span class="n">get_identity_providers</span><span class="p">(</span><span class="n">db</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">idp</span><span class="o">.</span><span class="n">entity_id</span> <span class="o">==</span> <span class="n">idp_entity_id</span>
+        <span class="p">]</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">identity_providers</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">SAMLConfigurationError</span><span class="p">(</span>
+                <span class="n">_</span><span class="p">(</span>
+                    <span class="s2">&quot;There is no identity provider with entityID = </span><span class="si">{0}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                        <span class="n">idp_entity_id</span>
+                    <span class="p">)</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">identity_providers</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">SAMLConfigurationError</span><span class="p">(</span>
+                <span class="n">_</span><span class="p">(</span>
+                    <span class="s2">&quot;There are multiple identity providers with entityID = </span><span class="si">{0}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                        <span class="n">idp_entity_id</span>
+                    <span class="p">)</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+
+        <span class="n">identity_provider</span> <span class="o">=</span> <span class="n">identity_providers</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">identity_provider</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_identity_provider_settings</span><span class="p">(</span><span class="n">identity_provider</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_identity_providers</span><span class="p">[</span><span class="n">idp_entity_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">identity_provider</span>
+
+        <span class="k">return</span> <span class="n">identity_provider</span></div>
+
+<div class="viewcode-block" id="SAMLOneLoginConfiguration.get_service_provider_settings"><a class="viewcode-back" href="../../../../api.saml.configuration.html#api.saml.configuration.model.SAMLOneLoginConfiguration.get_service_provider_settings">[docs]</a>    <span class="k">def</span> <span class="nf">get_service_provider_settings</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">db</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns a dictionary containing service provider&#39;s settings in the OneLogin&#39;s SAML Toolkit format</span>
+
+<span class="sd">        :param db: Database session</span>
+<span class="sd">        :type db: sqlalchemy.orm.session.Session</span>
+
+<span class="sd">        :return: Dictionary containing service provider&#39;s settings in the OneLogin&#39;s SAML Toolkit format</span>
+<span class="sd">        :rtype: Dict</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_service_provider</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_service_provider</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_service_provider_settings</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_configuration</span><span class="o">.</span><span class="n">get_service_provider</span><span class="p">(</span><span class="n">db</span><span class="p">)</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_service_provider</span></div>
+
+<div class="viewcode-block" id="SAMLOneLoginConfiguration.get_settings"><a class="viewcode-back" href="../../../../api.saml.configuration.html#api.saml.configuration.model.SAMLOneLoginConfiguration.get_settings">[docs]</a>    <span class="k">def</span> <span class="nf">get_settings</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">db</span><span class="p">,</span> <span class="n">idp_entity_id</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns a dictionary containing SP&#39;s and IdP&#39;s settings in the OneLogin&#39;s SAML Toolkit format</span>
+
+<span class="sd">        :param db: Database session</span>
+<span class="sd">        :type db: sqlalchemy.orm.session.Session</span>
+
+<span class="sd">        :param idp_entity_id: IdP&#39;s entity ID</span>
+<span class="sd">        :type idp_entity_id: string</span>
+
+<span class="sd">        :return: Dictionary containing SP&#39;s and IdP&#39;s settings in the OneLogin&#39;s SAML Toolkit format</span>
+<span class="sd">        :rtype: Dict</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">onelogin_settings</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_configuration</span><span class="o">.</span><span class="n">service_provider_debug_mode</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">STRICT</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_configuration</span><span class="o">.</span><span class="n">service_provider_strict_mode</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="n">identity_provider_settings</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_identity_provider_settings</span><span class="p">(</span>
+            <span class="n">db</span><span class="p">,</span> <span class="n">idp_entity_id</span>
+        <span class="p">)</span>
+        <span class="n">service_provider_settings</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_service_provider_settings</span><span class="p">(</span><span class="n">db</span><span class="p">)</span>
+
+        <span class="n">onelogin_settings</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">identity_provider_settings</span><span class="p">)</span>
+        <span class="n">onelogin_settings</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">service_provider_settings</span><span class="p">)</span>
+
+        <span class="c1"># We need to use disjunction separately because dict.update just overwrites values</span>
+        <span class="n">onelogin_settings</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">SECURITY</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">AUTHN_REQUESTS_SIGNED</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">service_provider_settings</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">SECURITY</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">AUTHN_REQUESTS_SIGNED</span><span class="p">]</span>
+            <span class="ow">or</span> <span class="n">service_provider_settings</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">SECURITY</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">AUTHN_REQUESTS_SIGNED</span><span class="p">]</span>
+        <span class="p">)</span>
+
+        <span class="n">settings</span> <span class="o">=</span> <span class="n">OneLogin_Saml2_Settings</span><span class="p">(</span><span class="n">onelogin_settings</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_configuration</span><span class="o">.</span><span class="n">service_provider_debug_mode</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">STRICT</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_configuration</span><span class="o">.</span><span class="n">service_provider_strict_mode</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">IDP</span><span class="p">:</span> <span class="n">settings</span><span class="o">.</span><span class="n">get_idp_data</span><span class="p">(),</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">SP</span><span class="p">:</span> <span class="n">settings</span><span class="o">.</span><span class="n">get_sp_data</span><span class="p">(),</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">SECURITY</span><span class="p">:</span> <span class="n">settings</span><span class="o">.</span><span class="n">get_security_data</span><span class="p">(),</span>
+        <span class="p">}</span></div></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../../index.html">Library Simplified Circulation Manager</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../modules.html">circulation</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

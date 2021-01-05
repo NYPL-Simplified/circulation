@@ -9,6 +9,7 @@ Subpackages
     api.admin
     api.clever
     api.lcp
+    api.proquest
     api.saml
     api.sip
     api.util

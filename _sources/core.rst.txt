@@ -9,6 +9,7 @@ Subpackages
     core.classifier
     core.lcp
     core.model
+    core.python_expression_dsl
     core.resources
     core.util
 
@@ -163,6 +164,14 @@ core.opds module
 ----------------
 
 .. automodule:: core.opds
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+core.opds2\_import module
+-------------------------
+
+.. automodule:: core.opds2_import
     :members:
     :undoc-members:
     :show-inheritance:

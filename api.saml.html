@@ -16,8 +16,8 @@
     <script type="text/javascript" src="_static/language_data.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="api.sip package" href="api.sip.html" />
-    <link rel="prev" title="api.lcp package" href="api.lcp.html" />
+    <link rel="next" title="api.saml.configuration package" href="api.saml.configuration.html" />
+    <link rel="prev" title="api.proquest package" href="api.proquest.html" />
    
   <link rel="stylesheet" href="_static/custom.css" type="text/css" />
   
@@ -36,6 +36,41 @@
             
   <div class="section" id="api-saml-package">
 <h1>api.saml package<a class="headerlink" href="#api-saml-package" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="subpackages">
+<h2>Subpackages<a class="headerlink" href="#subpackages" title="Permalink to this headline">¶</a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="api.saml.configuration.html">api.saml.configuration package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api.saml.configuration.html#submodules">Submodules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.saml.configuration.html#module-api.saml.configuration.model">api.saml.configuration.model module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.saml.configuration.html#module-api.saml.configuration.validator">api.saml.configuration.validator module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.saml.configuration.html#module-api.saml.configuration">Module contents</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api.saml.metadata.html">api.saml.metadata package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api.saml.metadata.html#subpackages">Subpackages</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api.saml.metadata.federations.html">api.saml.metadata.federations package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api.saml.metadata.federations.html#submodules">Submodules</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.saml.metadata.federations.html#module-api.saml.metadata.federations.incommon">api.saml.metadata.federations.incommon module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.saml.metadata.federations.html#module-api.saml.metadata.federations.loader">api.saml.metadata.federations.loader module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.saml.metadata.federations.html#module-api.saml.metadata.federations.model">api.saml.metadata.federations.model module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.saml.metadata.federations.html#module-api.saml.metadata.federations.validator">api.saml.metadata.federations.validator module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.saml.metadata.federations.html#module-api.saml.metadata.federations">Module contents</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api.saml.metadata.html#submodules">Submodules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.saml.metadata.html#module-api.saml.metadata.filter">api.saml.metadata.filter module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.saml.metadata.html#module-api.saml.metadata.model">api.saml.metadata.model module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.saml.metadata.html#module-api.saml.metadata.monitor">api.saml.metadata.monitor module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.saml.metadata.html#module-api.saml.metadata.parser">api.saml.metadata.parser module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.saml.metadata.html#module-api.saml.metadata">Module contents</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</div>
 <div class="section" id="submodules">
 <h2>Submodules<a class="headerlink" href="#submodules" title="Permalink to this headline">¶</a></h2>
 </div>
@@ -43,20 +78,20 @@
 <span id="api-saml-auth-module"></span><h2>api.saml.auth module<a class="headerlink" href="#module-api.saml.auth" title="Permalink to this headline">¶</a></h2>
 <dl class="class">
 <dt id="api.saml.auth.SAMLAuthenticationManager">
-<em class="property">class </em><code class="descclassname">api.saml.auth.</code><code class="descname">SAMLAuthenticationManager</code><span class="sig-paren">(</span><em>configuration</em>, <em>subject_parser</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/auth.html#SAMLAuthenticationManager"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.auth.SAMLAuthenticationManager" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="descclassname">api.saml.auth.</code><code class="descname">SAMLAuthenticationManager</code><span class="sig-paren">(</span><em>configuration</em>, <em>subject_parser</em>, <em>subject_filter</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/auth.html#SAMLAuthenticationManager"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.auth.SAMLAuthenticationManager" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
-<p>Implements SAML authentication process</p>
+<p>Implements SAML authentication process.</p>
 <dl class="attribute">
 <dt id="api.saml.auth.SAMLAuthenticationManager.configuration">
 <code class="descname">configuration</code><a class="headerlink" href="#api.saml.auth.SAMLAuthenticationManager.configuration" title="Permalink to this definition">¶</a></dt>
-<dd><p>Returns manager’s configuration</p>
+<dd><p>Return configuration object.</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Manager’s configuration</td>
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Configuration object</td>
 </tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference internal" href="#api.saml.configuration.SAMLOneLoginConfiguration" title="api.saml.configuration.SAMLOneLoginConfiguration">SAMLOneLoginConfiguration</a></td>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference internal" href="api.saml.configuration.html#api.saml.configuration.model.SAMLOneLoginConfiguration" title="api.saml.configuration.model.SAMLOneLoginConfiguration">SAMLOneLoginConfiguration</a></td>
 </tr>
 </tbody>
 </table>
@@ -65,7 +100,7 @@
 <dl class="method">
 <dt id="api.saml.auth.SAMLAuthenticationManager.finish_authentication">
 <code class="descname">finish_authentication</code><span class="sig-paren">(</span><em>db</em>, <em>idp_entity_id</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/auth.html#SAMLAuthenticationManager.finish_authentication"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.auth.SAMLAuthenticationManager.finish_authentication" title="Permalink to this definition">¶</a></dt>
-<dd><p>Finishes the SAML authentication workflow by validating AuthnResponse and extracting a SAML assertion from it</p>
+<dd><p>Finish the SAML authentication workflow by validating AuthnResponse and extracting a SAML assertion from it.</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
 <col class="field-body" />
@@ -80,7 +115,7 @@
 or ProblemDetail object otherwise</p>
 </td>
 </tr>
-<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">Union[<a class="reference internal" href="#api.saml.metadata.Subject" title="api.saml.metadata.Subject">api.saml.metadata.Subject</a>, <a class="reference internal" href="core.util.html#core.util.problem_detail.ProblemDetail" title="core.util.problem_detail.ProblemDetail">ProblemDetail</a>]</p>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">Union[<a class="reference internal" href="api.saml.metadata.html#api.saml.metadata.model.SAMLSubject" title="api.saml.metadata.model.SAMLSubject">api.saml.metadata.model.SAMLSubject</a>, <a class="reference internal" href="core.util.html#core.util.problem_detail.ProblemDetail" title="core.util.problem_detail.ProblemDetail">core.util.problem_detail.ProblemDetail</a>]</p>
 </td>
 </tr>
 </tbody>
@@ -90,7 +125,7 @@ or ProblemDetail object otherwise</p>
 <dl class="method">
 <dt id="api.saml.auth.SAMLAuthenticationManager.start_authentication">
 <code class="descname">start_authentication</code><span class="sig-paren">(</span><em>db</em>, <em>idp_entity_id</em>, <em>return_to_url</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/auth.html#SAMLAuthenticationManager.start_authentication"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.auth.SAMLAuthenticationManager.start_authentication" title="Permalink to this definition">¶</a></dt>
-<dd><p>Starts the SAML authentication workflow by sending a AuthnRequest to the IdP</p>
+<dd><p>Start the SAML authentication workflow by sending a AuthnRequest to the IdP.</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
 <col class="field-body" />
@@ -121,314 +156,17 @@ or ProblemDetail object otherwise</p>
 <p>Responsible for creating SAMLAuthenticationManager instances</p>
 <dl class="method">
 <dt id="api.saml.auth.SAMLAuthenticationManagerFactory.create">
-<code class="descname">create</code><span class="sig-paren">(</span><em>integration_owner</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/auth.html#SAMLAuthenticationManagerFactory.create"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.auth.SAMLAuthenticationManagerFactory.create" title="Permalink to this definition">¶</a></dt>
+<code class="descname">create</code><span class="sig-paren">(</span><em>configuration</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/auth.html#SAMLAuthenticationManagerFactory.create"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.auth.SAMLAuthenticationManagerFactory.create" title="Permalink to this definition">¶</a></dt>
 <dd><p>Creates a new instance of SAMLAuthenticationManager class</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>integration_owner</strong> (<em>api.saml.configuration.ExternalIntegrationOwner</em>) – External integration owner</td>
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>configuration</strong> (<a class="reference internal" href="api.saml.configuration.html#api.saml.configuration.model.SAMLConfiguration" title="api.saml.configuration.model.SAMLConfiguration"><em>api.saml.configuration.model.SAMLConfiguration</em></a>) – SAML authentication provider’s configuration</td>
 </tr>
 <tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">SAML authentication manager</td>
 </tr>
 <tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference internal" href="#api.saml.auth.SAMLAuthenticationManager" title="api.saml.auth.SAMLAuthenticationManager">SAMLAuthenticationManager</a></td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-</dd></dl>
-
-</div>
-<div class="section" id="module-api.saml.configuration">
-<span id="api-saml-configuration-module"></span><h2>api.saml.configuration module<a class="headerlink" href="#module-api.saml.configuration" title="Permalink to this headline">¶</a></h2>
-<dl class="class">
-<dt id="api.saml.configuration.SAMLConfiguration">
-<em class="property">class </em><code class="descclassname">api.saml.configuration.</code><code class="descname">SAMLConfiguration</code><span class="sig-paren">(</span><em>configuration_storage</em>, <em>metadata_parser</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/configuration.html#SAMLConfiguration"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.configuration.SAMLConfiguration" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
-<p>Contains SP and IdP settings</p>
-<dl class="attribute">
-<dt id="api.saml.configuration.SAMLConfiguration.DEBUG">
-<code class="descname">DEBUG</code><em class="property"> = 'debug'</em><a class="headerlink" href="#api.saml.configuration.SAMLConfiguration.DEBUG" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.saml.configuration.SAMLConfiguration.IDP_DISPLAY_NAME_DEFAULT_TEMPLATE">
-<code class="descname">IDP_DISPLAY_NAME_DEFAULT_TEMPLATE</code><em class="property"> = 'Identity Provider #{0}'</em><a class="headerlink" href="#api.saml.configuration.SAMLConfiguration.IDP_DISPLAY_NAME_DEFAULT_TEMPLATE" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.saml.configuration.SAMLConfiguration.IDP_XML_METADATA">
-<code class="descname">IDP_XML_METADATA</code><em class="property"> = 'idp_xml_metadata'</em><a class="headerlink" href="#api.saml.configuration.SAMLConfiguration.IDP_XML_METADATA" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.saml.configuration.SAMLConfiguration.SP_PRIVATE_KEY">
-<code class="descname">SP_PRIVATE_KEY</code><em class="property"> = 'sp_private_key'</em><a class="headerlink" href="#api.saml.configuration.SAMLConfiguration.SP_PRIVATE_KEY" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.saml.configuration.SAMLConfiguration.SP_XML_METADATA">
-<code class="descname">SP_XML_METADATA</code><em class="property"> = 'sp_xml_metadata'</em><a class="headerlink" href="#api.saml.configuration.SAMLConfiguration.SP_XML_METADATA" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.saml.configuration.SAMLConfiguration.STRICT">
-<code class="descname">STRICT</code><em class="property"> = 'strict'</em><a class="headerlink" href="#api.saml.configuration.SAMLConfiguration.STRICT" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="method">
-<dt id="api.saml.configuration.SAMLConfiguration.get_debug">
-<code class="descname">get_debug</code><span class="sig-paren">(</span><em>db</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/configuration.html#SAMLConfiguration.get_debug"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.configuration.SAMLConfiguration.get_debug" title="Permalink to this definition">¶</a></dt>
-<dd><p>Returns a debug mode indicator</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>db</strong> (<em>sqlalchemy.orm.session.Session</em>) – Database session</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">Debug mode indicator</td>
-</tr>
-<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body">bool</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="method">
-<dt id="api.saml.configuration.SAMLConfiguration.get_identity_providers">
-<code class="descname">get_identity_providers</code><span class="sig-paren">(</span><em>db</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/configuration.html#SAMLConfiguration.get_identity_providers"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.configuration.SAMLConfiguration.get_identity_providers" title="Permalink to this definition">¶</a></dt>
-<dd><p>Returns identity providers</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>db</strong> (<em>sqlalchemy.orm.session.Session</em>) – Database session</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">List of IdentityProviderMetadata objects</td>
-</tr>
-<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body">List[<a class="reference internal" href="#api.saml.metadata.IdentityProviderMetadata" title="api.saml.metadata.IdentityProviderMetadata">IdentityProviderMetadata</a>]</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Raise:</th><td class="field-body">ConfigurationError</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="method">
-<dt id="api.saml.configuration.SAMLConfiguration.get_service_provider">
-<code class="descname">get_service_provider</code><span class="sig-paren">(</span><em>db</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/configuration.html#SAMLConfiguration.get_service_provider"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.configuration.SAMLConfiguration.get_service_provider" title="Permalink to this definition">¶</a></dt>
-<dd><p>Returns service provider</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>db</strong> (<em>sqlalchemy.orm.session.Session</em>) – Database session</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">ServiceProviderMetadata object</td>
-</tr>
-<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference internal" href="#api.saml.metadata.ServiceProviderMetadata" title="api.saml.metadata.ServiceProviderMetadata">ServiceProviderMetadata</a></td>
-</tr>
-<tr class="field-even field"><th class="field-name">Raise:</th><td class="field-body">ConfigurationError</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="method">
-<dt id="api.saml.configuration.SAMLConfiguration.get_strict">
-<code class="descname">get_strict</code><span class="sig-paren">(</span><em>db</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/configuration.html#SAMLConfiguration.get_strict"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.configuration.SAMLConfiguration.get_strict" title="Permalink to this definition">¶</a></dt>
-<dd><p>Returns strict mode indicator</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>db</strong> (<em>sqlalchemy.orm.session.Session</em>) – Database session</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">Strict mode indicator</td>
-</tr>
-<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body">bool</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-</dd></dl>
-
-<dl class="exception">
-<dt id="api.saml.configuration.SAMLConfigurationError">
-<em class="property">exception </em><code class="descclassname">api.saml.configuration.</code><code class="descname">SAMLConfigurationError</code><span class="sig-paren">(</span><em>message=None</em>, <em>inner_exception=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/configuration.html#SAMLConfigurationError"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.configuration.SAMLConfigurationError" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="core.html#core.exceptions.BaseError" title="core.exceptions.BaseError"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.exceptions.BaseError</span></code></a></p>
-<p>Raised in the case of any configuration errors</p>
-</dd></dl>
-
-<dl class="class">
-<dt id="api.saml.configuration.SAMLOneLoginConfiguration">
-<em class="property">class </em><code class="descclassname">api.saml.configuration.</code><code class="descname">SAMLOneLoginConfiguration</code><span class="sig-paren">(</span><em>configuration</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/configuration.html#SAMLOneLoginConfiguration"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.configuration.SAMLOneLoginConfiguration" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
-<p>Converts metadata objects to the OneLogin’s SAML Toolkit format</p>
-<dl class="attribute">
-<dt id="api.saml.configuration.SAMLOneLoginConfiguration.ASSERTION_CONSUMER_SERVICE">
-<code class="descname">ASSERTION_CONSUMER_SERVICE</code><em class="property"> = 'assertionConsumerService'</em><a class="headerlink" href="#api.saml.configuration.SAMLOneLoginConfiguration.ASSERTION_CONSUMER_SERVICE" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.saml.configuration.SAMLOneLoginConfiguration.AUTHN_REQUESTS_SIGNED">
-<code class="descname">AUTHN_REQUESTS_SIGNED</code><em class="property"> = 'authnRequestsSigned'</em><a class="headerlink" href="#api.saml.configuration.SAMLOneLoginConfiguration.AUTHN_REQUESTS_SIGNED" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.saml.configuration.SAMLOneLoginConfiguration.BINDING">
-<code class="descname">BINDING</code><em class="property"> = 'binding'</em><a class="headerlink" href="#api.saml.configuration.SAMLOneLoginConfiguration.BINDING" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.saml.configuration.SAMLOneLoginConfiguration.DEBUG">
-<code class="descname">DEBUG</code><em class="property"> = 'debug'</em><a class="headerlink" href="#api.saml.configuration.SAMLOneLoginConfiguration.DEBUG" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.saml.configuration.SAMLOneLoginConfiguration.ENCRYPTION">
-<code class="descname">ENCRYPTION</code><em class="property"> = 'encryption'</em><a class="headerlink" href="#api.saml.configuration.SAMLOneLoginConfiguration.ENCRYPTION" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.saml.configuration.SAMLOneLoginConfiguration.ENTITY_ID">
-<code class="descname">ENTITY_ID</code><em class="property"> = 'entityId'</em><a class="headerlink" href="#api.saml.configuration.SAMLOneLoginConfiguration.ENTITY_ID" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.saml.configuration.SAMLOneLoginConfiguration.IDP">
-<code class="descname">IDP</code><em class="property"> = 'idp'</em><a class="headerlink" href="#api.saml.configuration.SAMLOneLoginConfiguration.IDP" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.saml.configuration.SAMLOneLoginConfiguration.NAME_ID_FORMAT">
-<code class="descname">NAME_ID_FORMAT</code><em class="property"> = 'NameIDFormat'</em><a class="headerlink" href="#api.saml.configuration.SAMLOneLoginConfiguration.NAME_ID_FORMAT" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.saml.configuration.SAMLOneLoginConfiguration.PRIVATE_KEY">
-<code class="descname">PRIVATE_KEY</code><em class="property"> = 'privateKey'</em><a class="headerlink" href="#api.saml.configuration.SAMLOneLoginConfiguration.PRIVATE_KEY" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.saml.configuration.SAMLOneLoginConfiguration.SECURITY">
-<code class="descname">SECURITY</code><em class="property"> = 'security'</em><a class="headerlink" href="#api.saml.configuration.SAMLOneLoginConfiguration.SECURITY" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.saml.configuration.SAMLOneLoginConfiguration.SIGNING">
-<code class="descname">SIGNING</code><em class="property"> = 'signing'</em><a class="headerlink" href="#api.saml.configuration.SAMLOneLoginConfiguration.SIGNING" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.saml.configuration.SAMLOneLoginConfiguration.SINGLE_SIGN_ON_SERVICE">
-<code class="descname">SINGLE_SIGN_ON_SERVICE</code><em class="property"> = 'singleSignOnService'</em><a class="headerlink" href="#api.saml.configuration.SAMLOneLoginConfiguration.SINGLE_SIGN_ON_SERVICE" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.saml.configuration.SAMLOneLoginConfiguration.SP">
-<code class="descname">SP</code><em class="property"> = 'sp'</em><a class="headerlink" href="#api.saml.configuration.SAMLOneLoginConfiguration.SP" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.saml.configuration.SAMLOneLoginConfiguration.STRICT">
-<code class="descname">STRICT</code><em class="property"> = 'strict'</em><a class="headerlink" href="#api.saml.configuration.SAMLOneLoginConfiguration.STRICT" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.saml.configuration.SAMLOneLoginConfiguration.URL">
-<code class="descname">URL</code><em class="property"> = 'url'</em><a class="headerlink" href="#api.saml.configuration.SAMLOneLoginConfiguration.URL" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.saml.configuration.SAMLOneLoginConfiguration.X509_CERT">
-<code class="descname">X509_CERT</code><em class="property"> = 'x509cert'</em><a class="headerlink" href="#api.saml.configuration.SAMLOneLoginConfiguration.X509_CERT" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.saml.configuration.SAMLOneLoginConfiguration.X509_CERT_MULTI">
-<code class="descname">X509_CERT_MULTI</code><em class="property"> = 'x509certMulti'</em><a class="headerlink" href="#api.saml.configuration.SAMLOneLoginConfiguration.X509_CERT_MULTI" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.saml.configuration.SAMLOneLoginConfiguration.configuration">
-<code class="descname">configuration</code><a class="headerlink" href="#api.saml.configuration.SAMLOneLoginConfiguration.configuration" title="Permalink to this definition">¶</a></dt>
-<dd><p>Returns original configuration</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Original configuration</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference internal" href="#api.saml.configuration.SAMLConfiguration" title="api.saml.configuration.SAMLConfiguration">SAMLConfiguration</a></td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="method">
-<dt id="api.saml.configuration.SAMLOneLoginConfiguration.get_identity_provider_settings">
-<code class="descname">get_identity_provider_settings</code><span class="sig-paren">(</span><em>db</em>, <em>idp_entity_id</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/configuration.html#SAMLOneLoginConfiguration.get_identity_provider_settings"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.configuration.SAMLOneLoginConfiguration.get_identity_provider_settings" title="Permalink to this definition">¶</a></dt>
-<dd><p>Returns a dictionary containing identity provider’s settings in a OneLogin’s SAML Toolkit format</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
-<li><strong>db</strong> (<em>sqlalchemy.orm.session.Session</em>) – Database session</li>
-<li><strong>idp_entity_id</strong> (<em>string</em>) – IdP’s entity ID</li>
-</ul>
-</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">Dictionary containing identity provider’s settings in a OneLogin’s SAML Toolkit format</p>
-</td>
-</tr>
-<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">Dict</p>
-</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="method">
-<dt id="api.saml.configuration.SAMLOneLoginConfiguration.get_service_provider_settings">
-<code class="descname">get_service_provider_settings</code><span class="sig-paren">(</span><em>db</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/configuration.html#SAMLOneLoginConfiguration.get_service_provider_settings"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.configuration.SAMLOneLoginConfiguration.get_service_provider_settings" title="Permalink to this definition">¶</a></dt>
-<dd><p>Returns a dictionary containing service provider’s settings in the OneLogin’s SAML Toolkit format</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>db</strong> (<em>sqlalchemy.orm.session.Session</em>) – Database session</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">Dictionary containing service provider’s settings in the OneLogin’s SAML Toolkit format</td>
-</tr>
-<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body">Dict</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="method">
-<dt id="api.saml.configuration.SAMLOneLoginConfiguration.get_settings">
-<code class="descname">get_settings</code><span class="sig-paren">(</span><em>db</em>, <em>idp_entity_id</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/configuration.html#SAMLOneLoginConfiguration.get_settings"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.configuration.SAMLOneLoginConfiguration.get_settings" title="Permalink to this definition">¶</a></dt>
-<dd><p>Returns a dictionary containing SP’s and IdP’s settings in the OneLogin’s SAML Toolkit format</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
-<li><strong>db</strong> (<em>sqlalchemy.orm.session.Session</em>) – Database session</li>
-<li><strong>idp_entity_id</strong> (<em>string</em>) – IdP’s entity ID</li>
-</ul>
-</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">Dictionary containing SP’s and IdP’s settings in the OneLogin’s SAML Toolkit format</p>
-</td>
-</tr>
-<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">Dict</p>
-</td>
 </tr>
 </tbody>
 </table>
@@ -540,1034 +278,6 @@ saml_authentication_callback.</p>
 </dd></dl>
 
 </div>
-<div class="section" id="module-api.saml.loader">
-<span id="api-saml-loader-module"></span><h2>api.saml.loader module<a class="headerlink" href="#module-api.saml.loader" title="Permalink to this headline">¶</a></h2>
-<dl class="class">
-<dt id="api.saml.loader.SAMLMetadataLoader">
-<em class="property">class </em><code class="descclassname">api.saml.loader.</code><code class="descname">SAMLMetadataLoader</code><a class="reference internal" href="_modules/api/saml/loader.html#SAMLMetadataLoader"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.loader.SAMLMetadataLoader" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
-<p>Loads SAML metadata from a remote source (e.g. InCommon Metadata Service)</p>
-<dl class="attribute">
-<dt id="api.saml.loader.SAMLMetadataLoader.IN_COMMON_METADATA_SERVICE_URL">
-<code class="descname">IN_COMMON_METADATA_SERVICE_URL</code><em class="property"> = 'http://md.incommon.org/InCommon/InCommon-metadata-idp-only.xml'</em><a class="headerlink" href="#api.saml.loader.SAMLMetadataLoader.IN_COMMON_METADATA_SERVICE_URL" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="method">
-<dt id="api.saml.loader.SAMLMetadataLoader.load_idp_metadata">
-<code class="descname">load_idp_metadata</code><span class="sig-paren">(</span><em>url=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/loader.html#SAMLMetadataLoader.load_idp_metadata"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.loader.SAMLMetadataLoader.load_idp_metadata" title="Permalink to this definition">¶</a></dt>
-<dd><p>Loads IdP metadata in an XML format from the specified url (by default InCommon IdP Metadata Service)</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>url</strong> (<em>Optional</em><em>[</em><em>string</em><em>]</em>) – URL of a metadata service (by default InCommon IdP Metadata Service)</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">XML string containing InCommon Metadata</td>
-</tr>
-<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body">string</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Raise:</th><td class="field-body">MetadataLoadError</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-</dd></dl>
-
-<dl class="exception">
-<dt id="api.saml.loader.SAMLMetadataLoadingError">
-<em class="property">exception </em><code class="descclassname">api.saml.loader.</code><code class="descname">SAMLMetadataLoadingError</code><span class="sig-paren">(</span><em>message=None</em>, <em>inner_exception=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/loader.html#SAMLMetadataLoadingError"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.loader.SAMLMetadataLoadingError" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="core.html#core.exceptions.BaseError" title="core.exceptions.BaseError"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.exceptions.BaseError</span></code></a></p>
-<p>Raised in the case of any errors occurred during loading of SAML metadata from a remote source</p>
-</dd></dl>
-
-</div>
-<div class="section" id="module-api.saml.metadata">
-<span id="api-saml-metadata-module"></span><h2>api.saml.metadata module<a class="headerlink" href="#module-api.saml.metadata" title="Permalink to this headline">¶</a></h2>
-<dl class="class">
-<dt id="api.saml.metadata.Attribute">
-<em class="property">class </em><code class="descclassname">api.saml.metadata.</code><code class="descname">Attribute</code><span class="sig-paren">(</span><em>name</em>, <em>values</em>, <em>friendly_name=None</em>, <em>name_format=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata.html#Attribute"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.Attribute" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
-<p>Represents saml2:Attribute</p>
-<dl class="attribute">
-<dt id="api.saml.metadata.Attribute.friendly_name">
-<code class="descname">friendly_name</code><a class="headerlink" href="#api.saml.metadata.Attribute.friendly_name" title="Permalink to this definition">¶</a></dt>
-<dd><p>Returns the attribute’s friendly name</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Attribute’s friendly name</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">string</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="attribute">
-<dt id="api.saml.metadata.Attribute.name">
-<code class="descname">name</code><a class="headerlink" href="#api.saml.metadata.Attribute.name" title="Permalink to this definition">¶</a></dt>
-<dd><p>Returns the attribute’s name</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Attribute’s name</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">string</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="attribute">
-<dt id="api.saml.metadata.Attribute.name_format">
-<code class="descname">name_format</code><a class="headerlink" href="#api.saml.metadata.Attribute.name_format" title="Permalink to this definition">¶</a></dt>
-<dd><p>Returns the attribute’s name format</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Attribute’s name format</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">string</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="attribute">
-<dt id="api.saml.metadata.Attribute.values">
-<code class="descname">values</code><a class="headerlink" href="#api.saml.metadata.Attribute.values" title="Permalink to this definition">¶</a></dt>
-<dd><p>Returns a list of the attribute’s values</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">List of the attribute’s values</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">List</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-</dd></dl>
-
-<dl class="class">
-<dt id="api.saml.metadata.AttributeStatement">
-<em class="property">class </em><code class="descclassname">api.saml.metadata.</code><code class="descname">AttributeStatement</code><span class="sig-paren">(</span><em>attributes</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata.html#AttributeStatement"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.AttributeStatement" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
-<p>Represents saml2:AttributeStatement</p>
-<dl class="attribute">
-<dt id="api.saml.metadata.AttributeStatement.attributes">
-<code class="descname">attributes</code><a class="headerlink" href="#api.saml.metadata.AttributeStatement.attributes" title="Permalink to this definition">¶</a></dt>
-<dd><p>Returns an attributes dictionary</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Dictionary containing attributes</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">Dict[string, <a class="reference internal" href="#api.saml.metadata.Attribute" title="api.saml.metadata.Attribute">Attribute</a>]</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-</dd></dl>
-
-<dl class="class">
-<dt id="api.saml.metadata.Binding">
-<em class="property">class </em><code class="descclassname">api.saml.metadata.</code><code class="descname">Binding</code><a class="reference internal" href="_modules/api/saml/metadata.html#Binding"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.Binding" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">enum.Enum</span></code></p>
-<p>Enumeration of SAML bindings</p>
-<dl class="attribute">
-<dt id="api.saml.metadata.Binding.DEFLATE">
-<code class="descname">DEFLATE</code><em class="property"> = 'urn:oasis:names:tc:SAML:2.0:bindings:URL-Encoding:DEFLATE'</em><a class="headerlink" href="#api.saml.metadata.Binding.DEFLATE" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.saml.metadata.Binding.HTTP_ARTIFACT">
-<code class="descname">HTTP_ARTIFACT</code><em class="property"> = 'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Artifact'</em><a class="headerlink" href="#api.saml.metadata.Binding.HTTP_ARTIFACT" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.saml.metadata.Binding.HTTP_POST">
-<code class="descname">HTTP_POST</code><em class="property"> = 'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST'</em><a class="headerlink" href="#api.saml.metadata.Binding.HTTP_POST" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.saml.metadata.Binding.HTTP_REDIRECT">
-<code class="descname">HTTP_REDIRECT</code><em class="property"> = 'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect'</em><a class="headerlink" href="#api.saml.metadata.Binding.HTTP_REDIRECT" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.saml.metadata.Binding.SOAP">
-<code class="descname">SOAP</code><em class="property"> = 'urn:oasis:names:tc:SAML:2.0:bindings:SOAP'</em><a class="headerlink" href="#api.saml.metadata.Binding.SOAP" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-</dd></dl>
-
-<dl class="class">
-<dt id="api.saml.metadata.IdentityProviderMetadata">
-<em class="property">class </em><code class="descclassname">api.saml.metadata.</code><code class="descname">IdentityProviderMetadata</code><span class="sig-paren">(</span><em>entity_id</em>, <em>ui_info</em>, <em>organization</em>, <em>name_id_format</em>, <em>sso_service</em>, <em>slo_service=None</em>, <em>want_authn_requests_signed=False</em>, <em>signing_certificates=None</em>, <em>encryption_certificates=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata.html#IdentityProviderMetadata"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.IdentityProviderMetadata" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="#api.saml.metadata.ProviderMetadata" title="api.saml.metadata.ProviderMetadata"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.saml.metadata.ProviderMetadata</span></code></a></p>
-<p>Represents IdP metadata</p>
-<dl class="attribute">
-<dt id="api.saml.metadata.IdentityProviderMetadata.encryption_certificates">
-<code class="descname">encryption_certificates</code><a class="headerlink" href="#api.saml.metadata.IdentityProviderMetadata.encryption_certificates" title="Permalink to this definition">¶</a></dt>
-<dd><p>Returns a list of encryption certificates</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">List of encryption certificates</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">List[string]</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="attribute">
-<dt id="api.saml.metadata.IdentityProviderMetadata.signing_certificates">
-<code class="descname">signing_certificates</code><a class="headerlink" href="#api.saml.metadata.IdentityProviderMetadata.signing_certificates" title="Permalink to this definition">¶</a></dt>
-<dd><p>Returns a list of signing certificates</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">List of signing certificates</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">List[string]</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="attribute">
-<dt id="api.saml.metadata.IdentityProviderMetadata.slo_service">
-<code class="descname">slo_service</code><a class="headerlink" href="#api.saml.metadata.IdentityProviderMetadata.slo_service" title="Permalink to this definition">¶</a></dt>
-<dd><p>Returns Single Log-Out service’s metadata</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Single Log-Out service’s metadata</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference internal" href="#api.saml.metadata.Service" title="api.saml.metadata.Service">Service</a></td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="attribute">
-<dt id="api.saml.metadata.IdentityProviderMetadata.sso_service">
-<code class="descname">sso_service</code><a class="headerlink" href="#api.saml.metadata.IdentityProviderMetadata.sso_service" title="Permalink to this definition">¶</a></dt>
-<dd><p>Returns Single Sign-On service’s metadata</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Single Sign-On service’s metadata</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference internal" href="#api.saml.metadata.Service" title="api.saml.metadata.Service">Service</a></td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="attribute">
-<dt id="api.saml.metadata.IdentityProviderMetadata.want_authn_requests_signed">
-<code class="descname">want_authn_requests_signed</code><a class="headerlink" href="#api.saml.metadata.IdentityProviderMetadata.want_authn_requests_signed" title="Permalink to this definition">¶</a></dt>
-<dd><p>Returns the boolean value indicating to service providers
-whether or not they can expect an unsigned &lt;AuthnRequest&gt; message to be accepted by the identity provider</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Boolean value indicating to service providers
-whether or not they can expect an unsigned &lt;AuthnRequest&gt; message to be accepted by the identity provider</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">bool</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-</dd></dl>
-
-<dl class="class">
-<dt id="api.saml.metadata.LocalizableMetadataItem">
-<em class="property">class </em><code class="descclassname">api.saml.metadata.</code><code class="descname">LocalizableMetadataItem</code><span class="sig-paren">(</span><em>value</em>, <em>language=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata.html#LocalizableMetadataItem"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.LocalizableMetadataItem" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
-<p>Represents md:localizedNameType</p>
-<dl class="attribute">
-<dt id="api.saml.metadata.LocalizableMetadataItem.language">
-<code class="descname">language</code><a class="headerlink" href="#api.saml.metadata.LocalizableMetadataItem.language" title="Permalink to this definition">¶</a></dt>
-<dd><p>Returns the language of the value</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Language of the value</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">string</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="attribute">
-<dt id="api.saml.metadata.LocalizableMetadataItem.value">
-<code class="descname">value</code><a class="headerlink" href="#api.saml.metadata.LocalizableMetadataItem.value" title="Permalink to this definition">¶</a></dt>
-<dd><p>Returns the actual value</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Actual value</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">string</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-</dd></dl>
-
-<dl class="class">
-<dt id="api.saml.metadata.NameID">
-<em class="property">class </em><code class="descclassname">api.saml.metadata.</code><code class="descname">NameID</code><span class="sig-paren">(</span><em>name_format</em>, <em>name_qualifier</em>, <em>sp_name_qualifier</em>, <em>name_id</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata.html#NameID"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.NameID" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
-<p>Represents saml2:NameID</p>
-<dl class="attribute">
-<dt id="api.saml.metadata.NameID.name_format">
-<code class="descname">name_format</code><a class="headerlink" href="#api.saml.metadata.NameID.name_format" title="Permalink to this definition">¶</a></dt>
-<dd><p>Returns name ID’s format</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Name ID’s format</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">string</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="attribute">
-<dt id="api.saml.metadata.NameID.name_id">
-<code class="descname">name_id</code><a class="headerlink" href="#api.saml.metadata.NameID.name_id" title="Permalink to this definition">¶</a></dt>
-<dd><p>Returns name ID</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Name ID</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">string</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="attribute">
-<dt id="api.saml.metadata.NameID.name_qualifier">
-<code class="descname">name_qualifier</code><a class="headerlink" href="#api.saml.metadata.NameID.name_qualifier" title="Permalink to this definition">¶</a></dt>
-<dd><p>Returns the security or administrative domain that qualifies the name identifier of the subject.
-This attribute provides a means to federate names from disparate user stores without collision</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Security or administrative domain that qualifies the name identifier of the subject.
-This attribute provides a means to federate names from disparate user stores without collision</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">string</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="attribute">
-<dt id="api.saml.metadata.NameID.sp_name_qualifier">
-<code class="descname">sp_name_qualifier</code><a class="headerlink" href="#api.saml.metadata.NameID.sp_name_qualifier" title="Permalink to this definition">¶</a></dt>
-<dd><p>Returns the attribute that further qualifies a federated name identifier with the name of the service provider
-or affiliation of providers which has federated the principal’s identity</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Attribute that further qualifies a federated name identifier with the name of the service provider
-or affiliation of providers which has federated the principal’s identity</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">string</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-</dd></dl>
-
-<dl class="class">
-<dt id="api.saml.metadata.NameIDFormat">
-<em class="property">class </em><code class="descclassname">api.saml.metadata.</code><code class="descname">NameIDFormat</code><a class="reference internal" href="_modules/api/saml/metadata.html#NameIDFormat"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.NameIDFormat" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">enum.Enum</span></code></p>
-<p>Enumeration of SAML name ID formats</p>
-<dl class="attribute">
-<dt id="api.saml.metadata.NameIDFormat.EMAIL_ADDRESS">
-<code class="descname">EMAIL_ADDRESS</code><em class="property"> = 'urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress'</em><a class="headerlink" href="#api.saml.metadata.NameIDFormat.EMAIL_ADDRESS" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.saml.metadata.NameIDFormat.ENCRYPTED">
-<code class="descname">ENCRYPTED</code><em class="property"> = 'urn:oasis:names:tc:SAML:2.0:nameid-format:encrypted'</em><a class="headerlink" href="#api.saml.metadata.NameIDFormat.ENCRYPTED" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.saml.metadata.NameIDFormat.ENTITY">
-<code class="descname">ENTITY</code><em class="property"> = 'urn:oasis:names:tc:SAML:2.0:nameid-format:entity'</em><a class="headerlink" href="#api.saml.metadata.NameIDFormat.ENTITY" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.saml.metadata.NameIDFormat.KERBEROS">
-<code class="descname">KERBEROS</code><em class="property"> = 'urn:oasis:names:tc:SAML:2.0:nameid-format:kerberos'</em><a class="headerlink" href="#api.saml.metadata.NameIDFormat.KERBEROS" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.saml.metadata.NameIDFormat.PERSISTENT">
-<code class="descname">PERSISTENT</code><em class="property"> = 'urn:oasis:names:tc:SAML:2.0:nameid-format:persistent'</em><a class="headerlink" href="#api.saml.metadata.NameIDFormat.PERSISTENT" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.saml.metadata.NameIDFormat.TRANSIENT">
-<code class="descname">TRANSIENT</code><em class="property"> = 'urn:oasis:names:tc:SAML:2.0:nameid-format:transient'</em><a class="headerlink" href="#api.saml.metadata.NameIDFormat.TRANSIENT" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.saml.metadata.NameIDFormat.UNSPECIFIED">
-<code class="descname">UNSPECIFIED</code><em class="property"> = 'urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified'</em><a class="headerlink" href="#api.saml.metadata.NameIDFormat.UNSPECIFIED" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.saml.metadata.NameIDFormat.WINDOWS_DOMAIN_QUALIFIED_NAME">
-<code class="descname">WINDOWS_DOMAIN_QUALIFIED_NAME</code><em class="property"> = 'urn:oasis:names:tc:SAML:1.1:nameid-format:WindowsDomainQualifiedName'</em><a class="headerlink" href="#api.saml.metadata.NameIDFormat.WINDOWS_DOMAIN_QUALIFIED_NAME" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.saml.metadata.NameIDFormat.X509_SUBJECT_NAME">
-<code class="descname">X509_SUBJECT_NAME</code><em class="property"> = 'urn:oasis:names:tc:SAML:1.1:nameid-format:X509SubjectName'</em><a class="headerlink" href="#api.saml.metadata.NameIDFormat.X509_SUBJECT_NAME" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-</dd></dl>
-
-<dl class="class">
-<dt id="api.saml.metadata.Organization">
-<em class="property">class </em><code class="descclassname">api.saml.metadata.</code><code class="descname">Organization</code><span class="sig-paren">(</span><em>organization_names=None</em>, <em>organization_display_names=None</em>, <em>organization_urls=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata.html#Organization"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.Organization" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
-<p>Represents md:Organization and contains basic information about an organization
-responsible for a SAML entity or role</p>
-<dl class="attribute">
-<dt id="api.saml.metadata.Organization.organization_display_names">
-<code class="descname">organization_display_names</code><a class="headerlink" href="#api.saml.metadata.Organization.organization_display_names" title="Permalink to this definition">¶</a></dt>
-<dd><p>Returns a list of localized organization names that suitable for human consumption</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">List of localized organization names that suitable for human consumption</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">Optional[List[<a class="reference internal" href="#api.saml.metadata.LocalizableMetadataItem" title="api.saml.metadata.LocalizableMetadataItem">LocalizableMetadataItem</a>]]</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="attribute">
-<dt id="api.saml.metadata.Organization.organization_names">
-<code class="descname">organization_names</code><a class="headerlink" href="#api.saml.metadata.Organization.organization_names" title="Permalink to this definition">¶</a></dt>
-<dd><p>Returns a list of localized organization names that may or may not be
-suitable for human consumption</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">List of localized organization names that may or may not be
-suitable for human consumption</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">Optional[List[<a class="reference internal" href="#api.saml.metadata.LocalizableMetadataItem" title="api.saml.metadata.LocalizableMetadataItem">LocalizableMetadataItem</a>]]</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="attribute">
-<dt id="api.saml.metadata.Organization.organization_urls">
-<code class="descname">organization_urls</code><a class="headerlink" href="#api.saml.metadata.Organization.organization_urls" title="Permalink to this definition">¶</a></dt>
-<dd><p>Returns a list of localized organization URIs that specify a location to which to direct a user for
-additional information</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">List of localized organization URIs that
-specify a location to which to direct a user for additional information</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">Optional[List[<a class="reference internal" href="#api.saml.metadata.LocalizableMetadataItem" title="api.saml.metadata.LocalizableMetadataItem">LocalizableMetadataItem</a>]]</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-</dd></dl>
-
-<dl class="class">
-<dt id="api.saml.metadata.ProviderMetadata">
-<em class="property">class </em><code class="descclassname">api.saml.metadata.</code><code class="descname">ProviderMetadata</code><span class="sig-paren">(</span><em>entity_id</em>, <em>ui_info</em>, <em>organization</em>, <em>name_id_format=&lt;NameIDFormat.UNSPECIFIED: 'urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified'&gt;</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata.html#ProviderMetadata"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.ProviderMetadata" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
-<p>Base class for IdentityProvider and ServiceProvider classes</p>
-<dl class="attribute">
-<dt id="api.saml.metadata.ProviderMetadata.entity_id">
-<code class="descname">entity_id</code><a class="headerlink" href="#api.saml.metadata.ProviderMetadata.entity_id" title="Permalink to this definition">¶</a></dt>
-<dd><p>Returns the provider’s entityID</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Provider’s entityID</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">string</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="attribute">
-<dt id="api.saml.metadata.ProviderMetadata.name_id_format">
-<code class="descname">name_id_format</code><a class="headerlink" href="#api.saml.metadata.ProviderMetadata.name_id_format" title="Permalink to this definition">¶</a></dt>
-<dd><p>Returns the name ID format</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Name ID format</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">string</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="attribute">
-<dt id="api.saml.metadata.ProviderMetadata.organization">
-<code class="descname">organization</code><a class="headerlink" href="#api.saml.metadata.ProviderMetadata.organization" title="Permalink to this definition">¶</a></dt>
-<dd><p>Returns the provider’s Organization object
-:return: Provider’s Organization object
-:rtype: Organization</p>
-</dd></dl>
-
-<dl class="attribute">
-<dt id="api.saml.metadata.ProviderMetadata.ui_info">
-<code class="descname">ui_info</code><a class="headerlink" href="#api.saml.metadata.ProviderMetadata.ui_info" title="Permalink to this definition">¶</a></dt>
-<dd><p>Returns the provider’s UIInfo object
-:return: Provider’s UIInfo object
-:rtype: UIInfo</p>
-</dd></dl>
-
-</dd></dl>
-
-<dl class="class">
-<dt id="api.saml.metadata.SAMLAttributes">
-<em class="property">class </em><code class="descclassname">api.saml.metadata.</code><code class="descname">SAMLAttributes</code><a class="reference internal" href="_modules/api/saml/metadata.html#SAMLAttributes"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.SAMLAttributes" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">enum.Enum</span></code></p>
-<p>Enumeration of different attributes supported by different SAML IdPs</p>
-<dl class="attribute">
-<dt id="api.saml.metadata.SAMLAttributes.displayName">
-<code class="descname">displayName</code><em class="property"> = 'urn:oid:2.16.840.1.113730.3.1.241'</em><a class="headerlink" href="#api.saml.metadata.SAMLAttributes.displayName" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.saml.metadata.SAMLAttributes.eduPersonAffiliation">
-<code class="descname">eduPersonAffiliation</code><em class="property"> = 'urn:oid:1.3.6.1.4.1.5923.1.1.1.1'</em><a class="headerlink" href="#api.saml.metadata.SAMLAttributes.eduPersonAffiliation" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.saml.metadata.SAMLAttributes.eduPersonOrgUnitDN">
-<code class="descname">eduPersonOrgUnitDN</code><em class="property"> = 'urn:oid:1.3.6.1.4.1.5923.1.1.1.4'</em><a class="headerlink" href="#api.saml.metadata.SAMLAttributes.eduPersonOrgUnitDN" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.saml.metadata.SAMLAttributes.eduPersonPrincipalName">
-<code class="descname">eduPersonPrincipalName</code><em class="property"> = 'urn:oid:1.3.6.1.4.1.5923.1.1.1.6'</em><a class="headerlink" href="#api.saml.metadata.SAMLAttributes.eduPersonPrincipalName" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.saml.metadata.SAMLAttributes.eduPersonScopedAffiliation">
-<code class="descname">eduPersonScopedAffiliation</code><em class="property"> = 'urn:oid:1.3.6.1.4.1.5923.1.1.1.9'</em><a class="headerlink" href="#api.saml.metadata.SAMLAttributes.eduPersonScopedAffiliation" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.saml.metadata.SAMLAttributes.eduPersonTargetedID">
-<code class="descname">eduPersonTargetedID</code><em class="property"> = 'urn:oid:1.3.6.1.4.1.5923.1.1.1.10'</em><a class="headerlink" href="#api.saml.metadata.SAMLAttributes.eduPersonTargetedID" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.saml.metadata.SAMLAttributes.eduPersonUniqueId">
-<code class="descname">eduPersonUniqueId</code><em class="property"> = 'urn:oid:1.3.6.1.4.1.5923.1.1.1.13'</em><a class="headerlink" href="#api.saml.metadata.SAMLAttributes.eduPersonUniqueId" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.saml.metadata.SAMLAttributes.givenName">
-<code class="descname">givenName</code><em class="property"> = 'urn:oid:2.5.4.42'</em><a class="headerlink" href="#api.saml.metadata.SAMLAttributes.givenName" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.saml.metadata.SAMLAttributes.mail">
-<code class="descname">mail</code><em class="property"> = 'urn:oid:0.9.2342.19200300.100.1.3'</em><a class="headerlink" href="#api.saml.metadata.SAMLAttributes.mail" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.saml.metadata.SAMLAttributes.surname">
-<code class="descname">surname</code><em class="property"> = 'urn:oid:2.5.4.4'</em><a class="headerlink" href="#api.saml.metadata.SAMLAttributes.surname" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.saml.metadata.SAMLAttributes.uid">
-<code class="descname">uid</code><em class="property"> = 'urn:oid:0.9.2342.19200300.100.1.1'</em><a class="headerlink" href="#api.saml.metadata.SAMLAttributes.uid" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-</dd></dl>
-
-<dl class="class">
-<dt id="api.saml.metadata.Service">
-<em class="property">class </em><code class="descclassname">api.saml.metadata.</code><code class="descname">Service</code><span class="sig-paren">(</span><em>url</em>, <em>binding</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata.html#Service"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.Service" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
-<p>Represents a service: IdP’s SingleSignOnService, SingleLogOutService, SP’s AssertionConsumerService</p>
-<dl class="attribute">
-<dt id="api.saml.metadata.Service.binding">
-<code class="descname">binding</code><a class="headerlink" href="#api.saml.metadata.Service.binding" title="Permalink to this definition">¶</a></dt>
-<dd><p>Returns the service’s binding</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Service’s binding</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference internal" href="#api.saml.metadata.Binding" title="api.saml.metadata.Binding">Binding</a></td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="attribute">
-<dt id="api.saml.metadata.Service.url">
-<code class="descname">url</code><a class="headerlink" href="#api.saml.metadata.Service.url" title="Permalink to this definition">¶</a></dt>
-<dd><p>Returns the service’s URL</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Service’s URL</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">string</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-</dd></dl>
-
-<dl class="class">
-<dt id="api.saml.metadata.ServiceProviderMetadata">
-<em class="property">class </em><code class="descclassname">api.saml.metadata.</code><code class="descname">ServiceProviderMetadata</code><span class="sig-paren">(</span><em>entity_id</em>, <em>ui_info</em>, <em>organization</em>, <em>name_id_format</em>, <em>acs_service</em>, <em>authn_requests_signed=False</em>, <em>want_assertions_signed=False</em>, <em>certificate=None</em>, <em>private_key=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata.html#ServiceProviderMetadata"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.ServiceProviderMetadata" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="#api.saml.metadata.ProviderMetadata" title="api.saml.metadata.ProviderMetadata"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.saml.metadata.ProviderMetadata</span></code></a></p>
-<p>Represents SP metadata</p>
-<dl class="attribute">
-<dt id="api.saml.metadata.ServiceProviderMetadata.acs_service">
-<code class="descname">acs_service</code><a class="headerlink" href="#api.saml.metadata.ServiceProviderMetadata.acs_service" title="Permalink to this definition">¶</a></dt>
-<dd><p>Returns Assertion Consumer service’s metadata</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Assertion Consumer service’s metadata</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference internal" href="#api.saml.metadata.Service" title="api.saml.metadata.Service">Service</a></td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="attribute">
-<dt id="api.saml.metadata.ServiceProviderMetadata.authn_requests_signed">
-<code class="descname">authn_requests_signed</code><a class="headerlink" href="#api.saml.metadata.ServiceProviderMetadata.authn_requests_signed" title="Permalink to this definition">¶</a></dt>
-<dd><p>Returns the value that indicates whether the &lt;samlp:AuthnRequest&gt; messages
-sent by this service provider will be signed</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Value that indicates whether the &lt;samlp:AuthnRequest&gt; messages
-sent by this service provider will be signed</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">bool</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="attribute">
-<dt id="api.saml.metadata.ServiceProviderMetadata.certificate">
-<code class="descname">certificate</code><a class="headerlink" href="#api.saml.metadata.ServiceProviderMetadata.certificate" title="Permalink to this definition">¶</a></dt>
-<dd><p>Returns the certificate in X.509 format containing the public key used for signing SAML requests</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Certificate in X.509 format containing the public key used for signing SAML requests</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">string</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="attribute">
-<dt id="api.saml.metadata.ServiceProviderMetadata.private_key">
-<code class="descname">private_key</code><a class="headerlink" href="#api.saml.metadata.ServiceProviderMetadata.private_key" title="Permalink to this definition">¶</a></dt>
-<dd><p>Returns the private key used for encrypting SAML requests</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Private key used for encrypting SAML requests</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">string</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="attribute">
-<dt id="api.saml.metadata.ServiceProviderMetadata.want_assertions_signed">
-<code class="descname">want_assertions_signed</code><a class="headerlink" href="#api.saml.metadata.ServiceProviderMetadata.want_assertions_signed" title="Permalink to this definition">¶</a></dt>
-<dd><p>Returns the value that indicates a requirement for the &lt;saml:Assertion&gt;
-elements received by this service provider to be signed</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Value that indicates a requirement for the &lt;saml:Assertion&gt;
-elements received by this service provider to be signed</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">bool</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-</dd></dl>
-
-<dl class="class">
-<dt id="api.saml.metadata.Subject">
-<em class="property">class </em><code class="descclassname">api.saml.metadata.</code><code class="descname">Subject</code><span class="sig-paren">(</span><em>name_id</em>, <em>attribute_statement</em>, <em>valid_till=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata.html#Subject"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.Subject" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
-<p>Contains a name ID and a attribute statement</p>
-<dl class="attribute">
-<dt id="api.saml.metadata.Subject.attribute_statement">
-<code class="descname">attribute_statement</code><a class="headerlink" href="#api.saml.metadata.Subject.attribute_statement" title="Permalink to this definition">¶</a></dt>
-<dd><p>Returns the attribute statement</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Attribute statement</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference internal" href="#api.saml.metadata.AttributeStatement" title="api.saml.metadata.AttributeStatement">AttributeStatement</a></td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="attribute">
-<dt id="api.saml.metadata.Subject.name_id">
-<code class="descname">name_id</code><a class="headerlink" href="#api.saml.metadata.Subject.name_id" title="Permalink to this definition">¶</a></dt>
-<dd><p>Returns the name ID</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Name ID</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference internal" href="#api.saml.metadata.NameID" title="api.saml.metadata.NameID">NameID</a></td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="attribute">
-<dt id="api.saml.metadata.Subject.valid_till">
-<code class="descname">valid_till</code><a class="headerlink" href="#api.saml.metadata.Subject.valid_till" title="Permalink to this definition">¶</a></dt>
-<dd><p>Returns the time till which the subject is valid.
-The default value is 30 minutes. Please refer to the Shibboleth IdP documentation for more details:
-- <a class="reference external" href="https://wiki.shibboleth.net/confluence/display/IDP30/SessionConfiguration">https://wiki.shibboleth.net/confluence/display/IDP30/SessionConfiguration</a></p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Time till which the subject is valid</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">datetime.timedelta</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-</dd></dl>
-
-<dl class="class">
-<dt id="api.saml.metadata.SubjectJSONEncoder">
-<em class="property">class </em><code class="descclassname">api.saml.metadata.</code><code class="descname">SubjectJSONEncoder</code><span class="sig-paren">(</span><em>skipkeys=False</em>, <em>ensure_ascii=True</em>, <em>check_circular=True</em>, <em>allow_nan=True</em>, <em>sort_keys=False</em>, <em>indent=None</em>, <em>separators=None</em>, <em>encoding='utf-8'</em>, <em>default=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata.html#SubjectJSONEncoder"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.SubjectJSONEncoder" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">json.encoder.JSONEncoder</span></code></p>
-<p>Subject’s JSON encoder</p>
-<dl class="method">
-<dt id="api.saml.metadata.SubjectJSONEncoder.default">
-<code class="descname">default</code><span class="sig-paren">(</span><em>subject</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata.html#SubjectJSONEncoder.default"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.SubjectJSONEncoder.default" title="Permalink to this definition">¶</a></dt>
-<dd><p>Serializers a Subject object to JSON</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>subject</strong> (<a class="reference internal" href="#api.saml.metadata.Subject" title="api.saml.metadata.Subject"><em>api.saml.metadata.Subject</em></a>) – Subject object</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">String containing JSON representation of the Subject object</td>
-</tr>
-<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body">string</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-</dd></dl>
-
-<dl class="class">
-<dt id="api.saml.metadata.SubjectUIDExtractor">
-<em class="property">class </em><code class="descclassname">api.saml.metadata.</code><code class="descname">SubjectUIDExtractor</code><a class="reference internal" href="_modules/api/saml/metadata.html#SubjectUIDExtractor"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.SubjectUIDExtractor" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
-<p>Implements an algorithm for extracting a subject’s unique ID from its attributes</p>
-<dl class="method">
-<dt id="api.saml.metadata.SubjectUIDExtractor.extract">
-<code class="descname">extract</code><span class="sig-paren">(</span><em>subject</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata.html#SubjectUIDExtractor.extract"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.SubjectUIDExtractor.extract" title="Permalink to this definition">¶</a></dt>
-<dd><p>Extracts a unique ID from the subject object</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>subject</strong> (<a class="reference internal" href="#api.saml.metadata.Subject" title="api.saml.metadata.Subject"><em>api.saml.metadata.Subject</em></a>) – Subject object</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">Unique ID</td>
-</tr>
-<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body">string</td>
-</tr>
-</tbody>
-</table>
-<p>Unfortunately, there is no single standard regarding what attributes can be treated as unique IDs.
-Different systems use different attributes and all of them have their pros and cons.
-This class implements an algorithm which tries different attributes in the following order
-and selects the first of them as the unique ID:</p>
-<ol class="arabic">
-<li><p class="first">eduPersonUniqueId
-(<a class="reference external" href="https://wiki.refeds.org/display/STAN/eduPerson+2020-01#eduPerson2020-01-eduPersonUniqueId">https://wiki.refeds.org/display/STAN/eduPerson+2020-01#eduPerson2020-01-eduPersonUniqueId</a>)</p>
-<p>A long-lived, non re-assignable, omnidirectional identifier suitable for use as a principal identifier
-by authentication providers or as a unique external key by applications.</p>
-</li>
-<li><p class="first">eduPersonTargetedID
-(<a class="reference external" href="https://wiki.refeds.org/display/STAN/eduPerson+2020-01#eduPerson2020-01-eduPersonTargetedID">https://wiki.refeds.org/display/STAN/eduPerson+2020-01#eduPerson2020-01-eduPersonTargetedID</a>)</p>
-<p>A persistent, non-reassigned, opaque identifier for a principal.
-eduPersonTargetedID is an abstracted version of the SAML V2.0 Name Identifier format of
-“<a class="reference external" href="urn:oasis:names:tc:SAML:2.0:nameid-format:persistent">urn:oasis:names:tc:SAML:2.0:nameid-format:persistent</a>”
-(see <a class="reference external" href="http://www.oasis-open.org/committees/download.php/35711">http://www.oasis-open.org/committees/download.php/35711</a>).</p>
-<p>NOTE: eduPersonTargetedID is DEPRECATED and will be marked as obsolete in a future version
-of this specification. Its equivalent definition in SAML 2.0 has been replaced by a new specification
-for standard Subject Identifier attributes
-[<a class="reference external" href="https://docs.oasis-open.org/security/saml-subject-id-attr/v1.0/saml-subject-id-attr-v1.0.html">https://docs.oasis-open.org/security/saml-subject-id-attr/v1.0/saml-subject-id-attr-v1.0.html</a>],
-one of which (“<a class="reference external" href="urn:oasis:names:tc:SAML:attribute:pairwise-id">urn:oasis:names:tc:SAML:attribute:pairwise-id</a>”) is a direct replacement for this identifier
-with a simpler syntax and safer comparison rules.
-Existing use of this attribute in SAML 1.1 or SAML 2.0 should be phased out
-in favor of the new Subject Identifier attributes.”</p>
-</li>
-<li><p class="first">uid
-<a class="reference external" href="http://oid-info.com/get/0.9.2342.19200300.100.1.1">http://oid-info.com/get/0.9.2342.19200300.100.1.1</a></p>
-<p>See IETF RFC 4519.
-IETF RFC 1274 uses the identifier “userid”.</p>
-</li>
-<li><p class="first">Name ID
-The extractor fetches the first name ID it could find as a last resort which may no be correct.
-It might be better to fetch only persistent name IDs.</p>
-</li>
-</ol>
-<p>Also, please note that eduPersonTargetedID attribute and name IDs should be phased out and replaced with
-the pairwise-id attribute from the OASIS SAML 2.0 SubjectID Attributes Profile.
-However, it’s not yet supported by most of the IdPs</p>
-</dd></dl>
-
-</dd></dl>
-
-<dl class="class">
-<dt id="api.saml.metadata.UIInfo">
-<em class="property">class </em><code class="descclassname">api.saml.metadata.</code><code class="descname">UIInfo</code><span class="sig-paren">(</span><em>display_names=None</em>, <em>descriptions=None</em>, <em>information_urls=None</em>, <em>privacy_statement_urls=None</em>, <em>logo_urls=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata.html#UIInfo"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.UIInfo" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
-<p>Represents mdui:UIInfoType and contains values that can be shown in the UI to describe IdPs/SPs</p>
-<dl class="attribute">
-<dt id="api.saml.metadata.UIInfo.descriptions">
-<code class="descname">descriptions</code><a class="headerlink" href="#api.saml.metadata.UIInfo.descriptions" title="Permalink to this definition">¶</a></dt>
-<dd><p>Returns a list of localizable descriptions</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">List of localizable descriptions</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">List[<a class="reference internal" href="#api.saml.metadata.LocalizableMetadataItem" title="api.saml.metadata.LocalizableMetadataItem">LocalizableMetadataItem</a>]</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="attribute">
-<dt id="api.saml.metadata.UIInfo.display_names">
-<code class="descname">display_names</code><a class="headerlink" href="#api.saml.metadata.UIInfo.display_names" title="Permalink to this definition">¶</a></dt>
-<dd><p>Returns a list of localizable display names</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">List of localizable display names</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">List[<a class="reference internal" href="#api.saml.metadata.LocalizableMetadataItem" title="api.saml.metadata.LocalizableMetadataItem">LocalizableMetadataItem</a>]</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="attribute">
-<dt id="api.saml.metadata.UIInfo.information_urls">
-<code class="descname">information_urls</code><a class="headerlink" href="#api.saml.metadata.UIInfo.information_urls" title="Permalink to this definition">¶</a></dt>
-<dd><p>Returns a list of localizable information URLs</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">List of localizable information URLs</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">List[<a class="reference internal" href="#api.saml.metadata.LocalizableMetadataItem" title="api.saml.metadata.LocalizableMetadataItem">LocalizableMetadataItem</a>]</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="attribute">
-<dt id="api.saml.metadata.UIInfo.logo_urls">
-<code class="descname">logo_urls</code><a class="headerlink" href="#api.saml.metadata.UIInfo.logo_urls" title="Permalink to this definition">¶</a></dt>
-<dd><p>Returns a list of localizable logo URLs</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">List of localizable logo URLs</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">List[<a class="reference internal" href="#api.saml.metadata.LocalizableMetadataItem" title="api.saml.metadata.LocalizableMetadataItem">LocalizableMetadataItem</a>]</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="attribute">
-<dt id="api.saml.metadata.UIInfo.privacy_statement_urls">
-<code class="descname">privacy_statement_urls</code><a class="headerlink" href="#api.saml.metadata.UIInfo.privacy_statement_urls" title="Permalink to this definition">¶</a></dt>
-<dd><p>Returns a list of localizable privacy statement URLs</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">List of localizable privacy statement URLs</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">List[<a class="reference internal" href="#api.saml.metadata.LocalizableMetadataItem" title="api.saml.metadata.LocalizableMetadataItem">LocalizableMetadataItem</a>]</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-</dd></dl>
-
-</div>
-<div class="section" id="module-api.saml.parser">
-<span id="api-saml-parser-module"></span><h2>api.saml.parser module<a class="headerlink" href="#module-api.saml.parser" title="Permalink to this headline">¶</a></h2>
-<dl class="class">
-<dt id="api.saml.parser.SAMLMetadataParser">
-<em class="property">class </em><code class="descclassname">api.saml.parser.</code><code class="descname">SAMLMetadataParser</code><a class="reference internal" href="_modules/api/saml/parser.html#SAMLMetadataParser"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.parser.SAMLMetadataParser" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
-<p>Parses SAML metadata</p>
-<dl class="method">
-<dt id="api.saml.parser.SAMLMetadataParser.parse">
-<code class="descname">parse</code><span class="sig-paren">(</span><em>xml_metadata</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/parser.html#SAMLMetadataParser.parse"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.parser.SAMLMetadataParser.parse" title="Permalink to this definition">¶</a></dt>
-<dd><p>Parses an XML string containing SAML metadata and translates it into a list of
-IdentityProviderMetadata/ServiceProviderMetadata objects</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>xml_metadata</strong> (<em>string</em>) – XML string containing SAML metadata</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">List of IdentityProviderMetadata/ServiceProviderMetadata objects</td>
-</tr>
-<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body">List[<a class="reference internal" href="#api.saml.metadata.ProviderMetadata" title="api.saml.metadata.ProviderMetadata">ProviderMetadata</a>]</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Raise:</th><td class="field-body">MetadataParsingError</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-</dd></dl>
-
-<dl class="exception">
-<dt id="api.saml.parser.SAMLMetadataParsingError">
-<em class="property">exception </em><code class="descclassname">api.saml.parser.</code><code class="descname">SAMLMetadataParsingError</code><span class="sig-paren">(</span><em>message=None</em>, <em>inner_exception=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/parser.html#SAMLMetadataParsingError"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.parser.SAMLMetadataParsingError" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="core.html#core.exceptions.BaseError" title="core.exceptions.BaseError"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.exceptions.BaseError</span></code></a></p>
-<p>Raised in the case of any errors occurred during parsing of SAML metadata</p>
-</dd></dl>
-
-<dl class="class">
-<dt id="api.saml.parser.SAMLSubjectParser">
-<em class="property">class </em><code class="descclassname">api.saml.parser.</code><code class="descname">SAMLSubjectParser</code><a class="reference internal" href="_modules/api/saml/parser.html#SAMLSubjectParser"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.parser.SAMLSubjectParser" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
-<p>Parses SAML response into Subject object</p>
-<dl class="method">
-<dt id="api.saml.parser.SAMLSubjectParser.parse">
-<code class="descname">parse</code><span class="sig-paren">(</span><em>auth</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/parser.html#SAMLSubjectParser.parse"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.parser.SAMLSubjectParser.parse" title="Permalink to this definition">¶</a></dt>
-<dd><p>Parses OneLogin_Saml2_Auth object containing SAML response data into Subject</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>auth</strong> (<em>OneLogin_Saml2_Auth</em>) – OneLogin_Saml2_Auth object containing SAML response</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">Subject object containing SAML attributes and NameID</td>
-</tr>
-<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference internal" href="#api.saml.metadata.Subject" title="api.saml.metadata.Subject">api.saml.metadata.Subject</a></td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-</dd></dl>
-
-</div>
 <div class="section" id="module-api.saml.provider">
 <span id="api-saml-provider-module"></span><h2>api.saml.provider module<a class="headerlink" href="#module-api.saml.provider" title="Permalink to this headline">¶</a></h2>
 <dl class="attribute">
@@ -1585,7 +295,7 @@ IdentityProviderMetadata/ServiceProviderMetadata objects</p>
 - HTTP-POST Binding for responses</p>
 <dl class="attribute">
 <dt id="api.saml.provider.SAMLWebSSOAuthenticationProvider.DESCRIPTION">
-<code class="descname">DESCRIPTION</code><em class="property"> = l'SAML 2.0 authentication provider implementing the Web SSO profile using the following bindings:          HTTP-Redirect for requests and HTTP-POST for responses'</em><a class="headerlink" href="#api.saml.provider.SAMLWebSSOAuthenticationProvider.DESCRIPTION" title="Permalink to this definition">¶</a></dt>
+<code class="descname">DESCRIPTION</code><em class="property"> = l'SAML 2.0 authentication provider implementing the Web SSO profile using the following bindings:          HTTP-Redirect for requests and HTTP-POST for responses.'</em><a class="headerlink" href="#api.saml.provider.SAMLWebSSOAuthenticationProvider.DESCRIPTION" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -1640,17 +350,35 @@ ProblemDetail if an error occurs.</p>
 
 <dl class="method">
 <dt id="api.saml.provider.SAMLWebSSOAuthenticationProvider.get_authentication_manager">
-<code class="descname">get_authentication_manager</code><span class="sig-paren">(</span><em>db</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/provider.html#SAMLWebSSOAuthenticationProvider.get_authentication_manager"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.provider.SAMLWebSSOAuthenticationProvider.get_authentication_manager" title="Permalink to this definition">¶</a></dt>
+<code class="descname">get_authentication_manager</code><span class="sig-paren">(</span><em>configuration</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/provider.html#SAMLWebSSOAuthenticationProvider.get_authentication_manager"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.provider.SAMLWebSSOAuthenticationProvider.get_authentication_manager" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns SAML authentication manager used by this provider</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>configuration</strong> (<a class="reference internal" href="api.saml.configuration.html#api.saml.configuration.model.SAMLConfiguration" title="api.saml.configuration.model.SAMLConfiguration"><em>api.saml.configuration.model.SAMLConfiguration</em></a>) – SAMLConfiguration object</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">SAML authentication manager used by this provider</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference internal" href="#api.saml.auth.SAMLAuthenticationManager" title="api.saml.auth.SAMLAuthenticationManager">SAMLAuthenticationManager</a></td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="api.saml.provider.SAMLWebSSOAuthenticationProvider.get_configuration">
+<code class="descname">get_configuration</code><span class="sig-paren">(</span><em>**kwds</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/provider.html#SAMLWebSSOAuthenticationProvider.get_configuration"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.provider.SAMLWebSSOAuthenticationProvider.get_configuration" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return a SAMLConfiguration object.</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>db</strong> (<em>sqlalchemy.orm.session.Session</em>) – Database session</td>
 </tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">SAML authentication manager used by this provider</td>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">SAMLConfiguration object</td>
 </tr>
-<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference internal" href="#api.saml.auth.SAMLAuthenticationManager" title="api.saml.auth.SAMLAuthenticationManager">SAMLAuthenticationManager</a></td>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference internal" href="api.saml.configuration.html#api.saml.configuration.model.SAMLConfiguration" title="api.saml.configuration.model.SAMLConfiguration">api.saml.configuration.model.SAMLConfiguration</a></td>
 </tr>
 </tbody>
 </table>
@@ -1664,7 +392,7 @@ ProblemDetail if an error occurs.</p>
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>subject</strong> (<a class="reference internal" href="#api.saml.metadata.Subject" title="api.saml.metadata.Subject"><em>api.saml.metadata.Subject</em></a>) – Subject object containing SAML Subject and AttributeStatement</td>
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>subject</strong> (<em>api.saml.metadata.Subject</em>) – Subject object containing SAML Subject and AttributeStatement</td>
 </tr>
 <tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">PatronData object containing information about the authenticated SAML subject or
 ProblemDetail object in the case of any errors</td>
@@ -1685,7 +413,7 @@ ProblemDetail object in the case of any errors</td>
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
 <li><strong>db</strong> (<em>sqlalchemy.orm.session.Session</em>) – Database session</li>
-<li><strong>subject</strong> (<a class="reference internal" href="#api.saml.metadata.Subject" title="api.saml.metadata.Subject"><em>api.saml.metadata.Subject</em></a>) – Subject object containing SAML Subject and AttributeStatement</li>
+<li><strong>subject</strong> (<em>api.saml.metadata.Subject</em>) – Subject object containing SAML Subject and AttributeStatement</li>
 </ul>
 </td>
 </tr>
@@ -1712,40 +440,6 @@ to the client.</p>
 <dt id="api.saml.provider.validator_factory">
 <code class="descclassname">api.saml.provider.</code><code class="descname">validator_factory</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/provider.html#validator_factory"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.provider.validator_factory" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
-
-</div>
-<div class="section" id="module-api.saml.validator">
-<span id="api-saml-validator-module"></span><h2>api.saml.validator module<a class="headerlink" href="#module-api.saml.validator" title="Permalink to this headline">¶</a></h2>
-<dl class="class">
-<dt id="api.saml.validator.SAMLSettingsValidator">
-<em class="property">class </em><code class="descclassname">api.saml.validator.</code><code class="descname">SAMLSettingsValidator</code><span class="sig-paren">(</span><em>metadata_parser</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/validator.html#SAMLSettingsValidator"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.validator.SAMLSettingsValidator" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="api.admin.html#api.admin.validator.Validator" title="api.admin.validator.Validator"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.admin.validator.Validator</span></code></a></p>
-<p>Validates SAMLAuthenticationProvider’s settings submitted by a user</p>
-<dl class="method">
-<dt id="api.saml.validator.SAMLSettingsValidator.validate">
-<code class="descname">validate</code><span class="sig-paren">(</span><em>settings</em>, <em>content</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/validator.html#SAMLSettingsValidator.validate"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.validator.SAMLSettingsValidator.validate" title="Permalink to this definition">¶</a></dt>
-<dd><p>Validates provider’s setting values submitted by the user</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
-<li><strong>settings</strong> (<em>Optional</em><em>[</em><a class="reference internal" href="core.util.html#core.util.problem_detail.ProblemDetail" title="core.util.problem_detail.ProblemDetail"><em>ProblemDetail</em></a><em>]</em>) – Dictionary containing provider’s settings (SAMLAuthenticationProvider.SETTINGS)</li>
-<li><strong>content</strong> (<em>werkzeug.datastructures.MultiDict</em>) – Dictionary containing submitted form’s metadata</li>
-</ul>
-</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">ProblemDetail in the case of any errors, None if validation succeeded</p>
-</td>
-</tr>
-<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">Optional[<a class="reference internal" href="core.util.html#core.util.problem_detail.ProblemDetail" title="core.util.problem_detail.ProblemDetail">ProblemDetail</a>]</p>
-</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-</dd></dl>
 
 </div>
 <div class="section" id="module-api.saml">
@@ -1786,8 +480,8 @@ to the client.</p>
   <li><a href="index.html">Documentation overview</a><ul>
   <li><a href="modules.html">circulation</a><ul>
   <li><a href="api.html">api package</a><ul>
-      <li>Previous: <a href="api.lcp.html" title="previous chapter">api.lcp package</a></li>
-      <li>Next: <a href="api.sip.html" title="next chapter">api.sip package</a></li>
+      <li>Previous: <a href="api.proquest.html" title="previous chapter">api.proquest package</a></li>
+      <li>Next: <a href="api.saml.configuration.html" title="next chapter">api.saml.configuration package</a></li>
   </ul></li>
   </ul></li>
   </ul></li>

@@ -209,7 +209,7 @@
             <span class="p">)</span>
             <span class="n">stack_trace</span> <span class="o">=</span> <span class="n">traceback</span><span class="o">.</span><span class="n">format_exc</span><span class="p">()</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">update_timestamp</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">start_time</span><span class="p">,</span> <span class="n">stack_trace</span><span class="p">)</span>
-            <span class="k">raise</span> <span class="n">e</span></div>
+            <span class="k">raise</span></div>
 
 <div class="viewcode-block" id="Script.load_configuration"><a class="viewcode-back" href="../../core.html#core.scripts.Script.load_configuration">[docs]</a>    <span class="k">def</span> <span class="nf">load_configuration</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">Configuration</span><span class="o">.</span><span class="n">cdns_loaded_from_database</span><span class="p">():</span>
@@ -2113,7 +2113,7 @@
             <span class="c1"># If _none_ of those worked, something is wrong on a</span>
             <span class="c1"># deeper level.</span>
             <span class="k">if</span> <span class="n">exception</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="n">e</span>
+                <span class="k">raise</span> <span class="n">exception</span>
 
             <span class="k">if</span> <span class="ow">not</span> <span class="n">results</span><span class="p">:</span>
                 <span class="c1"># Make sure there&#39;s a row for this service in the timestamps</span>
@@ -3040,9 +3040,9 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">output</span> <span class="o">=</span> <span class="n">output</span> <span class="ow">or</span> <span class="n">sys</span><span class="o">.</span><span class="n">stdout</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">search</span> <span class="o">=</span> <span class="n">search</span> <span class="ow">or</span> <span class="n">ExternalSearchIndex</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
-        <span class="k">except</span> <span class="n">CannotLoadConfiguration</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="n">CannotLoadConfiguration</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">out</span><span class="p">(</span><span class="s2">&quot;Here&#39;s your problem: the search integration is missing or misconfigured.&quot;</span><span class="p">)</span>
-            <span class="k">raise</span> <span class="n">e</span>
+            <span class="k">raise</span>
 
 <div class="viewcode-block" id="WhereAreMyBooksScript.out"><a class="viewcode-back" href="../../core.html#core.scripts.WhereAreMyBooksScript.out">[docs]</a>    <span class="k">def</span> <span class="nf">out</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">s</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">):</span>

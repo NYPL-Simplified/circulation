@@ -121,8 +121,8 @@
     <span class="c1"># &quot;All ages&quot; actually means &quot;all ages with reading fluency&quot;.</span>
     <span class="n">ALL_AGES_AGE_CUTOFF</span> <span class="o">=</span> <span class="mi">8</span>
 
-    <span class="n">AUDIENCES_JUVENILE</span> <span class="o">=</span> <span class="p">[</span><span class="n">AUDIENCE_CHILDREN</span><span class="p">,</span> <span class="n">AUDIENCE_YOUNG_ADULT</span><span class="p">,</span>
-                          <span class="n">AUDIENCE_ALL_AGES</span><span class="p">]</span>
+    <span class="n">AUDIENCES_YOUNG_CHILDREN</span> <span class="o">=</span> <span class="p">[</span><span class="n">AUDIENCE_CHILDREN</span><span class="p">,</span> <span class="n">AUDIENCE_ALL_AGES</span><span class="p">]</span>
+    <span class="n">AUDIENCES_JUVENILE</span> <span class="o">=</span> <span class="n">AUDIENCES_YOUNG_CHILDREN</span> <span class="o">+</span> <span class="p">[</span><span class="n">AUDIENCE_YOUNG_ADULT</span><span class="p">]</span>
     <span class="n">AUDIENCES_ADULT</span> <span class="o">=</span> <span class="p">[</span><span class="n">AUDIENCE_ADULT</span><span class="p">,</span> <span class="n">AUDIENCE_ADULTS_ONLY</span><span class="p">,</span> <span class="n">AUDIENCE_ALL_AGES</span><span class="p">]</span>
     <span class="n">AUDIENCES</span> <span class="o">=</span> <span class="nb">set</span><span class="p">([</span><span class="n">AUDIENCE_ADULT</span><span class="p">,</span> <span class="n">AUDIENCE_ADULTS_ONLY</span><span class="p">,</span> <span class="n">AUDIENCE_YOUNG_ADULT</span><span class="p">,</span>
                      <span class="n">AUDIENCE_CHILDREN</span><span class="p">,</span> <span class="n">AUDIENCE_ALL_AGES</span><span class="p">,</span> <span class="n">AUDIENCE_RESEARCH</span><span class="p">])</span>

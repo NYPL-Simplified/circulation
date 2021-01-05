@@ -38,10 +38,12 @@
 <span class="kn">import</span> <span class="nn">flask</span>
 <span class="kn">from</span> <span class="nn">flask</span> <span class="kn">import</span> <span class="n">Response</span>
 
+<span class="kn">from</span> <span class="nn">api.admin.problem_details</span> <span class="kn">import</span> <span class="n">MISSING_COLLECTION</span>
 <span class="kn">from</span> <span class="nn">api.controller</span> <span class="kn">import</span> <span class="n">CirculationManagerController</span>
 <span class="kn">from</span> <span class="nn">api.lcp.factory</span> <span class="kn">import</span> <span class="n">LCPServerFactory</span>
 <span class="kn">from</span> <span class="nn">core.lcp.credential</span> <span class="kn">import</span> <span class="n">LCPCredentialFactory</span>
-<span class="kn">from</span> <span class="nn">core.model</span> <span class="kn">import</span> <span class="n">Session</span><span class="p">,</span> <span class="n">ExternalIntegration</span>
+<span class="kn">from</span> <span class="nn">core.model</span> <span class="kn">import</span> <span class="n">Session</span><span class="p">,</span> <span class="n">ExternalIntegration</span><span class="p">,</span> <span class="n">Collection</span>
+<span class="kn">from</span> <span class="nn">core.util.problem_detail</span> <span class="kn">import</span> <span class="n">ProblemDetail</span>
 
 
 <div class="viewcode-block" id="LCPController"><a class="viewcode-back" href="../../../api.lcp.html#api.lcp.controller.LCPController">[docs]</a><span class="k">class</span> <span class="nc">LCPController</span><span class="p">(</span><span class="n">CirculationManagerController</span><span class="p">):</span>
@@ -89,21 +91,24 @@
 
         <span class="k">return</span> <span class="n">lcp_passphrase</span>
 
-    <span class="k">def</span> <span class="nf">_get_lcp_collection</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">library</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">_get_lcp_collection</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">collection_name</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Returns an LCP collection for a specified library</span>
 <span class="sd">        NOTE: We assume that there is only ONE LCP collection per library</span>
 
-<span class="sd">        :param library: Library</span>
-<span class="sd">        :type library: core.model.library.Library</span>
+<span class="sd">        :param patron: Patron object</span>
+<span class="sd">        :type patron: core.model.patron.Patron</span>
+
+<span class="sd">        :param collection_name: Name of the collection</span>
+<span class="sd">        :type collection_name: string</span>
 
 <span class="sd">        :return: LCP collection</span>
 <span class="sd">        :rtype: core.model.collection.Collection</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">lcp_collection</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">([</span>
-            <span class="n">collection</span>
-            <span class="k">for</span> <span class="n">collection</span> <span class="ow">in</span> <span class="n">library</span><span class="o">.</span><span class="n">collections</span>
-            <span class="k">if</span> <span class="n">collection</span><span class="o">.</span><span class="n">protocol</span> <span class="o">==</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">LCP</span>
-        <span class="p">]))</span>
+        <span class="n">db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="n">patron</span><span class="p">)</span>
+        <span class="n">lcp_collection</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">Collection</span><span class="o">.</span><span class="n">by_name_and_protocol</span><span class="p">(</span><span class="n">db</span><span class="p">,</span> <span class="n">collection_name</span><span class="p">,</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">LCP</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">lcp_collection</span> <span class="ow">or</span> <span class="n">lcp_collection</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">patron</span><span class="o">.</span><span class="n">library</span><span class="o">.</span><span class="n">collections</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">MISSING_COLLECTION</span>
 
         <span class="k">return</span> <span class="n">lcp_collection</span>
 
@@ -126,8 +131,14 @@
 
         <span class="k">return</span> <span class="n">response</span></div>
 
-<div class="viewcode-block" id="LCPController.get_lcp_license"><a class="viewcode-back" href="../../../api.lcp.html#api.lcp.controller.LCPController.get_lcp_license">[docs]</a>    <span class="k">def</span> <span class="nf">get_lcp_license</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">license_id</span><span class="p">):</span>
+<div class="viewcode-block" id="LCPController.get_lcp_license"><a class="viewcode-back" href="../../../api.lcp.html#api.lcp.controller.LCPController.get_lcp_license">[docs]</a>    <span class="k">def</span> <span class="nf">get_lcp_license</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collection_name</span><span class="p">,</span> <span class="n">license_id</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Returns an LCP license with the specified ID</span>
+
+<span class="sd">        :param collection_name: Name of the collection</span>
+<span class="sd">        :type collection_name: string</span>
+
+<span class="sd">        :param license_id: License ID</span>
+<span class="sd">        :type license_id: string</span>
 
 <span class="sd">        :return: Flask response containing the LCP license with the specified ID</span>
 <span class="sd">        :rtype: string</span>
@@ -135,9 +146,11 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Started fetching license # </span><span class="si">{0}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">license_id</span><span class="p">))</span>
 
         <span class="n">patron</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_patron</span><span class="p">()</span>
+        <span class="n">lcp_collection</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_lcp_collection</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">collection_name</span><span class="p">)</span>
 
-        <span class="n">library</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">library</span>
-        <span class="n">lcp_collection</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_lcp_collection</span><span class="p">(</span><span class="n">library</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">lcp_collection</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">lcp_collection</span>
+
         <span class="n">lcp_api</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">circulation</span><span class="o">.</span><span class="n">api_for_collection</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">lcp_collection</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
         <span class="n">lcp_server</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lcp_server_factory</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">lcp_api</span><span class="p">)</span>
 

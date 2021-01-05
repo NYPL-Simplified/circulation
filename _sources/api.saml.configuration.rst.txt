@@ -1,0 +1,30 @@
+api.saml.configuration package
+==============================
+
+Submodules
+----------
+
+api.saml.configuration.model module
+-----------------------------------
+
+.. automodule:: api.saml.configuration.model
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+api.saml.configuration.validator module
+---------------------------------------
+
+.. automodule:: api.saml.configuration.validator
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+
+Module contents
+---------------
+
+.. automodule:: api.saml.configuration
+    :members:
+    :undoc-members:
+    :show-inheritance:

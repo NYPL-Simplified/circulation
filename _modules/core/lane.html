@@ -707,18 +707,29 @@
         <span class="c1"># Apply any superclass criteria</span>
         <span class="n">qu</span> <span class="o">=</span> <span class="nb">super</span><span class="p">(</span><span class="n">Facets</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">modify_database_query</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">qu</span><span class="p">)</span>
 
+        <span class="n">available_now</span> <span class="o">=</span> <span class="n">or_</span><span class="p">(</span>
+            <span class="n">LicensePool</span><span class="o">.</span><span class="n">open_access</span> <span class="o">==</span> <span class="kc">True</span><span class="p">,</span>
+            <span class="n">LicensePool</span><span class="o">.</span><span class="n">self_hosted</span> <span class="o">==</span> <span class="kc">True</span><span class="p">,</span>
+            <span class="n">LicensePool</span><span class="o">.</span><span class="n">unlimited_access</span> <span class="o">==</span> <span class="kc">True</span><span class="p">,</span>
+            <span class="n">LicensePool</span><span class="o">.</span><span class="n">licenses_available</span> <span class="o">&gt;</span> <span class="mi">0</span>
+        <span class="p">)</span>
+
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">availability</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">AVAILABLE_NOW</span><span class="p">:</span>
-            <span class="n">availability_clause</span> <span class="o">=</span> <span class="n">or_</span><span class="p">(</span>
-                <span class="n">LicensePool</span><span class="o">.</span><span class="n">open_access</span> <span class="o">==</span> <span class="kc">True</span><span class="p">,</span>
-                <span class="n">LicensePool</span><span class="o">.</span><span class="n">licenses_available</span> <span class="o">&gt;</span> <span class="mi">0</span>
-            <span class="p">)</span>
+            <span class="n">availability_clause</span> <span class="o">=</span> <span class="n">available_now</span>
         <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">availability</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">AVAILABLE_ALL</span><span class="p">:</span>
             <span class="n">availability_clause</span> <span class="o">=</span> <span class="n">or_</span><span class="p">(</span>
                 <span class="n">LicensePool</span><span class="o">.</span><span class="n">open_access</span> <span class="o">==</span> <span class="kc">True</span><span class="p">,</span>
-                <span class="n">LicensePool</span><span class="o">.</span><span class="n">licenses_owned</span> <span class="o">&gt;</span> <span class="mi">0</span>
+                <span class="n">LicensePool</span><span class="o">.</span><span class="n">self_hosted</span> <span class="o">==</span> <span class="kc">True</span><span class="p">,</span>
+                <span class="n">LicensePool</span><span class="o">.</span><span class="n">licenses_owned</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span>
+                <span class="n">LicensePool</span><span class="o">.</span><span class="n">unlimited_access</span>
             <span class="p">)</span>
         <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">availability</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">AVAILABLE_OPEN_ACCESS</span><span class="p">:</span>
+            <span class="c1"># TODO: self-hosted content could be allowed here</span>
+            <span class="c1"># depending on what exactly the wording is.</span>
             <span class="n">availability_clause</span> <span class="o">=</span> <span class="n">LicensePool</span><span class="o">.</span><span class="n">open_access</span> <span class="o">==</span> <span class="kc">True</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">availability</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">AVAILABLE_NOT_NOW</span><span class="p">:</span>
+            <span class="n">availability_clause</span> <span class="o">=</span> <span class="n">not_</span><span class="p">(</span><span class="n">available_now</span><span class="p">)</span>
+
         <span class="n">qu</span> <span class="o">=</span> <span class="n">qu</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">availability_clause</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">collection</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">COLLECTION_FULL</span><span class="p">:</span>
@@ -1321,7 +1332,7 @@
 
         <span class="c1"># This WorkList contains every title available to this library</span>
         <span class="c1"># in one of the media supported by the default client.</span>
-        <span class="n">wl</span> <span class="o">=</span> <span class="n">WorkList</span><span class="p">()</span>
+        <span class="n">wl</span> <span class="o">=</span> <span class="n">TopLevelWorkList</span><span class="p">()</span>
 
         <span class="n">wl</span><span class="o">.</span><span class="n">initialize</span><span class="p">(</span>
             <span class="n">library</span><span class="p">,</span> <span class="n">display_name</span><span class="o">=</span><span class="n">library</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">children</span><span class="o">=</span><span class="n">top_level_lanes</span><span class="p">,</span>
@@ -1524,6 +1535,17 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="p">[]</span>
 
+<div class="viewcode-block" id="WorkList.is_self_or_descendant"><a class="viewcode-back" href="../../core.html#core.lane.WorkList.is_self_or_descendant">[docs]</a>    <span class="k">def</span> <span class="nf">is_self_or_descendant</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ancestor</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Is this WorkList the given WorkList or one of its descendants?</span>
+
+<span class="sd">        :param ancestor: A WorkList.</span>
+<span class="sd">        :return: A boolean.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">candidate</span> <span class="ow">in</span> <span class="p">[</span><span class="bp">self</span><span class="p">]</span> <span class="o">+</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">parentage</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">candidate</span> <span class="o">==</span> <span class="n">ancestor</span><span class="p">:</span>
+                <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">return</span> <span class="kc">False</span></div>
+
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">inherit_parent_restrictions</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Since a WorkList has no parent, it cannot inherit any restrictions</span>
@@ -1627,6 +1649,47 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">display_name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">language_key</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">audience_key</span>
         <span class="p">)</span>
 
+<div class="viewcode-block" id="WorkList.accessible_to"><a class="viewcode-back" href="../../core.html#core.lane.WorkList.accessible_to">[docs]</a>    <span class="k">def</span> <span class="nf">accessible_to</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;As a matter of library policy, is the given `Patron` allowed</span>
+<span class="sd">        to access this `WorkList`?</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">patron</span><span class="p">:</span>
+            <span class="c1"># We have no lanes that are private, per se, so if there</span>
+            <span class="c1"># is no active patron, every lane is accessible.</span>
+            <span class="k">return</span> <span class="kc">True</span>
+
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="n">patron</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">patron</span><span class="o">.</span><span class="n">library</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_library</span><span class="p">(</span><span class="n">_db</span><span class="p">):</span>
+            <span class="c1"># You can&#39;t access a WorkList from another library.</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">patron</span><span class="o">.</span><span class="n">library</span><span class="o">.</span><span class="n">has_root_lanes</span><span class="p">:</span>
+            <span class="c1"># The patron&#39;s library has no root lanes, so it&#39;s not necessary</span>
+            <span class="c1"># to run the somewhat expensive check for a patron&#39;s root lane.</span>
+            <span class="c1"># All lanes are accessible to all patrons.</span>
+            <span class="k">return</span> <span class="kc">True</span>
+
+        <span class="c1"># Get the patron&#39;s root lane, if any.</span>
+        <span class="n">root</span> <span class="o">=</span> <span class="n">patron</span><span class="o">.</span><span class="n">root_lane</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">root</span><span class="p">:</span>
+            <span class="c1"># A patron with no root lane can access every one of the</span>
+            <span class="c1"># library&#39;s WorkLists.</span>
+            <span class="k">return</span> <span class="kc">True</span>
+
+        <span class="c1"># A WorkList is only accessible if the audiences and target age</span>
+        <span class="c1"># of the WorkList are fully compatible with that of the</span>
+        <span class="c1"># patron&#39;s root lane.</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">audiences</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">work_audience</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">audiences</span><span class="p">:</span>
+                <span class="c1"># work_audience represents a type of book that _might_</span>
+                <span class="c1"># show up in this WorkList.</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">patron</span><span class="o">.</span><span class="n">work_is_age_appropriate</span><span class="p">(</span><span class="n">work_audience</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">target_age</span><span class="p">):</span>
+                    <span class="c1"># Books of this type would not be appropriate to show to</span>
+                    <span class="c1"># this patron, so the lane itself is not accessible.</span>
+                    <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="k">return</span> <span class="kc">True</span></div>
+
 <div class="viewcode-block" id="WorkList.overview_facets"><a class="viewcode-back" href="../../core.html#core.lane.WorkList.overview_facets">[docs]</a>    <span class="k">def</span> <span class="nf">overview_facets</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">facets</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Convert a generic FeaturedFacets to some other faceting object,</span>
 <span class="sd">        suitable for showing an overview of this WorkList in a grouped</span>
@@ -1634,11 +1697,13 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">facets</span></div>
 
-<div class="viewcode-block" id="WorkList.groups"><a class="viewcode-back" href="../../core.html#core.lane.WorkList.groups">[docs]</a>    <span class="k">def</span> <span class="nf">groups</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">include_sublanes</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">facets</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+<div class="viewcode-block" id="WorkList.groups"><a class="viewcode-back" href="../../core.html#core.lane.WorkList.groups">[docs]</a>    <span class="k">def</span> <span class="nf">groups</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">include_sublanes</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">pagination</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">facets</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                <span class="n">search_engine</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">debug</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Extract a list of samples from each child of this WorkList.  This</span>
 <span class="sd">        can be used to create a grouped acquisition feed for the WorkList.</span>
 
+<span class="sd">        :param pagination: A Pagination object which may affect how many</span>
+<span class="sd">            works each child of this WorkList may contribute.</span>
 <span class="sd">        :param facets: A FeaturedFacets object that may restrict the works on view.</span>
 <span class="sd">        :param search_engine: An ExternalSearchIndex to use when</span>
 <span class="sd">            asking for the featured works in a given WorkList.</span>
@@ -1652,7 +1717,7 @@
             <span class="c1"># We only need to find featured works for this lane,</span>
             <span class="c1"># not this lane plus its sublanes.</span>
             <span class="n">adapted</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">overview_facets</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">facets</span><span class="p">)</span>
-            <span class="k">for</span> <span class="n">work</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">works</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">facets</span><span class="o">=</span><span class="n">adapted</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">work</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">works</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">pagination</span><span class="o">=</span><span class="n">pagination</span><span class="p">,</span> <span class="n">facets</span><span class="o">=</span><span class="n">adapted</span><span class="p">):</span>
                 <span class="k">yield</span> <span class="n">work</span><span class="p">,</span> <span class="bp">self</span>
             <span class="k">return</span>
 
@@ -1684,8 +1749,8 @@
         <span class="c1"># for any children that are Lanes, and call groups()</span>
         <span class="c1"># recursively for any children that are not.</span>
         <span class="k">for</span> <span class="n">work</span><span class="p">,</span> <span class="n">worklist</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_groups_for_lanes</span><span class="p">(</span>
-            <span class="n">_db</span><span class="p">,</span> <span class="n">relevant_children</span><span class="p">,</span> <span class="n">relevant_lanes</span><span class="p">,</span> <span class="n">facets</span><span class="o">=</span><span class="n">facets</span><span class="p">,</span>
-            <span class="n">search_engine</span><span class="o">=</span><span class="n">search_engine</span><span class="p">,</span> <span class="n">debug</span><span class="o">=</span><span class="n">debug</span>
+            <span class="n">_db</span><span class="p">,</span> <span class="n">relevant_children</span><span class="p">,</span> <span class="n">relevant_lanes</span><span class="p">,</span> <span class="n">pagination</span><span class="o">=</span><span class="n">pagination</span><span class="p">,</span>
+            <span class="n">facets</span><span class="o">=</span><span class="n">facets</span><span class="p">,</span> <span class="n">search_engine</span><span class="o">=</span><span class="n">search_engine</span><span class="p">,</span> <span class="n">debug</span><span class="o">=</span><span class="n">debug</span>
         <span class="p">):</span>
             <span class="k">yield</span> <span class="n">work</span><span class="p">,</span> <span class="n">worklist</span></div>
 
@@ -1875,12 +1940,16 @@
         <span class="k">return</span> <span class="n">results</span></div>
 
     <span class="k">def</span> <span class="nf">_groups_for_lanes</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">relevant_lanes</span><span class="p">,</span> <span class="n">queryable_lanes</span><span class="p">,</span> <span class="n">facets</span><span class="p">,</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">relevant_lanes</span><span class="p">,</span> <span class="n">queryable_lanes</span><span class="p">,</span> <span class="n">pagination</span><span class="p">,</span> <span class="n">facets</span><span class="p">,</span>
         <span class="n">search_engine</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">debug</span><span class="o">=</span><span class="kc">False</span>
     <span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Ask the search engine for groups of featurable works in the</span>
 <span class="sd">        given lanes. Fill in gaps as necessary.</span>
 
+<span class="sd">        :param pagination: An optional Pagination object which will be</span>
+<span class="sd">           used to paginate each group individually. Note that this</span>
+<span class="sd">           means Pagination.page_loaded() method will be called once</span>
+<span class="sd">           for each group.</span>
 <span class="sd">        :param facets: A FeaturedFacets object.</span>
 
 <span class="sd">        :param search_engine: An ExternalSearchIndex to use when</span>
@@ -1890,18 +1959,23 @@
 <span class="sd">        :yield: A sequence of (Work, WorkList) 2-tuples, with each</span>
 <span class="sd">            WorkList representing the child WorkList in which the Work is</span>
 <span class="sd">            found.</span>
+
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">library</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_library</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
-        <span class="n">target_size</span> <span class="o">=</span> <span class="n">library</span><span class="o">.</span><span class="n">featured_lane_size</span>
+        <span class="k">if</span> <span class="n">pagination</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># No pagination object was provided. Our target size is</span>
+            <span class="c1"># the featured lane size, but we&#39;ll ask for a few extra</span>
+            <span class="c1"># works for each lane, to reduce the risk that we end up</span>
+            <span class="c1"># reusing a book in two different lanes.</span>
+            <span class="n">target_size</span> <span class="o">=</span> <span class="n">library</span><span class="o">.</span><span class="n">featured_lane_size</span>
 
-        <span class="c1"># We ask for a few extra works for each lane, to reduce the</span>
-        <span class="c1"># risk that we&#39;ll end up reusing a book in two different</span>
-        <span class="c1"># lanes.</span>
-        <span class="n">ask_for_size</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">target_size</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">target_size</span> <span class="o">*</span> <span class="mf">1.10</span><span class="p">))</span>
-        <span class="c1"># TODO: we&#39;re reusing this pagination object, which means</span>
-        <span class="c1"># page_loaded will be called multiple times. Could this be a</span>
-        <span class="c1"># problem?</span>
-        <span class="n">pagination</span> <span class="o">=</span> <span class="n">Pagination</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="n">ask_for_size</span><span class="p">)</span>
+            <span class="c1"># We ask for a few extra works for each lane, to reduce the</span>
+            <span class="c1"># risk that we&#39;ll end up reusing a book in two different</span>
+            <span class="c1"># lanes.</span>
+            <span class="n">ask_for_size</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">target_size</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">target_size</span> <span class="o">*</span> <span class="mf">1.10</span><span class="p">))</span>
+            <span class="n">pagination</span> <span class="o">=</span> <span class="n">Pagination</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="n">ask_for_size</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">target_size</span> <span class="o">=</span> <span class="n">pagination</span><span class="o">.</span><span class="n">size</span>
 
         <span class="kn">from</span> <span class="nn">external_search</span> <span class="kn">import</span> <span class="n">ExternalSearchIndex</span>
         <span class="n">search_engine</span> <span class="o">=</span> <span class="n">search_engine</span> <span class="ow">or</span> <span class="n">ExternalSearchIndex</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
@@ -1914,9 +1988,8 @@
         <span class="n">queryable_lane_set</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">queryable_lanes</span><span class="p">)</span>
         <span class="n">works_and_lanes</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_featured_works_with_lanes</span><span class="p">(</span>
-                <span class="n">_db</span><span class="p">,</span> <span class="n">queryable_lanes</span><span class="p">,</span> <span class="n">facets</span><span class="o">=</span><span class="n">facets</span><span class="p">,</span>
-                <span class="n">pagination</span><span class="o">=</span><span class="n">pagination</span><span class="p">,</span> <span class="n">search_engine</span><span class="o">=</span><span class="n">search_engine</span><span class="p">,</span>
-                <span class="n">debug</span><span class="o">=</span><span class="n">debug</span>
+                <span class="n">_db</span><span class="p">,</span> <span class="n">queryable_lanes</span><span class="p">,</span> <span class="n">pagination</span><span class="o">=</span><span class="n">pagination</span><span class="p">,</span>
+                <span class="n">facets</span><span class="o">=</span><span class="n">facets</span><span class="p">,</span> <span class="n">search_engine</span><span class="o">=</span><span class="n">search_engine</span><span class="p">,</span> <span class="n">debug</span><span class="o">=</span><span class="n">debug</span>
             <span class="p">)</span>
         <span class="p">)</span>
 
@@ -1977,12 +2050,13 @@
                 <span class="c1"># Lane at all. Do a whole separate query and plug it</span>
                 <span class="c1"># in at this point.</span>
                 <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">lane</span><span class="o">.</span><span class="n">groups</span><span class="p">(</span>
-                    <span class="n">_db</span><span class="p">,</span> <span class="n">include_sublanes</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">facets</span><span class="o">=</span><span class="n">facets</span><span class="p">,</span>
+                    <span class="n">_db</span><span class="p">,</span> <span class="n">include_sublanes</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                        <span class="n">pagination</span><span class="o">=</span><span class="n">pagination</span><span class="p">,</span> <span class="n">facets</span><span class="o">=</span><span class="n">facets</span><span class="p">,</span>
                 <span class="p">):</span>
                     <span class="k">yield</span> <span class="n">x</span>
 
     <span class="k">def</span> <span class="nf">_featured_works_with_lanes</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">lanes</span><span class="p">,</span> <span class="n">facets</span><span class="p">,</span> <span class="n">pagination</span><span class="p">,</span> <span class="n">search_engine</span><span class="p">,</span> <span class="n">debug</span><span class="o">=</span><span class="kc">False</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">lanes</span><span class="p">,</span> <span class="n">pagination</span><span class="p">,</span> <span class="n">facets</span><span class="p">,</span> <span class="n">search_engine</span><span class="p">,</span> <span class="n">debug</span><span class="o">=</span><span class="kc">False</span>
     <span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Find a sequence of works that can be used to</span>
 <span class="sd">        populate this lane&#39;s grouped acquisition feed.</span>
@@ -2030,6 +2104,50 @@
             <span class="n">results</span> <span class="o">=</span> <span class="n">works</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
             <span class="k">for</span> <span class="n">work</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
                 <span class="k">yield</span> <span class="n">work</span><span class="p">,</span> <span class="n">lane</span></div>
+
+
+<div class="viewcode-block" id="HierarchyWorkList"><a class="viewcode-back" href="../../core.html#core.lane.HierarchyWorkList">[docs]</a><span class="k">class</span> <span class="nc">HierarchyWorkList</span><span class="p">(</span><span class="n">WorkList</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A WorkList representing part of a hierarchical view of a a</span>
+<span class="sd">    library&#39;s collection. (As opposed to a non-hierarchical view such</span>
+<span class="sd">    as search results or &quot;books by author X&quot;.)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="HierarchyWorkList.accessible_to"><a class="viewcode-back" href="../../core.html#core.lane.HierarchyWorkList.accessible_to">[docs]</a>    <span class="k">def</span> <span class="nf">accessible_to</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;As a matter of library policy, is the given `Patron` allowed</span>
+<span class="sd">        to access this `WorkList`?</span>
+
+<span class="sd">        Most of the logic is inherited from `WorkList`, but there&#39;s also</span>
+<span class="sd">        a restriction based on the site hierarchy.</span>
+
+<span class="sd">        :param patron: A Patron</span>
+<span class="sd">        :return: A boolean</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="c1"># All the rules of WorkList apply.</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">super</span><span class="p">(</span><span class="n">HierarchyWorkList</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">accessible_to</span><span class="p">(</span><span class="n">patron</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="k">if</span> <span class="n">patron</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">True</span>
+
+        <span class="n">root_lane</span> <span class="o">=</span> <span class="n">patron</span><span class="o">.</span><span class="n">root_lane</span>
+        <span class="k">if</span> <span class="n">root_lane</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_self_or_descendant</span><span class="p">(</span><span class="n">root_lane</span><span class="p">):</span>
+            <span class="c1"># In addition, a HierarchyWorkList that&#39;s not in</span>
+            <span class="c1"># scope of the patron&#39;s root lane is not accessible,</span>
+            <span class="c1"># period. Even if all of the books in the WorkList are</span>
+            <span class="c1"># age-appropriate, it&#39;s in a different part of the</span>
+            <span class="c1"># navigational structure and navigating to it is not</span>
+            <span class="c1"># allowed.</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="k">return</span> <span class="kc">True</span></div></div>
+
+
+<div class="viewcode-block" id="TopLevelWorkList"><a class="viewcode-back" href="../../core.html#core.lane.TopLevelWorkList">[docs]</a><span class="k">class</span> <span class="nc">TopLevelWorkList</span><span class="p">(</span><span class="n">HierarchyWorkList</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A special WorkList representing the top-level view of</span>
+<span class="sd">    a library&#39;s collection.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">pass</span></div>
 
 
 <div class="viewcode-block" id="DatabaseBackedWorkList"><a class="viewcode-back" href="../../core.html#core.lane.DatabaseBackedWorkList">[docs]</a><span class="k">class</span> <span class="nc">DatabaseBackedWorkList</span><span class="p">(</span><span class="n">WorkList</span><span class="p">):</span>
@@ -2387,7 +2505,7 @@
 <span class="p">)</span>
 
 
-<div class="viewcode-block" id="Lane"><a class="viewcode-back" href="../../core.html#core.lane.Lane">[docs]</a><span class="k">class</span> <span class="nc">Lane</span><span class="p">(</span><span class="n">Base</span><span class="p">,</span> <span class="n">DatabaseBackedWorkList</span><span class="p">):</span>
+<div class="viewcode-block" id="Lane"><a class="viewcode-back" href="../../core.html#core.lane.Lane">[docs]</a><span class="k">class</span> <span class="nc">Lane</span><span class="p">(</span><span class="n">Base</span><span class="p">,</span> <span class="n">DatabaseBackedWorkList</span><span class="p">,</span> <span class="n">HierarchyWorkList</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;A WorkList that draws its search criteria from a row in a</span>
 <span class="sd">    database table.</span>
 
@@ -2576,6 +2694,22 @@
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Lane parentage loop detected&quot;</span><span class="p">)</span>
             <span class="n">seen</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">grandparent</span><span class="p">)</span>
             <span class="k">yield</span> <span class="n">grandparent</span>
+
+<div class="viewcode-block" id="Lane.is_self_or_descendant"><a class="viewcode-back" href="../../core.html#core.lane.Lane.is_self_or_descendant">[docs]</a>    <span class="k">def</span> <span class="nf">is_self_or_descendant</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ancestor</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Is this WorkList the given WorkList or one of its descendants?</span>
+
+<span class="sd">        :param ancestor: A WorkList.</span>
+<span class="sd">        :return: A boolean.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">super</span><span class="p">(</span><span class="n">Lane</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">is_self_or_descendant</span><span class="p">(</span><span class="n">ancestor</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">True</span>
+
+        <span class="c1"># A TopLevelWorkList won&#39;t show up in a Lane&#39;s parentage,</span>
+        <span class="c1"># because it&#39;s not a Lane, but if they share the same library</span>
+        <span class="c1"># it can be presumed to be the lane&#39;s ultimate ancestor.</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ancestor</span><span class="p">,</span> <span class="n">TopLevelWorkList</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">library_id</span><span class="o">==</span><span class="n">ancestor</span><span class="o">.</span><span class="n">library_id</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">return</span> <span class="kc">False</span></div>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">depth</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -2921,12 +3055,14 @@
             <span class="n">size</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">size_by_entrypoint</span><span class="p">[</span><span class="n">entrypoint_name</span><span class="p">]</span>
         <span class="k">return</span> <span class="n">size</span>
 
-<div class="viewcode-block" id="Lane.groups"><a class="viewcode-back" href="../../core.html#core.lane.Lane.groups">[docs]</a>    <span class="k">def</span> <span class="nf">groups</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">include_sublanes</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">facets</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+<div class="viewcode-block" id="Lane.groups"><a class="viewcode-back" href="../../core.html#core.lane.Lane.groups">[docs]</a>    <span class="k">def</span> <span class="nf">groups</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">include_sublanes</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">pagination</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">facets</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                <span class="n">search_engine</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">debug</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Return a list of (Work, Lane) 2-tuples</span>
 <span class="sd">        describing a sequence of featured items for this lane and</span>
 <span class="sd">        (optionally) its children.</span>
 
+<span class="sd">        :param pagination: A Pagination object which may affect how many</span>
+<span class="sd">            works each child of this WorkList may contribute.</span>
 <span class="sd">        :param facets: A FeaturedFacets object.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">clauses</span> <span class="o">=</span> <span class="p">[]</span>
@@ -2949,8 +3085,8 @@
         <span class="n">queryable_lanes</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">relevant_lanes</span>
                            <span class="k">if</span> <span class="n">x</span> <span class="o">==</span> <span class="bp">self</span> <span class="ow">or</span> <span class="n">x</span><span class="o">.</span><span class="n">inherit_parent_restrictions</span><span class="p">]</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_groups_for_lanes</span><span class="p">(</span>
-            <span class="n">_db</span><span class="p">,</span> <span class="n">relevant_lanes</span><span class="p">,</span> <span class="n">queryable_lanes</span><span class="p">,</span> <span class="n">facets</span><span class="o">=</span><span class="n">facets</span><span class="p">,</span>
-            <span class="n">search_engine</span><span class="o">=</span><span class="n">search_engine</span><span class="p">,</span> <span class="n">debug</span><span class="o">=</span><span class="n">debug</span>
+            <span class="n">_db</span><span class="p">,</span> <span class="n">relevant_lanes</span><span class="p">,</span> <span class="n">queryable_lanes</span><span class="p">,</span> <span class="n">pagination</span><span class="o">=</span><span class="n">pagination</span><span class="p">,</span>
+            <span class="n">facets</span><span class="o">=</span><span class="n">facets</span><span class="p">,</span> <span class="n">search_engine</span><span class="o">=</span><span class="n">search_engine</span><span class="p">,</span> <span class="n">debug</span><span class="o">=</span><span class="n">debug</span>
         <span class="p">)</span></div>
 
 <div class="viewcode-block" id="Lane.search"><a class="viewcode-back" href="../../core.html#core.lane.Lane.search">[docs]</a>    <span class="k">def</span> <span class="nf">search</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">query_string</span><span class="p">,</span> <span class="n">search_client</span><span class="p">,</span> <span class="n">pagination</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
@@ -3017,7 +3153,14 @@
 <span class="nd">@event</span><span class="o">.</span><span class="n">listens_for</span><span class="p">(</span><span class="n">LaneGenre</span><span class="p">,</span> <span class="s1">&#39;after_update&#39;</span><span class="p">)</span>
 <span class="k">def</span> <span class="nf">configuration_relevant_update</span><span class="p">(</span><span class="n">mapper</span><span class="p">,</span> <span class="n">connection</span><span class="p">,</span> <span class="n">target</span><span class="p">):</span>
     <span class="k">if</span> <span class="n">directly_modified</span><span class="p">(</span><span class="n">target</span><span class="p">):</span>
-        <span class="n">site_configuration_has_changed</span><span class="p">(</span><span class="n">target</span><span class="p">)</span></div>
+        <span class="n">site_configuration_has_changed</span><span class="p">(</span><span class="n">target</span><span class="p">)</span>
+
+        <span class="c1"># Some elements of Lane configuration are stored in the</span>
+        <span class="c1"># corresponding Library objects for performance reasons.</span>
+
+        <span class="c1"># Remove this information whenever the Lane configuration</span>
+        <span class="c1"># changes. This will force it to be recalculated.</span>
+        <span class="n">Library</span><span class="o">.</span><span class="n">_has_root_lane_cache</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span></div>
 </pre></div>
 
           </div>

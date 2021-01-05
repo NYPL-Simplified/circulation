@@ -33,13 +33,22 @@
           <div class="body" role="main">
             
   <h1>Source code for api.base_controller</h1><div class="highlight"><pre>
-<span></span><span class="kn">import</span> <span class="nn">flask</span>
+<span></span><span class="kn">import</span> <span class="nn">logging</span>
+
+<span class="kn">import</span> <span class="nn">flask</span>
 <span class="kn">from</span> <span class="nn">flask</span> <span class="kn">import</span> <span class="n">Response</span>
-<span class="kn">from</span> <span class="nn">core.util.problem_detail</span> <span class="kn">import</span> <span class="n">ProblemDetail</span>
-<span class="kn">from</span> <span class="nn">circulation_exceptions</span> <span class="kn">import</span> <span class="o">*</span>
-<span class="kn">from</span> <span class="nn">problem_details</span> <span class="kn">import</span> <span class="o">*</span>
 <span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
-<span class="kn">from</span> <span class="nn">core.model</span> <span class="kn">import</span> <span class="n">Library</span><span class="p">,</span> <span class="n">get_one</span>
+
+<span class="kn">from</span> <span class="nn">circulation_exceptions</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">core.model</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Library</span><span class="p">,</span>
+    <span class="n">Loan</span><span class="p">,</span>
+    <span class="n">Patron</span><span class="p">,</span>
+    <span class="n">get_one</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">core.util.problem_detail</span> <span class="kn">import</span> <span class="n">ProblemDetail</span>
+<span class="kn">from</span> <span class="nn">problem_details</span> <span class="kn">import</span> <span class="o">*</span>
+
 
 <div class="viewcode-block" id="BaseCirculationManagerController"><a class="viewcode-back" href="../../api.html#api.base_controller.BaseCirculationManagerController">[docs]</a><span class="k">class</span> <span class="nc">BaseCirculationManagerController</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Define minimal standards for a circulation manager controller,</span>
@@ -66,7 +75,39 @@
 
         <span class="k">return</span> <span class="n">header</span></div>
 
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">request_patron</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;The currently authenticated patron for this request, if any.</span>
+
+<span class="sd">        Most of the time you can use flask.request.patron, but</span>
+<span class="sd">        sometimes it&#39;s not clear whether</span>
+<span class="sd">        authenticated_patron_from_request() (which sets</span>
+<span class="sd">        flask.request.patron) has been called, and</span>
+<span class="sd">        authenticated_patron_from_request has a complicated return</span>
+<span class="sd">        value.</span>
+
+<span class="sd">        :return: A Patron, if one could be authenticated; None otherwise.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="p">,</span> <span class="s1">&#39;patron&#39;</span><span class="p">):</span>
+            <span class="c1"># Call authenticated_patron_from_request for its side effect</span>
+            <span class="c1"># of setting flask.request.patron</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">authenticated_patron_from_request</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">patron</span>
+
 <div class="viewcode-block" id="BaseCirculationManagerController.authenticated_patron_from_request"><a class="viewcode-back" href="../../api.html#api.base_controller.BaseCirculationManagerController.authenticated_patron_from_request">[docs]</a>    <span class="k">def</span> <span class="nf">authenticated_patron_from_request</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Try to authenticate a patron for the incoming request.</span>
+
+<span class="sd">        When this method returns, flask.request.patron will</span>
+<span class="sd">        be set, though the value it&#39;s set to may be None.</span>
+
+<span class="sd">        :return: A Patron, if possible. If no authentication was</span>
+<span class="sd">          provided, a Flask Response. If a problem occured during</span>
+<span class="sd">          authentication, a ProblemDetail.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Start off by assuming authentication will not work.</span>
+        <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">patron</span> <span class="o">=</span> <span class="kc">None</span>
+
         <span class="n">header</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">authorization_header</span><span class="p">()</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="n">header</span><span class="p">:</span>
@@ -83,14 +124,12 @@
             <span class="c1"># Credentials were provided but they turned out not</span>
             <span class="c1"># to identify anyone in particular.</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">authenticate</span><span class="p">()</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
-            <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">patron</span> <span class="o">=</span> <span class="kc">None</span>
-            <span class="k">return</span> <span class="n">patron</span>
-        <span class="k">else</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">Patron</span><span class="p">):</span>
             <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">patron</span> <span class="o">=</span> <span class="n">patron</span>
-            <span class="k">return</span> <span class="n">patron</span></div>
+        <span class="k">return</span> <span class="n">patron</span></div>
 
 <div class="viewcode-block" id="BaseCirculationManagerController.authenticated_patron"><a class="viewcode-back" href="../../api.html#api.base_controller.BaseCirculationManagerController.authenticated_patron">[docs]</a>    <span class="k">def</span> <span class="nf">authenticated_patron</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">authorization_header</span><span class="p">):</span>
+
         <span class="sd">&quot;&quot;&quot;Look up the patron authenticated by the given authorization header.</span>
 
 <span class="sd">        The header could contain a barcode and pin or a token for an</span>
@@ -116,6 +155,29 @@
         <span class="n">headers</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">auth</span><span class="o">.</span><span class="n">create_authentication_headers</span><span class="p">()</span>
         <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">authentication_for_opds_document</span>
         <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="mi">401</span><span class="p">,</span> <span class="n">headers</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="BaseCirculationManagerController.library_through_external_loan_identifier"><a class="viewcode-back" href="../../api.html#api.base_controller.BaseCirculationManagerController.library_through_external_loan_identifier">[docs]</a>    <span class="k">def</span> <span class="nf">library_through_external_loan_identifier</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">loan_external_identifier</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Look up the library the user is trying to access using a loan&#39;s external identifier.</span>
+<span class="sd">        We assume that the external identifier is globally unique which is true, for example,</span>
+<span class="sd">        in the case of using Readium LCP.</span>
+
+<span class="sd">        :param loan_external_identifier: External identifier of the patron&#39;s loan</span>
+<span class="sd">        :type loan_external_identifier: basestring</span>
+
+<span class="sd">        :return: Library the patron is trying to access</span>
+<span class="sd">        :rtype: Library</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">reload_settings_if_changed</span><span class="p">()</span>
+
+        <span class="n">loan</span> <span class="o">=</span> <span class="n">get_one</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">Loan</span><span class="p">,</span> <span class="n">external_identifier</span><span class="o">=</span><span class="n">loan_external_identifier</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">loan</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">LOAN_NOT_FOUND</span>
+
+        <span class="n">library</span> <span class="o">=</span> <span class="n">loan</span><span class="o">.</span><span class="n">patron</span><span class="o">.</span><span class="n">library</span>
+        <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">library</span> <span class="o">=</span> <span class="n">library</span>
+
+        <span class="k">return</span> <span class="n">library</span></div>
 
 <div class="viewcode-block" id="BaseCirculationManagerController.library_for_request"><a class="viewcode-back" href="../../api.html#api.base_controller.BaseCirculationManagerController.library_for_request">[docs]</a>    <span class="k">def</span> <span class="nf">library_for_request</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">library_short_name</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Look up the library the user is trying to access.</span>

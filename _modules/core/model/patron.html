@@ -40,10 +40,11 @@
 <span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Base</span><span class="p">,</span>
     <span class="n">get_one_or_create</span><span class="p">,</span>
+    <span class="n">numericrange_to_tuple</span>
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">credential</span> <span class="kn">import</span> <span class="n">Credential</span>
-
 <span class="kn">import</span> <span class="nn">datetime</span>
+<span class="kn">import</span> <span class="nn">logging</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Boolean</span><span class="p">,</span>
     <span class="n">Column</span><span class="p">,</span>
@@ -56,9 +57,11 @@
     <span class="n">Unicode</span><span class="p">,</span>
     <span class="n">UniqueConstraint</span><span class="p">,</span>
 <span class="p">)</span>
+<span class="kn">from</span> <span class="nn">psycopg2.extras</span> <span class="kn">import</span> <span class="n">NumericRange</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy.ext.hybrid</span> <span class="kn">import</span> <span class="n">hybrid_property</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="kn">import</span> <span class="n">relationship</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="kn">import</span> <span class="n">Session</span>
+<span class="kn">from</span> <span class="nn">..classifier</span> <span class="kn">import</span> <span class="n">Classifier</span>
 <span class="kn">from</span> <span class="nn">..user_profile</span> <span class="kn">import</span> <span class="n">ProfileStorage</span>
 <span class="kn">import</span> <span class="nn">uuid</span>
 
@@ -197,8 +200,6 @@
         <span class="n">UniqueConstraint</span><span class="p">(</span><span class="s1">&#39;library_id&#39;</span><span class="p">,</span> <span class="s1">&#39;external_identifier&#39;</span><span class="p">),</span>
     <span class="p">)</span>
 
-    <span class="n">AUDIENCE_RESTRICTION_POLICY</span> <span class="o">=</span> <span class="s1">&#39;audiences&#39;</span>
-
     <span class="c1"># A patron with borrowing privileges should have their local</span>
     <span class="c1"># metadata synced with their ILS record at intervals no greater</span>
     <span class="c1"># than this time.</span>
@@ -250,25 +251,6 @@
         <span class="n">holds</span> <span class="o">=</span> <span class="p">[</span><span class="n">hold</span><span class="o">.</span><span class="n">work</span> <span class="k">for</span> <span class="n">hold</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">holds</span> <span class="k">if</span> <span class="n">hold</span><span class="o">.</span><span class="n">work</span><span class="p">]</span>
         <span class="n">loans</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">works_on_loan</span><span class="p">()</span>
         <span class="k">return</span> <span class="nb">set</span><span class="p">(</span><span class="n">holds</span> <span class="o">+</span> <span class="n">loans</span><span class="p">)</span></div>
-
-<div class="viewcode-block" id="Patron.can_borrow"><a class="viewcode-back" href="../../../core.model.html#api.monitor.Patron.can_borrow">[docs]</a>    <span class="k">def</span> <span class="nf">can_borrow</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">work</span><span class="p">,</span> <span class="n">policy</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Return true if the given policy allows this patron to borrow the</span>
-<span class="sd">        given work.</span>
-<span class="sd">        This will return False when the policy for this patron&#39;s</span>
-<span class="sd">        .external_type prevents access to this book&#39;s audience.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">external_type</span> <span class="ow">in</span> <span class="n">policy</span><span class="p">:</span>
-            <span class="k">return</span> <span class="kc">True</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">work</span><span class="p">:</span>
-            <span class="c1"># Shouldn&#39;t happen, but not this method&#39;s problem.</span>
-            <span class="k">return</span> <span class="kc">True</span>
-        <span class="n">p</span> <span class="o">=</span> <span class="n">policy</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">external_type</span><span class="p">]</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">AUDIENCE_RESTRICTION_POLICY</span> <span class="ow">in</span> <span class="n">p</span><span class="p">:</span>
-            <span class="k">return</span> <span class="kc">True</span>
-        <span class="n">allowed</span> <span class="o">=</span> <span class="n">p</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">AUDIENCE_RESTRICTION_POLICY</span><span class="p">]</span>
-        <span class="k">if</span> <span class="n">work</span><span class="o">.</span><span class="n">audience</span> <span class="ow">in</span> <span class="n">allowed</span><span class="p">:</span>
-            <span class="k">return</span> <span class="kc">True</span>
-        <span class="k">return</span> <span class="kc">False</span></div>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">loan_activity_max_age</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -333,7 +315,212 @@
             <span class="n">qu</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Annotation</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">Annotation</span><span class="o">.</span><span class="n">patron</span><span class="o">==</span><span class="bp">self</span><span class="p">)</span>
             <span class="k">for</span> <span class="n">annotation</span> <span class="ow">in</span> <span class="n">qu</span><span class="p">:</span>
                 <span class="n">_db</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">annotation</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_synchronize_annotations</span> <span class="o">=</span> <span class="n">value</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_synchronize_annotations</span> <span class="o">=</span> <span class="n">value</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">root_lane</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Find the Lane, if any, to be used as the Patron&#39;s root lane.</span>
+
+<span class="sd">        A patron with a root Lane can only access that Lane and the</span>
+<span class="sd">        Lanes beneath it. In addition, a patron with a root lane</span>
+<span class="sd">        cannot conduct a transaction on a book intended for an older</span>
+<span class="sd">        audience than the one defined by their root lane.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="c1"># Two ways of improving performance by short-circuiting this</span>
+        <span class="c1"># logic.</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">external_type</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">library</span><span class="o">.</span><span class="n">has_root_lanes</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="kn">from</span> <span class="nn">..lane</span> <span class="kn">import</span> <span class="n">Lane</span>
+        <span class="n">qu</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Lane</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+            <span class="n">Lane</span><span class="o">.</span><span class="n">library</span><span class="o">==</span><span class="bp">self</span><span class="o">.</span><span class="n">library</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+            <span class="n">Lane</span><span class="o">.</span><span class="n">root_for_patron_type</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">external_type</span><span class="p">)</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">order_by</span><span class="p">(</span><span class="n">Lane</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+        <span class="n">lanes</span> <span class="o">=</span> <span class="n">qu</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">lanes</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="c1"># The most common situation -- this patron has no special</span>
+            <span class="c1"># root lane.</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">lanes</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="c1"># Multiple root lanes for a patron indicates a</span>
+            <span class="c1"># configuration problem, but we shouldn&#39;t make the patron</span>
+            <span class="c1"># pay the price -- just pick the first one.</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
+                <span class="s2">&quot;Multiple root lanes found for patron type </span><span class="si">%s</span><span class="s2">.&quot;</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">external_type</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">lanes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+<div class="viewcode-block" id="Patron.work_is_age_appropriate"><a class="viewcode-back" href="../../../core.model.html#api.monitor.Patron.work_is_age_appropriate">[docs]</a>    <span class="k">def</span> <span class="nf">work_is_age_appropriate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">work_audience</span><span class="p">,</span> <span class="n">work_target_age</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Is the given audience and target age an age-appropriate match for this Patron?</span>
+
+<span class="sd">        NOTE: What &quot;age-appropriate&quot; means depends on some policy questions</span>
+<span class="sd">        that have not been answered and may be library-specific. For</span>
+<span class="sd">        now, it is determined by comparing audience and target age to that of the</span>
+<span class="sd">        Patron&#39;s root lane.</span>
+
+<span class="sd">        This is designed for use when reasoning about works in</span>
+<span class="sd">        general. If you have a specific Work in mind, use</span>
+<span class="sd">        `Work.age_appropriate_for_patron`.</span>
+
+<span class="sd">        :param work_audience: One of the audience constants from</span>
+<span class="sd">           Classifier, representing the general reading audience to</span>
+<span class="sd">           which a putative work belongs.</span>
+
+<span class="sd">        :param work_target_age: A number or 2-tuple representing the target age</span>
+<span class="sd">           or age range of a putative work.</span>
+
+<span class="sd">        :return: A boolean</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">root</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">root_lane</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">root</span><span class="p">:</span>
+            <span class="c1"># The patron has no root lane. They can interact with any</span>
+            <span class="c1"># title.</span>
+            <span class="k">return</span> <span class="kc">True</span>
+
+        <span class="c1"># The patron can interact with a title if any of the audiences</span>
+        <span class="c1"># in their root lane (in conjunction with the root lane&#39;s target_age)</span>
+        <span class="c1"># are a match for the title&#39;s audience and target age.</span>
+        <span class="k">return</span> <span class="nb">any</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">age_appropriate_match</span><span class="p">(</span>
+                <span class="n">work_audience</span><span class="p">,</span> <span class="n">work_target_age</span><span class="p">,</span>
+                <span class="n">audience</span><span class="p">,</span> <span class="n">root</span><span class="o">.</span><span class="n">target_age</span>
+            <span class="p">)</span>
+            <span class="k">for</span> <span class="n">audience</span> <span class="ow">in</span> <span class="n">root</span><span class="o">.</span><span class="n">audiences</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="Patron.age_appropriate_match"><a class="viewcode-back" href="../../../core.model.html#api.monitor.Patron.age_appropriate_match">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">age_appropriate_match</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span> <span class="n">work_audience</span><span class="p">,</span> <span class="n">work_target_age</span><span class="p">,</span>
+        <span class="n">reader_audience</span><span class="p">,</span> <span class="n">reader_age</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Match the audience and target age of a work with that of a reader,</span>
+<span class="sd">        and see whether they are an age-appropriate match.</span>
+
+<span class="sd">        NOTE: What &quot;age-appropriate&quot; means depends on some policy</span>
+<span class="sd">        questions that have not been answered and may be</span>
+<span class="sd">        library-specific. For now, non-children&#39;s books are</span>
+<span class="sd">        age-inappropriate for young children, and children&#39;s books are</span>
+<span class="sd">        age-inappropriate for children too young to be in the book&#39;s</span>
+<span class="sd">        target age range.</span>
+
+<span class="sd">        :param reader_audience: One of the audience constants from</span>
+<span class="sd">           Classifier, representing the general reading audience to</span>
+<span class="sd">           which the reader belongs.</span>
+
+<span class="sd">        :param reader_age: A number or 2-tuple representing the age or</span>
+<span class="sd">           age range of the reader.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">reader_audience</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># A patron with no particular audience restrictions</span>
+            <span class="c1"># can see everything.</span>
+            <span class="c1">#</span>
+            <span class="c1"># This is by far the most common case, so we don&#39;t set up</span>
+            <span class="c1"># logging until after running it.</span>
+            <span class="k">return</span> <span class="kc">True</span>
+
+        <span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">&quot;Age-appropriate match calculator&quot;</span><span class="p">)</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+            <span class="s2">&quot;Matching work </span><span class="si">%s</span><span class="s2">/</span><span class="si">%s</span><span class="s2"> to reader </span><span class="si">%s</span><span class="s2">/</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span>
+                <span class="n">work_audience</span><span class="p">,</span> <span class="n">work_target_age</span><span class="p">,</span>
+                <span class="n">reader_audience</span><span class="p">,</span> <span class="n">reader_age</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">reader_audience</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">AUDIENCES_JUVENILE</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;A non-juvenile patron can see everything.&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">True</span>
+
+        <span class="k">if</span> <span class="n">work_audience</span> <span class="o">==</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">AUDIENCE_ALL_AGES</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;An all-ages book is always age appropriate.&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">True</span>
+
+        <span class="c1"># At this point we know that the patron is a juvenile.</span>
+
+        <span class="k">def</span> <span class="nf">ensure_tuple</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+            <span class="c1"># Convert a potential NumericRange into a tuple.</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">NumericRange</span><span class="p">):</span>
+                <span class="n">x</span> <span class="o">=</span> <span class="n">numericrange_to_tuple</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">x</span>
+
+        <span class="n">reader_age</span> <span class="o">=</span> <span class="n">ensure_tuple</span><span class="p">(</span><span class="n">reader_age</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">reader_age</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
+            <span class="c1"># A range was passed in rather than a specific age. Assume</span>
+            <span class="c1"># the reader is at the top edge of the range.</span>
+            <span class="n">ignore</span><span class="p">,</span> <span class="n">reader_age</span> <span class="o">=</span> <span class="n">reader_age</span>
+
+        <span class="n">work_target_age</span> <span class="o">=</span> <span class="n">ensure_tuple</span><span class="p">(</span><span class="n">work_target_age</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">work_target_age</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
+            <span class="c1"># Pick the _bottom_ edge of a work&#39;s target age range --</span>
+            <span class="c1"># the work is appropriate for anyone _at least_ that old.</span>
+            <span class="n">work_target_age</span><span class="p">,</span> <span class="n">ignore</span> <span class="o">=</span> <span class="n">work_target_age</span>
+
+        <span class="c1"># A YA reader is treated as an adult (with no reading</span>
+        <span class="c1"># restrictions) if they have no associated age range, or their</span>
+        <span class="c1"># age range includes ADULT_AGE_CUTOFF.</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">reader_audience</span> <span class="o">==</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">AUDIENCE_YOUNG_ADULT</span>
+            <span class="ow">and</span> <span class="p">(</span><span class="n">reader_age</span> <span class="ow">is</span> <span class="kc">None</span>
+                 <span class="ow">or</span> <span class="n">reader_age</span> <span class="o">&gt;=</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">ADULT_AGE_CUTOFF</span><span class="p">)):</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;YA reader to be treated as an adult.&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">True</span>
+
+        <span class="c1"># There are no other situations where a juvenile reader can access</span>
+        <span class="c1"># non-juvenile titles.</span>
+        <span class="k">if</span> <span class="n">work_audience</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">AUDIENCES_JUVENILE</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Juvenile reader cannot access non-juvenile title.&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="c1"># At this point we know we have a juvenile reader and a</span>
+        <span class="c1"># juvenile book.</span>
+
+        <span class="k">if</span> <span class="p">(</span><span class="n">reader_audience</span> <span class="o">==</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">AUDIENCE_YOUNG_ADULT</span>
+            <span class="ow">and</span> <span class="n">work_audience</span> <span class="ow">in</span> <span class="p">(</span><span class="n">Classifier</span><span class="o">.</span><span class="n">AUDIENCES_YOUNG_CHILDREN</span><span class="p">)):</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;YA reader can access any children&#39;s title.&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">True</span>
+
+        <span class="k">if</span> <span class="p">(</span><span class="n">reader_audience</span> <span class="ow">in</span> <span class="p">(</span><span class="n">Classifier</span><span class="o">.</span><span class="n">AUDIENCES_YOUNG_CHILDREN</span><span class="p">)</span>
+            <span class="ow">and</span> <span class="n">work_audience</span> <span class="o">==</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">AUDIENCE_YOUNG_ADULT</span><span class="p">):</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Child reader cannot access any YA title.&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="c1"># At this point we either have a YA patron with a YA book, or</span>
+        <span class="c1"># a child patron with a children&#39;s book. It comes down to a</span>
+        <span class="c1"># question of the reader&#39;s age vs. the work&#39;s target age.</span>
+
+        <span class="k">if</span> <span class="n">work_target_age</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># This is a generic children&#39;s or YA book with no</span>
+            <span class="c1"># particular target age. Assume it&#39;s age appropriate.</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+                <span class="s2">&quot;Juvenile book with no target age is presumed age-appropriate.&quot;</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="kc">True</span>
+
+        <span class="k">if</span> <span class="n">reader_age</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># We have no idea how old the patron is, so any work with</span>
+            <span class="c1"># the appropriate audience is considered age-appropriate.</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+                <span class="s2">&quot;Audience matches, and no specific patron age information available: presuming age-appropriate.&quot;</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="kc">True</span>
+
+        <span class="k">if</span> <span class="n">reader_age</span> <span class="o">&lt;</span> <span class="n">work_target_age</span><span class="p">:</span>
+            <span class="c1"># The audience for this book matches the patron&#39;s</span>
+            <span class="c1"># audience, but the book has a target age that is too high</span>
+            <span class="c1"># for the reader.</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+                <span class="s2">&quot;Audience matches, but work&#39;s target age is too high for reader.&quot;</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Both audience and target age match; it&#39;s age-appropriate.&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">True</span></div></div>
+
 
 <span class="n">Index</span><span class="p">(</span><span class="s2">&quot;ix_patron_library_id_external_identifier&quot;</span><span class="p">,</span> <span class="n">Patron</span><span class="o">.</span><span class="n">library_id</span><span class="p">,</span> <span class="n">Patron</span><span class="o">.</span><span class="n">external_identifier</span><span class="p">)</span>
 <span class="n">Index</span><span class="p">(</span><span class="s2">&quot;ix_patron_library_id_authorization_identifier&quot;</span><span class="p">,</span> <span class="n">Patron</span><span class="o">.</span><span class="n">library_id</span><span class="p">,</span> <span class="n">Patron</span><span class="o">.</span><span class="n">authorization_identifier</span><span class="p">)</span>

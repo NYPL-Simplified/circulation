@@ -52,7 +52,7 @@
     <span class="n">Unicode</span><span class="p">,</span>
 <span class="p">)</span>
 
-<div class="viewcode-block" id="Measurement"><a class="viewcode-back" href="../../../core.model.html#core.model.measurement.Measurement">[docs]</a><span class="k">class</span> <span class="nc">Measurement</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
+<div class="viewcode-block" id="Measurement"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Measurement">[docs]</a><span class="k">class</span> <span class="nc">Measurement</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;A  measurement of some numeric quantity associated with a</span>
 <span class="sd">    Identifier.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
@@ -176,7 +176,7 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">quantity_measured</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">normalized_value</span> <span class="ow">or</span> <span class="mi">0</span><span class="p">)</span>
 
-<div class="viewcode-block" id="Measurement.overall_quality"><a class="viewcode-back" href="../../../core.model.html#core.model.measurement.Measurement.overall_quality">[docs]</a>    <span class="nd">@classmethod</span>
+<div class="viewcode-block" id="Measurement.overall_quality"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Measurement.overall_quality">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">overall_quality</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">measurements</span><span class="p">,</span> <span class="n">popularity_weight</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span>
                         <span class="n">rating_weight</span><span class="o">=</span><span class="mf">0.7</span><span class="p">,</span> <span class="n">default_value</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Turn a bunch of measurements into an overall measure of quality.&quot;&quot;&quot;</span>

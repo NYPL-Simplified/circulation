@@ -1,0 +1,409 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>api.saml.metadata.federations package &#8212; Library Simplified Circulation Manager  documentation</title>
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="_static/language_data.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="api.sip package" href="api.sip.html" />
+    <link rel="prev" title="api.saml.metadata package" href="api.saml.metadata.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="api-saml-metadata-federations-package">
+<h1>api.saml.metadata.federations package<a class="headerlink" href="#api-saml-metadata-federations-package" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="module-api.saml.metadata.federations.incommon">
+<span id="api-saml-metadata-federations-incommon-module"></span><h2>api.saml.metadata.federations.incommon module<a class="headerlink" href="#module-api.saml.metadata.federations.incommon" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="module-api.saml.metadata.federations.loader">
+<span id="api-saml-metadata-federations-loader-module"></span><h2>api.saml.metadata.federations.loader module<a class="headerlink" href="#module-api.saml.metadata.federations.loader" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="api.saml.metadata.federations.loader.SAMLFederatedIdentityProviderLoader">
+<em class="property">class </em><code class="descclassname">api.saml.metadata.federations.loader.</code><code class="descname">SAMLFederatedIdentityProviderLoader</code><span class="sig-paren">(</span><em>loader</em>, <em>validator</em>, <em>parser</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata/federations/loader.html#SAMLFederatedIdentityProviderLoader"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.federations.loader.SAMLFederatedIdentityProviderLoader" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Loads metadata of federated IdPs from the specified metadata service.</p>
+<dl class="attribute">
+<dt id="api.saml.metadata.federations.loader.SAMLFederatedIdentityProviderLoader.ENGLISH_LANGUAGE_CODES">
+<code class="descname">ENGLISH_LANGUAGE_CODES</code><em class="property"> = ('en', 'eng')</em><a class="headerlink" href="#api.saml.metadata.federations.loader.SAMLFederatedIdentityProviderLoader.ENGLISH_LANGUAGE_CODES" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="api.saml.metadata.federations.loader.SAMLFederatedIdentityProviderLoader.load">
+<code class="descname">load</code><span class="sig-paren">(</span><em>federation</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata/federations/loader.html#SAMLFederatedIdentityProviderLoader.load"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.federations.loader.SAMLFederatedIdentityProviderLoader.load" title="Permalink to this definition">¶</a></dt>
+<dd><p>Loads metadata of federated IdPs from the specified metadata service.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>federation</strong> (<a class="reference internal" href="#api.saml.metadata.federations.model.SAMLFederation" title="api.saml.metadata.federations.model.SAMLFederation"><em>api.saml.metadata.federations.model.SAMLFederation</em></a>) – SAML federation where loaded IdPs belong to</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">List of SAMLFederatedIdP objects</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body">Iterable[api.saml.configuration.SAMLFederatedIdentityProvider]</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="api.saml.metadata.federations.loader.SAMLMetadataLoader">
+<em class="property">class </em><code class="descclassname">api.saml.metadata.federations.loader.</code><code class="descname">SAMLMetadataLoader</code><a class="reference internal" href="_modules/api/saml/metadata/federations/loader.html#SAMLMetadataLoader"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.federations.loader.SAMLMetadataLoader" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Loads SAML metadata from a remote source (e.g. InCommon Metadata Service)</p>
+<dl class="method">
+<dt id="api.saml.metadata.federations.loader.SAMLMetadataLoader.load_idp_metadata">
+<code class="descname">load_idp_metadata</code><span class="sig-paren">(</span><em>url=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata/federations/loader.html#SAMLMetadataLoader.load_idp_metadata"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.federations.loader.SAMLMetadataLoader.load_idp_metadata" title="Permalink to this definition">¶</a></dt>
+<dd><p>Load IdP metadata in an XML format from the specified url.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>url</strong> (<em>Optional</em><em>[</em><em>string</em><em>]</em>) – URL of a metadata service</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">XML string containing InCommon Metadata</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body">string</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Raise:</th><td class="field-body">MetadataLoadError</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="exception">
+<dt id="api.saml.metadata.federations.loader.SAMLMetadataLoadingError">
+<em class="property">exception </em><code class="descclassname">api.saml.metadata.federations.loader.</code><code class="descname">SAMLMetadataLoadingError</code><span class="sig-paren">(</span><em>message=None</em>, <em>inner_exception=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata/federations/loader.html#SAMLMetadataLoadingError"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.federations.loader.SAMLMetadataLoadingError" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.html#core.exceptions.BaseError" title="core.exceptions.BaseError"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.exceptions.BaseError</span></code></a></p>
+<p>Raised in the case of any errors occurred during loading of SAML metadata from a remote source</p>
+</dd></dl>
+
+</div>
+<div class="section" id="module-api.saml.metadata.federations.model">
+<span id="api-saml-metadata-federations-model-module"></span><h2>api.saml.metadata.federations.model module<a class="headerlink" href="#module-api.saml.metadata.federations.model" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="api.saml.metadata.federations.model.SAMLFederatedIdentityProvider">
+<em class="property">class </em><code class="descclassname">api.saml.metadata.federations.model.</code><code class="descname">SAMLFederatedIdentityProvider</code><span class="sig-paren">(</span><em>federation</em>, <em>entity_id</em>, <em>display_name</em>, <em>xml_metadata</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata/federations/model.html#SAMLFederatedIdentityProvider"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.federations.model.SAMLFederatedIdentityProvider" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">sqlalchemy.ext.declarative.api.Base</span></code></p>
+<p>Contains information about a federated IdP.</p>
+<dl class="attribute">
+<dt id="api.saml.metadata.federations.model.SAMLFederatedIdentityProvider.display_name">
+<code class="descname">display_name</code><a class="headerlink" href="#api.saml.metadata.federations.model.SAMLFederatedIdentityProvider.display_name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.saml.metadata.federations.model.SAMLFederatedIdentityProvider.entity_id">
+<code class="descname">entity_id</code><a class="headerlink" href="#api.saml.metadata.federations.model.SAMLFederatedIdentityProvider.entity_id" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.saml.metadata.federations.model.SAMLFederatedIdentityProvider.federation">
+<code class="descname">federation</code><a class="headerlink" href="#api.saml.metadata.federations.model.SAMLFederatedIdentityProvider.federation" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.saml.metadata.federations.model.SAMLFederatedIdentityProvider.federation_id">
+<code class="descname">federation_id</code><a class="headerlink" href="#api.saml.metadata.federations.model.SAMLFederatedIdentityProvider.federation_id" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.saml.metadata.federations.model.SAMLFederatedIdentityProvider.id">
+<code class="descname">id</code><a class="headerlink" href="#api.saml.metadata.federations.model.SAMLFederatedIdentityProvider.id" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.saml.metadata.federations.model.SAMLFederatedIdentityProvider.xml_metadata">
+<code class="descname">xml_metadata</code><a class="headerlink" href="#api.saml.metadata.federations.model.SAMLFederatedIdentityProvider.xml_metadata" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="api.saml.metadata.federations.model.SAMLFederation">
+<em class="property">class </em><code class="descclassname">api.saml.metadata.federations.model.</code><code class="descname">SAMLFederation</code><span class="sig-paren">(</span><em>federation_type</em>, <em>idp_metadata_service_url</em>, <em>certificate=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata/federations/model.html#SAMLFederation"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.federations.model.SAMLFederation" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">sqlalchemy.ext.declarative.api.Base</span></code></p>
+<p>Contains information about a SAML federation (for example, InCommon).</p>
+<dl class="attribute">
+<dt id="api.saml.metadata.federations.model.SAMLFederation.certificate">
+<code class="descname">certificate</code><a class="headerlink" href="#api.saml.metadata.federations.model.SAMLFederation.certificate" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.saml.metadata.federations.model.SAMLFederation.id">
+<code class="descname">id</code><a class="headerlink" href="#api.saml.metadata.federations.model.SAMLFederation.id" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.saml.metadata.federations.model.SAMLFederation.identity_providers">
+<code class="descname">identity_providers</code><a class="headerlink" href="#api.saml.metadata.federations.model.SAMLFederation.identity_providers" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.saml.metadata.federations.model.SAMLFederation.idp_metadata_service_url">
+<code class="descname">idp_metadata_service_url</code><a class="headerlink" href="#api.saml.metadata.federations.model.SAMLFederation.idp_metadata_service_url" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.saml.metadata.federations.model.SAMLFederation.last_updated_at">
+<code class="descname">last_updated_at</code><a class="headerlink" href="#api.saml.metadata.federations.model.SAMLFederation.last_updated_at" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.saml.metadata.federations.model.SAMLFederation.type">
+<code class="descname">type</code><a class="headerlink" href="#api.saml.metadata.federations.model.SAMLFederation.type" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-api.saml.metadata.federations.validator">
+<span id="api-saml-metadata-federations-validator-module"></span><h2>api.saml.metadata.federations.validator module<a class="headerlink" href="#module-api.saml.metadata.federations.validator" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="api.saml.metadata.federations.validator.SAMLFederatedMetadataExpirationValidator">
+<em class="property">class </em><code class="descclassname">api.saml.metadata.federations.validator.</code><code class="descname">SAMLFederatedMetadataExpirationValidator</code><a class="reference internal" href="_modules/api/saml/metadata/federations/validator.html#SAMLFederatedMetadataExpirationValidator"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.federations.validator.SAMLFederatedMetadataExpirationValidator" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#api.saml.metadata.federations.validator.SAMLFederatedMetadataValidator" title="api.saml.metadata.federations.validator.SAMLFederatedMetadataValidator"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.saml.metadata.federations.validator.SAMLFederatedMetadataValidator</span></code></a></p>
+<p>Verifies that federated SAML metadata has not expired.</p>
+<dl class="attribute">
+<dt id="api.saml.metadata.federations.validator.SAMLFederatedMetadataExpirationValidator.MAX_CLOCK_SKEW">
+<code class="descname">MAX_CLOCK_SKEW</code><em class="property"> = datetime.timedelta(0, 300)</em><a class="headerlink" href="#api.saml.metadata.federations.validator.SAMLFederatedMetadataExpirationValidator.MAX_CLOCK_SKEW" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.saml.metadata.federations.validator.SAMLFederatedMetadataExpirationValidator.MAX_VALID_TIME">
+<code class="descname">MAX_VALID_TIME</code><em class="property"> = datetime.timedelta(28)</em><a class="headerlink" href="#api.saml.metadata.federations.validator.SAMLFederatedMetadataExpirationValidator.MAX_VALID_TIME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="api.saml.metadata.federations.validator.SAMLFederatedMetadataExpirationValidator.validate">
+<code class="descname">validate</code><span class="sig-paren">(</span><em>federation</em>, <em>metadata</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata/federations/validator.html#SAMLFederatedMetadataExpirationValidator.validate"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.federations.validator.SAMLFederatedMetadataExpirationValidator.validate" title="Permalink to this definition">¶</a></dt>
+<dd><p>Verify that federated SAML metadata has not expired.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>federation</strong> (<a class="reference internal" href="#api.saml.metadata.federations.model.SAMLFederation" title="api.saml.metadata.federations.model.SAMLFederation"><em>api.saml.metadata.federations.model.SAMLFederation</em></a>) – SAML federation</li>
+<li><strong>metadata</strong> (<em>str</em>) – SAML federation’s aggregated metadata</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Raises:</th><td class="field-body"><p class="first last"><a class="reference internal" href="#api.saml.metadata.federations.validator.SAMLFederatedMetadataValidationError" title="api.saml.metadata.federations.validator.SAMLFederatedMetadataValidationError"><strong>SAMLFederatedMetadataValidationError</strong></a> – in the case of validation errors</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="exception">
+<dt id="api.saml.metadata.federations.validator.SAMLFederatedMetadataValidationError">
+<em class="property">exception </em><code class="descclassname">api.saml.metadata.federations.validator.</code><code class="descname">SAMLFederatedMetadataValidationError</code><span class="sig-paren">(</span><em>message=None</em>, <em>inner_exception=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata/federations/validator.html#SAMLFederatedMetadataValidationError"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.federations.validator.SAMLFederatedMetadataValidationError" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.html#core.exceptions.BaseError" title="core.exceptions.BaseError"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.exceptions.BaseError</span></code></a></p>
+<p>Raised in the case of any errors happened during SAML metadata validation.</p>
+</dd></dl>
+
+<dl class="class">
+<dt id="api.saml.metadata.federations.validator.SAMLFederatedMetadataValidator">
+<em class="property">class </em><code class="descclassname">api.saml.metadata.federations.validator.</code><code class="descname">SAMLFederatedMetadataValidator</code><a class="reference internal" href="_modules/api/saml/metadata/federations/validator.html#SAMLFederatedMetadataValidator"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.federations.validator.SAMLFederatedMetadataValidator" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Base class for all validators checking correctness of SAML federated metadata.</p>
+<dl class="method">
+<dt id="api.saml.metadata.federations.validator.SAMLFederatedMetadataValidator.validate">
+<code class="descname">validate</code><span class="sig-paren">(</span><em>federation</em>, <em>metadata</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata/federations/validator.html#SAMLFederatedMetadataValidator.validate"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.federations.validator.SAMLFederatedMetadataValidator.validate" title="Permalink to this definition">¶</a></dt>
+<dd><p>Validate SAML federated metadata.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>federation</strong> (<a class="reference internal" href="#api.saml.metadata.federations.model.SAMLFederation" title="api.saml.metadata.federations.model.SAMLFederation"><em>api.saml.metadata.federations.model.SAMLFederation</em></a>) – SAML federation</li>
+<li><strong>metadata</strong> (<em>str</em>) – SAML federation’s aggregated metadata</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Raises:</th><td class="field-body"><p class="first last"><a class="reference internal" href="#api.saml.metadata.federations.validator.SAMLFederatedMetadataValidationError" title="api.saml.metadata.federations.validator.SAMLFederatedMetadataValidationError"><strong>SAMLFederatedMetadataValidationError</strong></a> – in the case of validation errors</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="api.saml.metadata.federations.validator.SAMLFederatedMetadataValidatorChain">
+<em class="property">class </em><code class="descclassname">api.saml.metadata.federations.validator.</code><code class="descname">SAMLFederatedMetadataValidatorChain</code><span class="sig-paren">(</span><em>validators</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata/federations/validator.html#SAMLFederatedMetadataValidatorChain"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.federations.validator.SAMLFederatedMetadataValidatorChain" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#api.saml.metadata.federations.validator.SAMLFederatedMetadataValidator" title="api.saml.metadata.federations.validator.SAMLFederatedMetadataValidator"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.saml.metadata.federations.validator.SAMLFederatedMetadataValidator</span></code></a></p>
+<dl class="method">
+<dt id="api.saml.metadata.federations.validator.SAMLFederatedMetadataValidatorChain.validate">
+<code class="descname">validate</code><span class="sig-paren">(</span><em>federation</em>, <em>metadata</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata/federations/validator.html#SAMLFederatedMetadataValidatorChain.validate"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.federations.validator.SAMLFederatedMetadataValidatorChain.validate" title="Permalink to this definition">¶</a></dt>
+<dd><p>Validate SAML federated metadata using a chain of inner validators.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>federation</strong> (<a class="reference internal" href="#api.saml.metadata.federations.model.SAMLFederation" title="api.saml.metadata.federations.model.SAMLFederation"><em>api.saml.metadata.federations.model.SAMLFederation</em></a>) – SAML federation</li>
+<li><strong>metadata</strong> (<em>str</em>) – SAML federation’s aggregated metadata</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Raises:</th><td class="field-body"><p class="first last"><a class="reference internal" href="#api.saml.metadata.federations.validator.SAMLFederatedMetadataValidationError" title="api.saml.metadata.federations.validator.SAMLFederatedMetadataValidationError"><strong>SAMLFederatedMetadataValidationError</strong></a> – in the case of validation errors</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="api.saml.metadata.federations.validator.SAMLMetadataSignatureValidator">
+<em class="property">class </em><code class="descclassname">api.saml.metadata.federations.validator.</code><code class="descname">SAMLMetadataSignatureValidator</code><a class="reference internal" href="_modules/api/saml/metadata/federations/validator.html#SAMLMetadataSignatureValidator"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.federations.validator.SAMLMetadataSignatureValidator" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#api.saml.metadata.federations.validator.SAMLFederatedMetadataValidator" title="api.saml.metadata.federations.validator.SAMLFederatedMetadataValidator"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.saml.metadata.federations.validator.SAMLFederatedMetadataValidator</span></code></a></p>
+<p>Verifies the validity of federated SAML metadata’s signature.</p>
+<dl class="method">
+<dt id="api.saml.metadata.federations.validator.SAMLMetadataSignatureValidator.validate">
+<code class="descname">validate</code><span class="sig-paren">(</span><em>federation</em>, <em>metadata</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata/federations/validator.html#SAMLMetadataSignatureValidator.validate"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.federations.validator.SAMLMetadataSignatureValidator.validate" title="Permalink to this definition">¶</a></dt>
+<dd><p>Verify the validity of the SAML federated metadata’s signature.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>federation</strong> (<a class="reference internal" href="#api.saml.metadata.federations.model.SAMLFederation" title="api.saml.metadata.federations.model.SAMLFederation"><em>api.saml.metadata.federations.model.SAMLFederation</em></a>) – SAML federation</li>
+<li><strong>metadata</strong> (<em>str</em>) – SAML federation’s aggregated metadata</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Raises:</th><td class="field-body"><p class="first last"><a class="reference internal" href="#api.saml.metadata.federations.validator.SAMLFederatedMetadataValidationError" title="api.saml.metadata.federations.validator.SAMLFederatedMetadataValidationError"><strong>SAMLFederatedMetadataValidationError</strong></a> – in the case of validation errors</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-api.saml.metadata.federations">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-api.saml.metadata.federations" title="Permalink to this headline">¶</a></h2>
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">Library Simplified Circulation Manager</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="modules.html">circulation</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="api.html">api package</a></li>
+<li class="toctree-l2"><a class="reference internal" href="app.html">app module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="core.html">core package</a></li>
+<li class="toctree-l2"><a class="reference internal" href="scripts.html">scripts module</a></li>
+</ul>
+</li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+  <li><a href="modules.html">circulation</a><ul>
+  <li><a href="api.html">api package</a><ul>
+  <li><a href="api.saml.html">api.saml package</a><ul>
+  <li><a href="api.saml.metadata.html">api.saml.metadata package</a><ul>
+      <li>Previous: <a href="api.saml.metadata.html" title="previous chapter">api.saml.metadata package</a></li>
+      <li>Next: <a href="api.sip.html" title="next chapter">api.sip package</a></li>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="_sources/api.saml.metadata.federations.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

@@ -444,12 +444,12 @@
                 <span class="n">api</span> <span class="o">=</span> <span class="kc">None</span>
                 <span class="k">try</span><span class="p">:</span>
                     <span class="n">api</span> <span class="o">=</span> <span class="n">api_map</span><span class="p">[</span><span class="n">collection</span><span class="o">.</span><span class="n">protocol</span><span class="p">](</span><span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">)</span>
-                <span class="k">except</span> <span class="n">CannotLoadConfiguration</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
-                        <span class="s2">&quot;Error loading configuration for </span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
-                        <span class="n">collection</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">e</span><span class="o">.</span><span class="n">message</span>
+                <span class="k">except</span> <span class="n">CannotLoadConfiguration</span> <span class="k">as</span> <span class="n">exception</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span>
+                        <span class="s2">&quot;Error loading configuration for </span><span class="si">{0}</span><span class="s2">: </span><span class="si">{1}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                            <span class="n">collection</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">exception</span><span class="p">))</span>
                     <span class="p">)</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">initialization_exceptions</span><span class="p">[</span><span class="n">collection</span><span class="o">.</span><span class="n">id</span><span class="p">]</span> <span class="o">=</span> <span class="n">e</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">initialization_exceptions</span><span class="p">[</span><span class="n">collection</span><span class="o">.</span><span class="n">id</span><span class="p">]</span> <span class="o">=</span> <span class="n">exception</span>
                 <span class="k">if</span> <span class="n">api</span><span class="p">:</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">api_for_collection</span><span class="p">[</span><span class="n">collection</span><span class="o">.</span><span class="n">id</span><span class="p">]</span> <span class="o">=</span> <span class="n">api</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">collection_ids_for_sync</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">collection</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
@@ -472,6 +472,7 @@
         <span class="kn">from</span> <span class="nn">opds_for_distributors</span> <span class="kn">import</span> <span class="n">OPDSForDistributorsAPI</span>
         <span class="kn">from</span> <span class="nn">odl</span> <span class="kn">import</span> <span class="n">ODLAPI</span><span class="p">,</span> <span class="n">SharedODLAPI</span>
         <span class="kn">from</span> <span class="nn">api.lcp.collection</span> <span class="kn">import</span> <span class="n">LCPAPI</span>
+        <span class="kn">from</span> <span class="nn">api.proquest.importer</span> <span class="kn">import</span> <span class="n">ProQuestOPDS2Importer</span>
 
         <span class="k">return</span> <span class="p">{</span>
             <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">OVERDRIVE</span> <span class="p">:</span> <span class="n">OverdriveAPI</span><span class="p">,</span>
@@ -483,7 +484,8 @@
             <span class="n">OPDSForDistributorsAPI</span><span class="o">.</span><span class="n">NAME</span><span class="p">:</span> <span class="n">OPDSForDistributorsAPI</span><span class="p">,</span>
             <span class="n">ODLAPI</span><span class="o">.</span><span class="n">NAME</span><span class="p">:</span> <span class="n">ODLAPI</span><span class="p">,</span>
             <span class="n">SharedODLAPI</span><span class="o">.</span><span class="n">NAME</span><span class="p">:</span> <span class="n">SharedODLAPI</span><span class="p">,</span>
-            <span class="n">LCPAPI</span><span class="o">.</span><span class="n">NAME</span><span class="p">:</span> <span class="n">LCPAPI</span>
+            <span class="n">LCPAPI</span><span class="o">.</span><span class="n">NAME</span><span class="p">:</span> <span class="n">LCPAPI</span><span class="p">,</span>
+            <span class="n">ProQuestOPDS2Importer</span><span class="o">.</span><span class="n">NAME</span><span class="p">:</span> <span class="n">ProQuestOPDS2Importer</span>
         <span class="p">}</span>
 
 <div class="viewcode-block" id="CirculationAPI.api_for_license_pool"><a class="viewcode-back" href="../../api.html#api.circulation.CirculationAPI.api_for_license_pool">[docs]</a>    <span class="k">def</span> <span class="nf">api_for_license_pool</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">):</span>
@@ -729,12 +731,12 @@
                 <span class="c1"># copies available, update availability information</span>
                 <span class="c1"># immediately.</span>
                 <span class="n">api</span><span class="o">.</span><span class="n">update_availability</span><span class="p">(</span><span class="n">licensepool</span><span class="p">)</span>
-        <span class="k">except</span> <span class="n">NoLicenses</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="n">NoLicenses</span><span class="p">:</span>
             <span class="c1"># Since the patron incorrectly believed there were</span>
             <span class="c1"># licenses available, update availability information</span>
             <span class="c1"># immediately.</span>
             <span class="n">api</span><span class="o">.</span><span class="n">update_availability</span><span class="p">(</span><span class="n">licensepool</span><span class="p">)</span>
-            <span class="k">raise</span> <span class="n">e</span>
+            <span class="k">raise</span>
 
         <span class="k">if</span> <span class="n">loan_info</span><span class="p">:</span>
             <span class="c1"># We successfuly secured a loan.  Now create it in our</span>

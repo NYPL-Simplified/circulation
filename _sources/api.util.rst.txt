@@ -12,6 +12,14 @@ api.util.patron module
     :undoc-members:
     :show-inheritance:
 
+api.util.url module
+-------------------
+
+.. automodule:: api.util.url
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 
 Module contents
 ---------------

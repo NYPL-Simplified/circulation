@@ -310,6 +310,16 @@
         <span class="k">for</span> <span class="n">child</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">children</span><span class="p">:</span>
             <span class="n">child</span><span class="o">.</span><span class="n">protocol</span> <span class="o">=</span> <span class="n">new_protocol</span>
 
+    <span class="nd">@hybrid_property</span>
+    <span class="k">def</span> <span class="nf">primary_identifier_source</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Identify if should try to use another identifier than &lt;id&gt; &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">external_integration</span><span class="o">.</span><span class="n">primary_identifier_source</span>
+
+    <span class="nd">@primary_identifier_source</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">primary_identifier_source</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">new_primary_identifier_source</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Modify the primary identifier source in use by this Collection.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">external_integration</span><span class="o">.</span><span class="n">primary_identifier_source</span> <span class="o">=</span> <span class="n">new_primary_identifier_source</span>
+
     <span class="c1"># For collections that can control the duration of the loans they</span>
     <span class="c1"># create, the durations are stored in these settings and new loans are</span>
     <span class="c1"># expected to be created using these settings. For collections</span>
@@ -347,7 +357,6 @@
         <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">library</span><span class="p">,</span> <span class="n">IntegrationClient</span><span class="p">):</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">external_integration</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="n">key</span><span class="p">)</span></div>
 
-
     <span class="n">DEFAULT_RESERVATION_PERIOD_KEY</span> <span class="o">=</span> <span class="s1">&#39;default_reservation_period&#39;</span>
     <span class="n">STANDARD_DEFAULT_RESERVATION_PERIOD</span> <span class="o">=</span> <span class="mi">3</span>
 
@@ -368,6 +377,34 @@
         <span class="n">new_value</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">new_value</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">external_integration</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">DEFAULT_RESERVATION_PERIOD_KEY</span><span class="p">)</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">new_value</span><span class="p">)</span>
+
+    <span class="c1"># When you import an OPDS feed, you may know the intended audience of the works (e.g. children or researchers),</span>
+    <span class="c1"># even though the OPDS feed may not contain that information.</span>
+    <span class="c1"># It should be possible to configure a collection with a default audience,</span>
+    <span class="c1"># so that books imported from the OPDS feed end up with the right audience.</span>
+    <span class="n">DEFAULT_AUDIENCE_KEY</span> <span class="o">=</span> <span class="s1">&#39;default_audience&#39;</span>
+
+    <span class="nd">@hybrid_property</span>
+    <span class="k">def</span> <span class="nf">default_audience</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return the default audience set up for this collection.</span>
+
+<span class="sd">        :return: Default audience</span>
+<span class="sd">        :rtype: Optional[str]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">setting</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">external_integration</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">DEFAULT_AUDIENCE_KEY</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">setting</span><span class="o">.</span><span class="n">value_or_default</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
+
+    <span class="nd">@default_audience</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">default_audience</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">new_value</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Set the default audience for this collection.</span>
+
+<span class="sd">        :param new_value: New default audience</span>
+<span class="sd">        :type new_value: Optional[str]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">setting</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">external_integration</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">DEFAULT_AUDIENCE_KEY</span><span class="p">)</span>
+
+        <span class="n">setting</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">new_value</span><span class="p">)</span>
 
 <div class="viewcode-block" id="Collection.create_external_integration"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Collection.create_external_integration">[docs]</a>    <span class="k">def</span> <span class="nf">create_external_integration</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">protocol</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Create an ExternalIntegration for this Collection.</span>
@@ -797,7 +834,12 @@
         <span class="c1"># If we don&#39;t allow holds, hide any books with no available copies.</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">allow_holds</span><span class="p">:</span>
             <span class="n">query</span> <span class="o">=</span> <span class="n">query</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
-                <span class="n">or_</span><span class="p">(</span><span class="n">LicensePool</span><span class="o">.</span><span class="n">licenses_available</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="n">LicensePool</span><span class="o">.</span><span class="n">open_access</span><span class="p">)</span>
+                <span class="n">or_</span><span class="p">(</span>
+                    <span class="n">LicensePool</span><span class="o">.</span><span class="n">licenses_available</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span>
+                    <span class="n">LicensePool</span><span class="o">.</span><span class="n">open_access</span><span class="p">,</span>
+                    <span class="n">LicensePool</span><span class="o">.</span><span class="n">self_hosted</span><span class="p">,</span>
+                    <span class="n">LicensePool</span><span class="o">.</span><span class="n">unlimited_access</span>
+                <span class="p">)</span>
             <span class="p">)</span>
         <span class="k">return</span> <span class="n">query</span></div>
 

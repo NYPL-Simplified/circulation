@@ -1,0 +1,210 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>api.saml.metadata.filter &#8212; Library Simplified Circulation Manager  documentation</title>
+    <link rel="stylesheet" href="../../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../../" src="../../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for api.saml.metadata.filter</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">logging</span>
+
+<span class="kn">from</span> <span class="nn">api.saml.metadata.model</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">SAMLAttribute</span><span class="p">,</span>
+    <span class="n">SAMLAttributeStatement</span><span class="p">,</span>
+    <span class="n">SAMLNameID</span><span class="p">,</span>
+    <span class="n">SAMLSubject</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">core.exceptions</span> <span class="kn">import</span> <span class="n">BaseError</span>
+<span class="kn">from</span> <span class="nn">core.python_expression_dsl.evaluator</span> <span class="kn">import</span> <span class="n">DSLEvaluator</span>
+<span class="kn">from</span> <span class="nn">core.util.string_helpers</span> <span class="kn">import</span> <span class="n">is_string</span>
+
+
+<div class="viewcode-block" id="SAMLSubjectFilterError"><a class="viewcode-back" href="../../../../api.saml.metadata.html#api.saml.metadata.filter.SAMLSubjectFilterError">[docs]</a><span class="k">class</span> <span class="nc">SAMLSubjectFilterError</span><span class="p">(</span><span class="n">BaseError</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Raised in the case of any errors during execution of a filter expression.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">inner_exception</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Initialize a new instance of SAMLSubjectFilterError class.</span>
+
+<span class="sd">        :param inner_exception: Inner exception</span>
+<span class="sd">        :type inner_exception: Exception</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">message</span> <span class="o">=</span> <span class="s2">&quot;Incorrect filter expression: </span><span class="si">{0}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">inner_exception</span><span class="p">))</span>
+
+        <span class="nb">super</span><span class="p">(</span><span class="n">SAMLSubjectFilterError</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">message</span><span class="p">,</span> <span class="n">inner_exception</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SAMLSubjectFilter"><a class="viewcode-back" href="../../../../api.saml.metadata.html#api.saml.metadata.filter.SAMLSubjectFilter">[docs]</a><span class="k">class</span> <span class="nc">SAMLSubjectFilter</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Executes filter expressions.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dsl_evaluator</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Initialize a new instance of SAMLSubjectFilter class.</span>
+
+<span class="sd">        :param dsl_evaluator: DSL evaluator</span>
+<span class="sd">        :type dsl_evaluator: core.python_expression_dsl.evaluator.DSLEvaluator</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">dsl_evaluator</span><span class="p">,</span> <span class="n">DSLEvaluator</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Argument &#39;dsl_evaluator&#39; must be an instance of </span><span class="si">{0}</span><span class="s2"> class&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">DSLEvaluator</span><span class="p">))</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_dsl_evaluator</span> <span class="o">=</span> <span class="n">dsl_evaluator</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+<div class="viewcode-block" id="SAMLSubjectFilter.execute"><a class="viewcode-back" href="../../../../api.saml.metadata.html#api.saml.metadata.filter.SAMLSubjectFilter.execute">[docs]</a>    <span class="k">def</span> <span class="nf">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">expression</span><span class="p">,</span> <span class="n">subject</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Apply the expression to the subject and return a boolean value indicating whether it&#39;s a valid subject.</span>
+
+<span class="sd">        :param expression: String containing the filter expression</span>
+<span class="sd">        :type expression: str</span>
+
+<span class="sd">        :param subject: SAML subject</span>
+<span class="sd">        :type subject: api.saml.metadata.model.SAMLSubject</span>
+
+<span class="sd">        :return: Boolean value indicating whether it&#39;s a valid subject</span>
+<span class="sd">        :rtype: bool</span>
+
+<span class="sd">        :raise SAMLSubjectFilterError: in the case of any errors occurred during expression evaluation</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">expression</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">is_string</span><span class="p">(</span><span class="n">expression</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Argument &#39;expression&#39; must be a non-empty string&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">subject</span><span class="p">,</span> <span class="n">SAMLSubject</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Argument &#39;subject&#39; must an instance of Subject class&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="s2">&quot;Started applying expression &#39;</span><span class="si">{0}</span><span class="s2">&#39; to </span><span class="si">{1}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">expression</span><span class="p">,</span> <span class="n">subject</span><span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dsl_evaluator</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span>
+                <span class="n">expression</span><span class="p">,</span>
+                <span class="n">context</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;subject&quot;</span><span class="p">:</span> <span class="n">subject</span><span class="p">},</span>
+                <span class="n">safe_classes</span><span class="o">=</span><span class="p">[</span>
+                    <span class="n">SAMLSubject</span><span class="p">,</span>
+                    <span class="n">SAMLNameID</span><span class="p">,</span>
+                    <span class="n">SAMLAttributeStatement</span><span class="p">,</span>
+                    <span class="n">SAMLAttribute</span><span class="p">,</span>
+                <span class="p">],</span>
+            <span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exception</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">SAMLSubjectFilterError</span><span class="p">(</span><span class="n">exception</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="s2">&quot;Finished applying expression &#39;</span><span class="si">{0}</span><span class="s2">&#39; to </span><span class="si">{1}</span><span class="s2">: </span><span class="si">{2}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                <span class="n">expression</span><span class="p">,</span> <span class="n">subject</span><span class="p">,</span> <span class="n">result</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="n">result</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">result</span></div>
+
+<div class="viewcode-block" id="SAMLSubjectFilter.validate"><a class="viewcode-back" href="../../../../api.saml.metadata.html#api.saml.metadata.filter.SAMLSubjectFilter.validate">[docs]</a>    <span class="k">def</span> <span class="nf">validate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">expression</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Validate the filter expression.</span>
+
+<span class="sd">        Try to apply the expression to a dummy Subject object containing all the known SAML attributes.</span>
+
+<span class="sd">        :param expression: String containing the filter expression</span>
+<span class="sd">        :type expression: str</span>
+
+<span class="sd">        :raise: SAMLSubjectFilterError</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">expression</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">is_string</span><span class="p">(</span><span class="n">expression</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Argument &#39;expression&#39; must be a non-empty string&quot;</span><span class="p">)</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_dsl_evaluator</span><span class="o">.</span><span class="n">parser</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">expression</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exception</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">SAMLSubjectFilterError</span><span class="p">(</span><span class="n">exception</span><span class="p">)</span></div></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../../index.html">Library Simplified Circulation Manager</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../modules.html">circulation</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

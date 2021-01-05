@@ -35,60 +35,59 @@
   <h1>Source code for core.model.identifier</h1><div class="highlight"><pre>
 <span></span><span class="c1"># encoding: utf-8</span>
 <span class="c1"># Identifier, Equivalency</span>
-<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
-
-<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">Base</span><span class="p">,</span>
-    <span class="n">create</span><span class="p">,</span>
-    <span class="n">get_one</span><span class="p">,</span>
-    <span class="n">get_one_or_create</span><span class="p">,</span>
-    <span class="n">PresentationCalculationPolicy</span>
-<span class="p">)</span>
-<span class="kn">from</span> <span class="nn">coverage</span> <span class="kn">import</span> <span class="n">CoverageRecord</span>
-<span class="kn">from</span> <span class="nn">classification</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">Classification</span><span class="p">,</span>
-    <span class="n">Subject</span><span class="p">,</span>
-<span class="p">)</span>
-<span class="kn">from</span> <span class="nn">constants</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">IdentifierConstants</span><span class="p">,</span>
-    <span class="n">LinkRelations</span><span class="p">,</span>
-<span class="p">)</span>
-<span class="kn">from</span> <span class="nn">datasource</span> <span class="kn">import</span> <span class="n">DataSource</span>
-<span class="kn">from</span> <span class="nn">licensing</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">LicensePoolDeliveryMechanism</span><span class="p">,</span>
-    <span class="n">RightsStatus</span><span class="p">,</span>
-<span class="p">)</span>
-<span class="kn">from</span> <span class="nn">measurement</span> <span class="kn">import</span> <span class="n">Measurement</span>
-
-<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">defaultdict</span>
 <span class="kn">import</span> <span class="nn">datetime</span>
-<span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">total_ordering</span>
-<span class="kn">import</span> <span class="nn">isbnlib</span>
 <span class="kn">import</span> <span class="nn">logging</span>
 <span class="kn">import</span> <span class="nn">random</span>
+<span class="kn">import</span> <span class="nn">urllib</span>
+<span class="kn">from</span> <span class="nn">abc</span> <span class="kn">import</span> <span class="n">ABCMeta</span><span class="p">,</span> <span class="n">abstractmethod</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">defaultdict</span>
+<span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">total_ordering</span>
+
+<span class="kn">import</span> <span class="nn">isbnlib</span>
+<span class="kn">import</span> <span class="nn">six</span>
+<span class="kn">from</span> <span class="nn">classification</span> <span class="kn">import</span> <span class="n">Classification</span><span class="p">,</span> <span class="n">Subject</span>
+<span class="kn">from</span> <span class="nn">constants</span> <span class="kn">import</span> <span class="n">IdentifierConstants</span><span class="p">,</span> <span class="n">LinkRelations</span>
+<span class="kn">from</span> <span class="nn">coverage</span> <span class="kn">import</span> <span class="n">CoverageRecord</span>
+<span class="kn">from</span> <span class="nn">datasource</span> <span class="kn">import</span> <span class="n">DataSource</span>
+<span class="kn">from</span> <span class="nn">licensing</span> <span class="kn">import</span> <span class="n">LicensePoolDeliveryMechanism</span><span class="p">,</span> <span class="n">RightsStatus</span>
+<span class="kn">from</span> <span class="nn">measurement</span> <span class="kn">import</span> <span class="n">Measurement</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Boolean</span><span class="p">,</span>
     <span class="n">Column</span><span class="p">,</span>
     <span class="n">Float</span><span class="p">,</span>
     <span class="n">ForeignKey</span><span class="p">,</span>
-    <span class="n">func</span><span class="p">,</span>
     <span class="n">Integer</span><span class="p">,</span>
     <span class="n">String</span><span class="p">,</span>
     <span class="n">UniqueConstraint</span><span class="p">,</span>
+    <span class="n">func</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">joinedload</span><span class="p">,</span>
-    <span class="n">relationship</span><span class="p">,</span>
-<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="kn">import</span> <span class="n">joinedload</span><span class="p">,</span> <span class="n">relationship</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm.exc</span> <span class="kn">import</span> <span class="n">MultipleResultsFound</span><span class="p">,</span> <span class="n">NoResultFound</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="kn">import</span> <span class="n">Session</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy.sql</span> <span class="kn">import</span> <span class="n">select</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.sql.expression</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">and_</span><span class="p">,</span>
-    <span class="n">or_</span><span class="p">,</span>
-<span class="p">)</span>
-<span class="kn">import</span> <span class="nn">urllib</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.sql.expression</span> <span class="kn">import</span> <span class="n">and_</span><span class="p">,</span> <span class="n">or_</span>
+
 <span class="kn">from</span> <span class="nn">..util.string_helpers</span> <span class="kn">import</span> <span class="n">native_string</span>
 <span class="kn">from</span> <span class="nn">..util.summary</span> <span class="kn">import</span> <span class="n">SummaryEvaluator</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">Base</span><span class="p">,</span> <span class="n">PresentationCalculationPolicy</span><span class="p">,</span> <span class="n">create</span><span class="p">,</span> <span class="n">get_one</span><span class="p">,</span> <span class="n">get_one_or_create</span>
+
+
+<div class="viewcode-block" id="IdentifierParser"><a class="viewcode-back" href="../../../core.model.html#core.monitor.IdentifierParser">[docs]</a><span class="nd">@six</span><span class="o">.</span><span class="n">add_metaclass</span><span class="p">(</span><span class="n">ABCMeta</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">IdentifierParser</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Interface for identifier parsers.&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="IdentifierParser.parse"><a class="viewcode-back" href="../../../core.model.html#core.monitor.IdentifierParser.parse">[docs]</a>    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">parse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier_string</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Parse a string containing an identifier, extract it and determine its type.</span>
+
+<span class="sd">        :param identifier_string: String containing an identifier</span>
+<span class="sd">        :type identifier_string: str</span>
+
+<span class="sd">        :return: 2-tuple containing the identifier&#39;s type and identifier itself or None</span>
+<span class="sd">            if the string contains an incorrect identifier</span>
+<span class="sd">        :rtype: Optional[Tuple[str, str]]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div></div>
 
 
 <div class="viewcode-block" id="Identifier"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Identifier">[docs]</a><span class="nd">@total_ordering</span>
@@ -401,19 +400,81 @@
 
         <span class="k">return</span> <span class="n">identifiers_by_urn</span><span class="p">,</span> <span class="n">failures</span></div>
 
-<div class="viewcode-block" id="Identifier.parse_urn"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Identifier.parse_urn">[docs]</a>    <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">parse_urn</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">identifier_string</span><span class="p">,</span> <span class="n">must_support_license_pools</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
-        <span class="nb">type</span><span class="p">,</span> <span class="n">identifier_string</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">type_and_identifier_for_urn</span><span class="p">(</span><span class="n">identifier_string</span><span class="p">)</span>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_parse_urn</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">identifier_string</span><span class="p">,</span> <span class="n">identifier_type</span><span class="p">,</span> <span class="n">must_support_license_pools</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Parse identifier string.</span>
+
+<span class="sd">        :param _db: Database session</span>
+<span class="sd">        :type _db: sqlalchemy.orm.session.Session</span>
+
+<span class="sd">        :param identifier_string: Identifier itself</span>
+<span class="sd">        :type identifier_string: str</span>
+
+<span class="sd">        :param identifier_type: Identifier&#39;s type</span>
+<span class="sd">        :type identifier_type: str</span>
+
+<span class="sd">        :param must_support_license_pools: Boolean value indicating whether there should be a DataSource that provides</span>
+<span class="sd">            licenses for books identified by the given identifier</span>
+<span class="sd">        :type must_support_license_pools: bool</span>
+
+<span class="sd">        :return: 2-tuple containing Identifier object and a boolean value indicating whether it&#39;s new</span>
+<span class="sd">        :rtype: Tuple[core.model.identifier.Identifier, bool]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">must_support_license_pools</span><span class="p">:</span>
             <span class="k">try</span><span class="p">:</span>
-                <span class="n">ls</span> <span class="o">=</span> <span class="n">DataSource</span><span class="o">.</span><span class="n">license_source_for</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="nb">type</span><span class="p">)</span>
+                <span class="n">_</span> <span class="o">=</span> <span class="n">DataSource</span><span class="o">.</span><span class="n">license_source_for</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">identifier_type</span><span class="p">)</span>
             <span class="k">except</span> <span class="n">NoResultFound</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="n">Identifier</span><span class="o">.</span><span class="n">UnresolvableIdentifierException</span><span class="p">()</span>
             <span class="k">except</span> <span class="n">MultipleResultsFound</span><span class="p">:</span>
-                 <span class="c1"># This is fine.</span>
+                <span class="c1"># This is fine.</span>
                 <span class="k">pass</span>
 
-        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">for_foreign_id</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="nb">type</span><span class="p">,</span> <span class="n">identifier_string</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">for_foreign_id</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">identifier_type</span><span class="p">,</span> <span class="n">identifier_string</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Identifier.parse_urn"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Identifier.parse_urn">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">parse_urn</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">identifier_string</span><span class="p">,</span> <span class="n">must_support_license_pools</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Parse identifier string.</span>
+
+<span class="sd">        :param _db: Database session</span>
+<span class="sd">        :type _db: sqlalchemy.orm.session.Session</span>
+
+<span class="sd">        :param identifier_string: String containing an identifier</span>
+<span class="sd">        :type identifier_string: str</span>
+
+<span class="sd">        :param must_support_license_pools: Boolean value indicating whether there should be a DataSource that provides</span>
+<span class="sd">            licenses for books identified by the given identifier</span>
+<span class="sd">        :type must_support_license_pools: bool</span>
+
+<span class="sd">        :return: 2-tuple containing Identifier object and a boolean value indicating whether it&#39;s new</span>
+<span class="sd">        :rtype: Tuple[core.model.identifier.Identifier, bool]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">identifier_type</span><span class="p">,</span> <span class="n">identifier_string</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">type_and_identifier_for_urn</span><span class="p">(</span><span class="n">identifier_string</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_parse_urn</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">identifier_string</span><span class="p">,</span> <span class="n">identifier_type</span><span class="p">,</span> <span class="n">must_support_license_pools</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Identifier.parse"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Identifier.parse">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">parse</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">identifier_string</span><span class="p">,</span> <span class="n">parser</span><span class="p">,</span> <span class="n">must_support_license_pools</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Parse identifier string.</span>
+
+<span class="sd">        :param _db: Database session</span>
+<span class="sd">        :type _db: sqlalchemy.orm.session.Session</span>
+
+<span class="sd">        :param identifier_string: String containing an identifier</span>
+<span class="sd">        :type identifier_string: str</span>
+
+<span class="sd">        :param parser: Identifier parser</span>
+<span class="sd">        :type parser: IdentifierParser</span>
+
+<span class="sd">        :param must_support_license_pools: Boolean value indicating whether there should be a DataSource that provides</span>
+<span class="sd">            licenses for books identified by the given identifier</span>
+<span class="sd">        :type must_support_license_pools: bool</span>
+
+<span class="sd">        :return: 2-tuple containing Identifier object and a boolean value indicating whether it&#39;s new</span>
+<span class="sd">        :rtype: Tuple[core.model.identifier.Identifier, bool]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">identifier_type</span><span class="p">,</span> <span class="n">identifier_string</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">identifier_string</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_parse_urn</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">identifier_string</span><span class="p">,</span> <span class="n">identifier_type</span><span class="p">,</span> <span class="n">must_support_license_pools</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="Identifier.equivalent_to"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Identifier.equivalent_to">[docs]</a>    <span class="k">def</span> <span class="nf">equivalent_to</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data_source</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">strength</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Make one Identifier equivalent to another.</span>
@@ -519,11 +580,7 @@
 <span class="sd">        fetching, mirroring and scaling Representations as links are</span>
 <span class="sd">        created. It might be good to move that code into here.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="kn">from</span> <span class="nn">resource</span> <span class="kn">import</span> <span class="p">(</span>
-            <span class="n">Resource</span><span class="p">,</span>
-            <span class="n">Hyperlink</span><span class="p">,</span>
-            <span class="n">Representation</span><span class="p">,</span>
-        <span class="p">)</span>
+        <span class="kn">from</span> <span class="nn">resource</span> <span class="kn">import</span> <span class="n">Hyperlink</span><span class="p">,</span> <span class="n">Representation</span><span class="p">,</span> <span class="n">Resource</span>
         <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
 
         <span class="c1"># Find or create the Resource.</span>
@@ -647,10 +704,7 @@
 <div class="viewcode-block" id="Identifier.resources_for_identifier_ids"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Identifier.resources_for_identifier_ids">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">resources_for_identifier_ids</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">identifier_ids</span><span class="p">,</span> <span class="n">rel</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                                      <span class="n">data_source</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-        <span class="kn">from</span> <span class="nn">resource</span> <span class="kn">import</span> <span class="p">(</span>
-            <span class="n">Resource</span><span class="p">,</span>
-            <span class="n">Hyperlink</span><span class="p">,</span>
-        <span class="p">)</span>
+        <span class="kn">from</span> <span class="nn">resource</span> <span class="kn">import</span> <span class="n">Hyperlink</span><span class="p">,</span> <span class="n">Resource</span>
         <span class="n">resources</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Resource</span><span class="p">)</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">Resource</span><span class="o">.</span><span class="n">links</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
                 <span class="n">Hyperlink</span><span class="o">.</span><span class="n">identifier_id</span><span class="o">.</span><span class="n">in_</span><span class="p">(</span><span class="n">identifier_ids</span><span class="p">))</span>
         <span class="k">if</span> <span class="n">data_source</span><span class="p">:</span>
@@ -675,10 +729,7 @@
     <span class="k">def</span> <span class="nf">best_cover_for</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">identifier_ids</span><span class="p">,</span> <span class="n">rel</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="c1"># Find all image resources associated with any of</span>
         <span class="c1"># these identifiers.</span>
-        <span class="kn">from</span> <span class="nn">resource</span> <span class="kn">import</span> <span class="p">(</span>
-            <span class="n">Resource</span><span class="p">,</span>
-            <span class="n">Hyperlink</span><span class="p">,</span>
-        <span class="p">)</span>
+        <span class="kn">from</span> <span class="nn">resource</span> <span class="kn">import</span> <span class="n">Hyperlink</span><span class="p">,</span> <span class="n">Resource</span>
         <span class="n">rel</span> <span class="o">=</span> <span class="n">rel</span> <span class="ow">or</span> <span class="n">Hyperlink</span><span class="o">.</span><span class="n">IMAGE</span>
         <span class="n">images</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">resources_for_identifier_ids</span><span class="p">(</span>
             <span class="n">_db</span><span class="p">,</span> <span class="n">identifier_ids</span><span class="p">,</span> <span class="n">rel</span><span class="p">)</span>

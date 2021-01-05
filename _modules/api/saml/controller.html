@@ -34,45 +34,52 @@
             
   <h1>Source code for api.saml.controller</h1><div class="highlight"><pre>
 <span></span><span class="kn">import</span> <span class="nn">json</span>
-<span class="kn">import</span> <span class="nn">urllib</span>
-<span class="kn">import</span> <span class="nn">urlparse</span>
+<span class="kn">import</span> <span class="nn">logging</span>
 
 <span class="kn">from</span> <span class="nn">flask</span> <span class="kn">import</span> <span class="n">redirect</span>
 <span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
+<span class="kn">from</span> <span class="nn">six.moves.urllib.parse</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">SplitResult</span><span class="p">,</span>
+    <span class="n">parse_qs</span><span class="p">,</span>
+    <span class="n">urlencode</span><span class="p">,</span>
+    <span class="n">urlparse</span><span class="p">,</span>
+    <span class="n">urlsplit</span><span class="p">,</span>
+    <span class="n">urlunparse</span><span class="p">,</span>
+<span class="p">)</span>
 
 <span class="kn">from</span> <span class="nn">api.problem_details</span> <span class="kn">import</span> <span class="o">*</span>
 <span class="kn">from</span> <span class="nn">api.saml.auth</span> <span class="kn">import</span> <span class="n">SAMLAuthenticationManager</span>
+<span class="kn">from</span> <span class="nn">api.saml.configuration.model</span> <span class="kn">import</span> <span class="n">SAMLConfigurationFactory</span>
+<span class="kn">from</span> <span class="nn">api.saml.metadata.parser</span> <span class="kn">import</span> <span class="n">SAMLMetadataParser</span>
 <span class="kn">from</span> <span class="nn">core.util.problem_detail</span> <span class="kn">import</span> <span class="n">ProblemDetail</span>
-<span class="kn">from</span> <span class="nn">core.util.problem_detail</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">json</span> <span class="k">as</span> <span class="n">pd_json</span><span class="p">,</span>
-<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">core.util.problem_detail</span> <span class="kn">import</span> <span class="n">json</span> <span class="k">as</span> <span class="n">pd_json</span>
 
 <span class="n">SAML_INVALID_REQUEST</span> <span class="o">=</span> <span class="n">pd</span><span class="p">(</span>
-    <span class="s1">&#39;http://librarysimplified.org/terms/problem/saml/invalid-saml-request&#39;</span><span class="p">,</span>
+    <span class="s2">&quot;http://librarysimplified.org/terms/problem/saml/invalid-saml-request&quot;</span><span class="p">,</span>
     <span class="n">status_code</span><span class="o">=</span><span class="mi">401</span><span class="p">,</span>
-    <span class="n">title</span><span class="o">=</span><span class="n">_</span><span class="p">(</span><span class="s1">&#39;SAML invalid request.&#39;</span><span class="p">),</span>
-    <span class="n">detail</span><span class="o">=</span><span class="n">_</span><span class="p">(</span><span class="s1">&#39;SAML invalid request.&#39;</span><span class="p">)</span>
+    <span class="n">title</span><span class="o">=</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;SAML invalid request.&quot;</span><span class="p">),</span>
+    <span class="n">detail</span><span class="o">=</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;SAML invalid request.&quot;</span><span class="p">),</span>
 <span class="p">)</span>
 
 <span class="n">SAML_INVALID_RESPONSE</span> <span class="o">=</span> <span class="n">pd</span><span class="p">(</span>
-    <span class="s1">&#39;http://librarysimplified.org/terms/problem/saml/invalid-saml-response&#39;</span><span class="p">,</span>
+    <span class="s2">&quot;http://librarysimplified.org/terms/problem/saml/invalid-saml-response&quot;</span><span class="p">,</span>
     <span class="n">status_code</span><span class="o">=</span><span class="mi">401</span><span class="p">,</span>
-    <span class="n">title</span><span class="o">=</span><span class="n">_</span><span class="p">(</span><span class="s1">&#39;SAML invalid response.&#39;</span><span class="p">),</span>
-    <span class="n">detail</span><span class="o">=</span><span class="n">_</span><span class="p">(</span><span class="s1">&#39;SAML invalid response.&#39;</span><span class="p">)</span>
+    <span class="n">title</span><span class="o">=</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;SAML invalid response.&quot;</span><span class="p">),</span>
+    <span class="n">detail</span><span class="o">=</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;SAML invalid response.&quot;</span><span class="p">),</span>
 <span class="p">)</span>
 
 
 <div class="viewcode-block" id="SAMLController"><a class="viewcode-back" href="../../../api.saml.html#api.saml.controller.SAMLController">[docs]</a><span class="k">class</span> <span class="nc">SAMLController</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Controller used for handing SAML 2.0 authentication requests&quot;&quot;&quot;</span>
 
-    <span class="n">ERROR</span> <span class="o">=</span> <span class="s1">&#39;error&#39;</span>
-    <span class="n">REDIRECT_URI</span> <span class="o">=</span> <span class="s1">&#39;redirect_uri&#39;</span>
-    <span class="n">PROVIDER_NAME</span> <span class="o">=</span> <span class="s1">&#39;provider&#39;</span>
-    <span class="n">IDP_ENTITY_ID</span> <span class="o">=</span> <span class="s1">&#39;idp_entity_id&#39;</span>
-    <span class="n">LIBRARY_SHORT_NAME</span> <span class="o">=</span> <span class="s1">&#39;library_short_name&#39;</span>
-    <span class="n">RELAY_STATE</span> <span class="o">=</span> <span class="s1">&#39;RelayState&#39;</span>
-    <span class="n">ACCESS_TOKEN</span> <span class="o">=</span> <span class="s1">&#39;access_token&#39;</span>
-    <span class="n">PATRON_INFO</span> <span class="o">=</span> <span class="s1">&#39;patron_info&#39;</span>
+    <span class="n">ERROR</span> <span class="o">=</span> <span class="s2">&quot;error&quot;</span>
+    <span class="n">REDIRECT_URI</span> <span class="o">=</span> <span class="s2">&quot;redirect_uri&quot;</span>
+    <span class="n">PROVIDER_NAME</span> <span class="o">=</span> <span class="s2">&quot;provider&quot;</span>
+    <span class="n">IDP_ENTITY_ID</span> <span class="o">=</span> <span class="s2">&quot;idp_entity_id&quot;</span>
+    <span class="n">LIBRARY_SHORT_NAME</span> <span class="o">=</span> <span class="s2">&quot;library_short_name&quot;</span>
+    <span class="n">RELAY_STATE</span> <span class="o">=</span> <span class="s2">&quot;RelayState&quot;</span>
+    <span class="n">ACCESS_TOKEN</span> <span class="o">=</span> <span class="s2">&quot;access_token&quot;</span>
+    <span class="n">PATRON_INFO</span> <span class="o">=</span> <span class="s2">&quot;patron_info&quot;</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">circulation_manager</span><span class="p">,</span> <span class="n">authenticator</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Initializes a new instance of SAMLController class</span>
@@ -86,21 +93,27 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_circulation_manager</span> <span class="o">=</span> <span class="n">circulation_manager</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_authenticator</span> <span class="o">=</span> <span class="n">authenticator</span>
 
-    <span class="k">def</span> <span class="nf">_get_authentication_manager</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">db</span><span class="p">,</span> <span class="n">authentication_provider</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_configuration_factory</span> <span class="o">=</span> <span class="n">SAMLConfigurationFactory</span><span class="p">(</span><span class="n">SAMLMetadataParser</span><span class="p">())</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_get_authentication_manager</span><span class="p">(</span><span class="n">db</span><span class="p">,</span> <span class="n">authentication_provider</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Returns an instance of SAML authentication manager</span>
 
 <span class="sd">        :param db: Database session</span>
 <span class="sd">        :type db: sqlalchemy.orm.session.Session</span>
 
 <span class="sd">        :param authentication_provider: SAML authentication provider</span>
-<span class="sd">        :type authentication_provider: SAMLAuthenticationProvider</span>
+<span class="sd">        :type authentication_provider: api.saml.provider.SAMLWebSSOAuthenticationProvider</span>
 
 <span class="sd">        :return: Authentication manager</span>
 <span class="sd">        :rtype: SAMLAuthenticationManager</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="n">authentication_provider</span><span class="o">.</span><span class="n">get_authentication_manager</span><span class="p">(</span><span class="n">db</span><span class="p">)</span>
+        <span class="k">with</span> <span class="n">authentication_provider</span><span class="o">.</span><span class="n">get_configuration</span><span class="p">(</span><span class="n">db</span><span class="p">)</span> <span class="k">as</span> <span class="n">configuration</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">authentication_provider</span><span class="o">.</span><span class="n">get_authentication_manager</span><span class="p">(</span><span class="n">configuration</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_add_params_to_url</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">params</span><span class="p">):</span>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_add_params_to_url</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">params</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Adds parameters as a query part of the URL</span>
 
 <span class="sd">        :param url: URL</span>
@@ -112,12 +125,23 @@
 <span class="sd">        :return: URL with parameters formatted as a query string</span>
 <span class="sd">        :rtype: string</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">query</span> <span class="o">=</span> <span class="n">urllib</span><span class="o">.</span><span class="n">urlencode</span><span class="p">(</span><span class="n">params</span><span class="p">)</span>
+        <span class="n">url_parts</span> <span class="o">=</span> <span class="n">urlsplit</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="s1">&#39;?&#39;</span> <span class="ow">in</span> <span class="n">url</span><span class="p">:</span>
-            <span class="n">url</span> <span class="o">+=</span> <span class="s1">&#39;&amp;&#39;</span> <span class="o">+</span> <span class="n">query</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">url</span> <span class="o">+=</span> <span class="s1">&#39;?&#39;</span> <span class="o">+</span> <span class="n">query</span>
+        <span class="c1"># Extract the existing parameters specified in the redirection URI</span>
+        <span class="n">existing_params</span> <span class="o">=</span> <span class="n">parse_qs</span><span class="p">(</span><span class="n">url_parts</span><span class="o">.</span><span class="n">query</span><span class="p">)</span>
+
+        <span class="c1"># Enrich our custom parameters with the existing ones</span>
+        <span class="n">params</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">existing_params</span><span class="p">)</span>
+
+        <span class="n">new_query</span> <span class="o">=</span> <span class="n">urlencode</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+        <span class="n">url_parts</span> <span class="o">=</span> <span class="n">SplitResult</span><span class="p">(</span>
+            <span class="n">url_parts</span><span class="o">.</span><span class="n">scheme</span><span class="p">,</span>
+            <span class="n">url_parts</span><span class="o">.</span><span class="n">netloc</span><span class="p">,</span>
+            <span class="n">url_parts</span><span class="o">.</span><span class="n">path</span><span class="p">,</span>
+            <span class="n">new_query</span><span class="p">,</span>
+            <span class="n">url_parts</span><span class="o">.</span><span class="n">fragment</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">url</span> <span class="o">=</span> <span class="n">url_parts</span><span class="o">.</span><span class="n">geturl</span><span class="p">()</span>
 
         <span class="k">return</span> <span class="n">url</span>
 
@@ -139,11 +163,9 @@
             <span class="n">problem_detail</span><span class="o">.</span><span class="n">title</span><span class="p">,</span>
             <span class="n">problem_detail</span><span class="o">.</span><span class="n">detail</span><span class="p">,</span>
             <span class="n">problem_detail</span><span class="o">.</span><span class="n">instance</span><span class="p">,</span>
-            <span class="n">problem_detail</span><span class="o">.</span><span class="n">debug_message</span>
+            <span class="n">problem_detail</span><span class="o">.</span><span class="n">debug_message</span><span class="p">,</span>
         <span class="p">)</span>
-        <span class="n">params</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">ERROR</span><span class="p">:</span> <span class="n">problem_detail_json</span>
-        <span class="p">}</span>
+        <span class="n">params</span> <span class="o">=</span> <span class="p">{</span><span class="bp">self</span><span class="o">.</span><span class="n">ERROR</span><span class="p">:</span> <span class="n">problem_detail_json</span><span class="p">}</span>
         <span class="n">redirect_uri</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_add_params_to_url</span><span class="p">(</span><span class="n">redirect_uri</span><span class="p">,</span> <span class="n">params</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">redirect_uri</span>
@@ -157,8 +179,8 @@
 <span class="sd">        :return: Redirection URL</span>
 <span class="sd">        :rtype: string</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">relay_state_parse_result</span> <span class="o">=</span> <span class="n">urlparse</span><span class="o">.</span><span class="n">urlparse</span><span class="p">(</span><span class="n">relay_state</span><span class="p">)</span>
-        <span class="n">relay_state_parameters</span> <span class="o">=</span> <span class="n">urlparse</span><span class="o">.</span><span class="n">parse_qs</span><span class="p">(</span><span class="n">relay_state_parse_result</span><span class="o">.</span><span class="n">query</span><span class="p">)</span>
+        <span class="n">relay_state_parse_result</span> <span class="o">=</span> <span class="n">urlparse</span><span class="p">(</span><span class="n">relay_state</span><span class="p">)</span>
+        <span class="n">relay_state_parameters</span> <span class="o">=</span> <span class="n">parse_qs</span><span class="p">(</span><span class="n">relay_state_parse_result</span><span class="o">.</span><span class="n">query</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">LIBRARY_SHORT_NAME</span> <span class="ow">in</span> <span class="n">relay_state_parameters</span><span class="p">:</span>
             <span class="k">del</span> <span class="n">relay_state_parameters</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">LIBRARY_SHORT_NAME</span><span class="p">]</span>
@@ -169,20 +191,21 @@
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">IDP_ENTITY_ID</span> <span class="ow">in</span> <span class="n">relay_state_parameters</span><span class="p">:</span>
             <span class="k">del</span> <span class="n">relay_state_parameters</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">IDP_ENTITY_ID</span><span class="p">]</span>
 
-        <span class="n">redirect_uri</span> <span class="o">=</span> <span class="n">urlparse</span><span class="o">.</span><span class="n">urlunparse</span><span class="p">(</span>
+        <span class="n">redirect_uri</span> <span class="o">=</span> <span class="n">urlunparse</span><span class="p">(</span>
             <span class="p">(</span>
                 <span class="n">relay_state_parse_result</span><span class="o">.</span><span class="n">scheme</span><span class="p">,</span>
                 <span class="n">relay_state_parse_result</span><span class="o">.</span><span class="n">netloc</span><span class="p">,</span>
                 <span class="n">relay_state_parse_result</span><span class="o">.</span><span class="n">path</span><span class="p">,</span>
                 <span class="n">relay_state_parse_result</span><span class="o">.</span><span class="n">params</span><span class="p">,</span>
-                <span class="n">urllib</span><span class="o">.</span><span class="n">urlencode</span><span class="p">(</span><span class="n">relay_state_parameters</span><span class="p">),</span>
+                <span class="n">urlencode</span><span class="p">(</span><span class="n">relay_state_parameters</span><span class="p">,</span> <span class="kc">True</span><span class="p">),</span>
                 <span class="n">relay_state_parse_result</span><span class="o">.</span><span class="n">fragment</span><span class="p">,</span>
             <span class="p">)</span>
         <span class="p">)</span>
 
         <span class="k">return</span> <span class="n">redirect_uri</span>
 
-    <span class="k">def</span> <span class="nf">_get_request_parameter</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">default_value</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_get_request_parameter</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">default_value</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Returns a parameter containing in the incoming request</span>
 
 <span class="sd">        :param params: Request&#39;s parameters</span>
@@ -197,11 +220,14 @@
         <span class="n">parameter</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">default_value</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="n">parameter</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">SAML_INVALID_REQUEST</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="s1">&#39;Required parameter </span><span class="si">{0}</span><span class="s1"> is missing&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">name</span><span class="p">))</span>
+            <span class="k">return</span> <span class="n">SAML_INVALID_REQUEST</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span>
+                <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Required parameter </span><span class="si">{0}</span><span class="s2"> is missing&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">name</span><span class="p">))</span>
+            <span class="p">)</span>
 
         <span class="k">return</span> <span class="n">parameter</span>
 
-    <span class="k">def</span> <span class="nf">_get_relay_state_parameter</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">relay_parameters</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_get_relay_state_parameter</span><span class="p">(</span><span class="n">relay_parameters</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Returns a parameter containing in the query string of the relay state returned by the IdP</span>
 
 <span class="sd">        :param relay_parameters: Dictionary containing a list of parameters</span>
@@ -214,7 +240,9 @@
 <span class="sd">        :rtype: Union[string, ProblemDetail]</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">relay_parameters</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">SAML_INVALID_RESPONSE</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="s1">&#39;Required parameter </span><span class="si">{0}</span><span class="s1"> is missing from RelayState&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">name</span><span class="p">))</span>
+            <span class="k">return</span> <span class="n">SAML_INVALID_RESPONSE</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span>
+                <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Required parameter </span><span class="si">{0}</span><span class="s2"> is missing from RelayState&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">name</span><span class="p">))</span>
+            <span class="p">)</span>
 
         <span class="k">return</span> <span class="n">relay_parameters</span><span class="p">[</span><span class="n">name</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
 
@@ -264,39 +292,42 @@
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">provider</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_redirect_with_error</span><span class="p">(</span><span class="n">redirect_uri</span><span class="p">,</span> <span class="n">provider</span><span class="p">)</span>
 
-        <span class="n">authentication_manager</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_authentication_manager</span><span class="p">(</span><span class="n">db</span><span class="p">,</span> <span class="n">provider</span><span class="p">)</span>
+        <span class="k">with</span> <span class="n">provider</span><span class="o">.</span><span class="n">get_configuration</span><span class="p">(</span><span class="n">db</span><span class="p">)</span> <span class="k">as</span> <span class="n">configuration</span><span class="p">:</span>
+            <span class="n">authentication_manager</span> <span class="o">=</span> <span class="n">provider</span><span class="o">.</span><span class="n">get_authentication_manager</span><span class="p">(</span><span class="n">configuration</span><span class="p">)</span>
 
-        <span class="c1"># In general relay state should contain only a redirect URL.</span>
-        <span class="c1"># However, we need to pass additional parameters which will be required in saml_authentication_callback.</span>
-        <span class="c1"># There is no other way to pass them back to the Circulation Manager from the IdP.</span>
-        <span class="c1"># We have to add them to the query part of the relay state and then remove them</span>
-        <span class="c1"># before redirecting to the URL containing in the relay state.</span>
-        <span class="c1"># The required parameters are:</span>
-        <span class="c1"># - library&#39;s name</span>
-        <span class="c1"># - SAML provider&#39;s name</span>
-        <span class="c1"># - IdP&#39;s entity ID</span>
-        <span class="n">relay_state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_add_params_to_url</span><span class="p">(</span>
-            <span class="n">redirect_uri</span><span class="p">,</span>
-            <span class="p">{</span>
-                <span class="c1"># NOTE: we cannot use @has_library decorator and append a library&#39;s name</span>
-                <span class="c1"># to SAMLController.saml_calback route (e.g. https://cm.org/LIBRARY_NAME/saml_callback).</span>
-                <span class="c1"># The URL of the SP&#39;s assertion consumer service (SAMLController.saml_calback) should be constant:</span>
-                <span class="c1"># SP&#39;s metadata is registered in the IdP and cannot change.</span>
-                <span class="c1"># If we try to append a library&#39;s name to the ACS&#39;s URL sent as a part of the SAML request,</span>
-                <span class="c1"># the IdP will fail this request because the URL mentioned in the request and</span>
-                <span class="c1"># the URL saved in the SP&#39;s metadata configured in this IdP will differ.</span>
-                <span class="c1"># Library&#39;s name is passed as a part of the relay state and</span>
-                <span class="c1"># processed in SAMLController.saml_authentication_callback</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">LIBRARY_SHORT_NAME</span><span class="p">:</span> <span class="n">provider</span><span class="o">.</span><span class="n">library</span><span class="p">(</span><span class="n">db</span><span class="p">)</span><span class="o">.</span><span class="n">short_name</span><span class="p">,</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">PROVIDER_NAME</span><span class="p">:</span> <span class="n">provider_name</span><span class="p">,</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">IDP_ENTITY_ID</span><span class="p">:</span> <span class="n">idp_entity_id</span>
-            <span class="p">}</span>
-        <span class="p">)</span>
-        <span class="n">redirect_uri</span> <span class="o">=</span> <span class="n">authentication_manager</span><span class="o">.</span><span class="n">start_authentication</span><span class="p">(</span><span class="n">db</span><span class="p">,</span> <span class="n">idp_entity_id</span><span class="p">,</span> <span class="n">relay_state</span><span class="p">)</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">redirect_uri</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
-            <span class="k">return</span> <span class="n">redirect_uri</span>
+            <span class="c1"># In general relay state should contain only a redirect URL.</span>
+            <span class="c1"># However, we need to pass additional parameters which will be required in saml_authentication_callback.</span>
+            <span class="c1"># There is no other way to pass them back to the Circulation Manager from the IdP.</span>
+            <span class="c1"># We have to add them to the query part of the relay state and then remove them</span>
+            <span class="c1"># before redirecting to the URL containing in the relay state.</span>
+            <span class="c1"># The required parameters are:</span>
+            <span class="c1"># - library&#39;s name</span>
+            <span class="c1"># - SAML provider&#39;s name</span>
+            <span class="c1"># - IdP&#39;s entity ID</span>
+            <span class="n">relay_state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_add_params_to_url</span><span class="p">(</span>
+                <span class="n">redirect_uri</span><span class="p">,</span>
+                <span class="p">{</span>
+                    <span class="c1"># NOTE: we cannot use @has_library decorator and append a library&#39;s name</span>
+                    <span class="c1"># to SAMLController.saml_callback route (e.g. https://cm.org/LIBRARY_NAME/saml_callback).</span>
+                    <span class="c1"># The URL of the SP&#39;s assertion consumer service (SAMLController.saml_callback) should be constant:</span>
+                    <span class="c1"># SP&#39;s metadata is registered in the IdP and cannot change.</span>
+                    <span class="c1"># If we try to append a library&#39;s name to the ACS&#39;s URL sent as a part of the SAML request,</span>
+                    <span class="c1"># the IdP will fail this request because the URL mentioned in the request and</span>
+                    <span class="c1"># the URL saved in the SP&#39;s metadata configured in this IdP will differ.</span>
+                    <span class="c1"># Library&#39;s name is passed as a part of the relay state and</span>
+                    <span class="c1"># processed in SAMLController.saml_authentication_callback</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">LIBRARY_SHORT_NAME</span><span class="p">:</span> <span class="n">provider</span><span class="o">.</span><span class="n">library</span><span class="p">(</span><span class="n">db</span><span class="p">)</span><span class="o">.</span><span class="n">short_name</span><span class="p">,</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">PROVIDER_NAME</span><span class="p">:</span> <span class="n">provider_name</span><span class="p">,</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">IDP_ENTITY_ID</span><span class="p">:</span> <span class="n">idp_entity_id</span><span class="p">,</span>
+                <span class="p">},</span>
+            <span class="p">)</span>
+            <span class="n">redirect_uri</span> <span class="o">=</span> <span class="n">authentication_manager</span><span class="o">.</span><span class="n">start_authentication</span><span class="p">(</span>
+                <span class="n">db</span><span class="p">,</span> <span class="n">idp_entity_id</span><span class="p">,</span> <span class="n">relay_state</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">redirect_uri</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
+                <span class="k">return</span> <span class="n">redirect_uri</span>
 
-        <span class="k">return</span> <span class="n">redirect</span><span class="p">(</span><span class="n">redirect_uri</span><span class="p">)</span></div>
+            <span class="k">return</span> <span class="n">redirect</span><span class="p">(</span><span class="n">redirect_uri</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="SAMLController.saml_authentication_callback"><a class="viewcode-back" href="../../../api.saml.html#api.saml.controller.SAMLController.saml_authentication_callback">[docs]</a>    <span class="k">def</span> <span class="nf">saml_authentication_callback</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">,</span> <span class="n">db</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Creates a Patron object and a bearer token for a patron who has just</span>
@@ -313,27 +344,40 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">RELAY_STATE</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">SAML_INVALID_RESPONSE</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span>
-                <span class="s1">&#39;Required parameter </span><span class="si">{0}</span><span class="s1"> is missing from the response body&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">RELAY_STATE</span><span class="p">))</span>
+                <span class="n">_</span><span class="p">(</span>
+                    <span class="s2">&quot;Required parameter </span><span class="si">{0}</span><span class="s2"> is missing from the response body&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">RELAY_STATE</span>
+                    <span class="p">)</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
 
         <span class="n">relay_state</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">RELAY_STATE</span><span class="p">]</span>
-        <span class="n">relay_state_parse_result</span> <span class="o">=</span> <span class="n">urlparse</span><span class="o">.</span><span class="n">urlparse</span><span class="p">(</span><span class="n">relay_state</span><span class="p">)</span>
-        <span class="n">relay_state_parameters</span> <span class="o">=</span> <span class="n">urlparse</span><span class="o">.</span><span class="n">parse_qs</span><span class="p">(</span><span class="n">relay_state_parse_result</span><span class="o">.</span><span class="n">query</span><span class="p">)</span>
+        <span class="n">relay_state_parse_result</span> <span class="o">=</span> <span class="n">urlparse</span><span class="p">(</span><span class="n">relay_state</span><span class="p">)</span>
+        <span class="n">relay_state_parameters</span> <span class="o">=</span> <span class="n">parse_qs</span><span class="p">(</span><span class="n">relay_state_parse_result</span><span class="o">.</span><span class="n">query</span><span class="p">)</span>
 
-        <span class="n">library_short_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_relay_state_parameter</span><span class="p">(</span><span class="n">relay_state_parameters</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">LIBRARY_SHORT_NAME</span><span class="p">)</span>
+        <span class="n">library_short_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_relay_state_parameter</span><span class="p">(</span>
+            <span class="n">relay_state_parameters</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">LIBRARY_SHORT_NAME</span>
+        <span class="p">)</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">library_short_name</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
             <span class="k">return</span> <span class="n">library_short_name</span>
 
-        <span class="n">provider_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_relay_state_parameter</span><span class="p">(</span><span class="n">relay_state_parameters</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">PROVIDER_NAME</span><span class="p">)</span>
+        <span class="n">provider_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_relay_state_parameter</span><span class="p">(</span>
+            <span class="n">relay_state_parameters</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">PROVIDER_NAME</span>
+        <span class="p">)</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">provider_name</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
             <span class="k">return</span> <span class="n">provider_name</span>
 
-        <span class="n">idp_entity_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_relay_state_parameter</span><span class="p">(</span><span class="n">relay_state_parameters</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">IDP_ENTITY_ID</span><span class="p">)</span>
+        <span class="n">idp_entity_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_relay_state_parameter</span><span class="p">(</span>
+            <span class="n">relay_state_parameters</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">IDP_ENTITY_ID</span>
+        <span class="p">)</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">idp_entity_id</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
             <span class="k">return</span> <span class="n">idp_entity_id</span>
 
         <span class="n">redirect_uri</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_redirect_uri</span><span class="p">(</span><span class="n">relay_state</span><span class="p">)</span>
 
-        <span class="n">library</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_circulation_manager</span><span class="o">.</span><span class="n">index_controller</span><span class="o">.</span><span class="n">library_for_request</span><span class="p">(</span><span class="n">library_short_name</span><span class="p">)</span>
+        <span class="n">library</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_circulation_manager</span><span class="o">.</span><span class="n">index_controller</span><span class="o">.</span><span class="n">library_for_request</span><span class="p">(</span>
+            <span class="n">library_short_name</span>
+        <span class="p">)</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">library</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_redirect_with_error</span><span class="p">(</span><span class="n">redirect_uri</span><span class="p">,</span> <span class="n">library</span><span class="p">)</span>
 
@@ -341,31 +385,31 @@
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">provider</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_redirect_with_error</span><span class="p">(</span><span class="n">redirect_uri</span><span class="p">,</span> <span class="n">provider</span><span class="p">)</span>
 
-        <span class="n">subject</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_authentication_manager</span><span class="p">(</span><span class="n">db</span><span class="p">,</span> <span class="n">provider</span><span class="p">)</span><span class="o">.</span><span class="n">finish_authentication</span><span class="p">(</span><span class="n">db</span><span class="p">,</span> <span class="n">idp_entity_id</span><span class="p">)</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">subject</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
-            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_redirect_with_error</span><span class="p">(</span><span class="n">redirect_uri</span><span class="p">,</span> <span class="n">subject</span><span class="p">)</span>
+        <span class="k">with</span> <span class="n">provider</span><span class="o">.</span><span class="n">get_configuration</span><span class="p">(</span><span class="n">db</span><span class="p">)</span> <span class="k">as</span> <span class="n">configuration</span><span class="p">:</span>
+            <span class="n">authentication_manager</span> <span class="o">=</span> <span class="n">provider</span><span class="o">.</span><span class="n">get_authentication_manager</span><span class="p">(</span><span class="n">configuration</span><span class="p">)</span>
 
-        <span class="n">response</span> <span class="o">=</span> <span class="n">provider</span><span class="o">.</span><span class="n">saml_callback</span><span class="p">(</span><span class="n">db</span><span class="p">,</span> <span class="n">subject</span><span class="p">)</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">response</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
-            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_redirect_with_error</span><span class="p">(</span><span class="n">redirect_uri</span><span class="p">,</span> <span class="n">response</span><span class="p">)</span>
+            <span class="n">subject</span> <span class="o">=</span> <span class="n">authentication_manager</span><span class="o">.</span><span class="n">finish_authentication</span><span class="p">(</span><span class="n">db</span><span class="p">,</span> <span class="n">idp_entity_id</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">subject</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
+                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_redirect_with_error</span><span class="p">(</span><span class="n">redirect_uri</span><span class="p">,</span> <span class="n">subject</span><span class="p">)</span>
 
-        <span class="n">provider_token</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">patron_data</span> <span class="o">=</span> <span class="n">response</span>
+            <span class="n">response</span> <span class="o">=</span> <span class="n">provider</span><span class="o">.</span><span class="n">saml_callback</span><span class="p">(</span><span class="n">db</span><span class="p">,</span> <span class="n">subject</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">response</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
+                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_redirect_with_error</span><span class="p">(</span><span class="n">redirect_uri</span><span class="p">,</span> <span class="n">response</span><span class="p">)</span>
 
-        <span class="c1"># Turn the provider token into a bearer token we can give to</span>
-        <span class="c1"># the patron</span>
-        <span class="n">simplified_token</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_authenticator</span><span class="o">.</span><span class="n">create_bearer_token</span><span class="p">(</span>
-            <span class="n">provider</span><span class="o">.</span><span class="n">NAME</span><span class="p">,</span> <span class="n">provider_token</span><span class="o">.</span><span class="n">credential</span>
-        <span class="p">)</span>
+            <span class="n">provider_token</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">patron_data</span> <span class="o">=</span> <span class="n">response</span>
 
-        <span class="n">patron_info</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">patron_data</span><span class="o">.</span><span class="n">to_response_parameters</span><span class="p">)</span>
-        <span class="n">params</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="s1">&#39;access_token&#39;</span><span class="p">:</span> <span class="n">simplified_token</span><span class="p">,</span>
-            <span class="s1">&#39;patron_info&#39;</span><span class="p">:</span> <span class="n">patron_info</span>
-        <span class="p">}</span>
+            <span class="c1"># Turn the provider token into a bearer token we can give to</span>
+            <span class="c1"># the patron</span>
+            <span class="n">simplified_token</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_authenticator</span><span class="o">.</span><span class="n">create_bearer_token</span><span class="p">(</span>
+                <span class="n">provider</span><span class="o">.</span><span class="n">NAME</span><span class="p">,</span> <span class="n">provider_token</span><span class="o">.</span><span class="n">credential</span>
+            <span class="p">)</span>
 
-        <span class="n">redirect_uri</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_add_params_to_url</span><span class="p">(</span><span class="n">redirect_uri</span><span class="p">,</span> <span class="n">params</span><span class="p">)</span>
+            <span class="n">patron_info</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">patron_data</span><span class="o">.</span><span class="n">to_response_parameters</span><span class="p">)</span>
+            <span class="n">params</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;access_token&quot;</span><span class="p">:</span> <span class="n">simplified_token</span><span class="p">,</span> <span class="s2">&quot;patron_info&quot;</span><span class="p">:</span> <span class="n">patron_info</span><span class="p">}</span>
 
-        <span class="k">return</span> <span class="n">redirect</span><span class="p">(</span><span class="n">redirect_uri</span><span class="p">)</span></div></div>
+            <span class="n">redirect_uri</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_add_params_to_url</span><span class="p">(</span><span class="n">redirect_uri</span><span class="p">,</span> <span class="n">params</span><span class="p">)</span>
+
+            <span class="k">return</span> <span class="n">redirect</span><span class="p">(</span><span class="n">redirect_uri</span><span class="p">)</span></div></div>
 </pre></div>
 
           </div>

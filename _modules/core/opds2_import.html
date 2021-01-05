@@ -1,0 +1,975 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>core.opds2_import &#8212; Library Simplified Circulation Manager  documentation</title>
+    <link rel="stylesheet" href="../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for core.opds2_import</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">logging</span>
+
+<span class="kn">import</span> <span class="nn">webpub_manifest_parser.opds2.ast</span> <span class="k">as</span> <span class="nn">opds2_ast</span>
+<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
+<span class="kn">from</span> <span class="nn">six</span> <span class="kn">import</span> <span class="n">StringIO</span>
+<span class="kn">from</span> <span class="nn">six.moves.urllib.parse</span> <span class="kn">import</span> <span class="n">urljoin</span><span class="p">,</span> <span class="n">urlparse</span>
+<span class="kn">from</span> <span class="nn">webpub_manifest_parser.errors</span> <span class="kn">import</span> <span class="n">BaseError</span>
+<span class="kn">from</span> <span class="nn">webpub_manifest_parser.opds2.parsers</span> <span class="kn">import</span> <span class="n">OPDS2DocumentParserFactory</span>
+<span class="kn">from</span> <span class="nn">webpub_manifest_parser.opds2.registry</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">OPDS2LinkRelationsRegistry</span><span class="p">,</span>
+    <span class="n">OPDS2MediaTypesRegistry</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">webpub_manifest_parser.utils</span> <span class="kn">import</span> <span class="n">encode</span><span class="p">,</span> <span class="n">first_or_default</span><span class="p">,</span> <span class="n">is_string</span>
+
+<span class="kn">from</span> <span class="nn">.metadata_layer</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">CirculationData</span><span class="p">,</span>
+    <span class="n">ContributorData</span><span class="p">,</span>
+    <span class="n">FormatData</span><span class="p">,</span>
+    <span class="n">IdentifierData</span><span class="p">,</span>
+    <span class="n">LinkData</span><span class="p">,</span>
+    <span class="n">Metadata</span><span class="p">,</span>
+    <span class="n">SubjectData</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">.model</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Contributor</span><span class="p">,</span>
+    <span class="n">DeliveryMechanism</span><span class="p">,</span>
+    <span class="n">Edition</span><span class="p">,</span>
+    <span class="n">ExternalIntegration</span><span class="p">,</span>
+    <span class="n">Hyperlink</span><span class="p">,</span>
+    <span class="n">Identifier</span><span class="p">,</span>
+    <span class="n">LicensePool</span><span class="p">,</span>
+    <span class="n">LinkRelations</span><span class="p">,</span>
+    <span class="n">MediaTypes</span><span class="p">,</span>
+    <span class="n">Representation</span><span class="p">,</span>
+    <span class="n">RightsStatus</span><span class="p">,</span>
+    <span class="n">Subject</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">.opds_import</span> <span class="kn">import</span> <span class="n">OPDSImporter</span><span class="p">,</span> <span class="n">OPDSImportMonitor</span>
+<span class="kn">from</span> <span class="nn">.util.http</span> <span class="kn">import</span> <span class="n">BadResponseException</span>
+<span class="kn">from</span> <span class="nn">.util.opds_writer</span> <span class="kn">import</span> <span class="n">OPDSFeed</span>
+
+
+<div class="viewcode-block" id="parse_feed"><a class="viewcode-back" href="../../core.html#core.opds2_import.parse_feed">[docs]</a><span class="k">def</span> <span class="nf">parse_feed</span><span class="p">(</span><span class="n">feed</span><span class="p">,</span> <span class="n">silent</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Parses the feed into OPDS2Feed object.</span>
+
+<span class="sd">    :param feed: OPDS 2.0 feed</span>
+<span class="sd">    :type feed: Union[str, opds2_ast.OPDS2Feed]</span>
+
+<span class="sd">    :param silent: Boolean value indicating whether to raise</span>
+<span class="sd">    :type silent: bool</span>
+
+<span class="sd">    :return: Parsed OPDS 2.0 feed</span>
+<span class="sd">    :rtype: opds2_ast.OPDS2Feed</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">parsed_feed</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">if</span> <span class="n">is_string</span><span class="p">(</span><span class="n">feed</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">input_stream</span> <span class="o">=</span> <span class="n">StringIO</span><span class="p">(</span><span class="n">feed</span><span class="p">)</span>
+            <span class="n">parser_factory</span> <span class="o">=</span> <span class="n">OPDS2DocumentParserFactory</span><span class="p">()</span>
+            <span class="n">parser</span> <span class="o">=</span> <span class="n">parser_factory</span><span class="o">.</span><span class="n">create</span><span class="p">()</span>
+
+            <span class="n">parsed_feed</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse_stream</span><span class="p">(</span><span class="n">input_stream</span><span class="p">)</span>
+        <span class="k">except</span> <span class="n">BaseError</span><span class="p">:</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="s2">&quot;Failed to parse the OPDS 2.0 feed&quot;</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">silent</span><span class="p">:</span>
+                <span class="k">raise</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">feed</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">parser_factory</span> <span class="o">=</span> <span class="n">OPDS2DocumentParserFactory</span><span class="p">()</span>
+            <span class="n">parser</span> <span class="o">=</span> <span class="n">parser_factory</span><span class="o">.</span><span class="n">create</span><span class="p">()</span>
+
+            <span class="n">parsed_feed</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse_json</span><span class="p">(</span><span class="n">feed</span><span class="p">)</span>
+        <span class="k">except</span> <span class="n">BaseError</span><span class="p">:</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="s2">&quot;Failed to parse the OPDS 2.0 feed&quot;</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">silent</span><span class="p">:</span>
+                <span class="k">raise</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">feed</span><span class="p">,</span> <span class="n">opds2_ast</span><span class="o">.</span><span class="n">OPDS2Feed</span><span class="p">):</span>
+        <span class="n">parsed_feed</span> <span class="o">=</span> <span class="n">feed</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">&quot;Argument &#39;feed&#39; must be either a string or instance of </span><span class="si">{0}</span><span class="s2"> class&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">opds2_ast</span><span class="o">.</span><span class="n">OPDS2Feed</span><span class="p">)</span>
+        <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">parsed_feed</span></div>
+
+
+<div class="viewcode-block" id="OPDS2Importer"><a class="viewcode-back" href="../../core.html#core.opds2_import.OPDS2Importer">[docs]</a><span class="k">class</span> <span class="nc">OPDS2Importer</span><span class="p">(</span><span class="n">OPDSImporter</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Imports editions and license pools from an OPDS 2.0 feed.&quot;&quot;&quot;</span>
+
+    <span class="n">NAME</span> <span class="o">=</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">OPDS2_IMPORT</span>
+    <span class="n">DESCRIPTION</span> <span class="o">=</span> <span class="n">_</span><span class="p">(</span><span class="sa">u</span><span class="s2">&quot;Import books from a publicly-accessible OPDS 2.0 feed.&quot;</span><span class="p">)</span>
+    <span class="n">NEXT_LINK_RELATION</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;next&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">db</span><span class="p">,</span>
+        <span class="n">collection</span><span class="p">,</span>
+        <span class="n">data_source_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">identifier_mapping</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">http_get</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">metadata_client</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">content_modifier</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">map_from_collection</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">mirrors</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Initialize a new instance of OPDS2Importer class.</span>
+
+<span class="sd">        :param db: Database session</span>
+<span class="sd">        :type db: sqlalchemy.orm.session.Session</span>
+
+<span class="sd">        :param collection: Circulation Manager&#39;s collection.</span>
+<span class="sd">            LicensePools created by this OPDS2Import class will be associated with the given Collection.</span>
+<span class="sd">            If this is None, no LicensePools will be created -- only Editions.</span>
+<span class="sd">        :type collection: Collection</span>
+
+<span class="sd">        :param data_source_name: Name of the source of this OPDS feed.</span>
+<span class="sd">            All Editions created by this import will be associated with this DataSource.</span>
+<span class="sd">            If there is no DataSource with this name, one will be created.</span>
+<span class="sd">            NOTE: If `collection` is provided, its .data_source will take precedence over any value provided here.</span>
+<span class="sd">            This is only for use when you are importing OPDS metadata without any particular Collection in mind.</span>
+<span class="sd">        :type data_source_name: str</span>
+
+<span class="sd">        :param identifier_mapping: Dictionary used for mapping external identifiers into a set of internal ones</span>
+<span class="sd">        :type identifier_mapping: Dict</span>
+
+<span class="sd">        :param metadata_client: A SimplifiedOPDSLookup object that is used to fill in missing metadata</span>
+<span class="sd">        :type metadata_client: SimplifiedOPDSLookup</span>
+
+<span class="sd">        :param content_modifier: A function that may modify-in-place representations (such as images and EPUB documents)</span>
+<span class="sd">            as they come in from the network.</span>
+<span class="sd">        :type content_modifier: Callable</span>
+
+<span class="sd">        :param map_from_collection: Identifier mapping</span>
+<span class="sd">        :type map_from_collection: Dict</span>
+
+<span class="sd">        :param mirrors: A dictionary of different MirrorUploader objects for different purposes</span>
+<span class="sd">        :type mirrors: Dict[MirrorUploader]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">OPDS2Importer</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">db</span><span class="p">,</span>
+            <span class="n">collection</span><span class="p">,</span>
+            <span class="n">data_source_name</span><span class="p">,</span>
+            <span class="n">identifier_mapping</span><span class="p">,</span>
+            <span class="n">http_get</span><span class="p">,</span>
+            <span class="n">metadata_client</span><span class="p">,</span>
+            <span class="n">content_modifier</span><span class="p">,</span>
+            <span class="n">map_from_collection</span><span class="p">,</span>
+            <span class="n">mirrors</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_extract_subjects</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subjects</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Extract a list of SubjectData objects from the webpub-manifest-parser&#39;s subject.</span>
+
+<span class="sd">        :param subjects: Parsed subject object</span>
+<span class="sd">        :type subjects: List[core_ast.Subject]</span>
+
+<span class="sd">        :return: List of subjects metadata</span>
+<span class="sd">        :rtype: List[SubjectMetadata]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">u</span><span class="s2">&quot;Started extracting subjects metadata&quot;</span><span class="p">)</span>
+
+        <span class="n">subject_metadata_list</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">for</span> <span class="n">subject</span> <span class="ow">in</span> <span class="n">subjects</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+                <span class="sa">u</span><span class="s2">&quot;Started extracting subject metadata from </span><span class="si">{0}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">encode</span><span class="p">(</span><span class="n">subject</span><span class="p">))</span>
+            <span class="p">)</span>
+
+            <span class="n">scheme</span> <span class="o">=</span> <span class="n">subject</span><span class="o">.</span><span class="n">scheme</span>
+
+            <span class="n">subject_type</span> <span class="o">=</span> <span class="n">Subject</span><span class="o">.</span><span class="n">by_uri</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">scheme</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">subject_type</span><span class="p">:</span>
+                <span class="c1"># We can&#39;t represent this subject because we don&#39;t</span>
+                <span class="c1"># know its scheme. Just treat it as a tag.</span>
+                <span class="n">subject_type</span> <span class="o">=</span> <span class="n">Subject</span><span class="o">.</span><span class="n">TAG</span>
+
+            <span class="n">subject_metadata</span> <span class="o">=</span> <span class="n">SubjectData</span><span class="p">(</span>
+                <span class="nb">type</span><span class="o">=</span><span class="n">subject_type</span><span class="p">,</span> <span class="n">identifier</span><span class="o">=</span><span class="n">subject</span><span class="o">.</span><span class="n">code</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">subject</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">weight</span><span class="o">=</span><span class="mi">1</span>
+            <span class="p">)</span>
+
+            <span class="n">subject_metadata_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">subject_metadata</span><span class="p">)</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+                <span class="sa">u</span><span class="s2">&quot;Finished extracting subject metadata from </span><span class="si">{0}</span><span class="s2">: </span><span class="si">{1}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                    <span class="n">encode</span><span class="p">(</span><span class="n">subject</span><span class="p">),</span> <span class="n">encode</span><span class="p">(</span><span class="n">subject_metadata</span><span class="p">)</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+            <span class="sa">u</span><span class="s2">&quot;Finished extracting subjects metadata: </span><span class="si">{0}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                <span class="n">encode</span><span class="p">(</span><span class="n">subject_metadata_list</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">subject_metadata_list</span>
+
+    <span class="k">def</span> <span class="nf">_extract_contributors</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">contributors</span><span class="p">,</span> <span class="n">default_role</span><span class="o">=</span><span class="n">Contributor</span><span class="o">.</span><span class="n">AUTHOR_ROLE</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Extract a list of ContributorData objects from the webpub-manifest-parser&#39;s contributor.</span>
+
+<span class="sd">        :param contributors: Parsed contributor object</span>
+<span class="sd">        :type contributors: List[core_ast.Contributor]</span>
+
+<span class="sd">        :param default_role: Default role</span>
+<span class="sd">        :type default_role: Optional[str]</span>
+
+<span class="sd">        :return: List of contributors metadata</span>
+<span class="sd">        :rtype: List[ContributorData]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">u</span><span class="s2">&quot;Started extracting contributors metadata&quot;</span><span class="p">)</span>
+
+        <span class="n">contributor_metadata_list</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">for</span> <span class="n">contributor</span> <span class="ow">in</span> <span class="n">contributors</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+                <span class="sa">u</span><span class="s2">&quot;Started extracting contributor metadata from </span><span class="si">{0}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                    <span class="n">encode</span><span class="p">(</span><span class="n">contributor</span><span class="p">)</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+
+            <span class="n">contributor_metadata</span> <span class="o">=</span> <span class="n">ContributorData</span><span class="p">(</span>
+                <span class="n">sort_name</span><span class="o">=</span><span class="n">contributor</span><span class="o">.</span><span class="n">sort_as</span><span class="p">,</span>
+                <span class="n">display_name</span><span class="o">=</span><span class="n">contributor</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+                <span class="n">family_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                <span class="n">wikipedia_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                <span class="n">roles</span><span class="o">=</span><span class="n">contributor</span><span class="o">.</span><span class="n">roles</span> <span class="k">if</span> <span class="n">contributor</span><span class="o">.</span><span class="n">roles</span> <span class="k">else</span> <span class="n">default_role</span><span class="p">,</span>
+            <span class="p">)</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+                <span class="sa">u</span><span class="s2">&quot;Finished extracting contributor metadata from </span><span class="si">{0}</span><span class="s2">: </span><span class="si">{1}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                    <span class="n">encode</span><span class="p">(</span><span class="n">contributor</span><span class="p">),</span> <span class="n">encode</span><span class="p">(</span><span class="n">contributor_metadata</span><span class="p">)</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+
+            <span class="n">contributor_metadata_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">contributor_metadata</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+            <span class="sa">u</span><span class="s2">&quot;Finished extracting contributors metadata: </span><span class="si">{0}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                <span class="n">encode</span><span class="p">(</span><span class="n">contributor_metadata_list</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">contributor_metadata_list</span>
+
+    <span class="k">def</span> <span class="nf">_extract_link</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">link</span><span class="p">,</span> <span class="n">feed_self_url</span><span class="p">,</span> <span class="n">default_link_rel</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Extract a LinkData object from webpub-manifest-parser&#39;s link.</span>
+
+<span class="sd">        :param link: webpub-manifest-parser&#39;s link</span>
+<span class="sd">        :type link: ast_core.Link</span>
+
+<span class="sd">        :param feed_self_url: Feed&#39;s self URL</span>
+<span class="sd">        :type feed_self_url: str</span>
+
+<span class="sd">        :param default_link_rel: Default link&#39;s relation</span>
+<span class="sd">        :type default_link_rel: Optional[str]</span>
+
+<span class="sd">        :return: Link metadata</span>
+<span class="sd">        :rtype: LinkData</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+            <span class="sa">u</span><span class="s2">&quot;Started extracting link metadata from </span><span class="si">{0}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">encode</span><span class="p">(</span><span class="n">link</span><span class="p">))</span>
+        <span class="p">)</span>
+
+        <span class="c1"># FIXME: It seems that OPDS 2.0 spec doesn&#39;t contain information about rights so we use the default one.</span>
+        <span class="n">rights_uri</span> <span class="o">=</span> <span class="n">RightsStatus</span><span class="o">.</span><span class="n">rights_uri_from_string</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+        <span class="n">rel</span> <span class="o">=</span> <span class="n">first_or_default</span><span class="p">(</span><span class="n">link</span><span class="o">.</span><span class="n">rels</span><span class="p">,</span> <span class="n">default_link_rel</span><span class="p">)</span>
+        <span class="n">media_type</span> <span class="o">=</span> <span class="n">link</span><span class="o">.</span><span class="n">type</span>
+        <span class="n">href</span> <span class="o">=</span> <span class="n">link</span><span class="o">.</span><span class="n">href</span>
+
+        <span class="k">if</span> <span class="n">feed_self_url</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">urlparse</span><span class="p">(</span><span class="n">href</span><span class="p">)</span><span class="o">.</span><span class="n">netloc</span><span class="p">:</span>
+            <span class="c1"># This link is relative, so we need to get the absolute url</span>
+            <span class="n">href</span> <span class="o">=</span> <span class="n">urljoin</span><span class="p">(</span><span class="n">feed_self_url</span><span class="p">,</span> <span class="n">href</span><span class="p">)</span>
+
+        <span class="n">link_metadata</span> <span class="o">=</span> <span class="n">LinkData</span><span class="p">(</span>
+            <span class="n">rel</span><span class="o">=</span><span class="n">rel</span><span class="p">,</span>
+            <span class="n">href</span><span class="o">=</span><span class="n">href</span><span class="p">,</span>
+            <span class="n">media_type</span><span class="o">=</span><span class="n">media_type</span><span class="p">,</span>
+            <span class="n">rights_uri</span><span class="o">=</span><span class="n">rights_uri</span><span class="p">,</span>
+            <span class="n">content</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+            <span class="sa">u</span><span class="s2">&quot;Finished extracting link metadata from </span><span class="si">{0}</span><span class="s2">: </span><span class="si">{1}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                <span class="n">encode</span><span class="p">(</span><span class="n">link</span><span class="p">),</span> <span class="n">encode</span><span class="p">(</span><span class="n">link_metadata</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">link_metadata</span>
+
+    <span class="k">def</span> <span class="nf">_extract_description_link</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">publication</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Extract description from the publication object and create a Hyperlink.DESCRIPTION link containing it.</span>
+
+<span class="sd">        :param publication: Publication object</span>
+<span class="sd">        :type publication: opds2_ast.Publication</span>
+
+<span class="sd">        :return: LinkData object containing publication&#39;s description</span>
+<span class="sd">        :rtype: LinkData</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+            <span class="sa">u</span><span class="s2">&quot;Started extracting a description link from </span><span class="si">{0}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                <span class="n">encode</span><span class="p">(</span><span class="n">publication</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">description</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="n">description_link</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="k">if</span> <span class="n">publication</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">description</span><span class="p">:</span>
+            <span class="n">description_link</span> <span class="o">=</span> <span class="n">LinkData</span><span class="p">(</span>
+                <span class="n">rel</span><span class="o">=</span><span class="n">Hyperlink</span><span class="o">.</span><span class="n">DESCRIPTION</span><span class="p">,</span>
+                <span class="n">media_type</span><span class="o">=</span><span class="n">MediaTypes</span><span class="o">.</span><span class="n">TEXT_PLAIN</span><span class="p">,</span>
+                <span class="n">content</span><span class="o">=</span><span class="n">publication</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">description</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+            <span class="sa">u</span><span class="s2">&quot;Finished extracting a description link from </span><span class="si">{0}</span><span class="s2">: </span><span class="si">{1}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                <span class="n">encode</span><span class="p">(</span><span class="n">publication</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">description</span><span class="p">),</span> <span class="n">encode</span><span class="p">(</span><span class="n">description_link</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">description_link</span>
+
+    <span class="k">def</span> <span class="nf">_extract_image_links</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">publication</span><span class="p">,</span> <span class="n">feed_self_url</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Extracts a list of LinkData objects containing information about artwork.</span>
+
+<span class="sd">        :param publication: Publication object</span>
+<span class="sd">        :type publication: ast_core.Publication</span>
+
+<span class="sd">        :param feed_self_url: Feed&#39;s self URL</span>
+<span class="sd">        :type feed_self_url: str</span>
+
+<span class="sd">        :return: List of links metadata</span>
+<span class="sd">        :rtype: List[LinkData]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+            <span class="sa">u</span><span class="s2">&quot;Started extracting image links from </span><span class="si">{0}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                <span class="n">encode</span><span class="p">(</span><span class="n">publication</span><span class="o">.</span><span class="n">images</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="c1"># FIXME: This code most likely will not work in general.</span>
+        <span class="c1"># There&#39;s no guarantee that these images have the same media type,</span>
+        <span class="c1"># or that the second-largest image isn&#39;t far too large to use as a thumbnail.</span>
+        <span class="c1"># Instead of using the second-largest image as a thumbnail,</span>
+        <span class="c1"># find the image that would make the best thumbnail</span>
+        <span class="c1"># because of its dimensions, media type, and aspect ratio:</span>
+        <span class="c1">#       IDEAL_COVER_ASPECT_RATIO = 2.0/3</span>
+        <span class="c1">#       IDEAL_IMAGE_HEIGHT = 240</span>
+        <span class="c1">#       IDEAL_IMAGE_WIDTH = 160</span>
+
+        <span class="n">sorted_raw_image_links</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span>
+            <span class="nb">reversed</span><span class="p">(</span>
+                <span class="nb">sorted</span><span class="p">(</span>
+                    <span class="n">publication</span><span class="o">.</span><span class="n">images</span><span class="o">.</span><span class="n">links</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">link</span><span class="p">:</span> <span class="p">(</span><span class="n">link</span><span class="o">.</span><span class="n">width</span><span class="p">,</span> <span class="n">link</span><span class="o">.</span><span class="n">height</span><span class="p">)</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+        <span class="n">image_links</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">sorted_raw_image_links</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">cover_link</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_extract_link</span><span class="p">(</span>
+                <span class="n">sorted_raw_image_links</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+                <span class="n">feed_self_url</span><span class="p">,</span>
+                <span class="n">default_link_rel</span><span class="o">=</span><span class="n">Hyperlink</span><span class="o">.</span><span class="n">IMAGE</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">image_links</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">cover_link</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">sorted_raw_image_links</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">cover_link</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_extract_link</span><span class="p">(</span>
+                <span class="n">sorted_raw_image_links</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+                <span class="n">feed_self_url</span><span class="p">,</span>
+                <span class="n">default_link_rel</span><span class="o">=</span><span class="n">Hyperlink</span><span class="o">.</span><span class="n">THUMBNAIL_IMAGE</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">image_links</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">cover_link</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+            <span class="sa">u</span><span class="s2">&quot;Finished extracting image links from </span><span class="si">{0}</span><span class="s2">: </span><span class="si">{1}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                <span class="n">encode</span><span class="p">(</span><span class="n">publication</span><span class="o">.</span><span class="n">images</span><span class="p">),</span> <span class="n">encode</span><span class="p">(</span><span class="n">image_links</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">image_links</span>
+
+    <span class="k">def</span> <span class="nf">_extract_links</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">publication</span><span class="p">,</span> <span class="n">feed_self_url</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Extract a list of LinkData objects from a list of webpub-manifest-parser links.</span>
+
+<span class="sd">        :param publication: Publication object</span>
+<span class="sd">        :type publication: ast_core.Publication</span>
+
+<span class="sd">        :param feed_self_url: Feed&#39;s self URL</span>
+<span class="sd">        :type feed_self_url: str</span>
+
+<span class="sd">        :return: List of links metadata</span>
+<span class="sd">        :rtype: List[LinkData]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+            <span class="sa">u</span><span class="s2">&quot;Started extracting links from </span><span class="si">{0}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">encode</span><span class="p">(</span><span class="n">publication</span><span class="o">.</span><span class="n">links</span><span class="p">))</span>
+        <span class="p">)</span>
+
+        <span class="n">links</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">for</span> <span class="n">link</span> <span class="ow">in</span> <span class="n">publication</span><span class="o">.</span><span class="n">links</span><span class="p">:</span>
+            <span class="n">link_metadata</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_extract_link</span><span class="p">(</span><span class="n">link</span><span class="p">,</span> <span class="n">feed_self_url</span><span class="p">)</span>
+            <span class="n">links</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">link_metadata</span><span class="p">)</span>
+
+        <span class="n">description_link</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_extract_description_link</span><span class="p">(</span><span class="n">publication</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">description_link</span><span class="p">:</span>
+            <span class="n">links</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">description_link</span><span class="p">)</span>
+
+        <span class="n">image_links</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_extract_image_links</span><span class="p">(</span><span class="n">publication</span><span class="p">,</span> <span class="n">feed_self_url</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">image_links</span><span class="p">:</span>
+            <span class="n">links</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">image_links</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+            <span class="sa">u</span><span class="s2">&quot;Finished extracting links from </span><span class="si">{0}</span><span class="s2">: </span><span class="si">{1}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                <span class="n">encode</span><span class="p">(</span><span class="n">publication</span><span class="o">.</span><span class="n">links</span><span class="p">),</span> <span class="n">encode</span><span class="p">(</span><span class="n">links</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">links</span>
+
+    <span class="k">def</span> <span class="nf">_extract_media_types_and_drm_scheme_from_link</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">link</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Extract information about content&#39;s media type and used DRM schema from the link.</span>
+
+<span class="sd">        :param link: Link object</span>
+<span class="sd">        :type link: ast_core.Link</span>
+
+<span class="sd">        :return: 2-tuple containing information about the content&#39;s media type and its DRM schema</span>
+<span class="sd">        :rtype: List[Tuple[str, str]]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+            <span class="sa">u</span><span class="s2">&quot;Started extracting media types and a DRM scheme from </span><span class="si">{0}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                <span class="n">encode</span><span class="p">(</span><span class="n">link</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="n">media_types_and_drm_scheme</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">if</span> <span class="n">link</span><span class="o">.</span><span class="n">properties</span><span class="p">:</span>
+            <span class="k">if</span> <span class="p">(</span>
+                <span class="ow">not</span> <span class="n">link</span><span class="o">.</span><span class="n">properties</span><span class="o">.</span><span class="n">availability</span>
+                <span class="ow">or</span> <span class="n">link</span><span class="o">.</span><span class="n">properties</span><span class="o">.</span><span class="n">availability</span><span class="o">.</span><span class="n">state</span>
+                <span class="o">==</span> <span class="n">opds2_ast</span><span class="o">.</span><span class="n">OPDS2AvailabilityType</span><span class="o">.</span><span class="n">AVAILABLE</span><span class="o">.</span><span class="n">value</span>
+            <span class="p">):</span>
+                <span class="k">for</span> <span class="n">acquisition_object</span> <span class="ow">in</span> <span class="n">link</span><span class="o">.</span><span class="n">properties</span><span class="o">.</span><span class="n">indirect_acquisition</span><span class="p">:</span>
+                    <span class="n">nested_acquisition_object</span> <span class="o">=</span> <span class="n">acquisition_object</span>
+
+                    <span class="k">while</span> <span class="n">nested_acquisition_object</span><span class="o">.</span><span class="n">child</span><span class="p">:</span>
+                        <span class="n">nested_acquisition_object</span> <span class="o">=</span> <span class="n">first_or_default</span><span class="p">(</span>
+                            <span class="n">acquisition_object</span><span class="o">.</span><span class="n">child</span>
+                        <span class="p">)</span>
+
+                    <span class="n">drm_scheme</span> <span class="o">=</span> <span class="p">(</span>
+                        <span class="n">acquisition_object</span><span class="o">.</span><span class="n">type</span>
+                        <span class="k">if</span> <span class="n">acquisition_object</span><span class="o">.</span><span class="n">type</span> <span class="ow">in</span> <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">KNOWN_DRM_TYPES</span>
+                        <span class="k">else</span> <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">NO_DRM</span>
+                    <span class="p">)</span>
+
+                    <span class="n">media_types_and_drm_scheme</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                        <span class="p">(</span><span class="n">nested_acquisition_object</span><span class="o">.</span><span class="n">type</span><span class="p">,</span> <span class="n">drm_scheme</span><span class="p">)</span>
+                    <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="p">(</span>
+                <span class="n">link</span><span class="o">.</span><span class="n">type</span> <span class="ow">in</span> <span class="n">MediaTypes</span><span class="o">.</span><span class="n">BOOK_MEDIA_TYPES</span>
+                <span class="ow">or</span> <span class="n">link</span><span class="o">.</span><span class="n">type</span> <span class="ow">in</span> <span class="n">MediaTypes</span><span class="o">.</span><span class="n">AUDIOBOOK_MEDIA_TYPES</span>
+            <span class="p">):</span>
+                <span class="n">media_types_and_drm_scheme</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">link</span><span class="o">.</span><span class="n">type</span><span class="p">,</span> <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">NO_DRM</span><span class="p">))</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+            <span class="sa">u</span><span class="s2">&quot;Finished extracting media types and a DRM scheme from </span><span class="si">{0}</span><span class="s2">: </span><span class="si">{1}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                <span class="n">encode</span><span class="p">(</span><span class="n">link</span><span class="p">),</span> <span class="n">encode</span><span class="p">(</span><span class="n">media_types_and_drm_scheme</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">media_types_and_drm_scheme</span>
+
+    <span class="k">def</span> <span class="nf">_extract_medium_from_links</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">links</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Extract the publication&#39;s medium from its links.</span>
+
+<span class="sd">        :param links: List of links</span>
+<span class="sd">        :type links: ast_core.LinkList</span>
+
+<span class="sd">        :return: Publication&#39;s medium</span>
+<span class="sd">        :rtype: Optional[str]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">derived</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="k">for</span> <span class="n">link</span> <span class="ow">in</span> <span class="n">links</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">link</span><span class="o">.</span><span class="n">rels</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">link</span><span class="o">.</span><span class="n">type</span> <span class="ow">or</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_acquisition_link</span><span class="p">(</span><span class="n">link</span><span class="p">):</span>
+                <span class="k">continue</span>
+
+            <span class="n">link_media_type</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">first_or_default</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_extract_media_types_and_drm_scheme_from_link</span><span class="p">(</span><span class="n">link</span><span class="p">),</span>
+                <span class="n">default</span><span class="o">=</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+            <span class="p">)</span>
+            <span class="n">derived</span> <span class="o">=</span> <span class="n">Edition</span><span class="o">.</span><span class="n">medium_from_media_type</span><span class="p">(</span><span class="n">link_media_type</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">derived</span><span class="p">:</span>
+                <span class="k">break</span>
+
+        <span class="k">return</span> <span class="n">derived</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_extract_medium</span><span class="p">(</span><span class="n">publication</span><span class="p">,</span> <span class="n">default_medium</span><span class="o">=</span><span class="n">Edition</span><span class="o">.</span><span class="n">BOOK_MEDIUM</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Extract the publication&#39;s medium from its metadata.</span>
+
+<span class="sd">        :param publication: Publication object</span>
+<span class="sd">        :type publication: opds2_core.OPDS2Publication</span>
+
+<span class="sd">        :return: Publication&#39;s medium</span>
+<span class="sd">        :rtype: str</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">medium</span> <span class="o">=</span> <span class="n">default_medium</span>
+
+        <span class="k">if</span> <span class="n">publication</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">type</span><span class="p">:</span>
+            <span class="n">medium</span> <span class="o">=</span> <span class="n">Edition</span><span class="o">.</span><span class="n">additional_type_to_medium</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+                <span class="n">publication</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">type</span><span class="p">,</span> <span class="n">default_medium</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">medium</span>
+
+    <span class="k">def</span> <span class="nf">_extract_identifier</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">publication</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Extract the publication&#39;s identifier from its metadata.</span>
+
+<span class="sd">        :param publication: Publication object</span>
+<span class="sd">        :type publication: opds2_core.OPDS2Publication</span>
+
+<span class="sd">        :return: Identifier object</span>
+<span class="sd">        :rtype: Identifier</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_identifier</span><span class="p">(</span><span class="n">publication</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">identifier</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_extract_publication_metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">feed</span><span class="p">,</span> <span class="n">publication</span><span class="p">,</span> <span class="n">data_source_name</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Extract a Metadata object from webpub-manifest-parser&#39;s publication.</span>
+
+<span class="sd">        :param publication: Feed object</span>
+<span class="sd">        :type publication: opds2_ast.OPDS2Feed</span>
+
+<span class="sd">        :param publication: Publication object</span>
+<span class="sd">        :type publication: opds2_ast.OPDS2Publication</span>
+
+<span class="sd">        :param data_source_name: Data source&#39;s name</span>
+<span class="sd">        :type data_source_name: str</span>
+
+<span class="sd">        :return: Publication&#39;s metadata</span>
+<span class="sd">        :rtype: Metadata</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+            <span class="sa">u</span><span class="s2">&quot;Started extracting metadata from publication </span><span class="si">{0}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                <span class="n">encode</span><span class="p">(</span><span class="n">publication</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="n">title</span> <span class="o">=</span> <span class="n">publication</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">title</span>
+
+        <span class="k">if</span> <span class="n">title</span> <span class="o">==</span> <span class="n">OPDSFeed</span><span class="o">.</span><span class="n">NO_TITLE</span><span class="p">:</span>
+            <span class="n">title</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="n">subtitle</span> <span class="o">=</span> <span class="n">publication</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">subtitle</span>
+
+        <span class="n">languages</span> <span class="o">=</span> <span class="n">first_or_default</span><span class="p">(</span><span class="n">publication</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">languages</span><span class="p">)</span>
+        <span class="n">derived_medium</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_extract_medium_from_links</span><span class="p">(</span><span class="n">publication</span><span class="o">.</span><span class="n">links</span><span class="p">)</span>
+        <span class="n">medium</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_extract_medium</span><span class="p">(</span><span class="n">publication</span><span class="p">,</span> <span class="n">derived_medium</span><span class="p">)</span>
+
+        <span class="n">publisher</span> <span class="o">=</span> <span class="n">first_or_default</span><span class="p">(</span><span class="n">publication</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">publishers</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">publisher</span><span class="p">:</span>
+            <span class="n">publisher</span> <span class="o">=</span> <span class="n">publisher</span><span class="o">.</span><span class="n">name</span>
+
+        <span class="n">imprint</span> <span class="o">=</span> <span class="n">first_or_default</span><span class="p">(</span><span class="n">publication</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">imprints</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">imprint</span><span class="p">:</span>
+            <span class="n">imprint</span> <span class="o">=</span> <span class="n">imprint</span><span class="o">.</span><span class="n">name</span>
+
+        <span class="n">published</span> <span class="o">=</span> <span class="n">publication</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">published</span>
+        <span class="n">subjects</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_extract_subjects</span><span class="p">(</span><span class="n">publication</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">subjects</span><span class="p">)</span>
+        <span class="n">contributors</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_extract_contributors</span><span class="p">(</span>
+                <span class="n">publication</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">authors</span><span class="p">,</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">AUTHOR_ROLE</span>
+            <span class="p">)</span>
+            <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_extract_contributors</span><span class="p">(</span>
+                <span class="n">publication</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">translators</span><span class="p">,</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">TRANSLATOR_ROLE</span>
+            <span class="p">)</span>
+            <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_extract_contributors</span><span class="p">(</span>
+                <span class="n">publication</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">editors</span><span class="p">,</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">EDITOR_ROLE</span>
+            <span class="p">)</span>
+            <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_extract_contributors</span><span class="p">(</span>
+                <span class="n">publication</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">artists</span><span class="p">,</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">ARTIST_ROLE</span>
+            <span class="p">)</span>
+            <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_extract_contributors</span><span class="p">(</span>
+                <span class="n">publication</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">illustrators</span><span class="p">,</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">ILLUSTRATOR_ROLE</span>
+            <span class="p">)</span>
+            <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_extract_contributors</span><span class="p">(</span>
+                <span class="n">publication</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">letterers</span><span class="p">,</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">LETTERER_ROLE</span>
+            <span class="p">)</span>
+            <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_extract_contributors</span><span class="p">(</span>
+                <span class="n">publication</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">pencilers</span><span class="p">,</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">PENCILER_ROLE</span>
+            <span class="p">)</span>
+            <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_extract_contributors</span><span class="p">(</span>
+                <span class="n">publication</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">colorists</span><span class="p">,</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">COLORIST_ROLE</span>
+            <span class="p">)</span>
+            <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_extract_contributors</span><span class="p">(</span>
+                <span class="n">publication</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">inkers</span><span class="p">,</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">INKER_ROLE</span>
+            <span class="p">)</span>
+            <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_extract_contributors</span><span class="p">(</span>
+                <span class="n">publication</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">narrators</span><span class="p">,</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">NARRATOR_ROLE</span>
+            <span class="p">)</span>
+            <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_extract_contributors</span><span class="p">(</span>
+                <span class="n">publication</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">contributors</span><span class="p">,</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">CONTRIBUTOR_ROLE</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="n">feed_self_url</span> <span class="o">=</span> <span class="n">first_or_default</span><span class="p">(</span>
+            <span class="n">feed</span><span class="o">.</span><span class="n">links</span><span class="o">.</span><span class="n">get_by_rel</span><span class="p">(</span><span class="n">OPDS2LinkRelationsRegistry</span><span class="o">.</span><span class="n">SELF</span><span class="o">.</span><span class="n">key</span><span class="p">)</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">href</span>
+        <span class="n">links</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_extract_links</span><span class="p">(</span><span class="n">publication</span><span class="p">,</span> <span class="n">feed_self_url</span><span class="p">)</span>
+
+        <span class="n">last_opds_update</span> <span class="o">=</span> <span class="n">publication</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">modified</span>
+
+        <span class="n">identifier</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_extract_identifier</span><span class="p">(</span><span class="n">publication</span><span class="p">)</span>
+        <span class="n">identifier_data</span> <span class="o">=</span> <span class="n">IdentifierData</span><span class="p">(</span>
+            <span class="nb">type</span><span class="o">=</span><span class="n">identifier</span><span class="o">.</span><span class="n">type</span><span class="p">,</span> <span class="n">identifier</span><span class="o">=</span><span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span>
+        <span class="p">)</span>
+
+        <span class="c1"># FIXME: There are no measurements in OPDS 2.0</span>
+        <span class="n">measurements</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="c1"># FIXME: There is no series information in OPDS 2.0</span>
+        <span class="n">series</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">series_position</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="c1"># FIXME: It seems that OPDS 2.0 spec doesn&#39;t contain information about rights so we use the default one</span>
+        <span class="n">rights_uri</span> <span class="o">=</span> <span class="n">RightsStatus</span><span class="o">.</span><span class="n">rights_uri_from_string</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+
+        <span class="n">circulation_data</span> <span class="o">=</span> <span class="n">CirculationData</span><span class="p">(</span>
+            <span class="n">default_rights_uri</span><span class="o">=</span><span class="n">rights_uri</span><span class="p">,</span>
+            <span class="n">data_source</span><span class="o">=</span><span class="n">data_source_name</span><span class="p">,</span>
+            <span class="n">primary_identifier</span><span class="o">=</span><span class="n">identifier_data</span><span class="p">,</span>
+            <span class="n">links</span><span class="o">=</span><span class="n">links</span><span class="p">,</span>
+            <span class="n">licenses_owned</span><span class="o">=</span><span class="n">LicensePool</span><span class="o">.</span><span class="n">UNLIMITED_ACCESS</span><span class="p">,</span>
+            <span class="n">licenses_available</span><span class="o">=</span><span class="n">LicensePool</span><span class="o">.</span><span class="n">UNLIMITED_ACCESS</span><span class="p">,</span>
+            <span class="n">licenses_reserved</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+            <span class="n">patrons_in_hold_queue</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+            <span class="n">formats</span><span class="o">=</span><span class="p">[],</span>
+        <span class="p">)</span>
+
+        <span class="n">formats</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_find_formats_in_non_open_access_acquisition_links</span><span class="p">(</span>
+            <span class="n">publication</span><span class="o">.</span><span class="n">links</span><span class="p">,</span> <span class="n">links</span><span class="p">,</span> <span class="n">rights_uri</span><span class="p">,</span> <span class="n">circulation_data</span>
+        <span class="p">)</span>
+        <span class="n">circulation_data</span><span class="o">.</span><span class="n">formats</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">formats</span><span class="p">)</span>
+
+        <span class="n">metadata</span> <span class="o">=</span> <span class="n">Metadata</span><span class="p">(</span>
+            <span class="n">data_source</span><span class="o">=</span><span class="n">data_source_name</span><span class="p">,</span>
+            <span class="n">title</span><span class="o">=</span><span class="n">title</span><span class="p">,</span>
+            <span class="n">subtitle</span><span class="o">=</span><span class="n">subtitle</span><span class="p">,</span>
+            <span class="n">language</span><span class="o">=</span><span class="n">languages</span><span class="p">,</span>
+            <span class="n">medium</span><span class="o">=</span><span class="n">medium</span><span class="p">,</span>
+            <span class="n">publisher</span><span class="o">=</span><span class="n">publisher</span><span class="p">,</span>
+            <span class="n">published</span><span class="o">=</span><span class="n">published</span><span class="p">,</span>
+            <span class="n">imprint</span><span class="o">=</span><span class="n">imprint</span><span class="p">,</span>
+            <span class="n">primary_identifier</span><span class="o">=</span><span class="n">identifier_data</span><span class="p">,</span>
+            <span class="n">subjects</span><span class="o">=</span><span class="n">subjects</span><span class="p">,</span>
+            <span class="n">contributors</span><span class="o">=</span><span class="n">contributors</span><span class="p">,</span>
+            <span class="n">measurements</span><span class="o">=</span><span class="n">measurements</span><span class="p">,</span>
+            <span class="n">series</span><span class="o">=</span><span class="n">series</span><span class="p">,</span>
+            <span class="n">series_position</span><span class="o">=</span><span class="n">series_position</span><span class="p">,</span>
+            <span class="n">links</span><span class="o">=</span><span class="n">links</span><span class="p">,</span>
+            <span class="n">data_source_last_updated</span><span class="o">=</span><span class="n">last_opds_update</span><span class="p">,</span>
+            <span class="n">circulation</span><span class="o">=</span><span class="n">circulation_data</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+            <span class="sa">u</span><span class="s2">&quot;Finished extracting metadata from publication </span><span class="si">{0}</span><span class="s2">: </span><span class="si">{1}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                <span class="n">encode</span><span class="p">(</span><span class="n">publication</span><span class="p">),</span> <span class="n">encode</span><span class="p">(</span><span class="n">metadata</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">metadata</span>
+
+    <span class="k">def</span> <span class="nf">_find_formats_in_non_open_access_acquisition_links</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">ast_link_list</span><span class="p">,</span> <span class="n">link_data_list</span><span class="p">,</span> <span class="n">rights_uri</span><span class="p">,</span> <span class="n">circulation_data</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Find circulation formats in non open-access acquisition links.</span>
+
+<span class="sd">        :param ast_link_list: List of Link objects</span>
+<span class="sd">        :type ast_link_list: List[ast_core.Link]</span>
+
+<span class="sd">        :param link_data_list: List of LinkData objects</span>
+<span class="sd">        :type link_data_list: List[LinkData]</span>
+
+<span class="sd">        :param rights_uri: Rights URI</span>
+<span class="sd">        :type rights_uri: str</span>
+
+<span class="sd">        :param circulation_data: Circulation data</span>
+<span class="sd">        :type circulation_data: CirculationData</span>
+
+<span class="sd">        :return: List of additional circulation formats found in non-open access links</span>
+<span class="sd">        :rtype: List[FormatData]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">formats</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">for</span> <span class="n">ast_link</span><span class="p">,</span> <span class="n">parsed_link</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">ast_link_list</span><span class="p">,</span> <span class="n">link_data_list</span><span class="p">):</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_acquisition_link</span><span class="p">(</span><span class="n">ast_link</span><span class="p">):</span>
+                <span class="k">continue</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_open_access_link_</span><span class="p">(</span><span class="n">parsed_link</span><span class="p">,</span> <span class="n">circulation_data</span><span class="p">):</span>
+                <span class="k">continue</span>
+
+            <span class="k">for</span> <span class="p">(</span>
+                <span class="n">content_type</span><span class="p">,</span>
+                <span class="n">drm_scheme</span><span class="p">,</span>
+            <span class="p">)</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_extract_media_types_and_drm_scheme_from_link</span><span class="p">(</span><span class="n">ast_link</span><span class="p">):</span>
+                <span class="n">formats</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="n">FormatData</span><span class="p">(</span>
+                        <span class="n">content_type</span><span class="o">=</span><span class="n">content_type</span><span class="p">,</span>
+                        <span class="n">drm_scheme</span><span class="o">=</span><span class="n">drm_scheme</span><span class="p">,</span>
+                        <span class="n">link</span><span class="o">=</span><span class="n">parsed_link</span><span class="p">,</span>
+                        <span class="n">rights_uri</span><span class="o">=</span><span class="n">rights_uri</span><span class="p">,</span>
+                    <span class="p">)</span>
+                <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">formats</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_get_publications</span><span class="p">(</span><span class="n">feed</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return all the publications in the feed.</span>
+
+<span class="sd">        :param feed: OPDS 2.0 feed</span>
+<span class="sd">        :type feed: opds2_ast.OPDS2Feed</span>
+
+<span class="sd">        :return: An iterable list of publications containing in the feed</span>
+<span class="sd">        :rtype: Iterable[opds2_ast.OPDS2Publication]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">feed</span><span class="o">.</span><span class="n">publications</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">publication</span> <span class="ow">in</span> <span class="n">feed</span><span class="o">.</span><span class="n">publications</span><span class="p">:</span>
+                <span class="k">yield</span> <span class="n">publication</span>
+
+        <span class="k">if</span> <span class="n">feed</span><span class="o">.</span><span class="n">groups</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">group</span> <span class="ow">in</span> <span class="n">feed</span><span class="o">.</span><span class="n">groups</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">group</span><span class="o">.</span><span class="n">publications</span><span class="p">:</span>
+                    <span class="k">for</span> <span class="n">publication</span> <span class="ow">in</span> <span class="n">group</span><span class="o">.</span><span class="n">publications</span><span class="p">:</span>
+                        <span class="k">yield</span> <span class="n">publication</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_is_acquisition_link</span><span class="p">(</span><span class="n">link</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return a boolean value indicating whether a link can be considered an acquisition link.</span>
+
+<span class="sd">        :param link: Link object</span>
+<span class="sd">        :type link: ast_core.Link</span>
+
+<span class="sd">        :return: Boolean value indicating whether a link can be considered an acquisition link</span>
+<span class="sd">        :rtype: bool</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">any</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">rel</span> <span class="k">for</span> <span class="n">rel</span> <span class="ow">in</span> <span class="n">link</span><span class="o">.</span><span class="n">rels</span> <span class="k">if</span> <span class="n">rel</span> <span class="ow">in</span> <span class="n">LinkRelations</span><span class="o">.</span><span class="n">CIRCULATION_ALLOWED</span><span class="p">]</span>
+        <span class="p">)</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_is_open_access_link_</span><span class="p">(</span><span class="n">link_data</span><span class="p">,</span> <span class="n">circulation_data</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return a boolean value indicating whether the specified LinkData object describes an open-access link.</span>
+
+<span class="sd">        :param link_data: LinkData object</span>
+<span class="sd">        :type link_data: LinkData</span>
+
+<span class="sd">        :param circulation_data: CirculationData object</span>
+<span class="sd">        :type circulation_data: CirculationData</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">open_access_link</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">link_data</span><span class="o">.</span><span class="n">rel</span> <span class="o">==</span> <span class="n">Hyperlink</span><span class="o">.</span><span class="n">OPEN_ACCESS_DOWNLOAD</span> <span class="ow">and</span> <span class="n">link_data</span><span class="o">.</span><span class="n">href</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">open_access_link</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">True</span>
+
+        <span class="c1"># Try to deduce if the ast_link is open-access, even if it doesn&#39;t explicitly say it is</span>
+        <span class="n">rights_uri</span> <span class="o">=</span> <span class="n">link_data</span><span class="o">.</span><span class="n">rights_uri</span> <span class="ow">or</span> <span class="n">circulation_data</span><span class="o">.</span><span class="n">default_rights_uri</span>
+        <span class="n">open_access_rights_link</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">link_data</span><span class="o">.</span><span class="n">media_type</span> <span class="ow">in</span> <span class="n">Representation</span><span class="o">.</span><span class="n">BOOK_MEDIA_TYPES</span>
+            <span class="ow">and</span> <span class="n">link_data</span><span class="o">.</span><span class="n">href</span>
+            <span class="ow">and</span> <span class="n">rights_uri</span> <span class="ow">in</span> <span class="n">RightsStatus</span><span class="o">.</span><span class="n">OPEN_ACCESS</span>
+        <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">open_access_rights_link</span>
+
+<div class="viewcode-block" id="OPDS2Importer.extract_next_links"><a class="viewcode-back" href="../../core.html#core.opds2_import.OPDS2Importer.extract_next_links">[docs]</a>    <span class="k">def</span> <span class="nf">extract_next_links</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">feed</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Extracts &quot;next&quot; links from the feed.</span>
+
+<span class="sd">        :param feed: OPDS 2.0 feed</span>
+<span class="sd">        :type feed: Union[str, opds2_ast.OPDS2Feed]</span>
+
+<span class="sd">        :return: List of &quot;next&quot; links</span>
+<span class="sd">        :rtype: List[str]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">parsed_feed</span> <span class="o">=</span> <span class="n">parse_feed</span><span class="p">(</span><span class="n">feed</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">parsed_feed</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">[]</span>
+
+        <span class="n">next_links</span> <span class="o">=</span> <span class="n">parsed_feed</span><span class="o">.</span><span class="n">links</span><span class="o">.</span><span class="n">get_by_rel</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">NEXT_LINK_RELATION</span><span class="p">)</span>
+        <span class="n">next_links</span> <span class="o">=</span> <span class="p">[</span><span class="n">next_link</span><span class="o">.</span><span class="n">href</span> <span class="k">for</span> <span class="n">next_link</span> <span class="ow">in</span> <span class="n">next_links</span><span class="p">]</span>
+
+        <span class="k">return</span> <span class="n">next_links</span></div>
+
+<div class="viewcode-block" id="OPDS2Importer.extract_last_update_dates"><a class="viewcode-back" href="../../core.html#core.opds2_import.OPDS2Importer.extract_last_update_dates">[docs]</a>    <span class="k">def</span> <span class="nf">extract_last_update_dates</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">feed</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Extract last update date of the feed.</span>
+
+<span class="sd">        :param feed: OPDS 2.0 feed</span>
+<span class="sd">        :type feed: Union[str, opds2_ast.OPDS2Feed]</span>
+
+<span class="sd">        :return: A list of 2-tuples containing publication&#39;s identifiers and their last modified dates</span>
+<span class="sd">        :rtype: List[Tuple[str, datetime.datetime]]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">parsed_feed</span> <span class="o">=</span> <span class="n">parse_feed</span><span class="p">(</span><span class="n">feed</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">parsed_feed</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">[]</span>
+
+        <span class="n">dates</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="p">(</span><span class="n">publication</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span> <span class="n">publication</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">modified</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">publication</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_publications</span><span class="p">(</span><span class="n">parsed_feed</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">publication</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">modified</span>
+        <span class="p">]</span>
+
+        <span class="k">return</span> <span class="n">dates</span></div>
+
+<div class="viewcode-block" id="OPDS2Importer.extract_feed_data"><a class="viewcode-back" href="../../core.html#core.opds2_import.OPDS2Importer.extract_feed_data">[docs]</a>    <span class="k">def</span> <span class="nf">extract_feed_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">feed</span><span class="p">,</span> <span class="n">feed_url</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Turn an OPDS 2.0 feed into lists of Metadata and CirculationData objects.</span>
+
+<span class="sd">        :param feed: OPDS 2.0 feed</span>
+<span class="sd">        :type feed: Union[str, opds2_ast.OPDS2Feed]</span>
+
+<span class="sd">        :param feed_url: Feed URL used to resolve relative links</span>
+<span class="sd">        :type feed_url: Optional[str]f</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">feed</span> <span class="o">=</span> <span class="n">parse_feed</span><span class="p">(</span><span class="n">feed</span><span class="p">,</span> <span class="n">silent</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="n">publication_metadata_dictionary</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">failures</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="k">for</span> <span class="n">publication</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_publications</span><span class="p">(</span><span class="n">feed</span><span class="p">):</span>
+            <span class="n">publication_metadata</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_extract_publication_metadata</span><span class="p">(</span>
+                <span class="n">feed</span><span class="p">,</span> <span class="n">publication</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_source_name</span>
+            <span class="p">)</span>
+
+            <span class="n">publication_metadata_dictionary</span><span class="p">[</span>
+                <span class="n">publication_metadata</span><span class="o">.</span><span class="n">primary_identifier</span><span class="o">.</span><span class="n">identifier</span>
+            <span class="p">]</span> <span class="o">=</span> <span class="n">publication_metadata</span>
+
+        <span class="k">return</span> <span class="n">publication_metadata_dictionary</span><span class="p">,</span> <span class="n">failures</span></div></div>
+
+
+<div class="viewcode-block" id="OPDS2ImportMonitor"><a class="viewcode-back" href="../../core.html#core.opds2_import.OPDS2ImportMonitor">[docs]</a><span class="k">class</span> <span class="nc">OPDS2ImportMonitor</span><span class="p">(</span><span class="n">OPDSImportMonitor</span><span class="p">):</span>
+    <span class="n">PROTOCOL</span> <span class="o">=</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">OPDS2_IMPORT</span>
+    <span class="n">MEDIA_TYPE</span> <span class="o">=</span> <span class="n">OPDS2MediaTypesRegistry</span><span class="o">.</span><span class="n">OPDS_FEED</span><span class="o">.</span><span class="n">key</span><span class="p">,</span> <span class="s2">&quot;application/json&quot;</span>
+
+    <span class="k">def</span> <span class="nf">_verify_media_type</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">status_code</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span> <span class="n">feed</span><span class="p">):</span>
+        <span class="c1"># Make sure we got an OPDS feed, and not an error page that was</span>
+        <span class="c1"># sent with a 200 status code.</span>
+        <span class="n">media_type</span> <span class="o">=</span> <span class="n">headers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;content-type&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">media_type</span> <span class="ow">or</span> <span class="ow">not</span> <span class="nb">any</span><span class="p">(</span><span class="n">x</span> <span class="ow">in</span> <span class="n">media_type</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">MEDIA_TYPE</span><span class="p">):</span>
+            <span class="n">message</span> <span class="o">=</span> <span class="s2">&quot;Expected </span><span class="si">{0}</span><span class="s2"> OPDS 2.0 feed, got </span><span class="si">{1}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">MEDIA_TYPE</span><span class="p">,</span> <span class="n">media_type</span>
+            <span class="p">)</span>
+
+            <span class="k">raise</span> <span class="n">BadResponseException</span><span class="p">(</span>
+                <span class="n">url</span><span class="p">,</span> <span class="n">message</span><span class="o">=</span><span class="n">message</span><span class="p">,</span> <span class="n">debug_message</span><span class="o">=</span><span class="n">feed</span><span class="p">,</span> <span class="n">status_code</span><span class="o">=</span><span class="n">status_code</span>
+            <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_get_accept_header</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s2">&quot;</span><span class="si">{0}</span><span class="s2">, </span><span class="si">{1}</span><span class="s2">;q=0.9, */*;q=0.1&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+            <span class="n">OPDS2MediaTypesRegistry</span><span class="o">.</span><span class="n">OPDS_FEED</span><span class="o">.</span><span class="n">key</span><span class="p">,</span> <span class="s2">&quot;application/json&quot;</span>
+        <span class="p">)</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">Library Simplified Circulation Manager</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../modules.html">circulation</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

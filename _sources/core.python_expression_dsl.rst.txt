@@ -1,0 +1,38 @@
+core.python\_expression\_dsl package
+====================================
+
+Submodules
+----------
+
+core.python\_expression\_dsl.ast module
+---------------------------------------
+
+.. automodule:: core.python_expression_dsl.ast
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+core.python\_expression\_dsl.evaluator module
+---------------------------------------------
+
+.. automodule:: core.python_expression_dsl.evaluator
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+core.python\_expression\_dsl.parser module
+------------------------------------------
+
+.. automodule:: core.python_expression_dsl.parser
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+
+Module contents
+---------------
+
+.. automodule:: core.python_expression_dsl
+    :members:
+    :undoc-members:
+    :show-inheritance:

@@ -87,20 +87,6 @@
     <span class="n">base_url</span> <span class="o">=</span> <span class="n">url_for</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">cdnify</span><span class="p">(</span><span class="n">base_url</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="load_lending_policy"><a class="viewcode-back" href="../../core.html#core.app_server.load_lending_policy">[docs]</a><span class="k">def</span> <span class="nf">load_lending_policy</span><span class="p">(</span><span class="n">policy</span><span class="p">):</span>
-    <span class="k">if</span> <span class="ow">not</span> <span class="n">policy</span><span class="p">:</span>
-        <span class="k">return</span> <span class="p">{}</span>
-    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">policy</span><span class="p">,</span> <span class="n">basestring</span><span class="p">):</span>
-        <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Lending policy: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">policy</span><span class="p">)</span>
-        <span class="n">policy</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">policy</span><span class="p">)</span>
-    <span class="k">for</span> <span class="n">external_type</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">policy</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-        <span class="k">if</span> <span class="n">Patron</span><span class="o">.</span><span class="n">AUDIENCE_RESTRICTION_POLICY</span> <span class="ow">in</span> <span class="n">p</span><span class="p">:</span>
-            <span class="k">for</span> <span class="n">audience</span> <span class="ow">in</span> <span class="n">p</span><span class="p">[</span><span class="n">Patron</span><span class="o">.</span><span class="n">AUDIENCE_RESTRICTION_POLICY</span><span class="p">]:</span>
-                <span class="k">if</span> <span class="ow">not</span> <span class="n">audience</span> <span class="ow">in</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">AUDIENCES</span><span class="p">:</span>
-                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                        <span class="s2">&quot;Unrecognized audience in lending policy: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span>
-                        <span class="n">audience</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">policy</span></div>
 
 <div class="viewcode-block" id="load_facets_from_request"><a class="viewcode-back" href="../../core.html#core.app_server.load_facets_from_request">[docs]</a><span class="k">def</span> <span class="nf">load_facets_from_request</span><span class="p">(</span>
         <span class="n">facet_config</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">worklist</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">base_class</span><span class="o">=</span><span class="n">Facets</span><span class="p">,</span>

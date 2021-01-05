@@ -42,6 +42,7 @@
 <span class="kn">import</span> <span class="nn">sys</span>
 <span class="kn">import</span> <span class="nn">urllib</span>
 <span class="kn">import</span> <span class="nn">urlparse</span>
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
 <span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">defaultdict</span>
 <span class="kn">from</span> <span class="nn">time</span> <span class="kn">import</span> <span class="n">mktime</span>
 <span class="kn">from</span> <span class="nn">wsgiref.handlers</span> <span class="kn">import</span> <span class="n">format_date_time</span>
@@ -87,7 +88,6 @@
 <span class="kn">from</span> <span class="nn">core.app_server</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">cdn_url_for</span><span class="p">,</span>
     <span class="n">url_for</span><span class="p">,</span>
-    <span class="n">load_lending_policy</span><span class="p">,</span>
     <span class="n">load_facets_from_request</span><span class="p">,</span>
     <span class="n">load_pagination_from_request</span><span class="p">,</span>
     <span class="n">ComplaintController</span><span class="p">,</span>
@@ -156,6 +156,8 @@
     <span class="n">load_lanes</span><span class="p">,</span>
     <span class="n">ContributorFacets</span><span class="p">,</span>
     <span class="n">ContributorLane</span><span class="p">,</span>
+    <span class="n">JackpotFacets</span><span class="p">,</span>
+    <span class="n">JackpotWorkList</span><span class="p">,</span>
     <span class="n">RecommendationLane</span><span class="p">,</span>
     <span class="n">RelatedBooksLane</span><span class="p">,</span>
     <span class="n">SeriesFacets</span><span class="p">,</span>
@@ -176,7 +178,6 @@
 <span class="kn">from</span> <span class="nn">shared_collection</span> <span class="kn">import</span> <span class="n">SharedCollectionAPI</span>
 <span class="kn">from</span> <span class="nn">testing</span> <span class="kn">import</span> <span class="n">MockCirculationAPI</span><span class="p">,</span> <span class="n">MockSharedCollectionAPI</span>
 
-
 <div class="viewcode-block" id="CirculationManager"><a class="viewcode-back" href="../../api.html#api.controller.CirculationManager">[docs]</a><span class="k">class</span> <span class="nc">CirculationManager</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">testing</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
@@ -187,8 +188,8 @@
         <span class="k">if</span> <span class="ow">not</span> <span class="n">testing</span><span class="p">:</span>
             <span class="k">try</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">config</span> <span class="o">=</span> <span class="n">Configuration</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
-            <span class="k">except</span> <span class="n">CannotLoadConfiguration</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Could not load configuration file: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">e</span><span class="p">)</span>
+            <span class="k">except</span> <span class="n">CannotLoadConfiguration</span> <span class="k">as</span> <span class="n">exception</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="s2">&quot;Could not load configuration file: </span><span class="si">{0}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">exception</span><span class="p">))</span>
                 <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">()</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">testing</span> <span class="o">=</span> <span class="n">testing</span>
@@ -199,13 +200,26 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">load_settings</span><span class="p">()</span>
 
 <div class="viewcode-block" id="CirculationManager.load_facets_from_request"><a class="viewcode-back" href="../../api.html#api.controller.CirculationManager.load_facets_from_request">[docs]</a>    <span class="k">def</span> <span class="nf">load_facets_from_request</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Load a faceting object from the incoming request, but also apply an authentication</span>
-<span class="sd">        restriction.</span>
+        <span class="sd">&quot;&quot;&quot;Load a faceting object from the incoming request, but also apply some</span>
+<span class="sd">        application-specific access restrictions:</span>
 
-<span class="sd">        Specifically, in this application you can&#39;t use nonstandard</span>
-<span class="sd">        caching rules unless you&#39;re an authenticated administrator.</span>
+<span class="sd">        * You can&#39;t use nonstandard caching rules unless you&#39;re an authenticated administrator.</span>
+<span class="sd">        * You can&#39;t access a WorkList that&#39;s not accessible to you.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+
         <span class="n">facets</span> <span class="o">=</span> <span class="n">load_facets_from_request</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="n">worklist</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;worklist&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">worklist</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+
+            <span class="c1"># Try to get the index controller. If it&#39;s not initialized</span>
+            <span class="c1"># for any reason, don&#39;t run this check -- we have bigger</span>
+            <span class="c1"># problems.</span>
+            <span class="n">index_controller</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;index_controller&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">index_controller</span> <span class="ow">and</span> <span class="ow">not</span>
+                <span class="n">worklist</span><span class="o">.</span><span class="n">accessible_to</span><span class="p">(</span><span class="n">index_controller</span><span class="o">.</span><span class="n">request_patron</span><span class="p">)):</span>
+                <span class="k">return</span> <span class="n">NO_SUCH_LANE</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;Lane does not exist&quot;</span><span class="p">))</span>
+
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">facets</span><span class="p">,</span> <span class="n">BaseFacets</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">facets</span><span class="p">,</span> <span class="s1">&#39;max_cache_age&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="c1"># A faceting object was loaded, and it tried to do something nonstandard</span>
             <span class="c1"># with caching.</span>
@@ -290,9 +304,6 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">circulation_apis</span> <span class="o">=</span> <span class="n">new_circulation_apis</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">custom_index_views</span> <span class="o">=</span> <span class="n">new_custom_index_views</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">shared_collection_api</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">setup_shared_collection</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">lending_policy</span> <span class="o">=</span> <span class="n">load_lending_policy</span><span class="p">(</span>
-            <span class="n">Configuration</span><span class="o">.</span><span class="n">policy</span><span class="p">(</span><span class="s1">&#39;lending&#39;</span><span class="p">,</span> <span class="p">{})</span>
-        <span class="p">)</span>
 
         <span class="c1"># Assemble the list of patron web client domains from individual</span>
         <span class="c1"># library registration settings as well as a sitewide setting.</span>
@@ -652,6 +663,7 @@
         <span class="sd">&quot;&quot;&quot;Turn user input into a Lane object.&quot;&quot;&quot;</span>
         <span class="n">library_id</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">library</span><span class="o">.</span><span class="n">id</span>
 
+        <span class="n">lane</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">if</span> <span class="n">lane_identifier</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="c1"># Return the top-level lane.</span>
             <span class="n">lane</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">top_level_lanes</span><span class="p">[</span><span class="n">library_id</span><span class="p">]</span>
@@ -660,9 +672,20 @@
             <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">lane</span><span class="p">,</span> <span class="n">WorkList</span><span class="p">):</span>
                 <span class="n">lane</span><span class="o">.</span><span class="n">children</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span><span class="n">child</span><span class="p">)</span> <span class="k">for</span> <span class="n">child</span> <span class="ow">in</span> <span class="n">lane</span><span class="o">.</span><span class="n">children</span><span class="p">]</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">lane</span> <span class="o">=</span> <span class="n">get_one</span><span class="p">(</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">Lane</span><span class="p">,</span> <span class="nb">id</span><span class="o">=</span><span class="n">lane_identifier</span><span class="p">,</span> <span class="n">library_id</span><span class="o">=</span><span class="n">library_id</span>
-            <span class="p">)</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">lane_identifier</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">lane_identifier</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">ValueError</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+                <span class="k">pass</span>
+
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">lane_identifier</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+                <span class="n">lane</span> <span class="o">=</span> <span class="n">get_one</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">Lane</span><span class="p">,</span> <span class="nb">id</span><span class="o">=</span><span class="n">lane_identifier</span><span class="p">,</span> <span class="n">library_id</span><span class="o">=</span><span class="n">library_id</span>
+                <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">lane</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">lane</span><span class="o">.</span><span class="n">accessible_to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">request_patron</span><span class="p">):</span>
+            <span class="c1"># The authenticated patron cannot access the lane they</span>
+            <span class="c1"># requested. Act like the lane does not exist.</span>
+            <span class="n">lane</span> <span class="o">=</span> <span class="kc">None</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="n">lane</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">NO_SUCH_LANE</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span>
@@ -680,7 +703,13 @@
 
         <span class="c1"># We know there is at least one LicensePool, and all LicensePools</span>
         <span class="c1"># for an Identifier have the same Work.</span>
-        <span class="k">return</span> <span class="n">pools</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">work</span></div>
+        <span class="n">work</span> <span class="o">=</span> <span class="n">pools</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">work</span>
+
+        <span class="k">if</span> <span class="n">work</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">work</span><span class="o">.</span><span class="n">age_appropriate_for_patron</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">request_patron</span><span class="p">):</span>
+            <span class="c1"># This work is not age-appropriate for the authenticated</span>
+            <span class="c1"># patron. Don&#39;t show it.</span>
+            <span class="n">work</span> <span class="o">=</span> <span class="n">NOT_AGE_APPROPRIATE</span>
+        <span class="k">return</span> <span class="n">work</span></div>
 
 <div class="viewcode-block" id="CirculationManagerController.load_licensepools"><a class="viewcode-back" href="../../api.html#api.controller.CirculationManagerController.load_licensepools">[docs]</a>    <span class="k">def</span> <span class="nf">load_licensepools</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">identifier_type</span><span class="p">,</span> <span class="n">identifier</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Turn user input into one or more LicensePool objects.</span>
@@ -715,6 +744,7 @@
             <span class="k">return</span> <span class="n">INVALID_INPUT</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span>
                 <span class="n">_</span><span class="p">(</span><span class="s2">&quot;License Pool #</span><span class="si">%s</span><span class="s2"> does not exist.&quot;</span><span class="p">)</span> <span class="o">%</span> <span class="n">license_pool_id</span>
             <span class="p">)</span>
+
         <span class="k">return</span> <span class="n">license_pool</span></div>
 
 <div class="viewcode-block" id="CirculationManagerController.load_licensepooldelivery"><a class="viewcode-back" href="../../api.html#api.controller.CirculationManagerController.load_licensepooldelivery">[docs]</a>    <span class="k">def</span> <span class="nf">load_licensepooldelivery</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pool</span><span class="p">,</span> <span class="n">mechanism_id</span><span class="p">):</span>
@@ -727,13 +757,29 @@
         <span class="k">return</span> <span class="n">mechanism</span> <span class="ow">or</span> <span class="n">BAD_DELIVERY_MECHANISM</span></div>
 
 <div class="viewcode-block" id="CirculationManagerController.apply_borrowing_policy"><a class="viewcode-back" href="../../api.html#api.controller.CirculationManagerController.apply_borrowing_policy">[docs]</a>    <span class="k">def</span> <span class="nf">apply_borrowing_policy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">license_pool</span><span class="p">):</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Apply the borrowing policy of the patron&#39;s library to the</span>
+<span class="sd">        book they&#39;re trying to check out.</span>
+
+<span class="sd">        This prevents a patron from borrowing an age-inappropriate book</span>
+<span class="sd">        or from placing a hold in a library that prohibits holds.</span>
+
+<span class="sd">        Generally speaking, both of these operations should be</span>
+<span class="sd">        prevented before they get to this point; this is an extra</span>
+<span class="sd">        layer of protection.</span>
+
+<span class="sd">        :param patron: A `Patron`. It&#39;s okay if this turns out to be a</span>
+<span class="sd">           `ProblemDetail` or `None` due to a problem earlier in the</span>
+<span class="sd">           process.</span>
+<span class="sd">        :param license_pool`: The `LicensePool` the patron is trying to act on.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">patron</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
+            <span class="c1"># An earlier stage in the process failed to authenticate</span>
+            <span class="c1"># the patron.</span>
             <span class="k">return</span> <span class="n">patron</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">patron</span><span class="o">.</span><span class="n">can_borrow</span><span class="p">(</span><span class="n">license_pool</span><span class="o">.</span><span class="n">work</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">lending_policy</span><span class="p">):</span>
-            <span class="k">return</span> <span class="n">FORBIDDEN_BY_POLICY</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span>
-                <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Library policy prohibits us from lending you this book.&quot;</span><span class="p">),</span>
-                <span class="n">status_code</span><span class="o">=</span><span class="mi">451</span>
-            <span class="p">)</span>
+
+        <span class="n">work</span> <span class="o">=</span> <span class="n">license_pool</span><span class="o">.</span><span class="n">work</span>
+        <span class="k">if</span> <span class="n">work</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">work</span><span class="o">.</span><span class="n">age_appropriate_for_patron</span><span class="p">(</span><span class="n">patron</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">NOT_AGE_APPROPRIATE</span>
 
         <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="n">patron</span><span class="o">.</span><span class="n">library</span><span class="o">.</span><span class="n">allow_holds</span> <span class="ow">and</span>
             <span class="n">license_pool</span><span class="o">.</span><span class="n">licenses_available</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span>
@@ -779,12 +825,12 @@
         <span class="p">)</span></div>
 
 <div class="viewcode-block" id="IndexController.has_root_lanes"><a class="viewcode-back" href="../../api.html#api.controller.IndexController.has_root_lanes">[docs]</a>    <span class="k">def</span> <span class="nf">has_root_lanes</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="n">root_lanes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Lane</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
-            <span class="n">Lane</span><span class="o">.</span><span class="n">library</span><span class="o">==</span><span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">library</span>
-        <span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
-            <span class="n">Lane</span><span class="o">.</span><span class="n">root_for_patron_type</span><span class="o">!=</span><span class="kc">None</span>
-        <span class="p">)</span>
-        <span class="k">return</span> <span class="n">root_lanes</span><span class="o">.</span><span class="n">count</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mi">0</span></div>
+        <span class="sd">&quot;&quot;&quot;Does the active library feature root lanes for patrons of</span>
+<span class="sd">        certain types?</span>
+
+<span class="sd">        :return: A boolean</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">library</span><span class="o">.</span><span class="n">has_root_lanes</span></div>
 
 <div class="viewcode-block" id="IndexController.authenticated_patron_root_lane"><a class="viewcode-back" href="../../api.html#api.controller.IndexController.authenticated_patron_root_lane">[docs]</a>    <span class="k">def</span> <span class="nf">authenticated_patron_root_lane</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">patron</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">authenticated_patron_from_request</span><span class="p">()</span>
@@ -792,16 +838,7 @@
             <span class="k">return</span> <span class="n">patron</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">Response</span><span class="p">):</span>
             <span class="k">return</span> <span class="n">patron</span>
-
-        <span class="n">lanes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Lane</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
-            <span class="n">Lane</span><span class="o">.</span><span class="n">library</span><span class="o">==</span><span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">library</span>
-        <span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
-            <span class="n">Lane</span><span class="o">.</span><span class="n">root_for_patron_type</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">patron</span><span class="o">.</span><span class="n">external_type</span><span class="p">)</span>
-        <span class="p">)</span>
-        <span class="k">if</span> <span class="n">lanes</span><span class="o">.</span><span class="n">count</span><span class="p">()</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="k">return</span> <span class="kc">None</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">lanes</span><span class="o">.</span><span class="n">one</span><span class="p">()</span></div>
+        <span class="k">return</span> <span class="n">patron</span><span class="o">.</span><span class="n">root_lane</span></div>
 
 <div class="viewcode-block" id="IndexController.appropriate_index_for_patron_type"><a class="viewcode-back" href="../../api.html#api.controller.IndexController.appropriate_index_for_patron_type">[docs]</a>    <span class="k">def</span> <span class="nf">appropriate_index_for_patron_type</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">library_short_name</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">library</span><span class="o">.</span><span class="n">short_name</span>
@@ -833,7 +870,6 @@
             <span class="mi">200</span><span class="p">,</span> <span class="p">{</span> <span class="s1">&#39;Content-Type&#39;</span> <span class="p">:</span> <span class="s1">&#39;application/opds+json&#39;</span> <span class="p">}</span>
         <span class="p">)</span></div></div>
 
-
 <div class="viewcode-block" id="OPDSFeedController"><a class="viewcode-back" href="../../api.html#api.controller.OPDSFeedController">[docs]</a><span class="k">class</span> <span class="nc">OPDSFeedController</span><span class="p">(</span><span class="n">CirculationManagerController</span><span class="p">):</span>
 
 <div class="viewcode-block" id="OPDSFeedController.groups"><a class="viewcode-back" href="../../api.html#api.controller.OPDSFeedController.groups">[docs]</a>    <span class="k">def</span> <span class="nf">groups</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">lane_identifier</span><span class="p">,</span> <span class="n">feed_class</span><span class="o">=</span><span class="n">AcquisitionFeed</span><span class="p">):</span>
@@ -845,6 +881,22 @@
 <span class="sd">            tests.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">library</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">library</span>
+
+        <span class="c1"># Special case: a patron with a root lane who attempts to access</span>
+        <span class="c1"># the library&#39;s top-level WorkList is redirected to their root</span>
+        <span class="c1"># lane (as though they had accessed the index controller)</span>
+        <span class="c1"># rather than being denied access.</span>
+        <span class="k">if</span> <span class="n">lane_identifier</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">patron</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">request_patron</span>
+            <span class="k">if</span> <span class="n">patron</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">patron</span><span class="o">.</span><span class="n">root_lane</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">redirect</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">cdn_url_for</span><span class="p">(</span>
+                        <span class="s1">&#39;acquisition_groups&#39;</span><span class="p">,</span>
+                        <span class="n">library_short_name</span><span class="o">=</span><span class="n">library</span><span class="o">.</span><span class="n">short_name</span><span class="p">,</span>
+                        <span class="n">lane_identifier</span><span class="o">=</span><span class="n">patron</span><span class="o">.</span><span class="n">root_lane</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+                        <span class="n">_external</span><span class="o">=</span><span class="kc">True</span>
+                    <span class="p">)</span>
+                <span class="p">)</span>
 
         <span class="n">lane</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">load_lane</span><span class="p">(</span><span class="n">lane_identifier</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">lane</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
@@ -1108,6 +1160,41 @@
             <span class="n">url</span><span class="o">=</span><span class="n">make_url</span><span class="p">(),</span> <span class="n">lane</span><span class="o">=</span><span class="n">lane</span><span class="p">,</span> <span class="n">search_engine</span><span class="o">=</span><span class="n">search_engine</span><span class="p">,</span>
             <span class="n">query</span><span class="o">=</span><span class="n">query</span><span class="p">,</span> <span class="n">annotator</span><span class="o">=</span><span class="n">annotator</span><span class="p">,</span> <span class="n">pagination</span><span class="o">=</span><span class="n">pagination</span><span class="p">,</span>
             <span class="n">facets</span><span class="o">=</span><span class="n">facets</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="OPDSFeedController.qa_feed"><a class="viewcode-back" href="../../api.html#api.controller.OPDSFeedController.qa_feed">[docs]</a>    <span class="k">def</span> <span class="nf">qa_feed</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">feed_class</span><span class="o">=</span><span class="n">AcquisitionFeed</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create an OPDS feed containing the information necessary to</span>
+<span class="sd">        run a full set of integration tests against this server and</span>
+<span class="sd">        the vendors it relies on.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">library</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">library</span>
+        <span class="n">search_engine</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">search_engine</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">search_engine</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">search_engine</span>
+
+        <span class="n">url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">url_for</span><span class="p">(</span>
+            <span class="s2">&quot;qa_feed&quot;</span><span class="p">,</span>
+            <span class="n">library_short_name</span><span class="o">=</span><span class="n">library</span><span class="o">.</span><span class="n">short_name</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="n">facets</span> <span class="o">=</span> <span class="n">load_facets_from_request</span><span class="p">(</span>
+            <span class="n">base_class</span><span class="o">=</span><span class="n">JackpotFacets</span><span class="p">,</span> <span class="n">default_entrypoint</span><span class="o">=</span><span class="n">EverythingEntryPoint</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">facets</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">facets</span>
+
+        <span class="n">jwl</span> <span class="o">=</span> <span class="n">JackpotWorkList</span><span class="p">(</span><span class="n">library</span><span class="p">,</span> <span class="n">facets</span><span class="p">)</span>
+        <span class="n">annotator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">annotator</span><span class="p">(</span><span class="n">jwl</span><span class="p">)</span>
+
+        <span class="c1"># Since this feed will be consumed by an automated client, and</span>
+        <span class="c1"># we&#39;re choosing titles for specific purposes, there&#39;s no</span>
+        <span class="c1"># reason to put more than a single item in each group.</span>
+        <span class="n">pagination</span> <span class="o">=</span> <span class="n">Pagination</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">feed_class</span><span class="o">.</span><span class="n">groups</span><span class="p">(</span>
+            <span class="n">_db</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;QA test feed&quot;</span><span class="p">,</span> <span class="n">url</span><span class="o">=</span><span class="n">url</span><span class="p">,</span> <span class="n">pagination</span><span class="o">=</span><span class="n">pagination</span><span class="p">,</span>
+            <span class="n">worklist</span><span class="o">=</span><span class="n">jwl</span><span class="p">,</span> <span class="n">annotator</span><span class="o">=</span><span class="n">annotator</span><span class="p">,</span> <span class="n">search_engine</span><span class="o">=</span><span class="n">search_engine</span><span class="p">,</span>
+            <span class="n">max_age</span><span class="o">=</span><span class="n">CachedFeed</span><span class="o">.</span><span class="n">IGNORE_CACHE</span>
         <span class="p">)</span></div></div>
 
 
@@ -1854,7 +1941,7 @@
             <span class="n">lane</span> <span class="o">=</span> <span class="n">RelatedBooksLane</span><span class="p">(</span>
                 <span class="n">library</span><span class="p">,</span> <span class="n">work</span><span class="p">,</span> <span class="n">lane_name</span><span class="p">,</span> <span class="n">novelist_api</span><span class="o">=</span><span class="n">novelist_api</span>
             <span class="p">)</span>
-        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="c1"># No related books were found.</span>
             <span class="k">return</span> <span class="n">NO_SUCH_LANE</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">message</span><span class="p">)</span>
 
@@ -1993,6 +2080,8 @@
     <span class="k">def</span> <span class="nf">_controller</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Instantiate a CoreProfileController that actually does the work.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># TODO: Probably better to use request_patron and check for</span>
+        <span class="c1"># None here.</span>
         <span class="n">patron</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">authenticated_patron_from_request</span><span class="p">()</span>
         <span class="n">storage</span> <span class="o">=</span> <span class="n">CirculationPatronProfileStorage</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">flask</span><span class="o">.</span><span class="n">url_for</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">CoreProfileController</span><span class="p">(</span><span class="n">storage</span><span class="p">)</span>

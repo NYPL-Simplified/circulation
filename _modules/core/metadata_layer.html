@@ -882,7 +882,8 @@
 
         <span class="c1"># Determine the best URL to use when mirroring this</span>
         <span class="c1"># representation.</span>
-        <span class="k">if</span> <span class="n">link</span><span class="o">.</span><span class="n">media_type</span> <span class="ow">in</span> <span class="n">Representation</span><span class="o">.</span><span class="n">BOOK_MEDIA_TYPES</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">link</span><span class="o">.</span><span class="n">media_type</span> <span class="ow">in</span> <span class="n">Representation</span><span class="o">.</span><span class="n">BOOK_MEDIA_TYPES</span> <span class="ow">or</span> \
+                <span class="n">link</span><span class="o">.</span><span class="n">media_type</span> <span class="ow">in</span> <span class="n">Representation</span><span class="o">.</span><span class="n">AUDIOBOOK_MEDIA_TYPES</span><span class="p">:</span>
             <span class="n">url_title</span> <span class="o">=</span> <span class="n">title</span> <span class="ow">or</span> <span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span>
             <span class="n">extension</span> <span class="o">=</span> <span class="n">representation</span><span class="o">.</span><span class="n">extension</span><span class="p">()</span>
             <span class="n">mirror_url</span> <span class="o">=</span> <span class="n">mirror</span><span class="o">.</span><span class="n">book_url</span><span class="p">(</span>
@@ -1394,6 +1395,7 @@
             <span class="n">data_source_last_updated</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
             <span class="c1"># Note: brought back to keep callers of bibliographic extraction process_one() methods simple.</span>
             <span class="n">circulation</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">kwargs</span>
     <span class="p">):</span>
         <span class="c1"># data_source is where the data comes from (e.g. overdrive, metadata wrangler, admin interface),</span>
         <span class="c1"># and not necessarily where the associated Identifier&#39;s LicencePool&#39;s lending licenses are coming from.</span>
@@ -2412,7 +2414,7 @@
         <span class="k">return</span> <span class="kc">None</span></div>
 
 <div class="viewcode-block" id="MARCExtractor.parse"><a class="viewcode-back" href="../../core.html#core.metadata_layer.MARCExtractor.parse">[docs]</a>    <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">parse</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">file</span><span class="p">,</span> <span class="n">data_source_name</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">parse</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">file</span><span class="p">,</span> <span class="n">data_source_name</span><span class="p">,</span> <span class="n">default_medium_type</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="n">reader</span> <span class="o">=</span> <span class="n">MARCReader</span><span class="p">(</span><span class="n">file</span><span class="p">)</span>
         <span class="n">metadata_records</span> <span class="o">=</span> <span class="p">[]</span>
 
