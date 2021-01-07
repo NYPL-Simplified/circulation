@@ -639,6 +639,16 @@ class TestRecommendationLane(LaneTest):
         eq_(AudiobooksEntryPoint, overview.entrypoint)
 
 
+class TestHasSeriesFacets(DatabaseTest):
+
+    def test_modify_search_filter(self):
+        facets = SeriesFacets()
+        filter = Filter()
+        eq_(None, filter.series)
+        facets.modify_search_filter(filter)
+        eq_(True, filter.series)
+
+
 class TestSeriesFacets(DatabaseTest):
 
     def test_default_sort_order(self):

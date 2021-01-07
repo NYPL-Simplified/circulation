@@ -1189,7 +1189,7 @@ class OPDSFeedController(CirculationManagerController):
         the vendors it relies on.
         """
         def factory(library, facets):
-            return JackpotWorkList(facets)
+            return JackpotWorkList(library, facets)
 
         return self._qa_feed(
             feed_method=feed_class.groups,

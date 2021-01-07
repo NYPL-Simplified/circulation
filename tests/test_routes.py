@@ -367,6 +367,11 @@ class TestOPDSFeed(RouteTest):
         url = '/feed/qa'
         self.assert_authenticated_request_calls(url, self.controller.qa_feed)
 
+    def test_qa_series_feed(self):
+        url = '/feed/qa/series'
+        self.assert_authenticated_request_calls(url, self.controller.qa_feed)
+
+
 class TestMARCRecord(RouteTest):
     CONTROLLER_NAME = 'marc_records'
 

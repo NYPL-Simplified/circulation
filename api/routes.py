@@ -273,7 +273,7 @@ def acquisition_groups(lane_identifier):
 @library_route('/feed/qa/series')
 @has_library
 @allows_patron_web
-#@requires_auth
+@requires_auth
 @returns_problem_detail
 @compressible
 def qa_series_feed():
