@@ -563,6 +563,30 @@ class CirculationManager(object):
 
 class CirculationManagerController(BaseCirculationManagerController):
 
+    def get_patron_circ_objects(self, object_class, patron, license_pools):
+        if not patron:
+            return []
+        pool_ids = [pool.id for pool in license_pools]
+
+        return self._db.query(object_class).filter(
+            object_class.patron_id==patron.id,
+            object_class.license_pool_id.in_(pool_ids)
+        ).options(eagerload(object_class.license_pool)).all()
+
+    def get_patron_loan(self, patron, license_pools):
+        loans = self.get_patron_circ_objects(Loan, patron, license_pools)
+        if loans:
+            loan = loans[0]
+            return loan, loan.license_pool
+        return None, None
+
+    def get_patron_hold(self, patron, license_pools):
+        holds = self.get_patron_circ_objects(Hold, patron, license_pools)
+        if holds:
+            hold = holds[0]
+            return hold, hold.license_pool
+        return None, None
+
     @property
     def circulation(self):
         """Return the appropriate CirculationAPI for the request Library."""
@@ -1263,29 +1287,7 @@ class MARCRecordController(CirculationManagerController):
 
 class LoanController(CirculationManagerController):
 
-    def get_patron_circ_objects(self, object_class, patron, license_pools):
-        if not patron:
-            return []
-        pool_ids = [pool.id for pool in license_pools]
 
-        return self._db.query(object_class).filter(
-            object_class.patron_id==patron.id,
-            object_class.license_pool_id.in_(pool_ids)
-        ).options(eagerload(object_class.license_pool)).all()
-
-    def get_patron_loan(self, patron, license_pools):
-        loans = self.get_patron_circ_objects(Loan, patron, license_pools)
-        if loans:
-            loan = loans[0]
-            return loan, loan.license_pool
-        return None, None
-
-    def get_patron_hold(self, patron, license_pools):
-        holds = self.get_patron_circ_objects(Hold, patron, license_pools)
-        if holds:
-            hold = holds[0]
-            return hold, hold.license_pool
-        return None, None
 
     def sync(self):
         """Sync the authenticated patron's loans and holds with all third-party
@@ -1612,7 +1614,7 @@ class LoanController(CirculationManagerController):
             # If this is a streaming delivery mechanism, create an OPDS entry
             # with a fulfillment link to the streaming reader url.
             feed = LibraryLoanAndHoldAnnotator.single_item_feed(
-                self.circulation, loan, fulfillment
+                self.circulation, loan, fulfillment=fulfillment
             )
             if isinstance(feed, Response):
                 return feed
@@ -1746,12 +1748,12 @@ class LoanController(CirculationManagerController):
                 status_code=404
             )
 
-        if flask.request.method=='GET':
+        if flask.request.method == 'GET':
             if loan:
                 item = loan
             else:
                 item = hold
-            return CirculationManagerLoanAndHoldAnnotator.single_item_feed(
+            return LibraryLoanAndHoldAnnotator.single_item_feed(
                 self.circulation, item
             )
 
@@ -1904,17 +1906,40 @@ class WorkController(CirculationManagerController):
         returns a single entry while the /works lookup protocol returns a
         feed containing any number of entries.
         """
-
         library = flask.request.library
         work = self.load_work(library, identifier_type, identifier)
         if isinstance(work, ProblemDetail):
             return work
 
-        annotator = self.manager.annotator(None)
-        return AcquisitionFeed.single_entry(
-            self._db, work, annotator,
-            max_age=OPDSFeed.DEFAULT_MAX_AGE
-        )
+        patron = flask.request.patron
+
+        if patron:
+            pools = self.load_licensepools(library, identifier_type, identifier)
+            if isinstance(pools, ProblemDetail):
+                return pools
+
+            loan, pool = self.get_patron_loan(patron, pools)
+            fulfillment = None
+
+            if loan:
+                fulfillment = loan.fulfillment
+                hold = None
+            else:
+                hold, pool = self.get_patron_hold(patron, pools)
+
+            item = loan or hold
+            pool = pool or pools[0]
+
+            return LibraryLoanAndHoldAnnotator.single_item_feed(
+                self.circulation, item or pool, fulfillment=fulfillment
+            )
+        else:
+            annotator = self.manager.annotator(lane=None)
+
+            return AcquisitionFeed.single_entry(
+                self._db, work, annotator,
+                max_age=OPDSFeed.DEFAULT_MAX_AGE
+            )
 
     def related(self, identifier_type, identifier, novelist_api=None,
                 feed_class=AcquisitionFeed):
