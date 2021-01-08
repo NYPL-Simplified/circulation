@@ -369,7 +369,7 @@ class TestOPDSFeed(RouteTest):
 
     def test_qa_series_feed(self):
         url = '/feed/qa/series'
-        self.assert_authenticated_request_calls(url, self.controller.qa_feed)
+        self.assert_authenticated_request_calls(url, self.controller.qa_series_feed)
 
 
 class TestMARCRecord(RouteTest):

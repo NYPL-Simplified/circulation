@@ -60,6 +60,7 @@ from api.lanes import (
     CrawlableCollectionBasedLane,
     CrawlableFacets,
     CrawlableCustomListBasedLane,
+    HasSeriesFacets,
     JackpotFacets,
     JackpotWorkList,
     KnownOverviewFacetsWorkList,
@@ -642,7 +643,7 @@ class TestRecommendationLane(LaneTest):
 class TestHasSeriesFacets(DatabaseTest):
 
     def test_modify_search_filter(self):
-        facets = SeriesFacets()
+        facets = HasSeriesFacets.default(self._default_library)
         filter = Filter()
         eq_(None, filter.series)
         facets.modify_search_filter(filter)
