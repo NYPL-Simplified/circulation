@@ -43,7 +43,7 @@ from authenticator import (
     OAuthController,
 )
 from base_controller import BaseCirculationManagerController
-from circulation import CirculationAPI
+from circulation import CirculationAPI, FulfillmentInfo
 from circulation_exceptions import *
 from config import (
     Configuration,
@@ -1889,19 +1889,16 @@ class WorkController(CirculationManagerController):
                 return pools
 
             loan, pool = self.get_patron_loan(patron, pools)
-            fulfillment = None
+            hold = None
 
-            if loan:
-                fulfillment = loan.fulfillment
-                hold = None
-            else:
+            if not loan:
                 hold, pool = self.get_patron_hold(patron, pools)
 
             item = loan or hold
             pool = pool or pools[0]
 
             return LibraryLoanAndHoldAnnotator.single_item_feed(
-                self.circulation, item or pool, fulfillment=fulfillment
+                self.circulation, item or pool
             )
         else:
             annotator = self.manager.annotator(lane=None)
