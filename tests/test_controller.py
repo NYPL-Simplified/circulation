@@ -3018,6 +3018,97 @@ class TestWorkController(CirculationControllerTest):
         eq_(expect, response.data)
         eq_(OPDSFeed.ENTRY_TYPE, response.headers['Content-Type'])
 
+    def test_permalink_does_not_return_fulfillment_links_for_authenticated_patrons_without_loans(self):
+        with self.request_context_with_library("/"):
+            # We have two patrons.
+            patron_1 = self._patron()
+            patron_2 = self._patron()
+
+            # But the request was initiated by the first patron.
+            flask.request.patron = patron_1
+
+            identifier_type = Identifier.GUTENBERG_ID
+            identifier = '1234567890'
+            edition, _ = self._edition(
+                title='Test Book',
+                identifier_type=identifier_type,
+                identifier_id=identifier,
+                with_license_pool=True
+            )
+            work = self._work(
+                'Test Book',
+                presentation_edition=edition,
+                with_license_pool=True
+            )
+
+            # Only the second patron has a loan.
+            patron2_loan, _ = work.license_pools[0].loan_to(patron_2)
+
+            # We want to make sure that the feed doesn't contain any fulfillment links.
+            active_loans_by_work = {}
+            annotator = LibraryAnnotator(
+                None,
+                None,
+                self._default_library,
+                active_loans_by_work=active_loans_by_work
+            )
+            expect = AcquisitionFeed.single_entry(
+                self._db, work, annotator
+            ).data
+
+            response = self.manager.work_controller.permalink(identifier_type, identifier)
+
+        eq_(200, response.status_code)
+        eq_(expect, response.data)
+        eq_(OPDSFeed.ENTRY_TYPE, response.headers['Content-Type'])
+
+    def test_permalink_returns_fulfillment_links_for_authenticated_patrons_with_loans(self):
+        with self.request_context_with_library("/"):
+            # We have two patrons.
+            patron_1 = self._patron()
+            patron_2 = self._patron()
+
+            # But the request was initiated by the first patron.
+            flask.request.patron = patron_1
+
+            identifier_type = Identifier.GUTENBERG_ID
+            identifier = '1234567890'
+            edition, _ = self._edition(
+                title='Test Book',
+                identifier_type=identifier_type,
+                identifier_id=identifier,
+                with_license_pool=True
+            )
+            work = self._work(
+                'Test Book',
+                presentation_edition=edition,
+                with_license_pool=True
+            )
+
+            # Both patrons have loans.
+            patron1_loan, _ = work.license_pools[0].loan_to(patron_1)
+            patron2_loan, _ = work.license_pools[0].loan_to(patron_2)
+
+            # We want to make sure that only the first patron's loan will be in the feed.
+            active_loans_by_work = {
+                work: patron1_loan
+            }
+            annotator = LibraryAnnotator(
+                None,
+                None,
+                self._default_library,
+                active_loans_by_work=active_loans_by_work
+            )
+            expect = AcquisitionFeed.single_entry(
+                self._db, work, annotator
+            ).data
+
+            response = self.manager.work_controller.permalink(identifier_type, identifier)
+
+        eq_(200, response.status_code)
+        eq_(expect, response.data)
+        eq_(OPDSFeed.ENTRY_TYPE, response.headers['Content-Type'])
+
     def test_recommendations(self):
         # Test the ability to get a feed of works recommended by an
         # external service.
