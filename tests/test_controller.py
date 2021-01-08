@@ -4320,7 +4320,7 @@ class TestOPDSFeedController(CirculationControllerTest):
 
         # For the most part, we're verifying that the expected values
         # are passed in to _qa_feed.
-        eq_(AcquisitionFeed.groups, kwargs.pop('feed_method'))
+        eq_(AcquisitionFeed.groups, kwargs.pop('feed_factory'))
         eq_(JackpotFacets, kwargs.pop('facet_class'))
         eq_("qa_feed", kwargs.pop("controller_name"))
         eq_("QA test feed", kwargs.pop("feed_title"))
@@ -4362,7 +4362,7 @@ class TestOPDSFeedController(CirculationControllerTest):
 
         # Note that the feed_method is different from the one in qa_feed.
         # We want to generate an ungrouped feed rather than a grouped one.
-        eq_(AcquisitionFeed.page, kwargs.pop('feed_method'))
+        eq_(AcquisitionFeed.page, kwargs.pop('feed_factory'))
         eq_(HasSeriesFacets, kwargs.pop('facet_class'))
         eq_("qa_series_feed", kwargs.pop("controller_name"))
         eq_("QA series test feed", kwargs.pop("feed_title"))
