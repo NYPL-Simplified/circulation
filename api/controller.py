@@ -1152,8 +1152,24 @@ class OPDSFeedController(CirculationManagerController):
             facets=facets
         )
 
-    def _qa_feed(self, feed_method, feed_title, controller_name, facet_class,
+    def _qa_feed(self, feed_factory, feed_title, controller_name, facet_class,
                  worklist_factory):
+        """Create some kind of OPDS feed designed for consumption by an
+        automated QA process.
+
+        :param feed_factory: This function will be called to create the feed.
+           It must either be AcquisitionFeed.groups or Acquisition.page,
+           or it must take the same arguments as those methods.
+        :param feed_title: String title of the feed.
+        :param controller_name: Controller name to use when generating
+           the URL to the feed.
+        :param facet_class: Faceting class to load (through
+            load_facets_from_request).
+        :param worklist_factory: Function that takes (Library, Facets)
+            and returns a Worklist configured to generate the feed.
+        :return: A ProblemDetail if there's a problem loading the faceting
+            object; otherwise the return value of `feed_factory`.
+        ""
         library = flask.request.library
         search_engine = self.search_engine
         if isinstance(search_engine, ProblemDetail):
@@ -1177,7 +1193,7 @@ class OPDSFeedController(CirculationManagerController):
         # we're choosing titles for specific purposes, there's no
         # reason to put more than a single item in each group.
         pagination = Pagination(size=1)
-        return feed_method(
+        return feed_factory(
             _db=self._db, title=feed_title, url=url, pagination=pagination,
             worklist=worklist, annotator=annotator, search_engine=search_engine,
             facets=facets, max_age=CachedFeed.IGNORE_CACHE
@@ -1187,12 +1203,15 @@ class OPDSFeedController(CirculationManagerController):
         """Create an OPDS feed containing the information necessary to
         run a full set of integration tests against this server and
         the vendors it relies on.
+
+        :param feed_class: Class to substitute for AcquisitionFeed during
+            tests.
         """
         def factory(library, facets):
             return JackpotWorkList(library, facets)
 
         return self._qa_feed(
-            feed_method=feed_class.groups,
+            feed_factory=feed_class.groups,
             feed_title="QA test feed",
             controller_name="qa_feed",
             facet_class=JackpotFacets,
@@ -1202,6 +1221,9 @@ class OPDSFeedController(CirculationManagerController):
     def qa_series_feed(self, feed_class=AcquisitionFeed):
         """Create an OPDS feed containing books that belong to _some_
         series, without regard to _which_ series.
+
+        :param feed_class: Class to substitute for AcquisitionFeed during
+            tests.
         """
         def factory(library, facets):
             wl = WorkList()
@@ -1209,7 +1231,7 @@ class OPDSFeedController(CirculationManagerController):
             return wl
 
         return self._qa_feed(
-            feed_method=feed_class.page,
+            feed_factory=feed_class.page,
             feed_title="QA series test feed",
             controller_name="qa_series_feed",
             facet_class=HasSeriesFacets,
