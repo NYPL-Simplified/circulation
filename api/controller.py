@@ -1169,7 +1169,7 @@ class OPDSFeedController(CirculationManagerController):
             and returns a Worklist configured to generate the feed.
         :return: A ProblemDetail if there's a problem loading the faceting
             object; otherwise the return value of `feed_factory`.
-        ""
+        """
         library = flask.request.library
         search_engine = self.search_engine
         if isinstance(search_engine, ProblemDetail):
