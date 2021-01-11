@@ -1,6 +1,9 @@
 import datetime
 import json
 
+from nose.tools import eq_
+from parameterized import parameterized
+
 from api.authenticator import BaseSAMLAuthenticationProvider
 from api.proquest.credential import ProQuestCredentialManager, ProQuestCredentialType
 from api.saml.metadata.model import (
@@ -10,13 +13,8 @@ from api.saml.metadata.model import (
     SAMLSubject,
     SAMLSubjectJSONEncoder,
 )
-from nose.tools import eq_
-from parameterized import parameterized
-
 from core.model import Credential, DataSource
 from core.testing import DatabaseTest
-from nose.tools import eq_
-from parameterized import parameterized
 from tests.saml import fixtures
 
 

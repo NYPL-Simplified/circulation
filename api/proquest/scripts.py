@@ -2,7 +2,6 @@ import logging
 
 from api.proquest.client import ProQuestAPIClientFactory
 from api.proquest.importer import ProQuestOPDS2ImportMonitor
-
 from core.scripts import OPDSImportScript
 
 
@@ -13,6 +12,18 @@ class ProQuestOPDS2ImportScript(OPDSImportScript):
         super(ProQuestOPDS2ImportScript, self).__init__(*args, **kwargs)
 
         self._logger = logging.getLogger(__name__)
+
+    @classmethod
+    def arg_parser(cls):
+        parser = OPDSImportScript.arg_parser()
+        parser.add_argument(
+            "--process-removals",
+            help="Remove from the Circulation Manager's catalog items that are no longer present in the ProQuest feed",
+            dest="process_removals",
+            action="store_true",
+        )
+
+        return parser
 
     def run_monitor(self, collection, force=None):
         """Run the monitor for the specified collection.
@@ -32,6 +43,7 @@ class ProQuestOPDS2ImportScript(OPDSImportScript):
             )
         )
 
+        parsed = self.parse_command_line(self._db)
         client_factory = ProQuestAPIClientFactory()
         monitor = self.monitor_class(
             client_factory,
@@ -39,6 +51,7 @@ class ProQuestOPDS2ImportScript(OPDSImportScript):
             collection,
             import_class=self.importer_class,
             force_reimport=force,
+            process_removals=parsed.process_removals,
         )
 
         monitor.run()

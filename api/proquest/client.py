@@ -2,6 +2,9 @@ import logging
 from contextlib import contextmanager
 
 import requests
+from flask_babel import lazy_gettext as _
+from requests import HTTPError, Request
+
 from core.exceptions import BaseError
 from core.model import DeliveryMechanism
 from core.model.configuration import (
@@ -13,8 +16,6 @@ from core.model.configuration import (
 )
 from core.util import is_session
 from core.util.string_helpers import is_string
-from flask_babel import lazy_gettext as _
-from requests import HTTPError, Request
 
 
 class ProQuestAPIClientConfiguration(ConfigurationGrouping):

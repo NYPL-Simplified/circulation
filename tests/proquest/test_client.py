@@ -1,6 +1,11 @@
 import json
 
 import requests_mock
+from mock import MagicMock, create_autospec
+from nose.tools import assert_raises, eq_
+from parameterized import parameterized
+from requests import HTTPError
+
 from api.proquest.client import (
     ProQuestAPIClient,
     ProQuestAPIClientConfiguration,
@@ -9,11 +14,6 @@ from api.proquest.client import (
     ProQuestBook,
 )
 from api.util.url import URLUtility
-from mock import MagicMock, create_autospec
-from nose.tools import assert_raises, eq_
-from parameterized import parameterized
-from requests import HTTPError
-
 from core.model import DeliveryMechanism, ExternalIntegration
 from core.model.configuration import (
     ConfigurationFactory,
@@ -21,10 +21,6 @@ from core.model.configuration import (
     HasExternalIntegration,
 )
 from core.testing import DatabaseTest
-from mock import MagicMock, create_autospec
-from nose.tools import assert_raises, eq_
-from parameterized import parameterized
-from requests import HTTPError
 
 BOOKS_CATALOG_SERVICE_URL = "https://proquest.com/lib/nyulibrary-ebooks/BooksCatalog"
 PARTNER_AUTH_TOKEN_SERVICE_URL = (
