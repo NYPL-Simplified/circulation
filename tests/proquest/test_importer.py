@@ -1,6 +1,13 @@
 import datetime
 import json
 
+from flask import Response
+from freezegun import freeze_time
+from mock import MagicMock, call, create_autospec, patch
+from nose.tools import assert_raises, eq_
+from parameterized import parameterized
+from requests import HTTPError
+
 from api.authenticator import BaseSAMLAuthenticationProvider
 from api.circulation_exceptions import CannotFulfill, CannotLoan
 from api.proquest.client import (
@@ -39,12 +46,6 @@ from core.model.configuration import (
     HasExternalIntegration,
 )
 from core.testing import DatabaseTest
-from flask import Response
-from freezegun import freeze_time
-from mock import MagicMock, call, create_autospec, patch
-from nose.tools import assert_raises, eq_
-from parameterized import parameterized
-from requests import HTTPError
 from tests.proquest import fixtures
 
 
@@ -960,22 +961,22 @@ class TestProQuestOPDS2Importer(DatabaseTest):
 
         eq_(
             True,
-            fixtures.PROQUEST_RAW_PUBLICATION_ID in publication_metadata_dictionary,
+            fixtures.PROQUEST_RAW_PUBLICATION_1_ID in publication_metadata_dictionary,
         )
         publication_metadata = publication_metadata_dictionary[
-            fixtures.PROQUEST_RAW_PUBLICATION_ID
+            fixtures.PROQUEST_RAW_PUBLICATION_1_ID
         ]
 
         eq_(1, len(publication_metadata.links))
 
         [full_cover_link] = publication_metadata.links
         eq_(True, isinstance(full_cover_link, LinkData))
-        eq_(fixtures.PROQUEST_RAW_PUBLICATION_COVER_HREF, full_cover_link.href)
+        eq_(fixtures.PROQUEST_RAW_PUBLICATION_1_COVER_HREF, full_cover_link.href)
         eq_(Hyperlink.IMAGE, full_cover_link.rel)
 
         thumbnail_cover_link = full_cover_link.thumbnail
         eq_(True, isinstance(thumbnail_cover_link, LinkData))
-        eq_(fixtures.PROQUEST_RAW_PUBLICATION_COVER_HREF, thumbnail_cover_link.href)
+        eq_(fixtures.PROQUEST_RAW_PUBLICATION_1_COVER_HREF, thumbnail_cover_link.href)
         eq_(Hyperlink.THUMBNAIL_IMAGE, thumbnail_cover_link.rel)
 
 
@@ -1023,14 +1024,13 @@ class TestProQuestOPDS2ImportMonitor(DatabaseTest):
         """
         # Arrange
         client = create_autospec(spec=ProQuestAPIClient)
-        client.download_all_feed_pages = MagicMock(return_value=feeds)
-
         client_factory = create_autospec(spec=ProQuestAPIClientFactory)
         client_factory.create = MagicMock(return_value=client)
 
         monitor = ProQuestOPDS2ImportMonitor(
             client_factory, self._db, self._proquest_collection, ProQuestOPDS2Importer
         )
+        monitor._get_feeds = MagicMock(return_value=zip([None] * len(feeds), feeds))
         monitor.import_one_feed = MagicMock(return_value=([], []))
 
         # Act
@@ -1106,7 +1106,6 @@ class TestProQuestOPDS2ImportMonitor(DatabaseTest):
         )
 
         client = create_autospec(spec=ProQuestAPIClient)
-        client.download_all_feed_pages = MagicMock(return_value=feeds)
 
         client_factory = create_autospec(spec=ProQuestAPIClientFactory)
         client_factory.create = MagicMock(return_value=client)
@@ -1114,6 +1113,7 @@ class TestProQuestOPDS2ImportMonitor(DatabaseTest):
         monitor = ProQuestOPDS2ImportMonitor(
             client_factory, self._db, self._proquest_collection, ProQuestOPDS2Importer
         )
+        monitor._get_feeds = MagicMock(return_value=zip([None] * len(feeds), feeds))
         monitor.import_one_feed = MagicMock(return_value=([], []))
 
         # Act

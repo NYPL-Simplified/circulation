@@ -66,8 +66,11 @@ PROQUEST_FEED_PAGE_2 = OPDS2Feed(
     ),
 )
 
-PROQUEST_RAW_PUBLICATION_ID = "12345"
-PROQUEST_RAW_PUBLICATION_COVER_HREF = "http://proquest.com/covers/12345-m.jpg"
+PROQUEST_RAW_PUBLICATION_1_ID = "12345"
+PROQUEST_RAW_PUBLICATION_1_COVER_HREF = "http://proquest.com/covers/12345-m.jpg"
+
+PROQUEST_RAW_PUBLICATION_2_ID = "12346"
+PROQUEST_RAW_PUBLICATION_2_COVER_HREF = "http://proquest.com/covers/12346-m.jpg"
 
 PROQUEST_RAW_FEED = """{{
   "metadata": {{
@@ -107,7 +110,7 @@ PROQUEST_RAW_FEED = """{{
       "metadata": {{
         "identifier": "urn:proquest.com/document-id/{0}",
         "@type": "http://schema.org/Book",
-        "title": "Test Book",
+        "title": "Test Book 1",
         "modified": "2020-11-19T08:00:00.000Z",
         "published": "2020-01-15T08:06:00.000Z",
         "language": [
@@ -155,9 +158,217 @@ PROQUEST_RAW_FEED = """{{
         "alternate": [],
         "children": []
       }}]
+    }},
+    {{
+      "metadata": {{
+        "identifier": "urn:proquest.com/document-id/{2}",
+        "@type": "http://schema.org/Book",
+        "title": "Test Book 2",
+        "modified": "2020-11-19T08:00:00.000Z",
+        "published": "2020-01-15T08:06:00.000Z",
+        "language": [
+          "eng"
+        ],
+        "author": [{{
+          "name": "Test, Author",
+          "links": [{{
+            "href": "https://catalog.feedbooks.com/catalog/index.json",
+            "type": "application/opds+json",
+            "alternate": [],
+            "children": []
+          }}]
+        }}],
+        "publisher": {{
+          "name": "Test Publisher",
+          "links": []
+        }},
+        "subject": [],
+        "readingProgression": "ltr"
+      }},
+      "links": [{{
+        "href": "https://proquest.com/lib/detail.action?docID={2}",
+        "type": "application/vnd.adobe.adept+xml",
+        "rel": "http://opds-spec.org/acquisition",
+        "properties": {{
+          "indirectAcquisition": [{{
+            "type": "application/epub+zip",
+            "alternate": [],
+            "children": []
+          }}]
+        }},
+        "language": [
+          "eng"
+        ],
+        "alternate": [],
+        "children": []
+      }}],
+      "images": [{{
+        "href": "{3}",
+        "type": "image/jpeg",
+        "language": [
+          "eng"
+        ],
+        "alternate": [],
+        "children": []
+      }}]
     }}]
   }}]
 }}
 """.format(
-    PROQUEST_RAW_PUBLICATION_ID, PROQUEST_RAW_PUBLICATION_COVER_HREF
+    PROQUEST_RAW_PUBLICATION_1_ID,
+    PROQUEST_RAW_PUBLICATION_1_COVER_HREF,
+    PROQUEST_RAW_PUBLICATION_2_ID,
+    PROQUEST_RAW_PUBLICATION_2_COVER_HREF,
+)
+
+PROQUEST_RAW_PUBLICATION_3_ID = "12347"
+PROQUEST_RAW_PUBLICATION_3_COVER_HREF = "http://proquest.com/covers/12347-m.jpg"
+
+PROQUEST_RAW_FEED_WITH_A_REMOVED_PUBLICATION = """{{
+  "metadata": {{
+    "title": "Test Feed",
+    "itemsPerPage": 1,
+    "numberOfItems": 1
+  }},
+  "links": [{{
+    "href": "https://drafts.opds.io/schema/feed.schema.json",
+    "type": "application/opds+json",
+    "rel": "self",
+    "alternate": [],
+    "children": []
+  }}],
+  "publications": [],
+  "navigation": [{{
+    "href": "https://drafts.opds.io/schema/feed.schema.json",
+    "type": "application/opds+json",
+    "title": "Test",
+    "rel": "self",
+    "alternate": [],
+    "children": []
+  }}],
+  "facets": [],
+  "groups": [{{
+    "metadata": {{
+      "title": "Test Group"
+    }},
+    "links": [{{
+      "href": "https://drafts.opds.io/schema/feed.schema.json",
+      "type": "application/opds+json",
+      "rel": "self",
+      "alternate": [],
+      "children": []
+    }}],
+    "publications": [{{
+      "metadata": {{
+        "identifier": "urn:proquest.com/document-id/{0}",
+        "@type": "http://schema.org/Book",
+        "title": "Test Book 1",
+        "modified": "2020-11-19T08:00:00.000Z",
+        "published": "2020-01-15T08:06:00.000Z",
+        "language": [
+          "eng"
+        ],
+        "author": [{{
+          "name": "Test, Author",
+          "links": [{{
+            "href": "https://catalog.feedbooks.com/catalog/index.json",
+            "type": "application/opds+json",
+            "alternate": [],
+            "children": []
+          }}]
+        }}],
+        "publisher": {{
+          "name": "Test Publisher",
+          "links": []
+        }},
+        "subject": [],
+        "readingProgression": "ltr"
+      }},
+      "links": [{{
+        "href": "https://proquest.com/lib/detail.action?docID={0}",
+        "type": "application/vnd.adobe.adept+xml",
+        "rel": "http://opds-spec.org/acquisition",
+        "properties": {{
+          "indirectAcquisition": [{{
+            "type": "application/epub+zip",
+            "alternate": [],
+            "children": []
+          }}]
+        }},
+        "language": [
+          "eng"
+        ],
+        "alternate": [],
+        "children": []
+      }}],
+      "images": [{{
+        "href": "{1}",
+        "type": "image/jpeg",
+        "language": [
+          "eng"
+        ],
+        "alternate": [],
+        "children": []
+      }}]
+    }},
+    {{
+      "metadata": {{
+        "identifier": "urn:proquest.com/document-id/{2}",
+        "@type": "http://schema.org/Book",
+        "title": "Test Book 3",
+        "modified": "2020-11-19T08:00:00.000Z",
+        "published": "2020-01-15T08:06:00.000Z",
+        "language": [
+          "eng"
+        ],
+        "author": [{{
+          "name": "Test, Author",
+          "links": [{{
+            "href": "https://catalog.feedbooks.com/catalog/index.json",
+            "type": "application/opds+json",
+            "alternate": [],
+            "children": []
+          }}]
+        }}],
+        "publisher": {{
+          "name": "Test Publisher",
+          "links": []
+        }},
+        "subject": [],
+        "readingProgression": "ltr"
+      }},
+      "links": [{{
+        "href": "https://proquest.com/lib/detail.action?docID={2}",
+        "type": "application/vnd.adobe.adept+xml",
+        "rel": "http://opds-spec.org/acquisition",
+        "properties": {{
+          "indirectAcquisition": [{{
+            "type": "application/epub+zip",
+            "alternate": [],
+            "children": []
+          }}]
+        }},
+        "language": [
+          "eng"
+        ],
+        "alternate": [],
+        "children": []
+      }}],
+      "images": [{{
+        "href": "{3}",
+        "type": "image/jpeg",
+        "language": [
+          "eng"
+        ],
+        "alternate": [],
+        "children": []
+      }}]
+    }}]
+  }}]
+}}
+""".format(
+    PROQUEST_RAW_PUBLICATION_1_ID,
+    PROQUEST_RAW_PUBLICATION_1_COVER_HREF,
+    PROQUEST_RAW_PUBLICATION_3_ID,
+    PROQUEST_RAW_PUBLICATION_3_COVER_HREF,
 )
