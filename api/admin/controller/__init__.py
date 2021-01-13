@@ -88,6 +88,7 @@ from core.selftest import HasSelfTests
 from core.util.flask_util import OPDSFeedResponse
 from core.util.http import HTTP
 from core.util.problem_detail import ProblemDetail
+from api.proquest.importer import ProQuestOPDS2Importer
 
 
 def setup_admin_controllers(manager):
@@ -1284,20 +1285,22 @@ class SettingsController(AdminCirculationManagerController):
 
     NO_MIRROR_INTEGRATION = u"NO_MIRROR"
 
-    PROVIDER_APIS = [OPDSImporter,
-                     OPDSForDistributorsAPI,
-                     OPDS2Importer,
-                     OverdriveAPI,
-                     OdiloAPI,
-                     BibliothecaAPI,
-                     Axis360API,
-                     RBDigitalAPI,
-                     EnkiAPI,
-                     ODLAPI,
-                     SharedODLAPI,
-                     FeedbooksOPDSImporter,
-                     LCPAPI
-                     ]
+    PROVIDER_APIS = [
+        OPDSImporter,
+        OPDSForDistributorsAPI,
+        OPDS2Importer,
+        ProQuestOPDS2Importer,
+        OverdriveAPI,
+        OdiloAPI,
+        BibliothecaAPI,
+        Axis360API,
+        RBDigitalAPI,
+        EnkiAPI,
+        ODLAPI,
+        SharedODLAPI,
+        FeedbooksOPDSImporter,
+        LCPAPI
+    ]
 
     @classmethod
     def _get_integration_protocols(cls, provider_apis, protocol_name_attr="__module__"):
@@ -1393,7 +1396,7 @@ class SettingsController(AdminCirculationManagerController):
                     else:
                         value = self.NO_MIRROR_INTEGRATION
                 else:
-                    if setting.get("type") == "list":
+                    if setting.get("type") in ("list", "menu"):
                         value = ConfigurationSetting.for_externalintegration(
                             key, service).json_value
                     else:
@@ -1415,28 +1418,75 @@ class SettingsController(AdminCirculationManagerController):
             services.append(service_info)
         return services
 
+    @staticmethod
+    def _get_menu_values(setting_key, form):
+        """circulation-web returns "menu" values in a different format not compatible with werkzeug.MultiDict semantics:
+            {setting_key}_{menu} = {value_in_the_dropdown_box}
+            {setting_key}_{setting_value1} = {setting_label1}
+            {setting_key}_{setting_value2} = {setting_label2}
+            ...
+            {setting_key}_{setting_valueN} = {setting_labelN}
+
+        It means we can't use werkzeug.MultiDict.getlist method and have to extract them manually.
+
+        :param setting_key: Setting's key
+        :type setting_key: str
+
+        :param form: Multi-dictionary containing input values submitted by the user
+            and sent back to CM by circulation-web
+        :type form: werkzeug.MultiDict
+
+        :return: List of "menu" values
+        :rtype: List[str]
+        """
+        values = []
+
+        for form_item_key in form.keys():
+            if setting_key in form_item_key:
+                value = form_item_key.replace(setting_key, '').lstrip('_')
+
+                if value != 'menu':
+                    values.append(value)
+
+        return values
+
     def _set_integration_setting(self, integration, setting):
-        key = setting.get("key")
-        if setting.get("type") == "list" and not setting.get("options"):
-            value = [item for item in flask.request.form.getlist(key) if item]
+        setting_key = setting.get("key")
+        setting_type = setting.get("type")
+
+        if setting_type == "list" and not setting.get("options"):
+            value = [item for item in flask.request.form.getlist(setting_key) if item]
             if value:
                 value = json.dumps(value)
+        elif setting_type == 'menu':
+            value = self._get_menu_values(setting_key, flask.request.form)
         else:
-            value = flask.request.form.get(key)
+            value = flask.request.form.get(setting_key)
+
         if value and setting.get("options"):
             # This setting can only take on values that are in its
             # list of options.
-            allowed = [option.get("key") for option in setting.get("options")]
-            if value not in allowed:
-                return INVALID_CONFIGURATION_OPTION.detailed(_(
-                    "The configuration value for %(setting)s is invalid.",
-                    setting=setting.get("label"),
-                ))
+            allowed_values = [option.get("key") for option in setting.get("options")]
+            submitted_values = value
+
+            if not isinstance(submitted_values, list):
+                submitted_values = [submitted_values]
+
+            for submitted_value in submitted_values:
+                if submitted_value not in allowed_values:
+                    return INVALID_CONFIGURATION_OPTION.detailed(_(
+                        "The configuration value for %(setting)s is invalid.",
+                        setting=setting.get("label"),
+                    ))
         if not value and setting.get("required") and not "default" in setting.keys():
             return INCOMPLETE_CONFIGURATION.detailed(
                 _("The configuration is missing a required setting: %(setting)s",
                   setting=setting.get("label")))
-        integration.setting(key).value = value
+
+        if isinstance(value, list):
+            value = json.dumps(value)
+
+        integration.setting(setting_key).value = value
 
     def _set_integration_library(self, integration, library_info, protocol):
         library = get_one(self._db, Library, short_name=library_info.get("short_name"))

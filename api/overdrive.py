@@ -991,8 +991,10 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
             )
             book = dict(id=book_id)
         else:
-            book_id = book['id']
             circulation_link = book['availability_link']
+            # Make sure we use v2 of the availability API,
+            # even if Overdrive gave us a link to v1.
+            circulation_link = self.make_link_safe(circulation_link)
         return book, self.get(circulation_link, {})
 
     def update_formats(self, licensepool):
@@ -1037,13 +1039,18 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
                 exc_info=e
             )
 
-        if status_code != 200:
+        # TODO: If you ask for a book that you know about, and
+        # Overdrive says the book doesn't exist in the collection,
+        # then it's appropriate to update an existing
+        # LicensePool. However we shouldn't be creating a *brand new*
+        # LicensePool for a book Overdrive says isn't in the
+        # collection.
+        if status_code not in (200, 404):
             self.log.error(
                 "Could not get availability for %s: status code %s",
                 book_id, status_code
             )
             return None, None, False
-
         if isinstance(content, basestring):
             content = json.loads(content)
         book.update(content)
@@ -1088,7 +1095,8 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
         pool's presentation_edition, promote it to presentation
         status.
         """
-        circulation = OverdriveRepresentationExtractor.book_info_to_circulation(
+        extractor = OverdriveRepresentationExtractor(self)
+        circulation = extractor.book_info_to_circulation(
             book
         )
         license_pool, circulation_changed = circulation.apply(

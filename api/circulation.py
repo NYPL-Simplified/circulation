@@ -409,12 +409,12 @@ class CirculationAPI(object):
                 api = None
                 try:
                     api = api_map[collection.protocol](_db, collection)
-                except CannotLoadConfiguration, e:
-                    self.log.error(
-                        "Error loading configuration for %s: %s",
-                        collection.name, e.message
+                except CannotLoadConfiguration as exception:
+                    self.log.exception(
+                        "Error loading configuration for {0}: {1}".format(
+                            collection.name, str(exception))
                     )
-                    self.initialization_exceptions[collection.id] = e
+                    self.initialization_exceptions[collection.id] = exception
                 if api:
                     self.api_for_collection[collection.id] = api
                     self.collection_ids_for_sync.append(collection.id)
@@ -437,6 +437,7 @@ class CirculationAPI(object):
         from opds_for_distributors import OPDSForDistributorsAPI
         from odl import ODLAPI, SharedODLAPI
         from api.lcp.collection import LCPAPI
+        from api.proquest.importer import ProQuestOPDS2Importer
 
         return {
             ExternalIntegration.OVERDRIVE : OverdriveAPI,
@@ -448,7 +449,8 @@ class CirculationAPI(object):
             OPDSForDistributorsAPI.NAME: OPDSForDistributorsAPI,
             ODLAPI.NAME: ODLAPI,
             SharedODLAPI.NAME: SharedODLAPI,
-            LCPAPI.NAME: LCPAPI
+            LCPAPI.NAME: LCPAPI,
+            ProQuestOPDS2Importer.NAME: ProQuestOPDS2Importer
         }
 
     def api_for_license_pool(self, licensepool):
@@ -694,12 +696,12 @@ class CirculationAPI(object):
                 # copies available, update availability information
                 # immediately.
                 api.update_availability(licensepool)
-        except NoLicenses, e:
+        except NoLicenses:
             # Since the patron incorrectly believed there were
             # licenses available, update availability information
             # immediately.
             api.update_availability(licensepool)
-            raise e
+            raise
 
         if loan_info:
             # We successfuly secured a loan.  Now create it in our

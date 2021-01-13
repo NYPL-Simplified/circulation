@@ -14,13 +14,13 @@ from api.saml.controller import (
     SAML_INVALID_RESPONSE,
     SAMLController,
 )
-from api.saml.metadata import (
-    IdentityProviderMetadata,
-    NameIDFormat,
-    Organization,
-    Service,
-    ServiceProviderMetadata,
-    UIInfo,
+from api.saml.metadata.model import (
+    SAMLIdentityProviderMetadata,
+    SAMLNameIDFormat,
+    SAMLOrganization,
+    SAMLService,
+    SAMLServiceProviderMetadata,
+    SAMLUIInfo,
 )
 from api.saml.provider import SAML_INVALID_SUBJECT, SAMLWebSSOAuthenticationProvider
 from core.model import Credential
@@ -28,29 +28,29 @@ from core.util.problem_detail import ProblemDetail
 from tests.saml import fixtures
 from tests.saml.controller_test import ControllerTest
 
-SERVICE_PROVIDER = ServiceProviderMetadata(
+SERVICE_PROVIDER = SAMLServiceProviderMetadata(
     fixtures.SP_ENTITY_ID,
-    UIInfo(),
-    Organization(),
-    NameIDFormat.UNSPECIFIED.value,
-    Service(fixtures.SP_ACS_URL, fixtures.SP_ACS_BINDING),
+    SAMLUIInfo(),
+    SAMLOrganization(),
+    SAMLNameIDFormat.UNSPECIFIED.value,
+    SAMLService(fixtures.SP_ACS_URL, fixtures.SP_ACS_BINDING),
 )
 
 IDENTITY_PROVIDERS = [
-    IdentityProviderMetadata(
+    SAMLIdentityProviderMetadata(
         fixtures.IDP_1_ENTITY_ID,
-        UIInfo(),
-        Organization(),
-        NameIDFormat.UNSPECIFIED.value,
-        Service(fixtures.IDP_1_SSO_URL, fixtures.IDP_1_SSO_BINDING),
+        SAMLUIInfo(),
+        SAMLOrganization(),
+        SAMLNameIDFormat.UNSPECIFIED.value,
+        SAMLService(fixtures.IDP_1_SSO_URL, fixtures.IDP_1_SSO_BINDING),
         signing_certificates=[fixtures.SIGNING_CERTIFICATE],
     ),
-    IdentityProviderMetadata(
+    SAMLIdentityProviderMetadata(
         fixtures.IDP_2_ENTITY_ID,
-        UIInfo(),
-        Organization(),
-        NameIDFormat.UNSPECIFIED.value,
-        Service(fixtures.IDP_2_SSO_URL, fixtures.IDP_2_SSO_BINDING),
+        SAMLUIInfo(),
+        SAMLOrganization(),
+        SAMLNameIDFormat.UNSPECIFIED.value,
+        SAMLService(fixtures.IDP_2_SSO_URL, fixtures.IDP_2_SSO_BINDING),
     ),
 ]
 

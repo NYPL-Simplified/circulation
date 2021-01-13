@@ -23,7 +23,7 @@ from api.annotations import AnnotationWriter
 from api.announcements import Announcements
 from api.custom_patron_catalog import CustomPatronCatalog
 from api.opds import LibraryAnnotator
-from api.saml.configuration import SAMLConfiguration
+from api.saml.configuration.model import SAMLSettings
 from config import (
     Configuration,
     CannotLoadConfiguration,
@@ -2653,57 +2653,6 @@ class BaseSAMLAuthenticationProvider(AuthenticationProvider, BearerTokenSigner):
     TOKEN_TYPE = "SAML 2.0 token"
     TOKEN_DATA_SOURCE_NAME = 'SAML 2.0'
 
-    SETTINGS = [
-       {
-           'key': SAMLConfiguration.SP_XML_METADATA,
-           'label': _('Service Provider\'s XML metadata'),
-           'type': 'textarea',
-           'description': _('SAML metadata of the Circulation Manager\'s Service Provider in an XML format. '
-                            'MUST contain exactly one SPSSODescriptor tag with at least one '
-                            'AssertionConsumerService tag with Binding attribute set to '
-                            'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST'),
-           'category': 'SP',
-           'required': True
-       },
-       {
-           'key': SAMLConfiguration.SP_PRIVATE_KEY,
-           'label': _('Service Provider\'s private key'),
-           'type': 'textarea',
-           'description': _('Private key used for encrypting SAML requests'),
-           'category': 'SP',
-           'required': False
-       },
-       {
-           'key': SAMLConfiguration.STRICT,
-           'label': _('Service Provider\'s strict mode'),
-           'type': 'number',
-           'description': _(
-               'If strict is True, then the Python Toolkit will reject unsigned or unencrypted messages '
-               'if it expects them to be signed or encrypted. Also it will reject the messages '
-               'if the SAML standard is not strictly followed. Destination, NameId, Conditions ... '
-               'are validated too.'),
-           'category': 'SP',
-           'required': False
-       },
-       {
-           'key': SAMLConfiguration.DEBUG,
-           'label': _('Service Provider\'s debug mode'),
-           'type': 'number',
-           'description': _('Enable debug mode (outputs errors)'),
-           'category': 'SP',
-           'required': False
-       },
-       {
-           'key': SAMLConfiguration.IDP_XML_METADATA,
-           'label': _('Identity Provider\'s XML metadata'),
-           'type': 'textarea',
-           'description': _('SAML metadata of Identity Providers in an XML format. '
-                            'MAY contain multiple IDPSSODescriptor tags but each of them MUST contain '
-                            'at least one SingleSignOnService tag with Binding attribute set to '
-                            'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect'),
-           'category': 'IDP',
-           'required': True
-       }
-    ] + AuthenticationProvider.SETTINGS
+    SETTINGS = SAMLSettings()
 
     LIBRARY_SETTINGS = []

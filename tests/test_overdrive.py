@@ -1126,9 +1126,8 @@ class TestOverdriveAPI(OverdriveAPITest):
         eq_(Edition.BOOK_MEDIUM, edition.medium)
 
     def test_update_availability(self):
-        """Test the Overdrive implementation of the update_availability
-        method defined by the CirculationAPI interface.
-        """
+        # Test the Overdrive implementation of the update_availability
+        # method defined by the CirculationAPI interface.
 
         # Create a LicensePool that needs updating.
         edition, pool = self._edition(
@@ -1169,7 +1168,7 @@ class TestOverdriveAPI(OverdriveAPITest):
         # The availability information has been updated, as has the
         # date the availability information was last checked.
         eq_(5, pool.licenses_owned)
-        eq_(5, pool.licenses_available)
+        eq_(1, pool.licenses_available)
         eq_(0, pool.patrons_in_hold_queue)
         assert pool.last_checked is not None
 
@@ -1179,12 +1178,42 @@ class TestOverdriveAPI(OverdriveAPITest):
         """
         self.api.queue_response(200, content="foo")
 
+        # If passed an identifier, we'll use the endpoint() method to
+        # construct a v2 availability URL and make a request to
+        # it.
         book, (status_code, headers, content) = self.api.circulation_lookup(
-            "an identifier"
+            "an-identifier"
         )
-        eq_(dict(id="an identifier"), book)
+        eq_(dict(id="an-identifier"), book)
         eq_(200, status_code)
         eq_("foo", content)
+
+        request_url, ignore1, ignore2 = self.api.requests.pop()
+        expect_url = self.api.endpoint(
+                self.api.AVAILABILITY_ENDPOINT,
+                collection_token=self.api.collection_token,
+                product_id="an-identifier"
+            )
+        eq_(request_url, expect_url)
+        assert "/v2/collections" in request_url
+
+        # If passed the result of an API call that includes an
+        # availability link, we'll clean up the URL in the link and
+        # use it to get our availability data.
+        self.api.queue_response(200, content="foo")
+        v1 = "https://qa.api.overdrive.com/v1/collections/abcde/products/12345/availability"
+        v2 = "https://qa.api.overdrive.com/v2/collections/abcde/products/12345/availability"
+        previous_result = dict(availability_link=v1)
+        book, (status_code, headers, content) = self.api.circulation_lookup(
+            previous_result
+        )
+        eq_(previous_result, book)
+        eq_(200, status_code)
+        eq_("foo", content)
+        request_url, ignore1, ignore2 = self.api.requests.pop()
+
+        # The v1 URL was converted to a v2 url.
+        eq_(v2, request_url)
 
     def test_update_licensepool_error(self):
         # Create an identifier.
@@ -1198,6 +1227,28 @@ class TestOverdriveAPI(OverdriveAPITest):
         book = dict(id=identifier.identifier, availability_link=self._url)
         pool, was_new, changed = self.api.update_licensepool(book)
         eq_(None, pool)
+
+    def test_update_licensepool_not_found(self):
+        # If the Overdrive API says a book is not found in the
+        # collection, that's treated as useful information, not an error.
+        # Create an identifier.
+        identifier = self._identifier(
+            identifier_type=Identifier.OVERDRIVE_ID
+        )
+        ignore, not_found = self.sample_json(
+            "overdrive_availability_not_found.json"
+        )
+
+        # Queue the 'not found' response twice -- once for the circulation
+        # lookup and once for the metadata lookup.
+        self.api.queue_response(404, content=not_found)
+        self.api.queue_response(404, content=not_found)
+
+        book = dict(id=identifier.identifier, availability_link=self._url)
+        pool, was_new, changed = self.api.update_licensepool(book)
+        eq_(0, pool.licenses_owned)
+        eq_(0, pool.licenses_available)
+        eq_(0, pool.patrons_in_hold_queue)
 
     def test_update_licensepool_provides_bibliographic_coverage(self):
         # Create an identifier.
@@ -1273,7 +1324,7 @@ class TestOverdriveAPI(OverdriveAPITest):
 
         # Make it look like the availability information is for the
         # newly created Identifier.
-        raw['id'] = identifier.identifier
+        raw['reserveId'] = identifier.identifier
 
         pool, was_new = LicensePool.for_foreign_id(
             self._db, DataSource.OVERDRIVE,

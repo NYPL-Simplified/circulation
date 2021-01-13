@@ -12,5 +12,5 @@ class ControllerTest(BaseControllerTest):
 
         self._integration = self._external_integration(
             protocol=SAMLWebSSOAuthenticationProvider.NAME,
-            goal=ExternalIntegration.PATRON_AUTH_GOAL
+            goal=ExternalIntegration.PATRON_AUTH_GOAL,
         )

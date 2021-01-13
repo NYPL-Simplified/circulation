@@ -12,7 +12,7 @@ RUN go get -v github.com/readium/readium-lcp-server/lcpencrypt
 ## Final image
 ###############################################################################
 
-FROM phusion/baseimage:latest-amd64
+FROM phusion/baseimage:bionic-1.0.0
 
 COPY --from=builder /go/bin/lcpencrypt /go/bin/lcpencrypt
 

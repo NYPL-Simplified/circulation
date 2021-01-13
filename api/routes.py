@@ -41,11 +41,11 @@ def initialize_circulation_manager():
         if getattr(app, 'manager', None) is None:
             try:
                 app.manager = CirculationManager(app._db)
-            except Exception, e:
-                logging.error(
-                    "Error instantiating circulation manager!", exc_info=e
+            except Exception:
+                logging.exception(
+                    "Error instantiating circulation manager!"
                 )
-                raise e
+                raise
             # Make sure that any changes to the database (as might happen
             # on initial setup) are committed before continuing.
             app.manager._db.commit()
