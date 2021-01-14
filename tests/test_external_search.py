@@ -2395,14 +2395,15 @@ class TestQuery(DatabaseTest):
         eq_('nested', available_now['name_or_query'])
         eq_('licensepools', available_now['path'])
 
-        # It finds only license pools that are *not* open access *and* have
-        # no active licenses.
+        # It finds only license pools that are licensed, but not
+        # currently available or open access.
         nested_filter = not_available_now['query']
         not_available = {'term': {'licensepools.available': False}}
+        licensed = {'term': {'licensepools.licensed': True}}
         not_open_access = {'term': {'licensepools.open_access': False}}
         eq_(
             nested_filter.to_dict(),
-            {'bool': {'filter': [{'bool': {'must': [not_open_access, not_available]}}]}}
+            {'bool': {'filter': [{'bool': {'must': [not_open_access, licensed, not_available]}}]}}
         )
 
         # If the Filter specifies script fields, those fields are
