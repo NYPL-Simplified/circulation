@@ -1,49 +1,44 @@
 # encoding=utf8
-from nose.tools import (
-    assert_raises,
-    eq_,
-    set_trace,
-)
+import base64
 import calendar
-from contextlib import contextmanager
-import email
-import os
 import datetime
+import email
+import json
+import os
+import random
 import time
-import urlparse
-from wsgiref.handlers import format_date_time
-from time import mktime
+import urllib
+from contextlib import contextmanager
 from decimal import Decimal
-from mock import (
-    MagicMock,
-    patch
-)
+from time import mktime
+from wsgiref.handlers import format_date_time
 
+import feedparser
 import flask
-from flask import (
-    url_for,
-    Response as FlaskResponse,
-)
-from flask_sqlalchemy_session import (
-    current_session,
-    flask_scoped_session,
-)
+import urlparse
+from flask import Response as FlaskResponse
+from flask import url_for
+from flask_sqlalchemy_session import current_session
+from mock import MagicMock, patch
+from nose.tools import assert_raises, eq_
 from werkzeug.datastructures import ImmutableMultiDict
 from werkzeug.exceptions import NotFound
 
-from . import DatabaseTest
+from api.adobe_vendor_id import AuthdataUtility, DeviceManagementProtocolController
+from api.annotations import AnnotationWriter
 from api.app import app, initialize_database
-from api.config import (
-    Configuration,
-    temp_config,
+from api.authenticator import (
+    CirculationPatronProfileStorage,
+    LibraryAuthenticator,
+    OAuthController,
 )
-from collections import Counter
-from api.controller import (
-    CirculationManager,
-    CirculationManagerController,
-)
+from api.circulation import FulfillmentInfo, HoldInfo, LoanInfo
+from api.circulation_exceptions import *
+from api.circulation_exceptions import RemoteInitiatedServerError
+from api.config import Configuration, temp_config
+from api.controller import CirculationManager, CirculationManagerController
+from api.custom_index import CustomIndexView
 from api.lanes import (
-    create_default_lanes,
     ContributorFacets,
     ContributorLane,
     CrawlableCollectionBasedLane,
@@ -57,136 +52,89 @@ from api.lanes import (
     RelatedBooksLane,
     SeriesFacets,
     SeriesLane,
+    create_default_lanes,
 )
-from api.authenticator import (
-    CirculationPatronProfileStorage,
-    OAuthController,
-    LibraryAuthenticator,
+from api.novelist import MockNoveListAPI
+from api.odl import MockODLAPI
+from api.opds import (
+    CirculationManagerAnnotator,
+    LibraryAnnotator,
+    SharedCollectionAnnotator,
 )
-from api.circulation_exceptions import RemoteInitiatedServerError
+from api.problem_details import *
+from api.registry import Registration
+from api.shared_collection import SharedCollectionAPI
 from api.simple_authentication import SimpleAuthenticationProvider
-from core.app_server import (
-    cdn_url_for,
-    load_facets_from_request,
-)
+from api.testing import VendorIDTest
+from core import model
+from core.analytics import Analytics
+from core.app_server import load_facets_from_request
 from core.classifier import Classifier
 from core.config import CannotLoadConfiguration
-from core.external_search import (
-    MockExternalSearchIndex,
-    MockSearchResult,
-    mock_search_index,
-    SortKeyPagination,
-    WorkSearchResult,
-)
-from core.metadata_layer import (
-    ContributorData,
-    Metadata,
-)
-from core import model
 from core.entrypoint import (
+    AudiobooksEntryPoint,
     EbooksEntryPoint,
     EntryPoint,
     EverythingEntryPoint,
-    AudiobooksEntryPoint,
+)
+from core.external_search import (
+    MockExternalSearchIndex,
+    MockSearchResult,
+    SortKeyPagination,
+    mock_search_index,
+)
+from core.lane import (
+    BaseFacets,
+    Facets,
+    FeaturedFacets,
+    Lane,
+    Pagination,
+    SearchFacets,
+    WorkList,
 )
 from core.local_analytics_provider import LocalAnalyticsProvider
+from core.metadata_layer import ContributorData, Metadata
 from core.model import (
     Admin,
     Annotation,
-    CachedMARCFile,
-    Collection,
-    ConfigurationSetting,
-    ExternalIntegration,
-    Patron,
-    DeliveryMechanism,
-    Representation,
-    Loan,
-    Hold,
-    DataSource,
-    Edition,
-    Hyperlink,
-    Identifier,
-    Complaint,
-    Library,
-    SessionManager,
-    Subject,
     CachedFeed,
-    Work,
+    CachedMARCFile,
     CirculationEvent,
-    LinkRelations,
+    Collection,
+    Complaint,
+    ConfigurationSetting,
+    DataSource,
+    DeliveryMechanism,
+    Edition,
+    ExternalIntegration,
+    Hold,
+    Identifier,
+    IntegrationClient,
+    Library,
     LicensePoolDeliveryMechanism,
-    PresentationCalculationPolicy,
+    LinkRelations,
+    Loan,
+    MediaTypes,
+    Patron,
+    Representation,
+    Resource,
     RightsStatus,
     Session,
-    IntegrationClient,
+    create,
     get_one,
     get_one_or_create,
-    create,
     tuple_to_numericrange,
 )
-from core.lane import (
-    DatabaseBackedFacets,
-    Facets,
-    FeaturedFacets,
-    SearchFacets,
-    Pagination,
-    Lane,
-    WorkList,
-)
+from core.opds import AcquisitionFeed, NavigationFacets, NavigationFeed
 from core.problem_details import *
-from core.user_profile import (
-    ProfileController,
-    ProfileStorage,
-)
-from core.util.flask_util import Response
-from core.util.problem_detail import ProblemDetail
-from core.util.http import RemoteIntegrationException
-
 from core.testing import DummyHTTPClient, MockRequestsResponse
-
-from api.problem_details import *
-from api.circulation_exceptions import *
-from api.circulation import (
-    HoldInfo,
-    LoanInfo,
-    FulfillmentInfo,
-)
-from api.custom_index import CustomIndexView
-from api.novelist import MockNoveListAPI
-from api.adobe_vendor_id import (
-    AuthdataUtility,
-    DeviceManagementProtocolController,
-)
-from api.odl import MockODLAPI
-from api.shared_collection import SharedCollectionAPI
-import base64
-import feedparser
-from core.opds import (
-    AcquisitionFeed,
-    NavigationFacets,
-    NavigationFeed,
-)
-from core.util.opds_writer import (
-    OPDSFeed,
-)
-from api.opds import (
-    LibraryAnnotator,
-    CirculationManagerAnnotator,
-    SharedCollectionAnnotator,
-)
-from api.annotations import AnnotationWriter
-from api.testing import (
-    VendorIDTest,
-    MockCirculationAPI,
-)
-from lxml import etree
-import random
-import json
-import urllib
-from core.analytics import Analytics
-from core.lane import BaseFacets
+from core.user_profile import ProfileController, ProfileStorage
 from core.util.authentication_for_opds import AuthenticationForOPDSDocument
-from api.registry import Registration
+from core.util.flask_util import Response
+from core.util.http import RemoteIntegrationException
+from core.util.opds_writer import OPDSFeed
+from core.util.problem_detail import ProblemDetail
+
 
 class ControllerTest(VendorIDTest):
     """A test that requires a functional app server."""
@@ -906,6 +854,8 @@ class TestBaseController(CirculationControllerTest):
                 eq_(None, flask.request.patron)
 
     def test_authenticated_patron_invalid_credentials(self):
+        from api.problem_details import INVALID_CREDENTIALS
+
         with self.request_context_with_library("/"):
             value = self.controller.authenticated_patron(
                 dict(username="user1", password="password2")
@@ -3041,9 +2991,10 @@ class TestWorkController(CirculationControllerTest):
                 presentation_edition=edition,
                 with_license_pool=True
             )
+            pool = work.license_pools[0]
 
             # Only the second patron has a loan.
-            patron2_loan, _ = work.license_pools[0].loan_to(patron_2)
+            patron2_loan, _ = pool.loan_to(patron_2)
 
             # We want to make sure that the feed doesn't contain any fulfillment links.
             active_loans_by_work = {}
@@ -3085,10 +3036,11 @@ class TestWorkController(CirculationControllerTest):
                 presentation_edition=edition,
                 with_license_pool=True
             )
+            pool = work.license_pools[0]
 
             # Both patrons have loans.
-            patron1_loan, _ = work.license_pools[0].loan_to(patron_1)
-            patron2_loan, _ = work.license_pools[0].loan_to(patron_2)
+            patron1_loan, _ = pool.loan_to(patron_1)
+            patron2_loan, _ = pool.loan_to(patron_2)
 
             # We want to make sure that only the first patron's loan will be in the feed.
             active_loans_by_work = {
@@ -3099,6 +3051,96 @@ class TestWorkController(CirculationControllerTest):
                 None,
                 self._default_library,
                 active_loans_by_work=active_loans_by_work
+            )
+            expect = AcquisitionFeed.single_entry(
+                self._db, work, annotator
+            ).data
+
+            response = self.manager.work_controller.permalink(identifier_type, identifier)
+
+        eq_(200, response.status_code)
+        eq_(expect, response.data)
+        eq_(OPDSFeed.ENTRY_TYPE, response.headers['Content-Type'])
+
+    def test_permalink_returns_fulfillment_links_for_authenticated_patrons_with_fulfillment(self):
+        auth = dict(Authorization=self.valid_auth)
+
+        with self.request_context_with_library("/", headers=auth):
+            content_link = 'https://content'
+
+            # We have two patrons.
+            patron_1 = self.controller.authenticated_patron(self.valid_credentials)
+            patron_2 = self._patron()
+
+            # But the request was initiated by the first patron.
+            flask.request.patron = patron_1
+
+            identifier_type = Identifier.GUTENBERG_ID
+            identifier = '1234567890'
+            edition, _ = self._edition(
+                title='Test Book',
+                identifier_type=identifier_type,
+                identifier_id=identifier,
+                with_license_pool=True
+            )
+            work = self._work(
+                'Test Book',
+                presentation_edition=edition,
+                with_license_pool=True
+            )
+            pool = work.license_pools[0]
+            [delivery_mechanism] = pool.delivery_mechanisms
+
+            loan_info = LoanInfo(
+                pool.collection, pool.data_source.name,
+                pool.identifier.type,
+                pool.identifier.identifier,
+                datetime.datetime.utcnow(),
+                datetime.datetime.utcnow() + datetime.timedelta(seconds=3600),
+            )
+            self.manager.d_circulation.queue_checkout(
+                pool,
+                loan_info
+            )
+
+            fulfillment = FulfillmentInfo(
+                pool.collection,
+                pool.data_source,
+                pool.identifier.type,
+                pool.identifier.identifier,
+                content_link=content_link,
+                content_type=MediaTypes.EPUB_MEDIA_TYPE,
+                content=None,
+                content_expires=None
+            )
+            self.manager.d_circulation.queue_fulfill(pool, fulfillment)
+
+            # Both patrons have loans:
+            # - the first patron's loan and fulfillment will be created via API.
+            # - the second patron's loan will be created via loan_to method.
+            self.manager.loans.borrow(
+                pool.identifier.type, pool.identifier.identifier, delivery_mechanism.delivery_mechanism.id
+            )
+            self.manager.loans.fulfill(
+                pool.id, delivery_mechanism.delivery_mechanism.id,
+            )
+
+            patron1_loan = pool.loans[0]
+            # We have to create a Resource object manually
+            # to assign a URL to the fulfillment that will be used to generate an acquisition link.
+            patron1_loan.fulfillment.resource = Resource(url=fulfillment.content_link)
+
+            patron2_loan, _ = pool.loan_to(patron_2)
+
+            # We want to make sure that only the first patron's fulfillment will be in the feed.
+            active_loans_by_work = {
+                work: patron1_loan
+            }
+            annotator = LibraryAnnotator(
+                None,
+                None,
+                self._default_library,
+                active_loans_by_work=active_loans_by_work,
             )
             expect = AcquisitionFeed.single_entry(
                 self._db, work, annotator

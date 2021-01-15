@@ -1,10 +1,16 @@
 import datetime
 import json
 import logging
+import tempfile
 from contextlib import contextmanager
 
 import six
 import webpub_manifest_parser.opds2.ast as opds2_ast
+from flask_babel import lazy_gettext as _
+from requests import HTTPError
+from sqlalchemy import or_
+from webpub_manifest_parser.utils import encode
+
 from api.circulation import BaseCirculationAPI, FulfillmentInfo, LoanInfo
 from api.circulation_exceptions import CannotFulfill, CannotLoan
 from api.proquest.client import ProQuestAPIClientConfiguration, ProQuestAPIClientFactory
@@ -13,6 +19,7 @@ from api.proquest.identifier import ProQuestIdentifierParser
 from api.saml.metadata.model import SAMLAttributeType
 from core.classifier import Classifier
 from core.exceptions import BaseError
+from core.metadata_layer import TimestampData
 from core.model import (
     Collection,
     DeliveryMechanism,
@@ -36,10 +43,6 @@ from core.model.configuration import (
 from core.opds2_import import OPDS2Importer, OPDS2ImportMonitor, parse_feed
 from core.opds_import import OPDSImporter
 from core.util.string_helpers import is_string
-from flask_babel import lazy_gettext as _
-from requests import HTTPError
-from sqlalchemy import or_
-from webpub_manifest_parser.utils import encode
 
 MISSING_AFFILIATION_ID = BaseError(
     _(
@@ -761,12 +764,30 @@ class ProQuestOPDS2ImportMonitor(OPDS2ImportMonitor, HasExternalIntegration):
         collection,
         import_class,
         force_reimport=False,
+        process_removals=False,
         **import_class_kwargs
     ):
         """Initialize a new instance of ProQuestOPDS2ImportMonitor class.
 
         :param client_factory: ProQuest API client
         :type client_factory: api.proquest.client.ProQuestAPIClientFactory
+
+        :param db: Database session
+        :type db: sqlalchemy.orm.session.Session
+
+        :param collection: Collection instance
+        :type collection: core.model.collection.Collection
+
+        :param import_class: Class containing the import logic
+        :type import_class: Type
+
+        :param force_reimport: Boolean value indicating whether the import process must be started from scratch
+        :type force_reimport: bool
+
+        :param process_removals: Boolean value indicating whether
+            the monitor must process removals and clean items
+            that are no longer present in the ProQuest feed from the CM's catalog
+        :type process_removals: bool
         """
         super(ProQuestOPDS2ImportMonitor, self).__init__(
             db, collection, import_class, force_reimport, **import_class_kwargs
@@ -775,6 +796,7 @@ class ProQuestOPDS2ImportMonitor(OPDS2ImportMonitor, HasExternalIntegration):
         self._client_factory = client_factory
         self._feeds = None
         self._client = self._client_factory.create(self)
+        self._process_removals = process_removals
 
         self._logger = logging.getLogger(__name__)
 
@@ -789,61 +811,199 @@ class ProQuestOPDS2ImportMonitor(OPDS2ImportMonitor, HasExternalIntegration):
         """
         return parse_identifier(self._db, identifier)
 
-    def _get_feeds(self):
-        self._logger.info("Started fetching ProQuest paged OPDS 2.0 feeds")
+    @staticmethod
+    def _get_publications(feed):
+        """Return all the publications in the feed.
 
-        feeds = []
+        :param feed: OPDS 2.0 feed
+        :type feed: opds2_ast.OPDS2Feed
+
+        :return: An iterable list of publications containing in the feed
+        :rtype: Iterable[opds2_ast.OPDS2Publication]
+        """
+        if feed.publications:
+            for publication in feed.publications:
+                yield publication
+
+        if feed.groups:
+            for group in feed.groups:
+                if group.publications:
+                    for publication in group.publications:
+                        yield publication
+
+    def _download_feed_pages(self):
+        """Download all the pages of the ProQuest OPDS feed.
+
+        Downloaded feed pages are dumped to the local disk instead of storing them in memory
+        in order to decrease the memory footprint.
+
+        :return: List of temporary file handles pointing to feed pages
+        :rtype: List[file]
+        """
+        feed_temporary_files = []
 
         self._logger.info("Started downloading feed pages")
 
         for feed in self._client.download_all_feed_pages(self._db):
-            feeds.append(feed)
+            feed_temporary_file = tempfile.TemporaryFile(mode="r+")
+            feed_temporary_file.write(json.dumps(feed))
+            feed_temporary_file.flush()
 
-        self._logger.info("Finished downloading {0} feed pages".format(len(feeds)))
+            feed_temporary_files.append(feed_temporary_file)
 
+        self._logger.info(
+            "Finished downloading {0} feed pages".format(len(feed_temporary_files))
+        )
+
+        return feed_temporary_files
+
+    def _parse_feed(self, page, feed_temporary_file):
+        """Parse the ProQuest feed page residing in a temporary file on a local disk.
+
+        :param page: Index of the page
+        :type page: int
+
+        :param feed_temporary_file: File handle pointing to a temporary file containing the feed page
+        :type feed_temporary_file: file
+
+        :return: Parsed OPDS feed page
+        :rtype: opds2_ast.OPDS2Feed
+        """
+        self._logger.info("Page # {0}. Started parsing the feed".format(page))
+
+        feed_temporary_file.seek(0)
+        feed = feed_temporary_file.read()
+        feed = parse_feed(feed, silent=False)
+
+        self._logger.info("Page # {0}. Finished parsing the feed".format(page))
+
+        return feed
+
+    def _collect_feed_identifiers(self, feed, feed_identifiers):
+        """Keep track of all identifiers in the ProQuest feed and save them in a list.
+
+        :param feed: ProQuest OPDS 2.0 feed
+        :type feed: opds2_ast.OPDS2Feed
+
+        :param feed_identifiers: List of identifiers in the ProQuest feed
+        :type feed_identifiers: List[str]
+        """
+        for publication in self._get_publications(feed):
+            identifier = parse_identifier(self._db, publication.metadata.identifier)
+
+            feed_identifiers.append(identifier.identifier)
+
+    def _clean_removed_items(self, feed_identifiers):
+        """Make items that are no longer present in the ProQuest feed to be invisible in the CM's catalog.
+
+        :param feed_identifiers: List of identifiers present in the ProQuest feed
+        :type feed_identifiers: List[str]
+        """
+        self._logger.info(
+            "Started removing identifiers that are no longer present in the ProQuest feed"
+        )
+
+        items_to_remove = (
+            self._db.query(LicensePool)
+            .join(Collection)
+            .join(Identifier)
+            .filter(Collection.id == self.collection_id)
+            .filter(~Identifier.identifier.in_(feed_identifiers))
+        )
+
+        for item in items_to_remove:
+            item.unlimited_access = False
+
+        self._logger.info(
+            "Finished removing identifiers that are no longer present in the ProQuest feed"
+        )
+
+    def _get_feeds(self):
+        """Return a generator object traversing through a list of the ProQuest OPDS 2.0 feed pages.
+
+        :return: Generator object traversing through a list of the ProQuest OPDS 2.0 feed pages
+        :rtype: Iterable[opds2_ast.OPDS2Feed]
+        """
+        self._logger.info("Started fetching ProQuest paged OPDS 2.0 feeds")
+
+        feed_temporary_files = self._download_feed_pages()
         page = 1
         processed_number_of_items = 0
         total_number_of_items = None
 
-        self._logger.info("Started processing feed pages")
+        try:
+            self._logger.info("Started processing feed pages")
 
-        for feed in feeds:
-            self._logger.info("Page # {0}. Started parsing the feed".format(page))
+            for feed_temporary_file in feed_temporary_files:
+                feed = self._parse_feed(page, feed_temporary_file)
 
-            feed = parse_feed(feed, silent=False)
+                # FIXME: We cannot short-circuit the feed import process
+                #  because ProQuest feed is not ordered by the publication's modified date.
+                #  This issue will be addressed in https://jira.nypl.org/browse/SIMPLY-3343
+                # if not self.feed_contains_new_data(feed):
+                #     break
 
-            self._logger.info("Page # {0}. Finished parsing the feed".format(page))
+                if total_number_of_items is None:
+                    total_number_of_items = (
+                        feed.metadata.number_of_items
+                        if feed.metadata.number_of_items
+                        else 0
+                    )
 
-            # FIXME: We cannot short-circuit the feed import process
-            #  because ProQuest feed is not ordered by the publication's modified date.
-            #  This issue will be addressed in https://jira.nypl.org/browse/SIMPLY-3343
-            # if not self.feed_contains_new_data(feed):
-            #     break
-
-            if total_number_of_items is None:
-                total_number_of_items = (
-                    feed.metadata.number_of_items
-                    if feed.metadata.number_of_items
-                    else 0
+                processed_number_of_items += (
+                    feed.metadata.items_per_page if feed.metadata.items_per_page else 0
                 )
 
-            processed_number_of_items += (
-                feed.metadata.items_per_page if feed.metadata.items_per_page else 0
-            )
+                self._logger.info(
+                    "Page # {0}. Processed {1} items out of {2} ({3:.2f}%)".format(
+                        page,
+                        processed_number_of_items,
+                        total_number_of_items,
+                        processed_number_of_items / total_number_of_items * 100.0,
+                    )
+                )
+
+                page += 1
+
+                yield None, feed
 
             self._logger.info(
-                "Page # {0}. Processed {1} items out of {2} ({3:.2f}%)".format(
-                    page,
-                    processed_number_of_items,
-                    total_number_of_items,
-                    processed_number_of_items / total_number_of_items * 100.0,
-                )
+                "Finished processing {0} feed pages".format(len(feed_temporary_files))
             )
-
-            page += 1
-
-            yield None, feed
-
-        self._logger.info("Finished processing {0} feed pages".format(len(feeds)))
+        except Exception:
+            self._logger.exception(
+                "An unexpected exception occurred during fetching ProQuest paged OPDS 2.0 feeds"
+            )
+        finally:
+            for feed_temporary_file in feed_temporary_files:
+                feed_temporary_file.close()
 
         self._logger.info("Finished fetching ProQuest paged OPDS 2.0 feeds")
+
+    def run_once(self, progress_ignore):
+        # This list is used to keep track of all identifiers in the ProQuest feed.
+        feed_identifiers = []
+
+        feeds = self._get_feeds()
+        total_imported = 0
+        total_failures = 0
+
+        for link, feed in feeds:
+            if self._process_removals:
+                self._collect_feed_identifiers(feed, feed_identifiers)
+
+            self.log.info("Importing next feed: %s", link)
+            imported_editions, failures = self.import_one_feed(feed)
+            total_imported += len(imported_editions)
+            total_failures += len(failures)
+            self._db.commit()
+
+        achievements = "Items imported: %d. Failures: %d." % (
+            total_imported,
+            total_failures,
+        )
+
+        if self._process_removals:
+            self._clean_removed_items(feed_identifiers)
+
+        return TimestampData(achievements=achievements)
