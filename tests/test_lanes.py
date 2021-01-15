@@ -60,6 +60,7 @@ from api.lanes import (
     CrawlableCollectionBasedLane,
     CrawlableFacets,
     CrawlableCustomListBasedLane,
+    HasSeriesFacets,
     JackpotFacets,
     JackpotWorkList,
     KnownOverviewFacetsWorkList,
@@ -637,6 +638,16 @@ class TestRecommendationLane(LaneTest):
 
         # Entry point was preserved.
         eq_(AudiobooksEntryPoint, overview.entrypoint)
+
+
+class TestHasSeriesFacets(DatabaseTest):
+
+    def test_modify_search_filter(self):
+        facets = HasSeriesFacets.default(self._default_library)
+        filter = Filter()
+        eq_(None, filter.series)
+        facets.modify_search_filter(filter)
+        eq_(True, filter.series)
 
 
 class TestSeriesFacets(DatabaseTest):

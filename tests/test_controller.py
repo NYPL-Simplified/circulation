@@ -45,6 +45,7 @@ from api.lanes import (
     CrawlableCustomListBasedLane,
     CrawlableFacets,
     DynamicLane,
+    HasSeriesFacets,
     JackpotFacets,
     JackpotWorkList,
     RecommendationLane,
@@ -4228,40 +4229,57 @@ class TestOPDSFeedController(CirculationControllerTest):
             eq_(u'The search index for this site is not properly configured.',
                 problem.detail)
 
-    def test_qa_feed(self):
-        # Test the qa_feed() controller method.
+    def test__qa_feed(self):
+        # Test the _qa_feed() controller method.
+
+        # First, mock the hook functions that do the actual work.
+        wl = WorkList()
+        wl.initialize(self.library)
+        worklist_factory = MagicMock(return_value=wl)
+        feed_method = MagicMock(return_value="an OPDS feed")
+
+        m = self.manager.opds_feeds._qa_feed
+        args = (feed_method, "QA test feed", "qa_feed", Facets,
+                worklist_factory)
 
         # Bad search index setup -> Problem detail
         self.assert_bad_search_index_gives_problem_detail(
-            lambda: self.manager.opds_feeds.qa_feed(None)
+            lambda: m(*args)
         )
 
         # Bad faceting information -> Problem detail
         with self.request_context_with_library("/?order=nosuchorder"):
-            response = self.manager.opds_feeds.qa_feed(None)
+            response = m(*args)
             eq_(400, response.status_code)
             eq_(
                 "http://librarysimplified.org/terms/problem/invalid-input",
                 response.uri
             )
 
-        # The AcquisitionFeed.groups method is tested in core, so we're
-        # just going to test that appropriate values are passed into that
-        # method:
-        class MockFeed(object):
-            @classmethod
-            def groups(cls, **kwargs):
-                self.called_with = kwargs
-                return "An OPDS feed"
-
+        # Now test success.
         with self.request_context_with_library("/"):
             expect_url = self.manager.opds_feeds.url_for(
                 'qa_feed', library_short_name=self._default_library.short_name,
             )
-            response = self.manager.opds_feeds.qa_feed(feed_class=MockFeed)
-            eq_("An OPDS feed", response)
 
-        kwargs = self.called_with
+            response = m(*args)
+
+        # The response is the return value of feed_method().
+        eq_("an OPDS feed", response)
+
+        # The worklist factory was called once, with the Library
+        # associated with the request and a freshly created Facets
+        # object.
+        [factory_call] = worklist_factory.mock_calls
+        (library, facets) = factory_call.args
+        eq_(self._default_library, library)
+        assert isinstance(facets, Facets)
+        eq_(EverythingEntryPoint, facets.entrypoint)
+
+        # feed_method was called once, with a variety of arguments.
+        [call] = feed_method.mock_calls
+        kwargs = call.kwargs
+
         eq_(self._db, kwargs.pop('_db'))
         eq_("QA test feed", kwargs.pop("title"))
         eq_(self.manager.external_search, kwargs.pop('search_engine'))
@@ -4270,36 +4288,138 @@ class TestOPDSFeedController(CirculationControllerTest):
         # These feeds are never to be cached.
         eq_(CachedFeed.IGNORE_CACHE, kwargs.pop('max_age'))
 
-        # To build the feed, a JackpotWorkList was instantiated for
-        # the Library.
-        worklist = kwargs.pop('worklist')
-        assert isinstance(worklist, JackpotWorkList)
-        eq_(self._default_library, worklist.get_library(self._db))
-
-        # Each child of the JackpotWorkList is based on a
-        # JackpotFacets object.
-        for child in worklist.children:
-            assert isinstance(child.facets, JackpotFacets)
-
-            # Each JackpotFacets uses the EverythingEntryPoint, since
-            # the jackpot feed is designed to include all types of
-            # books.
-            eq_(EverythingEntryPoint, child.facets.entrypoint)
-
-        # Then a LibraryAnnotator object was created from the JackpotWorkList.
-        annotator = kwargs.pop('annotator')
-        assert isinstance(annotator, LibraryAnnotator)
-        eq_(worklist, annotator.lane)
-        eq_(None, annotator.facets)
-
         # To improve performance, a Pagination object was created that
-        # limits each lane to a single Work.
+        # limits each lane in the test feed to a single Work.
         pagination = kwargs.pop('pagination')
         assert isinstance(pagination, Pagination)
         eq_(1, pagination.size)
 
-        # No other arguments were passed into qa_feed().
+        # The WorkList returned by worklist_factory was passed into
+        # feed_method.
+        eq_(wl, kwargs.pop('worklist'))
+
+        # So was a LibraryAnnotator object created from that WorkList.
+        annotator = kwargs.pop('annotator')
+        assert isinstance(annotator, LibraryAnnotator)
+        eq_(wl, annotator.lane)
+        eq_(None, annotator.facets)
+
+        # The Facets object used to initialize the feed is the same
+        # one passed into worklist_factory.
+        eq_(facets, kwargs.pop('facets'))
+
+        # No other arguments were passed into feed_method().
         eq_({}, kwargs)
+
+    def test_qa_feed(self):
+        # Verify that the qa_feed controller creates a factory for a
+        # JackpotWorkList and passes it into _qa_feed.
+
+        mock = MagicMock(return_value="an OPDS feed")
+        self.manager.opds_feeds._qa_feed = mock
+
+        response = self.manager.opds_feeds.qa_feed()
+        [call] = mock.mock_calls
+        kwargs = call.kwargs
+
+        # For the most part, we're verifying that the expected values
+        # are passed in to _qa_feed.
+        eq_(AcquisitionFeed.groups, kwargs.pop('feed_method'))
+        eq_(JackpotFacets, kwargs.pop('facet_class'))
+        eq_("qa_feed", kwargs.pop("controller_name"))
+        eq_("QA test feed", kwargs.pop("feed_title"))
+        factory = kwargs.pop("worklist_factory")
+        eq_({}, kwargs)
+
+        # However, one of those expected values is a function. We need
+        # to call that function to verify that it builds the
+        # JackpotWorkList that distinguishes this _qa_feed call from
+        # other calls.
+        with self.request_context_with_library("/"):
+            facets = load_facets_from_request(
+                base_class=JackpotFacets,
+                default_entrypoint=EverythingEntryPoint
+            )
+
+        worklist = factory(self._default_library, facets)
+        assert isinstance(worklist, JackpotWorkList)
+
+        # Each child of the JackpotWorkList is based on the
+        # JackpotFacets object we passed in to the factory method.
+        for child in worklist.children:
+            eq_(facets, child.facets)
+
+    def test_qa_feed(self):
+        # Verify that the qa_feed controller creates a factory for a
+        # JackpotWorkList and passes it into _qa_feed.
+
+        mock = MagicMock(return_value="an OPDS feed")
+        self.manager.opds_feeds._qa_feed = mock
+
+        response = self.manager.opds_feeds.qa_feed()
+        [call] = mock.mock_calls
+        kwargs = call.kwargs
+
+        # For the most part, we're verifying that the expected values
+        # are passed in to _qa_feed.
+        eq_(AcquisitionFeed.groups, kwargs.pop('feed_factory'))
+        eq_(JackpotFacets, kwargs.pop('facet_class'))
+        eq_("qa_feed", kwargs.pop("controller_name"))
+        eq_("QA test feed", kwargs.pop("feed_title"))
+        factory = kwargs.pop("worklist_factory")
+        eq_({}, kwargs)
+
+        # However, one of those expected values is a function. We need
+        # to call that function to verify that it builds the
+        # JackpotWorkList that distinguishes this _qa_feed call from
+        # other calls.
+        with self.request_context_with_library("/"):
+            facets = load_facets_from_request(
+                base_class=JackpotFacets,
+                default_entrypoint=EverythingEntryPoint
+            )
+
+        worklist = factory(self._default_library, facets)
+        assert isinstance(worklist, JackpotWorkList)
+
+        # Each child of the JackpotWorkList is based on the
+        # JackpotFacets object we passed in to the factory method.
+        for child in worklist.children:
+            eq_(facets, child.facets)
+
+    def test_qa_series_feed(self):
+        # Verify that the qa_series_feed controller creates a factory
+        # for a generic WorkList and passes it into _qa_feed with
+        # instructions to use HasSeriesFacets.
+
+        mock = MagicMock(return_value="an OPDS feed")
+        self.manager.opds_feeds._qa_feed = mock
+
+        response = self.manager.opds_feeds.qa_series_feed()
+        [call] = mock.mock_calls
+        kwargs = call.kwargs
+
+        # For the most part, we're verifying that the expected values
+        # are passed in to _qa_feed.
+
+        # Note that the feed_method is different from the one in qa_feed.
+        # We want to generate an ungrouped feed rather than a grouped one.
+        eq_(AcquisitionFeed.page, kwargs.pop('feed_factory'))
+        eq_(HasSeriesFacets, kwargs.pop('facet_class'))
+        eq_("qa_series_feed", kwargs.pop("controller_name"))
+        eq_("QA series test feed", kwargs.pop("feed_title"))
+        factory = kwargs.pop("worklist_factory")
+        eq_({}, kwargs)
+
+        # One of those expected values is a function. We need to call
+        # that function to verify that it builds a generic WorkList
+        # with no special features. Unlike with qa_feed, the
+        # HasSeriesFacets object is not used to build the WorkList;
+        # instead it directly modifies the Filter object used to
+        # generate the query.
+        worklist = factory(self._default_library, object())
+        assert isinstance(worklist, WorkList)
+        eq_(self._default_library.id, worklist.library_id)
 
 
 class TestCrawlableFeed(CirculationControllerTest):
