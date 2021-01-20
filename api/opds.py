@@ -1437,7 +1437,7 @@ class LibraryLoanAndHoldAnnotator(LibraryAnnotator):
         or hold.
 
         :param circulation: A CirculationAPI
-        :param item: A Loan or Hold -- perhaps one that was just created or looked up.
+        :param item: A Loan, Hold, or LicensePool if first two are missing.
         :param fulfillment: A FulfillmentInfo representing the format in which an active loan
             should be fulfilled.
         :param test_mode: Passed along to the constructor for this annotator class.
@@ -1447,19 +1447,36 @@ class LibraryLoanAndHoldAnnotator(LibraryAnnotator):
 
         :return: An OPDSEntryResponse
         """
-        _db = Session.object_session(item)
-        license_pool = item.license_pool
-        work = license_pool.work or license_pool.presentation_edition.work
-        library = item.library
+        if not item:
+            raise ValueError("Argument 'item' must be non-empty")
 
+        if isinstance(item, LicensePool):
+            license_pool = item
+            library = circulation.library
+        elif isinstance(item, (Loan, Hold)):
+            license_pool = item.license_pool
+            library = item.library
+        else:
+            raise ValueError(
+                "Argument 'item' must be an instance of {0}, {1}, or {2} classes".format(
+                    Loan, Hold, LicensePool
+                )
+            )
+
+        _db = Session.object_session(item)
+        work = license_pool.work or license_pool.presentation_edition.work
         active_loans_by_work = {}
         active_holds_by_work = {}
         active_fulfillments_by_work = {}
+        item_dictionary = None
+
         if isinstance(item, Loan):
-            d = active_loans_by_work
+            item_dictionary = active_loans_by_work
         elif isinstance(item, Hold):
-            d = active_holds_by_work
-        d[work] = item
+            item_dictionary = active_holds_by_work
+
+        if item_dictionary is not None:
+            item_dictionary[work] = item
 
         if fulfillment:
             active_fulfillments_by_work[work] = fulfillment

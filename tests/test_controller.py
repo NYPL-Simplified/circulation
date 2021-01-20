@@ -1,191 +1,140 @@
 # encoding=utf8
-from nose.tools import (
-    assert_raises,
-    eq_,
-    set_trace,
-)
+import base64
 import calendar
-from contextlib import contextmanager
-import email
-import os
 import datetime
+import email
+import json
+import os
+import random
 import time
-import urlparse
-from wsgiref.handlers import format_date_time
-from time import mktime
+import urllib
+from contextlib import contextmanager
 from decimal import Decimal
-from mock import (
-    MagicMock,
-    patch
-)
+from time import mktime
+from wsgiref.handlers import format_date_time
 
+import feedparser
 import flask
-from flask import (
-    url_for,
-    Response as FlaskResponse,
-)
-from flask_sqlalchemy_session import (
-    current_session,
-    flask_scoped_session,
-)
+import urlparse
+from flask import Response as FlaskResponse
+from flask import url_for
+from flask_sqlalchemy_session import current_session
+from mock import MagicMock, patch
+from nose.tools import assert_raises, eq_
 from werkzeug.datastructures import ImmutableMultiDict
 from werkzeug.exceptions import NotFound
 
-from . import DatabaseTest
+from api.adobe_vendor_id import AuthdataUtility, DeviceManagementProtocolController
+from api.annotations import AnnotationWriter
 from api.app import app, initialize_database
-from api.config import (
-    Configuration,
-    temp_config,
+from api.authenticator import (
+    CirculationPatronProfileStorage,
+    LibraryAuthenticator,
+    OAuthController,
 )
-from collections import Counter
-from api.controller import (
-    CirculationManager,
-    CirculationManagerController,
-)
+from api.circulation import FulfillmentInfo, HoldInfo, LoanInfo
+from api.circulation_exceptions import *
+from api.circulation_exceptions import RemoteInitiatedServerError
+from api.config import Configuration, temp_config
+from api.controller import CirculationManager, CirculationManagerController
+from api.custom_index import CustomIndexView
 from api.lanes import (
-    create_default_lanes,
     ContributorFacets,
     ContributorLane,
     CrawlableCollectionBasedLane,
     CrawlableCustomListBasedLane,
     CrawlableFacets,
     DynamicLane,
+    HasSeriesFacets,
     JackpotFacets,
     JackpotWorkList,
     RecommendationLane,
     RelatedBooksLane,
     SeriesFacets,
     SeriesLane,
+    create_default_lanes,
 )
-from api.authenticator import (
-    CirculationPatronProfileStorage,
-    OAuthController,
-    LibraryAuthenticator,
+from api.novelist import MockNoveListAPI
+from api.odl import MockODLAPI
+from api.opds import (
+    CirculationManagerAnnotator,
+    LibraryAnnotator,
+    SharedCollectionAnnotator,
 )
-from api.circulation_exceptions import RemoteInitiatedServerError
+from api.problem_details import *
+from api.registry import Registration
+from api.shared_collection import SharedCollectionAPI
 from api.simple_authentication import SimpleAuthenticationProvider
-from core.app_server import (
-    cdn_url_for,
-    load_facets_from_request,
-)
+from api.testing import VendorIDTest
+from core import model
+from core.analytics import Analytics
+from core.app_server import load_facets_from_request
 from core.classifier import Classifier
 from core.config import CannotLoadConfiguration
-from core.external_search import (
-    MockExternalSearchIndex,
-    MockSearchResult,
-    mock_search_index,
-    SortKeyPagination,
-    WorkSearchResult,
-)
-from core.metadata_layer import (
-    ContributorData,
-    Metadata,
-)
-from core import model
 from core.entrypoint import (
+    AudiobooksEntryPoint,
     EbooksEntryPoint,
     EntryPoint,
     EverythingEntryPoint,
-    AudiobooksEntryPoint,
+)
+from core.external_search import (
+    MockExternalSearchIndex,
+    MockSearchResult,
+    SortKeyPagination,
+    mock_search_index,
+)
+from core.lane import (
+    BaseFacets,
+    Facets,
+    FeaturedFacets,
+    Lane,
+    Pagination,
+    SearchFacets,
+    WorkList,
 )
 from core.local_analytics_provider import LocalAnalyticsProvider
+from core.metadata_layer import ContributorData, Metadata
 from core.model import (
     Admin,
     Annotation,
-    CachedMARCFile,
-    Collection,
-    ConfigurationSetting,
-    ExternalIntegration,
-    Patron,
-    DeliveryMechanism,
-    Representation,
-    Loan,
-    Hold,
-    DataSource,
-    Edition,
-    Hyperlink,
-    Identifier,
-    Complaint,
-    Library,
-    SessionManager,
-    Subject,
     CachedFeed,
-    Work,
+    CachedMARCFile,
     CirculationEvent,
-    LinkRelations,
+    Collection,
+    Complaint,
+    ConfigurationSetting,
+    DataSource,
+    DeliveryMechanism,
+    Edition,
+    ExternalIntegration,
+    Hold,
+    Identifier,
+    IntegrationClient,
+    Library,
     LicensePoolDeliveryMechanism,
-    PresentationCalculationPolicy,
+    LinkRelations,
+    Loan,
+    MediaTypes,
+    Patron,
+    Representation,
+    Resource,
     RightsStatus,
     Session,
-    IntegrationClient,
+    create,
     get_one,
     get_one_or_create,
-    create,
     tuple_to_numericrange,
 )
-from core.lane import (
-    DatabaseBackedFacets,
-    Facets,
-    FeaturedFacets,
-    SearchFacets,
-    Pagination,
-    Lane,
-    WorkList,
-)
+from core.opds import AcquisitionFeed, NavigationFacets, NavigationFeed
 from core.problem_details import *
-from core.user_profile import (
-    ProfileController,
-    ProfileStorage,
-)
-from core.util.flask_util import Response
-from core.util.problem_detail import ProblemDetail
-from core.util.http import RemoteIntegrationException
-
 from core.testing import DummyHTTPClient, MockRequestsResponse
-
-from api.problem_details import *
-from api.circulation_exceptions import *
-from api.circulation import (
-    HoldInfo,
-    LoanInfo,
-    FulfillmentInfo,
-)
-from api.custom_index import CustomIndexView
-from api.novelist import MockNoveListAPI
-from api.adobe_vendor_id import (
-    AuthdataUtility,
-    DeviceManagementProtocolController,
-)
-from api.odl import MockODLAPI
-from api.shared_collection import SharedCollectionAPI
-import base64
-import feedparser
-from core.opds import (
-    AcquisitionFeed,
-    NavigationFacets,
-    NavigationFeed,
-)
-from core.util.opds_writer import (
-    OPDSFeed,
-)
-from api.opds import (
-    LibraryAnnotator,
-    CirculationManagerAnnotator,
-    SharedCollectionAnnotator,
-)
-from api.annotations import AnnotationWriter
-from api.testing import (
-    VendorIDTest,
-    MockCirculationAPI,
-)
-from lxml import etree
-import random
-import json
-import urllib
-from core.analytics import Analytics
-from core.lane import BaseFacets
+from core.user_profile import ProfileController, ProfileStorage
 from core.util.authentication_for_opds import AuthenticationForOPDSDocument
-from api.registry import Registration
+from core.util.flask_util import Response
+from core.util.http import RemoteIntegrationException
+from core.util.opds_writer import OPDSFeed
+from core.util.problem_detail import ProblemDetail
+
 
 class ControllerTest(VendorIDTest):
     """A test that requires a functional app server."""
@@ -905,6 +854,8 @@ class TestBaseController(CirculationControllerTest):
                 eq_(None, flask.request.patron)
 
     def test_authenticated_patron_invalid_credentials(self):
+        from api.problem_details import INVALID_CREDENTIALS
+
         with self.request_context_with_library("/"):
             value = self.controller.authenticated_patron(
                 dict(username="user1", password="password2")
@@ -3018,6 +2969,189 @@ class TestWorkController(CirculationControllerTest):
         eq_(expect, response.data)
         eq_(OPDSFeed.ENTRY_TYPE, response.headers['Content-Type'])
 
+    def test_permalink_does_not_return_fulfillment_links_for_authenticated_patrons_without_loans(self):
+        with self.request_context_with_library("/"):
+            # We have two patrons.
+            patron_1 = self._patron()
+            patron_2 = self._patron()
+
+            # But the request was initiated by the first patron.
+            flask.request.patron = patron_1
+
+            identifier_type = Identifier.GUTENBERG_ID
+            identifier = '1234567890'
+            edition, _ = self._edition(
+                title='Test Book',
+                identifier_type=identifier_type,
+                identifier_id=identifier,
+                with_license_pool=True
+            )
+            work = self._work(
+                'Test Book',
+                presentation_edition=edition,
+                with_license_pool=True
+            )
+            pool = work.license_pools[0]
+
+            # Only the second patron has a loan.
+            patron2_loan, _ = pool.loan_to(patron_2)
+
+            # We want to make sure that the feed doesn't contain any fulfillment links.
+            active_loans_by_work = {}
+            annotator = LibraryAnnotator(
+                None,
+                None,
+                self._default_library,
+                active_loans_by_work=active_loans_by_work
+            )
+            expect = AcquisitionFeed.single_entry(
+                self._db, work, annotator
+            ).data
+
+            response = self.manager.work_controller.permalink(identifier_type, identifier)
+
+        eq_(200, response.status_code)
+        eq_(expect, response.data)
+        eq_(OPDSFeed.ENTRY_TYPE, response.headers['Content-Type'])
+
+    def test_permalink_returns_fulfillment_links_for_authenticated_patrons_with_loans(self):
+        with self.request_context_with_library("/"):
+            # We have two patrons.
+            patron_1 = self._patron()
+            patron_2 = self._patron()
+
+            # But the request was initiated by the first patron.
+            flask.request.patron = patron_1
+
+            identifier_type = Identifier.GUTENBERG_ID
+            identifier = '1234567890'
+            edition, _ = self._edition(
+                title='Test Book',
+                identifier_type=identifier_type,
+                identifier_id=identifier,
+                with_license_pool=True
+            )
+            work = self._work(
+                'Test Book',
+                presentation_edition=edition,
+                with_license_pool=True
+            )
+            pool = work.license_pools[0]
+
+            # Both patrons have loans.
+            patron1_loan, _ = pool.loan_to(patron_1)
+            patron2_loan, _ = pool.loan_to(patron_2)
+
+            # We want to make sure that only the first patron's loan will be in the feed.
+            active_loans_by_work = {
+                work: patron1_loan
+            }
+            annotator = LibraryAnnotator(
+                None,
+                None,
+                self._default_library,
+                active_loans_by_work=active_loans_by_work
+            )
+            expect = AcquisitionFeed.single_entry(
+                self._db, work, annotator
+            ).data
+
+            response = self.manager.work_controller.permalink(identifier_type, identifier)
+
+        eq_(200, response.status_code)
+        eq_(expect, response.data)
+        eq_(OPDSFeed.ENTRY_TYPE, response.headers['Content-Type'])
+
+    def test_permalink_returns_fulfillment_links_for_authenticated_patrons_with_fulfillment(self):
+        auth = dict(Authorization=self.valid_auth)
+
+        with self.request_context_with_library("/", headers=auth):
+            content_link = 'https://content'
+
+            # We have two patrons.
+            patron_1 = self.controller.authenticated_patron(self.valid_credentials)
+            patron_2 = self._patron()
+
+            # But the request was initiated by the first patron.
+            flask.request.patron = patron_1
+
+            identifier_type = Identifier.GUTENBERG_ID
+            identifier = '1234567890'
+            edition, _ = self._edition(
+                title='Test Book',
+                identifier_type=identifier_type,
+                identifier_id=identifier,
+                with_license_pool=True
+            )
+            work = self._work(
+                'Test Book',
+                presentation_edition=edition,
+                with_license_pool=True
+            )
+            pool = work.license_pools[0]
+            [delivery_mechanism] = pool.delivery_mechanisms
+
+            loan_info = LoanInfo(
+                pool.collection, pool.data_source.name,
+                pool.identifier.type,
+                pool.identifier.identifier,
+                datetime.datetime.utcnow(),
+                datetime.datetime.utcnow() + datetime.timedelta(seconds=3600),
+            )
+            self.manager.d_circulation.queue_checkout(
+                pool,
+                loan_info
+            )
+
+            fulfillment = FulfillmentInfo(
+                pool.collection,
+                pool.data_source,
+                pool.identifier.type,
+                pool.identifier.identifier,
+                content_link=content_link,
+                content_type=MediaTypes.EPUB_MEDIA_TYPE,
+                content=None,
+                content_expires=None
+            )
+            self.manager.d_circulation.queue_fulfill(pool, fulfillment)
+
+            # Both patrons have loans:
+            # - the first patron's loan and fulfillment will be created via API.
+            # - the second patron's loan will be created via loan_to method.
+            self.manager.loans.borrow(
+                pool.identifier.type, pool.identifier.identifier, delivery_mechanism.delivery_mechanism.id
+            )
+            self.manager.loans.fulfill(
+                pool.id, delivery_mechanism.delivery_mechanism.id,
+            )
+
+            patron1_loan = pool.loans[0]
+            # We have to create a Resource object manually
+            # to assign a URL to the fulfillment that will be used to generate an acquisition link.
+            patron1_loan.fulfillment.resource = Resource(url=fulfillment.content_link)
+
+            patron2_loan, _ = pool.loan_to(patron_2)
+
+            # We want to make sure that only the first patron's fulfillment will be in the feed.
+            active_loans_by_work = {
+                work: patron1_loan
+            }
+            annotator = LibraryAnnotator(
+                None,
+                None,
+                self._default_library,
+                active_loans_by_work=active_loans_by_work,
+            )
+            expect = AcquisitionFeed.single_entry(
+                self._db, work, annotator
+            ).data
+
+            response = self.manager.work_controller.permalink(identifier_type, identifier)
+
+        eq_(200, response.status_code)
+        eq_(expect, response.data)
+        eq_(OPDSFeed.ENTRY_TYPE, response.headers['Content-Type'])
+
     def test_recommendations(self):
         # Test the ability to get a feed of works recommended by an
         # external service.
@@ -4095,40 +4229,57 @@ class TestOPDSFeedController(CirculationControllerTest):
             eq_(u'The search index for this site is not properly configured.',
                 problem.detail)
 
-    def test_qa_feed(self):
-        # Test the qa_feed() controller method.
+    def test__qa_feed(self):
+        # Test the _qa_feed() controller method.
+
+        # First, mock the hook functions that do the actual work.
+        wl = WorkList()
+        wl.initialize(self.library)
+        worklist_factory = MagicMock(return_value=wl)
+        feed_method = MagicMock(return_value="an OPDS feed")
+
+        m = self.manager.opds_feeds._qa_feed
+        args = (feed_method, "QA test feed", "qa_feed", Facets,
+                worklist_factory)
 
         # Bad search index setup -> Problem detail
         self.assert_bad_search_index_gives_problem_detail(
-            lambda: self.manager.opds_feeds.qa_feed(None)
+            lambda: m(*args)
         )
 
         # Bad faceting information -> Problem detail
         with self.request_context_with_library("/?order=nosuchorder"):
-            response = self.manager.opds_feeds.qa_feed(None)
+            response = m(*args)
             eq_(400, response.status_code)
             eq_(
                 "http://librarysimplified.org/terms/problem/invalid-input",
                 response.uri
             )
 
-        # The AcquisitionFeed.groups method is tested in core, so we're
-        # just going to test that appropriate values are passed into that
-        # method:
-        class MockFeed(object):
-            @classmethod
-            def groups(cls, **kwargs):
-                self.called_with = kwargs
-                return "An OPDS feed"
-
+        # Now test success.
         with self.request_context_with_library("/"):
             expect_url = self.manager.opds_feeds.url_for(
                 'qa_feed', library_short_name=self._default_library.short_name,
             )
-            response = self.manager.opds_feeds.qa_feed(feed_class=MockFeed)
-            eq_("An OPDS feed", response)
 
-        kwargs = self.called_with
+            response = m(*args)
+
+        # The response is the return value of feed_method().
+        eq_("an OPDS feed", response)
+
+        # The worklist factory was called once, with the Library
+        # associated with the request and a freshly created Facets
+        # object.
+        [factory_call] = worklist_factory.mock_calls
+        (library, facets) = factory_call.args
+        eq_(self._default_library, library)
+        assert isinstance(facets, Facets)
+        eq_(EverythingEntryPoint, facets.entrypoint)
+
+        # feed_method was called once, with a variety of arguments.
+        [call] = feed_method.mock_calls
+        kwargs = call.kwargs
+
         eq_(self._db, kwargs.pop('_db'))
         eq_("QA test feed", kwargs.pop("title"))
         eq_(self.manager.external_search, kwargs.pop('search_engine'))
@@ -4137,36 +4288,138 @@ class TestOPDSFeedController(CirculationControllerTest):
         # These feeds are never to be cached.
         eq_(CachedFeed.IGNORE_CACHE, kwargs.pop('max_age'))
 
-        # To build the feed, a JackpotWorkList was instantiated for
-        # the Library.
-        worklist = kwargs.pop('worklist')
-        assert isinstance(worklist, JackpotWorkList)
-        eq_(self._default_library, worklist.get_library(self._db))
-
-        # Each child of the JackpotWorkList is based on a
-        # JackpotFacets object.
-        for child in worklist.children:
-            assert isinstance(child.facets, JackpotFacets)
-
-            # Each JackpotFacets uses the EverythingEntryPoint, since
-            # the jackpot feed is designed to include all types of
-            # books.
-            eq_(EverythingEntryPoint, child.facets.entrypoint)
-
-        # Then a LibraryAnnotator object was created from the JackpotWorkList.
-        annotator = kwargs.pop('annotator')
-        assert isinstance(annotator, LibraryAnnotator)
-        eq_(worklist, annotator.lane)
-        eq_(None, annotator.facets)
-
         # To improve performance, a Pagination object was created that
-        # limits each lane to a single Work.
+        # limits each lane in the test feed to a single Work.
         pagination = kwargs.pop('pagination')
         assert isinstance(pagination, Pagination)
         eq_(1, pagination.size)
 
-        # No other arguments were passed into qa_feed().
+        # The WorkList returned by worklist_factory was passed into
+        # feed_method.
+        eq_(wl, kwargs.pop('worklist'))
+
+        # So was a LibraryAnnotator object created from that WorkList.
+        annotator = kwargs.pop('annotator')
+        assert isinstance(annotator, LibraryAnnotator)
+        eq_(wl, annotator.lane)
+        eq_(None, annotator.facets)
+
+        # The Facets object used to initialize the feed is the same
+        # one passed into worklist_factory.
+        eq_(facets, kwargs.pop('facets'))
+
+        # No other arguments were passed into feed_method().
         eq_({}, kwargs)
+
+    def test_qa_feed(self):
+        # Verify that the qa_feed controller creates a factory for a
+        # JackpotWorkList and passes it into _qa_feed.
+
+        mock = MagicMock(return_value="an OPDS feed")
+        self.manager.opds_feeds._qa_feed = mock
+
+        response = self.manager.opds_feeds.qa_feed()
+        [call] = mock.mock_calls
+        kwargs = call.kwargs
+
+        # For the most part, we're verifying that the expected values
+        # are passed in to _qa_feed.
+        eq_(AcquisitionFeed.groups, kwargs.pop('feed_method'))
+        eq_(JackpotFacets, kwargs.pop('facet_class'))
+        eq_("qa_feed", kwargs.pop("controller_name"))
+        eq_("QA test feed", kwargs.pop("feed_title"))
+        factory = kwargs.pop("worklist_factory")
+        eq_({}, kwargs)
+
+        # However, one of those expected values is a function. We need
+        # to call that function to verify that it builds the
+        # JackpotWorkList that distinguishes this _qa_feed call from
+        # other calls.
+        with self.request_context_with_library("/"):
+            facets = load_facets_from_request(
+                base_class=JackpotFacets,
+                default_entrypoint=EverythingEntryPoint
+            )
+
+        worklist = factory(self._default_library, facets)
+        assert isinstance(worklist, JackpotWorkList)
+
+        # Each child of the JackpotWorkList is based on the
+        # JackpotFacets object we passed in to the factory method.
+        for child in worklist.children:
+            eq_(facets, child.facets)
+
+    def test_qa_feed(self):
+        # Verify that the qa_feed controller creates a factory for a
+        # JackpotWorkList and passes it into _qa_feed.
+
+        mock = MagicMock(return_value="an OPDS feed")
+        self.manager.opds_feeds._qa_feed = mock
+
+        response = self.manager.opds_feeds.qa_feed()
+        [call] = mock.mock_calls
+        kwargs = call.kwargs
+
+        # For the most part, we're verifying that the expected values
+        # are passed in to _qa_feed.
+        eq_(AcquisitionFeed.groups, kwargs.pop('feed_factory'))
+        eq_(JackpotFacets, kwargs.pop('facet_class'))
+        eq_("qa_feed", kwargs.pop("controller_name"))
+        eq_("QA test feed", kwargs.pop("feed_title"))
+        factory = kwargs.pop("worklist_factory")
+        eq_({}, kwargs)
+
+        # However, one of those expected values is a function. We need
+        # to call that function to verify that it builds the
+        # JackpotWorkList that distinguishes this _qa_feed call from
+        # other calls.
+        with self.request_context_with_library("/"):
+            facets = load_facets_from_request(
+                base_class=JackpotFacets,
+                default_entrypoint=EverythingEntryPoint
+            )
+
+        worklist = factory(self._default_library, facets)
+        assert isinstance(worklist, JackpotWorkList)
+
+        # Each child of the JackpotWorkList is based on the
+        # JackpotFacets object we passed in to the factory method.
+        for child in worklist.children:
+            eq_(facets, child.facets)
+
+    def test_qa_series_feed(self):
+        # Verify that the qa_series_feed controller creates a factory
+        # for a generic WorkList and passes it into _qa_feed with
+        # instructions to use HasSeriesFacets.
+
+        mock = MagicMock(return_value="an OPDS feed")
+        self.manager.opds_feeds._qa_feed = mock
+
+        response = self.manager.opds_feeds.qa_series_feed()
+        [call] = mock.mock_calls
+        kwargs = call.kwargs
+
+        # For the most part, we're verifying that the expected values
+        # are passed in to _qa_feed.
+
+        # Note that the feed_method is different from the one in qa_feed.
+        # We want to generate an ungrouped feed rather than a grouped one.
+        eq_(AcquisitionFeed.page, kwargs.pop('feed_factory'))
+        eq_(HasSeriesFacets, kwargs.pop('facet_class'))
+        eq_("qa_series_feed", kwargs.pop("controller_name"))
+        eq_("QA series test feed", kwargs.pop("feed_title"))
+        factory = kwargs.pop("worklist_factory")
+        eq_({}, kwargs)
+
+        # One of those expected values is a function. We need to call
+        # that function to verify that it builds a generic WorkList
+        # with no special features. Unlike with qa_feed, the
+        # HasSeriesFacets object is not used to build the WorkList;
+        # instead it directly modifies the Filter object used to
+        # generate the query.
+        worklist = factory(self._default_library, object())
+        assert isinstance(worklist, WorkList)
+        eq_(self._default_library.id, worklist.library_id)
 
 
 class TestCrawlableFeed(CirculationControllerTest):

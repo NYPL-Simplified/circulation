@@ -43,7 +43,7 @@ from authenticator import (
     OAuthController,
 )
 from base_controller import BaseCirculationManagerController
-from circulation import CirculationAPI
+from circulation import CirculationAPI, FulfillmentInfo
 from circulation_exceptions import *
 from config import (
     Configuration,
@@ -121,6 +121,7 @@ from lanes import (
     load_lanes,
     ContributorFacets,
     ContributorLane,
+    HasSeriesFacets,
     JackpotFacets,
     JackpotWorkList,
     RecommendationLane,
@@ -561,6 +562,30 @@ class CirculationManager(object):
 
 
 class CirculationManagerController(BaseCirculationManagerController):
+
+    def get_patron_circ_objects(self, object_class, patron, license_pools):
+        if not patron:
+            return []
+        pool_ids = [pool.id for pool in license_pools]
+
+        return self._db.query(object_class).filter(
+            object_class.patron_id==patron.id,
+            object_class.license_pool_id.in_(pool_ids)
+        ).options(eagerload(object_class.license_pool)).all()
+
+    def get_patron_loan(self, patron, license_pools):
+        loans = self.get_patron_circ_objects(Loan, patron, license_pools)
+        if loans:
+            loan = loans[0]
+            return loan, loan.license_pool
+        return None, None
+
+    def get_patron_hold(self, patron, license_pools):
+        holds = self.get_patron_circ_objects(Hold, patron, license_pools)
+        if holds:
+            hold = holds[0]
+            return hold, hold.license_pool
+        return None, None
 
     @property
     def circulation(self):
@@ -1127,39 +1152,90 @@ class OPDSFeedController(CirculationManagerController):
             facets=facets
         )
 
-    def qa_feed(self, feed_class=AcquisitionFeed):
-        """Create an OPDS feed containing the information necessary to
-        run a full set of integration tests against this server and
-        the vendors it relies on.
-        """
+    def _qa_feed(self, feed_factory, feed_title, controller_name, facet_class,
+                 worklist_factory):
+        """Create some kind of OPDS feed designed for consumption by an
+        automated QA process.
 
+        :param feed_factory: This function will be called to create the feed.
+           It must either be AcquisitionFeed.groups or Acquisition.page,
+           or it must take the same arguments as those methods.
+        :param feed_title: String title of the feed.
+        :param controller_name: Controller name to use when generating
+           the URL to the feed.
+        :param facet_class: Faceting class to load (through
+            load_facets_from_request).
+        :param worklist_factory: Function that takes (Library, Facets)
+            and returns a Worklist configured to generate the feed.
+        :return: A ProblemDetail if there's a problem loading the faceting
+            object; otherwise the return value of `feed_factory`.
+        """
         library = flask.request.library
         search_engine = self.search_engine
         if isinstance(search_engine, ProblemDetail):
             return search_engine
 
         url = self.url_for(
-            "qa_feed",
+            controller_name,
             library_short_name=library.short_name,
         )
 
         facets = load_facets_from_request(
-            base_class=JackpotFacets, default_entrypoint=EverythingEntryPoint
+            base_class=facet_class, default_entrypoint=EverythingEntryPoint
         )
         if isinstance(facets, ProblemDetail):
             return facets
 
-        jwl = JackpotWorkList(library, facets)
-        annotator = self.manager.annotator(jwl)
+        worklist = worklist_factory(library, facets)
+        annotator = self.manager.annotator(worklist)
 
         # Since this feed will be consumed by an automated client, and
         # we're choosing titles for specific purposes, there's no
         # reason to put more than a single item in each group.
         pagination = Pagination(size=1)
-        return feed_class.groups(
-            _db=self._db, title="QA test feed", url=url, pagination=pagination,
-            worklist=jwl, annotator=annotator, search_engine=search_engine,
-            max_age=CachedFeed.IGNORE_CACHE
+        return feed_factory(
+            _db=self._db, title=feed_title, url=url, pagination=pagination,
+            worklist=worklist, annotator=annotator, search_engine=search_engine,
+            facets=facets, max_age=CachedFeed.IGNORE_CACHE
+        )
+
+    def qa_feed(self, feed_class=AcquisitionFeed):
+        """Create an OPDS feed containing the information necessary to
+        run a full set of integration tests against this server and
+        the vendors it relies on.
+
+        :param feed_class: Class to substitute for AcquisitionFeed during
+            tests.
+        """
+        def factory(library, facets):
+            return JackpotWorkList(library, facets)
+
+        return self._qa_feed(
+            feed_factory=feed_class.groups,
+            feed_title="QA test feed",
+            controller_name="qa_feed",
+            facet_class=JackpotFacets,
+            worklist_factory=factory
+        )
+
+    def qa_series_feed(self, feed_class=AcquisitionFeed):
+        """Create an OPDS feed containing books that belong to _some_
+        series, without regard to _which_ series.
+
+        :param feed_class: Class to substitute for AcquisitionFeed during
+            tests.
+        """
+        def factory(library, facets):
+            wl = WorkList()
+            wl.initialize(library)
+            return wl
+
+        return self._qa_feed(
+            feed_factory=feed_class.page,
+            feed_title="QA series test feed",
+            controller_name="qa_series_feed",
+            facet_class=HasSeriesFacets,
+            worklist_factory=factory
         )
 
 
@@ -1233,29 +1309,7 @@ class MARCRecordController(CirculationManagerController):
 
 class LoanController(CirculationManagerController):
 
-    def get_patron_circ_objects(self, object_class, patron, license_pools):
-        if not patron:
-            return []
-        pool_ids = [pool.id for pool in license_pools]
 
-        return self._db.query(object_class).filter(
-            object_class.patron_id==patron.id,
-            object_class.license_pool_id.in_(pool_ids)
-        ).options(eagerload(object_class.license_pool)).all()
-
-    def get_patron_loan(self, patron, license_pools):
-        loans = self.get_patron_circ_objects(Loan, patron, license_pools)
-        if loans:
-            loan = loans[0]
-            return loan, loan.license_pool
-        return None, None
-
-    def get_patron_hold(self, patron, license_pools):
-        holds = self.get_patron_circ_objects(Hold, patron, license_pools)
-        if holds:
-            hold = holds[0]
-            return hold, hold.license_pool
-        return None, None
 
     def sync(self):
         """Sync the authenticated patron's loans and holds with all third-party
@@ -1582,7 +1636,7 @@ class LoanController(CirculationManagerController):
             # If this is a streaming delivery mechanism, create an OPDS entry
             # with a fulfillment link to the streaming reader url.
             feed = LibraryLoanAndHoldAnnotator.single_item_feed(
-                self.circulation, loan, fulfillment
+                self.circulation, loan, fulfillment=fulfillment
             )
             if isinstance(feed, Response):
                 return feed
@@ -1716,12 +1770,12 @@ class LoanController(CirculationManagerController):
                 status_code=404
             )
 
-        if flask.request.method=='GET':
+        if flask.request.method == 'GET':
             if loan:
                 item = loan
             else:
                 item = hold
-            return CirculationManagerLoanAndHoldAnnotator.single_item_feed(
+            return LibraryLoanAndHoldAnnotator.single_item_feed(
                 self.circulation, item
             )
 
@@ -1874,17 +1928,37 @@ class WorkController(CirculationManagerController):
         returns a single entry while the /works lookup protocol returns a
         feed containing any number of entries.
         """
-
         library = flask.request.library
         work = self.load_work(library, identifier_type, identifier)
         if isinstance(work, ProblemDetail):
             return work
 
-        annotator = self.manager.annotator(None)
-        return AcquisitionFeed.single_entry(
-            self._db, work, annotator,
-            max_age=OPDSFeed.DEFAULT_MAX_AGE
-        )
+        patron = flask.request.patron
+
+        if patron:
+            pools = self.load_licensepools(library, identifier_type, identifier)
+            if isinstance(pools, ProblemDetail):
+                return pools
+
+            loan, pool = self.get_patron_loan(patron, pools)
+            hold = None
+
+            if not loan:
+                hold, pool = self.get_patron_hold(patron, pools)
+
+            item = loan or hold
+            pool = pool or pools[0]
+
+            return LibraryLoanAndHoldAnnotator.single_item_feed(
+                self.circulation, item or pool
+            )
+        else:
+            annotator = self.manager.annotator(lane=None)
+
+            return AcquisitionFeed.single_entry(
+                self._db, work, annotator,
+                max_age=OPDSFeed.DEFAULT_MAX_AGE
+            )
 
     def related(self, identifier_type, identifier, novelist_api=None,
                 feed_class=AcquisitionFeed):

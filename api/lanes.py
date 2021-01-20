@@ -1304,6 +1304,13 @@ class JackpotFacets(Facets):
         return [cls.AVAILABLE_NOW, cls.AVAILABLE_NOT_NOW,
                 cls.AVAILABLE_ALL, cls.AVAILABLE_OPEN_ACCESS]
 
+class HasSeriesFacets(Facets):
+    """A faceting object for a feed containg books guaranteed
+    to belong to _some_ series.
+    """
+    def modify_search_filter(self, filter):
+        filter.series = True
+
 
 class JackpotWorkList(WorkList):
     """A WorkList guaranteed to, so far as possible, contain the exact
