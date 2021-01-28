@@ -53,7 +53,7 @@ git submodule update --init --recursive
 printf "$(git describe --tags)" > .version
 
 # Use the latest version of pip to install a virtual environment for the app.
-python /usr/lib/python2.7/dist-packages/easy_install.py pip
+python /usr/lib/python2.7/dist-packages/easy_install.py "pip<21.0"
 pip install --no-cache-dir virtualenv virtualenvwrapper
 virtualenv -p /usr/bin/python2.7 env
 

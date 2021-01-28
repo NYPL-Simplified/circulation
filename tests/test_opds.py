@@ -6,6 +6,7 @@ import os
 import re
 import json
 from lxml import etree
+from mock import create_autospec
 from nose.tools import (
     set_trace,
     eq_,
@@ -191,7 +192,6 @@ class TestCirculationManagerAnnotator(DatabaseTest):
         # The EPUB is hidden, and this license pool has no delivery
         # mechanisms.
         eq_([], list(no_epub.visible_delivery_mechanisms(pool)))
-
 
     def test_rights_attributes(self):
         m = self.annotator.rights_attributes
@@ -1257,6 +1257,96 @@ class TestLibraryAnnotator(VendorIDTest):
                  OPDSFeed.ENTRY_TYPE]),
             set([link['type'] for link in fulfill_links]))
 
+    def test_incomplete_catalog_entry_contains_an_alternate_link_to_the_complete_entry(self):
+        circulation = create_autospec(spec=CirculationAPI)
+        circulation.library = self._default_library
+        work = self._work(with_license_pool=True, with_open_access_download=False)
+        pool = work.license_pools[0]
+
+        feed_obj = LibraryLoanAndHoldAnnotator.single_item_feed(
+            circulation, pool, test_mode=True
+        )
+        raw = unicode(feed_obj)
+
+        entries = feedparser.parse(raw)['entries']
+        eq_(1, len(entries))
+
+        links = entries[0]['links']
+
+        # We want to make sure that an incomplete catalog entry contains an alternate link to the complete entry.
+        alternate_links = [link for link in links if link['type'] == OPDSFeed.ENTRY_TYPE and link['rel'] == 'alternate']
+        eq_(1, len(alternate_links))
+
+    def test_complete_catalog_entry_with_fulfillment_link_contains_self_link(self):
+        patron = self._patron()
+        circulation = create_autospec(spec=CirculationAPI)
+        circulation.library = self._default_library
+        work = self._work(with_license_pool=True, with_open_access_download=False)
+        pool = work.license_pools[0]
+        loan, _ = pool.loan_to(patron)
+
+        feed_obj = LibraryLoanAndHoldAnnotator.single_item_feed(
+            circulation, loan, test_mode=True
+        )
+        raw = unicode(feed_obj)
+
+        entries = feedparser.parse(raw)['entries']
+        eq_(1, len(entries))
+
+        links = entries[0]['links']
+
+        # We want to make sure that a complete catalog entry contains an alternate link
+        # because it's required by some clients (for example, an Android version of SimplyE).
+        alternate_links = [link for link in links if link['type'] == OPDSFeed.ENTRY_TYPE and link['rel'] == 'alternate']
+        eq_(1, len(alternate_links))
+
+        # We want to make sure that the complete catalog entry contains a self link.
+        self_links = [link for link in links if link['type'] == OPDSFeed.ENTRY_TYPE and link['rel'] == 'self']
+        eq_(1, len(self_links))
+
+        # We want to make sure that alternate and self links are the same.
+        eq_(alternate_links[0]['href'], self_links[0]['href'])
+
+    def test_complete_catalog_entry_with_fulfillment_info_contains_self_link(self):
+        patron = self._patron()
+        circulation = create_autospec(spec=CirculationAPI)
+        circulation.library = self._default_library
+        work = self._work(with_license_pool=True, with_open_access_download=False)
+        pool = work.license_pools[0]
+        loan, _ = pool.loan_to(patron)
+        fulfillment = FulfillmentInfo(
+            pool.collection,
+            pool.data_source.name,
+            pool.identifier.type,
+            pool.identifier.identifier,
+            "http://link",
+            Representation.EPUB_MEDIA_TYPE,
+            None,
+            None
+        )
+
+        feed_obj = LibraryLoanAndHoldAnnotator.single_item_feed(
+            circulation, loan, fulfillment, test_mode=True
+        )
+        raw = unicode(feed_obj)
+
+        entries = feedparser.parse(raw)['entries']
+        eq_(1, len(entries))
+
+        links = entries[0]['links']
+
+        # We want to make sure that a complete catalog entry contains an alternate link
+        # because it's required by some clients (for example, an Android version of SimplyE).
+        alternate_links = [link for link in links if link['type'] == OPDSFeed.ENTRY_TYPE and link['rel'] == 'alternate']
+        eq_(1, len(alternate_links))
+
+        # We want to make sure that the complete catalog entry contains a self link.
+        self_links = [link for link in links if link['type'] == OPDSFeed.ENTRY_TYPE and link['rel'] == 'self']
+        eq_(1, len(self_links))
+
+        # We want to make sure that alternate and self links are the same.
+        eq_(alternate_links[0]['href'], self_links[0]['href'])
+
     def test_fulfill_feed(self):
         patron = self._patron()
 
@@ -1294,7 +1384,6 @@ class TestLibraryAnnotator(VendorIDTest):
         eq_(Representation.TEXT_HTML_MEDIA_TYPE + DeliveryMechanism.STREAMING_PROFILE,
             fulfill_links[0]['type'])
         eq_("http://streaming_link", fulfill_links[0]['href'])
-
 
     def test_drm_device_registration_feed_tags(self):
         """Check that drm_device_registration_feed_tags returns

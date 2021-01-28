@@ -1010,7 +1010,7 @@ class CirculationAPI(object):
             on_multiple='interchangeable'
         )
         if loan:
-            if not licensepool.open_access:
+            if not licensepool.open_access and not licensepool.self_hosted:
                 api = self.api_for_license_pool(licensepool)
                 try:
                     api.checkin(patron, pin, licensepool)
@@ -1042,7 +1042,7 @@ class CirculationAPI(object):
             self._db, Hold, patron=patron, license_pool=licensepool,
             on_multiple='interchangeable'
         )
-        if not licensepool.open_access:
+        if not licensepool.open_access and not licensepool.self_hosted:
             api = self.api_for_license_pool(licensepool)
             try:
                 api.release_hold(patron, pin, licensepool)

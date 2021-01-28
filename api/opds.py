@@ -81,6 +81,21 @@ class CirculationManagerAnnotator(Annotator):
         self.hidden_content_types = hidden_content_types
         self.test_mode = test_mode
 
+    def is_work_entry_solo(self, work):
+        """Return a boolean value indicating whether the work's OPDS catalog entry is served by itself,
+            rather than as a part of the feed.
+
+        :param work: Work object
+        :type work: core.model.work.Work
+
+        :return: Boolean value indicating whether the work's OPDS catalog entry is served by itself,
+            rather than as a part of the feed
+        :rtype: bool
+        """
+        return any(
+            work in x for x in (self.active_loans_by_work, self.active_holds_by_work, self.active_fulfillments_by_work)
+        )
+
     def _lane_identifier(self, lane):
         if isinstance(lane, Lane):
             return lane.id

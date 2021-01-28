@@ -1,29 +1,13 @@
 """Test the CirculationAPI."""
-from nose.tools import (
-    assert_raises,
-    assert_raises_regexp,
-    set_trace,
-    eq_,
-)
+from datetime import datetime, timedelta
 
 import flask
 from flask import Flask
+from nose.tools import assert_raises, assert_raises_regexp, eq_
+from parameterized import parameterized
 
-from api.config import (
-    Configuration,
-    temp_config,
-)
-
-from datetime import (
-    datetime,
-    timedelta,
-)
-
-from api.authenticator import (
-    LibraryAuthenticator,
-    PatronData,
-)
-from api.circulation_exceptions import *
+from api.authenticator import LibraryAuthenticator, PatronData
+from api.bibliotheca import MockBibliothecaAPI
 from api.circulation import (
     APIAwareFulfillmentInfo,
     BaseCirculationAPI,
@@ -31,29 +15,28 @@ from api.circulation import (
     CirculationInfo,
     DeliveryMechanismInfo,
     FulfillmentInfo,
-    LoanInfo,
     HoldInfo,
+    LoanInfo,
 )
-
+from api.circulation_exceptions import *
+from api.testing import MockCirculationAPI
 from core.config import CannotLoadConfiguration
+from core.mock_analytics_provider import MockAnalyticsProvider
 from core.model import (
     CirculationEvent,
     ConfigurationSetting,
     DataSource,
     DeliveryMechanism,
     ExternalIntegration,
+    Hold,
     Hyperlink,
     Identifier,
     Loan,
-    Hold,
     Representation,
     RightsStatus,
 )
-from core.mock_analytics_provider import MockAnalyticsProvider
 
 from . import DatabaseTest, sample_data
-from api.testing import MockCirculationAPI
-from api.bibliotheca import MockBibliothecaAPI
 
 
 class TestCirculationAPI(DatabaseTest):
@@ -898,7 +881,14 @@ class TestCirculationAPI(DatabaseTest):
         result = try_to_fulfill()
         eq_(fulfillment, result)
 
-    def test_revoke_loan(self):
+    @parameterized.expand([
+        ('open_access', True, False),
+        ('self_hosted', False, True)
+    ])
+    def test_revoke_loan(self, _, open_access=False, self_hosted=False):
+        self.pool.open_access = open_access
+        self.pool.self_hosted = self_hosted
+
         self.patron.last_loan_activity_sync = datetime.utcnow()
         self.pool.loan_to(self.patron)
         self.remote.queue_checkin(True)
@@ -914,7 +904,14 @@ class TestCirculationAPI(DatabaseTest):
         eq_(CirculationEvent.CM_CHECKIN,
             self.analytics.event_type)
 
-    def test_release_hold(self):
+    @parameterized.expand([
+        ('open_access', True, False),
+        ('self_hosted', False, True)
+    ])
+    def test_release_hold(self, _, open_access=False, self_hosted=False):
+        self.pool.open_access = open_access
+        self.pool.self_hosted = self_hosted
+
         self.patron.last_loan_activity_sync = datetime.utcnow()
         self.pool.on_hold_to(self.patron)
         self.remote.queue_release_hold(True)
