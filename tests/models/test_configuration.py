@@ -294,6 +294,71 @@ nonsecret_setting='2'"""
         assert 'nonsecret_setting' in without_secrets
 
 
+class TestUniquenessConstraints(DatabaseTest):
+
+    def setup(self):
+        super(TestUniquenessConstraints, self).setup()
+        self.data_source = DataSource.lookup(self._db, DataSource.OVERDRIVE)
+        self.type = 'a credential type'
+        self.patron = self._patron()
+        self.col1 = self._default_collection
+        self.col2 = self._collection()
+
+    def test_duplicate_sitewide_setting(self):
+        # You can't create two sitewide settings with the same key.
+        c1 = ConfigurationSetting(key="key", value="value1")
+        self._db.add(c1)
+        self._db.flush()
+        c2 = ConfigurationSetting(key="key", value="value2")
+        self._db.add(c2)
+        assert_raises(IntegrityError, self._db.flush)
+
+    def test_duplicate_library_setting(self):
+        # A library can't have two settings with the same key.
+        c1 = ConfigurationSetting(
+            key="key", value="value1", library=self._default_library
+        )
+        self._db.add(c1)
+        self._db.flush()
+        c2 = ConfigurationSetting(
+            key="key", value="value2", library=self._default_library
+        )
+        self._db.add(c2)
+        assert_raises(IntegrityError, self._db.flush)
+
+    def test_duplicate_integration_setting(self):
+        # An external integration can't have two settings with the
+        # same key.
+        integration = self._external_integration(self._str)
+        c1 = ConfigurationSetting(
+            key="key", value="value1", external_integration=integration
+        )
+        self._db.add(c1)
+        self._db.flush()
+        c2 = ConfigurationSetting(
+            key="key", value="value1", external_integration=integration
+        )
+        self._db.add(c2)
+        assert_raises(IntegrityError, self._db.flush)
+
+    def test_duplicate_library_integration_setting(self):
+        # A library can't configure an external integration two
+        # different ways for the same key.
+        integration = self._external_integration(self._str)
+        c1 = ConfigurationSetting(
+            key="key", value="value1", library=self._default_library,
+            external_integration=integration
+        )
+        self._db.add(c1)
+        self._db.flush()
+        c2 = ConfigurationSetting(
+            key="key", value="value1", library=self._default_library,
+            external_integration=integration
+        )
+        self._db.add(c2)
+        assert_raises(IntegrityError, self._db.flush)
+
+
 class TestExternalIntegrationLink(DatabaseTest):
     def test_collection_mirror_settings(self):
         settings = ExternalIntegrationLink.COLLECTION_MIRROR_SETTINGS
