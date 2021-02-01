@@ -296,14 +296,6 @@ nonsecret_setting='2'"""
 
 class TestUniquenessConstraints(DatabaseTest):
 
-    def setup(self):
-        super(TestUniquenessConstraints, self).setup()
-        self.data_source = DataSource.lookup(self._db, DataSource.OVERDRIVE)
-        self.type = 'a credential type'
-        self.patron = self._patron()
-        self.col1 = self._default_collection
-        self.col2 = self._collection()
-
     def test_duplicate_sitewide_setting(self):
         # You can't create two sitewide settings with the same key.
         c1 = ConfigurationSetting(key="key", value="value1")
