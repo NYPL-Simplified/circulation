@@ -777,6 +777,67 @@ class TestFacets(DatabaseTest):
         facets.modify_search_filter(filter)
         eq_(None, filter.order)
 
+    def test_modify_database_query(self):
+        # Make sure that modify_database_query handles the various
+        # reasons why a book might or might not be 'available'.
+        open_access = self._work(with_open_access_download=True,
+                                 title="open access")
+        open_access.quality = 1
+        self_hosted = self._work(
+            with_license_pool=True, self_hosted=True, title="self hosted"
+        )
+        unlimited_access = self._work(
+            with_license_pool=True, unlimited_access=True,
+            title="unlimited access"
+        )
+
+        available = self._work(with_license_pool=True, title="available")
+        [pool] = available.license_pools
+        pool.licenses_owned = 1
+        pool.licenses_available = 1
+
+        not_available = self._work(
+            with_license_pool=True, title="not available"
+        )
+        [pool] = not_available.license_pools
+        pool.licenses_owned = 1
+        pool.licenses_available = 0
+
+        not_licensed = self._work(with_license_pool=True, title="not licensed")
+        [pool] = not_licensed.license_pools
+        pool.licenses_owned = 0
+        pool.licenses_available = 0
+        qu = self._db.query(Work).join(Work.license_pools).join(
+            LicensePool.presentation_edition
+        )
+
+        for availability, expect in [
+            (Facets.AVAILABLE_NOW,
+             [open_access, available, self_hosted, unlimited_access]),
+            (Facets.AVAILABLE_ALL,
+             [open_access, available, not_available, self_hosted, unlimited_access]),
+            (Facets.AVAILABLE_NOT_NOW, [not_available]),
+        ]:
+
+            facets = Facets(self._default_library, None, availability, None)
+            modified = facets.modify_database_query(self._db, qu)
+            eq_((availability, sorted([x.title for x in modified])),
+                (availability, sorted([x.title for x in expect])))
+
+        # Setting the 'featured' collection includes only known
+        # high-quality works.
+        for collection, expect in [
+            (Facets.COLLECTION_FULL,
+             [open_access, available, self_hosted, unlimited_access]),
+            (Facets.COLLECTION_FEATURED,
+             [open_access]),
+        ]:
+            facets = Facets(self._default_library, collection,
+                            Facets.AVAILABLE_NOW, None)
+            modified = facets.modify_database_query(self._db, qu)
+            eq_((collection, sorted([x.title for x in modified])),
+                (collection, sorted([x.title for x in expect])))
+
 
 class TestDefaultSortOrderFacets(DatabaseTest):
 
