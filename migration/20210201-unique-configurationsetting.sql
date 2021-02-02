@@ -1,4 +1,9 @@
--- Delete all duplicate credentials before creating unique indexes.
+-- If there are duplicate values for a single configuration setting,
+-- and one of the values is not null, delete the ones that are null.
+delete from configurationsettings where id in (select c1.id from configurationsettings c1 join configurationsettings c2 on (c1.external_integration_id = c2.external_integration_id or c1.external_integration_id is null and c2.external_integration_id is null) and (c1.library_id=c2.library_id or c1.library_id is null and c2.library_id is null) and c1.key=c2.key and c1.value is null and c2.value is not null);
+
+-- If there are still duplicate values for the a given configuration
+-- setting, delete all but the one with the latest ID.
 delete from configurationsettings where id in (select c1.id from configurationsettings c1 join configurationsettings c2 on (c1.external_integration_id = c2.external_integration_id or c1.external_integration_id is null and c2.external_integration_id is null) and (c1.library_id=c2.library_id or c1.library_id is null and c2.library_id is null) and c1.key=c2.key and c1.id < c2.id);
 
 DO $$ 
