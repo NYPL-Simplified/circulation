@@ -497,9 +497,14 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
         self.ya_romance.presentation_edition.subtitle = (
             "Modern Fairytale Series, Volume 7"
         )
+        self.ya_romance.presentation_edition.series = "Modern Fairytales"
 
         self.no_age = _work()
         self.no_age.summary_text = "President Barack Obama's election in 2008 energized the United States"
+
+        # Set the series to the empty string rather than None -- this isn't counted
+        # as the book belonging to a series.
+        self.no_age.presentation_edition.series = ""
 
         self.age_4_5 = _work()
         self.age_4_5.target_age = NumericRange(4, 5, '[]')
@@ -703,6 +708,11 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
         # Find results based on series.
         classics = Filter(series="Classics")
         expect(self.moby_dick, "moby", classics)
+
+        # This finds books that belong to _some_ series.
+        some_series = Filter(series=True)
+        expect([self.moby_dick, self.ya_romance], "", some_series,
+               ordered=False)
 
         # Find results based on genre.
 
@@ -2385,14 +2395,15 @@ class TestQuery(DatabaseTest):
         eq_('nested', available_now['name_or_query'])
         eq_('licensepools', available_now['path'])
 
-        # It finds only license pools that are *not* open access *and* have
-        # no active licenses.
+        # It finds only license pools that are licensed, but not
+        # currently available or open access.
         nested_filter = not_available_now['query']
         not_available = {'term': {'licensepools.available': False}}
+        licensed = {'term': {'licensepools.licensed': True}}
         not_open_access = {'term': {'licensepools.open_access': False}}
         eq_(
             nested_filter.to_dict(),
-            {'bool': {'filter': [{'bool': {'must': [not_open_access, not_available]}}]}}
+            {'bool': {'filter': [{'bool': {'must': [not_open_access, licensed, not_available]}}]}}
         )
 
         # If the Filter specifies script fields, those fields are
@@ -3690,6 +3701,34 @@ class TestFilter(DatabaseTest):
         filter.fiction = False
         built_filters, subfilters = self.assert_filter_builds_to([{'term': {'fiction': 'nonfiction'}}], filter)
         eq_({}, subfilters)
+
+    def test_build_series(self):
+        # Test what happens when a series restriction is placed on a Filter.
+        f = Filter(series="Talking Hedgehog Mysteries")
+        built, nested = f.build()
+        eq_({}, nested)
+
+        # A match against a keyword field only matches on an exact
+        # string match.
+        eq_(
+            built.to_dict()['bool']['must'],
+            [{'term': {'series.keyword': 'Talking Hedgehog Mysteries'}}],
+        )
+
+        # Find books that are in _some_ series--which one doesn't
+        # matter.
+        f = Filter(series=True)
+        built, nested = f.build()
+
+        eq_({}, nested)
+        # The book must have an indexed series.
+        eq_(
+            built.to_dict()['bool']['must'],
+            [{'exists': {'field': 'series'}}]
+        )
+
+        # But the 'series' that got indexed must not be the empty string.
+        assert {'term': {'series.keyword': ''}} in built.to_dict()['bool']['must_not']
 
     def test_sort_order(self):
         # Test the Filter.sort_order property.

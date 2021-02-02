@@ -63,7 +63,7 @@ def parse_identifier(db, identifier):
     :type identifier: str
 
     :return: Identifier object
-    :rtype: Identifier
+    :rtype: core.model.identifier.Identifier
     """
     identifier, _ = Identifier.parse_urn(db, identifier)
 
@@ -532,6 +532,35 @@ class OPDSImporter(object):
             "label": _("Password"),
             "description": _("If HTTP Basic authentication is required to access the OPDS feed (it usually isn't), enter the password here."),
         },
+        {
+            "key": ExternalIntegration.CUSTOM_ACCEPT_HEADER,
+            "label": _("Custom accept header"),
+            "required": False,
+            "description": _("Some servers expect an accept header to decide which file to send. You can use */* if the server doesn't expect anything."),
+            "default": ','.join([
+                OPDSFeed.ACQUISITION_FEED_TYPE,
+                "application/atom+xml;q=0.9",
+                "application/xml;q=0.8",
+                "*/*;q=0.1",
+            ])
+        },
+        {
+            "key": ExternalIntegration.PRIMARY_IDENTIFIER_SOURCE,
+            "label": _("Identifer"),
+            "required": False,
+            "description": _("Which book identifier to use as ID."),
+            "type": "select",
+            "options": [
+               {
+                   "key": "",
+                   "label": _("(Default) Use <id>")
+               },
+               {
+                   "key": ExternalIntegration.DCTERMS_IDENTIFIER,
+                   "label": _("Use <dcterms:identifier> first, if not exist use <id>")
+               },
+            ],
+        },
     ]
 
     # Subclasses of OPDSImporter may define a different parser class that's
@@ -547,7 +576,7 @@ class OPDSImporter(object):
     def __init__(self, _db, collection, data_source_name=None,
                  identifier_mapping=None, http_get=None,
                  metadata_client=None, content_modifier=None,
-                 map_from_collection=None, mirrors=None
+                 map_from_collection=None, mirrors=None,
     ):
         """:param collection: LicensePools created by this OPDS import
         will be associated with the given Collection. If this is None,
@@ -573,6 +602,10 @@ class OPDSImporter(object):
         :param content_modifier: A function that may modify-in-place
         representations (such as images and EPUB documents) as they
         come in from the network.
+
+        :param map_from_collection
+
+        :param mirrors
         """
         self._db = _db
         self.log = logging.getLogger("OPDS Importer")
@@ -603,6 +636,7 @@ class OPDSImporter(object):
         # If not, then attempt to create one.
         covers_mirror = mirrors.get(ExternalIntegrationLink.COVERS, None) if mirrors else None
         books_mirror = mirrors.get(ExternalIntegrationLink.OPEN_ACCESS_BOOKS, None) if mirrors else None
+        self.primary_identifier_source = None
         if collection:
             if not covers_mirror:
                 # If this Collection is configured to mirror the assets it
@@ -615,6 +649,7 @@ class OPDSImporter(object):
                 books_mirror = MirrorUploader.for_collection(
                     collection, ExternalIntegrationLink.OPEN_ACCESS_BOOKS
                 )
+            self.primary_identifier_source = collection.primary_identifier_source
 
         self.mirrors = dict(covers_mirror=covers_mirror, books_mirror=books_mirror)
         self.content_modifier = content_modifier
@@ -929,7 +964,30 @@ class OPDSImporter(object):
         metadata = {}
         circulationdata = {}
         for id, m_data_dict in fp_metadata.items():
-            external_identifier, ignore = Identifier.parse_urn(self._db, id)
+            xml_data_dict = xml_data_meta.get(id, {})
+
+            external_identifier = None
+            if self.primary_identifier_source == ExternalIntegration.DCTERMS_IDENTIFIER:
+                # If it should use <dcterms:identifier> as the primary identifier, it must use the
+                # first value from the dcterms identifier, that came from the metadata as an
+                # IdentifierData object and it must be validated as a foreign_id before be used
+                # as and external_identifier.
+                dcterms_ids = xml_data_dict.get('dcterms_identifiers', [])
+                if len(dcterms_ids) > 0:
+                    external_identifier, ignore = Identifier.for_foreign_id(
+                            self._db, dcterms_ids[0].type, dcterms_ids[0].identifier
+                    )
+                    # the external identifier will be add later, so it must be removed at this point
+                    new_identifiers = dcterms_ids[1:]
+                    # Id must be in the identifiers with lower weight.
+                    id_type, id_identifier = Identifier.type_and_identifier_for_urn(id)
+                    id_weight = 1
+                    new_identifiers.append(IdentifierData(id_type, id_identifier, id_weight))
+                    xml_data_dict['identifiers'] = new_identifiers
+
+            if external_identifier is None:
+                external_identifier, ignore = Identifier.parse_urn(self._db, id)
+
             if self.identifier_mapping:
                 internal_identifier = self.identifier_mapping.get(
                     external_identifier, external_identifier)
@@ -946,7 +1004,6 @@ class OPDSImporter(object):
             )
 
             # form the Metadata object
-            xml_data_dict = xml_data_meta.get(id, {})
             combined_meta = self.combine(m_data_dict, xml_data_dict)
             if combined_meta.get('data_source') is None:
                 combined_meta['data_source'] = self.data_source_name
@@ -1425,7 +1482,6 @@ class OPDSImporter(object):
 
         :return: A 2-tuple (identifier, kwargs)
         """
-
         identifier = parser._xpath1(entry_tag, 'atom:id')
         if identifier is None or not identifier.text:
             # This <entry> tag doesn't identify a book so we
@@ -1463,7 +1519,10 @@ class OPDSImporter(object):
             v = cls.extract_identifier(id_tag)
             if v:
                 alternate_identifiers.append(v)
-        data['identifiers'] = alternate_identifiers
+        data['dcterms_identifiers'] = alternate_identifiers
+
+        # If exist another identifer, add here
+        data['identifiers'] = data['dcterms_identifiers']
 
         data['contributors'] = []
         for author_tag in parser._xpath(entry_tag, 'atom:author'):
@@ -1787,8 +1846,11 @@ class OPDSImportMonitor(CollectionMonitor, HasSelfTests):
         self.force_reimport = force_reimport
         self.username = collection.external_integration.username
         self.password = collection.external_integration.password
+        self.custom_accept_header = collection.external_integration.custom_accept_header
+
         self.importer = import_class(
-            _db, collection=collection, **import_class_kwargs
+            _db, collection=collection,
+            **import_class_kwargs
         )
         super(OPDSImportMonitor, self).__init__(_db, collection)
 
@@ -1828,25 +1890,24 @@ class OPDSImportMonitor(CollectionMonitor, HasSelfTests):
         return response.status_code, response.headers, response.content
 
     def _get_accept_header(self):
-        types = dict(
-            opds_acquisition=OPDSFeed.ACQUISITION_FEED_TYPE,
-            atom="application/atom+xml",
-            xml="application/xml",
-            anything="*/*",
-        )
-        accept_header = "%(opds_acquisition)s, %(atom)s;q=0.9, %(xml)s;q=0.8, %(anything)s;q=0.1" % types
-
-        return accept_header
+        return ','.join([
+            OPDSFeed.ACQUISITION_FEED_TYPE,
+            "application/atom+xml;q=0.9",
+            "application/xml;q=0.8",
+            "*/*;q=0.1",
+        ])
 
     def _update_headers(self, headers):
-        headers = dict(headers or {})
+        headers = dict(headers) if headers else {}
         if self.username and self.password and not 'Authorization' in headers:
-            creds = "%s:%s" % (self.username, self.password)
-            auth_header = "Basic %s" % base64.b64encode(creds)
-            headers['Authorization'] = auth_header
+            headers['Authorization'] = "Basic %s" % base64.b64encode("%s:%s" % (self.username,
+                                                                                self.password))
 
-        if not 'Accept' in headers:
+        if self.custom_accept_header:
+            headers['Accept'] = self.custom_accept_header
+        elif not 'Accept' in headers:
             headers['Accept'] = self._get_accept_header()
+
         return headers
 
     def _parse_identifier(self, identifier):

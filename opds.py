@@ -63,6 +63,19 @@ class Annotator(object):
 
     opds_cache_field = Work.simple_opds_entry.name
 
+    def is_work_entry_solo(self, work):
+        """Return a boolean value indicating whether the work's OPDS catalog entry is served by itself,
+            rather than as a part of the feed.
+
+        :param work: Work object
+        :type work: core.model.work.Work
+
+        :return: Boolean value indicating whether the work's OPDS catalog entry is served by itself,
+            rather than as a part of the feed
+        :rtype: bool
+        """
+        return False
+
     def annotate_work_entry(self, work, active_license_pool, edition,
                             identifier, feed, entry, updated=None):
         """Make any custom modifications necessary to integrate this
@@ -103,6 +116,12 @@ class Annotator(object):
                 entry, rel='alternate', href=permalink_uri,
                 type=permalink_type
             )
+
+            if self.is_work_entry_solo(work):
+                OPDSFeed.add_link_to_entry(
+                    entry, rel='self', href=permalink_uri,
+                    type=permalink_type
+                )
 
         if active_license_pool:
             data_source = active_license_pool.data_source.name
@@ -1010,7 +1029,7 @@ class AcquisitionFeed(OPDSFeed):
 
     @classmethod
     def single_entry(
-            cls, _db, work, annotator, force_create=False, raw=False, **response_kwargs
+            cls, _db, work, annotator, force_create=False, raw=False, use_cache=True, **response_kwargs
     ):
         """Create a single-entry OPDS document for one specific work.
 
@@ -1022,6 +1041,7 @@ class AcquisitionFeed(OPDSFeed):
         :param raw: If this is False (the default), a Flask Response will be returned,
             ready to be sent over the network. Otherwise an object representing
             the underlying OPDS entry will be returned.
+        :param use_cache: Boolean value determining whether the OPDS cache shall be used.
         :param response_kwargs: These keyword arguments will be passed into the Response
             constructor, if it is invoked.
         :return: A Response, if `raw` is false. Otherwise, an OPDSMessage
@@ -1033,7 +1053,7 @@ class AcquisitionFeed(OPDSFeed):
         if not isinstance(work, Edition) and not work.presentation_edition:
             return None
         entry = feed.create_entry(work, even_if_no_license_pool=True,
-                                  force_create=force_create)
+                                  force_create=force_create, use_cache=use_cache)
 
         # Since this <entry> tag is going to be the root of an XML
         # document it's essential that it include an up-to-date nsmap,

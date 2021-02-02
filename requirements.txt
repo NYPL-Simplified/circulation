@@ -25,7 +25,7 @@ itsdangerous==1.1.0
 Jinja2==2.11.2
 jmespath==0.10.0
 loggly-python-handler==1.0.1
-lxml==4.5.2
+lxml==4.6.2
 MarkupSafe==1.1.1
 mock==3.0.5
 money==1.3.0
@@ -52,9 +52,12 @@ singledispatch==3.4.0.3
 six==1.15.0
 SQLAlchemy==1.3.19
 textblob==0.15.3
-urllib3==1.25.10
+# urllib3 is pinned to a pre-1.25 version to work around https://jira.nypl.org/browse/SIMPLY-3477
+urllib3==1.24.3
 uWSGI==2.0.19.1
 # watchtower is for Cloudwatch logging integration
 watchtower==0.8.0
 Werkzeug==1.0.1
+
+multipledispatch==0.6.0
 webpub-manifest-parser

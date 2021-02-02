@@ -525,11 +525,20 @@ class OverdriveAPI(object):
     def make_link_safe(self, url):
         """Turn a server-provided link into a link the server will accept!
 
-        This is completely obnoxious and I have complained about it to
+        The {} part is completely obnoxious and I have complained about it to
         Overdrive.
+
+        The availability part is to make sure we always use v2 of the
+        availability API, even if Overdrive sent us a link to v1.
         """
         parts = list(urlparse.urlsplit(url))
         parts[2] = urllib.quote(parts[2])
+        endings = ("/availability", "/availability/")
+        if (parts[2].startswith("/v1/collections/")
+            and any(parts[2].endswith(x) for x in endings)):
+            parts[2] = parts[2].replace(
+                "/v1/collections/", "/v2/collections/", 1
+            )
         query_string = parts[3]
         query_string = query_string.replace("+", "%2B")
         query_string = query_string.replace(":", "%3A")
@@ -861,7 +870,6 @@ class OverdriveRepresentationExtractor(object):
         primary_identifier = IdentifierData(
             Identifier.OVERDRIVE_ID, overdrive_id
         )
-
         # TODO: We might be able to use this information to avoid the
         # need for explicit configuration of Advantage collections, or
         # at least to keep Advantage collections more up-to-date than

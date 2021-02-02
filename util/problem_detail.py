@@ -84,6 +84,11 @@ class ProblemDetail(object):
             detail or self.detail, instance or self.instance, debug_message
         )
 
+    def __repr__(self):
+        return "<ProblemDetail(uri={0}, title={1}, status_code={2}, detail={3}, instance={4}, debug_message={5}".format(
+            self.uri, self.title, self.status_code, self.detail, self.instance, self.debug_message
+        )
+
 
 class ProblemError(BaseError):
     """Exception class allowing to raise and catch ProblemDetail objects."""

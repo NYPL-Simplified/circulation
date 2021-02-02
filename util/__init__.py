@@ -561,3 +561,11 @@ def first_or_default(collection, default=None):
         element = default
 
     return element
+
+
+def chunks(lst, chunk_size, start_index=0):
+    """Yield successive n-sized chunks from lst."""
+    length = len(lst)
+
+    for i in range(start_index, length, chunk_size):
+        yield lst[i:i + chunk_size]
