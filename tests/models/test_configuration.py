@@ -16,7 +16,10 @@ from ...config import (
     CannotLoadConfiguration,
     Configuration,
 )
-from ...model import (create)
+from ...model import (
+    create,
+    get_one,
+)
 from ...model.collection import Collection
 from ...model.configuration import (
     ConfigurationSetting,
@@ -223,6 +226,17 @@ class TestConfigurationSetting(DatabaseTest):
         self._db.delete(integration)
         self._db.commit()
         eq_([for_library.id], [x.id for x in library.settings])
+
+        # Disconnecting a ConfigurationSetting from a library doesn't
+        # delete it, because it's fine for a ConfigurationSetting to
+        # have no associated library.
+        for_library.key = "new key"
+        for_library.library = None
+        self._db.commit()
+        eq_(
+            for_library,
+            get_one(self._db, ConfigurationSetting, id=for_library.id)
+        )
 
     def test_int_value(self):
         number = ConfigurationSetting.sitewide(self._db, "number")
