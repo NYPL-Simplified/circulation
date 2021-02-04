@@ -524,7 +524,7 @@ class TestCollectionSettings(SettingsControllerTest):
         # All ConfigurationSettings for that library and collection
         # have been deleted.
         qu = self._db.query(ConfigurationSetting).filter(
-            ConfigurationSetting.library==library
+            ConfigurationSetting.library==l1
         ).filter(
             ConfigurationSetting.external_integration==collection.external_integration
         )
