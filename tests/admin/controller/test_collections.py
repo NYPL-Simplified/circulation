@@ -521,8 +521,14 @@ class TestCollectionSettings(SettingsControllerTest):
         # But the library has been removed.
         eq_([], l1.collections)
 
-        eq_(None, ConfigurationSetting.for_library_and_externalintegration(
-                self._db, "ils_name", l1, collection.external_integration).value)
+        # All ConfigurationSettings for that library and collection
+        # have been deleted.
+        qu = self._db.query(ConfigurationSetting).filter(
+            ConfigurationSetting.library==library
+        ).filter(
+            ConfigurationSetting.external_integration==collection.external_integration
+        )
+        eq_(0, qu.count())
 
         parent = self._collection(
             name="Parent",
