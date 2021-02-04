@@ -517,6 +517,26 @@ class Collection(Base, HasFullTableCache):
         metadata_identifier = protocol + ':' + account_id
         return encode(metadata_identifier)
 
+    def disassociate_library(self, library):
+        """Disassociate a Library from this Collection and delete any relevant
+        ConfigurationSettings.
+        """
+        if library is None or not library in self.libraries:
+            # No-op.
+            return
+
+        self.libraries.remove(library)
+
+        _db = Session.object_session(self)
+        qu = _db.query(
+            ConfigurationSetting
+        ).filter(
+            ConfigurationSetting.library==library
+        ).filter(
+            ConfigurationSetting.external_integration==self.external_integration
+        )
+        qu.delete()
+
     @classmethod
     def _decode_metadata_identifier(cls, metadata_identifier):
         """Invert the metadata_identifier property."""
@@ -822,6 +842,10 @@ class Collection(Base, HasFullTableCache):
 
         _db = Session.object_session(self)
 
+        # Disassociate all libraries from this collection.
+        for library in self.libraries:
+            self.disassociate_library(library)
+
         # Delete all the license pools. This should be the only part
         # of the application where LicensePools are permanently
         # deleted.
@@ -832,6 +856,11 @@ class Collection(Base, HasFullTableCache):
                 _db.commit()
             if work and not work.license_pools:
                 work.delete(search_index)
+
+        # Delete the ExternalIntegration associated with this
+        # Collection, assuming it wasn't deleted already.
+        if self.external_integration:
+            _db.delete(self.external_integration)
 
         # Now delete the Collection itself.
         _db.delete(self)
