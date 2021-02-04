@@ -294,7 +294,7 @@ class ExternalIntegration(Base, HasFullTableCache):
     # ConfigurationSettings.
     settings = relationship(
         "ConfigurationSetting", backref="external_integration",
-        lazy="joined", cascade="all, delete-orphan",
+        lazy="joined", cascade="all, delete",
     )
 
     # Any number of Collections may designate an ExternalIntegration
