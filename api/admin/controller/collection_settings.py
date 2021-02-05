@@ -326,11 +326,7 @@ class CollectionSettingsController(SettingsController):
                 return result
         for library in collection.libraries:
             if library.short_name not in [l.get("short_name") for l in libraries]:
-                library.collections.remove(collection)
-                for setting in protocol.get("library_settings", []):
-                    ConfigurationSetting.for_library_and_externalintegration(
-                        self._db, setting.get("key"), library, collection.external_integration,
-                    ).value = None
+                collection.disassociate_library(library)
 
     # DELETE
     def process_delete(self, collection_id):
