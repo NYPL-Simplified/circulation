@@ -211,19 +211,25 @@ class Configuration(CoreConfiguration):
         }
     ]
 
+    # The "level" property determines which admins will be able to modify the setting.  Level 1 settings can be modified by anyone.
+    # Level 2 settings can be modified only by library managers and system admins (i.e. not by librarians).  Level 3 settings can be changed only by system admins.
+    # If no level is specified, the setting will be treated as Level 1 by default.
+
     LIBRARY_SETTINGS = CoreConfiguration.LIBRARY_SETTINGS + [
         {
             "key": LIBRARY_DESCRIPTION,
             "label": _("A short description of this library"),
             "description": _("This will be shown to people who aren't sure they've chosen the right library."),
             "category": "Basic Information",
+            "level": 1
         },
         {
             "key": Announcements.SETTING_NAME,
             "label": _("Scheduled announcements"),
             "description": _("Announcements will be displayed to authenticated patrons."),
             "category": "Announcements",
-            "type": "announcements"
+            "type": "announcements",
+            "level": 1
         },
         {
             "key": HELP_EMAIL,
@@ -231,6 +237,7 @@ class Configuration(CoreConfiguration):
             "description": _("An email address a patron can use if they need help, e.g. 'simplyehelp@yourlibrary.org'."),
             "required": True,
             "format": "email",
+            "level": 1
         },
         {
             "key": HELP_WEB,
@@ -238,19 +245,22 @@ class Configuration(CoreConfiguration):
             "description": _("A URL for patrons to get help."),
             "format": "url",
             "category": "Patron Support",
+            "level": 1
         },
         {
             "key": HELP_URI,
             "label": _("Patron support custom integration URI"),
             "description": _("A custom help integration like Helpstack, e.g. 'helpstack:nypl.desk.com'."),
             "category": "Patron Support",
+            "level": 3
         },
         {
             "key": COPYRIGHT_DESIGNATED_AGENT_EMAIL,
             "label": _("Copyright designated agent email"),
             "description": _("Patrons of this library should use this email address to send a DMCA notification (or other copyright complaint) to the library.<br/>If no value is specified here, the general patron support address will be used."),
             "format": "email",
-            "category": "Patron Support"
+            "category": "Patron Support",
+            "level": 2
         },
         {
             "key": CONFIGURATION_CONTACT_EMAIL,
@@ -258,6 +268,7 @@ class Configuration(CoreConfiguration):
             "description": _("This email address will be shared as part of integrations that you set up through this interface. It will not be shared with the general public. This gives the administrator of the remote integration a way to contact you about problems with this library's use of that integration.<br/>If no value is specified here, the general patron support address will be used."),
             "format": "email",
             "category": "Patron Support",
+            "level": 2
         },
         {
             "key": DEFAULT_NOTIFICATION_EMAIL_ADDRESS,
@@ -266,6 +277,7 @@ class Configuration(CoreConfiguration):
             "default": STANDARD_NOREPLY_EMAIL_ADDRESS,
             "required": True,
             "format": "email",
+            "level": 3
         },
         {
             "key": COLOR_SCHEME,
@@ -293,6 +305,7 @@ class Configuration(CoreConfiguration):
             "type": "select",
             "default": DEFAULT_COLOR_SCHEME,
             "category": "Client Interface Customization",
+            "level": 2
         },
         {
             "key": WEB_PRIMARY_COLOR,
@@ -301,6 +314,7 @@ class Configuration(CoreConfiguration):
             "type": "color-picker",
             "default": DEFAULT_WEB_PRIMARY_COLOR,
             "category": "Client Interface Customization",
+            "level": 2
         },
         {
             "key": WEB_SECONDARY_COLOR,
@@ -309,6 +323,7 @@ class Configuration(CoreConfiguration):
             "type": "color-picker",
             "default": DEFAULT_WEB_SECONDARY_COLOR,
             "category": "Client Interface Customization",
+            "level": 2
         },
         {
             "key": WEB_CSS_FILE,
@@ -316,6 +331,7 @@ class Configuration(CoreConfiguration):
             "description": _("Give web applications a CSS file to customize the catalog display."),
             "format": "url",
             "category": "Client Interface Customization",
+            "level": 3
         },
         {
             "key": WEB_HEADER_LINKS,
@@ -323,6 +339,7 @@ class Configuration(CoreConfiguration):
             "description": _("This gives web applications a list of links to display in the header. Specify labels for each link in the same order under 'Web header labels'."),
             "type": "list",
             "category": "Client Interface Customization",
+            "level": 2
         },
         {
             "key": WEB_HEADER_LABELS,
@@ -330,6 +347,7 @@ class Configuration(CoreConfiguration):
             "description": _("Labels for each link under 'Web header links'."),
             "type": "list",
             "category": "Client Interface Customization",
+            "level": 2
         },
         {
             "key": LOGO,
@@ -337,6 +355,7 @@ class Configuration(CoreConfiguration):
             "type": "image",
             "description": _("The image must be in GIF, PNG, or JPG format, approximately square, no larger than 135x135 pixels, and look good on a white background."),
             "category": "Client Interface Customization",
+            "level": 1
         },
         {
             "key": HIDDEN_CONTENT_TYPES,
@@ -344,6 +363,7 @@ class Configuration(CoreConfiguration):
             "type": "text",
             "description": _('A list of content types to hide from all clients, e.g. <code>["application/pdf"]</code>. This can be left blank except to solve specific problems.'),
             "category": "Client Interface Customization",
+            "level": 3
         },
         {
             "key": LIBRARY_FOCUS_AREA,
@@ -353,7 +373,8 @@ class Configuration(CoreConfiguration):
             "category": "Geographic Areas",
             "format": "geographic",
             "instructions": AREA_INPUT_INSTRUCTIONS,
-            "capitalize": True
+            "capitalize": True,
+            "level": 1
         },
         {
             "key": LIBRARY_SERVICE_AREA,
@@ -363,13 +384,15 @@ class Configuration(CoreConfiguration):
             "category": "Geographic Areas",
             "format": "geographic",
             "instructions": AREA_INPUT_INSTRUCTIONS,
-            "capitalize": True
+            "capitalize": True,
+            "level": 1
         },
         {
             "key": MAX_OUTSTANDING_FINES,
             "label": _("Maximum amount in fines a patron can have before losing lending privileges"),
             "type": "number",
             "category": "Loans, Holds, & Fines",
+            "level": 1
         },
         {
             "key": LOAN_LIMIT,
@@ -377,6 +400,7 @@ class Configuration(CoreConfiguration):
             "description": _("(Note: depending on distributor settings, a patron may be able to exceed the limit by checking out books directly from a distributor's app. They may also get a limit exceeded error before they reach these limits if a distributor has a smaller limit.)"),
             "type": "number",
             "category": "Loans, Holds, & Fines",
+            "level": 1
         },
         {
             "key": HOLD_LIMIT,
@@ -384,18 +408,21 @@ class Configuration(CoreConfiguration):
             "description": _("(Note: depending on distributor settings, a patron may be able to exceed the limit by checking out books directly from a distributor's app. They may also get a limit exceeded error before they reach these limits if a distributor has a smaller limit.)"),
             "type": "number",
             "category": "Loans, Holds, & Fines",
+            "level": 1
         },
         {
             "key": TERMS_OF_SERVICE,
             "label": _("Terms of Service URL"),
             "format": "url",
             "category": "Links",
+            "level": 1
         },
         {
             "key": PRIVACY_POLICY,
             "label": _("Privacy Policy URL"),
             "format": "url",
             "category": "Links",
+            "level": 1
         },
         {
             "key": COPYRIGHT,
@@ -408,6 +435,7 @@ class Configuration(CoreConfiguration):
             "label": _("About URL"),
             "format": "url",
             "category": "Links",
+            "level": 1
         },
         {
             "key": LICENSE,
@@ -421,7 +449,8 @@ class Configuration(CoreConfiguration):
             "description": _("A URL where someone who doesn't have a library card yet can sign up for one."),
             "format": "url",
             "category": "Patron Support",
-            "allowed": ["nypl.card-creator:https://patrons.librarysimplified.org/"]
+            "allowed": ["nypl.card-creator:https://patrons.librarysimplified.org/"],
+            "level": 1
         },
         {
             "key": LARGE_COLLECTION_LANGUAGES,
@@ -431,6 +460,7 @@ class Configuration(CoreConfiguration):
             "description": LANGUAGE_DESCRIPTION,
             "optional": True,
             "category": "Languages",
+            "level": 1
         },
         {
             "key": SMALL_COLLECTION_LANGUAGES,
@@ -440,6 +470,7 @@ class Configuration(CoreConfiguration):
             "description": LANGUAGE_DESCRIPTION,
             "optional": True,
             "category": "Languages",
+            "level": 1
         },
         {
             "key": TINY_COLLECTION_LANGUAGES,
@@ -449,6 +480,7 @@ class Configuration(CoreConfiguration):
             "description": LANGUAGE_DESCRIPTION,
             "optional": True,
             "category": "Languages",
+            "level": 1
         },
     ]
 

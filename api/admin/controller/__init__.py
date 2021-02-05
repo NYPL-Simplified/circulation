@@ -289,6 +289,12 @@ class AdminCirculationManagerController(CirculationManagerController):
         if not admin or not admin.is_librarian(library):
             raise AdminNotAuthorized()
 
+    def require_higher_than_librarian(self):
+        from nose.tools import set_trace
+        admin = getattr(flask.request, "admin", None)
+        set_trace()
+        pass
+
 class ViewController(AdminController):
     def __call__(self, collection, book, path=None):
         setting_up = (self.admin_auth_providers == [])

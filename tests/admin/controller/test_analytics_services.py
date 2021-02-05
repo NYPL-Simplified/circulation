@@ -33,11 +33,6 @@ class TestAnalyticsServices(SettingsControllerTest):
             assert GoogleAnalyticsProvider.NAME in [p.get("label") for p in protocols]
             assert "settings" in protocols[0]
 
-            self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
-            self._db.flush()
-            assert_raises(AdminNotAuthorized,
-                          self.manager.admin_analytics_services_controller.process_analytics_services)
-
     def test_analytics_services_get_with_one_service(self):
         # Delete the local analytics service that gets created by default.
         local_analytics_default = get_one(
@@ -194,9 +189,10 @@ class TestAnalyticsServices(SettingsControllerTest):
             eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
 
         self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
+        self.admin.remove_role(AdminRole.LIBRARY_MANAGER)
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
-                ("protocol", GoogleAnalyticsProvider.__module__),
+                ("protocol", LocalAnalyticsProvider.__module__),
                 (ExternalIntegration.URL, "url"),
                 ("libraries", json.dumps([])),
             ])
