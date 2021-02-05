@@ -174,6 +174,9 @@ class ProQuestOPDS2Importer(OPDS2Importer, BaseCirculationAPI, HasExternalIntegr
         ProQuestOPDS2ImporterConfiguration.to_settings()
         + ProQuestAPIClientConfiguration.to_settings()
     )
+    LIBRARY_SETTINGS = BaseCirculationAPI.LIBRARY_SETTINGS + [
+        BaseCirculationAPI.DEFAULT_LOAN_DURATION_SETTING
+    ]
 
     def __init__(
         self,
@@ -645,15 +648,16 @@ class ProQuestOPDS2Importer(OPDS2Importer, BaseCirculationAPI, HasExternalIntegr
             with self._get_configuration(self._db) as configuration:
                 self._get_or_create_proquest_token(patron, configuration)
 
-                today = datetime.datetime.utcnow()
-
+                loan_period = self.collection.default_loan_period(patron.library)
+                start_time = datetime.datetime.utcnow()
+                end_time = start_time + datetime.timedelta(days=loan_period)
                 loan = LoanInfo(
                     licensepool.collection,
                     licensepool.data_source.name,
                     identifier_type=licensepool.identifier.type,
                     identifier=licensepool.identifier.identifier,
-                    start_date=today,
-                    end_date=None,
+                    start_date=start_time,
+                    end_date=end_time,
                     fulfillment_info=None,
                     external_identifier=None,
                 )
