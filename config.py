@@ -212,13 +212,18 @@ class Configuration(ConfigurationConstants):
         },
     ]
 
+    # The "level" property determines which admins will be able to modify the setting.  Level 1 settings can be modified by anyone.
+    # Level 2 settings can be modified only by library managers and system admins (i.e. not by librarians).  Level 3 settings can be changed only by system admins.
+    # If no level is specified, the setting will be treated as Level 1 by default.
+
     LIBRARY_SETTINGS = [
         {
             "key": WEBSITE_URL,
             "label": _("URL of the library's website"),
             "description": _("The library's main website, e.g. \"https://www.nypl.org/\" (not this Circulation Manager's URL)."),
             "required": True,
-            "format": "url"
+            "format": "url",
+            "level": 1
         },
         {
             "key": ALLOW_HOLDS,
@@ -230,6 +235,7 @@ class Configuration(ConfigurationConstants):
             ],
             "default": "true",
             "category": "Loans, Holds, & Fines",
+            "level": 3
         },
         { "key": EntryPoint.ENABLED_SETTING,
           "label": _("Enabled entry points"),
@@ -245,7 +251,8 @@ class Configuration(ConfigurationConstants):
           # Renders a component with options that get narrowed down as the user makes selections.
           "format": "narrow",
           # Renders an input field that cannot be edited.
-          "readOnly": True
+          "readOnly": True,
+          "level": 3
         },
         {
             "key": FEATURED_LANE_SIZE,
@@ -253,6 +260,8 @@ class Configuration(ConfigurationConstants):
             "type": "number",
             "default": 15,
             "category": "Lanes & Filters",
+            "level": 1
+
         },
         {
             "key": MINIMUM_FEATURED_QUALITY,
@@ -262,6 +271,7 @@ class Configuration(ConfigurationConstants):
             "max": 1,
             "default": DEFAULT_MINIMUM_FEATURED_QUALITY,
             "category": "Lanes & Filters",
+            "level": 1
         },
     ] + [
         { "key": ConfigurationConstants.ENABLED_FACETS_KEY_PREFIX + group,
@@ -275,6 +285,7 @@ class Configuration(ConfigurationConstants):
           "category": "Lanes & Filters",
           # Tells the front end that each of these settings is related to the corresponding default setting.
           "paired": ConfigurationConstants.DEFAULT_FACET_KEY_PREFIX + group,
+          "level": 2
         } for group, description in FacetConstants.GROUP_DESCRIPTIONS.iteritems()
     ] + [
         { "key": ConfigurationConstants.DEFAULT_FACET_KEY_PREFIX + group,
