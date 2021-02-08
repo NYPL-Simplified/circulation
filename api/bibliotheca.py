@@ -326,7 +326,7 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
                 _count_activity
             )
 
-    def get_events_between(self, start, end, cache_result=False):
+    def get_events_between(self, start, end, cache_result=False, no_events_error=True):
         """Return event objects for events between the given times."""
         start = start.strftime(self.ARGUMENT_TIME_FORMAT)
         end = end.strftime(self.ARGUMENT_TIME_FORMAT)
@@ -339,7 +339,7 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
         if cache_result:
             self._db.commit()
         try:
-            events = EventParser().process_all(response.content)
+            events = EventParser().process_all(response.content, no_events_error)
         except Exception, e:
             self.log.error(
                 "Error parsing Bibliotheca response content: %s", response.content,
@@ -1136,14 +1136,18 @@ class EventParser(BibliothecaParser):
         "REMOVED" : CirculationEvent.DISTRIBUTOR_LICENSE_REMOVE,
     }
 
-    def process_all(self, string):
+    def process_all(self, string, no_events_error=True):
         has_events = False
         for i in super(EventParser, self).process_all(
                 string, "//CloudLibraryEvent"):
             yield i
             has_events = True
 
-        if not has_events:
+        # If we are catching up on events and we expect to have a time
+        # period where there are no events, we don't want to consider that
+        # action as an error. By default, not having events is considered
+        # to be an error. 
+        if not has_events and no_events_error:
             # An empty list of events may mean nothing happened, or it
             # may indicate an unreported server-side error. To be
             # safe, we'll treat this as a server-initiated error
@@ -1346,17 +1350,24 @@ class BibliothecaEventMonitor(CollectionMonitor, TimelineMonitor):
     def catch_up_from(self, start, cutoff, progress):
         added_books = 0
         i = 0
-        one_day = timedelta(days=1)
+        five_minutes = timedelta(minutes=5)
+
+        # If the start date is more than a month ago, then we don't consider
+        # not getting events as an error.
+        one_month_ago = datetime.utcnow() - timedelta(days=30)
+        no_events_error = True
+        if (start < one_month_ago):
+            no_events_error = False
+            
         for slice_start, slice_cutoff, full_slice in self.slice_timespan(
-            start, cutoff, one_day
+            start, cutoff, five_minutes
         ):
             self.log.info(
                 "Asking for events between %r and %r", slice_start,
                 slice_cutoff
             )
-            event = None
             events = self.api.get_events_between(
-                slice_start, slice_cutoff, full_slice
+                slice_start, slice_cutoff, full_slice, no_events_error
             )
             for event in events:
                 event_timestamp = self.handle_event(*event)
