@@ -290,10 +290,13 @@ class AdminCirculationManagerController(CirculationManagerController):
             raise AdminNotAuthorized()
 
     def require_higher_than_librarian(self):
-        from nose.tools import set_trace
+        # A quick way to check the admin's permissions level without needing to already know the library;
+        # used as a fail-safe in AnalyticsServicesController.process_post in case a librarian somehow manages
+        # to submit a Local Analytics form despite the checks on the front end.
         admin = getattr(flask.request, "admin", None)
-        set_trace()
-        pass
+        if not admin or admin.roles[0].role == "librarian":
+            raise AdminNotAuthorized()
+
 
 class ViewController(AdminController):
     def __call__(self, collection, book, path=None):
