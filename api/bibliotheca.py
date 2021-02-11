@@ -1353,8 +1353,7 @@ class BibliothecaEventMonitor(CollectionMonitor, TimelineMonitor):
     def catch_up_from(self, start, cutoff, progress):
         added_books = 0
         i = 0
-        # five_minutes = timedelta(minutes=5)
-        five_minutes = timedelta(days=1)
+        five_minutes = timedelta(minutes=5)
         timestamp = self.timestamp()
 
         # If the start date is more than a month ago, then we don't consider
