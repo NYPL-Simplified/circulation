@@ -326,7 +326,7 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
                 _count_activity
             )
 
-    def get_events_between(self, start, end, cache_result=False, no_events_error=False):
+    def get_events_between(self, start, end, cache_result=False, no_events_error=False, timestamp=None):
         """Return event objects for events between the given times."""
         start = start.strftime(self.ARGUMENT_TIME_FORMAT)
         end = end.strftime(self.ARGUMENT_TIME_FORMAT)
@@ -340,7 +340,10 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
             self._db.commit()
         try:
             events = EventParser().process_all(response.content, no_events_error)
+            timestamp.counter = 0
         except Exception, e:
+            if timestamp:
+                timestamp.counter = 1
             self.log.error(
                 "Error parsing Bibliotheca response content: %s", response.content,
                 exc_info=e
@@ -1352,7 +1355,7 @@ class BibliothecaEventMonitor(CollectionMonitor, TimelineMonitor):
         i = 0
         # five_minutes = timedelta(minutes=5)
         five_minutes = timedelta(days=1)
-        t = self.timestamp()
+        timestamp = self.timestamp()
 
         # If the start date is more than a month ago, then we don't consider
         # not getting events as an error.
@@ -1363,7 +1366,7 @@ class BibliothecaEventMonitor(CollectionMonitor, TimelineMonitor):
         no_events_error = False
         # But in this case, we do want to consider not getting
         # events as an error.
-        if (t.counter):
+        if (timestamp.counter == 1):
             no_events_error = True
             
         for slice_start, slice_cutoff, full_slice in self.slice_timespan(
@@ -1374,7 +1377,7 @@ class BibliothecaEventMonitor(CollectionMonitor, TimelineMonitor):
                 slice_cutoff
             )
             events = self.api.get_events_between(
-                slice_start, slice_cutoff, full_slice, no_events_error
+                slice_start, slice_cutoff, full_slice, no_events_error, timestamp
             )
             for event in events:
                 event_timestamp = self.handle_event(*event)
