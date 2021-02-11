@@ -340,7 +340,8 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
             self._db.commit()
         try:
             events = EventParser().process_all(response.content, no_events_error)
-            timestamp.counter = 0
+            if (timestamp):
+                timestamp.counter = 0
         except Exception, e:
             if timestamp:
                 timestamp.counter = 1
@@ -1353,7 +1354,7 @@ class BibliothecaEventMonitor(CollectionMonitor, TimelineMonitor):
     def catch_up_from(self, start, cutoff, progress):
         added_books = 0
         i = 0
-        five_minutes = timedelta(minutes=5)
+        one_day = timedelta(days=1)
         timestamp = self.timestamp()
 
         # If the start date is more than a month ago, then we don't consider
@@ -1367,9 +1368,9 @@ class BibliothecaEventMonitor(CollectionMonitor, TimelineMonitor):
         # events as an error.
         if (timestamp.counter == 1):
             no_events_error = True
-            
+
         for slice_start, slice_cutoff, full_slice in self.slice_timespan(
-            start, cutoff, five_minutes
+            start, cutoff, one_day
         ):
             self.log.info(
                 "Asking for events between %r and %r", slice_start,
