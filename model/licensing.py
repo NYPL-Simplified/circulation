@@ -178,7 +178,7 @@ class LicensePool(Base):
     patrons_in_hold_queue = Column(Integer,default=0)
 
     # Set to True for collections imported using MirrorUploaded
-    self_hosted = Column(Boolean, index=True, default=False)
+    self_hosted = Column(Boolean, index=True, nullable=False, default=False)
 
     # This lets us cache the work of figuring out the best open access
     # link for this LicensePool.

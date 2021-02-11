@@ -106,7 +106,7 @@ class Library(Base, HasFullTableCache):
     # ConfigurationSettings.
     settings = relationship(
         "ConfigurationSetting", backref="library",
-        lazy="joined", cascade="all, delete-orphan",
+        lazy="joined", cascade="all, delete",
     )
 
     # A Library may have many CirculationEvents

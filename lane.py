@@ -675,7 +675,7 @@ class Facets(FacetsWithEntryPoint):
         available_now = or_(
             LicensePool.open_access == True,
             LicensePool.self_hosted == True,
-            LicensePool.unlimited_access == True,
+            LicensePool.unlimited_access,
             LicensePool.licenses_available > 0
         )
 
@@ -693,7 +693,11 @@ class Facets(FacetsWithEntryPoint):
             # depending on what exactly the wording is.
             availability_clause = LicensePool.open_access == True
         elif self.availability == self.AVAILABLE_NOT_NOW:
-            availability_clause = not_(available_now)
+            # The book must be licensed but currently unavailable.
+            availability_clause = and_(
+                not_(available_now),
+                LicensePool.licenses_owned > 0
+            )
 
         qu = qu.filter(availability_clause)
 

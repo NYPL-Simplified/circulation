@@ -16,7 +16,10 @@ from ...config import (
     CannotLoadConfiguration,
     Configuration,
 )
-from ...model import (create)
+from ...model import (
+    create,
+    get_one,
+)
 from ...model.collection import Collection
 from ...model.configuration import (
     ConfigurationSetting,
@@ -223,6 +226,32 @@ class TestConfigurationSetting(DatabaseTest):
         self._db.delete(integration)
         self._db.commit()
         eq_([for_library.id], [x.id for x in library.settings])
+
+    def test_no_orphan_delete_cascade(self):
+        # Disconnecting a ConfigurationSetting from a Library or
+        # ExternalIntegration doesn't delete it, because it's fine for
+        # a ConfigurationSetting to have no associated Library or
+        # ExternalIntegration.
+
+        library = self._default_library
+        for_library = ConfigurationSetting.for_library(self._str, library)
+
+        integration = self._external_integration(self._str)
+        for_integration = ConfigurationSetting.for_externalintegration(
+            self._str, integration
+        )
+
+        # Remove library and external_integration.
+        for_library.library = None
+        for_integration.external_integration = None
+        self._db.commit()
+
+        # That was a weird thing to do, but the ConfigurationSettings
+        # are still in the database.
+        for cs in for_library, for_integration:
+            eq_(
+                cs, get_one(self._db, ConfigurationSetting, id=cs.id)
+            )
 
     def test_int_value(self):
         number = ConfigurationSetting.sitewide(self._db, "number")

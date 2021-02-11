@@ -571,6 +571,63 @@ class TestCollection(DatabaseTest):
         # Only the failing identifier is in the query.
         eq_([unresolved_id], result.all())
 
+    def test_disassociate_library(self):
+        # Here's a Collection.
+        collection = self._default_collection
+
+        # It's associated with two different libraries.
+        assert self._default_library in collection.libraries
+        other_library = self._library()
+        collection.libraries.append(other_library)
+
+        # It has an ExternalIntegration, which has some settings.
+        integration = collection.external_integration
+        setting1 = integration.set_setting("integration setting", "value2")
+        setting2 = ConfigurationSetting.for_library_and_externalintegration(
+            self._db, "default_library+integration setting",
+            self._default_library, integration,
+        )
+        setting2.value = "value2"
+        setting3 = ConfigurationSetting.for_library_and_externalintegration(
+            self._db, "other_library+integration setting",
+            other_library, integration,
+        )
+        setting3.value = "value3"
+
+        # Now, disassociate one of the libraries from the collection.
+        collection.disassociate_library(self._default_library)
+
+        # It's gone.
+        assert self._default_library not in collection.libraries
+        assert collection not in self._default_library.collections
+
+        # Furthermore, ConfigurationSettings that configure that
+        # Library's relationship to this Collection's
+        # ExternalIntegration have been deleted.
+        all_settings = self._db.query(ConfigurationSetting).all()
+        assert setting2 not in all_settings
+
+        # The other library is unaffected.
+        assert other_library in collection.libraries
+        assert collection in other_library.collections
+        assert setting3 in all_settings
+
+        # As is the library-independent configuration of this Collection's
+        # ExternalIntegration.
+        assert setting1 in all_settings
+
+        # Calling disassociate_library again is a no-op.
+        collection.disassociate_library(self._default_library)
+        assert self._default_library not in collection.libraries
+
+        # If you somehow manage to call disassociate_library on a Collection
+        # that has no associated ExternalIntegration, an exception is raised.
+        collection.external_integration_id = None
+        assert_raises_regexp(
+            ValueError, "No known external integration for collection",
+            collection.disassociate_library, other_library
+        )
+
     def test_licensepools_with_works_updated_since(self):
         m = self.collection.licensepools_with_works_updated_since
 
@@ -885,13 +942,11 @@ class TestCollection(DatabaseTest):
         # has any LicensePools), but not the second.
         eq_([work], index.removed)
 
-        # The ExternalIntegration and its settings are still around,
-        # since multiple Collections can be based on the same
-        # ExternalIntegration.
-        assert integration in self._db.query(ExternalIntegration).all()
+        # The ExternalIntegration and its settings have been deleted.
+        assert integration not in self._db.query(ExternalIntegration).all()
         settings = self._db.query(ConfigurationSetting).all()
         for s in (setting1, setting2):
-            assert s in settings
+            assert s not in settings
 
         # If no search_index is passed into delete() (the default behavior),
         # we try to instantiate the normal ExternalSearchIndex object. Since
