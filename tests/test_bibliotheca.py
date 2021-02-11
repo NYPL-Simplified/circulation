@@ -681,10 +681,19 @@ class TestEventParser(BibliothecaAPITest):
 
     def test_parse_empty_list(self):
         data = self.sample_data("empty_event_batch.xml")
+
+        # By default, we consider an empty batch of events not
+        # as an error.
+        events = list(EventParser().process_all(data))
+        eq_([], events)
+
+        # But if we consider not having events for a certain time
+        # period, then an exception should be raised.
+        no_events_error = True
         assert_raises_regexp(
             RemoteInitiatedServerError,
             "No events returned from server. This may not be an error, but treating it as one to be safe.",
-            list, EventParser().process_all(data)
+            list, EventParser().process_all(data, no_events_error)
         )
 
     def test_parse_empty_end_date_event(self):

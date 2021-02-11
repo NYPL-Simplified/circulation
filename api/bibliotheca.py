@@ -326,7 +326,7 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
                 _count_activity
             )
 
-    def get_events_between(self, start, end, cache_result=False, no_events_error=True):
+    def get_events_between(self, start, end, cache_result=False, no_events_error=False):
         """Return event objects for events between the given times."""
         start = start.strftime(self.ARGUMENT_TIME_FORMAT)
         end = end.strftime(self.ARGUMENT_TIME_FORMAT)
@@ -1136,7 +1136,7 @@ class EventParser(BibliothecaParser):
         "REMOVED" : CirculationEvent.DISTRIBUTOR_LICENSE_REMOVE,
     }
 
-    def process_all(self, string, no_events_error=True):
+    def process_all(self, string, no_events_error=False):
         has_events = False
         for i in super(EventParser, self).process_all(
                 string, "//CloudLibraryEvent"):
@@ -1145,8 +1145,8 @@ class EventParser(BibliothecaParser):
 
         # If we are catching up on events and we expect to have a time
         # period where there are no events, we don't want to consider that
-        # action as an error. By default, not having events is considered
-        # to be an error. 
+        # action as an error. By default, not having events is not
+        # considered to be an error.
         if not has_events and no_events_error:
             # An empty list of events may mean nothing happened, or it
             # may indicate an unreported server-side error. To be
@@ -1350,14 +1350,21 @@ class BibliothecaEventMonitor(CollectionMonitor, TimelineMonitor):
     def catch_up_from(self, start, cutoff, progress):
         added_books = 0
         i = 0
-        five_minutes = timedelta(minutes=5)
+        # five_minutes = timedelta(minutes=5)
+        five_minutes = timedelta(days=1)
+        t = self.timestamp()
 
         # If the start date is more than a month ago, then we don't consider
         # not getting events as an error.
         one_month_ago = datetime.utcnow() - timedelta(days=30)
-        no_events_error = True
-        if (start < one_month_ago):
-            no_events_error = False
+
+        # Not having events in a time period is not considered to be
+        # an error.
+        no_events_error = False
+        # But in this case, we do want to consider not getting
+        # events as an error.
+        if (t.counter):
+            no_events_error = True
             
         for slice_start, slice_cutoff, full_slice in self.slice_timespan(
             start, cutoff, five_minutes
