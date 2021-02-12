@@ -251,7 +251,7 @@ UNKNOWN_SAML_PROVIDER = pd(
 
 INVALID_SAML_BEARER_TOKEN = pd(
     "http://librarysimplified.org/terms/problem/credentials-invalid",
-    status_code=400,
+    status_code=401,
     title=_("Invalid SAML bearer token."),
     detail=_("The provided SAML bearer token couldn't be verified."),
 )
