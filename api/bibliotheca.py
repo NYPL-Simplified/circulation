@@ -326,7 +326,7 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
                 _count_activity
             )
 
-    def get_events_between(self, start, end, cache_result=False, no_events_error=False, timestamp=None):
+    def get_events_between(self, start, end, cache_result=False, no_events_error=False):
         """Return event objects for events between the given times."""
         start = start.strftime(self.ARGUMENT_TIME_FORMAT)
         end = end.strftime(self.ARGUMENT_TIME_FORMAT)
@@ -340,11 +340,7 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
             self._db.commit()
         try:
             events = EventParser().process_all(response.content, no_events_error)
-            if (timestamp):
-                timestamp.counter = 0
         except Exception, e:
-            if timestamp:
-                timestamp.counter = 1
             self.log.error(
                 "Error parsing Bibliotheca response content: %s", response.content,
                 exc_info=e
@@ -1354,31 +1350,51 @@ class BibliothecaEventMonitor(CollectionMonitor, TimelineMonitor):
     def catch_up_from(self, start, cutoff, progress):
         added_books = 0
         i = 0
-        one_day = timedelta(days=1)
-        timestamp = self.timestamp()
-
-        # If the start date is more than a month ago, then we don't consider
-        # not getting events as an error.
-        one_month_ago = datetime.utcnow() - timedelta(days=30)
+        init_minute_span = 5
+        timespan_to_check = timedelta(minutes=init_minute_span)
 
         # Not having events in a time period is not considered to be
         # an error.
         no_events_error = False
-        # But in this case, we do want to consider not getting
-        # events as an error.
-        if (timestamp.counter == 1):
+        # But in this case, we do want to consider not getting events as
+        # an error. Each subsequent time this is run after the first time,
+        # the timespan to check for event increases by 5 minutes until we
+        # reach a 70-hour timespan to check for events.
+        if (progress.counter > 0):
             no_events_error = True
+            minutes = init_minute_span * progress.counter
+            timespan_to_check = timedelta(minutes=minutes)
+            # We ran through the import and now we can consider not getting
+            # events as an error, but if the start date is more than a week
+            # ago, then we don't consider not getting events as an error.
+            one_week_ago = datetime.utcnow() - timedelta(days=7)
+            if (start < one_week_ago):
+                no_events_error = False
+                # Start by checking for events in a 5 minute timespan.
+                progress.counter = 1
+                minutes = init_minute_span * progress.counter
+                timespan_to_check = timedelta(minutes=minutes)
 
         for slice_start, slice_cutoff, full_slice in self.slice_timespan(
-            start, cutoff, one_day
+            start, cutoff, timespan_to_check
         ):
             self.log.info(
                 "Asking for events between %r and %r", slice_start,
                 slice_cutoff
             )
-            events = self.api.get_events_between(
-                slice_start, slice_cutoff, full_slice, no_events_error, timestamp
-            )
+            try:
+                events = self.api.get_events_between(
+                    slice_start, slice_cutoff, full_slice, no_events_error
+                )
+            except Exception, e:
+                # If we are considering no events as an error, we increase the
+                # timespan we check for events until we get to 840, which
+                # is the multiple that will get use to the 70-hour
+                # timespan check.
+                progress.counter += 1
+                if progress.counter == 840:
+                    progress.counter = 1
+                raise e
             for event in events:
                 event_timestamp = self.handle_event(*event)
                 i += 1
@@ -1386,6 +1402,7 @@ class BibliothecaEventMonitor(CollectionMonitor, TimelineMonitor):
                     self._db.commit()
             self._db.commit()
         progress.achievements = "Events handled: %d." % i
+        progress.counter = 1
 
     def handle_event(self, bibliotheca_id, isbn, foreign_patron_id,
                      start_time, end_time, internal_event_type):
