@@ -294,9 +294,8 @@ class AdminCirculationManagerController(CirculationManagerController):
         # used as a fail-safe in AnalyticsServicesController.process_post in case a librarian somehow manages
         # to submit a Local Analytics form despite the checks on the front end.
         admin = getattr(flask.request, "admin", None)
-        if not admin or admin.roles[0].role == "librarian":
+        if not admin or not admin.roles or admin.roles[0].role == "librarian":
             raise AdminNotAuthorized()
-
 
 class ViewController(AdminController):
     def __call__(self, collection, book, path=None):

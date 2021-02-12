@@ -30,9 +30,10 @@ class AnalyticsServicesController(SettingsController):
     def process_get(self):
         if flask.request.method == 'GET':
             services = self._get_integration_info(self.goal, self.protocols)
-            # Librarians shouldn't be able to access existing local analytics services.
+            # Librarians should be able to see, but not modify local analytics services.
+            # Setting the level to 2 will communicate that to the front end.
             for x in services:
-                if (x["protocol"] == 'core.local_analytics_provider' and not x.has_key("level")):
+                if (x["protocol"] == 'core.local_analytics_provider'):
                     x["level"] = 2
             return dict(
                 analytics_services=services,
@@ -45,6 +46,7 @@ class AnalyticsServicesController(SettingsController):
         url = flask.request.form.get("url")
         fields = {"name": name, "protocol": protocol, "url": url}
 
+        # Don't let librarians create local analytics services.
         if protocol == 'core.local_analytics_provider':
             self.require_higher_than_librarian()
 
@@ -78,10 +80,6 @@ class AnalyticsServicesController(SettingsController):
             return protocol_error
 
         service.name = name
-        # Librarians shouldn't be able to edit the new local analytics service.
-        if protocol == 'core.local_analytics_provider':
-            service["level"] = 2
-
         if is_new:
             return Response(unicode(service.id), 201)
         else:
