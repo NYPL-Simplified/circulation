@@ -1009,6 +1009,8 @@ class TestBibliothecaEventMonitor(BibliothecaAPITest):
         before_timestamp = TimestampData(
             start=three_days_ago, finish=two_days_ago
         )
+        # Since this already ran once, the counter should be set to 1.
+        before_timestamp.counter = 1
 
         api = MockBibliothecaAPI(self._db, self.collection)
         api.queue_response(
@@ -1023,12 +1025,12 @@ class TestBibliothecaEventMonitor(BibliothecaAPITest):
         api.queue_response(
             200, content=self.sample_data("empty_end_date_event.xml")
         )
+
         monitor = BibliothecaEventMonitor(
             self._db, self.collection, api_class=api
         )
 
         after_timestamp = monitor.run_once(before_timestamp)
-
         # Three requests were made to the API:
         #
         # 1. Retrieving the 'slice' of events between 36 hours ago and

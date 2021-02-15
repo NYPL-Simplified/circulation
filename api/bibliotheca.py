@@ -1350,8 +1350,7 @@ class BibliothecaEventMonitor(CollectionMonitor, TimelineMonitor):
     def catch_up_from(self, start, cutoff, progress):
         added_books = 0
         i = 0
-        init_minute_span = 5
-        timespan_to_check = timedelta(minutes=init_minute_span)
+        timespan_to_check = timedelta(minutes=5)
 
         # Not having events in a time period is not considered to be
         # an error.
@@ -1362,18 +1361,17 @@ class BibliothecaEventMonitor(CollectionMonitor, TimelineMonitor):
         # reach a 70-hour timespan to check for events.
         if (progress.counter > 0):
             no_events_error = True
-            minutes = init_minute_span * progress.counter
-            timespan_to_check = timedelta(minutes=minutes)
-            # We ran through the import and now we can consider not getting
-            # events as an error, but if the start date is more than a week
-            # ago, then we don't consider not getting events as an error.
-            one_week_ago = datetime.utcnow() - timedelta(days=7)
-            if (start < one_week_ago):
+            timespan_to_check = timedelta(hours=70)
+
+            import_time_delta = cutoff - start
+            # If we want to check for events in a time period that's
+            # longer than 70 hours, then revert back to the initial
+            # import configuration.
+            if (import_time_delta > timespan_to_check):
                 no_events_error = False
                 # Start by checking for events in a 5 minute timespan.
-                progress.counter = 1
-                minutes = init_minute_span * progress.counter
-                timespan_to_check = timedelta(minutes=minutes)
+                progress.counter = 0
+                timespan_to_check = timedelta(minutes=5)
 
         for slice_start, slice_cutoff, full_slice in self.slice_timespan(
             start, cutoff, timespan_to_check
@@ -1382,19 +1380,9 @@ class BibliothecaEventMonitor(CollectionMonitor, TimelineMonitor):
                 "Asking for events between %r and %r", slice_start,
                 slice_cutoff
             )
-            try:
-                events = self.api.get_events_between(
-                    slice_start, slice_cutoff, full_slice, no_events_error
-                )
-            except Exception, e:
-                # If we are considering no events as an error, we increase the
-                # timespan we check for events until we get to 840, which
-                # is the multiple that will get use to the 70-hour
-                # timespan check.
-                progress.counter += 1
-                if progress.counter == 840:
-                    progress.counter = 1
-                raise e
+            events = self.api.get_events_between(
+                slice_start, slice_cutoff, full_slice, no_events_error
+            )
             for event in events:
                 event_timestamp = self.handle_event(*event)
                 i += 1
