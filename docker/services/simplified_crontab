@@ -97,9 +97,13 @@ HOME=/var/www/circulation
 0 0 2 * * root core/bin/run opds_for_distributors_reaper_monitor >> /var/log/cron.log 2>&1
 0 4 * * * root core/bin/run opds_for_distributors_import_monitor >> /var/log/cron.log 2>&1
 
-# Vanilla OPDS
+# Vanilla OPDS 1.x
 #
 0 5 * * * root core/bin/run opds_import_monitor >> /var/log/cron.log 2>&1
+
+# Vanilla OPDS 2.x
+#
+30 5 * * * root core/bin/run opds2_import_monitor >> /var/log/cron.log 2>&1
 
 # OPDS import from Feedbooks
 * * */7 * * root core/bin/run feedbooks_import_monitor >> /var/log/cron.log 2>&1
