@@ -998,50 +998,41 @@ class TestBibliothecaEventMonitor(BibliothecaAPITest):
 
     def test_run_once(self):
         # run_once() slices the time between its start date
-        # and the current time into one-day intervals, and asks for
+        # and the current time into five-minute intervals, and asks for
         # data about one day at a time.
 
         now = datetime.utcnow()
-        two_days_ago = now - timedelta(hours=36)
-        three_days_ago = now - timedelta(hours=50)
+        one_hour_ago = now - timedelta(hours=1)
+        two_hours_ago = now - timedelta(hours=2)
 
         # Simulate that this script last ran 24 hours ago
         before_timestamp = TimestampData(
-            start=three_days_ago, finish=two_days_ago
+            start=two_hours_ago, finish=one_hour_ago
         )
-        # Since this already ran once, the counter should be set to 1.
-        before_timestamp.counter = 1
 
         api = MockBibliothecaAPI(self._db, self.collection)
         api.queue_response(
-            200, content=self.sample_data("empty_end_date_event.xml")
-        )
-        api.queue_response(
             200, content=self.sample_data("item_metadata_single.xml")
         )
-        api.queue_response(
-            200, content=self.sample_data("empty_end_date_event.xml")
-        )
-        api.queue_response(
-            200, content=self.sample_data("empty_end_date_event.xml")
-        )
+        # Setting up making requests in 5-minute intervals in the hour slice.
+        for i in range(1, 15):
+            api.queue_response(
+                200, content=self.sample_data("empty_end_date_event.xml")
+            )
 
         monitor = BibliothecaEventMonitor(
             self._db, self.collection, api_class=api
         )
 
         after_timestamp = monitor.run_once(before_timestamp)
-        # Three requests were made to the API:
+        # Fifteen requests were made to the API:
         #
-        # 1. Retrieving the 'slice' of events between 36 hours ago and
-        #    12 hours ago.
+        # 1. Looking up detailed information about the single book
+        #    whose event we found.
         #
-        # 2. Looking up detailed information about the single book
-        #    whose event we learned of in that first slice.
-        #
-        # 3. Retrieving the 'slice' of events between 12 hours ago
-        #    and now.
-        eq_(3, len(api.requests))
+        # 2. Retrieving the 'slices' of events between 2 hours ago and
+        #    1 hours ago in 5 minute intervals.
+        eq_(15, len(api.requests))
 
         # There is no second 'detailed information' lookup because both events
         # relate to the same book.
@@ -1064,31 +1055,27 @@ class TestBibliothecaEventMonitor(BibliothecaAPITest):
         #
         # The events we found were both from 2016, but that's not
         # considered when setting the timestamp.
-        eq_(two_days_ago-monitor.OVERLAP, after_timestamp.start)
+        eq_(one_hour_ago-monitor.OVERLAP, after_timestamp.start)
         self.time_eq(after_timestamp.finish, now)
-
         # The timestamp's achivements have been updated.
-        eq_("Events handled: 2.", after_timestamp.achievements)
+        eq_("Events handled: 13.", after_timestamp.achievements)
 
-        # If we tell run_once() to work through an amount of time
-        # where the are no events, it errors out, because we can't distinguish
-        # between a slow day and a problem with the API.
+        # After the initial run, the progress timestamp's `counter` property
+        # is set to `1`. This means we are now in "catch up" mode where we
+        # consider no events to be an error. The timespan to check for events
+        # also expands to a 70-hour slice of time.
         api.queue_response(
             200, content=self.sample_data("empty_event_batch.xml")
         )
-        now = datetime.utcnow()
-        yesterday = now - timedelta(days=1)
-        an_hour_ago = now - timedelta(hours=1)
-        no_action_timestamp = TimestampData(start=yesterday, finish=an_hour_ago)
-        final_timestamp = monitor.run_once(no_action_timestamp)
+        
+        assert_raises_regexp(
+            RemoteInitiatedServerError,
+            "No events returned from server. This may not be an error, but treating it as one to be safe.",
+            monitor.run_once, after_timestamp
+        )
 
-        # One request was made.
-        eq_(4, len(api.requests))
-
-        # The timestamp indicates we covered the time between the last 'finish'
-        # time and the time that run_once() was called.
-        eq_(an_hour_ago-monitor.OVERLAP, final_timestamp.start)
-        self.time_eq(now, final_timestamp.finish)
+        # One request was made but no events were found.
+        eq_(16, len(api.requests))
 
     def test_handle_event(self):
         api = MockBibliothecaAPI(self._db, self.collection)
