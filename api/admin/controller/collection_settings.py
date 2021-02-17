@@ -109,7 +109,7 @@ class CollectionSettingsController(SettingsController):
                         value = str(storage_integration.other_integration_id)
                     else:
                         value = self.NO_MIRROR_INTEGRATION
-                elif protocol_setting.get("type") == "list":
+                elif protocol_setting.get("type") in ("list", "menu"):
                     value = collection_object.external_integration.setting(key).json_value
                 else:
                     value = collection_object.external_integration.setting(key).value
