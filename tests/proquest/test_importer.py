@@ -9,6 +9,7 @@ from parameterized import parameterized
 from requests import HTTPError
 
 from api.authenticator import BaseSAMLAuthenticationProvider
+from api.circulation import BaseCirculationAPI
 from api.circulation_exceptions import CannotFulfill, CannotLoan
 from api.proquest.client import (
     ProQuestAPIClient,
@@ -42,6 +43,7 @@ from core.model import (
 )
 from core.model.configuration import (
     ConfigurationFactory,
+    ConfigurationSetting,
     ConfigurationStorage,
     HasExternalIntegration,
 )
@@ -65,7 +67,9 @@ class TestProQuestOPDS2Importer(DatabaseTest):
 
         self._proquest_patron = self._patron()
         self._loan_start_date = datetime.datetime(2020, 1, 1)
-        self._loan_end_date = None
+        self._loan_end_date = self._loan_start_date + datetime.timedelta(
+            days=Collection.STANDARD_DEFAULT_LOAN_PERIOD
+        )
         self._proquest_document_id = "12345"
         self._proquest_edition = self._edition(
             data_source_name=self._proquest_data_source.name,
@@ -504,6 +508,105 @@ class TestProQuestOPDS2Importer(DatabaseTest):
             # This operation failed resulting in raising CannotFulfill error.
             api_client_mock.create_token.assert_called_once_with(
                 self._db, affiliation_id
+            )
+
+    @parameterized.expand([("default_value", None), ("custom_value_set_by_admin", 10)])
+    @freeze_time("2020-01-01 00:00:00")
+    def test_checkout_uses_loan_length_configuration_setting(self, _, loan_length=None):
+        # We want to test that checkout operation always uses
+        # loan length configuration setting BaseCirculationAPI.DEFAULT_LOAN_DURATION_SETTING.
+        # We try different scenarios:
+        # - when the configuration setting is not initialized - in this case the ProQuest configuration
+        #   must use the default value.
+        # - when the configuration setting is set to a custom value by the admin - in this case the ProQuest integration
+        #   must use the custom value.
+
+        # Arrange
+        affiliation_id = "12345"
+        proquest_token = "1234567890"
+
+        api_client_mock = create_autospec(spec=ProQuestAPIClient)
+        api_client_mock.create_token = MagicMock(return_value=proquest_token)
+
+        api_client_factory_mock = create_autospec(spec=ProQuestAPIClientFactory)
+        api_client_factory_mock.create = MagicMock(return_value=api_client_mock)
+
+        credential_manager_mock = create_autospec(spec=ProQuestCredentialManager)
+        credential_manager_mock.lookup_patron_affiliation_id = MagicMock(
+            return_value=affiliation_id
+        )
+        credential_manager_mock.lookup_proquest_token = MagicMock(
+            side_effect=[None, proquest_token]
+        )
+
+        if loan_length is None:
+            loan_length = Collection.STANDARD_DEFAULT_LOAN_PERIOD
+
+        ConfigurationSetting.for_library_and_externalintegration(
+            self._db,
+            BaseCirculationAPI.DEFAULT_LOAN_DURATION_SETTING["key"],
+            self._proquest_patron.library,
+            self._integration,
+        ).value = loan_length
+        loan_end_date = self._loan_start_date + datetime.timedelta(days=loan_length)
+
+        with patch(
+            "api.proquest.importer.ProQuestAPIClientFactory"
+        ) as api_client_factory_constructor_mock, patch(
+            "api.proquest.importer.ProQuestCredentialManager"
+        ) as credential_manager_constructor_mock:
+            api_client_factory_constructor_mock.return_value = api_client_factory_mock
+            credential_manager_constructor_mock.return_value = credential_manager_mock
+
+            # Act
+            importer = ProQuestOPDS2Importer(self._db, self._proquest_collection)
+            loan = importer.checkout(
+                self._proquest_patron,
+                "pin",
+                self._proquest_license_pool,
+                self._proquest_delivery_mechanism,
+            )
+
+            # Assert
+            eq_(self._proquest_collection.id, loan.collection_id)
+            eq_(self._proquest_collection, loan.collection(self._db))
+            eq_(self._proquest_license_pool, loan.license_pool(self._db))
+            eq_(self._proquest_data_source.name, loan.data_source_name)
+            eq_(self._proquest_license_pool.identifier.type, loan.identifier_type)
+            eq_(
+                None,
+                loan.external_identifier,
+            )
+            eq_(self._loan_start_date, loan.start_date)
+            eq_(loan_end_date, loan.end_date)
+
+            # 1. Assert that ProQuestCredentialManager.lookup_proquest_token
+            # was called when CM tried to fetch a non-existent token.
+            credential_manager_mock.lookup_proquest_token.assert_called_once_with(
+                self._db, self._proquest_patron
+            )
+
+            # 2. Assert that ProQuestCredentialManager.lookup_patron_affiliation_id
+            # was called when CM tried to fetch an existing SAML affiliation ID.
+            credential_manager_mock.lookup_patron_affiliation_id.assert_called_once_with(
+                self._db,
+                self._proquest_patron,
+                ProQuestOPDS2ImporterConfiguration.DEFAULT_AFFILIATION_ATTRIBUTES,
+            )
+
+            # 3. Assert that ProQuest.create_token was called when CM tried to create a new ProQuest JWT bearer token
+            # using the SAML affiliation ID from step 2.
+            api_client_mock.create_token.assert_called_once_with(
+                self._db, affiliation_id
+            )
+
+            # 4. Assert that ProQuestCredentialManager.save_proquest_token
+            # was called when CM tried to save the token created in step 3.
+            credential_manager_mock.save_proquest_token.assert_called_once_with(
+                self._db,
+                self._proquest_patron,
+                datetime.timedelta(hours=1),
+                proquest_token,
             )
 
     @freeze_time("2020-01-01 00:00:00")

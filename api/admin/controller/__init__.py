@@ -289,6 +289,14 @@ class AdminCirculationManagerController(CirculationManagerController):
         if not admin or not admin.is_librarian(library):
             raise AdminNotAuthorized()
 
+    def require_higher_than_librarian(self):
+        # A quick way to check the admin's permissions level without needing to already know the library;
+        # used as a fail-safe in AnalyticsServicesController.process_post in case a librarian somehow manages
+        # to submit a Local Analytics form despite the checks on the front end.
+        admin = getattr(flask.request, "admin", None)
+        if not admin or not admin.roles or admin.roles[0].role == "librarian":
+            raise AdminNotAuthorized()
+
 class ViewController(AdminController):
     def __call__(self, collection, book, path=None):
         setting_up = (self.admin_auth_providers == [])
