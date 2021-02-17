@@ -22,7 +22,6 @@ class AnalyticsServicesController(SettingsController):
         self.goal = ExternalIntegration.ANALYTICS_GOAL
 
     def process_analytics_services(self):
-        self.require_system_admin()
         if flask.request.method == 'GET':
             return self.process_get()
         else:
@@ -31,6 +30,11 @@ class AnalyticsServicesController(SettingsController):
     def process_get(self):
         if flask.request.method == 'GET':
             services = self._get_integration_info(self.goal, self.protocols)
+            # Librarians should be able to see, but not modify local analytics services.
+            # Setting the level to 2 will communicate that to the front end.
+            for x in services:
+                if (x["protocol"] == 'core.local_analytics_provider'):
+                    x["level"] = 2
             return dict(
                 analytics_services=services,
                 protocols=self.protocols,
@@ -41,6 +45,11 @@ class AnalyticsServicesController(SettingsController):
         protocol = flask.request.form.get("protocol")
         url = flask.request.form.get("url")
         fields = {"name": name, "protocol": protocol, "url": url}
+
+        # Don't let librarians create local analytics services.
+        if protocol == 'core.local_analytics_provider':
+            self.require_higher_than_librarian()
+
         form_field_error = self.validate_form_fields(**fields)
         if form_field_error:
             return form_field_error
@@ -71,7 +80,6 @@ class AnalyticsServicesController(SettingsController):
             return protocol_error
 
         service.name = name
-
         if is_new:
             return Response(unicode(service.id), 201)
         else:
