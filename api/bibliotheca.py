@@ -1359,7 +1359,7 @@ class BibliothecaEventMonitor(CollectionMonitor, TimelineMonitor):
         # an error. Each subsequent time this is run after the first time,
         # the timespan to check for event increases by 5 minutes until we
         # reach a 70-hour timespan to check for events.
-        if (progress.counter > 0):
+        if (progress.counter == 1):
             no_events_error = True
             timespan_to_check = timedelta(hours=70)
 
@@ -1390,7 +1390,13 @@ class BibliothecaEventMonitor(CollectionMonitor, TimelineMonitor):
                     self._db.commit()
             self._db.commit()
         progress.achievements = "Events handled: %d." % i
-        progress.counter = 1
+        # If we are in "catch up" mode and we encounter some events, we can
+        # reset the counter back to 0. Otherwise, keep the counter at 1. This
+        # will also set it to 1 after the initial run.
+        if progress.counter == 1:
+            progress.counter = 0
+        else:
+            progress.counter = 1
 
     def handle_event(self, bibliotheca_id, isbn, foreign_patron_id,
                      start_time, end_time, internal_event_type):

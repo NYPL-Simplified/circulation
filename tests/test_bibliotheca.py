@@ -1068,6 +1068,8 @@ class TestBibliothecaEventMonitor(BibliothecaAPITest):
             200, content=self.sample_data("empty_event_batch.xml")
         )
         
+        assert after_timestamp.counter == 1
+
         assert_raises_regexp(
             RemoteInitiatedServerError,
             "No events returned from server. This may not be an error, but treating it as one to be safe.",
@@ -1076,6 +1078,27 @@ class TestBibliothecaEventMonitor(BibliothecaAPITest):
 
         # One request was made but no events were found.
         eq_(16, len(api.requests))
+        
+        # If we are in "catch up" mode and the timespan to check for events
+        # is longer than 70 hours, we revert back to checking for events
+        # in 5-minute intervals.
+        now = datetime.utcnow()
+        two_days_ago = now - timedelta(days=2)
+        seven_days_ago = now - timedelta(days=5)
+        before_timestamp = TimestampData(
+            start=seven_days_ago, finish=two_days_ago
+        )
+        before_timestamp.counter = 1
+
+        # All the requests triggered in the 3 day span in 5-minute intervals.
+        for i in range(1, 600):
+            api.queue_response(
+                200, content=self.sample_data("empty_end_date_event.xml")
+            )
+
+        after_timestamp = monitor.run_once(before_timestamp)
+        
+        assert after_timestamp.counter == 0
 
     def test_handle_event(self):
         api = MockBibliothecaAPI(self._db, self.collection)
