@@ -326,7 +326,7 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
                 _count_activity
             )
 
-    def get_events_between(self, start, end, cache_result=False):
+    def get_events_between(self, start, end, cache_result=False, no_events_error=False):
         """Return event objects for events between the given times."""
         start = start.strftime(self.ARGUMENT_TIME_FORMAT)
         end = end.strftime(self.ARGUMENT_TIME_FORMAT)
@@ -339,7 +339,7 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
         if cache_result:
             self._db.commit()
         try:
-            events = EventParser().process_all(response.content)
+            events = EventParser().process_all(response.content, no_events_error)
         except Exception, e:
             self.log.error(
                 "Error parsing Bibliotheca response content: %s", response.content,
@@ -1136,14 +1136,18 @@ class EventParser(BibliothecaParser):
         "REMOVED" : CirculationEvent.DISTRIBUTOR_LICENSE_REMOVE,
     }
 
-    def process_all(self, string):
+    def process_all(self, string, no_events_error=False):
         has_events = False
         for i in super(EventParser, self).process_all(
                 string, "//CloudLibraryEvent"):
             yield i
             has_events = True
 
-        if not has_events:
+        # If we are catching up on events and we expect to have a time
+        # period where there are no events, we don't want to consider that
+        # action as an error. By default, not having events is not
+        # considered to be an error.
+        if not has_events and no_events_error:
             # An empty list of events may mean nothing happened, or it
             # may indicate an unreported server-side error. To be
             # safe, we'll treat this as a server-initiated error
@@ -1346,17 +1350,38 @@ class BibliothecaEventMonitor(CollectionMonitor, TimelineMonitor):
     def catch_up_from(self, start, cutoff, progress):
         added_books = 0
         i = 0
-        one_day = timedelta(days=1)
+        timespan_to_check = timedelta(minutes=5)
+
+        # Not having events in a time period is not considered to be
+        # an error.
+        no_events_error = False
+        # But in this case, we do want to consider not getting events as
+        # an error. Each subsequent time this is run after the first time,
+        # the timespan to check for event increases by 5 minutes until we
+        # reach a 70-hour timespan to check for events.
+        if (progress.counter == 1):
+            no_events_error = True
+            timespan_to_check = timedelta(hours=70)
+
+            import_time_delta = cutoff - start
+            # If we want to check for events in a time period that's
+            # longer than 70 hours, then revert back to the initial
+            # import configuration.
+            if (import_time_delta > timespan_to_check):
+                no_events_error = False
+                # Start by checking for events in a 5 minute timespan.
+                progress.counter = 0
+                timespan_to_check = timedelta(minutes=5)
+
         for slice_start, slice_cutoff, full_slice in self.slice_timespan(
-            start, cutoff, one_day
+            start, cutoff, timespan_to_check
         ):
             self.log.info(
                 "Asking for events between %r and %r", slice_start,
                 slice_cutoff
             )
-            event = None
             events = self.api.get_events_between(
-                slice_start, slice_cutoff, full_slice
+                slice_start, slice_cutoff, full_slice, no_events_error
             )
             for event in events:
                 event_timestamp = self.handle_event(*event)
@@ -1365,6 +1390,13 @@ class BibliothecaEventMonitor(CollectionMonitor, TimelineMonitor):
                     self._db.commit()
             self._db.commit()
         progress.achievements = "Events handled: %d." % i
+        # If we are in "catch up" mode and we encounter some events, we can
+        # reset the counter back to 0. Otherwise, keep the counter at 1. This
+        # will also set it to 1 after the initial run.
+        if progress.counter == 1:
+            progress.counter = 0
+        else:
+            progress.counter = 1
 
     def handle_event(self, bibliotheca_id, isbn, foreign_patron_id,
                      start_time, end_time, internal_event_type):
