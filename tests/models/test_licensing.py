@@ -1,15 +1,18 @@
 # encoding: utf-8
+import datetime
+
+from mock import MagicMock, PropertyMock
 from nose.tools import (
+    assert_not_equal,
     assert_raises,
     assert_raises_regexp,
-    assert_not_equal,
     eq_,
     set_trace,
 )
-import datetime
-from ...mock_analytics_provider import MockAnalyticsProvider
+from parameterized import parameterized
 from sqlalchemy.exc import IntegrityError
-from .. import DatabaseTest
+
+from ...mock_analytics_provider import MockAnalyticsProvider
 from ...model import create
 from ...model.circulationevent import CirculationEvent
 from ...model.collection import CollectionMissing
@@ -29,13 +32,11 @@ from ...model.licensing import (
     Loan,
     RightsStatus,
 )
-from ...model.resource import (
-    Hyperlink,
-    Representation,
-)
+from ...model.resource import Hyperlink, Representation
+from .. import DatabaseTest
+
 
 class TestDeliveryMechanism(DatabaseTest):
-
     def setup(self):
         super(TestDeliveryMechanism, self).setup()
         self.epub_no_drm, ignore = DeliveryMechanism.lookup(
@@ -339,6 +340,7 @@ class TestLicense(DatabaseTest):
 
         # Now all licenses are either loaned out or expired.
         eq_(None, self.pool.best_available_license())
+
 
 class TestLicensePool(DatabaseTest):
 
@@ -1110,7 +1112,6 @@ class TestLicensePool(DatabaseTest):
         
 
 class TestLicensePoolDeliveryMechanism(DatabaseTest):
-
     def test_lpdm_change_may_change_open_access_status(self):
         # Here's a book that's not open access.
         edition, pool = self._edition(with_license_pool=True)
@@ -1347,3 +1348,42 @@ class TestLicensePoolDeliveryMechanism(DatabaseTest):
             (mech2.delivery_mechanism, True),
             Mock.called_with
         )
+
+    @parameterized.expand([
+        ('ascii_sy', 'a', 'a', 'a'),
+        ('', 'ą', 'ą', 'ą')
+    ])
+    def test_repr(self, _, data_source, identifier, delivery_mechanism):
+        """Test that LicensePoolDeliveryMechanism.__repr__ correctly works for both ASCII and non-ASCII symbols.
+
+        :param _: Name of the test case
+        :type _: str
+
+        :param data_source: String representation of the data source
+        :type data_source: str
+
+        :param identifier: String representation of the publication's identifier
+        :type identifier: str
+
+        :param delivery_mechanism: String representation of the delivery mechanism
+        :type delivery_mechanism: str
+        """
+        # Arrange
+        data_source_mock = DataSource()
+        data_source_mock.__str__ = MagicMock(return_value=data_source)
+
+        identifier_mock = Identifier()
+        identifier_mock.__repr__ = MagicMock(return_value=identifier)
+
+        delivery_mechanism_mock = DeliveryMechanism()
+        delivery_mechanism_mock.__repr__ = MagicMock(return_value=delivery_mechanism)
+
+        license_delivery_mechanism_mock = LicensePoolDeliveryMechanism()
+        license_delivery_mechanism_mock.data_source = PropertyMock(return_value=data_source_mock)
+        license_delivery_mechanism_mock.identifier = PropertyMock(return_value=identifier_mock)
+        license_delivery_mechanism_mock.delivery_mechanism = PropertyMock(return_value=delivery_mechanism_mock)
+
+        # Act
+        # NOTE: we are not interested in the result returned by repr,
+        # we just want to make sure that repr doesn't throw any unexpected exceptions
+        repr(license_delivery_mechanism_mock)
