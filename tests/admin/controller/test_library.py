@@ -172,28 +172,7 @@ class TestLibrarySettings(SettingsControllerTest, AnnouncementTest):
             response = self.manager.admin_library_settings_controller.process_post()
             eq_(response, MISSING_LIBRARY_SHORT_NAME)
 
-        self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
-        with self.request_context_with_admin("/", method="POST"):
-            flask.request.form = MultiDict([
-                ("name", "Brooklyn Public Library"),
-                ("short_name", "bpl"),
-            ])
-            assert_raises(AdminNotAuthorized,
-              self.manager.admin_library_settings_controller.process_post)
-
         library = self._library()
-        self.admin.add_role(AdminRole.LIBRARIAN, library)
-
-        with self.request_context_with_admin("/", method="POST"):
-            flask.request.form = MultiDict([
-                ("uuid", library.uuid),
-                ("name", "Brooklyn Public Library"),
-                ("short_name", library.short_name),
-            ])
-            assert_raises(AdminNotAuthorized,
-                self.manager.admin_library_settings_controller.process_post)
-
-        self.admin.add_role(AdminRole.SYSTEM_ADMIN)
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = self.library_form(library, {"uuid": "1234"})
             response = self.manager.admin_library_settings_controller.process_post()

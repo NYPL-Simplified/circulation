@@ -73,8 +73,6 @@ class LibrarySettingsController(SettingsController):
         return dict(libraries=libraries, settings=Configuration.LIBRARY_SETTINGS)
 
     def process_post(self, validators_by_type=None):
-        self.require_system_admin()
-
         library = None
         is_new = False
         if validators_by_type is None:
