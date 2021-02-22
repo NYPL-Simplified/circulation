@@ -4,6 +4,12 @@
 import datetime
 import logging
 
+import six
+from circulationevent import CirculationEvent
+from complaint import Complaint
+from constants import DataSourceConstants, EditionConstants, LinkRelations, MediaTypes
+from hasfulltablecache import HasFullTableCache
+from patron import Hold, Loan, Patron
 from sqlalchemy import (
     Boolean,
     Column,
@@ -20,31 +26,13 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.orm.session import Session
 from sqlalchemy.sql.functions import func
 
-from circulationevent import CirculationEvent
-from complaint import Complaint
-from constants import (
-    DataSourceConstants,
-    EditionConstants,
-    LinkRelations,
-    MediaTypes,
-)
-from hasfulltablecache import HasFullTableCache
-from patron import (
-    Patron,
-    Loan,
-    Hold,
-)
-from . import (
-    Base,
-    create,
-    flush,
-    get_one,
-    get_one_or_create,
-)
+from ..util.string_helpers import native_string
+from . import Base, create, flush, get_one, get_one_or_create
 
 
 class PolicyException(Exception):
     pass
+
 
 class License(Base):
     """A single license for a work from a given source.
@@ -467,11 +455,7 @@ class LicensePool(Base):
 
         # Note: We can do a cleaner solution, if we refactor to not use metadata's
         # methods to update editions.  For now, we're choosing to go with the below approach.
-        from ..metadata_layer import (
-            Metadata,
-            IdentifierData,
-            ReplacementPolicy,
-        )
+        from ..metadata_layer import IdentifierData, Metadata, ReplacementPolicy
 
         if len(all_editions) == 1:
             # There's only one edition associated with this
@@ -1403,7 +1387,13 @@ class LicensePoolDeliveryMechanism(Base):
                 LicensePool.identifier==self.identifier)
 
     def __repr__(self):
-        return "<LicensePoolDeliveryMechanism: data_source=%s, identifier=%r, mechanism=%r>" % (self.data_source, self.identifier, self.delivery_mechanism)
+        return native_string(
+            u"<LicensePoolDeliveryMechanism: data_source={0}, identifier={1}, mechanism={2}>".format(
+                six.ensure_text(str(self.data_source)),
+                six.ensure_text(repr(self.identifier)),
+                six.ensure_text(repr(self.delivery_mechanism))
+            )
+        )
 
     __table_args__ = (
         UniqueConstraint('data_source_id', 'identifier_id',

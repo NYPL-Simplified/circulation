@@ -83,11 +83,11 @@ class Identifier(Base, IdentifierConstants):
     def __repr__(self):
         records = self.primarily_identifies
         if records and records[0].title:
-            title = u' prim_ed=%d ("%s")' % (records[0].id, records[0].title)
+            title = u' prim_ed=%d ("%s")' % (records[0].id, six.ensure_text(records[0].title))
         else:
-            title = ""
+            title = u""
         return native_string(
-            u"%s/%s ID=%s%s" % (self.type, self.identifier, self.id, title)
+            u"%s/%s ID=%s%s" % (six.ensure_text(self.type), six.ensure_text(self.identifier), self.id, title)
         )
 
     # One Identifier may serve as the primary identifier for

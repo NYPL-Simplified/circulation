@@ -1,25 +1,21 @@
 # encoding: utf-8
-from nose.tools import (
-    assert_raises,
-    assert_raises_regexp,
-    eq_,
-    set_trace,
-)
 import datetime
+
 import feedparser
 from lxml import etree
-from .. import DatabaseTest
+from mock import PropertyMock, create_autospec
+from nose.tools import assert_raises, assert_raises_regexp, eq_, set_trace
+from parameterized import parameterized
+
 from ...model import PresentationCalculationPolicy
 from ...model.datasource import DataSource
 from ...model.edition import Edition
 from ...model.identifier import Identifier
-from ...model.resource import (
-    Hyperlink,
-    Representation,
-)
+from ...model.resource import Hyperlink, Representation
+from .. import DatabaseTest
+
 
 class TestIdentifier(DatabaseTest):
-
     def test_for_foreign_id(self):
         identifier_type = Identifier.ISBN
         isbn = "3293000061"
@@ -568,7 +564,6 @@ class TestIdentifier(DatabaseTest):
             ).all()
         )
 
-
     def test_missing_coverage_from_with_cutoff_date(self):
         gutenberg = DataSource.lookup(self._db, DataSource.GUTENBERG)
         oclc = DataSource.lookup(self._db, DataSource.OCLC)
@@ -681,3 +676,48 @@ class TestIdentifier(DatabaseTest):
         # And the updated time has been changed accordingly.
         expected = thumbnail.resource.representation.mirrored_at
         eq_(format_timestamp(even_later), entry.updated)
+
+    @parameterized.expand([
+        ('ascii_type_ascii_identifier_no_title', 'a', 'a', None),
+        ('ascii_type_non_ascii_identifier_no_title', 'a', 'ą', None),
+        ('non_ascii_type_ascii_identifier_no_title', 'ą', 'a', None),
+        ('non_ascii_type_non_ascii_identifier_no_title', 'ą', 'ą', None),
+
+        ('ascii_type_ascii_identifier_ascii_title', 'a', 'a', 'a'),
+        ('ascii_type_non_ascii_identifier_ascii_title', 'a', 'ą', 'a'),
+        ('non_ascii_type_ascii_identifier_ascii_title', 'ą', 'a', 'a'),
+        ('non_ascii_type_non_ascii_identifier_ascii_title', 'ą', 'ą', 'a'),
+
+        ('ascii_type_ascii_identifier_non_ascii_title', 'a', 'a', 'ą'),
+        ('ascii_type_non_ascii_identifier_non_ascii_title', 'a', 'ą', 'ą'),
+        ('non_ascii_type_ascii_identifier_non_ascii_title', 'ą', 'a', 'ą'),
+        ('non_ascii_type_non_ascii_identifier_non_ascii_title', 'ą', 'ą', 'ą'),
+    ])
+    def test_repr(self, _, identifier_type, identifier, title):
+        """Test that Identifier.__repr__ correctly works with both ASCII and non-ASCII symbols.
+
+        :param _: Name of the test case
+        :type _: str
+
+        :param identifier_type: Type of the identifier
+        :type identifier_type: str
+
+        :param identifier: Identifier's value
+        :type identifier: str
+
+        :param title: Presentation edition's title
+        :type title: str
+        """
+        # Arrange
+        identifier = Identifier(type=identifier_type, identifier=identifier)
+
+        if title:
+            edition = create_autospec(spec=Edition)
+            edition.title = PropertyMock(return_value=title)
+
+            identifier.primarily_identifies = PropertyMock(return_value=[edition])
+
+        # Act
+        # NOTE: we are not interested in the result returned by repr,
+        # we just want to make sure that repr doesn't throw any unexpected exceptions
+        _ = repr(identifier)
