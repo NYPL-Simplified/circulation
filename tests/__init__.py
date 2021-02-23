@@ -16,13 +16,4 @@ from ..testing import (
     DatabaseTest,
     DummyMetadataClient,
     DummyHTTPClient,
-    package_setup,
-    package_teardown,
 )
-
-def setup_package():
-    package_setup()
-
-def teardown_package():
-    package_teardown()
-

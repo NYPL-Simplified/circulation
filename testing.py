@@ -84,51 +84,6 @@ import inspect
 
 from nose.plugins.attrib import attr
 
-def package_setup():
-    """Make sure the application starts in a pristine state.
-    """
-    # This will make sure we always connect to the test database.
-    os.environ['TESTING'] = 'true'
-
-    # This will make sure we always connect to the test database.
-    os.environ['TESTING'] = 'true'
-
-    # Ensure that the log configuration starts in a known state.
-    LogConfiguration.initialize(None, testing=True)
-
-    # Drop any existing schema. It will be recreated when
-    # SessionManager.initialize() runs.
-    #
-    # Base.metadata.drop_all(connection) doesn't work here, so we
-    # approximate by dropping every item individually.
-    engine = SessionManager.engine()
-    for table in reversed(Base.metadata.sorted_tables):
-        if table.name.startswith('mv_'):
-            # TODO: This can be removed soon. We don't create
-            # materialized views anymore, but they'll still hang
-            # around for a while in test databases and need to be
-            # deleted.
-            statement = "drop materialized view %s" % table.name
-        else:
-            statement = table.delete()
-        try:
-            engine.execute(statement)
-        except ProgrammingError, e:
-            # TODO PYTHON3
-            # if isinstance(e.orig, UndefinedTable):
-            if 'does not exist' in e.message:
-                # This is the first time running these tests
-                # on this server, and the tables don't exist yet.
-                pass
-            else:
-                raise
-
-
-def package_teardown():
-    if 'TESTING' in os.environ:
-        del os.environ['TESTING']
-
-
 class LogCaptureHandler(logging.Handler):
     """A `logging.Handler` context manager that captures the messages
     of emitted log records in the context of the specified `logger`.
