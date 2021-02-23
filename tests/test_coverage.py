@@ -677,8 +677,8 @@ class TestBaseCoverageProvider(CoverageProviderTest):
 
 class TestIdentifierCoverageProvider(CoverageProviderTest):
 
-    def setup(self):
-        super(TestIdentifierCoverageProvider, self).setup()
+    def setup_method(self):
+        super(TestIdentifierCoverageProvider, self).setup_method()
         self.identifier = self._identifier()
 
     def test_input_identifier_types(self):
@@ -1980,8 +1980,8 @@ class TestCatalogCoverageProvider(CoverageProviderTest):
 class TestBibliographicCoverageProvider(CoverageProviderTest):
     """Test the features specific to BibliographicCoverageProvider."""
 
-    def setup(self):
-        super(TestBibliographicCoverageProvider, self).setup()
+    def setup_method(self):
+        super(TestBibliographicCoverageProvider, self).setup_method()
         self.work = self._work(
             with_license_pool=True, with_open_access_download=True
         )
@@ -2021,8 +2021,8 @@ class TestBibliographicCoverageProvider(CoverageProviderTest):
 
 class TestWorkCoverageProvider(DatabaseTest):
 
-    def setup(self):
-        super(TestWorkCoverageProvider, self).setup()
+    def setup_method(self):
+        super(TestWorkCoverageProvider, self).setup_method()
         self.work = self._work()
 
     def test_success(self):

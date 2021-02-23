@@ -9,8 +9,8 @@ from ...model import Credential, DataSource
 
 
 class TestCredentialFactory(DatabaseTest):
-    def setup(self, mock_search=True):
-        super(TestCredentialFactory, self).setup(mock_search)
+    def setup_method(self, mock_search=True):
+        super(TestCredentialFactory, self).setup_method(mock_search)
 
         self._factory = LCPCredentialFactory()
         self._patron = self._patron()

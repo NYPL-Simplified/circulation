@@ -105,8 +105,8 @@ class TestHeartbeatController(object):
 
 
 class TestURNLookupHandler(DatabaseTest):
-    def setup(self):
-        super(TestURNLookupHandler, self).setup()
+    def setup_method(self):
+        super(TestURNLookupHandler, self).setup_method()
         self.handler = URNLookupHandler(self._db)
 
     def assert_one_message(self, urn, code, message):
@@ -187,8 +187,8 @@ class TestURNLookupHandler(DatabaseTest):
 
 class TestURNLookupController(DatabaseTest):
 
-    def setup(self):
-        super(TestURNLookupController, self).setup()
+    def setup_method(self):
+        super(TestURNLookupController, self).setup_method()
         self.controller = URNLookupController(self._db)
 
     # Set up a mock Flask app for testing the controller methods.
@@ -250,8 +250,8 @@ class TestURNLookupController(DatabaseTest):
 
 class TestComplaintController(DatabaseTest):
 
-    def setup(self):
-        super(TestComplaintController, self).setup()
+    def setup_method(self):
+        super(TestComplaintController, self).setup_method()
         self.controller = ComplaintController()
         self.edition, self.pool = self._edition(with_license_pool=True)
         self.app = Flask(__name__)
@@ -299,8 +299,8 @@ class TestComplaintController(DatabaseTest):
 
 class TestLoadMethods(DatabaseTest):
 
-    def setup(self):
-        super(TestLoadMethods, self).setup()
+    def setup_method(self):
+        super(TestLoadMethods, self).setup_method()
         self.app = Flask(__name__)
         Babel(self.app)
 
@@ -432,8 +432,8 @@ class CanBeProblemDetailDocument(Exception):
 
 class TestErrorHandler(DatabaseTest):
 
-    def setup(self):
-        super(TestErrorHandler, self).setup()
+    def setup_method(self):
+        super(TestErrorHandler, self).setup_method()
 
         class MockManager(object):
             """Simulate an application manager object such as
@@ -526,7 +526,7 @@ class TestErrorHandler(DatabaseTest):
 class TestCompressibleAnnotator(object):
     """Test the @compressible annotator."""
 
-    def __init__(self):
+    def setup_class(self):
         self.app = Flask(__name__)
 
     def test_compressible(self):

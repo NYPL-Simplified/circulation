@@ -26,8 +26,8 @@ from ..external_list import (
 
 class TestCustomListFromCSV(DatabaseTest):
 
-    def setup(self):
-        super(TestCustomListFromCSV, self).setup()
+    def setup_method(self):
+        super(TestCustomListFromCSV, self).setup_method()
         self.data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
         self.metadata = DummyMetadataClient()
         self.metadata.lookups['Octavia Butler'] = 'Butler, Octavia'

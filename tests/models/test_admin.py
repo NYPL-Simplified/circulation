@@ -12,8 +12,8 @@ from ...model.admin import (
 )
 
 class TestAdmin(DatabaseTest):
-    def setup(self):
-        super(TestAdmin, self).setup()
+    def setup_method(self):
+        super(TestAdmin, self).setup_method()
         self.admin, ignore = create(self._db, Admin, email=u"admin@nypl.org")
         self.admin.password = u"password"
 

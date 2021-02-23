@@ -109,8 +109,8 @@ class OPDSTest(DatabaseTest):
 
 class TestMetadataWranglerOPDSLookup(OPDSTest):
 
-    def setup(self):
-        super(TestMetadataWranglerOPDSLookup, self).setup()
+    def setup_method(self):
+        super(TestMetadataWranglerOPDSLookup, self).setup_method()
         self.integration = self._external_integration(
             ExternalIntegration.METADATA_WRANGLER,
             goal=ExternalIntegration.METADATA_GOAL,
@@ -423,8 +423,8 @@ class TestMetadataWranglerOPDSLookup(OPDSTest):
 
 class OPDSImporterTest(OPDSTest):
 
-    def setup(self):
-        super(OPDSImporterTest, self).setup()
+    def setup_method(self):
+        super(OPDSImporterTest, self).setup_method()
         self.content_server_feed = self.sample_opds("content_server.opds")
         self.content_server_mini_feed = self.sample_opds("content_server_mini.opds")
         self.audiobooks_opds = self.sample_opds("audiobooks.opds")

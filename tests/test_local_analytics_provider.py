@@ -13,8 +13,8 @@ import datetime
 
 class TestLocalAnalyticsProvider(DatabaseTest):
 
-    def setup(self):
-        super(TestLocalAnalyticsProvider, self).setup()
+    def setup_method(self):
+        super(TestLocalAnalyticsProvider, self).setup_method()
         self.integration, ignore = create(
             self._db, ExternalIntegration,
             goal=ExternalIntegration.ANALYTICS_GOAL,

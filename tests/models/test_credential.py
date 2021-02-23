@@ -252,8 +252,8 @@ class TestDelegatedPatronIdentifier(DatabaseTest):
 
 class TestUniquenessConstraints(DatabaseTest):
 
-    def setup(self):
-        super(TestUniquenessConstraints, self).setup()
+    def setup_method(self):
+        super(TestUniquenessConstraints, self).setup_method()
         self.data_source = DataSource.lookup(self._db, DataSource.OVERDRIVE)
         self.type = 'a credential type'
         self.patron = self._patron()
@@ -323,8 +323,8 @@ class TestUniquenessConstraints(DatabaseTest):
 
 class TestDRMDeviceIdentifier(DatabaseTest):
 
-    def setup(self):
-        super(TestDRMDeviceIdentifier, self).setup()
+    def setup_method(self):
+        super(TestDRMDeviceIdentifier, self).setup_method()
         self.data_source = DataSource.lookup(self._db, DataSource.ADOBE)
         self.patron = self._patron()
         self.credential, ignore = Credential.persistent_token_create(

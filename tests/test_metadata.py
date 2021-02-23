@@ -1829,8 +1829,8 @@ class TestAssociateWithIdentifiersBasedOnPermanentWorkID(DatabaseTest):
 
 class TestMARCExtractor(DatabaseTest):
 
-    def setup(self):
-        super(TestMARCExtractor, self).setup()
+    def setup_method(self):
+        super(TestMARCExtractor, self).setup_method()
         base_path = os.path.split(__file__)[0]
         self.resource_path = os.path.join(base_path, "files", "marc")
 

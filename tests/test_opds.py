@@ -419,8 +419,8 @@ class TestOPDS(DatabaseTest):
                 r.append(l)
         return r
 
-    def setup(self):
-        super(TestOPDS, self).setup()
+    def setup_method(self):
+        super(TestOPDS, self).setup_method()
 
         self.fiction = self._lane("Fiction")
         self.fiction.fiction = True
@@ -2366,8 +2366,8 @@ class TestEntrypointLinkInsertion(DatabaseTest):
     feed but through a different entry point.
     """
 
-    def setup(self):
-        super(TestEntrypointLinkInsertion, self).setup()
+    def setup_method(self):
+        super(TestEntrypointLinkInsertion, self).setup_method()
 
         # Mock for AcquisitionFeed.add_entrypoint_links
         class Mock(object):
@@ -2403,8 +2403,8 @@ class TestEntrypointLinkInsertion(DatabaseTest):
         self.old_add_entrypoint_links = AcquisitionFeed.add_entrypoint_links
         AcquisitionFeed.add_entrypoint_links = self.mock.add_entrypoint_links
 
-    def teardown(self):
-        super(TestEntrypointLinkInsertion, self).teardown()
+    def teardown_method(self):
+        super(TestEntrypointLinkInsertion, self).teardown_method()
         AcquisitionFeed.add_entrypoint_links = self.old_add_entrypoint_links
 
     def test_groups(self):
@@ -2559,8 +2559,8 @@ class TestNavigationFacets(object):
 
 class TestNavigationFeed(DatabaseTest):
 
-    def setup(self):
-        super(TestNavigationFeed, self).setup()
+    def setup_method(self):
+        super(TestNavigationFeed, self).setup_method()
         self.fiction = self._lane("Fiction")
         self.fantasy = self._lane(
             "Fantasy", parent=self.fiction)

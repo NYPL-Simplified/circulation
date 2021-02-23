@@ -481,8 +481,8 @@ class MockSweepMonitor(SweepMonitor):
 
 class TestSweepMonitor(DatabaseTest):
 
-    def setup(self):
-        super(TestSweepMonitor, self).setup()
+    def setup_method(self):
+        super(TestSweepMonitor, self).setup_method()
         self.monitor = MockSweepMonitor(self._db)
 
     def test_model_class_is_required(self):
@@ -818,8 +818,8 @@ class TestPermanentWorkIDRefresh(DatabaseTest):
 
 class TestMakePresentationReadyMonitor(DatabaseTest):
 
-    def setup(self):
-        super(TestMakePresentationReadyMonitor, self).setup()
+    def setup_method(self):
+        super(TestMakePresentationReadyMonitor, self).setup_method()
 
         # This CoverageProvider will always succeed.
         class MockProvider1(AlwaysSuccessfulCoverageProvider):

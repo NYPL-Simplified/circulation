@@ -181,7 +181,7 @@ class DatabaseTest(object):
 
         Configuration.instance[Configuration.DATA_DIRECTORY] = cls.old_data_dir
 
-    def setup(self, mock_search=True):
+    def setup_method(self, mock_search=True):
         # Create a new connection to the database.
         self._db = Session(self.connection)
         self.transaction = self.connection.begin_nested()
@@ -208,7 +208,7 @@ class DatabaseTest(object):
         #        obj.__doc__ = None
 
 
-    def teardown(self):
+    def teardown_method(self):
         # Close the session.
         self._db.close()
 
@@ -1084,9 +1084,9 @@ class ExternalSearchTest(DatabaseTest):
 
     SIMPLIFIED_TEST_ELASTICSEARCH = os.environ.get('SIMPLIFIED_TEST_ELASTICSEARCH', u'http://localhost:9200')
 
-    def setup(self):
+    def setup_method(self):
 
-        super(ExternalSearchTest, self).setup(mock_search=False)
+        super(ExternalSearchTest, self).setup_method(mock_search=False)
 
         # Track the indexes created so they can be torn down at the
         # end of the test.
@@ -1116,7 +1116,7 @@ class ExternalSearchTest(DatabaseTest):
         self.search.setup_index(new_index=new_index)
         self.indexes.append(new_index)
 
-    def teardown(self):
+    def teardown_method(self):
         if self.search:
             # Delete the works_index, which is almost always created.
             if self.search.works_index:
@@ -1127,7 +1127,7 @@ class ExternalSearchTest(DatabaseTest):
             for index in self.indexes:
                 self.search.indices.delete(index, ignore=[404])
             ExternalSearchIndex.reset()
-        super(ExternalSearchTest, self).teardown()
+        super(ExternalSearchTest, self).teardown_method()
 
     def default_work(self, *args, **kwargs):
         """Convenience method to create a work with a license pool
@@ -1146,8 +1146,8 @@ class EndToEndSearchTest(ExternalSearchTest):
     search index and run searches against it.
     """
 
-    def setup(self):
-        super(EndToEndSearchTest, self).setup()
+    def setup_method(self):
+        super(EndToEndSearchTest, self).setup_method()
 
         # Create some works.
         if not self.search:

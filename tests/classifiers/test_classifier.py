@@ -294,8 +294,8 @@ class TestFreeformAudienceClassifier(DatabaseTest):
 
 class TestWorkClassifier(DatabaseTest):
 
-    def setup(self):
-        super(TestWorkClassifier, self).setup()
+    def setup_method(self):
+        super(TestWorkClassifier, self).setup_method()
         self.work = self._work(with_license_pool=True)
         self.identifier = self.work.presentation_edition.primary_identifier
         self.classifier = WorkClassifier(self.work, test_session=self._db)

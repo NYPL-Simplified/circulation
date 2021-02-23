@@ -42,8 +42,8 @@ from ...util.string_helpers import base64
 
 class TestCollection(DatabaseTest):
 
-    def setup(self):
-        super(TestCollection, self).setup()
+    def setup_method(self):
+        super(TestCollection, self).setup_method()
         self.collection = self._collection(
             name="test collection", protocol=ExternalIntegration.OVERDRIVE
         )

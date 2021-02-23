@@ -18,8 +18,8 @@ from .. import (
 
 class TestMeasurement(DatabaseTest):
 
-    def setup(self):
-        super(TestMeasurement, self).setup()
+    def setup_method(self):
+        super(TestMeasurement, self).setup_method()
         self.SOURCE_NAME = "Test Data Source"
 
         # Create a test DataSource

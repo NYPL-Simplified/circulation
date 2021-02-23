@@ -774,8 +774,8 @@ class TestPatron(DatabaseTest):
 
 class TestPatronProfileStorage(DatabaseTest):
 
-    def setup(self):
-        super(TestPatronProfileStorage, self).setup()
+    def setup_method(self):
+        super(TestPatronProfileStorage, self).setup_method()
         self.patron = self._patron()
         self.store = PatronProfileStorage(self.patron)
 

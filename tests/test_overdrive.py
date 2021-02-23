@@ -51,8 +51,8 @@ from . import DatabaseTest
 
 class OverdriveTest(DatabaseTest):
 
-    def setup(self):
-        super(OverdriveTest, self).setup()
+    def setup_method(self):
+        super(OverdriveTest, self).setup_method()
         self.collection = MockOverdriveAPI.mock_collection(self._db)
         base_path = os.path.split(__file__)[0]
         self.resource_path = os.path.join(base_path, "files", "overdrive")
@@ -71,8 +71,8 @@ class OverdriveTestWithAPI(OverdriveTest):
     MockOverdriveAPI request created in a test behaves differently
     from the first one.
     """
-    def setup(self):
-        super(OverdriveTestWithAPI, self).setup()
+    def setup_method(self):
+        super(OverdriveTestWithAPI, self).setup_method()
         self.api = MockOverdriveAPI(self._db, self.collection)
 
 
@@ -769,8 +769,8 @@ class TestOverdriveAdvantageAccount(OverdriveTestWithAPI):
 class TestOverdriveBibliographicCoverageProvider(OverdriveTest):
     """Test the code that looks up bibliographic information from Overdrive."""
 
-    def setup(self):
-        super(TestOverdriveBibliographicCoverageProvider, self).setup()
+    def setup_method(self):
+        super(TestOverdriveBibliographicCoverageProvider, self).setup_method()
         self.provider = OverdriveBibliographicCoverageProvider(
             self.collection, api_class=MockOverdriveAPI
         )

@@ -455,8 +455,8 @@ class TestExternalIntegrationLink(DatabaseTest):
 
 class TestExternalIntegration(DatabaseTest):
 
-    def setup(self):
-        super(TestExternalIntegration, self).setup()
+    def setup_method(self):
+        super(TestExternalIntegration, self).setup_method()
         self.external_integration, ignore = create(
             self._db, ExternalIntegration, goal=self._str, protocol=self._str
         )

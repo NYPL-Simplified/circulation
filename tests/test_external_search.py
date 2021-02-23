@@ -3117,8 +3117,8 @@ class TestQueryParser(DatabaseTest):
 
 class TestFilter(DatabaseTest):
 
-    def setup(self):
-        super(TestFilter, self).setup()
+    def setup_method(self):
+        super(TestFilter, self).setup_method()
 
         # Look up three Genre objects which can be used to make filters.
         self.literary_fiction, ignore = Genre.lookup(

@@ -10,8 +10,8 @@ from ...model.complaint import Complaint
 
 class TestComplaint(DatabaseTest):
 
-    def setup(self):
-        super(TestComplaint, self).setup()
+    def setup_method(self):
+        super(TestComplaint, self).setup_method()
         self.edition, self.pool = self._edition(with_license_pool=True)
         self.type = "http://librarysimplified.org/terms/problem/wrong-genre"
 

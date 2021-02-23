@@ -42,8 +42,8 @@ class TestSiteConfigurationHasChanged(DatabaseTest):
         def assert_was_not_called(self):
             assert not self.was_called
 
-    def setup(self):
-        super(TestSiteConfigurationHasChanged, self).setup()
+    def setup_method(self):
+        super(TestSiteConfigurationHasChanged, self).setup_method()
 
         # Mock model.site_configuration_has_changed
         self.old_site_configuration_has_changed = model.listeners.site_configuration_has_changed
@@ -51,8 +51,8 @@ class TestSiteConfigurationHasChanged(DatabaseTest):
         for module in model.listeners, lane:
             module.site_configuration_has_changed = self.mock.run
 
-    def teardown(self):
-        super(TestSiteConfigurationHasChanged, self).teardown()
+    def teardown_method(self):
+        super(TestSiteConfigurationHasChanged, self).teardown_method()
         for module in model.listeners, lane:
             module.site_configuration_has_changed = self.old_site_configuration_has_changed
 

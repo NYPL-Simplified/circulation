@@ -138,9 +138,9 @@ class S3UploaderIntegrationTest(S3UploaderTest):
             endpoint_url=TestS3UploaderIntegration.SIMPLIFIED_TEST_MINIO_ENDPOINT_URL
         )
 
-    def teardown(self):
+    def teardown_method(self):
         """Deinitializes the test suite by removing all the buckets from MinIO"""
-        super(S3UploaderTest, self).teardown()
+        super(S3UploaderTest, self).teardown_method()
 
         response = self.minio_s3_client.list_buckets()
 

@@ -10,8 +10,8 @@ from ...model.integrationclient import IntegrationClient
 
 class TestIntegrationClient(DatabaseTest):
 
-    def setup(self):
-        super(TestIntegrationClient, self).setup()
+    def setup_method(self):
+        super(TestIntegrationClient, self).setup_method()
         self.client = self._integration_client()
 
     def test_for_url(self):

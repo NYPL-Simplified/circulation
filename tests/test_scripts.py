@@ -952,8 +952,8 @@ class DatabaseMigrationScriptTest(DatabaseTest):
         # Close the file descriptor.
         os.close(fd)
 
-    def setup(self):
-        super(DatabaseMigrationScriptTest, self).setup()
+    def setup_method(self):
+        super(DatabaseMigrationScriptTest, self).setup_method()
 
         # This list holds any temporary files created during tests
         # so they can be deleted during teardown().
@@ -969,7 +969,7 @@ class DatabaseMigrationScriptTest(DatabaseTest):
                 temp_migration_dir = tempfile.mkdtemp()
                 shutil.move(temp_migration_dir, migration_dir)
 
-    def teardown(self):
+    def teardown_method(self):
         """Delete any files and directories created during testing."""
         for fpath in self.migration_files:
             os.remove(fpath)
@@ -990,7 +990,7 @@ class DatabaseMigrationScriptTest(DatabaseTest):
             Timestamp.service.like('%Database Migration%')
         ).delete(synchronize_session=False)
 
-        super(DatabaseMigrationScriptTest, self).teardown()
+        super(DatabaseMigrationScriptTest, self).teardown_method()
 
 
 class TestDatabaseMigrationScript(DatabaseMigrationScriptTest):
@@ -1004,8 +1004,8 @@ class TestDatabaseMigrationScript(DatabaseMigrationScriptTest):
         self._create_test_migration_file(self.parent_migration_dir, 'SERVER', 'sql')
         self._create_test_migration_file(self.parent_migration_dir, 'SERVER', 'py')
 
-    def setup(self):
-        super(TestDatabaseMigrationScript, self).setup()
+    def setup_method(self):
+        super(TestDatabaseMigrationScript, self).setup_method()
         self.script = self.create_mock_script(DatabaseMigrationScript, self._db)
         self._create_test_migrations()
 
@@ -1376,8 +1376,8 @@ class TestDatabaseMigrationScript(DatabaseMigrationScriptTest):
 
 class TestDatabaseMigrationInitializationScript(DatabaseMigrationScriptTest):
 
-    def setup(self):
-        super(TestDatabaseMigrationInitializationScript, self).setup()
+    def setup_method(self):
+        super(TestDatabaseMigrationInitializationScript, self).setup_method()
         self.script = DatabaseMigrationInitializationScript(self._db)
 
     def assert_matches_latest_python_migration(self, timestamp, script=None):

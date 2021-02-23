@@ -841,8 +841,8 @@ class TestFacets(DatabaseTest):
 
 class TestDefaultSortOrderFacets(DatabaseTest):
 
-    def setup(self):
-        super(TestDefaultSortOrderFacets, self).setup()
+    def setup_method(self):
+        super(TestDefaultSortOrderFacets, self).setup_method()
         self.config = self._default_library
 
     def _check_other_groups_not_changed(self, cls):
@@ -4225,8 +4225,8 @@ class TestWorkListGroupsEndToEnd(EndToEndSearchTest):
 
 class TestWorkListGroups(DatabaseTest):
 
-    def setup(self):
-        super(TestWorkListGroups, self).setup()
+    def setup_method(self):
+        super(TestWorkListGroups, self).setup_method()
 
         # Make sure random selections and range generations go the
         # same way every time.

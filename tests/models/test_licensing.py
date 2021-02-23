@@ -37,8 +37,8 @@ from .. import DatabaseTest
 
 
 class TestDeliveryMechanism(DatabaseTest):
-    def setup(self):
-        super(TestDeliveryMechanism, self).setup()
+    def setup_method(self):
+        super(TestDeliveryMechanism, self).setup_method()
         self.epub_no_drm, ignore = DeliveryMechanism.lookup(
             self._db, Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.NO_DRM)
         self.epub_adobe_drm, ignore = DeliveryMechanism.lookup(
@@ -219,8 +219,8 @@ class TestRightsStatus(DatabaseTest):
 
 class TestLicense(DatabaseTest):
 
-    def setup(self):
-        super(TestLicense, self).setup()
+    def setup_method(self):
+        super(TestLicense, self).setup_method()
         self.pool = self._licensepool(None)
 
         now = datetime.datetime.utcnow()

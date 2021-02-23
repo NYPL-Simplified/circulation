@@ -27,8 +27,8 @@ class MockHasTableCache(HasFullTableCache):
 
 class TestHasFullTableCache(DatabaseTest):
 
-    def setup(self):
-        super(TestHasFullTableCache, self).setup()
+    def setup_method(self):
+        super(TestHasFullTableCache, self).setup_method()
         self.mock_class = MockHasTableCache
         self.mock = MockHasTableCache()
         self.mock._cache = HasFullTableCache.RESET

@@ -10,7 +10,7 @@ from ..user_profile import (
 
 class TestProfileController(object):
 
-    def setup(self):
+    def setup_method(self):
         self.read_only_settings = dict(key="value")
         self.writable_settings = dict(writable_key="old_value")
         self.storage = MockProfileStorage(self.read_only_settings, self.writable_settings)
