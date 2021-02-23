@@ -9,12 +9,10 @@ import shutil
 import time
 import tempfile
 import uuid
-from nose.tools import (
-    set_trace,
-    eq_,
-)
+
 # TODO PYTHON3
 # from psycopg2.errors import UndefinedTable
+import pytest
 from sqlalchemy.orm.session import Session
 from sqlalchemy.exc import ProgrammingError
 from config import Configuration
@@ -81,8 +79,6 @@ from log import LogConfiguration
 import external_search
 import mock
 import inspect
-
-from nose.plugins.attrib import attr
 
 class LogCaptureHandler(logging.Handler):
     """A `logging.Handler` context manager that captures the messages
@@ -1071,7 +1067,7 @@ class SearchClientForTesting(ExternalSearchIndex):
             new_index, number_of_shards=1, number_of_replicas=0
         )
 
-@attr(integration='elasticsearch')
+@pytest.mark.elasticsearch
 class ExternalSearchTest(DatabaseTest):
     """
     These tests require elasticsearch to be running locally. If it's not, or there's
@@ -1192,8 +1188,7 @@ class EndToEndSearchTest(ExternalSearchTest):
             expect_compare = set(expect_compare)
             actual_compare = set(actual_compare)
 
-        eq_(
-            expect_compare, actual_compare,
+        assert expect_compare == actual_compare, \
             "%r did not find %d works\n (%s/%s).\nInstead found %d\n (%s/%s)" % (
                 description,
                 len(expect), ", ".join(map(str, expect_ids)),
@@ -1201,7 +1196,6 @@ class EndToEndSearchTest(ExternalSearchTest):
                 len(actual), ", ".join(map(str, actual_ids)),
                     ", ".join(actual_titles)
             )
-        )
 
     def _expect_results(self, expect, query_string=None, filter=None, pagination=None, **kwargs):
         """Helper function to call query_works() and verify that it
@@ -1278,7 +1272,7 @@ class EndToEndSearchTest(ExternalSearchTest):
             # got from query_works(). Take the opportunity to verify
             # that count_works() gives the right answer.
             count = self.search.count_works(filter)
-            eq_(count, len(expect))
+            assert count == len(expect)
 
 
 class MockCoverageProvider(object):

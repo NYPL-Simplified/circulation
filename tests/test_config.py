@@ -1,5 +1,4 @@
 import os
-from nose.tools import eq_, set_trace
 from sqlalchemy.orm.session import Session
 
 from ..testing import DatabaseTest
@@ -41,28 +40,26 @@ class TestConfiguration(DatabaseTest):
         # Without a .version file, the key is set to a null object.
         result = self.Conf.app_version()
         assert self.Conf.APP_VERSION in self.Conf.instance
-        eq_(self.Conf.NO_APP_VERSION_FOUND, result)
-        eq_(
-            self.Conf.NO_APP_VERSION_FOUND,
-            self.Conf.get(self.Conf.APP_VERSION)
-        )
+        assert self.Conf.NO_APP_VERSION_FOUND == result
+        assert (
+            self.Conf.NO_APP_VERSION_FOUND ==
+            self.Conf.get(self.Conf.APP_VERSION))
 
         # An empty .version file yields the same results.
         self.Conf.instance = dict()
         self.create_version_file(' \n')
         result = self.Conf.app_version()
-        eq_(self.Conf.NO_APP_VERSION_FOUND, result)
-        eq_(
-            self.Conf.NO_APP_VERSION_FOUND,
-            self.Conf.get(self.Conf.APP_VERSION)
-        )
+        assert self.Conf.NO_APP_VERSION_FOUND == result
+        assert (
+            self.Conf.NO_APP_VERSION_FOUND ==
+            self.Conf.get(self.Conf.APP_VERSION))
 
         # A .version file with content loads the content.
         self.Conf.instance = dict()
         self.create_version_file('ba.na.na')
         result = self.Conf.app_version()
-        eq_('ba.na.na', result)
-        eq_('ba.na.na', self.Conf.get(self.Conf.APP_VERSION))
+        assert 'ba.na.na' == result
+        assert 'ba.na.na' == self.Conf.get(self.Conf.APP_VERSION)
 
     def test_load_cdns(self):
         """Test our ability to load CDN configuration from the database.
@@ -77,8 +74,8 @@ class TestConfiguration(DatabaseTest):
         self.Conf.load_cdns(self._db)
 
         integrations = self.Conf.instance[self.Conf.INTEGRATIONS]
-        eq_({'site.com' : 'http://cdn/'}, integrations[ExternalIntegration.CDN])
-        eq_(True, self.Conf.instance[self.Conf.CDNS_LOADED_FROM_DATABASE])
+        assert {'site.com' : 'http://cdn/'} == integrations[ExternalIntegration.CDN]
+        assert True == self.Conf.instance[self.Conf.CDNS_LOADED_FROM_DATABASE]
 
     def test_cdns_loaded_dynamically(self):
         # When you call cdns() on a Configuration object that was
@@ -99,9 +96,9 @@ class TestConfiguration(DatabaseTest):
                 cls.called_with = (_db, config_instance)
 
         cdns = Mock.cdns()
-        eq_({}, cdns)
+        assert {} == cdns
 
         new_db, none = Mock.called_with
         assert new_db != self._db
         assert isinstance(new_db, Session)
-        eq_(None, none)
+        assert None == none

@@ -1,6 +1,6 @@
 import re
 import sys
-from nose.tools import set_trace
+
 from lxml import etree
 from io import BytesIO
 

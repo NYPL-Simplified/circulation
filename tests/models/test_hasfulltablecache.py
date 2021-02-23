@@ -1,8 +1,4 @@
 # encoding: utf-8
-from nose.tools import (
-    eq_,
-    set_trace,
-)
 from .. import DatabaseTest
 from ...model.hasfulltablecache import HasFullTableCache
 
@@ -37,15 +33,15 @@ class TestHasFullTableCache(DatabaseTest):
         self.mock_class._cache = object()
         self.mock_class._id_cache = object()
         self.mock_class.reset_cache()
-        eq_(HasFullTableCache.RESET, self.mock_class._cache)
-        eq_(HasFullTableCache.RESET, self.mock_class._id_cache)
+        assert HasFullTableCache.RESET == self.mock_class._cache
+        assert HasFullTableCache.RESET == self.mock_class._id_cache
 
     def test_cache_insert(self):
         temp_cache = {}
         temp_id_cache = {}
         self.mock_class._cache_insert(self.mock, temp_cache, temp_id_cache)
-        eq_({MockHasTableCache.KEY: self.mock}, temp_cache)
-        eq_({MockHasTableCache.ID: self.mock}, temp_id_cache)
+        assert {MockHasTableCache.KEY: self.mock} == temp_cache
+        assert {MockHasTableCache.ID: self.mock} == temp_id_cache
 
     # populate_cache(), by_cache_key(), and by_id() are tested in
     # TestGenre since those methods must be backed by a real database

@@ -1,9 +1,4 @@
-from nose.tools import (
-    eq_,
-    assert_raises,
-    assert_raises_regexp,
-    set_trace,
-)
+import pytest
 from ..util.authentication_for_opds import (
     AuthenticationForOPDSDocument as Doc,
     OPDSAuthenticationFlow as Flow,
@@ -45,11 +40,10 @@ class TestOPDSAuthenticationFlow(object):
         """
         flow = MockFlow("description")
         doc = flow.authentication_flow_document("argument")
-        eq_(
+        assert (
             {'type': 'http://mock1/', 'description': 'description',
-             'arg': 'argument'},
-            doc
-        )
+             'arg': 'argument'} ==
+            doc)
 
     def test_flow_gets_type_from_uri(self):
         """An OPDSAuthenticationFlow object can define the class variableURI
@@ -57,14 +51,14 @@ class TestOPDSAuthenticationFlow(object):
         """
         flow = MockFlowWithURI()
         doc = flow.authentication_flow_document("argument")
-        eq_({'type': 'http://mock2/'}, doc)
+        assert {'type': 'http://mock2/'} == doc
 
     def test_flow_must_define_type(self):
         """An OPDSAuthenticationFlow object must get a value for `type`
         _somehow_, or authentication_flow_document() will fail.
         """
         flow = MockFlowWithoutType()
-        assert_raises(
+        pytest.raises(
             ValueError, flow.authentication_flow_document, 'argument'
         )
 
@@ -84,7 +78,7 @@ class TestAuthenticationForOPDSDocument(object):
         )
 
         doc = doc_obj.to_dict("argument")
-        eq_(
+        assert (
             {'id': 'id',
              'title': 'title',
              'authentication': [
@@ -93,16 +87,15 @@ class TestAuthenticationForOPDSDocument(object):
                   'type': 'http://mock1/'}
              ],
              'links': [{'href': 'http://registration/', 'rel': 'register'}],
-            },
-            doc
-        )
+            } ==
+            doc)
 
     def test_bad_document(self):
         """Test that to_dict() raises ValueError when something is
         wrong with the data.
         """
         def cannot_make(document):
-            assert_raises(ValueError, document.to_dict, object())
+            pytest.raises(ValueError, document.to_dict, object())
 
         # Document must have ID and title.
         cannot_make(Doc(id=None, title="no id"))

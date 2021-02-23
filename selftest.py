@@ -1,6 +1,6 @@
 """Define the interfaces used by ExternalIntegration self-tests.
 """
-from nose.tools import set_trace
+
 from util.http import IntegrationException
 import datetime
 import json

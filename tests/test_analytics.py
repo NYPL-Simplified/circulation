@@ -1,7 +1,3 @@
-from nose.tools import (
-    eq_,
-    set_trace,
-)
 from ..config import (
     Configuration,
     temp_config,
@@ -69,16 +65,16 @@ class TestAnalytics(DatabaseTest):
         library_integration2.libraries += [l2]
 
         analytics = Analytics(self._db)
-        eq_(2, len(analytics.sitewide_providers))
+        assert 2 == len(analytics.sitewide_providers)
         assert isinstance(analytics.sitewide_providers[0], MockAnalyticsProvider)
-        eq_(mock_integration.url, analytics.sitewide_providers[0].url)
+        assert mock_integration.url == analytics.sitewide_providers[0].url
         assert isinstance(analytics.sitewide_providers[1], LocalAnalyticsProvider)
         assert missing_integration.id in analytics.initialization_exceptions
 
-        eq_(1, len(analytics.library_providers[l1.id]))
+        assert 1 == len(analytics.library_providers[l1.id])
         assert isinstance(analytics.library_providers[l1.id][0], MockAnalyticsProvider)
 
-        eq_(2, len(analytics.library_providers[l2.id]))
+        assert 2 == len(analytics.library_providers[l2.id])
         for provider in analytics.library_providers[l2.id]:
             assert isinstance(provider, MockAnalyticsProvider)
 
@@ -86,10 +82,10 @@ class TestAnalytics(DatabaseTest):
         # variables with the current state of site analytics.
 
         # We have global analytics enabled.
-        eq_(True, Analytics.GLOBAL_ENABLED)
+        assert True == Analytics.GLOBAL_ENABLED
 
         # We also have analytics enabled for two of the three libraries.
-        eq_(set([l1.id, l2.id]), Analytics.LIBRARY_ENABLED)
+        assert set([l1.id, l2.id]) == Analytics.LIBRARY_ENABLED
 
         # If the analytics situation changes, instantiating an
         # Analytics object will change the class variables.
@@ -100,8 +96,8 @@ class TestAnalytics(DatabaseTest):
         # There are no longer any global analytics providers, and only
         # one of the libraries has a library-specific provider.
         analytics = Analytics(self._db)
-        eq_(False, Analytics.GLOBAL_ENABLED)
-        eq_(set([l2.id]), Analytics.LIBRARY_ENABLED)
+        assert False == Analytics.GLOBAL_ENABLED
+        assert set([l2.id]) == Analytics.LIBRARY_ENABLED
 
     def test_is_configured(self):
         # If the Analytics constructor has not been called, then
@@ -109,21 +105,21 @@ class TestAnalytics(DatabaseTest):
         Analytics.GLOBAL_ENABLED = None
         Analytics.LIBRARY_ENABLED = object()
         library = self._default_library
-        eq_(False, Analytics.is_configured(library))
-        eq_(False, Analytics.GLOBAL_ENABLED)
-        eq_(set(), Analytics.LIBRARY_ENABLED)
+        assert False == Analytics.is_configured(library)
+        assert False == Analytics.GLOBAL_ENABLED
+        assert set() == Analytics.LIBRARY_ENABLED
 
         # If analytics are enabled globally, they are enabled for any
         # library.
         Analytics.GLOBAL_ENABLED = True
-        eq_(True, Analytics.is_configured(object()))
+        assert True == Analytics.is_configured(object())
 
         # If not, they are enabled only for libraries whose IDs are
         # in LIBRARY_ENABLED.
         Analytics.GLOBAL_ENABLED = False
-        eq_(False, Analytics.is_configured(library))
+        assert False == Analytics.is_configured(library)
         Analytics.LIBRARY_ENABLED.add(library.id)
-        eq_(True, Analytics.is_configured(library))
+        assert True == Analytics.is_configured(library)
 
     def test_collect_event(self):
         sitewide_integration, ignore = create(
@@ -149,26 +145,26 @@ class TestAnalytics(DatabaseTest):
         analytics.collect_event(self._default_library, lp, CirculationEvent.DISTRIBUTOR_CHECKIN, None)
 
         # The sitewide provider was called.
-        eq_(1, sitewide_provider.count)
-        eq_(CirculationEvent.DISTRIBUTOR_CHECKIN, sitewide_provider.event_type)
+        assert 1 == sitewide_provider.count
+        assert CirculationEvent.DISTRIBUTOR_CHECKIN == sitewide_provider.event_type
 
         # The library provider wasn't called, since the event was for a different library.
-        eq_(0, library_provider.count)
+        assert 0 == library_provider.count
 
         analytics.collect_event(library, lp, CirculationEvent.DISTRIBUTOR_CHECKIN, None)
 
         # Now both providers were called, since the event was for the library provider's library.
-        eq_(2, sitewide_provider.count)
-        eq_(1, library_provider.count)
-        eq_(CirculationEvent.DISTRIBUTOR_CHECKIN, library_provider.event_type)
+        assert 2 == sitewide_provider.count
+        assert 1 == library_provider.count
+        assert CirculationEvent.DISTRIBUTOR_CHECKIN == library_provider.event_type
 
         # Here's an event that we couldn't associate with any
         # particular library.
         analytics.collect_event(None, lp, CirculationEvent.DISTRIBUTOR_CHECKOUT, None)
 
         # It's counted as a sitewide event, but not as a library event.
-        eq_(3, sitewide_provider.count)
-        eq_(1, library_provider.count)
+        assert 3 == sitewide_provider.count
+        assert 1 == library_provider.count
 
     def test_initialize(self):
 
@@ -179,14 +175,14 @@ class TestAnalytics(DatabaseTest):
         )
 
         # There shouldn't exist a local analytics service.
-        eq_(None, local_analytics)
+        assert None == local_analytics
 
         # So when the Local Analytics provider is initialized, it will
         # create one with the default name of "Local Analytics".
         local_analytics = LocalAnalyticsProvider.initialize(self._db)
 
         assert isinstance(local_analytics, ExternalIntegration)
-        eq_(local_analytics.name, LocalAnalyticsProvider.NAME)
+        assert local_analytics.name == LocalAnalyticsProvider.NAME
 
         # When an analytics provider is initialized, retrieving a
         # local analytics service should return the same one.
@@ -198,5 +194,5 @@ class TestAnalytics(DatabaseTest):
             goal=ExternalIntegration.ANALYTICS_GOAL
         )
 
-        eq_(local_analytics_2.id, local_analytics.id)
-        eq_(local_analytics_2.name, local_analytics.name)
+        assert local_analytics_2.id == local_analytics.id
+        assert local_analytics_2.name == local_analytics.name

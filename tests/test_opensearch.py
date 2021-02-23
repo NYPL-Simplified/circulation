@@ -1,8 +1,3 @@
-from nose.tools import (
-    set_trace,
-    eq_,
-)
-
 from ..model import Genre
 from ..classifier import Classifier
 from ..opensearch import OpenSearchDocument
@@ -21,9 +16,9 @@ class TestOpenSearchDocument(DatabaseTest):
         lane.fiction = True
 
         info = OpenSearchDocument.search_info(lane)
-        eq_("Search", info['name'])
-        eq_("Search English/Deutsch Young Adult", info['description'])
-        eq_("english/deutsch-young-adult", info['tags'])
+        assert "Search" == info['name']
+        assert "Search English/Deutsch Young Adult" == info['description']
+        assert "english/deutsch-young-adult" == info['tags']
 
         # This lane is the root for a patron type, so searching
         # it will use all the lane's restrictions.
@@ -36,21 +31,21 @@ class TestOpenSearchDocument(DatabaseTest):
         root_lane.add_genre(fantasy)
 
         info = OpenSearchDocument.search_info(root_lane)
-        eq_("Search", info['name'])
-        eq_("Search Science Fiction & Fantasy", info['description'])
-        eq_("science-fiction-&-fantasy", info['tags'])
+        assert "Search" == info['name']
+        assert "Search Science Fiction & Fantasy" == info['description']
+        assert "science-fiction-&-fantasy" == info['tags']
 
     def test_escape_entities(self):
         """Verify that escape_entities properly escapes ampersands."""
         d = dict(k1="a", k2="b & c")
         expect = dict(k1="a", k2="b &amp; c")
-        eq_(expect, OpenSearchDocument.escape_entities(d))
+        assert expect == OpenSearchDocument.escape_entities(d)
 
     def test_url_template(self):
         """Verify that url_template generates sensible URL templates."""
         m = OpenSearchDocument.url_template
-        eq_("http://url/?q={searchTerms}", m("http://url/"))
-        eq_("http://url/?key=val&q={searchTerms}", m("http://url/?key=val"))
+        assert "http://url/?q={searchTerms}" == m("http://url/")
+        assert "http://url/?key=val&q={searchTerms}" == m("http://url/?key=val")
 
     def test_for_lane(self):
 
@@ -76,4 +71,4 @@ class TestOpenSearchDocument(DatabaseTest):
         expect = Mock.search_info(object())
         expect['url_template'] = Mock.url_template(object())
         expect = Mock.escape_entities(expect)
-        eq_(Mock.TEMPLATE % expect, doc)
+        assert Mock.TEMPLATE % expect == doc

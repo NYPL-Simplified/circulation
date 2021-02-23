@@ -1,6 +1,6 @@
 # encoding: utf-8
 # Subject, Classification, Genre
-from nose.tools import set_trace
+
 
 from . import (
     Base,

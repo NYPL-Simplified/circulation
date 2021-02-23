@@ -1,9 +1,5 @@
 # encoding: utf-8
-from nose.tools import (
-    assert_raises,
-    eq_,
-    set_trace,
-)
+import pytest
 import datetime
 from sqlalchemy.exc import IntegrityError
 from .. import DatabaseTest
@@ -98,18 +94,18 @@ class TestCirculationEvent(DatabaseTest):
         event, ignore = self.from_dict(data)
 
         # The event is associated with the correct data source.
-        eq_(DataSource.OVERDRIVE, event.license_pool.data_source.name)
+        assert DataSource.OVERDRIVE == event.license_pool.data_source.name
 
         # The event identifies a work by its ID plus the data source's
         # primary identifier and its collection.
-        eq_(Identifier.OVERDRIVE_ID, event.license_pool.identifier.type)
-        eq_("{1-2-3}", event.license_pool.identifier.identifier)
-        eq_(collection, event.license_pool.collection)
+        assert Identifier.OVERDRIVE_ID == event.license_pool.identifier.type
+        assert "{1-2-3}" == event.license_pool.identifier.identifier
+        assert collection == event.license_pool.collection
 
         # The number of licenses has not been set to the new value.
         # The creator of a circulation event is responsible for also
         # updating the dataset.
-        eq_(0, event.license_pool.licenses_owned)
+        assert 0 == event.license_pool.licenses_owned
 
     def test_log(self):
         # Basic test of CirculationEvent.log.
@@ -129,13 +125,13 @@ class TestCirculationEvent(DatabaseTest):
             library=library, old_value=old_value, new_value=new_value,
             start=start, end=end, location=location
         )
-        eq_(True, is_new)
-        eq_(pool, event.license_pool)
-        eq_(library, event.library)
-        eq_(-2, event.delta)  # calculated from old_value and new_value
-        eq_(start, event.start)
-        eq_(end, event.end)
-        eq_(location, event.location)
+        assert True == is_new
+        assert pool == event.license_pool
+        assert library == event.library
+        assert -2 == event.delta  # calculated from old_value and new_value
+        assert start == event.start
+        assert end == event.end
+        assert location == event.location
 
         # If log finds another event with the same license pool,
         # library, event name, and start date, that event is returned
@@ -149,13 +145,13 @@ class TestCirculationEvent(DatabaseTest):
             end=datetime.datetime.utcnow(),
             location="another location"
         )
-        eq_(False, is_new)
-        eq_(pool, event.license_pool)
-        eq_(library, event.library)
-        eq_(-2, event.delta)
-        eq_(start, event.start)
-        eq_(end, event.end)
-        eq_(location, event.location)
+        assert False == is_new
+        assert pool == event.license_pool
+        assert library == event.library
+        assert -2 == event.delta
+        assert start == event.start
+        assert end == event.end
+        assert location == event.location
 
         # If no timestamp is provided, the current time is used. This
         # is the most common case, so basically a new event will be
@@ -166,12 +162,12 @@ class TestCirculationEvent(DatabaseTest):
             end=end, location=location
         )
         assert (datetime.datetime.utcnow() - event.start).total_seconds() < 2
-        eq_(True, is_new)
-        eq_(pool, event.license_pool)
-        eq_(library, event.library)
-        eq_(-2, event.delta)
-        eq_(end, event.end)
-        eq_(location, event.location)
+        assert True == is_new
+        assert pool == event.license_pool
+        assert library == event.library
+        assert -2 == event.delta
+        assert end == event.end
+        assert location == event.location
 
     def test_uniqueness_constraints_no_library(self):
         # If library is null, then license_pool + type + start must be
@@ -190,7 +186,7 @@ class TestCirculationEvent(DatabaseTest):
 
         # Reuse the timestamp and you get an IntegrityError which ruins the
         # entire transaction.
-        assert_raises(
+        pytest.raises(
             IntegrityError, create, self._db, CirculationEvent, start=now,
             **kwargs
         )
@@ -215,7 +211,7 @@ class TestCirculationEvent(DatabaseTest):
 
         # Reuse the timestamp and you get an IntegrityError which ruins the
         # entire transaction.
-        assert_raises(
+        pytest.raises(
             IntegrityError, create, self._db, CirculationEvent, start=now,
             **kwargs
         )

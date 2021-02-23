@@ -1,8 +1,4 @@
 # encoding: utf-8
-from nose.tools import (
-    eq_,
-    set_trace,
-)
 from .. import DatabaseTest
 from ...model import get_one_or_create
 from ...model.contributor import Contributor
@@ -31,7 +27,7 @@ class TestContributor(DatabaseTest):
 
         assert bob1 != bob2
 
-        eq_((bob1, False), Contributor.lookup(self._db, viaf="foo"))
+        assert (bob1, False) == Contributor.lookup(self._db, viaf="foo")
 
     def test_lookup_by_lc(self):
 
@@ -41,7 +37,7 @@ class TestContributor(DatabaseTest):
 
         assert bob1 != bob2
 
-        eq_((bob1, False), Contributor.lookup(self._db, lc="foo"))
+        assert (bob1, False) == Contributor.lookup(self._db, lc="foo")
 
     def test_lookup_by_viaf_interchangeable(self):
         # Two contributors with the same lc. This shouldn't happen, but
@@ -56,7 +52,7 @@ class TestContributor(DatabaseTest):
         [some_bob], new = Contributor.lookup(
             self._db, sort_name="Bob", lc="foo"
         )
-        eq_(False, new)
+        assert False == new
         assert some_bob in (bob1, bob2)
 
     def test_lookup_by_name(self):
@@ -67,17 +63,17 @@ class TestContributor(DatabaseTest):
 
         # Lookup by name finds both of them.
         bobs, new = Contributor.lookup(self._db, sort_name=u"Bob")
-        eq_(False, new)
-        eq_(["Bob", "Bob"], [x.sort_name for x in bobs])
+        assert False == new
+        assert ["Bob", "Bob"] == [x.sort_name for x in bobs]
 
     def test_create_by_lookup(self):
         [bob1], new = Contributor.lookup(self._db, sort_name=u"Bob")
-        eq_("Bob", bob1.sort_name)
-        eq_(True, new)
+        assert "Bob" == bob1.sort_name
+        assert True == new
 
         [bob2], new = Contributor.lookup(self._db, sort_name=u"Bob")
-        eq_(bob1, bob2)
-        eq_(False, new)
+        assert bob1 == bob2
+        assert False == new
 
     def test_merge(self):
 
@@ -112,41 +108,41 @@ class TestContributor(DatabaseTest):
 
         # 'Bob' is now listed as an alias for Robert, as is Bob's
         # alias.
-        eq_([u'Jones, Bob', u'Bobby'], robert.aliases)
+        assert [u'Jones, Bob', u'Bobby'] == robert.aliases
 
         # The extra information associated with Bob is now associated
         # with Robert.
-        eq_(u'bar', robert.extra['foo'])
+        assert u'bar' == robert.extra['foo']
 
-        eq_(u"viaf", robert.viaf)
-        eq_(u"lc", robert.lc)
-        eq_(u"Bobb", robert.family_name)
-        eq_(u"Bob Jones", robert.display_name)
-        eq_(u"Robert", robert.sort_name)
-        eq_(u"Bob_(Person)", robert.wikipedia_name)
+        assert u"viaf" == robert.viaf
+        assert u"lc" == robert.lc
+        assert u"Bobb" == robert.family_name
+        assert u"Bob Jones" == robert.display_name
+        assert u"Robert" == robert.sort_name
+        assert u"Bob_(Person)" == robert.wikipedia_name
 
         # The standalone 'Bob' record has been removed from the database.
-        eq_(
-            [],
+        assert (
+            [] ==
             self._db.query(Contributor).filter(Contributor.sort_name=="Bob").all())
 
         # Bob's book is now associated with 'Robert', not the standalone
         # 'Bob' record.
-        eq_([robert], bobs_book.author_contributors)
+        assert [robert] == bobs_book.author_contributors
 
         # confirm the sort_name is propagated, if not already set in the destination contributor
         robert.sort_name = None
         [bob], ignore = Contributor.lookup(self._db, sort_name=u"Jones, Bob")
         bob.merge_into(robert)
-        eq_(u"Jones, Bob", robert.sort_name)
+        assert u"Jones, Bob" == robert.sort_name
 
 
 
     def _names(self, in_name, out_family, out_display,
                default_display_name=None):
         f, d = Contributor._default_names(in_name, default_display_name)
-        eq_(f, out_family)
-        eq_(d, out_display)
+        assert f == out_family
+        assert d == out_display
 
     def test_default_names(self):
 
@@ -190,18 +186,18 @@ class TestContributor(DatabaseTest):
 
     def test_sort_name(self):
         bob, new = get_one_or_create(self._db, Contributor, sort_name=None)
-        eq_(None, bob.sort_name)
+        assert None == bob.sort_name
 
         bob, ignore = self._contributor(sort_name="Bob Bitshifter")
         bob.sort_name = None
-        eq_(None, bob.sort_name)
+        assert None == bob.sort_name
 
         bob, ignore = self._contributor(sort_name="Bob Bitshifter")
-        eq_("Bitshifter, Bob", bob.sort_name)
+        assert "Bitshifter, Bob" == bob.sort_name
 
         bob, ignore = self._contributor(sort_name="Bitshifter, Bob")
-        eq_("Bitshifter, Bob", bob.sort_name)
+        assert "Bitshifter, Bob" == bob.sort_name
 
         # test that human name parser doesn't die badly on foreign names
         bob, ignore = self._contributor(sort_name=u"Боб  Битшифтер")
-        eq_(u"Битшифтер, Боб", bob.sort_name)
+        assert u"Битшифтер, Боб" == bob.sort_name

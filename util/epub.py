@@ -2,7 +2,7 @@ import contextlib
 import logging
 import os, sys
 from lxml import etree
-from nose.tools import set_trace
+
 from io import BytesIO
 from zipfile import ZipFile
 

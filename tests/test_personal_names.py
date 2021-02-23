@@ -7,14 +7,6 @@ import site
 import re
 import tempfile
 
-from nose.tools import (
-    assert_raises,
-    assert_raises_regexp,
-    assert_not_equal,
-    eq_,
-    set_trace,
-)
-
 from ..model import (
     Contributor,
     DataSource,
@@ -48,13 +40,13 @@ class TestNameConversions(DatabaseTest):
 
         # no input means don't do anything
         sort_name = m(None)
-        eq_(None, sort_name)
+        assert None == sort_name
 
         def unchanged(x):
             # Verify that the input is already a sort name -- either
             # because it's in "Family, Given" format or for some other
             # reason.
-            eq_(x, m(x))
+            assert x == m(x)
         unchanged(u"Bitshifter, Bob")
         unchanged(u"Prince")
         unchanged(u"Pope Francis")
@@ -64,56 +56,56 @@ class TestNameConversions(DatabaseTest):
         unchanged(u"Bob, The Grand Duke of Awesomeness")
 
         sort_name = m(u"Bob Bitshifter")
-        eq_(u"Bitshifter, Bob", sort_name)
+        assert u"Bitshifter, Bob" == sort_name
 
         # foreign characters don't confuse the algorithm
         sort_name = m(u"Боб Битшифтер")
-        eq_(u"Битшифтер, Боб", sort_name)
+        assert u"Битшифтер, Боб" == sort_name
 
         sort_name = m(u"Bob Bitshifter, Jr.")
-        eq_(u"Bitshifter, Bob Jr.", sort_name)
+        assert u"Bitshifter, Bob Jr." == sort_name
 
         sort_name = m(u"Bob Bitshifter, III")
-        eq_(u"Bitshifter, Bob III", sort_name)
+        assert u"Bitshifter, Bob III" == sort_name
 
-        eq_("Beck, James M. (James Montgomery)",
+        assert ("Beck, James M. (James Montgomery)" ==
             m("James M. (James Montgomery) Beck"))
 
         # all forms of PhD are recognized
         sort_name = m(u"John Doe, PhD")
-        eq_(u"Doe, John PhD", sort_name)
+        assert u"Doe, John PhD" == sort_name
         sort_name = m(u"John Doe, Ph.D.")
-        eq_(u"Doe, John PhD", sort_name)
+        assert u"Doe, John PhD" == sort_name
         sort_name = m(u"John Doe, Ph D")
-        eq_(u"Doe, John PhD", sort_name)
+        assert u"Doe, John PhD" == sort_name
         sort_name = m(u"John Doe, Ph. D.")
-        eq_(u"Doe, John PhD", sort_name)
+        assert u"Doe, John PhD" == sort_name
         sort_name = m(u"John Doe, PHD")
-        eq_(u"Doe, John PhD", sort_name)
+        assert u"Doe, John PhD" == sort_name
 
         sort_name = m(u"John Doe, M.D.")
-        eq_(u"Doe, John MD", sort_name)
+        assert u"Doe, John MD" == sort_name
 
         # corporate names are unchanged
         unchanged(u"Church of Jesus Christ of Latter-day Saints")
         unchanged(u"(C) 2006 Vanguard")
 
         # NOTE: These results are not the best.
-        eq_("XVI, Pope Benedict", m(u"Pope Benedict XVI"))
-        eq_("Byron, Lord", m(u"Lord Byron"))
+        assert "XVI, Pope Benedict" == m(u"Pope Benedict XVI")
+        assert "Byron, Lord" == m(u"Lord Byron")
 
     def test_name_tidy(self):
         # remove improper comma
         sort_name = display_name_to_sort_name(u"Bitshifter, Bob,")
-        eq_(u"Bitshifter, Bob", sort_name)
+        assert u"Bitshifter, Bob" == sort_name
 
         # remove improper period
         sort_name = display_name_to_sort_name(u"Bitshifter, Bober.")
-        eq_(u"Bitshifter, Bober", sort_name)
+        assert u"Bitshifter, Bober" == sort_name
 
         # retain proper period
         sort_name = display_name_to_sort_name(u"Bitshifter, B.")
-        eq_(u"Bitshifter, B.", sort_name)
+        assert u"Bitshifter, B." == sort_name
 
 
 

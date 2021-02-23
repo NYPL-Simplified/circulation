@@ -6,7 +6,7 @@ from collections import (
 )
 
 from lxml import etree
-from nose.tools import set_trace
+
 from sqlalchemy.orm.session import Session
 
 from cdn import cdnify

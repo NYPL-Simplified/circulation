@@ -12,7 +12,7 @@ package_dir = os.path.join(bin_dir, "..", "..")
 sys.path.append(os.path.abspath(package_dir))
 
 import time
-from nose.tools import set_trace
+
 from sqlalchemy.orm import (
     aliased,
 )

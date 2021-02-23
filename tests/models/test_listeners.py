@@ -1,10 +1,6 @@
 # encoding: utf-8
 import datetime
 import functools
-
-from nose.tools import (
-    eq_,
-)
 from parameterized import parameterized
 
 from .. import DatabaseTest
@@ -71,7 +67,7 @@ class TestSiteConfigurationHasChanged(DatabaseTest):
                 service_type=None, collection=None
             )
         timestamp_value = ts()
-        eq_(timestamp_value, last_update)
+        assert timestamp_value == last_update
 
         # Now let's call site_configuration_has_changed().
         #
@@ -102,9 +98,8 @@ class TestSiteConfigurationHasChanged(DatabaseTest):
 
         # Calling Configuration.check_for_site_configuration_update
         # with a timeout doesn't detect the change.
-        eq_(new_last_update_time,
-            Configuration.site_configuration_last_update(self._db, timeout=60)
-        )
+        assert (new_last_update_time ==
+            Configuration.site_configuration_last_update(self._db, timeout=60))
 
         # But the default behavior -- a timeout of zero -- forces
         # the method to go to the database and find the correct
@@ -131,7 +126,7 @@ class TestSiteConfigurationHasChanged(DatabaseTest):
 
         # Verify that the Timestamp has not changed (how could it,
         # with no database connection to modify the Timestamp?)
-        eq_(newer_update,
+        assert (newer_update ==
             Configuration.site_configuration_last_update(self._db))
 
     # We don't test every event listener, but we do test one of each type.
@@ -214,7 +209,7 @@ class TestListeners(DatabaseTest):
         status_property_setter(pool, True)
 
         # Assert
-        eq_(1, len(work.coverage_records))
-        eq_(work.id, work.coverage_records[0].work_id)
-        eq_(WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION, work.coverage_records[0].operation)
-        eq_(WorkCoverageRecord.REGISTERED, work.coverage_records[0].status)
+        assert 1 == len(work.coverage_records)
+        assert work.id == work.coverage_records[0].work_id
+        assert WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION == work.coverage_records[0].operation
+        assert WorkCoverageRecord.REGISTERED == work.coverage_records[0].status

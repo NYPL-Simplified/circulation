@@ -1,4 +1,3 @@
-from nose.tools import eq_, set_trace
 from ... import classifier
 from ...classifier import *
 from ...classifier.bic import BICClassifier as BIC
@@ -9,10 +8,10 @@ class TestBIC(object):
         def fic(bic):
             return BIC.is_fiction(BIC.scrub_identifier(bic), None)
 
-        eq_(True, fic("FCA"))
-        eq_(True, fic("YFL"))
-        eq_(False, fic("YWR"))
-        eq_(False, fic("HB"))
+        assert True == fic("FCA")
+        assert True == fic("YFL")
+        assert False == fic("YWR")
+        assert False == fic("HB")
 
     def test_audience(self):
         young_adult = Classifier.AUDIENCE_YOUNG_ADULT
@@ -20,25 +19,25 @@ class TestBIC(object):
         def aud(bic):
             return BIC.audience(BIC.scrub_identifier(bic), None)
 
-        eq_(adult, aud("DD"))
-        eq_(young_adult, aud("YFA"))
+        assert adult == aud("DD")
+        assert young_adult == aud("YFA")
 
     def test_genre(self):
         def gen(bic):
             return BIC.genre(BIC.scrub_identifier(bic), None)
-        eq_(classifier.Art_Design,
+        assert (classifier.Art_Design ==
             gen("A"))
-        eq_(classifier.Art_Design,
+        assert (classifier.Art_Design ==
             gen("AB"))
-        eq_(classifier.Music,
+        assert (classifier.Music ==
             gen("AV"))
-        eq_(classifier.Fantasy,
+        assert (classifier.Fantasy ==
             gen("FM"))
-        eq_(classifier.Economics,
+        assert (classifier.Economics ==
             gen("KC"))
-        eq_(classifier.Short_Stories,
+        assert (classifier.Short_Stories ==
            gen("FYB"))
-        eq_(classifier.Music,
+        assert (classifier.Music ==
             gen("YNC"))
-        eq_(classifier.European_History,
+        assert (classifier.European_History ==
             gen("HBJD"))

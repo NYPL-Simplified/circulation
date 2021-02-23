@@ -1,7 +1,4 @@
-from nose.tools import (
-    assert_raises_regexp,
-    eq_,
-)
+import pytest
 from . import DatabaseTest
 from ..local_analytics_provider import LocalAnalyticsProvider
 from ..model import (
@@ -40,13 +37,13 @@ class TestLocalAnalyticsProvider(DatabaseTest):
         qu = self._db.query(CirculationEvent).filter(
             CirculationEvent.type == CirculationEvent.DISTRIBUTOR_CHECKIN
         )
-        eq_(1, qu.count())
+        assert 1 == qu.count()
         [event] = qu.all()
 
-        eq_(lp, event.license_pool)
-        eq_(self._default_library, event.library)
-        eq_(CirculationEvent.DISTRIBUTOR_CHECKIN, event.type)
-        eq_(now, event.start)
+        assert lp == event.license_pool
+        assert self._default_library == event.library
+        assert CirculationEvent.DISTRIBUTOR_CHECKIN == event.type
+        assert now == event.start
 
         # The LocalAnalyticsProvider will not handle an event intended
         # for a different library.
@@ -54,7 +51,7 @@ class TestLocalAnalyticsProvider(DatabaseTest):
         self.la.collect_event(
             library2, lp, CirculationEvent.DISTRIBUTOR_CHECKIN, now,
             old_value=None, new_value=None)
-        eq_(1, qu.count())
+        assert 1 == qu.count()
 
         # It's possible to instantiate the LocalAnalyticsProvider
         # without a library.
@@ -67,7 +64,7 @@ class TestLocalAnalyticsProvider(DatabaseTest):
                              CirculationEvent.DISTRIBUTOR_CHECKIN, now,
                              old_value=None, new_value=None
             )
-        eq_(3, qu.count())
+        assert 3 == qu.count()
 
     def test_collect_with_missing_information(self):
         """A circulation event may be collected with either the
@@ -79,11 +76,9 @@ class TestLocalAnalyticsProvider(DatabaseTest):
         pool = self._licensepool(None)
         self.la.collect_event(None, pool, "event", now)
 
-        assert_raises_regexp(
-            ValueError,
-            "Either library or license_pool must be provided.",
-            self.la.collect_event, None, None, "event", now
-        )
+        with pytest.raises(ValueError) as excinfo:
+            self.la.collect_event(None, None, "event", now)
+        assert "Either library or license_pool must be provided." in str(excinfo.value)
 
     def test_neighborhood_is_location(self):
         # If a 'neighborhood' argument is provided, its value
@@ -95,8 +90,8 @@ class TestLocalAnalyticsProvider(DatabaseTest):
             self._default_library, None, "event", datetime.datetime.utcnow(),
             neighborhood="Gormenghast"
         )
-        eq_(True, is_new)
-        eq_(None, event.location)
+        assert True == is_new
+        assert None == event.location
 
         # Create another LocalAnalytics object that uses the patron
         # neighborhood as the event location.
@@ -111,8 +106,8 @@ class TestLocalAnalyticsProvider(DatabaseTest):
             self._default_library, None, "event", datetime.datetime.utcnow(),
             neighborhood="Gormenghast"
         )
-        eq_(True, is_new)
-        eq_("Gormenghast", event.location)
+        assert True == is_new
+        assert "Gormenghast" == event.location
 
         # If no neighborhood is available, the event ends up with no location
         # anyway.
@@ -120,5 +115,5 @@ class TestLocalAnalyticsProvider(DatabaseTest):
             self._default_library, None, "event", datetime.datetime.utcnow(),
         )
         assert event2 != event
-        eq_(True, is_new)
-        eq_(None, event2.location)
+        assert True == is_new
+        assert None == event2.location

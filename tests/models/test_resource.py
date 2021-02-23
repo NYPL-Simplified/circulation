@@ -1,9 +1,5 @@
 # encoding: utf-8
-from nose.tools import (
-    assert_raises_regexp,
-    eq_,
-    set_trace,
-)
+import pytest
 import os
 from .. import (
     DatabaseTest,
@@ -33,25 +29,25 @@ class TestHyperlink(DatabaseTest):
             "text/plain", "The content", None, RightsStatus.CC_BY,
             "The rights explanation", original,
             transformation_settings=dict(setting="a setting"))
-        eq_(True, is_new)
+        assert True == is_new
         rep = hyperlink.resource.representation
-        eq_("text/plain", rep.media_type)
-        eq_(b"The content", rep.content)
-        eq_(Hyperlink.DESCRIPTION, hyperlink.rel)
-        eq_(identifier, hyperlink.identifier)
-        eq_(RightsStatus.CC_BY, hyperlink.resource.rights_status.uri)
-        eq_("The rights explanation", hyperlink.resource.rights_explanation)
+        assert "text/plain" == rep.media_type
+        assert b"The content" == rep.content
+        assert Hyperlink.DESCRIPTION == hyperlink.rel
+        assert identifier == hyperlink.identifier
+        assert RightsStatus.CC_BY == hyperlink.resource.rights_status.uri
+        assert "The rights explanation" == hyperlink.resource.rights_explanation
         transformation = hyperlink.resource.derived_through
-        eq_(hyperlink.resource, transformation.derivative)
-        eq_(original, transformation.original)
-        eq_("a setting", transformation.settings.get("setting"))
-        eq_([transformation], original.transformations)
+        assert hyperlink.resource == transformation.derivative
+        assert original == transformation.original
+        assert "a setting" == transformation.settings.get("setting")
+        assert [transformation] == original.transformations
 
     def test_default_filename(self):
         m = Hyperlink._default_filename
-        eq_("content", m(Hyperlink.OPEN_ACCESS_DOWNLOAD))
-        eq_("cover", m(Hyperlink.IMAGE))
-        eq_("cover-thumbnail", m(Hyperlink.THUMBNAIL_IMAGE))
+        assert "content" == m(Hyperlink.OPEN_ACCESS_DOWNLOAD)
+        assert "cover" == m(Hyperlink.IMAGE)
+        assert "cover-thumbnail" == m(Hyperlink.THUMBNAIL_IMAGE)
 
     def test_unmirrored(self):
 
@@ -74,37 +70,37 @@ class TestHyperlink(DatabaseTest):
 
         # Identifier is not in the collection.
         not_in_collection, ignore = i2.add_link(Hyperlink.IMAGE, self._url, ds)
-        eq_([], m())
+        assert [] == m()
 
         # Hyperlink rel is not mirrorable.
         wrong_type, ignore = i1.add_link(
             "not mirrorable", self._url, ds, "text/plain"
         )
-        eq_([], m())
+        assert [] == m()
 
         # Hyperlink has no associated representation -- it needs to be
         # mirrored, which will create one!
         hyperlink, ignore = i1.add_link(
             Hyperlink.IMAGE, self._url, ds, "image/png"
         )
-        eq_([hyperlink], m())
+        assert [hyperlink] == m()
 
         # Representation is already mirrored, so does not show up
         # in the unmirrored list.
         representation = hyperlink.resource.representation
         representation.set_as_mirrored(self._url)
-        eq_([], m())
+        assert [] == m()
 
         # Representation exists in database but is not mirrored -- it needs
         # to be mirrored!
         representation.mirror_url = None
-        eq_([hyperlink], m())
+        assert [hyperlink] == m()
 
         # Hyperlink is associated with a data source other than the
         # data source of the collection. It ought to be mirrored, but
         # this collection isn't responsible for mirroring it.
         hyperlink.data_source = overdrive
-        eq_([], m())
+        assert [] == m()
 
 
 class TestResource(DatabaseTest):
@@ -117,27 +113,27 @@ class TestResource(DatabaseTest):
         work = self._work(with_open_access_download=True)
         [pool] = work.license_pools
         [lpdm] = pool.delivery_mechanisms
-        eq_(lpdm, lpdm.resource.as_delivery_mechanism_for(pool))
+        assert lpdm == lpdm.resource.as_delivery_mechanism_for(pool)
 
         # If there's no relationship between the Resource and
         # the LicensePoolDeliveryMechanism, as_delivery_mechanism_for
         # returns None.
         w2 = self._work(with_license_pool=True)
         [unrelated] = w2.license_pools
-        eq_(None, lpdm.resource.as_delivery_mechanism_for(unrelated))
+        assert None == lpdm.resource.as_delivery_mechanism_for(unrelated)
 
 
 class TestRepresentation(DatabaseTest):
 
     def test_normalized_content_path(self):
-        eq_("baz", Representation.normalize_content_path(
-            "/foo/bar/baz", "/foo/bar"))
+        assert "baz" == Representation.normalize_content_path(
+            "/foo/bar/baz", "/foo/bar")
 
-        eq_("baz", Representation.normalize_content_path(
-            "/foo/bar/baz", "/foo/bar/"))
+        assert "baz" == Representation.normalize_content_path(
+            "/foo/bar/baz", "/foo/bar/")
 
-        eq_("/foo/bar/baz", Representation.normalize_content_path(
-            "/foo/bar/baz", "/blah/blah/"))
+        assert "/foo/bar/baz" == Representation.normalize_content_path(
+            "/foo/bar/baz", "/blah/blah/")
 
     def test_best_media_type(self):
         """Test our ability to determine whether the Content-Type
@@ -147,36 +143,33 @@ class TestRepresentation(DatabaseTest):
 
         # If there are no headers or no content-type header, the
         # presumed media type takes precedence.
-        eq_("text/plain", m("http://text/all.about.jpeg", None, "text/plain"))
-        eq_("text/plain", m(None, {}, "text/plain"))
+        assert "text/plain" == m("http://text/all.about.jpeg", None, "text/plain")
+        assert "text/plain" == m(None, {}, "text/plain")
 
         # Most of the time, the content-type header takes precedence over
         # the presumed media type.
-        eq_("image/gif", m(None, {"content-type": "image/gif"}, "text/plain"))
+        assert "image/gif" == m(None, {"content-type": "image/gif"}, "text/plain")
 
         # Except when the content-type header is so generic as to be uselses.
-        eq_("text/plain", m(
+        assert "text/plain" == m(
             None,
             {"content-type": "application/octet-stream;profile=foo"},
             "text/plain")
-        )
 
         # If no default media type is specified, but one can be derived from
         # the URL, that one is used as the default.
-        eq_("image/jpeg", m(
+        assert "image/jpeg" == m(
             "http://images-galore/cover.jpeg",
             {"content-type": "application/octet-stream;profile=foo"},
             None)
-        )
 
         # But a default media type doesn't override a specific
         # Content-Type from the server, even if it superficially makes
         # more sense.
-        eq_("image/png", m(
+        assert "image/png" == m(
             "http://images-galore/cover.jpeg",
             {"content-type": "image/png"},
             None)
-        )
 
 
     def test_mirrorable_media_type(self):
@@ -184,15 +177,15 @@ class TestRepresentation(DatabaseTest):
 
         # Ebook formats and image formats get mirrored.
         representation.media_type = Representation.EPUB_MEDIA_TYPE
-        eq_(True, representation.mirrorable_media_type)
+        assert True == representation.mirrorable_media_type
         representation.media_type = Representation.MOBI_MEDIA_TYPE
-        eq_(True, representation.mirrorable_media_type)
+        assert True == representation.mirrorable_media_type
         representation.media_type = Representation.JPEG_MEDIA_TYPE
-        eq_(True, representation.mirrorable_media_type)
+        assert True == representation.mirrorable_media_type
 
         # Other media types don't get mirrored
         representation.media_type = "text/plain"
-        eq_(False, representation.mirrorable_media_type)
+        assert False == representation.mirrorable_media_type
 
     def test_guess_media_type(self):
         m_file = Representation.guess_media_type
@@ -202,37 +195,37 @@ class TestRepresentation(DatabaseTest):
         zip_file_rel_path = "relatively/pathed/file.zip"
         zip_file_abs_path = "/absolutely/pathed/file.zIp"
 
-        eq_(Representation.JPEG_MEDIA_TYPE, m_file(jpg_file))
-        eq_(Representation.ZIP_MEDIA_TYPE, m_file(zip_file))
+        assert Representation.JPEG_MEDIA_TYPE == m_file(jpg_file)
+        assert Representation.ZIP_MEDIA_TYPE == m_file(zip_file)
 
         for extension, media_type in Representation.MEDIA_TYPE_FOR_EXTENSION.items():
             filename = "file" + extension
-            eq_(media_type, m_file(filename))
+            assert media_type == m_file(filename)
 
-        eq_(None, m_file(None))
-        eq_(None, m_file("file"))
-        eq_(None, m_file("file.unknown-extension"))
+        assert None == m_file(None)
+        assert None == m_file("file")
+        assert None == m_file("file.unknown-extension")
 
         # URLs should be handled differently
         # Simple file-based guess will get this right, ...
         zip_url = "https://some_url/path/file.zip"
-        eq_(Representation.ZIP_MEDIA_TYPE, m_file(zip_url))
+        assert Representation.ZIP_MEDIA_TYPE == m_file(zip_url)
         # ... but will get these wrong.
         zip_url_with_query = "https://some_url/path/file.zip?Policy=xyz123&Key-Pair-Id=xxx"
         zip_url_misleading = "https://some_url/path/file.zip?Policy=xyz123&associated_cover=image.jpg"
-        eq_(None, m_file(zip_url_with_query))  # We get None, but want Zip
-        eq_(Representation.JPEG_MEDIA_TYPE, m_file(zip_url_misleading))  # We get JPEG, but want Zip
+        assert None == m_file(zip_url_with_query)  # We get None, but want Zip
+        assert Representation.JPEG_MEDIA_TYPE == m_file(zip_url_misleading)  # We get JPEG, but want Zip
 
         # Taking URL structure into account should get them all right.
-        eq_(Representation.ZIP_MEDIA_TYPE, m_url(zip_url))
+        assert Representation.ZIP_MEDIA_TYPE == m_url(zip_url)
         #   ... but will get these wrong.
-        eq_(Representation.ZIP_MEDIA_TYPE, m_url(zip_url_with_query))
-        eq_(Representation.ZIP_MEDIA_TYPE, m_url(zip_url_misleading))
+        assert Representation.ZIP_MEDIA_TYPE == m_url(zip_url_with_query)
+        assert Representation.ZIP_MEDIA_TYPE == m_url(zip_url_misleading)
 
         # And we can handle local file cases
-        eq_(Representation.ZIP_MEDIA_TYPE, m_url(zip_file))
-        eq_(Representation.ZIP_MEDIA_TYPE, m_url(zip_file_rel_path))
-        eq_(Representation.ZIP_MEDIA_TYPE, m_url(zip_file_abs_path))
+        assert Representation.ZIP_MEDIA_TYPE == m_url(zip_file)
+        assert Representation.ZIP_MEDIA_TYPE == m_url(zip_file_rel_path)
+        assert Representation.ZIP_MEDIA_TYPE == m_url(zip_file_abs_path)
 
 
 
@@ -243,47 +236,47 @@ class TestRepresentation(DatabaseTest):
 
         # An unknown file at /foo
         representation, ignore = self._representation(self._url, "text/unknown")
-        eq_("text/unknown", representation.external_media_type)
-        eq_('', representation.extension())
+        assert "text/unknown" == representation.external_media_type
+        assert '' == representation.extension()
 
         # A text file at /foo
         representation, ignore = self._representation(self._url, "text/plain")
-        eq_("text/plain", representation.external_media_type)
-        eq_('.txt', representation.extension())
+        assert "text/plain" == representation.external_media_type
+        assert '.txt' == representation.extension()
 
         # A JPEG at /foo.jpg
         representation, ignore = self._representation(
             self._url + ".jpg", "image/jpeg"
         )
-        eq_("image/jpeg", representation.external_media_type)
-        eq_(".jpg", representation.extension())
+        assert "image/jpeg" == representation.external_media_type
+        assert ".jpg" == representation.extension()
 
         # A JPEG at /foo
         representation, ignore = self._representation(self._url, "image/jpeg")
-        eq_("image/jpeg", representation.external_media_type)
-        eq_(".jpg", representation.extension())
+        assert "image/jpeg" == representation.external_media_type
+        assert ".jpg" == representation.extension()
 
         # A PNG at /foo
         representation, ignore = self._representation(self._url, "image/png")
-        eq_("image/png", representation.external_media_type)
-        eq_(".png", representation.extension())
+        assert "image/png" == representation.external_media_type
+        assert ".png" == representation.extension()
 
         # An EPUB at /foo.epub.images -- information present in the URL
         # is preserved.
         representation, ignore = self._representation(
             self._url + '.epub.images', Representation.EPUB_MEDIA_TYPE
         )
-        eq_(Representation.EPUB_MEDIA_TYPE, representation.external_media_type)
-        eq_(".epub.images", representation.extension())
+        assert Representation.EPUB_MEDIA_TYPE == representation.external_media_type
+        assert ".epub.images" == representation.extension()
 
         representation, ignore = self._representation(self._url + ".svg", "image/svg+xml")
-        eq_("image/svg+xml", representation.external_media_type)
-        eq_(".svg", representation.extension())
+        assert "image/svg+xml" == representation.external_media_type
+        assert ".svg" == representation.extension()
 
     def test_set_fetched_content(self):
         representation, ignore = self._representation(self._url, "text/plain")
         representation.set_fetched_content("some text")
-        eq_(b"some text", representation.content_fh().read())
+        assert b"some text" == representation.content_fh().read()
 
     def test_set_fetched_content_file_on_disk(self):
         filename = "set_fetched_content_file_on_disk.txt"
@@ -293,7 +286,7 @@ class TestRepresentation(DatabaseTest):
         representation, ignore = self._representation(self._url, "text/plain")
         representation.set_fetched_content(None, filename)
         fh = representation.content_fh()
-        eq_(b"some text", fh.read())
+        assert b"some text" == fh.read()
 
     def test_unicode_content_utf8_default(self):
         unicode_content = u"It’s complicated."
@@ -303,15 +296,15 @@ class TestRepresentation(DatabaseTest):
         # This bytestring can be decoded as Windows-1252, but that
         # would be the wrong answer.
         bad_windows_1252 = utf8_content.decode("windows-1252")
-        eq_(u"Itâ€™s complicated.", bad_windows_1252)
+        assert u"Itâ€™s complicated." == bad_windows_1252
 
         representation, ignore = self._representation(self._url, "text/plain")
         representation.set_fetched_content(unicode_content, None)
-        eq_(utf8_content, representation.content)
+        assert utf8_content == representation.content
 
         # By trying to interpret the content as UTF-8 before falling back to
         # Windows-1252, we get the right answer.
-        eq_(unicode_content, representation.unicode_content)
+        assert unicode_content == representation.unicode_content
 
     def test_unicode_content_windows_1252(self):
         unicode_content = u"A “love” story"
@@ -319,15 +312,15 @@ class TestRepresentation(DatabaseTest):
 
         representation, ignore = self._representation(self._url, "text/plain")
         representation.set_fetched_content(windows_1252_content)
-        eq_(windows_1252_content, representation.content)
-        eq_(unicode_content, representation.unicode_content)
+        assert windows_1252_content == representation.content
+        assert unicode_content == representation.unicode_content
 
     def test_unicode_content_is_none_when_decoding_is_impossible(self):
         byte_content = b"\x81\x02\x03"
         representation, ignore = self._representation(self._url, "text/plain")
         representation.set_fetched_content(byte_content)
-        eq_(byte_content, representation.content)
-        eq_(None, representation.unicode_content)
+        assert byte_content == representation.content
+        assert None == representation.unicode_content
 
     def test_presumed_media_type(self):
         h = DummyHTTPClient()
@@ -339,7 +332,7 @@ class TestRepresentation(DatabaseTest):
             self._db, 'http://url', do_get=h.do_get, max_age=0,
             presumed_media_type="text/xml"
         )
-        eq_('text/xml', representation.media_type)
+        assert 'text/xml' == representation.media_type
 
         # In the presence of a generic content-type header, the
         # presumed_media_type takes over.
@@ -349,7 +342,7 @@ class TestRepresentation(DatabaseTest):
             self._db, 'http://url', do_get=h.do_get, max_age=0,
             presumed_media_type="text/xml"
         )
-        eq_('text/xml', representation.media_type)
+        assert 'text/xml' == representation.media_type
 
         # A non-generic content-type header takes precedence over
         # presumed_media_type.
@@ -358,7 +351,7 @@ class TestRepresentation(DatabaseTest):
             self._db, 'http://url', do_get=h.do_get, max_age=0,
             presumed_media_type="text/xml"
         )
-        eq_('text/plain', representation.media_type)
+        assert 'text/plain' == representation.media_type
 
 
     def test_404_creates_cachable_representation(self):
@@ -368,12 +361,12 @@ class TestRepresentation(DatabaseTest):
         url = self._url
         representation, cached = Representation.get(
             self._db, url, do_get=h.do_get)
-        eq_(False, cached)
+        assert False == cached
 
         representation2, cached = Representation.get(
             self._db, url, do_get=h.do_get)
-        eq_(True, cached)
-        eq_(representation, representation2)
+        assert True == cached
+        assert representation == representation2
 
     def test_302_creates_cachable_representation(self):
         h = DummyHTTPClient()
@@ -382,12 +375,12 @@ class TestRepresentation(DatabaseTest):
         url = self._url
         representation, cached = Representation.get(
             self._db, url, do_get=h.do_get)
-        eq_(False, cached)
+        assert False == cached
 
         representation2, cached = Representation.get(
             self._db, url, do_get=h.do_get)
-        eq_(True, cached)
-        eq_(representation, representation2)
+        assert True == cached
+        assert representation == representation2
 
     def test_500_creates_uncachable_representation(self):
         h = DummyHTTPClient()
@@ -395,12 +388,12 @@ class TestRepresentation(DatabaseTest):
         url = self._url
         representation, cached = Representation.get(
             self._db, url, do_get=h.do_get)
-        eq_(False, cached)
+        assert False == cached
 
         h.queue_response(500)
         representation, cached = Representation.get(
             self._db, url, do_get=h.do_get)
-        eq_(False, cached)
+        assert False == cached
 
     def test_response_reviewer_impacts_representation(self):
         h = DummyHTTPClient()
@@ -415,7 +408,7 @@ class TestRepresentation(DatabaseTest):
             self._db, self._url, do_get=h.do_get, response_reviewer=reviewer
         )
         assert "No. Just no." in representation.fetch_exception
-        eq_(False, cached)
+        assert False == cached
 
     def test_exception_handler(self):
         def oops(*args, **kwargs):
@@ -429,51 +422,50 @@ class TestRepresentation(DatabaseTest):
         assert representation.fetch_exception.strip().endswith(
             "Exception: oops!"
         )
-        eq_(None, representation.content)
-        eq_(None, representation.status_code)
+        assert None == representation.content
+        assert None == representation.status_code
 
         # But we can ask that exceptions simply be re-raised instead of
         # being handled.
-        assert_raises_regexp(
-            Exception, "oops!", Representation.get,
-            self._db, self._url, do_get=oops,
-            exception_handler=Representation.reraise_exception
-        )
+        with pytest.raises(Exception) as excinfo:
+            Representation.get(
+                self._db, self._url, do_get = oops,
+                exception_handler = Representation.reraise_exception)
+        assert "oops!" in str(excinfo.value)
 
     def test_url_extension(self):
         epub, ignore = self._representation("test.epub")
-        eq_(".epub", epub.url_extension)
+        assert ".epub" == epub.url_extension
 
         epub3, ignore = self._representation("test.epub3")
-        eq_(".epub3", epub3.url_extension)
+        assert ".epub3" == epub3.url_extension
 
         noimages, ignore = self._representation("test.epub.noimages")
-        eq_(".epub.noimages", noimages.url_extension)
+        assert ".epub.noimages" == noimages.url_extension
 
         unknown, ignore = self._representation("test.1234.abcd")
-        eq_(".abcd", unknown.url_extension)
+        assert ".abcd" == unknown.url_extension
 
         no_extension, ignore = self._representation("test")
-        eq_(None, no_extension.url_extension)
+        assert None == no_extension.url_extension
 
         no_filename, ignore = self._representation("foo.com/")
-        eq_(None, no_filename.url_extension)
+        assert None == no_filename.url_extension
 
         query_param, ignore = self._representation("test.epub?version=3")
-        eq_(".epub", query_param.url_extension)
+        assert ".epub" == query_param.url_extension
 
     def test_clean_media_type(self):
         m = Representation._clean_media_type
-        eq_("image/jpeg", m("image/jpeg"))
-        eq_("application/atom+xml",
-            m("application/atom+xml;profile=opds-catalog;kind=acquisition")
-        )
+        assert "image/jpeg" == m("image/jpeg")
+        assert ("application/atom+xml" ==
+            m("application/atom+xml;profile=opds-catalog;kind=acquisition"))
 
     def test_extension(self):
         m = Representation._extension
-        eq_(".jpg", m("image/jpeg"))
-        eq_(".mobi", m("application/x-mobipocket-ebook"))
-        eq_("", m("no/such-media-type"))
+        assert ".jpg" == m("image/jpeg")
+        assert ".mobi" == m("application/x-mobipocket-ebook")
+        assert "" == m("no/such-media-type")
 
     def test_default_filename(self):
 
@@ -484,41 +476,41 @@ class TestRepresentation(DatabaseTest):
         # Here's the filename we would give it if we were to mirror
         # it.
         filename = representation.default_filename()
-        eq_("baz.txt", filename)
+        assert "baz.txt" == filename
 
         # File extension is always set based on media type.
         filename = representation.default_filename(destination_type="image/png")
-        eq_("baz.png", filename)
+        assert "baz.png" == filename
 
         # The original file extension is not treated as reliable and
         # need not be present.
         url = "http://example.com/1"
         representation, ignore = self._representation(url, "text/plain")
         filename = representation.default_filename()
-        eq_("1.txt", filename)
+        assert "1.txt" == filename
 
         # Again, file extension is always set based on media type.
         filename = representation.default_filename(destination_type="image/png")
-        eq_("1.png", filename)
+        assert "1.png" == filename
 
         # In this case, we don't have an extension registered for
         # text/unknown, so the extension is omitted.
         filename = representation.default_filename(destination_type="text/unknown")
-        eq_("1", filename)
+        assert "1" == filename
 
         # This URL has no path component, so we can't even come up with a
         # decent default filename. We have to go with 'resource'.
         representation, ignore = self._representation("http://example.com/", "text/unknown")
-        eq_('resource', representation.default_filename())
-        eq_('resource.png', representation.default_filename(destination_type="image/png"))
+        assert 'resource' == representation.default_filename()
+        assert 'resource.png' == representation.default_filename(destination_type="image/png")
 
         # But if we know what type of thing we're linking to, we can
         # do a little better.
         link = Hyperlink(rel=Hyperlink.IMAGE)
         filename = representation.default_filename(link=link)
-        eq_('cover', filename)
+        assert 'cover' == filename
         filename = representation.default_filename(link=link, destination_type="image/png")
-        eq_('cover.png', filename)
+        assert 'cover.png' == filename
 
     def test_cautious_http_get(self):
 
@@ -532,8 +524,8 @@ class TestRepresentation(DatabaseTest):
             "http://safe.org/", {}, do_not_access=['unsafe.org'],
             do_get=h.do_get, cautious_head_client=object()
         )
-        eq_(200, status)
-        eq_("yay", content)
+        assert 200 == status
+        assert "yay" == content
 
         # If the domain is obviously unsafe, no GET request or HEAD
         # request is made.
@@ -541,8 +533,8 @@ class TestRepresentation(DatabaseTest):
             "http://unsafe.org/", {}, do_not_access=['unsafe.org'],
             do_get=object(), cautious_head_client=object()
         )
-        eq_(417, status)
-        eq_("Cautiously decided not to make a GET request to http://unsafe.org/",
+        assert 417 == status
+        assert ("Cautiously decided not to make a GET request to http://unsafe.org/" ==
             content)
 
         # If the domain is potentially unsafe, a HEAD request is made,
@@ -559,10 +551,10 @@ class TestRepresentation(DatabaseTest):
             check_for_redirect=['caution.org'],
             do_get=object(), cautious_head_client=mock_redirect
         )
-        eq_(417, status)
-        eq_("application/vnd.librarysimplified-did-not-make-request",
+        assert 417 == status
+        assert ("application/vnd.librarysimplified-did-not-make-request" ==
             headers['content-type'])
-        eq_("Cautiously decided not to make a GET request to http://caution.org/",
+        assert ("Cautiously decided not to make a GET request to http://caution.org/" ==
             content)
 
         # Here, the HEAD request redirects to an allowed site.
@@ -577,8 +569,8 @@ class TestRepresentation(DatabaseTest):
             check_for_redirect=['caution.org'],
             do_get=h.do_get, cautious_head_client=mock_redirect
         )
-        eq_(200, status)
-        eq_("good content", content)
+        assert 200 == status
+        assert "good content" == content
 
     def test_get_would_be_useful(self):
         """Test the method that determines whether a GET request will go (or
@@ -591,33 +583,31 @@ class TestRepresentation(DatabaseTest):
         fake_head = object()
 
         # Most sites are safe with no HEAD request necessary.
-        eq_(True, safe("http://www.safe-site.org/book.epub", {},
-                       head_client=fake_head))
+        assert True == safe("http://www.safe-site.org/book.epub", {},
+                       head_client=fake_head)
 
         # gutenberg.org is problematic, no HEAD request necessary.
-        eq_(False, safe("http://www.gutenberg.org/book.epub", {},
-                        head_client=fake_head))
+        assert False == safe("http://www.gutenberg.org/book.epub", {},
+                        head_client=fake_head)
 
         # do_not_access controls which domains should always be
         # considered unsafe.
-        eq_(
-            False, safe(
+        assert (
+            False == safe(
                 "http://www.safe-site.org/book.epub", {},
                 do_not_access=['safe-site.org'], head_client=fake_head
-            )
-        )
-        eq_(
-            True, safe(
+            ))
+        assert (
+            True == safe(
                 "http://www.gutenberg.org/book.epub", {},
                 do_not_access=['safe-site.org'], head_client=fake_head
-            )
-        )
+            ))
 
         # Domain match is based on a subdomain match, not a substring
         # match.
-        eq_(True, safe("http://www.not-unsafe-site.org/book.epub", {},
+        assert True == safe("http://www.not-unsafe-site.org/book.epub", {},
                        do_not_access=['unsafe-site.org'],
-                       head_client=fake_head))
+                       head_client=fake_head)
 
         # Some domains (unglue.it) are known to make surprise
         # redirects to unsafe domains. For these, we must make a HEAD
@@ -629,30 +619,29 @@ class TestRepresentation(DatabaseTest):
                     location="http://www.gutenberg.org/a-book.html"
                 )
             )
-        eq_(False, safe("http://www.unglue.it/book", {},
-                        head_client=bad_redirect))
+        assert False == safe("http://www.unglue.it/book", {},
+                        head_client=bad_redirect)
 
         def good_redirect(*args, **kwargs):
             return MockRequestsResponse(
                 301,
                 dict(location="http://www.some-other-site.org/a-book.epub")
             )
-        eq_(
-            True,
-            safe("http://www.unglue.it/book", {}, head_client=good_redirect)
-        )
+        assert (
+            True ==
+            safe("http://www.unglue.it/book", {}, head_client=good_redirect))
 
         def not_a_redirect(*args, **kwargs):
             return MockRequestsResponse(200)
-        eq_(True, safe("http://www.unglue.it/book", {},
-                       head_client=not_a_redirect))
+        assert True == safe("http://www.unglue.it/book", {},
+                       head_client=not_a_redirect)
 
         # The `check_for_redirect` argument controls which domains are
         # checked using HEAD requests. Here, we customise it to check
         # a site other than unglue.it.
-        eq_(False, safe("http://www.questionable-site.org/book.epub", {},
+        assert False == safe("http://www.questionable-site.org/book.epub", {},
                         check_for_redirect=['questionable-site.org'],
-                        head_client=bad_redirect))
+                        head_client=bad_redirect)
 
     def test_get_with_url_normalizer(self):
         # Verify our ability to store a Resource under a URL other than
@@ -677,17 +666,17 @@ class TestRepresentation(DatabaseTest):
         )
 
         # The original URL was used to make the actual request.
-        eq_([original_url], h.requests)
+        assert [original_url] == h.requests
 
         # The original URL was then passed into Normalizer.normalize
-        eq_(original_url, normalizer.called_with)
+        assert original_url == normalizer.called_with
 
         # And the normalized URL was used as the Representation's
         # storage key.
         normalized_url = "http://url/"
-        eq_("yay", representation.content)
-        eq_(normalized_url, representation.url)
-        eq_(False, from_cache)
+        assert "yay" == representation.content
+        assert normalized_url == representation.url
+        assert False == from_cache
 
         # Try again, and the Representation is retrieved from cache under
         # the normalized URL.
@@ -698,14 +687,14 @@ class TestRepresentation(DatabaseTest):
             self._db, original_url, do_get=object(),
             url_normalizer=normalizer.normalize
         )
-        eq_(True, from_cache)
-        eq_(representation2, representation)
-        eq_(normalized_url, representation.url)
+        assert True == from_cache
+        assert representation2 == representation
+        assert normalized_url == representation.url
 
     def test_best_thumbnail(self):
         # This Representation has no thumbnails.
         representation, ignore = self._representation()
-        eq_(None, representation.best_thumbnail)
+        assert None == representation.best_thumbnail
 
         # Now it has two thumbnails, neither of which is mirrored.
         t1, ignore = self._representation()
@@ -715,12 +704,12 @@ class TestRepresentation(DatabaseTest):
 
         # There's no distinction between the thumbnails, so the first one
         # is selected as 'best'.
-        eq_(t1, representation.best_thumbnail)
+        assert t1 == representation.best_thumbnail
 
         # If one of the thumbnails is mirrored, it becomes the 'best'
         # thumbnail.
         t2.set_as_mirrored(self._url)
-        eq_(t2, representation.best_thumbnail)
+        assert t2 == representation.best_thumbnail
 
 class TestCoverResource(DatabaseTest):
 
@@ -738,16 +727,16 @@ class TestCoverResource(DatabaseTest):
         full_rep.set_as_mirrored(mirror)
 
         edition.set_cover(hyperlink.resource)
-        eq_(mirror, edition.cover_full_url)
-        eq_(None, edition.cover_thumbnail_url)
+        assert mirror == edition.cover_full_url
+        assert None == edition.cover_thumbnail_url
 
         # Now scale the cover.
         thumbnail, ignore = self._representation()
         thumbnail.thumbnail_of = full_rep
         thumbnail.set_as_mirrored(thumbnail_mirror)
         edition.set_cover(hyperlink.resource)
-        eq_(mirror, edition.cover_full_url)
-        eq_(thumbnail_mirror, edition.cover_thumbnail_url)
+        assert mirror == edition.cover_full_url
+        assert thumbnail_mirror == edition.cover_thumbnail_url
 
     def test_set_cover_for_very_small_image(self):
         edition, pool = self._edition(with_license_pool=True)
@@ -762,8 +751,8 @@ class TestCoverResource(DatabaseTest):
         full_rep.set_as_mirrored(mirror)
 
         edition.set_cover(hyperlink.resource)
-        eq_(mirror, edition.cover_full_url)
-        eq_(mirror, edition.cover_thumbnail_url)
+        assert mirror == edition.cover_full_url
+        assert mirror == edition.cover_thumbnail_url
 
     def test_set_cover_for_smallish_image_uses_full_sized_image_as_thumbnail(self):
         edition, pool = self._edition(with_license_pool=True)
@@ -782,15 +771,15 @@ class TestCoverResource(DatabaseTest):
         hyperlink.resource.representation.image_height = Edition.MAX_FALLBACK_THUMBNAIL_HEIGHT
 
         edition.set_cover(hyperlink.resource)
-        eq_(mirror, edition.cover_full_url)
-        eq_(mirror, edition.cover_thumbnail_url)
+        assert mirror == edition.cover_full_url
+        assert mirror == edition.cover_thumbnail_url
 
         # If the full-sized image had been slightly larger, we would have
         # decided not to use a thumbnail at all.
         hyperlink.resource.representation.image_height = Edition.MAX_FALLBACK_THUMBNAIL_HEIGHT + 1
         edition.cover_thumbnail_url = None
         edition.set_cover(hyperlink.resource)
-        eq_(None, edition.cover_thumbnail_url)
+        assert None == edition.cover_thumbnail_url
 
 
     def test_attempt_to_scale_non_image_sets_scale_exception(self):
@@ -802,30 +791,29 @@ class TestCoverResource(DatabaseTest):
 
     def test_cannot_scale_to_non_image(self):
         rep, ignore = self._representation(media_type="image/png", content="foo")
-        assert_raises_regexp(
-            ValueError,
-            "Unsupported destination media type: text/plain",
-            rep.scale, 300, 600, self._url, "text/plain")
+        with pytest.raises(ValueError) as excinfo:
+            rep.scale(300, 600, self._url, "text/plain")
+        assert "Unsupported destination media type: text/plain" in str(excinfo.value)
 
     def test_success(self):
         cover = self.sample_cover_representation("test-book-cover.png")
         url = self._url
         thumbnail, is_new = cover.scale(300, 600, url, "image/png")
-        eq_(True, is_new)
-        eq_(url, thumbnail.url)
-        eq_(None, thumbnail.mirror_url)
-        eq_(None, thumbnail.mirrored_at)
-        eq_(cover, thumbnail.thumbnail_of)
-        eq_("image/png", thumbnail.media_type)
-        eq_(300, thumbnail.image_height)
-        eq_(200, thumbnail.image_width)
+        assert True == is_new
+        assert url == thumbnail.url
+        assert None == thumbnail.mirror_url
+        assert None == thumbnail.mirrored_at
+        assert cover == thumbnail.thumbnail_of
+        assert "image/png" == thumbnail.media_type
+        assert 300 == thumbnail.image_height
+        assert 200 == thumbnail.image_width
 
         # Try to scale the image to the same URL, and nothing will
         # happen, even though the proposed image size is
         # different.
         thumbnail2, is_new = cover.scale(400, 700, url, "image/png")
-        eq_(thumbnail2, thumbnail)
-        eq_(False, is_new)
+        assert thumbnail2 == thumbnail
+        assert False == is_new
 
         # Let's say the thumbnail has been mirrored.
         thumbnail.set_as_mirrored(self._url)
@@ -833,45 +821,45 @@ class TestCoverResource(DatabaseTest):
         old_content = thumbnail.content
         # With the force argument we can forcibly re-scale an image,
         # changing its size.
-        eq_([thumbnail], cover.thumbnails)
+        assert [thumbnail] == cover.thumbnails
         thumbnail2, is_new = cover.scale(
             400, 700, url, "image/png", force=True)
-        eq_(True, is_new)
-        eq_([thumbnail2], cover.thumbnails)
-        eq_(cover, thumbnail2.thumbnail_of)
+        assert True == is_new
+        assert [thumbnail2] == cover.thumbnails
+        assert cover == thumbnail2.thumbnail_of
 
         # The same Representation, but now its data is different.
-        eq_(thumbnail, thumbnail2)
+        assert thumbnail == thumbnail2
         assert thumbnail2.content != old_content
-        eq_(400, thumbnail.image_height)
-        eq_(266, thumbnail.image_width)
+        assert 400 == thumbnail.image_height
+        assert 266 == thumbnail.image_width
 
         # The thumbnail has been regenerated, so it needs to be mirrored again.
-        eq_(None, thumbnail.mirrored_at)
+        assert None == thumbnail.mirrored_at
 
     def test_book_with_odd_aspect_ratio(self):
         # This book is 1200x600.
         cover = self.sample_cover_representation("childrens-book-cover.png")
         url = self._url
         thumbnail, is_new = cover.scale(300, 400, url, "image/png")
-        eq_(True, is_new)
-        eq_(url, thumbnail.url)
-        eq_(cover, thumbnail.thumbnail_of)
+        assert True == is_new
+        assert url == thumbnail.url
+        assert cover == thumbnail.thumbnail_of
         # The width was reduced to max_width, a reduction of a factor of three
-        eq_(400, thumbnail.image_width)
+        assert 400 == thumbnail.image_width
         # The height was also reduced by a factory of three, even
         # though this takes it below max_height.
-        eq_(200, thumbnail.image_height)
+        assert 200 == thumbnail.image_height
 
     def test_book_smaller_than_thumbnail_size(self):
         # This book is 200x200. No thumbnail will be created.
         cover = self.sample_cover_representation("tiny-image-cover.png")
         url = self._url
         thumbnail, is_new = cover.scale(300, 600, url, "image/png")
-        eq_(False, is_new)
-        eq_(thumbnail, cover)
-        eq_([], cover.thumbnails)
-        eq_(None, thumbnail.thumbnail_of)
+        assert False == is_new
+        assert thumbnail == cover
+        assert [] == cover.thumbnails
+        assert None == thumbnail.thumbnail_of
         assert thumbnail.url != url
 
     def test_image_type_priority(self):
@@ -881,8 +869,8 @@ class TestCoverResource(DatabaseTest):
         others. Better image types get lower numbers.
         """
         m = Resource.image_type_priority
-        eq_(None, m(None))
-        eq_(None, m(Representation.EPUB_MEDIA_TYPE))
+        assert None == m(None)
+        assert None == m(Representation.EPUB_MEDIA_TYPE)
 
         png = m(Representation.PNG_MEDIA_TYPE)
         jpeg = m(Representation.JPEG_MEDIA_TYPE)
@@ -904,7 +892,7 @@ class TestCoverResource(DatabaseTest):
 
         # A resource with no representation is not considered even if
         # it's the only option.
-        eq_([], Resource.best_covers_among([resource_with_no_representation]))
+        assert [] == Resource.best_covers_among([resource_with_no_representation])
 
         # Here's an abysmally bad cover.
         lousy_cover = self.sample_cover_representation("tiny-image-cover.png")
@@ -918,7 +906,7 @@ class TestCoverResource(DatabaseTest):
 
         # This cover is so bad that it's not even considered if it's
         # the only option.
-        eq_([], Resource.best_covers_among([resource_with_lousy_cover]))
+        assert [] == Resource.best_covers_among([resource_with_lousy_cover])
 
         # Here's a decent cover.
         decent_cover = self.sample_cover_representation("test-book-cover.png")
@@ -930,10 +918,9 @@ class TestCoverResource(DatabaseTest):
 
         # This cover is at least good enough to pass muster if there
         # is no other option.
-        eq_(
-            [resource_with_decent_cover],
-            Resource.best_covers_among([resource_with_decent_cover])
-        )
+        assert (
+            [resource_with_decent_cover] ==
+            Resource.best_covers_among([resource_with_decent_cover]))
 
         # Let's create another cover image with identical
         # characteristics.
@@ -948,12 +935,12 @@ class TestCoverResource(DatabaseTest):
 
         # best_covers_among() can't decide between the two -- they have
         # the same score.
-        eq_(set(l), set(Resource.best_covers_among(l)))
+        assert set(l) == set(Resource.best_covers_among(l))
 
         # All else being equal, if one cover is an PNG and the other
         # is a JPEG, we prefer the PNG.
         resource_with_decent_cover.representation.media_type = Representation.JPEG_MEDIA_TYPE
-        eq_([resource_with_decent_cover_2], Resource.best_covers_among(l))
+        assert [resource_with_decent_cover_2] == Resource.best_covers_among(l)
 
         # But if the metadata wrangler said to use the JPEG, we use the JPEG.
         metadata_wrangler = DataSource.lookup(
@@ -962,7 +949,7 @@ class TestCoverResource(DatabaseTest):
         resource_with_decent_cover.data_source = metadata_wrangler
 
         # ...the decision becomes easy.
-        eq_([resource_with_decent_cover], Resource.best_covers_among(l))
+        assert [resource_with_decent_cover] == Resource.best_covers_among(l)
 
     def test_rejection_and_approval(self):
         # Create a Resource.
@@ -979,50 +966,50 @@ class TestCoverResource(DatabaseTest):
         # Set its quality.
         cover.quality_as_thumbnail_image
         original_quality = cover.quality
-        eq_(True, original_quality > 0)
+        assert True == (original_quality > 0)
 
         # Rejecting it sets the voted_quality and quality below zero.
         cover.reject()
-        eq_(True, cover.voted_quality < 0)
-        eq_(True, cover.quality < 0)
+        assert True == (cover.voted_quality < 0)
+        assert True == (cover.quality < 0)
 
         # If the quality is already below zero, rejecting it doesn't
         # change the value.
         last_voted_quality = cover.voted_quality
         last_votes_for_quality = cover.votes_for_quality
         last_quality = cover.quality
-        eq_(True, last_votes_for_quality > 0)
+        assert True == (last_votes_for_quality > 0)
         cover.reject()
-        eq_(last_voted_quality, cover.voted_quality)
-        eq_(last_votes_for_quality, cover.votes_for_quality)
-        eq_(last_quality, cover.quality)
+        assert last_voted_quality == cover.voted_quality
+        assert last_votes_for_quality == cover.votes_for_quality
+        assert last_quality == cover.quality
 
         # If the quality is approved, the votes are updated as expected.
         cover.approve()
-        eq_(0, cover.voted_quality)
-        eq_(2, cover.votes_for_quality)
+        assert 0 == cover.voted_quality
+        assert 2 == cover.votes_for_quality
         # Because the number of human votes have gone up in contention,
         # the overall quality is lower than it was originally.
-        eq_(True, cover.quality < original_quality)
+        assert True == (cover.quality < original_quality)
         # But it's still above zero.
-        eq_(True, cover.quality > 0)
+        assert True == (cover.quality > 0)
 
         # Approving the cover again improves its quality further.
         last_quality = cover.quality
         cover.approve()
-        eq_(True, cover.voted_quality > 0)
-        eq_(3, cover.votes_for_quality)
-        eq_(True, cover.quality > last_quality)
+        assert True == (cover.voted_quality > 0)
+        assert 3 == cover.votes_for_quality
+        assert True == (cover.quality > last_quality)
 
         # Rejecting the cover again will make the existing value negative.
         last_voted_quality = cover.voted_quality
         last_votes_for_quality = cover.votes_for_quality
         last_quality = cover.quality
         cover.reject()
-        eq_(-last_voted_quality, cover.voted_quality)
-        eq_(True, cover.quality < 0)
+        assert -last_voted_quality == cover.voted_quality
+        assert True == (cover.quality < 0)
 
-        eq_(last_votes_for_quality+1, cover.votes_for_quality)
+        assert last_votes_for_quality+1 == cover.votes_for_quality
 
     def test_quality_as_thumbnail_image(self):
 
@@ -1045,36 +1032,36 @@ class TestCoverResource(DatabaseTest):
         resource = hyperlink.resource
 
         # Without a representation, the thumbnail image is useless.
-        eq_(0, resource.quality_as_thumbnail_image)
+        assert 0 == resource.quality_as_thumbnail_image
 
         ideal_height = Identifier.IDEAL_IMAGE_HEIGHT
         ideal_width = Identifier.IDEAL_IMAGE_WIDTH
 
         cover = self.sample_cover_representation("tiny-image-cover.png")
         resource.representation = cover
-        eq_(1.0, resource.quality_as_thumbnail_image)
+        assert 1.0 == resource.quality_as_thumbnail_image
 
         # Changing the image aspect ratio affects the quality as per
         # thumbnail_size_quality_penalty.
         cover.image_height = ideal_height * 2
         cover.image_width = ideal_width
-        eq_(0.5, resource.quality_as_thumbnail_image)
+        assert 0.5 == resource.quality_as_thumbnail_image
 
         # Changing the data source also affects the quality. Gutenberg
         # covers are penalized heavily...
         cover.image_height = ideal_height
         cover.image_width = ideal_width
         resource.data_source = gutenberg
-        eq_(0.5, resource.quality_as_thumbnail_image)
+        assert 0.5 == resource.quality_as_thumbnail_image
 
         # The Gutenberg cover generator is penalized less heavily.
         resource.data_source = gutenberg_cover_generator
-        eq_(0.6, resource.quality_as_thumbnail_image)
+        assert 0.6 == resource.quality_as_thumbnail_image
 
         # The metadata wrangler actually gets a _bonus_, to encourage the
         # use of its covers over those provided by license sources.
         resource.data_source = metadata_wrangler
-        eq_(2, resource.quality_as_thumbnail_image)
+        assert 2 == resource.quality_as_thumbnail_image
 
     def test_thumbnail_size_quality_penalty(self):
         """Verify that Representation._cover_size_quality_penalty penalizes
@@ -1090,23 +1077,23 @@ class TestCoverResource(DatabaseTest):
 
         # In the absence of any size information we assume
         # everything's fine.
-        eq_(1, f(None, None))
+        assert 1 == f(None, None)
 
         # The perfect image has no penalty.
-        eq_(1, f(ideal_width, ideal_height))
+        assert 1 == f(ideal_width, ideal_height)
 
         # An image that is the perfect aspect ratio, but too large,
         # has no penalty.
-        eq_(1, f(ideal_width*2, ideal_height*2))
+        assert 1 == f(ideal_width*2, ideal_height*2)
 
         # An image that is the perfect aspect ratio, but is too small,
         # is penalised.
-        eq_(1/4.0, f(ideal_width*0.5, ideal_height*0.5))
-        eq_(1/16.0, f(ideal_width*0.25, ideal_height*0.25))
+        assert 1/4.0 == f(ideal_width*0.5, ideal_height*0.5)
+        assert 1/16.0 == f(ideal_width*0.25, ideal_height*0.25)
 
         # An image that deviates from the perfect aspect ratio is
         # penalized in proportion.
-        eq_(1/2.0, f(ideal_width*2, ideal_height))
-        eq_(1/2.0, f(ideal_width, ideal_height*2))
-        eq_(1/4.0, f(ideal_width*4, ideal_height))
-        eq_(1/4.0, f(ideal_width, ideal_height*4))
+        assert 1/2.0 == f(ideal_width*2, ideal_height)
+        assert 1/2.0 == f(ideal_width, ideal_height*2)
+        assert 1/4.0 == f(ideal_width*4, ideal_height)
+        assert 1/4.0 == f(ideal_width, ideal_height*4)

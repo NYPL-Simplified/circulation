@@ -1,10 +1,5 @@
 # encoding: utf-8
-from nose.tools import (
-    assert_raises,
-    assert_raises_regexp,
-    eq_,
-    set_trace,
-)
+import pytest
 import datetime
 from mock import (
     call,
@@ -44,8 +39,8 @@ class TestAnnotation(DatabaseTest):
         annotation.timestamp = yesterday
 
         annotation.set_inactive()
-        eq_(False, annotation.active)
-        eq_(None, annotation.content)
+        assert False == annotation.active
+        assert None == annotation.content
         assert annotation.timestamp > yesterday
 
     def test_patron_annotations_are_descending(self):
@@ -74,9 +69,9 @@ class TestAnnotation(DatabaseTest):
         annotation1.timestamp = yesterday
         annotation2.timestamp = today
 
-        eq_(2, len(patron.annotations))
-        eq_(annotation2, patron.annotations[0])
-        eq_(annotation1, patron.annotations[1])
+        assert 2 == len(patron.annotations)
+        assert annotation2 == patron.annotations[0]
+        assert annotation1 == patron.annotations[1]
 
 class TestHold(DatabaseTest):
 
@@ -88,33 +83,33 @@ class TestHold(DatabaseTest):
         pool = self._licensepool(edition)
         self._default_library.setting(Library.ALLOW_HOLDS).value = True
         hold, is_new = pool.on_hold_to(patron, now, later, 4)
-        eq_(True, is_new)
-        eq_(now, hold.start)
-        eq_(later, hold.end)
-        eq_(4, hold.position)
+        assert True == is_new
+        assert now == hold.start
+        assert later == hold.end
+        assert 4 == hold.position
 
         # Now update the position to 0. It's the patron's turn
         # to check out the book.
         hold, is_new = pool.on_hold_to(patron, now, later, 0)
-        eq_(False, is_new)
-        eq_(now, hold.start)
+        assert False == is_new
+        assert now == hold.start
         # The patron has until `hold.end` to actually check out the book.
-        eq_(later, hold.end)
-        eq_(0, hold.position)
+        assert later == hold.end
+        assert 0 == hold.position
 
         # Make sure we can also hold this book for an IntegrationClient.
         client = self._integration_client()
         hold, was_new = pool.on_hold_to(client)
-        eq_(True, was_new)
-        eq_(client, hold.integration_client)
-        eq_(pool, hold.license_pool)
+        assert True == was_new
+        assert client == hold.integration_client
+        assert pool == hold.license_pool
 
         # Holding the book twice for the same IntegrationClient creates two holds,
         # since they might be for different patrons on the client.
         hold2, was_new = pool.on_hold_to(client)
-        eq_(True, was_new)
-        eq_(client, hold2.integration_client)
-        eq_(pool, hold2.license_pool)
+        assert True == was_new
+        assert client == hold2.integration_client
+        assert pool == hold2.license_pool
         assert hold != hold2
 
     def test_holds_not_allowed(self):
@@ -123,11 +118,9 @@ class TestHold(DatabaseTest):
         pool = self._licensepool(edition)
 
         self._default_library.setting(Library.ALLOW_HOLDS).value = False
-        assert_raises_regexp(
-            PolicyException,
-            "Holds are disabled for this library.",
-            pool.on_hold_to, patron, datetime.datetime.now(), 4
-        )
+        with pytest.raises(PolicyException) as excinfo:
+            pool.on_hold_to(patron, datetime.datetime.now(), 4)
+        assert "Holds are disabled for this library." in str(excinfo.value)
 
     def test_work(self):
         # We don't need to test the functionality--that's tested in
@@ -136,7 +129,7 @@ class TestHold(DatabaseTest):
         work = self._work(with_license_pool=True)
         pool = work.license_pools[0]
         hold, is_new = pool.on_hold_to(patron)
-        eq_(work, hold.work)
+        assert work == hold.work
 
     def test_until(self):
 
@@ -158,7 +151,7 @@ class TestHold(DatabaseTest):
         # If the value in Hold.end is in the future, it's used, no
         # questions asked.
         hold.end = the_future
-        eq_(the_future, m(object(), object()))
+        assert the_future == m(object(), object())
 
         # If Hold.end is not specified, or is in the past, it's more
         # complicated.
@@ -166,12 +159,12 @@ class TestHold(DatabaseTest):
         # If no default_loan_period or default_reservation_period is
         # specified, a Hold has no particular end date.
         hold.end = the_past
-        eq_(None, m(None, one_day))
-        eq_(None, m(one_day, None))
+        assert None == m(None, one_day)
+        assert None == m(one_day, None)
 
         hold.end = None
-        eq_(None, m(None, one_day))
-        eq_(None, m(one_day, None))
+        assert None == m(None, one_day)
+        assert None == m(one_day, None)
 
         # Otherwise, the answer is determined by _calculate_until.
         def _mock__calculate_until(self, *args):
@@ -181,24 +174,24 @@ class TestHold(DatabaseTest):
         old__calculate_until = hold._calculate_until
         Hold._calculate_until = _mock__calculate_until
 
-        eq_("mock until", m(one_day, two_days))
+        assert "mock until" == m(one_day, two_days)
 
         (calculate_from, position, licenses_available, default_loan_period,
          default_reservation_period) = hold.called_with
 
         assert (calculate_from-now).total_seconds() < 5
-        eq_(hold.position, position)
-        eq_(pool.licenses_available, licenses_available)
-        eq_(one_day, default_loan_period)
-        eq_(two_days, default_reservation_period)
+        assert hold.position == position
+        assert pool.licenses_available == licenses_available
+        assert one_day == default_loan_period
+        assert two_days == default_reservation_period
 
         # If we don't know the patron's position in the hold queue, we
         # assume they're at the end.
         hold.position = None
-        eq_("mock until", m(one_day, two_days))
+        assert "mock until" == m(one_day, two_days)
         (calculate_from, position, licenses_available, default_loan_period,
          default_reservation_period) = hold.called_with
-        eq_(pool.patrons_in_hold_queue, position)
+        assert pool.patrons_in_hold_queue == position
 
         Hold._calculate_until = old__calculate_until
 
@@ -218,41 +211,41 @@ class TestHold(DatabaseTest):
         # After 35 days, those copies are released and get my notification.
         a = Hold._calculate_until(
             start, 20, 4, default_loan, default_reservation)
-        eq_(a, start + datetime.timedelta(days=(7*5)))
+        assert a == start + datetime.timedelta(days=(7*5))
 
         # If I am 21st in line, I need to wait six weeks.
         b = Hold._calculate_until(
             start, 21, 4, default_loan, default_reservation)
-        eq_(b, start + datetime.timedelta(days=(7*6)))
+        assert b == start + datetime.timedelta(days=(7*6))
 
         # If I am 3rd in line, I only need to wait seven days--that's when
         # I'll get the notification message.
         b = Hold._calculate_until(
             start, 3, 4, default_loan, default_reservation)
-        eq_(b, start + datetime.timedelta(days=7))
+        assert b == start + datetime.timedelta(days=7)
 
         # A new person gets the book every week. Someone has the book now
         # and there are 3 people ahead of me in the queue. I will get
         # the book in 7 days + 3 weeks
         c = Hold._calculate_until(
             start, 3, 1, default_loan, default_reservation)
-        eq_(c, start + datetime.timedelta(days=(7*4)))
+        assert c == start + datetime.timedelta(days=(7*4))
 
         # I'm first in line for 1 book. After 7 days, one copy is
         # released and I'll get my notification.
         a = Hold._calculate_until(
             start, 1, 1, default_loan, default_reservation)
-        eq_(a, start + datetime.timedelta(days=7))
+        assert a == start + datetime.timedelta(days=7)
 
         # The book is reserved to me. I need to hurry up and check it out.
         d = Hold._calculate_until(
             start, 0, 1, default_loan, default_reservation)
-        eq_(d, start + datetime.timedelta(days=1))
+        assert d == start + datetime.timedelta(days=1)
 
         # If there are no licenses, I will never get the book.
         e = Hold._calculate_until(
             start, 10, 0, default_loan, default_reservation)
-        eq_(e, None)
+        assert e == None
 
 
     def test_vendor_hold_end_value_takes_precedence_over_calculated_value(self):
@@ -271,7 +264,7 @@ class TestHold(DatabaseTest):
 
         default_loan = datetime.timedelta(days=1)
         default_reservation = datetime.timedelta(days=2)
-        eq_(tomorrow, hold.until(default_loan, default_reservation))
+        assert tomorrow == hold.until(default_loan, default_reservation)
 
         calculated_value = hold._calculate_until(
             now, hold.position, pool.licenses_available,
@@ -300,17 +293,17 @@ class TestLoans(DatabaseTest):
         pool.is_open_access = True
 
         # The patron has no active loans.
-        eq_([], patron.loans)
+        assert [] == patron.loans
 
         # Loan them the book
         fulfillment = pool.delivery_mechanisms[0]
         loan, was_new = pool.loan_to(patron, fulfillment=fulfillment)
 
         # Now they have a loan!
-        eq_([loan], patron.loans)
-        eq_(loan.patron, patron)
-        eq_(loan.license_pool, pool)
-        eq_(fulfillment, loan.fulfillment)
+        assert [loan] == patron.loans
+        assert loan.patron == patron
+        assert loan.license_pool == pool
+        assert fulfillment == loan.fulfillment
         assert (datetime.datetime.utcnow() - loan.start) < datetime.timedelta(seconds=1)
 
         # TODO: At some future point it may be relevant that loan.end
@@ -322,22 +315,22 @@ class TestLoans(DatabaseTest):
         loan2, was_new = pool.loan_to(patron)
 
         # They're the same!
-        eq_(loan, loan2)
-        eq_(False, was_new)
+        assert loan == loan2
+        assert False == was_new
 
         # Make sure we can also loan this book to an IntegrationClient.
         client = self._integration_client()
         loan, was_new = pool.loan_to(client)
-        eq_(True, was_new)
-        eq_(client, loan.integration_client)
-        eq_(pool, loan.license_pool)
+        assert True == was_new
+        assert client == loan.integration_client
+        assert pool == loan.license_pool
 
         # Loaning the book to the same IntegrationClient twice creates two loans,
         # since these loans could be on behalf of different patrons on the client.
         loan2, was_new = pool.loan_to(client)
-        eq_(True, was_new)
-        eq_(client, loan2.integration_client)
-        eq_(pool, loan2.license_pool)
+        assert True == was_new
+        assert client == loan2.integration_client
+        assert pool == loan2.license_pool
         assert loan != loan2
 
     def test_work(self):
@@ -348,21 +341,21 @@ class TestLoans(DatabaseTest):
 
         # The easy cases.
         loan, is_new = pool.loan_to(patron)
-        eq_(work, loan.work)
+        assert work == loan.work
 
         loan.license_pool = None
-        eq_(None, loan.work)
+        assert None == loan.work
 
         # If pool.work is None but pool.edition.work is valid, we use that.
         loan.license_pool = pool
         pool.work = None
         # Presentation_edition is not representing a lendable object,
         # but it is on a license pool, and a pool has lending capacity.
-        eq_(pool.presentation_edition.work, loan.work)
+        assert pool.presentation_edition.work == loan.work
 
         # If that's also None, we're helpless.
         pool.presentation_edition.work = None
-        eq_(None, loan.work)
+        assert None == loan.work
 
     def test_library(self):
         patron = self._patron()
@@ -370,19 +363,19 @@ class TestLoans(DatabaseTest):
         pool = work.license_pools[0]
 
         loan, is_new = pool.loan_to(patron)
-        eq_(self._default_library, loan.library)
+        assert self._default_library == loan.library
 
         loan.patron = None
         client = self._integration_client()
         loan.integration_client = client
-        eq_(None, loan.library)
+        assert None == loan.library
 
         loan.integration_client = None
-        eq_(None, loan.library)
+        assert None == loan.library
 
         patron.library = self._library()
         loan.patron = patron
-        eq_(patron.library, loan.library)
+        assert patron.library == loan.library
 
 class TestPatron(DatabaseTest):
 
@@ -392,10 +385,9 @@ class TestPatron(DatabaseTest):
 
         patron.authorization_expires=datetime.datetime(2018, 1, 2, 3, 4, 5)
         patron.last_external_sync=None
-        eq_(
-            "<Patron authentication_identifier=None expires=2018-01-02 sync=None>",
-            repr(patron)
-        )
+        assert (
+            "<Patron authentication_identifier=None expires=2018-01-02 sync=None>" ==
+            repr(patron))
 
     def test_identifier_to_remote_service(self):
 
@@ -414,12 +406,12 @@ class TestPatron(DatabaseTest):
         assert axis_identifier != rb_identifier
 
         # But they're both 36-character UUIDs.
-        eq_(36, len(axis_identifier))
-        eq_(36, len(rb_identifier))
+        assert 36 == len(axis_identifier)
+        assert 36 == len(rb_identifier)
 
         # They're persistent.
-        eq_(rb_identifier, patron.identifier_to_remote_service(rb_digital))
-        eq_(axis_identifier, patron.identifier_to_remote_service(axis))
+        assert rb_identifier == patron.identifier_to_remote_service(rb_digital)
+        assert axis_identifier == patron.identifier_to_remote_service(axis)
 
         # You can customize the function used to generate the
         # identifier, in case the data source won't accept a UUID as a
@@ -427,19 +419,16 @@ class TestPatron(DatabaseTest):
         def fake_generator():
             return "fake string"
         bib = DataSource.BIBLIOTHECA
-        eq_("fake string",
-            patron.identifier_to_remote_service(bib, fake_generator)
-        )
+        assert ("fake string" ==
+            patron.identifier_to_remote_service(bib, fake_generator))
 
         # Once the identifier is created, specifying a different generator
         # does nothing.
-        eq_("fake string",
-            patron.identifier_to_remote_service(bib)
-        )
-        eq_(
-            axis_identifier,
-            patron.identifier_to_remote_service(axis, fake_generator)
-        )
+        assert ("fake string" ==
+            patron.identifier_to_remote_service(bib))
+        assert (
+            axis_identifier ==
+            patron.identifier_to_remote_service(axis, fake_generator))
 
     def test_set_synchronize_annotations(self):
         # Two patrons.
@@ -451,7 +440,7 @@ class TestPatron(DatabaseTest):
         for patron in [p1, p2]:
             # Each patron decides they want to synchronize annotations
             # to a library server.
-            eq_(None, patron.synchronize_annotations)
+            assert None == patron.synchronize_annotations
             patron.synchronize_annotations = True
 
             # Each patron gets one annotation.
@@ -463,81 +452,81 @@ class TestPatron(DatabaseTest):
             )
             annotation.content="The content for %s" % patron.id,
 
-            eq_(1, len(patron.annotations))
+            assert 1 == len(patron.annotations)
 
         # Patron #1 decides they don't want their annotations stored
         # on a library server after all. This deletes their
         # annotation.
         p1.synchronize_annotations = False
         self._db.commit()
-        eq_(0, len(p1.annotations))
+        assert 0 == len(p1.annotations)
 
         # Patron #1 can no longer use Annotation.get_one_or_create.
-        assert_raises(
+        pytest.raises(
             ValueError, Annotation.get_one_or_create,
             self._db, patron=p1, identifier=identifier,
             motivation=Annotation.IDLING,
         )
 
         # Patron #2's annotation is unaffected.
-        eq_(1, len(p2.annotations))
+        assert 1 == len(p2.annotations)
 
         # But patron #2 can use Annotation.get_one_or_create.
         i2, is_new = Annotation.get_one_or_create(
             self._db, patron=p2, identifier=self._identifier(),
             motivation=Annotation.IDLING,
         )
-        eq_(True, is_new)
+        assert True == is_new
 
         # Once you make a decision, you can change your mind, but you
         # can't go back to not having made the decision.
         def try_to_set_none(patron):
             patron.synchronize_annotations = None
-        assert_raises(ValueError, try_to_set_none, p2)
+        pytest.raises(ValueError, try_to_set_none, p2)
 
     def test_cascade_delete(self):
         # Create a patron and check that it has  been created
         patron = self._patron()
-        eq_(len(self._db.query(Patron).all()), 1)
+        assert len(self._db.query(Patron).all()) == 1
 
         # Give the patron a loan, and check that it has been created
         work_for_loan = self._work(with_license_pool=True)
         pool = work_for_loan.license_pools[0]
         loan, is_new = pool.loan_to(patron)
-        eq_([loan], patron.loans)
-        eq_(len(self._db.query(Loan).all()), 1)
+        assert [loan] == patron.loans
+        assert len(self._db.query(Loan).all()) == 1
 
         # Give the patron a hold and check that it has been created
         work_for_hold = self._work(with_license_pool=True)
         pool = work_for_hold.license_pools[0]
         hold, is_new = pool.on_hold_to(patron)
-        eq_([hold], patron.holds)
-        eq_(len(self._db.query(Hold).all()), 1)
+        assert [hold] == patron.holds
+        assert len(self._db.query(Hold).all()) == 1
 
         # Give the patron an annotation and check that it has been created
         annotation, is_new = create(self._db, Annotation, patron=patron)
-        eq_([annotation], patron.annotations)
-        eq_(len(self._db.query(Annotation).all()), 1)
+        assert [annotation] == patron.annotations
+        assert len(self._db.query(Annotation).all()) == 1
 
         # Give the patron a credential and check that it has been created
         credential, is_new = create(self._db, Credential, patron=patron)
-        eq_([credential], patron.credentials)
-        eq_(len(self._db.query(Credential).all()), 1)
+        assert [credential] == patron.credentials
+        assert len(self._db.query(Credential).all()) == 1
 
         # Delete the patron and check that it has been deleted
         self._db.delete(patron)
-        eq_(len(self._db.query(Patron).all()), 0)
+        assert len(self._db.query(Patron).all()) == 0
 
         # The patron's loan, hold, annotation, and credential should also be gone
-        eq_(self._db.query(Loan).all(), [])
-        eq_(self._db.query(Hold).all(), [])
-        eq_(self._db.query(Annotation).all(), [])
-        eq_(self._db.query(Credential).all(), [])
+        assert self._db.query(Loan).all() == []
+        assert self._db.query(Hold).all() == []
+        assert self._db.query(Annotation).all() == []
+        assert self._db.query(Credential).all() == []
 
     def test_loan_activity_max_age(self):
         # Currently, patron.loan_activity_max_age is a constant
         # and cannot be changed.
-        eq_(15*60, self._patron().loan_activity_max_age)
+        assert 15*60 == self._patron().loan_activity_max_age
 
     def test_last_loan_activity_sync(self):
         # Verify that last_loan_activity_sync is cleared out
@@ -551,15 +540,15 @@ class TestPatron(DatabaseTest):
         # So long as last_loan_activity_sync is relatively recent,
         # it's treated as a normal piece of data.
         patron.last_loan_activity_sync = recently
-        eq_(recently, patron._last_loan_activity_sync)
-        eq_(recently, patron.last_loan_activity_sync)
+        assert recently == patron._last_loan_activity_sync
+        assert recently == patron.last_loan_activity_sync
 
         # If it's _not_ relatively recent, attempting to access it
         # clears it out.
         patron.last_loan_activity_sync = long_ago
-        eq_(long_ago, patron._last_loan_activity_sync)
-        eq_(None, patron.last_loan_activity_sync)
-        eq_(None, patron._last_loan_activity_sync)
+        assert long_ago == patron._last_loan_activity_sync
+        assert None == patron.last_loan_activity_sync
+        assert None == patron._last_loan_activity_sync
 
     def test_root_lane(self):
         root_1 = self._lane()
@@ -569,7 +558,7 @@ class TestPatron(DatabaseTest):
         # lanes.
         patron = self._patron()
         patron.external_type = "x"
-        eq_(None, patron.root_lane)
+        assert None == patron.root_lane
 
         # Patrons of external type '1' and '2' have a certain root lane.
         root_1.root_for_patron_type = ["1", "2"]
@@ -581,25 +570,25 @@ class TestPatron(DatabaseTest):
         self._db.flush()
 
         # A patron with no external type has no root lane.
-        eq_(None, patron.root_lane)
+        assert None == patron.root_lane
 
         # If a patron's external type associates them with a specific lane, that
         # lane is their root lane.
         patron.external_type = "1"
-        eq_(root_1, patron.root_lane)
+        assert root_1 == patron.root_lane
 
         patron.external_type = "2"
-        eq_(root_1, patron.root_lane)
+        assert root_1 == patron.root_lane
 
         patron.external_type = "3"
-        eq_(root_2, patron.root_lane)
+        assert root_2 == patron.root_lane
 
         # This shouldn't happen, but if two different lanes are the
         # root lane for a single patron type, the one with the lowest
         # database ID is chosen.  This way we avoid denying service to
         # a patron based on a server misconfiguration.
         root_1.root_for_patron_type = ["1", "2", "3"]
-        eq_(root_1, patron.root_lane)
+        assert root_1 == patron.root_lane
 
     def test_work_is_age_appropriate(self):
         # The target audience and age of a patron's root lane controls
@@ -632,12 +621,12 @@ class TestPatron(DatabaseTest):
         m = patron.work_is_age_appropriate
         work_audience = object()
         work_target_age = object()
-        eq_(True, m(work_audience, work_target_age))
-        eq_(0, mock.call_count)
+        assert True == m(work_audience, work_target_age)
+        assert 0 == mock.call_count
 
         # Give the patron a root lane and try again.
         patron.external_type = "1"
-        eq_(False, m(work_audience, work_target_age))
+        assert False == m(work_audience, work_target_age)
 
         # age_appropriate_match method was called on
         # each audience associated with the patron's root lane.
@@ -655,13 +644,13 @@ class TestPatron(DatabaseTest):
         # return True only when passed a specific reader audience. Our
         # Mock lane has two audiences, and at most one can match.
         self.return_true_for = Classifier.AUDIENCE_CHILDREN
-        eq_(True, m(work_audience, work_target_age))
+        assert True == m(work_audience, work_target_age)
 
         self.return_true_for = Classifier.AUDIENCE_YOUNG_ADULT
-        eq_(True, m(work_audience, work_target_age))
+        assert True == m(work_audience, work_target_age)
 
         self.return_true_for = Classifier.AUDIENCE_ADULT
-        eq_(False, m(work_audience, work_target_age))
+        assert False == m(work_audience, work_target_age)
 
     def test_age_appropriate_match(self):
         # Check whether there's any overlap between a work's target age
@@ -674,7 +663,7 @@ class TestPatron(DatabaseTest):
         all_ages = Classifier.AUDIENCE_ALL_AGES
 
         # A reader with no particular audience can see everything.
-        eq_(True, m(object(), object(), None, object()))
+        assert True == m(object(), object(), None, object())
 
         # A reader associated with a non-juvenile audience, such as
         # AUDIENCE_ADULT, can see everything.
@@ -682,24 +671,24 @@ class TestPatron(DatabaseTest):
             if reader_audience in Classifier.AUDIENCES_JUVENILE:
                 # Tested later.
                 continue
-            eq_(True, m(object(), object(), reader_audience, object()))
+            assert True == m(object(), object(), reader_audience, object())
 
         # Everyone can see 'all-ages' books.
         for reader_audience in Classifier.AUDIENCES:
-            eq_(True, m(all_ages, object(), reader_audience, object()))
+            assert True == m(all_ages, object(), reader_audience, object())
 
         # Children cannot see YA or adult books.
         for work_audience in (ya, adult):
-            eq_(False, m(work_audience, object(), children, None))
+            assert False == m(work_audience, object(), children, None)
 
             # This is true even if the "child's" target age is set to
             # a value that would allow for this (as can happen when
             # the patron's root lane is set up to show both children's
             # and YA titles).
-            eq_(False, m(work_audience, object(), children, (14,18)))
+            assert False == m(work_audience, object(), children, (14,18))
 
         # YA readers can see any children's title.
-        eq_(True, m(children, object(), ya, object()))
+        assert True == m(children, object(), ya, object())
 
         # A YA reader is treated as an adult (with no reading
         # restrictions) if they have no associated age range, or their
@@ -707,11 +696,11 @@ class TestPatron(DatabaseTest):
         for reader_age in [
             None, 18, (14, 18), tuple_to_numericrange((14, 18))
         ]:
-            eq_(True, m(adult, object(), ya, reader_age))
+            assert True == m(adult, object(), ya, reader_age)
 
         # Otherwise, YA readers cannot see books for adults.
         for reader_age in [16, (14, 17)]:
-            eq_(False, m(adult, object(), ya, reader_age))
+            assert False == m(adult, object(), ya, reader_age)
 
         # Now let's consider the most complicated cases. First, a
         # child who wants to read a children's book.
@@ -721,8 +710,8 @@ class TestPatron(DatabaseTest):
             # we don't have the information necessary to say it's not
             # fine).
             work_target_age = None
-            eq_(True, m(work_audience, work_target_age,
-                        reader_audience, object()))
+            assert True == m(work_audience, work_target_age,
+                        reader_audience, object())
 
             # Now give the work a specific target age range.
             for work_target_age in [(5, 7), tuple_to_numericrange((5,7))]:
@@ -731,16 +720,16 @@ class TestPatron(DatabaseTest):
                     for reader_age in (
                         age, (age-1, age), tuple_to_numericrange((age-1, age))
                     ):
-                        eq_(True,  m(work_audience, work_target_age,
-                                     reader_audience, reader_age))
+                        assert True ==  m(work_audience, work_target_age,
+                                     reader_audience, reader_age)
 
                 # Anything lower than that is not.
                 for age in range(2,5):
                     for reader_age in (
                         age, (age-1, age), tuple_to_numericrange((age-1, age))
                     ):
-                        eq_(False, m(work_audience, work_target_age,
-                                     reader_audience, reader_age))
+                        assert False == m(work_audience, work_target_age,
+                                     reader_audience, reader_age)
 
         # Similar rules apply for a YA reader who wants to read a YA
         # book.
@@ -750,8 +739,8 @@ class TestPatron(DatabaseTest):
         # If there's no target age, it's fine (or at least we don't
         # have the information necessary to say it's not fine).
         work_target_age = None
-        eq_(True, m(work_audience, work_target_age,
-                    reader_audience, object()))
+        assert True == m(work_audience, work_target_age,
+                    reader_audience, object())
 
         # Now give the work a specific target age range.
         for work_target_age in ((14, 16), tuple_to_numericrange((14, 16))):
@@ -760,16 +749,16 @@ class TestPatron(DatabaseTest):
                 for reader_age in (
                     age, (age-1, age), tuple_to_numericrange((age-1, age))
                 ):
-                    eq_(True,  m(work_audience, work_target_age,
-                                 reader_audience, reader_age))
+                    assert True ==  m(work_audience, work_target_age,
+                                 reader_audience, reader_age)
 
             # Anything lower than that is not.
             for age in range(7, 14):
                 for reader_age in (
                     age, (age-1, age), tuple_to_numericrange((age-1, age))
                 ):
-                    eq_(False, m(work_audience, work_target_age,
-                                 reader_audience, reader_age))
+                    assert False == m(work_audience, work_target_age,
+                                 reader_audience, reader_age)
 
 
 class TestPatronProfileStorage(DatabaseTest):
@@ -781,42 +770,40 @@ class TestPatronProfileStorage(DatabaseTest):
 
     def test_writable_setting_names(self):
         """Only one setting is currently writable."""
-        eq_(set([self.store.SYNCHRONIZE_ANNOTATIONS]),
+        assert (set([self.store.SYNCHRONIZE_ANNOTATIONS]) ==
             self.store.writable_setting_names)
 
     def test_profile_document(self):
         # synchronize_annotations always shows up as settable, even if
         # the current value is None.
         self.patron.authorization_identifier = "abcd"
-        eq_(None, self.patron.synchronize_annotations)
+        assert None == self.patron.synchronize_annotations
         rep = self.store.profile_document
-        eq_(
+        assert (
             {
              'simplified:authorization_identifier': 'abcd',
              'settings': {'simplified:synchronize_annotations': None}
-            },
-            rep
-        )
+            } ==
+            rep)
 
         self.patron.synchronize_annotations = True
         self.patron.authorization_expires = datetime.datetime(
             2016, 1, 1, 10, 20, 30
         )
         rep = self.store.profile_document
-        eq_(
+        assert (
             {
              'simplified:authorization_expires': '2016-01-01T10:20:30Z',
              'simplified:authorization_identifier': 'abcd',
              'settings': {'simplified:synchronize_annotations': True}
-            },
-            rep
-        )
+            } ==
+            rep)
 
     def test_update(self):
         # This is a no-op.
         self.store.update({}, {})
-        eq_(None, self.patron.synchronize_annotations)
+        assert None == self.patron.synchronize_annotations
 
         # This is not.
         self.store.update({self.store.SYNCHRONIZE_ANNOTATIONS : True}, {})
-        eq_(True, self.patron.synchronize_annotations)
+        assert True == self.patron.synchronize_annotations

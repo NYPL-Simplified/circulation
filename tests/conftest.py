@@ -41,7 +41,3 @@ def session_fixture():
 
     if 'TESTING' in os.environ:
         del os.environ['TESTING']
-
-
-# import pydevd_pycharm
-# pydevd_pycharm.settrace('localhost', port=9898, stdoutToServer=True, stderrToServer=True)

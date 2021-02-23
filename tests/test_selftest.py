@@ -4,10 +4,6 @@ Self-tests are not unit tests -- they are executed at runtime on a
 specific installation. They verify that that installation is properly
 configured, not that the code is correct.
 """
-from nose.tools import (
-    eq_,
-    set_trace,
-)
 
 import datetime
 
@@ -35,26 +31,24 @@ class TestSelfTestResult(DatabaseTest):
         result.end = self.future
         result.result = "The result"
         result.success = True
-        eq_(
-            "<SelfTestResult: name='success1' duration=5.00sec success=True result='The result'>",
-            repr(result)
-        )
+        assert (
+            "<SelfTestResult: name='success1' duration=5.00sec success=True result='The result'>" ==
+            repr(result))
 
         # A SelfTestResult may have an associated Collection.
         self._default_collection.name = "CollectionA"
         result.collection = self._default_collection
-        eq_(
-            "<SelfTestResult: name='success1' collection='CollectionA' duration=5.00sec success=True result='The result'>",
-            repr(result)
-        )
+        assert (
+            "<SelfTestResult: name='success1' collection='CollectionA' duration=5.00sec success=True result='The result'>" ==
+            repr(result))
 
         d = result.to_dict
-        eq_("success1", d['name'])
-        eq_("The result", d['result'])
-        eq_(5.0, d['duration'])
-        eq_(True, d['success'])
-        eq_(None, d['exception'])
-        eq_('CollectionA', d['collection'])
+        assert "success1" == d['name']
+        assert "The result" == d['result']
+        assert 5.0 == d['duration']
+        assert True == d['success']
+        assert None == d['exception']
+        assert 'CollectionA' == d['collection']
 
         # A test result can be either a string (which will be displayed
         # in a fixed-width font) or a list of strings (which will be hidden
@@ -62,13 +56,13 @@ class TestSelfTestResult(DatabaseTest):
         list_result = ["list", "of", "strings"]
         result.result = list_result
         d = result.to_dict
-        eq_(list_result, d['result'])
+        assert list_result == d['result']
 
         # Other .result values don't make it into the dictionary because
         # it's not defined how to display them.
         result.result = {"a": "dictionary"}
         d = result.to_dict
-        eq_(None, d['result'])
+        assert None == d['result']
 
     def test_repr_failure(self):
         """Show the string representation of a failed test result."""
@@ -80,19 +74,18 @@ class TestSelfTestResult(DatabaseTest):
         result.end = self.future
         result.exception = exception
         result.result = "The result"
-        eq_(
-            "<SelfTestResult: name='failure1' duration=5.00sec success=False exception='basic info' debug='debug info' result='The result'>",
-            repr(result)
-        )
+        assert (
+            "<SelfTestResult: name='failure1' duration=5.00sec success=False exception='basic info' debug='debug info' result='The result'>" ==
+            repr(result))
 
         d = result.to_dict
-        eq_("failure1", d['name'])
-        eq_("The result", d['result'])
-        eq_(5.0, d['duration'])
-        eq_(False, d['success'])
-        eq_('IntegrationException', d['exception']['class'])
-        eq_('basic info', d['exception']['message'])
-        eq_('debug info', d['exception']['debug_message'])
+        assert "failure1" == d['name']
+        assert "The result" == d['result']
+        assert 5.0 == d['duration']
+        assert False == d['success']
+        assert 'IntegrationException' == d['exception']['class']
+        assert 'basic info' == d['exception']['message']
+        assert 'debug info' == d['exception']['debug_message']
 
 
 class TestHasSelfTests(DatabaseTest):
@@ -137,14 +130,14 @@ class TestHasSelfTests(DatabaseTest):
         data, [setup, test] = Tester.run_self_tests(
             mock_db, extra_arg="a value"
         )
-        eq_(mock_db, setup.result._run_self_tests_called_with)
+        assert mock_db == setup.result._run_self_tests_called_with
 
         # There are two results -- `setup` from the initial setup
         # and `test` from the _run_self_tests call.
-        eq_("Initial setup.", setup.name)
-        eq_(True, setup.success)
-        eq_("a value", setup.result.invoked_with)
-        eq_("a test result", test.name)
+        assert "Initial setup." == setup.name
+        assert True == setup.success
+        assert "a value" == setup.result.invoked_with
+        assert "a test result" == test.name
 
         # The `data` variable contains a dictionary describing the test
         # suite as a whole.
@@ -155,15 +148,15 @@ class TestHasSelfTests(DatabaseTest):
         # `data['results']` contains dictionary versions of the self-tests
         # that were returned separately.
         r1, r2 = data['results']
-        eq_(r1, setup.to_dict)
-        eq_(r2, test.to_dict)
+        assert r1 == setup.to_dict
+        assert r2 == test.to_dict
 
         # A JSON version of `data` is stored in the
         # ExternalIntegration returned by the external_integration()
         # method.
         [result_setting] = integration.settings
-        eq_(HasSelfTests.SELF_TEST_RESULTS_SETTING, result_setting.key)
-        eq_(data, result_setting.json_value)
+        assert HasSelfTests.SELF_TEST_RESULTS_SETTING == result_setting.key
+        assert data == result_setting.json_value
 
         # Remove the testing integration to show what happens when
         # HasSelfTests doesn't support the storage of test results.
@@ -177,16 +170,16 @@ class TestHasSelfTests(DatabaseTest):
             mock_db, Tester.good_alternate_constructor,
             another_extra_arg="another value"
         )
-        eq_("Initial setup.", setup.name)
-        eq_(True, setup.success)
-        eq_(None, setup.result.invoked_with)
-        eq_("another value", setup.result.another_extra_arg)
-        eq_("a test result", test.name)
+        assert "Initial setup." == setup.name
+        assert True == setup.success
+        assert None == setup.result.invoked_with
+        assert "another value" == setup.result.another_extra_arg
+        assert "a test result" == test.name
 
         # Since the HasSelfTests object no longer has an associated
         # ExternalIntegration, the test results are not persisted
         # anywhere.
-        eq_("this value will not be changed", result_setting.value)
+        assert "this value will not be changed" == result_setting.value
 
         # If there's an exception in the constructor, the result is a
         # single SelfTestResult describing that failure. Since there is
@@ -195,8 +188,8 @@ class TestHasSelfTests(DatabaseTest):
             mock_db, Tester.bad_alternate_constructor,
         )
         assert isinstance(result, SelfTestResult)
-        eq_(False, result.success)
-        eq_("I don't work!", unicode(result.exception))
+        assert False == result.success
+        assert "I don't work!" == unicode(result.exception)
 
     def test_exception_in_has_self_tests(self):
         """An exception raised in has_self_tests itself is converted into a
@@ -209,15 +202,15 @@ class TestHasSelfTests(DatabaseTest):
                 yield SelfTestResult("i'll never be called.")
 
         status, [init, success, failure] = Tester.run_self_tests(object())
-        eq_("Initial setup.", init.name)
-        eq_("everything's ok so far", success.name)
+        assert "Initial setup." == init.name
+        assert "everything's ok so far" == success.name
 
-        eq_("Uncaught exception in the self-test method itself.", failure.name)
-        eq_(False, failure.success)
+        assert "Uncaught exception in the self-test method itself." == failure.name
+        assert False == failure.success
         # The Exception was turned into an IntegrationException so that
         # its traceback could be included as debug_message.
         assert isinstance(failure.exception, IntegrationException)
-        eq_("oh no", unicode(failure.exception))
+        assert "oh no" == unicode(failure.exception)
         assert failure.exception.debug_message.startswith("Traceback")
 
     def test_run_test_success(self):
@@ -228,9 +221,9 @@ class TestHasSelfTests(DatabaseTest):
         result = o.run_test(
             "A successful test", successful_test, "arg1", kwarg="arg2"
         )
-        eq_(True, result.success)
-        eq_("A successful test", result.name)
-        eq_(("arg1", "arg2"), result.result)
+        assert True == result.success
+        assert "A successful test" == result.name
+        assert ("arg1", "arg2") == result.result
         assert (result.end-result.start).total_seconds() < 1
 
     def test_run_test_failure(self):
@@ -241,11 +234,11 @@ class TestHasSelfTests(DatabaseTest):
         result = o.run_test(
             "An unsuccessful test", unsuccessful_test, "arg1", kwarg="arg2"
         )
-        eq_(False, result.success)
-        eq_("An unsuccessful test", result.name)
-        eq_(None, result.result)
-        eq_("arg1", unicode(result.exception))
-        eq_("arg2", result.exception.debug_message)
+        assert False == result.success
+        assert "An unsuccessful test" == result.name
+        assert None == result.result
+        assert "arg1" == unicode(result.exception)
+        assert "arg2" == result.exception.debug_message
         assert (result.end-result.start).total_seconds() < 1
 
     def test_test_failure(self):
@@ -257,17 +250,17 @@ class TestHasSelfTests(DatabaseTest):
         result = o.test_failure("a failure", exception)
 
         # ...which will be turned into an IntegrationException.
-        eq_("a failure", result.name)
+        assert "a failure" == result.name
         assert isinstance(result.exception, IntegrationException)
-        eq_("argh", unicode(result.exception))
+        assert "argh" == unicode(result.exception)
         assert (result.start-now).total_seconds() < 1
 
         # ... or you can pass in arguments to an IntegrationException
         result = o.test_failure("another failure", "message", "debug")
         assert isinstance(result.exception, IntegrationException)
-        eq_("message", unicode(result.exception))
-        eq_("debug", result.exception.debug_message)
+        assert "message" == unicode(result.exception)
+        assert "debug" == result.exception.debug_message
 
         # Since no test code actually ran, the end time is the
         # same as the start time.
-        eq_(result.start, result.end)
+        assert result.start == result.end

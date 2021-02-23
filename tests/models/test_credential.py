@@ -1,10 +1,5 @@
 # encoding: utf-8
-from nose.tools import (
-    assert_raises,
-    assert_raises_regexp,
-    eq_,
-    set_trace,
-)
+import pytest
 import datetime
 from sqlalchemy.exc import IntegrityError
 from .. import DatabaseTest
@@ -27,45 +22,45 @@ class TestCredentials(DatabaseTest):
         expect_expires = now + duration
         token, is_new = Credential.temporary_token_create(
             self._db, data_source, "some random type", patron, duration)
-        eq_(data_source, token.data_source)
-        eq_("some random type", token.type)
-        eq_(patron, token.patron)
+        assert data_source == token.data_source
+        assert "some random type" == token.type
+        assert patron == token.patron
         expires_difference = abs((token.expires-expect_expires).seconds)
         assert expires_difference < 2
 
         # Now try to look up the credential based solely on the UUID.
         new_token = Credential.lookup_by_token(
             self._db, data_source, token.type, token.credential)
-        eq_(new_token, token)
+        assert new_token == token
 
         # When we call lookup_and_expire_temporary_token, the token is automatically
         # expired and we cannot use it anymore.
         new_token = Credential.lookup_and_expire_temporary_token(
             self._db, data_source, token.type, token.credential)
-        eq_(new_token, token)
+        assert new_token == token
         assert new_token.expires < now
 
         new_token = Credential.lookup_by_token(
             self._db, data_source, token.type, token.credential)
-        eq_(None, new_token)
+        assert None == new_token
 
         new_token = Credential.lookup_and_expire_temporary_token(
             self._db, data_source, token.type, token.credential)
-        eq_(None, new_token)
+        assert None == new_token
 
         # A token with no expiration date is treated as expired...
         token.expires = None
         self._db.commit()
         no_expiration_token = Credential.lookup_by_token(
             self._db, data_source, token.type, token.credential)
-        eq_(None, no_expiration_token)
+        assert None == no_expiration_token
 
         # ...unless we specifically say we're looking for a persistent token.
         no_expiration_token = Credential.lookup_by_token(
             self._db, data_source, token.type, token.credential,
             allow_persistent_token=True
         )
-        eq_(token, no_expiration_token)
+        assert token == no_expiration_token
 
     def test_specify_value_of_temporary_token(self):
         """By default, a temporary token has a randomly generated value, but
@@ -79,7 +74,7 @@ class TestCredentials(DatabaseTest):
             self._db, data_source, "some random type", patron, duration,
             "Some random value"
         )
-        eq_("Some random value", token.credential)
+        assert "Some random value" == token.credential
 
     def test_temporary_token_overwrites_old_token(self):
         duration = datetime.timedelta(hours=1)
@@ -87,14 +82,14 @@ class TestCredentials(DatabaseTest):
         patron = self._patron()
         old_token, is_new = Credential.temporary_token_create(
             self._db, data_source, "some random type", patron, duration)
-        eq_(True, is_new)
+        assert True == is_new
         old_credential = old_token.credential
 
         # Creating a second temporary token overwrites the first.
         token, is_new = Credential.temporary_token_create(
             self._db, data_source, "some random type", patron, duration)
-        eq_(False, is_new)
-        eq_(token.id, old_token.id)
+        assert False == is_new
+        assert token.id == old_token.id
         assert old_credential != token.credential
 
     def test_persistent_token(self):
@@ -105,16 +100,16 @@ class TestCredentials(DatabaseTest):
         token, is_new = Credential.persistent_token_create(
             self._db, data_source, "some random type", patron
         )
-        eq_(data_source, token.data_source)
-        eq_("some random type", token.type)
-        eq_(patron, token.patron)
+        assert data_source == token.data_source
+        assert "some random type" == token.type
+        assert patron == token.patron
 
         # Now try to look up the credential based solely on the UUID.
         new_token = Credential.lookup_by_token(
             self._db, data_source, token.type, token.credential,
             allow_persistent_token=True
         )
-        eq_(new_token, token)
+        assert new_token == token
         credential = new_token.credential
 
         # We can keep calling lookup_by_token and getting the same
@@ -124,14 +119,14 @@ class TestCredentials(DatabaseTest):
             self._db, data_source, token.type, token.credential,
             allow_persistent_token=True
         )
-        eq_(again_token, new_token)
-        eq_(again_token.credential, credential)
+        assert again_token == new_token
+        assert again_token.credential == credential
 
     def test_cannot_look_up_nonexistent_token(self):
         data_source = DataSource.lookup(self._db, DataSource.ADOBE)
         new_token = Credential.lookup_by_token(
             self._db, data_source, "no such type", "no such credential")
-        eq_(None, new_token)
+        assert None == new_token
 
     def test_empty_token(self):
         # Test the behavior when a credential is empty.
@@ -151,15 +146,13 @@ class TestCredentials(DatabaseTest):
         again_token = Credential.lookup(
             *args, allow_persistent_token=True, allow_empty_token=True
         )
-        eq_(again_token, token)
+        assert again_token == token
 
         # If allow_empty_token is False, the refresher method is
         # created.
-        assert_raises_regexp(
-            Exception, "Refresher method was called",
-            Credential.lookup, *args,
-            allow_persistent_token=True, allow_empty_token=False
-        )
+        with pytest.raises(Exception) as excinfo:
+            Credential.lookup(*args, allow_persistent_token = True, allow_empty_token = False)
+        assert "Refresher method was called" in str(excinfo.value)
 
     def test_force_refresher_method(self):
         # Ensure that passing `force_refresh=True` triggers the
@@ -175,9 +168,9 @@ class TestCredentials(DatabaseTest):
         token, is_new = Credential.persistent_token_create(
             self._db, data_source, "some random type", patron
         )
-        eq_(data_source, token.data_source)
-        eq_("some random type", token.type)
-        eq_(patron, token.patron)
+        assert data_source == token.data_source
+        assert "some random type" == token.type
+        assert patron == token.patron
 
         # We'll vary the `force_refresh` setting, but otherwise
         # use the same parameters for the next to calls to `lookup`.
@@ -187,14 +180,12 @@ class TestCredentials(DatabaseTest):
         again_token = Credential.lookup(
             *args, allow_persistent_token=True, force_refresh=False
         )
-        eq_(again_token, token)
+        assert again_token == token
 
         # This call should run the refresher method.
-        assert_raises_regexp(
-            Exception, "Refresher method was called",
-            Credential.lookup, *args,
-            allow_persistent_token=True, force_refresh=True
-        )
+        with pytest.raises(Exception) as excinfo:
+            Credential.lookup(*args, allow_persistent_token = True, force_refresh=True)
+        assert "Refresher method was called" in str(excinfo.value)
 
     def test_collection_token(self):
         # Make sure we can have two tokens from the same data_source with
@@ -212,11 +203,11 @@ class TestCredentials(DatabaseTest):
         credential2.credential = 'test2'
 
         # Make sure the text matches what we expect
-        eq_('test1', Credential.lookup(self._db, data_source, type, patron, None, collection=collection1).credential)
-        eq_('test2', Credential.lookup(self._db, data_source, type, patron, None, collection=collection2).credential)
+        assert 'test1' == Credential.lookup(self._db, data_source, type, patron, None, collection=collection1).credential
+        assert 'test2' == Credential.lookup(self._db, data_source, type, patron, None, collection=collection2).credential
 
         # Make sure we don't get anything if we don't pass a collection
-        eq_(None, Credential.lookup(self._db, data_source, type, patron, None).credential)
+        assert None == Credential.lookup(self._db, data_source, type, patron, None).credential
 
 class TestDelegatedPatronIdentifier(DatabaseTest):
 
@@ -230,11 +221,11 @@ class TestDelegatedPatronIdentifier(DatabaseTest):
             self._db, library_uri, patron_identifier, identifier_type,
             make_id
         )
-        eq_(True, is_new)
-        eq_(library_uri, identifier.library_uri)
-        eq_(patron_identifier, identifier.patron_identifier)
+        assert True == is_new
+        assert library_uri == identifier.library_uri
+        assert patron_identifier == identifier.patron_identifier
         # id_1() was called.
-        eq_("id1", identifier.delegated_identifier)
+        assert "id1" == identifier.delegated_identifier
 
         # Try the same thing again but provide a different create_function
         # that raises an exception if called.
@@ -244,10 +235,10 @@ class TestDelegatedPatronIdentifier(DatabaseTest):
             self._db, library_uri, patron_identifier, identifier_type, explode
         )
         # The existing identifier was looked up.
-        eq_(False, is_new)
-        eq_(identifier2.id, identifier.id)
+        assert False == is_new
+        assert identifier2.id == identifier.id
         # id_2() was not called.
-        eq_("id1", identifier2.delegated_identifier)
+        assert "id1" == identifier2.delegated_identifier
 
 
 class TestUniquenessConstraints(DatabaseTest):
@@ -272,7 +263,7 @@ class TestUniquenessConstraints(DatabaseTest):
         c2 = Credential(
             data_source=self.data_source, type=self.type, credential=token
         )
-        assert_raises(IntegrityError, self._db.flush)
+        pytest.raises(IntegrityError, self._db.flush)
 
     def test_duplicate_patron_credential(self):
         # A given patron can't have two global credentials with the same data
@@ -286,7 +277,7 @@ class TestUniquenessConstraints(DatabaseTest):
         c2 = Credential(
             data_source=self.data_source, type=self.type, patron=self.patron
         )
-        assert_raises(IntegrityError, self._db.flush)
+        pytest.raises(IntegrityError, self._db.flush)
 
     def test_duplicate_patron_collection_credential(self):
         # A given patron can have two collection-scoped credentials
@@ -306,7 +297,7 @@ class TestUniquenessConstraints(DatabaseTest):
             data_source=self.data_source, type=self.type, patron=self.patron,
             collection=self.col1
         )
-        assert_raises(IntegrityError, self._db.flush)
+        pytest.raises(IntegrityError, self._db.flush)
 
     def test_duplicate_collection_credential(self):
         # A given collection can't have two global credentials with
@@ -318,7 +309,7 @@ class TestUniquenessConstraints(DatabaseTest):
         c2 = Credential(
             data_source=self.data_source, type=self.type, collection=self.col1
         )
-        assert_raises(IntegrityError, self._db.flush)
+        pytest.raises(IntegrityError, self._db.flush)
 
 
 class TestDRMDeviceIdentifier(DatabaseTest):
@@ -332,20 +323,20 @@ class TestDRMDeviceIdentifier(DatabaseTest):
 
     def test_devices_for_credential(self):
         device_id_1, new = self.credential.register_drm_device_identifier("foo")
-        eq_("foo", device_id_1.device_identifier)
-        eq_(self.credential, device_id_1.credential)
-        eq_(True, new)
+        assert "foo" == device_id_1.device_identifier
+        assert self.credential == device_id_1.credential
+        assert True == new
 
         device_id_2, new = self.credential.register_drm_device_identifier("foo")
-        eq_(device_id_1, device_id_2)
-        eq_(False, new)
+        assert device_id_1 == device_id_2
+        assert False == new
 
         device_id_3, new = self.credential.register_drm_device_identifier("bar")
 
-        eq_(set([device_id_1, device_id_3]), set(self.credential.drm_device_identifiers))
+        assert set([device_id_1, device_id_3]) == set(self.credential.drm_device_identifiers)
 
     def test_deregister(self):
         device, new = self.credential.register_drm_device_identifier("foo")
         self.credential.deregister_drm_device_identifier("foo")
-        eq_([], self.credential.drm_device_identifiers)
-        eq_([], self._db.query(DRMDeviceIdentifier).all())
+        assert [] == self.credential.drm_device_identifiers
+        assert [] == self._db.query(DRMDeviceIdentifier).all()

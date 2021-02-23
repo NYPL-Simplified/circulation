@@ -1,4 +1,3 @@
-from nose.tools import eq_, set_trace
 from ... import classifier
 from ...classifier import *
 from ...classifier.lcc import LCCClassifier as LCC
@@ -10,12 +9,12 @@ class TestLCC(object):
         child = Classifier.AUDIENCE_CHILDREN
         adult = Classifier.AUDIENCE_ADULT
 
-        eq_("LANGUAGE AND LITERATURE", LCC.name_for("P"))
-        eq_("English literature", LCC.name_for("PR"))
-        eq_("Fiction and juvenile belles lettres", LCC.name_for("PZ"))
-        eq_("HISTORY OF THE AMERICAS", LCC.name_for("E"))
-        eq_('Literature (General)', LCC.name_for("PN"))
-        eq_(None, LCC.name_for("no-such-key"))
+        assert "LANGUAGE AND LITERATURE" == LCC.name_for("P")
+        assert "English literature" == LCC.name_for("PR")
+        assert "Fiction and juvenile belles lettres" == LCC.name_for("PZ")
+        assert "HISTORY OF THE AMERICAS" == LCC.name_for("E")
+        assert 'Literature (General)' == LCC.name_for("PN")
+        assert None == LCC.name_for("no-such-key")
 
     def test_audience(self):
         child = Classifier.AUDIENCE_CHILDREN
@@ -25,31 +24,31 @@ class TestLCC(object):
         def aud(identifier):
             return LCC.audience(LCC.scrub_identifier(identifier), None)
 
-        eq_(child, aud("PZ"))
-        eq_(child, aud("PZ2384 M68 2003"))
-        eq_(child, aud("pz2384 m68 2003"))
+        assert child == aud("PZ")
+        assert child == aud("PZ2384 M68 2003")
+        assert child == aud("pz2384 m68 2003")
 
         # We could derive audience=Adult from this, but we've seen
         # this go wrong, and it's not terribly important overall, so
         # we don't.
-        eq_(None, aud("PR"))
-        eq_(None, aud("P"))
-        eq_(None, aud("PA"))
-        eq_(None, aud("J821.8 CARRIKK"))
+        assert None == aud("PR")
+        assert None == aud("P")
+        assert None == aud("PA")
+        assert None == aud("J821.8 CARRIKK")
 
 
     def test_is_fiction(self):
         def fic(lcc):
             return LCC.is_fiction(LCC.scrub_identifier(lcc), None)
-        eq_(False, fic("A"))
-        eq_(False, fic("AB"))
-        eq_(False, fic("PA"))
-        eq_(True, fic("P"))
-        eq_(True, fic("p"))
-        eq_(True, fic("PN"))
-        eq_(True, fic("PQ"))
-        eq_(True, fic("PR"))
-        eq_(True, fic("PS"))
-        eq_(True, fic("PT"))
-        eq_(True, fic("PZ"))
-        eq_(True, fic("PZ2384 M68 2003"))
+        assert False == fic("A")
+        assert False == fic("AB")
+        assert False == fic("PA")
+        assert True == fic("P")
+        assert True == fic("p")
+        assert True == fic("PN")
+        assert True == fic("PQ")
+        assert True == fic("PR")
+        assert True == fic("PS")
+        assert True == fic("PT")
+        assert True == fic("PZ")
+        assert True == fic("PZ2384 M68 2003")

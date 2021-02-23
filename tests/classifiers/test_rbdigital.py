@@ -1,7 +1,3 @@
-from nose.tools import (
-    eq_,
-    set_trace,
-)
 from ...classifier import (
     RBDigitalAudienceClassifier,
     RBDigitalSubjectClassifier,
@@ -26,21 +22,21 @@ class ClassifierTest(object):
     def genre_is(self, identifier, expect, name=None):
         subject = self._subject(identifier, name)
         if expect and subject.genre:
-            eq_(expect, subject.genre.name)
+            assert expect == subject.genre.name
         else:
-            eq_(expect, subject.genre)
+            assert expect == subject.genre
 
     def fiction_is(self, identifier, expect, name=None):
         subject = self._subject(identifier, name)
-        eq_(expect, subject.fiction)
+        assert expect == subject.fiction
 
     def audience_is(self, identifier, expect, name=None):
         subject = self._subject(identifier, name)
-        eq_(expect, subject.audience)
+        assert expect == subject.audience
 
     def target_age_is(self, identifier, expect, name=None):
         subject = self._subject(identifier, name)
-        eq_(expect, subject.target_age)
+        assert expect == subject.target_age
 
 class TestRBDigitalAudienceClassifier(ClassifierTest):
 
@@ -109,10 +105,9 @@ class TestRBDigitalSubjectClassifier(ClassifierTest):
         # Fiction in some subjects can be assigned to a subgenre even though
         # nonfiction in the same subject cannot.
         self.genre_is("lgbt-interest", None)
-        eq_(
-            self.CLASSIFIER.genre('lgbt interest', None, True).name,
-            "LGBTQ Fiction",
-        )
+        assert (
+            self.CLASSIFIER.genre('lgbt interest', None, True).name ==
+            "LGBTQ Fiction")
 
         # But most subjects can be assigned to a genre no matter what.
         self.genre_is("arts-entertainment", "Entertainment")

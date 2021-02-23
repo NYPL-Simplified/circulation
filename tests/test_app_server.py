@@ -9,12 +9,6 @@ from flask_babel import (
     Babel,
     lazy_gettext as _
 )
-from nose.tools import (
-    assert_raises,
-    assert_raises_regexp,
-    eq_,
-    set_trace,
-)
 
 from . import (
     DatabaseTest,
@@ -74,10 +68,10 @@ class TestHeartbeatController(object):
 
         with app.test_request_context('/'):
             response = controller.heartbeat()
-        eq_(200, response.status_code)
-        eq_(controller.HEALTH_CHECK_TYPE, response.headers.get('Content-Type'))
+        assert 200 == response.status_code
+        assert controller.HEALTH_CHECK_TYPE == response.headers.get('Content-Type')
         data = json.loads(response.data.decode("utf8"))
-        eq_('pass', data['status'])
+        assert 'pass' == data['status']
 
         # Create a .version file.
         root_dir = os.path.join(os.path.split(__file__)[0], "..", "..")
@@ -94,14 +88,14 @@ class TestHeartbeatController(object):
         if os.path.exists(version_filename):
             os.remove(version_filename)
 
-        eq_(200, response.status_code)
+        assert 200 == response.status_code
         content_type = response.headers.get('Content-Type')
-        eq_(controller.HEALTH_CHECK_TYPE, content_type)
+        assert controller.HEALTH_CHECK_TYPE == content_type
 
         data = json.loads(response.data.decode("utf8"))
-        eq_('pass', data['status'])
-        eq_('ba.na.na', data['version'])
-        eq_('ba.na.na-10-ssssssssss', data['releaseID'])
+        assert 'pass' == data['status']
+        assert 'ba.na.na' == data['version']
+        assert 'ba.na.na-10-ssssssssss' == data['releaseID']
 
 
 class TestURNLookupHandler(DatabaseTest):
@@ -116,10 +110,10 @@ class TestURNLookupHandler(DatabaseTest):
         [obj] = self.handler.precomposed_entries
         expect = OPDSMessage(urn, code, message)
         assert isinstance(obj, OPDSMessage)
-        eq_(urn, obj.urn)
-        eq_(code, obj.status_code)
-        eq_(message, obj.message)
-        eq_([], self.handler.works)
+        assert urn == obj.urn
+        assert code == obj.status_code
+        assert message == obj.message
+        assert [] == self.handler.works
 
     def test_process_urns_hook_method(self):
         # Verify that process_urns() calls post_lookup_hook() once
@@ -129,7 +123,7 @@ class TestURNLookupHandler(DatabaseTest):
                 self.called = True
         handler = Mock(self._db)
         handler.process_urns([])
-        eq_(True, handler.called)
+        assert True == handler.called
 
     def test_process_urns_invalid_urn(self):
         urn = "not even a URN"
@@ -180,10 +174,9 @@ class TestURNLookupHandler(DatabaseTest):
         work = self._work(with_license_pool=True)
         identifier = work.license_pools[0].identifier
         self.handler.process_identifier(identifier, identifier.urn)
-        eq_([], self.handler.precomposed_entries)
-        eq_([(work.presentation_edition.primary_identifier, work)],
-            self.handler.works
-        )
+        assert [] == self.handler.precomposed_entries
+        assert ([(work.presentation_edition.primary_identifier, work)] ==
+            self.handler.works)
 
 class TestURNLookupController(DatabaseTest):
 
@@ -213,12 +206,12 @@ class TestURNLookupController(DatabaseTest):
                 response = self.controller.work_lookup(annotator=annotator)
 
                 # We got an OPDS feed that includes an entry for the work.
-                eq_(200, response.status_code)
-                eq_(OPDSFeed.ACQUISITION_FEED_TYPE,
+                assert 200 == response.status_code
+                assert (OPDSFeed.ACQUISITION_FEED_TYPE ==
                     response.headers['Content-Type'])
                 response_data = response.data.decode("utf8")
                 assert identifier.urn in response_data
-                eq_(1, response_data.count(work.title))
+                assert 1 == response_data.count(work.title)
 
     def test_process_urns_problem_detail(self):
         # Verify the behavior of work_lookup in the case where
@@ -229,7 +222,7 @@ class TestURNLookupController(DatabaseTest):
         controller = Mock(self._db)
         with self.app.test_request_context("/?urn=foobar"):
             response = controller.work_lookup(annotator=object())
-            eq_(INVALID_INPUT, response)
+            assert INVALID_INPUT == response
 
     def test_permalink(self):
         work = self._work(with_license_pool=True)
@@ -240,8 +233,8 @@ class TestURNLookupController(DatabaseTest):
             response = self.controller.permalink(identifier.urn, annotator)
 
             # We got an OPDS feed that includes an entry for the work.
-            eq_(200, response.status_code)
-            eq_(OPDSFeed.ACQUISITION_FEED_TYPE,
+            assert 200 == response.status_code
+            assert (OPDSFeed.ACQUISITION_FEED_TYPE ==
                 response.headers['Content-Type'])
             response_data = response.data.decode("utf8")
             assert identifier.urn in response_data
@@ -262,14 +255,14 @@ class TestComplaintController(DatabaseTest):
             response = self.controller.register(None, "{}")
         assert response.status.startswith('400')
         body = json.loads(response.data.decode("utf8"))
-        eq_("No license pool specified", body['title'])
+        assert "No license pool specified" == body['title']
 
     def test_invalid_document(self):
         with self.app.test_request_context("/"):
             response = self.controller.register(self.pool, "not {a} valid document")
         assert response.status.startswith('400')
         body = json.loads(response.data.decode("utf8"))
-        eq_("Invalid problem detail document", body['title'])
+        assert "Invalid problem detail document" == body['title']
 
     def test_invalid_type(self):
         data = json.dumps({"type": "http://not-a-recognized-type/"})
@@ -277,9 +270,8 @@ class TestComplaintController(DatabaseTest):
             response = self.controller.register(self.pool, data)
         assert response.status.startswith('400')
         body = json.loads(response.data.decode("utf8"))
-        eq_("Unrecognized problem type: http://not-a-recognized-type/",
-            body['title']
-        )
+        assert ("Unrecognized problem type: http://not-a-recognized-type/" ==
+            body['title'])
 
     def test_success(self):
         data = json.dumps(
@@ -293,8 +285,8 @@ class TestComplaintController(DatabaseTest):
             response = self.controller.register(self.pool, data)
         assert response.status.startswith('201')
         [complaint] = self.pool.complaints
-        eq_("foo", complaint.source)
-        eq_("bar", complaint.detail)
+        assert "foo" == complaint.source
+        assert "bar" == complaint.detail
 
 
 class TestLoadMethods(DatabaseTest):
@@ -314,7 +306,7 @@ class TestLoadMethods(DatabaseTest):
         with self.app.test_request_context('/?order=%s' % Facets.ORDER_TITLE):
             flask.request.library = self._default_library
             facets = load_facets_from_request()
-            eq_(Facets.ORDER_TITLE, facets.order)
+            assert Facets.ORDER_TITLE == facets.order
             # Enabled facets are passed in to the newly created Facets,
             # in case the load method received a custom config.
             assert facets.facets_enabled_at_init != None
@@ -322,7 +314,7 @@ class TestLoadMethods(DatabaseTest):
         with self.app.test_request_context('/?order=bad_facet'):
             flask.request.library = self._default_library
             problemdetail = load_facets_from_request()
-            eq_(INVALID_INPUT.uri, problemdetail.uri)
+            assert INVALID_INPUT.uri == problemdetail.uri
 
         # An EntryPoint will be picked up from the request and passed
         # into the Facets object, assuming the EntryPoint is
@@ -332,8 +324,8 @@ class TestLoadMethods(DatabaseTest):
         with self.app.test_request_context('/?entrypoint=Audio'):
             flask.request.library = self._default_library
             facets = load_facets_from_request(worklist=worklist)
-            eq_(AudiobooksEntryPoint, facets.entrypoint)
-            eq_(False, facets.entrypoint_is_default)
+            assert AudiobooksEntryPoint == facets.entrypoint
+            assert False == facets.entrypoint_is_default
 
         # If the requested EntryPoint not configured, the default
         # EntryPoint is used.
@@ -343,8 +335,8 @@ class TestLoadMethods(DatabaseTest):
             facets = load_facets_from_request(
                 worklist=worklist, default_entrypoint=default_entrypoint
             )
-            eq_(default_entrypoint, facets.entrypoint)
-            eq_(True, facets.entrypoint_is_default)
+            assert default_entrypoint == facets.entrypoint
+            assert True == facets.entrypoint_is_default
 
         # Load a SearchFacets object that pulls information from an
         # HTTP header.
@@ -353,7 +345,7 @@ class TestLoadMethods(DatabaseTest):
         ):
             flask.request.library = self._default_library
             facets = load_facets_from_request(base_class=SearchFacets)
-            eq_(['jpn'], facets.languages)
+            assert ['jpn'] == facets.languages
 
     def test_load_facets_from_request_class_instantiation(self):
         """The caller of load_facets_from_request() can specify a class other
@@ -373,7 +365,7 @@ class TestLoadMethods(DatabaseTest):
                 base_class_constructor_kwargs=kwargs
             )
         assert isinstance(facets, MockFacets)
-        eq_('some value', facets.called_with['some_arg'])
+        assert 'some value' == facets.called_with['some_arg']
 
     def test_load_pagination_from_request(self):
         # Verify that load_pagination_from_request insantiates a
@@ -395,15 +387,15 @@ class TestLoadMethods(DatabaseTest):
                 base_class=Mock, base_class_constructor_kwargs=extra_kwargs,
                 default_size=44
             )
-            eq_("I'm a pagination object!", pagination)
-            eq_((flask.request.args.get, 44, extra_kwargs),
+            assert "I'm a pagination object!" == pagination
+            assert ((flask.request.args.get, 44, extra_kwargs) ==
                 Mock.called_with)
 
         # If no default size is specified, we trust from_request to
         # use the class default.
         with self.app.test_request_context('/'):
             pagination = load_pagination_from_request(base_class=Mock)
-            eq_((flask.request.args.get, None, {}),
+            assert ((flask.request.args.get, None, {}) ==
                 Mock.called_with)
 
         # Now try a real case using the default pagination class,
@@ -411,8 +403,8 @@ class TestLoadMethods(DatabaseTest):
         with self.app.test_request_context('/?size=50&after=10'):
             pagination = load_pagination_from_request()
             assert isinstance(pagination, Pagination)
-            eq_(50, pagination.size)
-            eq_(10, pagination.offset)
+            assert 50 == pagination.size
+            assert 10 == pagination.offset
 
         # Tests of from_request() are found in the tests of the various
         # pagination classes.
@@ -467,8 +459,8 @@ class TestErrorHandler(DatabaseTest):
                 self.raise_exception()
             except Exception, exception:
                 response = handler.handle(exception)
-            eq_(500, response.status_code)
-            eq_("An internal error occured", response.data.decode("utf8"))
+            assert 500 == response.status_code
+            assert "An internal error occured" == response.data.decode("utf8")
 
 
     def test_unhandled_error_debug(self):
@@ -483,7 +475,7 @@ class TestErrorHandler(DatabaseTest):
                 self.raise_exception()
             except Exception, exception:
                 response = handler.handle(exception)
-            eq_(500, response.status_code)
+            assert 500 == response.status_code
             assert response.data.startswith(b'Traceback (most recent call last)')
 
 
@@ -495,9 +487,9 @@ class TestErrorHandler(DatabaseTest):
             except Exception, exception:
                 response = handler.handle(exception)
 
-            eq_(400, response.status_code)
+            assert 400 == response.status_code
             data = json.loads(response.data.decode("utf8"))
-            eq_(INVALID_URN.title, data['title'])
+            assert INVALID_URN.title == data['title']
 
             # Since we are not in debug mode, the debug_message is
             # destroyed.
@@ -514,9 +506,9 @@ class TestErrorHandler(DatabaseTest):
             except Exception, exception:
                 response = handler.handle(exception)
 
-            eq_(400, response.status_code)
+            assert 400 == response.status_code
             data = json.loads(response.data.decode("utf8"))
-            eq_(INVALID_URN.title, data['title'])
+            assert INVALID_URN.title == data['title']
             assert data['debug_message'].startswith(
                 u"A debug_message which should only appear in debug mode.\n\n"
                 u'Traceback (most recent call last)'
@@ -569,23 +561,23 @@ class TestCompressibleAnnotator(object):
         # If the client asks for gzip through Accept-Encoding, the
         # representation is compressed.
         response = ask_for_compression("gzip")
-        eq_(compressed, response.data)
-        eq_("gzip", response.headers['Content-Encoding'])
+        assert compressed == response.data
+        assert "gzip" == response.headers['Content-Encoding']
 
         # If the client doesn't ask for compression, the value is
         # passed through unchanged.
         response = ask_for_compression(None)
-        eq_(value, response.data)
+        assert value == response.data
         assert 'Content-Encoding' not in response.headers
 
         # Similarly if the client asks for an unsupported compression
         # mechanism.
         response = ask_for_compression('compress')
-        eq_(value, response.data)
+        assert value == response.data
         assert 'Content-Encoding' not in response.headers
 
         # Or if the client asks for a compression mechanism through
         # Accept-Transfer-Encoding, which is currently unsupported.
         response = ask_for_compression("gzip", "Accept-Transfer-Encoding")
-        eq_(value, response.data)
+        assert value == response.data
         assert 'Content-Encoding' not in response.headers

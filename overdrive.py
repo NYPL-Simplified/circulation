@@ -1,4 +1,4 @@
-from nose.tools import set_trace
+
 import datetime
 import isbnlib
 import os

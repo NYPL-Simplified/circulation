@@ -1,4 +1,4 @@
-from nose.tools import set_trace
+
 
 class EntryPoint(object):
 

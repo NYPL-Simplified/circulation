@@ -1,6 +1,5 @@
 import sys
 import os
-from nose.tools import set_trace
 
 # NOTE: Don't be tempted to change sys.path to simplify imports.
 # Those imports will mean something different in circulation and

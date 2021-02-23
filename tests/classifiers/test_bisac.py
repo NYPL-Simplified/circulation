@@ -1,9 +1,6 @@
 import re
-from nose.tools import (
-    assert_raises,
-    eq_,
-    set_trace
-)
+
+import pytest
 from ...classifier import (
     BISACClassifier,
     Classifier,
@@ -25,100 +22,100 @@ class TestMatchingRule(object):
     def test_registered_object_returned_on_match(self):
         o = object()
         rule = MatchingRule(o, "Fiction")
-        eq_(o, rule.match("fiction"))
-        eq_(None, rule.match("nonfiction"))
+        assert o == rule.match("fiction")
+        assert None == rule.match("nonfiction")
 
         # You can't create a MatchingRule that returns None on
         # match, since that's the value returned on non-match.
-        assert_raises(
+        pytest.raises(
             ValueError, MatchingRule, None, "Fiction"
         )
 
     def test_string_match(self):
         rule = MatchingRule(True, 'Fiction')
-        eq_(True, rule.match("fiction", "westerns"))
-        eq_(None, rule.match("nonfiction", "westerns"))
-        eq_(None, rule.match("all books", "fiction"))
+        assert True == rule.match("fiction", "westerns")
+        assert None == rule.match("nonfiction", "westerns")
+        assert None == rule.match("all books", "fiction")
 
     def test_regular_expression_match(self):
         rule = MatchingRule(True, RE('F.*O'))
-        eq_(True, rule.match("food"))
-        eq_(True, rule.match("flapjacks and oatmeal"))
-        eq_(None, rule.match("good", "food"))
-        eq_(None, rule.match("fads"))
+        assert True == rule.match("food")
+        assert True == rule.match("flapjacks and oatmeal")
+        assert None == rule.match("good", "food")
+        assert None == rule.match("fads")
 
     def test_special_tokens_must_be_first(self):
         # In general, special tokens can only appear in the first
         # slot of a ruleset.
         for special in (juvenile, fiction, nonfiction):
-            assert_raises(ValueError, MatchingRule, True, "first item", special)
+            pytest.raises(ValueError, MatchingRule, True, "first item", special)
 
         # This rule doesn't apply to the 'anything' token.
         MatchingRule(True, "first item", anything)
 
     def test_juvenile_match(self):
         rule = MatchingRule(True, juvenile, "western")
-        eq_(True, rule.match("juvenile fiction", "western"))
-        eq_(None, rule.match("juvenile nonfiction", "western civilization"))
-        eq_(None, rule.match("juvenile nonfiction", "penguins"))
-        eq_(None, rule.match("young adult nonfiction", "western"))
-        eq_(None, rule.match("fiction", "western"))
+        assert True == rule.match("juvenile fiction", "western")
+        assert None == rule.match("juvenile nonfiction", "western civilization")
+        assert None == rule.match("juvenile nonfiction", "penguins")
+        assert None == rule.match("young adult nonfiction", "western")
+        assert None == rule.match("fiction", "western")
 
     def test_ya_match(self):
         rule = MatchingRule(True, ya, "western")
-        eq_(True, rule.match("young adult fiction", "western"))
-        eq_(True, rule.match("young adult nonfiction", "western"))
-        eq_(None, rule.match("juvenile fiction", "western"))
-        eq_(None, rule.match("fiction", "western"))
+        assert True == rule.match("young adult fiction", "western")
+        assert True == rule.match("young adult nonfiction", "western")
+        assert None == rule.match("juvenile fiction", "western")
+        assert None == rule.match("fiction", "western")
 
     def test_nonfiction_match(self):
         rule = MatchingRule(True, nonfiction, "art")
-        eq_(True, rule.match("juvenile nonfiction", "art"))
-        eq_(True, rule.match("art"))
-        eq_(None, rule.match("juvenile fiction", "art"))
-        eq_(None, rule.match("fiction", "art"))
+        assert True == rule.match("juvenile nonfiction", "art")
+        assert True == rule.match("art")
+        assert None == rule.match("juvenile fiction", "art")
+        assert None == rule.match("fiction", "art")
 
     def test_fiction_match(self):
         rule = MatchingRule(True, fiction, "art")
-        eq_(None, rule.match("juvenile nonfiction", "art"))
-        eq_(None, rule.match("art"))
-        eq_(True, rule.match("juvenile fiction", "art"))
-        eq_(True, rule.match("fiction", "art"))
+        assert None == rule.match("juvenile nonfiction", "art")
+        assert None == rule.match("art")
+        assert True == rule.match("juvenile fiction", "art")
+        assert True == rule.match("fiction", "art")
 
     def test_anything_match(self):
         # 'anything' can go up front.
         rule = MatchingRule(True, anything, 'Penguins')
-        eq_(True, rule.match("juvenile fiction", "science fiction", "antarctica", "animals", "penguins"))
-        eq_(True, rule.match("fiction", "penguins"))
-        eq_(True, rule.match("nonfiction", "penguins"))
-        eq_(True, rule.match("penguins"))
-        eq_(None, rule.match("geese"))
+        assert True == rule.match("juvenile fiction", "science fiction", "antarctica", "animals", "penguins")
+        assert True == rule.match("fiction", "penguins")
+        assert True == rule.match("nonfiction", "penguins")
+        assert True == rule.match("penguins")
+        assert None == rule.match("geese")
 
         # 'anything' can go in the middle, even after another special
         # match rule.
         rule = MatchingRule(True, fiction, anything, 'Penguins')
-        eq_(True, rule.match("juvenile fiction", "science fiction", "antarctica", "animals", "penguins"))
-        eq_(True, rule.match("fiction", "penguins"))
-        eq_(None, rule.match("fiction", "geese"))
+        assert True == rule.match("juvenile fiction", "science fiction", "antarctica", "animals", "penguins")
+        assert True == rule.match("fiction", "penguins")
+        assert None == rule.match("fiction", "geese")
 
         # It's redundant, but 'anything' can go last.
         rule = MatchingRule(True, anything, 'Penguins', anything)
-        eq_(True, rule.match("juvenile fiction", "science fiction", "antarctica", "animals", "penguins"))
-        eq_(True, rule.match("fiction", "penguins", "more penguins"))
-        eq_(True, rule.match("penguins"))
-        eq_(None, rule.match("geese"))
+        assert True == rule.match("juvenile fiction", "science fiction", "antarctica", "animals", "penguins")
+        assert True == rule.match("fiction", "penguins", "more penguins")
+        assert True == rule.match("penguins")
+        assert None == rule.match("geese")
 
     def test_something_match(self):
         # 'something' can go anywhere.
         rule = MatchingRule(True, something, 'Penguins', something, something)
 
-        eq_(True, rule.match("juvenile fiction", "penguins", "are", "great"))
-        eq_(True, rule.match("penguins", "penguins", "i said", "penguins"))
-        eq_(None, rule.match("penguins", "what?", "i said", "penguins"))
+        assert True == rule.match("juvenile fiction", "penguins", "are", "great")
+        assert True == rule.match("penguins", "penguins", "i said", "penguins")
+        assert None == rule.match("penguins", "what?", "i said", "penguins")
 
         # unlike 'anything', 'something' must match a specific token.
-        eq_(None, rule.match("penguins"))
-        eq_(None, rule.match("juvenile fiction", "penguins", "and seals"))
+        assert None == rule.match("penguins")
+        assert None == rule.match("juvenile fiction", "penguins", "and seals")
 
 
 class MockSubject(object):
@@ -137,9 +134,9 @@ class TestBISACClassifier(object):
     def genre_is(self, name, expect):
         subject = self._subject("", name)
         if expect and subject.genre:
-            eq_(expect, subject.genre.name)
+            assert expect == subject.genre.name
         else:
-            eq_(expect, subject.genre)
+            assert expect == subject.genre
 
     def test_every_rule_fires(self):
         """There's no point in having a rule that doesn't catch any real BISAC
@@ -177,7 +174,7 @@ class TestBISACClassifier(object):
                        for x in ['humor', 'drama', 'poetry'])
 
         # We determined the target audience for every BISAC subject.
-        eq_([], need_audience)
+        assert [] == need_audience
 
         # At this point, you can also create a list of subjects that
         # were not classified in some way. There are currently about
@@ -253,7 +250,7 @@ class TestBISACClassifier(object):
     def test_fiction_spot_checks(self):
         def fiction_is(name, expect):
             subject = self._subject("", name)
-            eq_(expect, subject.fiction)
+            assert expect == subject.fiction
 
         # Some easy tests.
         fiction_is("Fiction / Science Fiction", True)
@@ -289,7 +286,7 @@ class TestBISACClassifier(object):
 
         def audience_is(name, expect):
             subject = self._subject("", name)
-            eq_(expect, subject.audience)
+            assert expect == subject.audience
 
         adult = Classifier.AUDIENCE_ADULT
         adults_only = Classifier.AUDIENCE_ADULTS_ONLY
@@ -311,7 +308,7 @@ class TestBISACClassifier(object):
 
         def target_age_is(name, expect):
             subject = self._subject("", name)
-            eq_(expect, subject.target_age)
+            assert expect == subject.target_age
 
         # These are the only BISAC classifications with implied target
         # ages.
@@ -341,25 +338,25 @@ class TestBISACClassifier(object):
         handled transparently by the default BISAC classifier.
         """
         subject = self._subject("FBFIC022000", "Mystery & Detective")
-        eq_("Mystery", subject.genre.name)
+        assert "Mystery" == subject.genre.name
 
         # This is not an official BISAC classification, so we'll
         # end up running it through the keyword classifier.
         subject = self._subject("FSHUM000000N", "Human Science")
-        eq_("Social Sciences", subject.genre.name)
+        assert "Social Sciences" == subject.genre.name
 
     def test_scrub_identifier(self):
         # FeedBooks prefixes are removed.
-        eq_("abc", BISACClassifier.scrub_identifier("FBabc"))
+        assert "abc" == BISACClassifier.scrub_identifier("FBabc")
 
         # Otherwise, the identifier is left alone.
-        eq_("abc", BISACClassifier.scrub_identifier("abc"))
+        assert "abc" == BISACClassifier.scrub_identifier("abc")
 
         # If the identifier is recognized as an official BISAC identifier,
         # the canonical name is also returned. This will override
         # any other name associated with the subject for classification
         # purposes.
-        eq_(("FIC015000", "Fiction / Horror"),
+        assert (("FIC015000", "Fiction / Horror") ==
             BISACClassifier.scrub_identifier("FBFIC015000"))
 
     def test_scrub_name(self):
@@ -368,7 +365,7 @@ class TestBISACClassifier(object):
         but when it's time to classify things, we normalize it.
         """
         def scrubbed(before, after):
-            eq_(after, BISACClassifier.scrub_name(before))
+            assert after == BISACClassifier.scrub_name(before)
 
         scrubbed("ART/Collections  Catalogs  Exhibitions/",
                  ["art", "collections, catalogs, exhibitions"])
