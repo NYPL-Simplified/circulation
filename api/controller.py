@@ -302,8 +302,13 @@ class CirculationManager(object):
 
         self.patron_web_domains = patron_web_domains
         self.setup_configuration_dependent_controllers()
+        authentication_document_cache_time = int(
+            ConfigurationSetting.sitewide(
+                self._db, Configuration.AUTHENTICATION_DOCUMENT_CACHE_TIME
+            ).value_or_default(3600)
+        )
         self.authentication_for_opds_documents = ExpiringDict(
-            max_len=1000, max_age_seconds=3600
+            max_len=1000, max_age_seconds=authentication_document_cache_time
         )
 
     @property
@@ -538,9 +543,15 @@ class CirculationManager(object):
         OPDS document in the cache, then return the cached version.
         """
         name = flask.request.library.short_name
-        if name not in self.authentication_for_opds_documents:
-            self.authentication_for_opds_documents[name] = self.auth.create_authentication_document()
-        return self.authentication_for_opds_documents[name]
+        value = self.authentication_for_opds_documents.get(name, None)
+        if value is None:
+            # The document was not in the cache, either because it's
+            # expired or because the cache itself has been disabled.
+            # Create a new one and stick it in the cache for next
+            # time.
+            value = self.auth.create_authentication_document()
+            self.authentication_for_opds_documents[name] = value
+        return value
 
     @property
     def sitewide_key_pair(self):

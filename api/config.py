@@ -37,6 +37,10 @@ class Configuration(CoreConfiguration):
     # The name of the setting that controls how long static files are cached.
     STATIC_FILE_CACHE_TIME = u"static_file_cache_time"
 
+    # The name of the setting that controls how long authentication
+    # documents are cached.
+    AUTHENTICATION_DOCUMENT_CACHE_TIME = u"authentication_document_cache_time"
+
     # A custom link to a Terms of Service document to be understood by
     # users of the administrative interface.
     #
@@ -194,6 +198,13 @@ class Configuration(CoreConfiguration):
             "label": _("Cache time for static images and JS and CSS files (in seconds)"),
             "required": True,
             "type": "number",
+        },
+        {
+            "key": AUTHENTICATION_DOCUMENT_CACHE_TIME,
+            "label": _("Cache time for authentication documents (in seconds)"),
+            "required": True,
+            "type": "number",
+            "default": 3600,
         },
         {
             "key": CUSTOM_TOS_HREF,

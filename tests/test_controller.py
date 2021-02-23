@@ -381,6 +381,10 @@ class TestCirculationManager(CirculationControllerTest):
         eq_(1, len(manager.top_level_lanes))
         eq_(1, len(manager.circulation_apis))
 
+        # The authentication document cache has a default value for
+        # max_age.
+        eq_(3600, manager.authentication_for_opds_documents.max_age)
+
         # Now let's create a brand new library, never before seen.
         library = self._library()
         self.library_setup(library)
@@ -400,7 +404,7 @@ class TestCirculationManager(CirculationControllerTest):
         old_for_library = CustomIndexView.for_library
         CustomIndexView.for_library = mock_for_library
 
-        # We also set up some patron web client settings that will
+        # We also set up some configuration settings that will
         # be loaded.
         ConfigurationSetting.sitewide(
             self._db, Configuration.PATRON_WEB_HOSTNAMES).value = "http://sitewide/1234"
@@ -410,6 +414,10 @@ class TestCirculationManager(CirculationControllerTest):
         ConfigurationSetting.for_library_and_externalintegration(
             self._db, Registration.LIBRARY_REGISTRATION_WEB_CLIENT,
             library, registry).value = "http://registration"
+
+        ConfigurationSetting.sitewide(
+            self._db, Configuration.AUTHENTICATION_DOCUMENT_CACHE_TIME
+        ).value = "0"
 
         # Then reload the CirculationManager...
         self.manager.load_settings()
@@ -448,6 +456,10 @@ class TestCirculationManager(CirculationControllerTest):
         # So have the patron web domains, and their paths have been
         # removed.
         eq_(set(["http://sitewide", "http://registration"]), manager.patron_web_domains)
+
+        # The authentication document cache has been rebuilt with a
+        # new max_age.
+        eq_(0, manager.authentication_for_opds_documents.max_age)
 
         # Controllers that don't depend on site configuration
         # have not been reloaded.
@@ -1478,6 +1490,7 @@ class TestIndexController(CirculationControllerTest):
 
     def test_authentication_document(self):
         """Test the ability to retrieve an Authentication For OPDS document."""
+        library_name = self.library.short_name
         with self.request_context_with_library(
                 "/", headers=dict(Authorization=self.invalid_auth)):
             response = self.manager.index_controller.authentication_document()
@@ -1488,7 +1501,21 @@ class TestIndexController(CirculationControllerTest):
 
             # Make sure we got the A4OPDS document for the right library.
             doc = json.loads(data)
-            eq_(self.library.short_name, doc['title'])
+            eq_(library_name, doc['title'])
+
+        # Verify that the A4OPDS document cache is working.
+        self.manager.authentication_for_opds_documents[library_name] = "Cached value"
+        with self.request_context_with_library(
+                "/", headers=dict(Authorization=self.invalid_auth)):
+            response = self.manager.index_controller.authentication_document()
+            eq_("Cached value", response.data)
+
+        # And verify what happens when the cache is disabled.
+        self.manager.authentication_for_opds_documents.max_age = 0
+        with self.request_context_with_library(
+                "/", headers=dict(Authorization=self.invalid_auth)):
+            response = self.manager.index_controller.authentication_document()
+            assert response.data != "Cached value"
 
     def test_public_key_integration_document(self):
         base_url = ConfigurationSetting.sitewide(self._db, Configuration.BASE_URL_KEY).value
