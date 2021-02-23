@@ -1,4 +1,6 @@
 import datetime
+
+import pytest
 from nose.tools import (
     assert_raises,
     assert_raises_regexp,
@@ -132,35 +134,39 @@ class TestCoverageProviderProgress(object):
 
 
 class CoverageProviderTest(DatabaseTest):
-    BIBLIOGRAPHIC_DATA = Metadata(
-        DataSource.OVERDRIVE,
-        publisher=u'Perfection Learning',
-        language='eng',
-        title=u'A Girl Named Disaster',
-        published=datetime.datetime(1998, 3, 1, 0, 0),
-        primary_identifier=IdentifierData(
-            type=Identifier.OVERDRIVE_ID,
-            identifier=u'ba9b3419-b0bd-4ca7-a24f-26c4246b6b44'
-        ),
-        identifiers = [
-            IdentifierData(
-                    type=Identifier.OVERDRIVE_ID,
-                    identifier=u'ba9b3419-b0bd-4ca7-a24f-26c4246b6b44'
-                ),
-            IdentifierData(type=Identifier.ISBN, identifier=u'9781402550805')
-        ],
-        contributors = [
-            ContributorData(sort_name=u"Nancy Farmer",
-                            roles=[Contributor.PRIMARY_AUTHOR_ROLE])
-        ],
-        subjects = [
-            SubjectData(type=Subject.TOPIC,
-                        identifier=u'Action & Adventure'),
-            SubjectData(type=Subject.FREEFORM_AUDIENCE,
-                        identifier=u'Young Adult'),
-            SubjectData(type=Subject.PLACE, identifier=u'Africa')
-        ],
-    )
+    @pytest.fixture
+    def bibliographic_data(self):
+        return Metadata(
+            DataSource.OVERDRIVE,
+            publisher=u'Perfection Learning',
+            language='eng',
+            title=u'A Girl Named Disaster',
+            published=datetime.datetime(1998, 3, 1, 0, 0),
+            primary_identifier=IdentifierData(
+                type=Identifier.OVERDRIVE_ID,
+                identifier=u'ba9b3419-b0bd-4ca7-a24f-26c4246b6b44'
+            ),
+            identifiers = [
+                IdentifierData(
+                        type=Identifier.OVERDRIVE_ID,
+                        identifier=u'ba9b3419-b0bd-4ca7-a24f-26c4246b6b44'
+                    ),
+                IdentifierData(type=Identifier.ISBN, identifier=u'9781402550805')
+            ],
+            contributors = [
+                ContributorData(sort_name=u"Nancy Farmer",
+                                roles=[Contributor.PRIMARY_AUTHOR_ROLE])
+            ],
+            subjects = [
+                SubjectData(type=Subject.TOPIC,
+                            identifier=u'Action & Adventure'),
+                SubjectData(type=Subject.FREEFORM_AUDIENCE,
+                            identifier=u'Young Adult'),
+                SubjectData(type=Subject.PLACE, identifier=u'Africa')
+            ],
+        )
+
+
 
 
 class TestBaseCoverageProvider(CoverageProviderTest):
@@ -1033,7 +1039,7 @@ class TestIdentifierCoverageProvider(CoverageProviderTest):
         edition2 = provider.edition(identifier)
         eq_(edition, edition2)
 
-    def test_set_metadata(self):
+    def test_set_metadata(self, bibliographic_data):
         """Test that set_metadata can create and populate an
         appropriate Edition.
 
@@ -1050,13 +1056,12 @@ class TestIdentifierCoverageProvider(CoverageProviderTest):
         assert not hasattr(provider, 'set_metadata_and_circulationdata')
 
         # But it can set metadata.
-        test_metadata = self.BIBLIOGRAPHIC_DATA
         identifier = self._identifier(
             identifier_type=Identifier.OVERDRIVE_ID,
-            foreign_id=self.BIBLIOGRAPHIC_DATA.primary_identifier.identifier,
+            foreign_id=bibliographic_data.primary_identifier.identifier,
         )
         eq_([], identifier.primarily_identifies)
-        result = provider.set_metadata(identifier, test_metadata)
+        result = provider.set_metadata(identifier, bibliographic_data)
 
         # Here's the proof.
         edition = provider.edition(identifier)
@@ -1071,14 +1076,12 @@ class TestIdentifierCoverageProvider(CoverageProviderTest):
         # CoverageFailure results. This call raises a ValueError
         # because the primary identifier & the edition's primary
         # identifier don't match.
-        old_identifier = test_metadata.primary_identifier
-        test_metadata.primary_identifier = IdentifierData(
+        bibliographic_data.primary_identifier = IdentifierData(
             type=Identifier.OVERDRIVE_ID, identifier="abcd"
         )
-        result = provider.set_metadata(identifier, test_metadata)
+        result = provider.set_metadata(identifier, bibliographic_data)
         assert isinstance(result, CoverageFailure)
         assert "ValueError" in result.exception
-        test_metadata.primary_identifier = old_identifier
 
     def test_items_that_need_coverage_respects_registration_reqs(self):
         provider = AlwaysSuccessfulCoverageProvider(
@@ -1326,19 +1329,21 @@ class TestIdentifierCoverageProvider(CoverageProviderTest):
 
 class TestCollectionCoverageProvider(CoverageProviderTest):
 
-    # This data is used to test the insertion of circulation data
-    # into a Collection.
-    CIRCULATION_DATA = CirculationData(
-        DataSource.OVERDRIVE,
-        primary_identifier=CoverageProviderTest.BIBLIOGRAPHIC_DATA.primary_identifier,
-        formats = [
-            FormatData(
-                content_type=Representation.EPUB_MEDIA_TYPE,
-                drm_scheme=DeliveryMechanism.NO_DRM,
-                rights_uri=RightsStatus.IN_COPYRIGHT,
-            )
-        ]
-    )
+    @pytest.fixture
+    def circulation_data(self, bibliographic_data):
+        # This data is used to test the insertion of circulation data
+        # into a Collection.
+        return CirculationData(
+            DataSource.OVERDRIVE,
+            primary_identifier=bibliographic_data.primary_identifier,
+            formats = [
+                FormatData(
+                    content_type=Representation.EPUB_MEDIA_TYPE,
+                    drm_scheme=DeliveryMechanism.NO_DRM,
+                    rights_uri=RightsStatus.IN_COPYRIGHT,
+                )
+            ]
+        )
 
     def test_class_variables(self):
         """Verify that class variables become appropriate instance
@@ -1788,17 +1793,14 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
         work2 = provider.work(pool.identifier, pool)
         eq_(work2, work)
 
-    def test_set_metadata_and_circulationdata(self):
+    def test_set_metadata_and_circulationdata(self, bibliographic_data, circulation_data):
         """Verify that a CollectionCoverageProvider can set both
         metadata (on an Edition) and circulation data (on a LicensePool).
         """
-        test_metadata = self.BIBLIOGRAPHIC_DATA
-        test_circulationdata = self.CIRCULATION_DATA
-
         # Here's an Overdrive Identifier to work with.
         identifier = self._identifier(
             identifier_type=Identifier.OVERDRIVE_ID,
-            foreign_id=self.BIBLIOGRAPHIC_DATA.primary_identifier.identifier,
+            foreign_id=bibliographic_data.primary_identifier.identifier,
         )
 
         # Here's a CollectionCoverageProvider that is associated with
@@ -1825,18 +1827,18 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
         # We get a CoverageFailure if no work can be created. In this
         # case, that happens because the metadata doesn't provide a
         # title.
-        old_title = test_metadata.title
-        test_metadata.title = None
+        old_title = bibliographic_data.title
+        bibliographic_data.title = None
         result = provider.set_metadata_and_circulation_data(
-            identifier, test_metadata, test_circulationdata
+            identifier, bibliographic_data, circulation_data
         )
         assert isinstance(result, CoverageFailure)
         eq_("Work could not be calculated", result.exception)
 
         # Restore the title and try again. This time it will work.
-        test_metadata.title = old_title
+        bibliographic_data.title = old_title
         result = provider.set_metadata_and_circulation_data(
-            identifier, test_metadata, test_circulationdata
+            identifier, bibliographic_data, circulation_data
         )
         eq_(result, identifier)
 
@@ -1862,16 +1864,16 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
         # CoverageFailure results. This call raises a ValueError
         # because the identifier we're trying to cover doesn't match
         # the identifier found in the Metadata object.
-        old_identifier = test_metadata.primary_identifier
-        test_metadata.primary_identifier = IdentifierData(
+        old_identifier = bibliographic_data.primary_identifier
+        bibliographic_data.primary_identifier = IdentifierData(
             type=Identifier.OVERDRIVE_ID, identifier="abcd"
         )
         result = provider.set_metadata_and_circulation_data(
-            identifier, test_metadata, test_circulationdata
+            identifier, bibliographic_data, circulation_data
         )
         assert isinstance(result, CoverageFailure)
         assert "ValueError" in result.exception
-        test_metadata.primary_identifier = old_identifier
+        bibliographic_data.primary_identifier = old_identifier
 
     def test_autocreate_licensepool(self):
         """A CollectionCoverageProvider can locate (or, if necessary, create)
