@@ -37,7 +37,7 @@ class Configuration(CoreConfiguration):
     # The name of the setting that controls how long static files are cached.
     STATIC_FILE_CACHE_TIME = u"static_file_cache_time"
 
-    # The name of the setting that controls how long authentication
+    # The name of the setting controlling how long authentication
     # documents are cached.
     AUTHENTICATION_DOCUMENT_CACHE_TIME = u"authentication_document_cache_time"
 
