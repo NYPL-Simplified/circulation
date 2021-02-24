@@ -95,9 +95,9 @@ class LibrarySettingsController(SettingsController):
             return error
 
         if not library:
+            # Everyone can modify an existing library, but only a system admin can create a new one.
+            self.require_system_admin()
             (library, is_new) = self.create_library(short_name, library_uuid)
-        else:
-            self.require_library_manager(library)
 
         name = flask.request.form.get("name")
         if name:
