@@ -428,6 +428,9 @@ class ProQuestAPIClient(object):
 
         :param hits_per_page: Number of publications on a single page (max = 32,767)
         :type hits_per_page: int
+
+        :return: Python dictionary object containing the feed's page
+        :rtype: dict
         """
         self._logger.info(
             "Started downloading page # {0} ({1} hits) of a paginated OPDS 2.0 feed from {2}".format(
@@ -468,6 +471,9 @@ class ProQuestAPIClient(object):
 
         :param hits_per_page: Number of publications on a single page (max = 32,766)
         :type hits_per_page: int
+
+        :return: Python dictionary object containing the feed's page
+        :rtype: dict
         """
         if not is_session(db):
             raise ValueError('"db" argument must be a valid SQLAlchemy session')
@@ -511,7 +517,7 @@ class ProQuestAPIClient(object):
         :param db: Database session
         :type db: sqlalchemy.orm.session.Session
 
-        :return: Iterable list of feed pages
+        :return: Iterable list of feed pages in a form of Python dictionaries
         :rtype: Iterable[dict]
         """
         if not is_session(db):
