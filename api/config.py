@@ -232,7 +232,7 @@ class Configuration(CoreConfiguration):
             "label": _("A short description of this library"),
             "description": _("This will be shown to people who aren't sure they've chosen the right library."),
             "category": "Basic Information",
-            "level": CoreConfiguration.ALL_ACCESS
+            "level": CoreConfiguration.SYS_ADMIN_ONLY
         },
         {
             "key": Announcements.SETTING_NAME,
@@ -248,7 +248,7 @@ class Configuration(CoreConfiguration):
             "description": _("An email address a patron can use if they need help, e.g. 'simplyehelp@yourlibrary.org'."),
             "required": True,
             "format": "email",
-            "level": CoreConfiguration.ALL_ACCESS
+            "level": CoreConfiguration.SYS_ADMIN_ONLY
         },
         {
             "key": HELP_WEB,
