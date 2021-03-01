@@ -1493,9 +1493,8 @@ class DirectoryImportScript(TimestampScript):
 
         edition, new = metadata.edition(self._db)
         metadata.apply(edition, collection, replace=policy)
-        data_source = metadata.data_source(self._db)
         [pool] = [x for x in edition.license_pools
-                  if x.data_source == data_source]
+                  if x.collection == collection]
         if new:
             self.log.info("Created new edition for %s", edition.title)
         else:
