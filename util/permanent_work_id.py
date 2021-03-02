@@ -138,7 +138,7 @@ class WorkIDCalculator(object):
         """
         if author is None or len(author) == 0:
             author = u''
-        author = unicodedata.normalize("NFKD", unicode(author))
+        author = unicodedata.normalize("NFKD", str(author))
         author = cls.bracketedCharacterStrip.sub("", author)
         author = cls.specialCharacterStrip.sub("", author)
 

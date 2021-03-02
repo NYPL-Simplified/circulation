@@ -1,12 +1,12 @@
 """Define the interfaces used by ExternalIntegration self-tests.
 """
 from nose.tools import set_trace
-from util.http import IntegrationException
+from .util.http import IntegrationException
 import datetime
 import json
 import logging
 import traceback
-from util.opds_writer import AtomFeed
+from .util.opds_writer import AtomFeed
 
 
 class SelfTestResult(object):
@@ -47,7 +47,7 @@ class SelfTestResult(object):
         f = AtomFeed._strftime
         if self.exception:
             exception = { "class": self.exception.__class__.__name__,
-                          "message": unicode(self.exception),
+                          "message": str(self.exception),
                           "debug_message" : self.debug_message }
         else:
             exception = None
@@ -67,7 +67,7 @@ class SelfTestResult(object):
         # String results will be displayed in a fixed-width font.
         # Lists of strings will be hidden behind an expandable toggle.
         # Other return values have no defined method of display.
-        if isinstance(self.result, basestring) or isinstance(self.result, list):
+        if isinstance(self.result, str) or isinstance(self.result, list):
             value['result'] = self.result
         else:
             value['result'] = None
@@ -137,7 +137,7 @@ class HasSelfTests(object):
             objects.
 
         """
-        from external_search import ExternalSearchIndex
+        from .external_search import ExternalSearchIndex
 
         constructor_method = constructor_method or cls
         start = datetime.datetime.utcnow()
@@ -151,7 +151,7 @@ class HasSelfTests(object):
             instance = constructor_method(*args, **kwargs)
             result.success = True
             result.result = instance
-        except Exception, e:
+        except Exception as e:
             result.exception = e
             result.success = False
         finally:
@@ -162,7 +162,7 @@ class HasSelfTests(object):
                 for result in instance._run_self_tests(_db):
                     results.append(result)
 
-            except Exception, e:
+            except Exception as e:
                 # This should only happen when there's a bug in the
                 # self-test method itself.
                 failure = instance.test_failure(
@@ -187,7 +187,7 @@ class HasSelfTests(object):
         if instance and isinstance(instance, ExternalSearchIndex):
             integration = instance.search_integration(_db)
             for idx, result in enumerate(value.get("results")):
-                if isinstance(results[idx].result, (list,)):
+                if isinstance(results[idx].result, list):
                     result["result"] = results[idx].result
 
         elif instance:
@@ -210,7 +210,7 @@ class HasSelfTests(object):
         integration = None
         instance = constructor_method(*args, **kwargs)
 
-        from external_search import ExternalSearchIndex
+        from .external_search import ExternalSearchIndex
         if isinstance(instance, ExternalSearchIndex):
             integration = instance.search_integration(_db)
         else:
@@ -255,7 +255,7 @@ class HasSelfTests(object):
             return_value = method(*args, **kwargs)
             result.success = True
             result.result = return_value
-        except Exception, e:
+        except Exception as e:
             result.exception = e
             result.success = False
             result.result = None
@@ -277,7 +277,7 @@ class HasSelfTests(object):
         result.success = False
         if isinstance(message, Exception):
             exception = message
-            message = unicode(exception)
+            message = str(exception)
             if not debug_message:
                 debug_message = traceback.format_exc()
         exception = IntegrationException(message, debug_message)

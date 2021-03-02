@@ -54,7 +54,7 @@ class IntegrationClient(Base):
 
     def __repr__(self):
         return native_string(
-            u"<IntegrationClient: URL=%s ID=%s>" % (self.url, self.id)
+            "<IntegrationClient: URL=%s ID=%s>" % (self.url, self.id)
         )
 
     @classmethod
@@ -93,11 +93,11 @@ class IntegrationClient(Base):
         url = re.sub(r'^www\.', '', url)
         if url.endswith('/'):
             url = url[:-1]
-        return unicode(url.lower())
+        return str(url.lower())
 
     @classmethod
     def authenticate(cls, _db, shared_secret):
-        client = get_one(_db, cls, shared_secret=unicode(shared_secret))
+        client = get_one(_db, cls, shared_secret=str(shared_secret))
         if client:
             client.last_accessed = datetime.datetime.utcnow()
             # Committing immediately reduces the risk of contention.

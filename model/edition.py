@@ -8,20 +8,20 @@ from . import (
     get_one_or_create,
     PresentationCalculationPolicy,
 )
-from coverage import CoverageRecord
-from constants import (
+from .coverage import CoverageRecord
+from .constants import (
     DataSourceConstants,
     EditionConstants,
     LinkRelations,
     MediaTypes,
 )
-from contributor import (
+from .contributor import (
     Contributor,
     Contribution,
 )
-from datasource import DataSource
-from identifier import Identifier
-from licensing import (
+from .datasource import DataSource
+from .identifier import Identifier
+from .licensing import (
     DeliveryMechanism,
     LicensePool,
 )
@@ -137,8 +137,8 @@ class Edition(Base, EditionConstants):
     extra = Column(MutableDict.as_mutable(JSON), default={})
 
     def __repr__(self):
-        id_repr = repr(self.primary_identifier).decode("utf8")
-        a = (u"Edition %s [%r] (%s/%s/%s)" % (
+        id_repr = repr(self.primary_identifier)
+        a = ("Edition %s [%r] (%s/%s/%s)" % (
             self.id, id_repr, self.title,
             ", ".join([x.sort_name for x in self.contributors]),
             self.language))
@@ -272,7 +272,7 @@ class Edition(Base, EditionConstants):
 
         """
         # Look up the data source if necessary.
-        if isinstance(data_source, basestring):
+        if isinstance(data_source, str):
             data_source = DataSource.lookup(_db, data_source)
 
         identifier, ignore = Identifier.for_foreign_id(
@@ -446,7 +446,7 @@ class Edition(Base, EditionConstants):
                         **kwargs):
         """Assign a contributor to this Edition."""
         _db = Session.object_session(self)
-        if isinstance(roles, basestring):
+        if isinstance(roles, str):
             roles = [roles]
 
         # First find or create the Contributor.
@@ -619,7 +619,7 @@ class Edition(Base, EditionConstants):
         return WorkIDCalculator.permanent_id(
             norm_title, norm_author, medium)
 
-    UNKNOWN_AUTHOR = u"[Unknown]"
+    UNKNOWN_AUTHOR = "[Unknown]"
 
 
 
@@ -671,7 +671,7 @@ class Edition(Base, EditionConstants):
                 changed_status = "unchanged"
                 level = logging.debug
 
-            msg = u"Presentation %s for Edition %s (by %s, pub=%s, ident=%s/%s, pwid=%s, language=%s, cover=%r)"
+            msg = "Presentation %s for Edition %s (by %s, pub=%s, ident=%s/%s, pwid=%s, language=%s, cover=%r)"
             args = [changed_status, self.title, self.author, self.publisher,
                     self.primary_identifier.type, self.primary_identifier.identifier,
                     self.permanent_work_id, self.language

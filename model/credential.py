@@ -115,7 +115,7 @@ class Credential(Base):
     def lookup(cls, _db, data_source, token_type, patron, refresher_method,
                allow_persistent_token=False, allow_empty_token=False,
                collection=None, force_refresh=False):
-        from datasource import DataSource
+        from .datasource import DataSource
         if is_string(data_source):
             data_source = DataSource.lookup(_db, data_source)
         credential, is_new = get_one_or_create(
@@ -183,7 +183,7 @@ class Credential(Base):
             a data source should be created in the case it doesn't
         :type auto_create_datasource: bool
         """
-        from patron import Patron
+        from .patron import Patron
 
         if not is_session(_db):
             raise ValueError('"_db" argument must be a valid SQLAlchemy session')
@@ -198,7 +198,7 @@ class Credential(Base):
         if not isinstance(auto_create_datasource, bool):
             raise ValueError('"auto_create_datasource" argument must be boolean')
 
-        from datasource import DataSource
+        from .datasource import DataSource
         data_source = DataSource.lookup(
             _db,
             data_source_name,
@@ -316,7 +316,7 @@ class DelegatedPatronIdentifier(Base):
     the SimplyE app.
     Those identifiers are stored here.
     """
-    ADOBE_ACCOUNT_ID = u'Adobe Account ID'
+    ADOBE_ACCOUNT_ID = 'Adobe Account ID'
 
     __tablename__ = 'delegatedpatronidentifiers'
     id = Column(Integer, primary_key=True)

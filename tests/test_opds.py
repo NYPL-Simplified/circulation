@@ -2,7 +2,7 @@ import datetime
 import logging
 import re
 import xml.etree.ElementTree as ET
-from StringIO import StringIO
+from io import StringIO
 
 import feedparser
 from flask_babel import lazy_gettext as _
@@ -199,20 +199,19 @@ class TestAnnotators(DatabaseTest):
 
         ddc_uri = Subject.uri_lookup[Subject.DDC]
         rating_value = '{http://schema.org/}ratingValue'
-        eq_([{'term': u'300',
+        eq_([{'term': '300',
               rating_value: 1,
-              'label': u'Social sciences, sociology & anthropology'}],
+              'label': 'Social sciences, sociology & anthropology'}],
             category_tags[ddc_uri])
 
         fast_uri = Subject.uri_lookup[Subject.FAST]
-        eq_([{'term': u'fast1', 'label': u'name1', rating_value: 1}],
+        eq_([{'term': 'fast1', 'label': 'name1', rating_value: 1}],
             category_tags[fast_uri])
 
         lcsh_uri = Subject.uri_lookup[Subject.LCSH]
-        eq_([{'term': u'lcsh1', 'label': u'name2', rating_value: 2},
-             {'term': u'lcsh2', 'label': u'name3', rating_value: 3}],
-            # TODO PYTHON3 should not be necessary to sort.
-            sorted(category_tags[lcsh_uri]))
+        eq_([{'term': 'lcsh1', 'label': 'name2', rating_value: 2},
+             {'term': 'lcsh2', 'label': 'name3', rating_value: 3}],
+            category_tags[lcsh_uri])
 
         genre_uri = Subject.uri_lookup[Subject.SIMPLIFIED_GENRE]
         eq_([dict(label='Fiction', term=Subject.SIMPLIFIED_GENRE+"Fiction")], category_tags[genre_uri])
@@ -339,27 +338,27 @@ class TestAnnotators(DatabaseTest):
         work.presentation_edition.subtitle = "Return of the Jedi"
         work.calculate_opds_entries()
 
-        raw_feed = unicode(AcquisitionFeed(
+        raw_feed = str(AcquisitionFeed(
             self._db, self._str, self._url, [work], Annotator
         ))
         assert "schema:alternativeHeadline" in raw_feed
         assert work.presentation_edition.subtitle in raw_feed
 
-        feed = feedparser.parse(unicode(raw_feed))
+        feed = feedparser.parse(str(raw_feed))
         alternative_headline = feed['entries'][0]['schema_alternativeheadline']
         eq_(work.presentation_edition.subtitle, alternative_headline)
 
         # If there's no subtitle, the subtitle tag isn't included.
         work.presentation_edition.subtitle = None
         work.calculate_opds_entries()
-        raw_feed = unicode(AcquisitionFeed(
+        raw_feed = str(AcquisitionFeed(
             self._db, self._str, self._url, [work], Annotator
         ))
 
         assert "schema:alternativeHeadline" not in raw_feed
         assert "Return of the Jedi" not in raw_feed
-        [entry] = feedparser.parse(unicode(raw_feed))['entries']
-        assert 'schema_alternativeheadline' not in entry.items()
+        [entry] = feedparser.parse(str(raw_feed))['entries']
+        assert 'schema_alternativeheadline' not in list(entry.items())
 
     def test_series(self):
         work = self._work(with_license_pool=True, with_open_access_download=True)
@@ -367,13 +366,13 @@ class TestAnnotators(DatabaseTest):
         work.presentation_edition.series_position = 4
         work.calculate_opds_entries()
 
-        raw_feed = unicode(AcquisitionFeed(
+        raw_feed = str(AcquisitionFeed(
             self._db, self._str, self._url, [work], Annotator
         ))
         assert "schema:Series" in raw_feed
         assert work.presentation_edition.series in raw_feed
 
-        feed = feedparser.parse(unicode(raw_feed))
+        feed = feedparser.parse(str(raw_feed))
         schema_entry = feed['entries'][0]['schema_series']
         eq_(work.presentation_edition.series, schema_entry['name'])
         eq_(str(work.presentation_edition.series_position), schema_entry['schema:position'])
@@ -382,13 +381,13 @@ class TestAnnotators(DatabaseTest):
         work.presentation_edition.series_position = 0
         work.calculate_opds_entries()
 
-        raw_feed = unicode(AcquisitionFeed(
+        raw_feed = str(AcquisitionFeed(
             self._db, self._str, self._url, [work], Annotator
         ))
         assert "schema:Series" in raw_feed
         assert work.presentation_edition.series in raw_feed
 
-        feed = feedparser.parse(unicode(raw_feed))
+        feed = feedparser.parse(str(raw_feed))
         schema_entry = feed['entries'][0]['schema_series']
         eq_(work.presentation_edition.series, schema_entry['name'])
         eq_(str(work.presentation_edition.series_position), schema_entry['schema:position'])
@@ -396,14 +395,14 @@ class TestAnnotators(DatabaseTest):
         # If there's no series title, the series tag isn't included.
         work.presentation_edition.series = None
         work.calculate_opds_entries()
-        raw_feed = unicode(AcquisitionFeed(
+        raw_feed = str(AcquisitionFeed(
             self._db, self._str, self._url, [work], Annotator
         ))
 
         assert "schema:Series" not in raw_feed
         assert "Lifetime of Despair" not in raw_feed
-        [entry] = feedparser.parse(unicode(raw_feed))['entries']
-        assert 'schema_series' not in entry.items()
+        [entry] = feedparser.parse(str(raw_feed))['entries']
+        assert 'schema_series' not in list(entry.items())
 
 
 class TestOPDS(DatabaseTest):
@@ -456,17 +455,24 @@ class TestOPDS(DatabaseTest):
 
         # A doubly-indirect acquisition link.
         a = m(rel, href, ["text/html", "text/plain", "application/pdf"])
-        # TODO PYTHON3 order of attrs is different
-        eq_(etree.tounicode(a), '<link href="%s" rel="http://opds-spec.org/acquisition/borrow" type="text/html"><ns0:indirectAcquisition xmlns:ns0="http://opds-spec.org/2010/catalog" type="text/plain"><ns0:indirectAcquisition type="application/pdf"/></ns0:indirectAcquisition></link>' % href)
+        eq_(
+            etree.tostring(a, encoding="unicode"),
+            '<link type="text/html" rel="http://opds-spec.org/acquisition/borrow" href="%s"><ns0:indirectAcquisition xmlns:ns0="http://opds-spec.org/2010/catalog" type="text/plain"><ns0:indirectAcquisition type="application/pdf"/></ns0:indirectAcquisition></link>' % href
+        )
 
         # A direct acquisition link.
         b = m(rel, href, ["application/epub"])
-        # TODO PYTHON3 order of attrs is different
-        eq_(etree.tounicode(b), '<link href="%s" rel="http://opds-spec.org/acquisition/borrow" type="application/epub"/>' % href)
+        eq_(
+            etree.tostring(b, encoding="unicode"),
+            '<link type="application/epub" rel="http://opds-spec.org/acquisition/borrow" href="%s"/>' % href
+        )
 
         # A direct acquisition link to a document with embedded access restriction rules.
         c = m(rel, href, ['application/audiobook+json;profile=http://www.feedbooks.com/audiobooks/access-restriction'])
-        eq_(etree.tounicode(c), '<link href="%s" rel="http://opds-spec.org/acquisition/borrow" type="application/audiobook+json;profile=http://www.feedbooks.com/audiobooks/access-restriction"/>' % href)
+        eq_(
+            etree.tostring(c, encoding="unicode"),
+            '<link type="application/audiobook+json;profile=http://www.feedbooks.com/audiobooks/access-restriction" rel="http://opds-spec.org/acquisition/borrow" href="%s"/>' % href
+        )
 
     def test_group_uri(self):
         work = self._work(with_open_access_download=True, authors="Alice")
@@ -475,7 +481,7 @@ class TestOPDS(DatabaseTest):
         annotator = TestAnnotatorWithGroup()
         feed = AcquisitionFeed(self._db, "test", "http://the-url.com/",
                                [work], annotator)
-        u = unicode(feed)
+        u = str(feed)
         parsed = feedparser.parse(u)
         [group_link] = parsed.entries[0]['links']
         expect_uri, expect_title = annotator.group_uri(
@@ -489,7 +495,7 @@ class TestOPDS(DatabaseTest):
 
         feed = AcquisitionFeed(self._db, "test", "http://the-url.com/",
                                [work])
-        u = unicode(feed)
+        u = str(feed)
         assert '<entry schema:additionalType="http://schema.org/EBook">' in u
         parsed = feedparser.parse(u)
         [with_author] = parsed['entries']
@@ -507,7 +513,7 @@ class TestOPDS(DatabaseTest):
         expect = '<bibframe:distribution bibframe:ProviderName="%s"/>' % (
             gutenberg.name
         )
-        assert 1 == unicode(feed).count(expect)
+        assert 1 == str(feed).count(expect)
 
         # If the LicensePool is a stand-in produced for internal
         # processing purposes, it does not represent an actual license for
@@ -517,20 +523,20 @@ class TestOPDS(DatabaseTest):
         work.license_pools[0].data_source = internal
         feed = AcquisitionFeed(self._db, "test", "http://the-url.com/",
                                [work])
-        assert '<bibframe:distribution' not in unicode(feed)
+        assert '<bibframe:distribution' not in str(feed)
 
     def test_acquisition_feed_includes_author_tag_even_when_no_author(self):
         work = self._work(with_open_access_download=True)
         feed = AcquisitionFeed(self._db, "test", "http://the-url.com/",
                                [work])
-        u = unicode(feed)
+        u = str(feed)
         assert "<author>" in u
 
     def test_acquisition_feed_includes_permanent_work_id(self):
         work = self._work(with_open_access_download=True)
         feed = AcquisitionFeed(self._db, "test", "http://the-url.com/",
                                [work])
-        u = unicode(feed)
+        u = str(feed)
         parsed = feedparser.parse(u)
         entry = parsed['entries'][0]
         eq_(work.presentation_edition.permanent_work_id,
@@ -554,7 +560,7 @@ class TestOPDS(DatabaseTest):
             r'\s{2,}|\n+',
             '',
             '''
-            <link href="{0}" rel="http://opds-spec.org/acquisition" type="application/vnd.readium.lcp.license.v1.0+json">
+            <link type="application/vnd.readium.lcp.license.v1.0+json" rel="http://opds-spec.org/acquisition" href="{0}">
                 <ns0:hashed_passphrase xmlns:ns0="http://readium.org/lcp-specs/ns">{1}</ns0:hashed_passphrase>
                 <ns0:indirectAcquisition xmlns:ns0="http://opds-spec.org/2010/catalog" type="application/epub+zip"/>
             </link>
@@ -564,7 +570,7 @@ class TestOPDS(DatabaseTest):
         # Act
         lcp_credential_factory.set_hashed_passphrase(self._db, patron, hashed_passphrase)
         acquisition_link = AcquisitionFeed.acquisition_link(rel, href, types, loan)
-        result = etree.tostring(acquisition_link)
+        result = etree.tostring(acquisition_link, encoding="unicode")
 
         # Assert
         eq_(result, expected_result)
@@ -580,7 +586,7 @@ class TestOPDS(DatabaseTest):
             lane, TestAnnotator, facets=facets
         )
 
-        u = unicode(cached_feed)
+        u = str(cached_feed)
         parsed = feedparser.parse(u)
         by_title = parsed['feed']
 
@@ -664,7 +670,7 @@ class TestOPDS(DatabaseTest):
         works = self._db.query(Work)
         with_times = AcquisitionFeed(
             self._db, "test", "url", works, TestAnnotator)
-        u = unicode(with_times)
+        u = str(with_times)
         assert 'dcterms:issued' in u
 
         with_times = etree.parse(StringIO(u))
@@ -714,7 +720,7 @@ class TestOPDS(DatabaseTest):
         works = self._db.query(Work)
         with_publisher = AcquisitionFeed(
             self._db, "test", "url", works, TestAnnotator)
-        with_publisher = feedparser.parse(unicode(with_publisher))
+        with_publisher = feedparser.parse(str(with_publisher))
         entries = sorted(with_publisher['entries'], key = lambda x: x['title'])
         eq_('The Publisher', entries[0]['dcterms_publisher'])
         eq_('The Imprint', entries[0]['bib_publisherimprint'])
@@ -739,7 +745,7 @@ class TestOPDS(DatabaseTest):
 
         works = self._db.query(Work)
         with_audience = AcquisitionFeed(self._db, "test", "url", works)
-        u = unicode(with_audience)
+        u = str(with_audience)
         with_audience = feedparser.parse(u)
         ya, children, no_audience, adult = sorted(with_audience['entries'], key = lambda x: int(x['title']))
         scheme = "http://schema.org/audience"
@@ -790,7 +796,7 @@ class TestOPDS(DatabaseTest):
         self._db.commit()
         works = self._db.query(Work)
         feed = AcquisitionFeed(self._db, "test", "url", works)
-        feed = feedparser.parse(unicode(feed))
+        feed = feedparser.parse(str(feed))
         entries = sorted(feed['entries'], key = lambda x: int(x['title']))
 
         tags = entries[0]['tags']
@@ -821,7 +827,7 @@ class TestOPDS(DatabaseTest):
         self._db.commit()
         works = self._db.query(Work)
         feed = AcquisitionFeed(self._db, "test", "url", works)
-        feed = feedparser.parse(unicode(feed))
+        feed = feedparser.parse(str(feed))
         entries = sorted(feed['entries'], key = lambda x: int(x['title']))
 
         scheme = "http://librarysimplified.org/terms/fiction/"
@@ -847,7 +853,7 @@ class TestOPDS(DatabaseTest):
         self._db.commit()
         works = self._db.query(Work)
         feed = AcquisitionFeed(self._db, "test", "url", works)
-        feed = feedparser.parse(unicode(feed))
+        feed = feedparser.parse(str(feed))
         entries = sorted(feed['entries'], key = lambda x: int(x['title']))
 
         scheme = Subject.SIMPLIFIED_GENRE
@@ -874,7 +880,7 @@ class TestOPDS(DatabaseTest):
         # no license pool and the book but with no download.
         works = self._db.query(Work)
         by_title_feed = AcquisitionFeed(self._db, "test", "url", works)
-        by_title_raw = unicode(by_title_feed)
+        by_title_raw = str(by_title_feed)
         by_title = feedparser.parse(by_title_raw)
 
         # We have two entries...
@@ -893,7 +899,7 @@ class TestOPDS(DatabaseTest):
         work.presentation_edition.cover_full_url = "http://full/a"
         work.calculate_opds_entries(verbose=False)
 
-        feed = feedparser.parse(unicode(work.simple_opds_entry))
+        feed = feedparser.parse(str(work.simple_opds_entry))
         links = sorted([x['href'] for x in feed['entries'][0]['links'] if
                         'image' in x['rel']])
         eq_(['http://full/a', 'http://thumbnail/b'], links)
@@ -927,7 +933,7 @@ class TestOPDS(DatabaseTest):
         ]
         feed = AcquisitionFeed(self._db, "test", "http://the-url.com/",
                                [], precomposed_entries=messages)
-        feed = unicode(feed)
+        feed = str(feed)
         for m in messages:
             assert m.urn in feed
             assert str(m.status_code) in feed
@@ -941,7 +947,7 @@ class TestOPDS(DatabaseTest):
         entry.text='foo'
         feed = AcquisitionFeed(self._db, "test", "http://the-url.com/",
                                works=[], precomposed_entries=[entry])
-        feed = unicode(feed)
+        feed = str(feed)
         assert '<entry>foo</entry>' in feed
 
     def test_page_feed(self):
@@ -962,7 +968,7 @@ class TestOPDS(DatabaseTest):
                 self._db, "test", self._url, lane, TestAnnotator,
                 pagination=pagination, search_engine=search_engine
             )
-        cached_works = unicode(make_page(pagination))
+        cached_works = str(make_page(pagination))
         parsed = feedparser.parse(cached_works)
         eq_(work1.title, parsed['entries'][0]['title'])
 
@@ -982,7 +988,7 @@ class TestOPDS(DatabaseTest):
         eq_([], self.links(parsed, 'previous'))
 
         # Now get the second page and make sure it has a 'previous' link.
-        cached_works = unicode(make_page(pagination.next_page))
+        cached_works = str(make_page(pagination.next_page))
         parsed = feedparser.parse(cached_works)
         [previous] = self.links(parsed, 'previous')
         eq_(TestAnnotator.feed_url(lane, facets, pagination), previous['href'])
@@ -1022,7 +1028,7 @@ class TestOPDS(DatabaseTest):
                 pagination=pagination, search_engine=search_engine
             )
         cached_works = make_page(pagination)
-        parsed = feedparser.parse(unicode(cached_works))
+        parsed = feedparser.parse(str(cached_works))
         eq_(work1.title, parsed['entries'][0]['title'])
 
         # Make sure the links are in place.
@@ -1040,7 +1046,7 @@ class TestOPDS(DatabaseTest):
         eq_([], self.links(parsed, 'previous'))
 
         # Now get the second page and make sure it has a 'previous' link.
-        cached_works = unicode(make_page(pagination.next_page))
+        cached_works = str(make_page(pagination.next_page))
         parsed = feedparser.parse(cached_works)
         [previous] = self.links(parsed, 'previous')
         eq_(TestAnnotator.feed_url(lane, facets, pagination), previous['href'])
@@ -1086,7 +1092,7 @@ class TestOPDS(DatabaseTest):
             )
 
         works = from_query(pagination)
-        parsed = feedparser.parse(unicode(works))
+        parsed = feedparser.parse(str(works))
         eq_(1, len(parsed['entries']))
         eq_(list.name, parsed['feed'].title)
 
@@ -1098,7 +1104,7 @@ class TestOPDS(DatabaseTest):
 
         # Now get the second page and make sure it has a 'previous' link.
         works = from_query(pagination.next_page)
-        parsed = feedparser.parse(unicode(works))
+        parsed = feedparser.parse(str(works))
         [previous_link] = self.links(parsed, 'previous')
         eq_(TestAnnotator.feed_url(worklist, pagination=pagination.previous_page), previous_link['href'])
         eq_(1, len(parsed['entries']))
@@ -1276,7 +1282,7 @@ class TestOPDS(DatabaseTest):
         eq_(fantasy_lane.display_name, up_link['title'])
 
         # Now get the second page and make sure it has a 'previous' link.
-        feed = unicode(make_page(pagination.next_page))
+        feed = str(make_page(pagination.next_page))
         parsed = feedparser.parse(feed)
         [previous] = self.links(parsed, 'previous')
         expect = TestAnnotator.search_url(
@@ -1309,7 +1315,7 @@ class TestOPDS(DatabaseTest):
             )
 
         response1 = make_page()
-        assert work1.title in unicode(response1)
+        assert work1.title in str(response1)
         cached = get_one(self._db, CachedFeed, lane=fantasy_lane)
         old_timestamp = cached.timestamp
 
@@ -1322,7 +1328,7 @@ class TestOPDS(DatabaseTest):
         # The new work does not show up in the feed because
         # we get the old cached version.
         response2 = make_page()
-        assert work2.title not in unicode(response2)
+        assert work2.title not in str(response2)
         assert cached.timestamp == old_timestamp
 
         # Change the WorkList's MAX_CACHE_AGE to disable caching, and
@@ -1330,7 +1336,7 @@ class TestOPDS(DatabaseTest):
         fantasy_lane.MAX_CACHE_AGE = 0
         response3 = make_page()
         assert cached.timestamp > old_timestamp
-        assert work2.title in unicode(response3)
+        assert work2.title in str(response3)
 
 
 class TestAcquisitionFeed(DatabaseTest):
@@ -1352,7 +1358,7 @@ class TestAcquisitionFeed(DatabaseTest):
         eq_(10, response.max_age)
         eq_(private, response.private)
 
-        assert '<title>feed title</title>' in response.data
+        assert '<title>feed title</title>' in response.data.decode("utf-8")
 
     def test_as_response(self):
         # Verify the ability to convert an AcquisitionFeed object to an
@@ -1367,7 +1373,7 @@ class TestAcquisitionFeed(DatabaseTest):
         # We get an OPDSFeedResponse containing the feed in its
         # entity-body.
         assert isinstance(response, OPDSFeedResponse)
-        assert '<title>feed title</title>' in response.data
+        assert '<title>feed title</title>' in response.data.decode("utf-8")
 
         # The caching expectations are respected.
         eq_(101, response.max_age)
@@ -1389,7 +1395,7 @@ class TestAcquisitionFeed(DatabaseTest):
 
         # The content of the feed is unchanged.
         eq_(200, response.status_code)
-        assert '<title>feed title</title>' in response.data
+        assert '<title>feed title</title>' in response.data.decode("utf-8")
 
         # But the max_age and private settings have been overridden.
         eq_(0, response.max_age)
@@ -1644,8 +1650,9 @@ class TestAcquisitionFeed(DatabaseTest):
         eq_(0, entry.max_age)
         eq_(entry.private, private)
 
-        assert original_pool.presentation_edition.title in entry.data
-        assert new_pool.presentation_edition.title not in entry.data
+        entry_data = entry.data.decode("utf-8")
+        assert original_pool.presentation_edition.title in entry_data
+        assert new_pool.presentation_edition.title not in entry_data
 
         # If the edition was issued before 1980, no datetime formatting error
         # is raised.
@@ -1658,7 +1665,7 @@ class TestAcquisitionFeed(DatabaseTest):
         entry = AcquisitionFeed.single_entry(self._db, work, TestAnnotator)
 
         expected = str(work.presentation_edition.issued.date())
-        assert expected in entry.data
+        assert expected in entry.data.decode("utf-8")
 
     def test_single_entry_is_opds_message(self):
         # When single_entry has to deal with an 'OPDS entry' that
@@ -1683,8 +1690,8 @@ class TestAcquisitionFeed(DatabaseTest):
         # We got an OPDS entry containing the message.
         assert isinstance(response, OPDSEntryResponse)
         eq_(200, response.status_code)
-        assert '500' in response.data
-        assert 'oops' in response.data
+        assert '500' in response.data.decode("utf-8")
+        assert 'oops' in response.data.decode("utf-8")
 
         # Our caching preferences were overridden.
         eq_(True, response.private)
@@ -1715,13 +1722,13 @@ class TestAcquisitionFeed(DatabaseTest):
             self._db, work, AddDRMTagAnnotator
         )
         eq_('<entry xmlns:drm="http://librarysimplified.org/terms/drm"><foo>bar</foo><drm:licensor/></entry>',
-            unicode(entry)
+            str(entry)
         )
 
     def test_error_when_work_has_no_identifier(self):
         # We cannot create an OPDS entry for a Work that cannot be associated
         # with an Identifier.
-        work = self._work(title=u"Hello, World!", with_license_pool=True)
+        work = self._work(title="Hello, World!", with_license_pool=True)
         work.license_pools[0].identifier = None
         work.presentation_edition.primary_identifier = None
         entry = AcquisitionFeed.single_entry(
@@ -1746,7 +1753,7 @@ class TestAcquisitionFeed(DatabaseTest):
         """We cannot create an OPDS entry (or even an error message) for a
         Work that is disconnected from any Identifiers.
         """
-        work = self._work(title=u"Hello, World!", with_license_pool=True)
+        work = self._work(title="Hello, World!", with_license_pool=True)
         work.license_pools[0].presentation_edition = None
         work.presentation_edition = None
         feed = AcquisitionFeed(
@@ -1833,7 +1840,7 @@ class TestAcquisitionFeed(DatabaseTest):
         # The status code equivalent inside the OPDS message has not affected
         # the status code of the Response itself.
         eq_(200, response.status_code)
-        eq_(unicode(expect), unicode(response))
+        eq_(str(expect), str(response))
 
     def test_format_types(self):
         m = AcquisitionFeed.format_types
@@ -2208,7 +2215,7 @@ class TestLookupAcquisitionFeed(DatabaseTest):
     def feed(self, annotator=VerboseAnnotator, **kwargs):
         """Helper method to create a LookupAcquisitionFeed."""
         return LookupAcquisitionFeed(
-            self._db, u"Feed Title", "http://whatever.io", [],
+            self._db, "Feed Title", "http://whatever.io", [],
             annotator=annotator, **kwargs
         )
 
@@ -2288,7 +2295,7 @@ class TestLookupAcquisitionFeed(DatabaseTest):
         """
 
         # Here's a work with no LicensePools.
-        work = self._work(title=u"Hello, World!", with_license_pool=False)
+        work = self._work(title="Hello, World!", with_license_pool=False)
         identifier = work.presentation_edition.primary_identifier
         feed, entry = self.entry(identifier, work)
         # By default, a work is treated as 'not in the collection' if
@@ -2572,7 +2579,7 @@ class TestNavigationFeed(DatabaseTest):
     def test_add_entry(self):
         feed = NavigationFeed("title", "http://navigation")
         feed.add_entry("http://example.com", "Example", "text/html")
-        parsed = feedparser.parse(unicode(feed))
+        parsed = feedparser.parse(str(feed))
         [entry] = parsed["entries"]
         eq_("Example", entry["title"])
         [link] = entry["links"]
@@ -2629,7 +2636,7 @@ class TestNavigationFeed(DatabaseTest):
         feed = NavigationFeed.navigation(
             self._db, "Navigation", "http://navigation",
             self.fantasy, TestAnnotator)
-        parsed = feedparser.parse(unicode(feed))
+        parsed = feedparser.parse(str(feed))
         eq_("Navigation", parsed["feed"]["title"])
         [self_link] = parsed["feed"]["links"]
         eq_("http://navigation", self_link["href"])

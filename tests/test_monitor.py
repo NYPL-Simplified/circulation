@@ -1070,7 +1070,7 @@ class TestWorkReaper(DatabaseTest):
         # Run the reaper.
         s = MockSearchIndex()
         m = WorkReaper(self._db, search_index_client=s)
-        print m.search_index_client
+        print(m.search_index_client)
         m.run_once()
 
         # Search index was updated
@@ -1163,12 +1163,12 @@ class TestMeasurementReaper(DatabaseTest):
         # End-to-end test
         measurement1, created = get_one_or_create(
             self._db, Measurement,
-            quantity_measured=u"answer",
+            quantity_measured="answer",
             value=12,
             is_most_recent=True)
         measurement2, created = get_one_or_create(
             self._db, Measurement,
-            quantity_measured=u"answer",
+            quantity_measured="answer",
             value=42,
             is_most_recent=False)
         reaper = MeasurementReaper(self._db)
@@ -1182,12 +1182,12 @@ class TestMeasurementReaper(DatabaseTest):
         enabled.value = False
         measurement1, created = get_one_or_create(
             self._db, Measurement,
-            quantity_measured=u"answer",
+            quantity_measured="answer",
             value=12,
             is_most_recent=True)
         measurement2, created = get_one_or_create(
             self._db, Measurement,
-            quantity_measured=u"answer",
+            quantity_measured="answer",
             value=42,
             is_most_recent=False)
         reaper = MeasurementReaper(self._db)

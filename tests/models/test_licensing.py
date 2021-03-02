@@ -764,12 +764,12 @@ class TestLicensePool(DatabaseTest):
         # Overdrive, the metadata wrangler, and the library staff all have
         # opinions on the book's title. The metadata wrangler has also
         # identified a subtitle.
-        od.title = u"OverdriveTitle1"
+        od.title = "OverdriveTitle1"
 
-        mw.title = u"MetadataWranglerTitle1"
-        mw.subtitle = u"MetadataWranglerSubTitle1"
+        mw.title = "MetadataWranglerTitle1"
+        mw.subtitle = "MetadataWranglerSubTitle1"
 
-        admin.title = u"AdminInterfaceTitle1"
+        admin.title = "AdminInterfaceTitle1"
 
         # Create a presentation edition, a composite of the available
         # Editions.
@@ -785,7 +785,7 @@ class TestLicensePool(DatabaseTest):
 
         # Within the presentation edition, information from the
         # library staff takes precedence over anything else.
-        eq_(presentation.title, u"AdminInterfaceTitle1")
+        eq_(presentation.title, "AdminInterfaceTitle1")
         eq_(admin.contributors, presentation.contributors)
 
         # Where the library staff has no opinion, the license source
@@ -793,14 +793,14 @@ class TestLicensePool(DatabaseTest):
         eq_(Edition.AUDIO_MEDIUM, presentation.medium)
 
         # The metadata wrangler fills in any missing information.
-        eq_(presentation.subtitle, u"MetadataWranglerSubTitle1")
+        eq_(presentation.subtitle, "MetadataWranglerSubTitle1")
 
         # Now, change the admin interface's opinion about who the
         # author is.
         for c in admin.contributions:
             self._db.delete(c)
         self._db.commit()
-        [jane], ignore = Contributor.lookup(self._db, u"Doe, Jane")
+        [jane], ignore = Contributor.lookup(self._db, "Doe, Jane")
         jane.family_name, jane.display_name = jane.default_names()
         admin.add_contributor(jane, Contributor.AUTHOR_ROLE)
         pool.set_presentation_edition()

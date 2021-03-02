@@ -10,15 +10,15 @@ from sqlalchemy.engine.url import make_url
 from sqlalchemy.orm.session import Session
 from flask_babel import lazy_gettext as _
 
-from facets import FacetConstants
-from entrypoint import EntryPoint
+from .facets import FacetConstants
+from .entrypoint import EntryPoint
 
 from sqlalchemy.exc import ArgumentError
-from util import LanguageCodes
+from .util import LanguageCodes
 
 # It's convenient for other modules import IntegrationException
 # from this module, alongside CannotLoadConfiguration.
-from util.http import IntegrationException
+from .util.http import IntegrationException
 
 
 class CannotLoadConfiguration(IntegrationException):
@@ -97,7 +97,7 @@ class Configuration(ConfigurationConstants):
     DATA_DIRECTORY = "data_directory"
 
     # ConfigurationSetting key for the base url of the app.
-    BASE_URL_KEY = u'base_url'
+    BASE_URL_KEY = 'base_url'
 
     # ConfigurationSetting to enable the MeasurementReaper script
     MEASUREMENT_REAPER = 'measurement_reaper_enabled'
@@ -118,11 +118,11 @@ class Configuration(ConfigurationConstants):
     NAME = "name"
     TYPE = "type"
     INTEGRATIONS = "integrations"
-    DATABASE_INTEGRATION = u"Postgres"
+    DATABASE_INTEGRATION = "Postgres"
     DATABASE_PRODUCTION_URL = "production_url"
     DATABASE_TEST_URL = "test_url"
 
-    CONTENT_SERVER_INTEGRATION = u"Content Server"
+    CONTENT_SERVER_INTEGRATION = "Content Server"
 
     AXIS_INTEGRATION = "Axis 360"
     RBDIGITAL_INTEGRATION = "RBDigital"
@@ -130,7 +130,7 @@ class Configuration(ConfigurationConstants):
     THREEM_INTEGRATION = "3M"
 
     # ConfigurationSetting key for a CDN's mirror domain
-    CDN_MIRRORED_DOMAIN_KEY = u'mirrored_domain'
+    CDN_MIRRORED_DOMAIN_KEY = 'mirrored_domain'
 
     # The name of the per-library configuration policy that controls whether
     # books may be put on hold.
@@ -150,7 +150,7 @@ class Configuration(ConfigurationConstants):
     # their authorization_identifier.
     EXTERNAL_TYPE_REGULAR_EXPRESSION = 'external_type_regular_expression'
 
-    WEBSITE_URL = u'website'
+    WEBSITE_URL = 'website'
 
     DEBUG = "DEBUG"
     INFO = "INFO"
@@ -216,6 +216,7 @@ class Configuration(ConfigurationConstants):
     # Level 2 settings can be modified only by library managers and system admins (i.e. not by librarians).  Level 3 settings can be changed only by system admins.
     # If no level is specified, the setting will be treated as Level 1 by default.
     ALL_ACCESS = 1
+    global SYS_ADMIN_OR_MANAGER
     SYS_ADMIN_OR_MANAGER = 2
     SYS_ADMIN_ONLY = 3
 
@@ -289,7 +290,7 @@ class Configuration(ConfigurationConstants):
           # Tells the front end that each of these settings is related to the corresponding default setting.
           "paired": ConfigurationConstants.DEFAULT_FACET_KEY_PREFIX + group,
           "level": SYS_ADMIN_OR_MANAGER
-        } for group, description in FacetConstants.GROUP_DESCRIPTIONS.iteritems()
+        } for group, description in FacetConstants.GROUP_DESCRIPTIONS.items()
     ] + [
         { "key": ConfigurationConstants.DEFAULT_FACET_KEY_PREFIX + group,
           "label": _("Default %(group)s", group=display_name),
@@ -301,7 +302,7 @@ class Configuration(ConfigurationConstants):
           "default": FacetConstants.DEFAULT_FACET.get(group),
           "category": "Lanes & Filters",
           "skip": True
-        } for group, display_name in FacetConstants.GROUP_DISPLAY_TITLES.iteritems()
+        } for group, display_name in FacetConstants.GROUP_DISPLAY_TITLES.items()
     ]
 
     # This is set once CDN data is loaded from the database and
@@ -385,12 +386,12 @@ class Configuration(ConfigurationConstants):
             # The CDNs were never initialized from the database.
             # Create a new database connection and find that
             # information now.
-            from model import SessionManager
+            from .model import SessionManager
             url = cls.database_url()
             _db = SessionManager.session(url)
             cls.load_cdns(_db)
 
-        from model import ExternalIntegration
+        from .model import ExternalIntegration
         return cls.integration(ExternalIntegration.CDN)
 
     @classmethod
@@ -438,7 +439,7 @@ class Configuration(ConfigurationConstants):
         url_obj = None
         try:
             url_obj = make_url(url)
-        except ArgumentError, e:
+        except ArgumentError as e:
             # Improve the error message by giving a guide as to what's
             # likely to work.
             raise ArgumentError(
@@ -476,7 +477,7 @@ class Configuration(ConfigurationConstants):
 
     @classmethod
     def load_cdns(cls, _db, config_instance=None):
-        from model import ExternalIntegration as EI
+        from .model import ExternalIntegration as EI
         cdns = _db.query(EI).filter(EI.goal==EI.CDN_GOAL).all()
         cdn_integration = dict()
         for cdn in cdns:
@@ -548,7 +549,7 @@ class Configuration(ConfigurationConstants):
         # NOTE: Currently we never check the database (because timeout is
         # never set to None). This code will hopefully be removed soon.
         if _db and timeout is None:
-            from model import ConfigurationSetting
+            from .model import ConfigurationSetting
             timeout = ConfigurationSetting.sitewide(
                 _db, cls.SITE_CONFIGURATION_TIMEOUT
             ).int_value
@@ -575,7 +576,7 @@ class Configuration(ConfigurationConstants):
         # site_configuration_was_changed() (defined in model.py) was
         # called.
         if not known_value:
-            from model import Timestamp
+            from .model import Timestamp
             known_value = Timestamp.value(
                 _db, cls.SITE_CONFIGURATION_CHANGED, service_type=None,
                 collection=None
@@ -614,7 +615,7 @@ class Configuration(ConfigurationConstants):
             try:
                 cls.log.info("Loading configuration from %s", config_path)
                 configuration = cls._load(open(config_path).read())
-            except Exception, e:
+            except Exception as e:
                 raise CannotLoadConfiguration(
                     "Error loading configuration file %s: %s" % (
                         config_path, e)

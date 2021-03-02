@@ -200,7 +200,7 @@ class TestOverdriveAPI(OverdriveTestWithAPI):
             """This Overdrive client has valid credentials but the library
             can't be found -- probably because the library ID is wrong."""
             def get_library(self):
-                return {u'errorCode': u'Some error', u'message': u'Some message.', u'token': u'abc-def-ghi'}
+                return {'errorCode': 'Some error', 'message': 'Some message.', 'token': 'abc-def-ghi'}
 
         # Just instantiating the API doesn't cause this error.
         api = MisconfiguredOverdriveAPI(self._db, self.collection)
@@ -482,7 +482,7 @@ class TestOverdriveRepresentationExtractor(OverdriveTestWithAPI):
         eq_(31, metadata.published.day)
 
         [author] = metadata.contributors
-        eq_(u"Rüping, Andreas", author.sort_name)
+        eq_("Rüping, Andreas", author.sort_name)
         eq_("Andreas R&#252;ping", author.display_name)
         eq_([Contributor.AUTHOR_ROLE], author.roles)
 
@@ -617,7 +617,7 @@ class TestOverdriveRepresentationExtractor(OverdriveTestWithAPI):
             [x.identifier for x in metadata.subjects
              if x.type==Subject.GRADE_LEVEL]
         )
-        eq_([u'Grade 4', u'Grade 5', u'Grade 6', u'Grade 7', u'Grade 8'],
+        eq_(['Grade 4', 'Grade 5', 'Grade 6', 'Grade 7', 'Grade 8'],
             grade_levels)
 
     def test_book_info_with_awards(self):
@@ -842,8 +842,8 @@ class TestOverdriveBibliographicCoverageProvider(OverdriveTest):
         eq_(0, pool.licenses_owned)
         [lpdm1, lpdm2] = pool.delivery_mechanisms
         names = [x.delivery_mechanism.name for x in pool.delivery_mechanisms]
-        eq_(sorted([u'application/pdf (application/vnd.adobe.adept+xml)',
-                    u'Kindle via Amazon (Kindle DRM)']), sorted(names))
+        eq_(sorted(['application/pdf (application/vnd.adobe.adept+xml)',
+                    'Kindle via Amazon (Kindle DRM)']), sorted(names))
 
         # A Work was created and made presentation ready.
         eq_("Agile Documentation", pool.work.title)

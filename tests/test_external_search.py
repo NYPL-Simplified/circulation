@@ -172,7 +172,7 @@ class TestExternalSearch(ExternalSearchTest):
     def test_set_works_index_and_alias(self):
         # If the index or alias don't exist, set_works_index_and_alias
         # will create them.
-        self.integration.set_setting(ExternalSearchIndex.WORKS_INDEX_PREFIX_KEY, u'banana')
+        self.integration.set_setting(ExternalSearchIndex.WORKS_INDEX_PREFIX_KEY, 'banana')
         self.search.set_works_index_and_alias(self._db)
 
         expected_index = 'banana-' + CurrentMapping.version_name()
@@ -202,7 +202,7 @@ class TestExternalSearch(ExternalSearchTest):
         # won't be reassigned. Instead, search will occur against the
         # index itself.
         ExternalSearchIndex.reset()
-        self.integration.set_setting(ExternalSearchIndex.WORKS_INDEX_PREFIX_KEY, u'my-app')
+        self.integration.set_setting(ExternalSearchIndex.WORKS_INDEX_PREFIX_KEY, 'my-app')
         self.search = ExternalSearchIndex(self._db)
 
         eq_('my-app-%s' % version, self.search.works_index)
@@ -246,7 +246,7 @@ class TestExternalSearch(ExternalSearchTest):
             index='test_index-v9999', name='test_index-current'))
 
         # And only exists on the new index.
-        alias_indices = self.search.indices.get_alias(name='test_index-current').keys()
+        alias_indices = list(self.search.indices.get_alias(name='test_index-current').keys())
         eq_([original_index], alias_indices)
 
         # If the index doesn't have the same base name, an error is raised.
@@ -352,7 +352,7 @@ class TestExternalSearch(ExternalSearchTest):
         eq_("Search document for 'a search term':", test_results[1].name)
         eq_(True, test_results[1].success)
         result = json.loads(test_results[1].result)
-        sample_book = {"author": "author", "meta": {"id": "id", "_sort": [u'Sample Book Title', u'author', u'id']}, "id": "id", "title": "Sample Book Title"}
+        sample_book = {"author": "author", "meta": {"id": "id", "_sort": ['Sample Book Title', 'author', 'id']}, "id": "id", "title": "Sample Book Title"}
         eq_(sample_book, result)
 
         eq_("Raw search results for 'a search term':", test_results[2].name)
@@ -403,7 +403,7 @@ class TestCurrentMapping(object):
 
         # The special system author '[Unknown]' is replaced with
         # REPLACEMENT CHARACTER so it will be last in sorted lists.
-        filters_to("[Unknown]", u"\N{REPLACEMENT CHARACTER}")
+        filters_to("[Unknown]", "\N{REPLACEMENT CHARACTER}")
 
         # Periods are removed.
         filters_to("Tepper, Sheri S.", "Tepper, Sheri S")
@@ -467,7 +467,7 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
         self.tiffany = _work(title="Breakfast at Tiffany's")
 
         self.les_mis = _work()
-        self.les_mis.presentation_edition.title = u"Les Mis\u00E9rables"
+        self.les_mis.presentation_edition.title = "Les Mis\u00E9rables"
 
         self.modern_romance = _work(title="Modern Romance")
 
@@ -1628,7 +1628,7 @@ class TestAuthorFilter(EndToEndSearchTest):
         # The filter can also accommodate very minor variants in names
         # such as those caused by capitalization differences and
         # accented characters.
-        for variant in ("ann leckie", u"Àñn Léckiê"):
+        for variant in ("ann leckie", "Àñn Léckiê"):
             author = ContributorData(display_name=variant)
             self._expect_results(
                 [self.justice, self.sword], None,
@@ -2566,14 +2566,14 @@ class TestQuery(DatabaseTest):
         # how heavily to weight that hypothesis. Rather than do
         # anything with this information -- which is mostly mocked
         # anyway -- we just stored it in _boosts.
-        boosts = sorted(query._boosts.items(), key=lambda x: x[1])
+        boosts = sorted(list(query._boosts.items()), key=lambda x: x[1])
         eq_(boosts,
             [
-                ('match imprint', 1),
-                ('match series', 1),
                 ('match title', 1),
-                ('match publisher', 1),
                 ('match subtitle', 1),
+                ('match series', 1),
+                ('match publisher', 1),
+                ('match imprint', 1),
                 # The only non-mocked value here is this one. The
                 # substring hypotheses have their own weights, which
                 # we don't see in this test. This is saying that if a
@@ -2588,9 +2588,9 @@ class TestQuery(DatabaseTest):
                 ('author query 1', 2),
                 ('author query 2', 3),
                 ('topic query', 4),
-                ('multi match title+author', 5),
                 ('multi match title+subtitle', 5),
                 ('multi match title+series', 5),
+                ('multi match title+author', 5),
             ]
         )
 
@@ -3799,7 +3799,7 @@ class TestFilter(DatabaseTest):
         added_to_collection = used_orders[Facets.ORDER_ADDED_TO_COLLECTION]
         series_position = used_orders[Facets.ORDER_SERIES_POSITION]
         last_update = used_orders[Facets.ORDER_LAST_UPDATE]
-        for sort_field in used_orders.values():
+        for sort_field in list(used_orders.values()):
             if sort_field in (added_to_collection, series_position,
                               last_update):
                 # These are complicated cases, tested below.
@@ -4438,14 +4438,14 @@ class TestBulkUpdate(DatabaseTest):
 
         # All three works were inserted into the index, even the one
         # that's not presentation-ready.
-        ids = set(x[-1] for x in index.docs.keys())
+        ids = set(x[-1] for x in list(index.docs.keys()))
         eq_(set([w1.id, w2.id, w3.id]), ids)
 
         # If a work stops being presentation-ready, it is kept in the
         # index.
         w2.presentation_ready = False
         successes, failures = index.bulk_update([w1, w2, w3])
-        eq_(set([w1.id, w2.id, w3.id]), set([x[-1] for x in index.docs.keys()]))
+        eq_(set([w1.id, w2.id, w3.id]), set([x[-1] for x in list(index.docs.keys())]))
         eq_(set([w1, w2, w3]), set(successes))
         eq_([], failures)
 
@@ -4463,7 +4463,7 @@ class TestSearchErrors(ExternalSearchTest):
                                        _id=doc['_id'],
                                        data=doc))
 
-            errors = map(error, docs)
+            errors = list(map(error, docs))
             return 0, errors
 
         self.search.bulk = bulk_with_timeout

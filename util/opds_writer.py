@@ -80,8 +80,9 @@ class AtomFeed(object):
 
     @classmethod
     def add_link_to_entry(cls, entry, children=None, **kwargs):
+        # TODO EDWIN check
         if 'title' in kwargs:
-            kwargs['title'] = unicode(kwargs['title'])
+            kwargs['title'] = str(kwargs['title'])
         link = cls.E.link(**kwargs)
         entry.append(link)
         if children:
@@ -158,19 +159,17 @@ class AtomFeed(object):
         """
         self.feed = self.E.feed(
             self.E.id(url),
-            self.E.title(unicode(title)),
+            self.E.title(str(title)),
             self.E.updated(self._strftime(datetime.datetime.utcnow())),
             self.E.link(href=url, rel="self"),
         )
         super(AtomFeed, self).__init__(**kwargs)
 
-
-    # TODO PYTHON3 rename to __str__
-    def __unicode__(self):
+    def __str__(self):
         if self.feed is None:
             return None
 
-        return etree.tounicode(self.feed, pretty_print=True)
+        return etree.tostring(self.feed, encoding="unicode", pretty_print=True)
 
 
 class OPDSFeed(AtomFeed):
@@ -215,7 +214,7 @@ class OPDSMessage(object):
         self.message = message
 
     def __str__(self):
-        return etree.tounicode(self.tag)
+        return etree.tostring(self.tag, encoding="unicode")
 
     def __repr__(self):
         return etree.tostring(self.tag)
@@ -244,6 +243,6 @@ class OPDSMessage(object):
         message_tag.append(status_tag)
 
         description_tag = AtomFeed.SCHEMA.description()
-        description_tag.text = unicode(self.message)
+        description_tag.text = str(self.message)
         message_tag.append(description_tag)
         return message_tag

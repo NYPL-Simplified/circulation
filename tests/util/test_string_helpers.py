@@ -12,7 +12,7 @@ from ...util.string_helpers import UnicodeAwareBase64, base64, is_string, random
 
 class TestUnicodeAwareBase64(object):
     def test_encoding(self):
-        string = u"םולש"
+        string = "םולש"
 
         # Run the same tests against two different encodings that can
         # handle Hebrew characters.
@@ -68,7 +68,7 @@ class TestUnicodeAwareBase64(object):
         # UnicodeAwareBase64 object that encodes as UTF-8 by default.
         assert isinstance(base64, UnicodeAwareBase64)
         eq_("utf8", base64.encoding)
-        snowman = u"☃"
+        snowman = "☃"
         snowman_utf8 = snowman.encode("utf8")
         as_base64 = base64.b64encode(snowman)
         eq_("4piD", as_base64)
@@ -95,7 +95,7 @@ class TestRandomString(object):
             x = m(size)
 
             # The strings are Unicode strings, not bytestrings
-            assert isinstance(x, unicode)
+            assert isinstance(x, str)
 
             # The strings are entirely composed of lowercase hex digits.
             eq_(None, re.compile("[^a-f0-9]").search(x))
@@ -109,7 +109,7 @@ class TestIsString(object):
     @parameterized.expand(
         [
             ("byte_string", "test", True),
-            ("unicode_string", u"test", True),
+            ("unicode_string", "test", True),
             ("not_string", 1, False),
         ]
     )

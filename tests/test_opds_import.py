@@ -1,8 +1,8 @@
 import os
 import datetime
 import random
-import urllib
-from StringIO import StringIO
+import urllib.request, urllib.parse, urllib.error
+from io import StringIO
 from nose.tools import (
     set_trace,
     eq_,
@@ -101,10 +101,10 @@ class DoomedWorkOPDSImporter(OPDSImporter):
 class OPDSTest(DatabaseTest):
     """A unit test that knows how to find OPDS files for use in tests."""
 
-    def sample_opds(self, filename):
+    def sample_opds(self, filename, file_type="r"):
         base_path = os.path.split(__file__)[0]
         resource_path = os.path.join(base_path, "files", "opds")
-        return open(os.path.join(resource_path, filename)).read()
+        return open(os.path.join(resource_path, filename), file_type).read()
 
 
 class TestMetadataWranglerOPDSLookup(OPDSTest):
@@ -117,7 +117,7 @@ class TestMetadataWranglerOPDSLookup(OPDSTest):
             password='secret', url="http://metadata.in"
         )
         self.collection = self._collection(
-            protocol=ExternalIntegration.OVERDRIVE, external_account_id=u'library'
+            protocol=ExternalIntegration.OVERDRIVE, external_account_id='library'
         )
 
     def test_authenticates_wrangler_requests(self):
@@ -176,7 +176,7 @@ class TestMetadataWranglerOPDSLookup(OPDSTest):
             data_source_name=DataSource.OA_CONTENT_SERVER
         )
         lookup.collection = opds
-        data_source_args = '?data_source=%s' % urllib.quote(opds.data_source.name)
+        data_source_args = '?data_source=%s' % urllib.parse.quote(opds.data_source.name)
         assert lookup.get_collection_url('banana').endswith(data_source_args)
 
     def test_lookup_endpoint(self):
@@ -428,7 +428,7 @@ class OPDSImporterTest(OPDSTest):
         self.content_server_feed = self.sample_opds("content_server.opds")
         self.content_server_mini_feed = self.sample_opds("content_server_mini.opds")
         self.audiobooks_opds = self.sample_opds("audiobooks.opds")
-        self.feed_with_id_and_dcterms_identifier = self.sample_opds("feed_with_id_and_dcterms_identifier.opds")
+        self.feed_with_id_and_dcterms_identifier = self.sample_opds("feed_with_id_and_dcterms_identifier.opds", "rb")
         self._default_collection.external_integration.setting('data_source').value = (
             DataSource.OA_CONTENT_SERVER
         )
@@ -533,8 +533,8 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_(data_source_name, c1._data_source)
         eq_(data_source_name, c2._data_source)
 
-        [failure] = failures.values()
-        eq_(u"202: I'm working to locate a source for this identifier.", failure.exception)
+        [failure] = list(failures.values())
+        eq_("202: I'm working to locate a source for this identifier.", failure.exception)
 
     def test_use_dcterm_identifier_as_id_with_id_and_dcterms_identifier(self):
         data_source_name = "Data source name " + self._str
@@ -688,7 +688,7 @@ class TestOPDSImporter(OPDSImporterTest):
         )
 
         # No metadata was extracted.
-        eq_(0, len(values.keys()))
+        eq_(0, len(list(values.keys())))
 
         # There are 2 failures, both from exceptions. The 202 message
         # found in content_server_mini.opds is not extracted
@@ -804,7 +804,7 @@ class TestOPDSImporter(OPDSImporterTest):
         # The CoverageFailure contains the information that was in a
         # <simplified:message> tag in unrecognized_identifier.opds.
         key = 'http://www.gutenberg.org/ebooks/100'
-        eq_([key], failures.keys())
+        eq_([key], list(failures.keys()))
         failure = failures[key]
         eq_("404: I've never heard of this work.", failure.exception)
         eq_(key, failure.obj.urn)
@@ -1019,7 +1019,7 @@ class TestOPDSImporter(OPDSImporterTest):
         )
 
         # No metadata was extracted.
-        eq_(0, len(values.keys()))
+        eq_(0, len(list(values.keys())))
 
         # There are 3 CoverageFailures - every <entry> threw an
         # exception and the <simplified:message> indicated failure.
@@ -1372,7 +1372,7 @@ class TestOPDSImporter(OPDSImporterTest):
             ).import_from_feed(feed)
         )
 
-        [failure] = failures.values()
+        [failure] = list(failures.values())
         assert isinstance(failure, CoverageFailure)
         eq_(True, failure.transient)
         eq_("404: I've never heard of this work.", failure.exception)
@@ -1995,7 +1995,7 @@ class TestMirroring(OPDSImporterTest):
 
     def test_resources_are_mirrored_on_import(self):
 
-        svg = u"""<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
+        svg = """<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
   "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
 
 <svg xmlns="http://www.w3.org/2000/svg" width="1000" height="500">
@@ -2118,7 +2118,7 @@ class TestMirroring(OPDSImporterTest):
         # the open-access content source, the default data source used
         # when no distributor was specified for a book.
         book1_url = 'https://test-content-bucket.s3.amazonaws.com/Gutenberg/Gutenberg%20ID/10441/The%20Green%20Mouse.epub.images'
-        book1_svg_cover = u'https://test-cover-bucket.s3.amazonaws.com/Library%20Simplified%20Open%20Access%20Content%20Server/Gutenberg%20ID/10441/cover_10441_9.svg'
+        book1_svg_cover = 'https://test-cover-bucket.s3.amazonaws.com/Library%20Simplified%20Open%20Access%20Content%20Server/Gutenberg%20ID/10441/cover_10441_9.svg'
         book2_url = 'https://test-content-bucket.s3.amazonaws.com/Library%20Simplified%20Open%20Access%20Content%20Server/Gutenberg%20ID/10557/Johnny%20Crow%27s%20Party.epub.images'
         book2_png_cover = 'https://test-cover-bucket.s3.amazonaws.com/Library%20Simplified%20Open%20Access%20Content%20Server/Gutenberg%20ID/10557/working-cover-image.png'
         book2_png_thumbnail = 'https://test-cover-bucket.s3.amazonaws.com/scaled/300/Library%20Simplified%20Open%20Access%20Content%20Server/Gutenberg%20ID/10557/working-cover-image.png'
@@ -2584,8 +2584,8 @@ class TestOPDSImportMonitor(OPDSImporterTest):
         # default value will be used.
         headers = {'Some other': 'header'}
         new_headers = monitor._update_headers(headers)
-        eq_(['Some other'], headers.keys())
-        eq_(['Some other', 'Accept'], new_headers.keys())
+        eq_(['Some other'], list(headers.keys()))
+        eq_(['Some other', 'Accept'], list(new_headers.keys()))
 
         # If a custom_accept_header exist, will be used instead a default value
         new_headers = monitor._update_headers(headers)

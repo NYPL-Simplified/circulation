@@ -34,10 +34,10 @@ class XMLParser(object):
         if tag is None or tag.text is None:
             return None
         else:
-            return unicode(tag.text)
+            return str(tag.text)
 
     def text_of_subtag(self, tag, name, namespaces=None):
-        return unicode(tag.xpath(name, namespaces=namespaces)[0].text)
+        return str(tag.xpath(name, namespaces=namespaces)[0].text)
 
     def int_of_subtag(self, tag, name, namespaces=None):
         return int(self.text_of_subtag(tag, name, namespaces=namespaces))
@@ -53,7 +53,7 @@ class XMLParser(object):
             parser = etree.XMLParser(recover=True)
         if not handler:
             handler = self.process_one
-        if isinstance(xml, unicode):
+        if isinstance(xml, str):
             xml = xml.encode("utf8")
 
         if isinstance(xml, bytes):

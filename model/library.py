@@ -8,13 +8,13 @@ from . import (
     get_one,
 )
 from ..config import Configuration
-from circulationevent import CirculationEvent
-from edition import Edition
+from .circulationevent import CirculationEvent
+from .edition import Edition
 from ..entrypoint import EntryPoint
 from ..facets import FacetConstants
-from hasfulltablecache import HasFullTableCache
-from licensing import LicensePool
-from work import Work
+from .hasfulltablecache import HasFullTableCache
+from .licensing import LicensePool
+from .work import Work
 
 from collections import Counter
 import logging
@@ -194,7 +194,7 @@ class Library(Base, HasFullTableCache):
                 raise ValueError(
                     "Library registry short name cannot contain the pipe character."
                 )
-            value = unicode(value)
+            value = str(value)
         self._library_registry_short_name = value
 
     def setting(self, key):
@@ -202,7 +202,7 @@ class Library(Base, HasFullTableCache):
         :param key: Name of the setting.
         :return: A ConfigurationSetting
         """
-        from configuration import ConfigurationSetting
+        from .configuration import ConfigurationSetting
         return ConfigurationSetting.for_library(
             key, self
         )
@@ -285,7 +285,7 @@ class Library(Base, HasFullTableCache):
         setting = self.enabled_facets_setting(group_name)
         try:
             value = setting.json_value
-        except ValueError, e:
+        except ValueError as e:
             logging.error("Invalid list of enabled facets for %s: %s",
                           group_name, setting.value)
         if value is None:
@@ -342,7 +342,7 @@ class Library(Base, HasFullTableCache):
         :param show_suppressed: Include titles that have nothing but
         suppressed LicensePools.
         """
-        from collection import Collection
+        from .collection import Collection
         collection_ids = collection_ids or [x.id for x in self.all_collections]
         return Collection.restrict_to_ready_deliverable_works(
             query, collection_ids=collection_ids,

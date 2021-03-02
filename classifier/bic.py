@@ -128,7 +128,7 @@ class BICClassifier(Classifier):
     @classmethod
     def genre(cls, identifier, name, fiction=None, audience=None):
         for prefixes in cls.PREFIX_LISTS:
-            for l, v in prefixes.items():
+            for l, v in list(prefixes.items()):
                 if identifier.startswith(v.lower()):
                     return l
         return None

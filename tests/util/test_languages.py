@@ -40,8 +40,8 @@ class TestLanguageCodes(object):
         eq_("es", c.three_to_two['spa'])
         eq_(['Spanish', 'Castilian'], c.english_names['es'])
         eq_(['Spanish', 'Castilian'], c.english_names['spa'])
-        eq_([u"español", "castellano"], c.native_names['es'])
-        eq_([u"español", "castellano"], c.native_names['spa'])
+        eq_(["español", "castellano"], c.native_names['es'])
+        eq_(["español", "castellano"], c.native_names['spa'])
 
         eq_("chi", c.two_to_three['zh'])
         eq_("zh", c.three_to_two['chi'])
@@ -79,11 +79,11 @@ class TestLanguageCodes(object):
         eq_("", m([]))
         eq_("English", m(["en"]))
         eq_("English", m(["eng"]))
-        eq_(u"español", m(['es']))
-        eq_(u"English/español", m(["eng", "spa"]))
-        eq_(u"español/English", m("spa,eng"))
-        eq_(u"español/English/Chinese", m(["spa","eng","chi"]))
-        assert_raises(ValueError(m, ["eng, nxx"]))
+        eq_("español", m(['es']))
+        eq_("English/español", m(["eng", "spa"]))
+        eq_("español/English", m("spa,eng"))
+        eq_("español/English/Chinese", m(["spa","eng","chi"]))
+        assert_raises(ValueError, m, ["eng, nxx"])
 
 
 class TestLanguageNames(object):

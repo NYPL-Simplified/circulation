@@ -24,7 +24,7 @@ class Complaint(Base):
     __tablename__ = 'complaints'
 
     VALID_TYPES = set([
-        u"http://librarysimplified.org/terms/problem/" + x
+        "http://librarysimplified.org/terms/problem/" + x
         for x in [
                 'wrong-genre',
                 'wrong-audience',

@@ -6,7 +6,7 @@ import traceback
 from sqlalchemy.orm.session import Session
 from sqlalchemy.sql.functions import func
 
-from model import (
+from .model import (
     get_one,
     get_one_or_create,
     BaseCoverageRecord,
@@ -23,13 +23,13 @@ from model import (
     Work,
     WorkCoverageRecord,
 )
-from metadata_layer import (
+from .metadata_layer import (
     ReplacementPolicy,
     TimestampData,
 )
-from util.worker_pools import DatabaseJob
+from .util.worker_pools import DatabaseJob
 
-import log # This sets the appropriate log format.
+from . import log # This sets the appropriate log format.
 
 class CoverageFailure(object):
     """Object representing the failure to provide coverage."""
@@ -256,7 +256,7 @@ class BaseCoverageProvider(object):
                     # in-place the one it was passed.
                     if new_progress is not None:
                         progress = new_progress
-                except Exception, e:
+                except Exception as e:
                     logging.error(
                         "CoverageProvider %s raised uncaught exception.",
                         self.service_name, exc_info=e
@@ -393,7 +393,7 @@ class BaseCoverageProvider(object):
         num_ignored = 0
         records = []
 
-        unhandled_items = set(batch)
+        unhandled_items = batch
         success_items = []
         for item in results:
             if isinstance(item, CoverageFailure):
@@ -772,7 +772,7 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
             return DataSource.lookup(_db, cls.DATA_SOURCE_NAME)
         if isinstance(data_source, DataSource):
             return data_source
-        if isinstance(data_source, basestring):
+        if isinstance(data_source, str):
             return DataSource.lookup(_db, data_source, autocreate=autocreate)
 
     @property
@@ -1146,7 +1146,7 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
             return license_pools[0]
 
         data_source = data_source or self.data_source
-        if isinstance(data_source, basestring):
+        if isinstance(data_source, str):
             data_source = DataSource.lookup(self._db, data_source)
 
         # This Collection has no LicensePool for the given Identifier.

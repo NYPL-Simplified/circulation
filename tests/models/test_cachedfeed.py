@@ -57,8 +57,8 @@ class TestCachedFeed(DatabaseTest):
                 work=work,
                 lane_id=lane.id,
                 unique_key="unique key",
-                facets_key=u'facets',
-                pagination_key=u'pagination',
+                facets_key='facets',
+                pagination_key='pagination',
             )
 
             @classmethod
@@ -103,7 +103,7 @@ class TestCachedFeed(DatabaseTest):
         # converted to Unicode. (Verifying the unicode() call may seem
         # like a small thing, but it means a refresher method can
         # return an OPDSFeed object.)
-        eq_(u"This is feed #1", result1.content)
+        eq_("This is feed #1", result1.content)
 
         # The timestamp is recent.
         timestamp1 = result1.timestamp
@@ -115,8 +115,8 @@ class TestCachedFeed(DatabaseTest):
         eq_(k.feed_type, result1.type)
         eq_(k.lane_id, result1.lane_id)
         eq_(k.unique_key, result1.unique_key)
-        eq_(unicode(k.facets_key), result1.facets)
-        eq_(unicode(k.pagination_key), result1.pagination)
+        eq_(k.facets_key, result1.facets)
+        eq_(k.pagination_key, result1.pagination)
 
         # Now let's verify that the helper methods were called with the
         # right arguments.
@@ -366,7 +366,7 @@ class TestCachedFeed(DatabaseTest):
         eq_(200, r.status_code)
         eq_(OPDSFeed.ACQUISITION_FEED_TYPE, r.content_type)
         eq_(102, r.max_age)
-        eq_("Here's a feed.", r.data)
+        eq_("Here's a feed.", str(r))
 
         # The extra argument `private`, not used by CachedFeed.fetch, was
         # passed on to the OPDSFeedResponse constructor.
@@ -385,7 +385,7 @@ class TestCachedFeed(DatabaseTest):
         eq_(200, r.status_code)
         eq_(OPDSFeed.ACQUISITION_FEED_TYPE, r.content_type)
         eq_(102, r.max_age)
-        eq_("Here's a feed.", r.data)
+        eq_("Here's a feed.", str(r))
 
         # If we tell CachedFeed to cache its feed 'forever', that only
         # applies to the _database_ cache. The client is told to cache
@@ -509,14 +509,14 @@ class TestCachedFeed(DatabaseTest):
         eq_(None, keys.work)
         eq_(lane.id, keys.lane_id)
         eq_(None, keys.unique_key)
-        eq_(u'', keys.facets_key)
-        eq_(u'', keys.pagination_key)
+        eq_('', keys.facets_key)
+        eq_('', keys.pagination_key)
 
         # When pagination and/or facets are available, facets_key and
         # pagination_key are set appropriately.
         keys = m(self._db, lane, MockFacets, MockPagination)
-        eq_(u"facets query string", keys.facets_key)
-        eq_(u"pagination query string", keys.pagination_key)
+        eq_("facets query string", keys.facets_key)
+        eq_("pagination query string", keys.pagination_key)
 
         # Now we can check that feed_type was obtained by passing
         # `worklist` and `facets` into MockCachedFeed.feed_type.
@@ -538,8 +538,8 @@ class TestCachedFeed(DatabaseTest):
         eq_(None, keys.lane_id)
         eq_("wl-eng,spa-Children", keys.unique_key)
         eq_(keys.unique_key, worklist.unique_key)
-        eq_(u'', keys.facets_key)
-        eq_(u'', keys.pagination_key)
+        eq_('', keys.facets_key)
+        eq_('', keys.pagination_key)
 
         # When a WorkList is associated with a specific .work,
         # that information is included as keys.work.
@@ -592,7 +592,7 @@ class TestCachedFeed(DatabaseTest):
     def test_lifecycle_with_lane(self):
         facets = Facets.default(self._default_library)
         pagination = Pagination.default()
-        lane = self._lane(u"My Lane", languages=['eng','chi'])
+        lane = self._lane("My Lane", languages=['eng','chi'])
 
         # Fetch a cached feed from the database. It comes out updated.
         refresher = MockFeedGenerator()

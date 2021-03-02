@@ -101,17 +101,17 @@ class TestOPDS2Importer(OPDSTest):
         )
         eq_(True, isinstance(moby_dick_edition, Edition))
 
-        eq_(u"Moby-Dick", moby_dick_edition.title)
-        eq_(u"eng", moby_dick_edition.language)
-        eq_(u"eng", moby_dick_edition.language)
+        eq_("Moby-Dick", moby_dick_edition.title)
+        eq_("eng", moby_dick_edition.language)
+        eq_("eng", moby_dick_edition.language)
         eq_(EditionConstants.BOOK_MEDIUM, moby_dick_edition.medium)
-        eq_(u"Herman Melville", moby_dick_edition.author)
+        eq_("Herman Melville", moby_dick_edition.author)
 
         eq_(1, len(moby_dick_edition.author_contributors))
         [moby_dick_author] = moby_dick_edition.author_contributors
         eq_(True, isinstance(moby_dick_author, Contributor))
-        eq_(u"Herman Melville", moby_dick_author.display_name)
-        eq_(u"Melville, Herman", moby_dick_author.sort_name)
+        eq_("Herman Melville", moby_dick_author.display_name)
+        eq_("Melville, Herman", moby_dick_author.sort_name)
 
         eq_(1, len(moby_dick_author.contributions))
         [huckleberry_finn_author_contribution] = moby_dick_author.contributions
@@ -122,12 +122,12 @@ class TestOPDS2Importer(OPDSTest):
 
         eq_(data_source, moby_dick_edition.data_source)
 
-        eq_(u"Test Publisher", moby_dick_edition.publisher)
+        eq_("Test Publisher", moby_dick_edition.publisher)
         eq_(datetime.date(2015, 9, 29), moby_dick_edition.published)
 
-        eq_(u"http://example.org/cover.jpg", moby_dick_edition.cover_full_url)
+        eq_("http://example.org/cover.jpg", moby_dick_edition.cover_full_url)
         eq_(
-            u"http://example.org/cover-small.jpg", moby_dick_edition.cover_thumbnail_url
+            "http://example.org/cover-small.jpg", moby_dick_edition.cover_thumbnail_url
         )
 
         # 1.2. Edition with non open-access acquisition links (Adventures of Huckleberry Finn)
@@ -136,17 +136,17 @@ class TestOPDS2Importer(OPDSTest):
         )
         eq_(True, isinstance(huckleberry_finn_edition, Edition))
 
-        eq_(u"Adventures of Huckleberry Finn", huckleberry_finn_edition.title)
-        eq_(u"eng", huckleberry_finn_edition.language)
+        eq_("Adventures of Huckleberry Finn", huckleberry_finn_edition.title)
+        eq_("eng", huckleberry_finn_edition.language)
         eq_(EditionConstants.BOOK_MEDIUM, huckleberry_finn_edition.medium)
-        eq_(u"Samuel Langhorne Clemens, Mark Twain", huckleberry_finn_edition.author)
+        eq_("Samuel Langhorne Clemens, Mark Twain", huckleberry_finn_edition.author)
 
         eq_(2, len(huckleberry_finn_edition.author_contributors))
         huckleberry_finn_authors = huckleberry_finn_edition.author_contributors
 
         eq_(True, isinstance(huckleberry_finn_authors[0], Contributor))
-        eq_(u"Mark Twain", huckleberry_finn_authors[0].display_name)
-        eq_(u"Twain, Mark", huckleberry_finn_authors[0].sort_name)
+        eq_("Mark Twain", huckleberry_finn_authors[0].display_name)
+        eq_("Twain, Mark", huckleberry_finn_authors[0].sort_name)
 
         eq_(1, len(huckleberry_finn_authors[0].contributions))
         [huckleberry_finn_author_contribution] = huckleberry_finn_authors[
@@ -161,8 +161,8 @@ class TestOPDS2Importer(OPDSTest):
         eq_(Contributor.AUTHOR_ROLE, huckleberry_finn_author_contribution.role)
 
         eq_(True, isinstance(huckleberry_finn_authors[1], Contributor))
-        eq_(u"Samuel Langhorne Clemens", huckleberry_finn_authors[1].display_name)
-        eq_(u"Clemens, Samuel Langhorne", huckleberry_finn_authors[1].sort_name)
+        eq_("Samuel Langhorne Clemens", huckleberry_finn_authors[1].display_name)
+        eq_("Clemens, Samuel Langhorne", huckleberry_finn_authors[1].sort_name)
 
         eq_(1, len(huckleberry_finn_authors[1].contributions))
         [huckleberry_finn_author_contribution] = huckleberry_finn_authors[
@@ -178,10 +178,10 @@ class TestOPDS2Importer(OPDSTest):
 
         eq_(data_source, huckleberry_finn_edition.data_source)
 
-        eq_(u"Test Publisher", huckleberry_finn_edition.publisher)
+        eq_("Test Publisher", huckleberry_finn_edition.publisher)
         eq_(datetime.date(2014, 9, 28), huckleberry_finn_edition.published)
 
-        eq_(u"http://example.org/cover.jpg", moby_dick_edition.cover_full_url)
+        eq_("http://example.org/cover.jpg", moby_dick_edition.cover_full_url)
 
         # 2. Make sure that license pools have correct configuration
         eq_(True, isinstance(pools, list))
@@ -264,7 +264,7 @@ class TestOPDS2Importer(OPDSTest):
         eq_(1, len(huckleberry_finn_work.license_pools))
         eq_(huckleberry_finn_license_pool, huckleberry_finn_work.license_pools[0])
         eq_(
-            u"Adventures of Huckleberry Finn is a novel by Mark Twain, first published in the United Kingdom in "
-            u"December 1884 and in the United States in February 1885.",
+            "Adventures of Huckleberry Finn is a novel by Mark Twain, first published in the United Kingdom in "
+            "December 1884 and in the United States in February 1885.",
             huckleberry_finn_work.summary_text,
         )

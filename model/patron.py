@@ -7,7 +7,7 @@ from . import (
     get_one_or_create,
     numericrange_to_tuple
 )
-from credential import Credential
+from .credential import Credential
 import datetime
 import logging
 from sqlalchemy import (
@@ -431,7 +431,7 @@ class Patron(Base):
         # age range includes ADULT_AGE_CUTOFF.
         if (reader_audience == Classifier.AUDIENCE_YOUNG_ADULT
             and (reader_age is None
-                 or reader_age >= Classifier.ADULT_AGE_CUTOFF)):
+                 or (isinstance(reader_age, int) and reader_age >= Classifier.ADULT_AGE_CUTOFF))):
             log.debug("YA reader to be treated as an adult.")
             return True
 
@@ -638,13 +638,13 @@ class Hold(Base, LoanAndHoldMixin):
 class Annotation(Base):
     # The Web Annotation Data Model defines a basic set of motivations.
     # https://www.w3.org/TR/annotation-model/#motivation-and-purpose
-    OA_NAMESPACE = u"http://www.w3.org/ns/oa#"
+    OA_NAMESPACE = "http://www.w3.org/ns/oa#"
 
     # We need to define some terms of our own.
-    LS_NAMESPACE = u"http://librarysimplified.org/terms/annotation/"
+    LS_NAMESPACE = "http://librarysimplified.org/terms/annotation/"
 
-    IDLING = LS_NAMESPACE + u'idling'
-    BOOKMARKING = OA_NAMESPACE + u'bookmarking'
+    IDLING = LS_NAMESPACE + 'idling'
+    BOOKMARKING = OA_NAMESPACE + 'bookmarking'
 
     MOTIVATIONS = [
         IDLING,

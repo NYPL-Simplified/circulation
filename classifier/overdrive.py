@@ -104,7 +104,7 @@ class OverdriveClassifier(Classifier):
         Historical_Fiction : ["Historical Fiction", "Antiquarian"],
         History : "History",
         Horror : "Horror",
-        House_Home : u"Home Design & Décor",
+        House_Home : "Home Design & Décor",
         Humorous_Fiction : "Humor (Fiction)",
         Humorous_Nonfiction : "Humor (Nonfiction)",
         Entertainment : "Entertainment",
@@ -206,7 +206,7 @@ class OverdriveClassifier(Classifier):
 
     @classmethod
     def genre(cls, identifier, name, fiction=None, audience=None):
-        for l, v in cls.GENRES.items():
+        for l, v in list(cls.GENRES.items()):
             if identifier == v or (isinstance(v, list) and identifier in v):
                 return l
         if identifier == 'Gay/Lesbian' and fiction:

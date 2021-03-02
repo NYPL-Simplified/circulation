@@ -294,8 +294,8 @@ class TestEdition(DatabaseTest):
         self._db.delete(wr.contributions[0])
         self._db.commit()
         wr.calculate_presentation()
-        eq_(u"[Unknown]", wr.sort_author)
-        eq_(u"[Unknown]", wr.author)
+        eq_("[Unknown]", wr.sort_author)
+        eq_("[Unknown]", wr.author)
 
     def test_calculate_presentation_author(self):
         bob, ignore = self._contributor(sort_name="Bitshifter, Bob")
@@ -494,7 +494,7 @@ class TestEdition(DatabaseTest):
         edition.calculate_permanent_work_id()
         eq_(None, edition.permanent_work_id)
 
-        edition.title = u'something'
+        edition.title = 'something'
         edition.calculate_permanent_work_id()
         assert_not_equal(None, edition.permanent_work_id)
 

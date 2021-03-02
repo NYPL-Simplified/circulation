@@ -28,26 +28,26 @@ from sqlalchemy.sql.expression import (
     or_,
 )
 
-from configuration import (
+from .configuration import (
     ConfigurationSetting,
     ExternalIntegration,
     BaseConfigurationStorage)
-from constants import EditionConstants
-from coverage import (
+from .constants import EditionConstants
+from .coverage import (
     CoverageRecord,
     WorkCoverageRecord,
 )
-from datasource import DataSource
-from edition import Edition
-from hasfulltablecache import HasFullTableCache
-from identifier import Identifier
-from integrationclient import IntegrationClient
-from library import Library
-from licensing import (
+from .datasource import DataSource
+from .edition import Edition
+from .hasfulltablecache import HasFullTableCache
+from .identifier import Identifier
+from .integrationclient import IntegrationClient
+from .library import Library
+from .licensing import (
     LicensePool,
     LicensePoolDeliveryMechanism,
 )
-from work import Work
+from .work import Work
 from . import (
     Base,
     create,
@@ -58,6 +58,7 @@ from ..util.string_helpers import (
     base64,
     native_string,
 )
+from six import with_metaclass
 
 
 class Collection(Base, HasFullTableCache):
@@ -70,10 +71,10 @@ class Collection(Base, HasFullTableCache):
 
     name = Column(Unicode, unique=True, nullable=False, index=True)
 
-    DATA_SOURCE_NAME_SETTING = u'data_source'
+    DATA_SOURCE_NAME_SETTING = 'data_source'
 
     # For use in forms that edit Collections.
-    EXTERNAL_ACCOUNT_ID_KEY = u'external_account_id'
+    EXTERNAL_ACCOUNT_ID_KEY = 'external_account_id'
 
     # How does the provider of this collection distinguish it from
     # other collections it provides? On the other side this is usually
@@ -160,7 +161,7 @@ class Collection(Base, HasFullTableCache):
 
     def __repr__(self):
         return native_string(
-            u'<Collection "%s"/"%s" ID=%d>' % (
+            '<Collection "%s"/"%s" ID=%d>' % (
                 self.name, self.protocol, self.id
             )
         )
@@ -199,7 +200,7 @@ class Collection(Base, HasFullTableCache):
         try:
             collection = qu.one()
             is_new = False
-        except NoResultFound, e:
+        except NoResultFound as e:
             # Make a new Collection.
             collection, is_new = get_one_or_create(_db, Collection, name=name)
             if not is_new and collection.protocol != protocol:
@@ -479,7 +480,7 @@ class Collection(Base, HasFullTableCache):
                 Collection.DATA_SOURCE_NAME_SETTING
             )
             if new_value is not None:
-                new_value = unicode(new_value)
+                new_value = str(new_value)
             setting.value = new_value
 
     @property
@@ -549,8 +550,8 @@ class Collection(Base, HasFullTableCache):
             [protocol, account_id] = [decode(d) for d in encoded_details]
         except (TypeError, ValueError) as e:
             raise ValueError(
-                u"Metadata identifier '%s' is invalid: %s" % (
-                    metadata_identifier, unicode(e)
+                "Metadata identifier '%s' is invalid: %s" % (
+                    metadata_identifier, str(e)
                 )
             )
         return protocol, account_id
@@ -926,11 +927,8 @@ collections_customlists = Table(
     UniqueConstraint('collection_id', 'customlist_id'),
 )
 
-
-class HasExternalIntegrationPerCollection(object):
+class HasExternalIntegrationPerCollection(with_metaclass(ABCMeta, object)):
     """Interface allowing to get access to an external integration"""
-
-    __metaclass__ = ABCMeta
 
     @abstractmethod
     def collection_external_integration(self, collection):

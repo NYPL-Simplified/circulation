@@ -10,24 +10,24 @@ from sqlalchemy.orm.session import Session
 from . import (
     Base,
 )
-from admin import (
+from .admin import (
     Admin,
     AdminRole,
 )
-from datasource import DataSource
-from classification import Genre
-from collection import Collection
+from .datasource import DataSource
+from .classification import Genre
+from .collection import Collection
 from ..config import Configuration
-from configuration import (
+from .configuration import (
     ConfigurationSetting,
     ExternalIntegration,
 )
-from library import Library
-from licensing import (
+from .library import Library
+from .licensing import (
     DeliveryMechanism,
     LicensePool,
 )
-from work import Work
+from .work import Work
 
 from threading import RLock
 

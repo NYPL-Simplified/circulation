@@ -1,9 +1,9 @@
 import logging
 from nose.tools import set_trace
 import requests
-import urlparse
+from six.moves.urllib.parse import urlparse
 from flask_babel import lazy_gettext as _
-from problem_detail import (
+from .problem_detail import (
     ProblemDetail as pd,
     JSON_MEDIA_TYPE as PROBLEM_DETAIL_JSON_MEDIA_TYPE,
 )
@@ -61,7 +61,7 @@ class RemoteIntegrationException(IntegrationException):
         if (url_or_service and
             any(url_or_service.startswith(x) for x in ('http:', 'https:'))):
             self.url = url_or_service
-            self.service = urlparse.urlparse(url_or_service).netloc
+            self.service = urlparse(url_or_service).netloc
         else:
             self.url = self.service = url_or_service
         if not debug_message:
@@ -74,12 +74,12 @@ class RemoteIntegrationException(IntegrationException):
 
     def document_detail(self, debug=True):
         if debug:
-            return _(unicode(self.detail), service=self.url)
-        return _(unicode(self.detail), service=self.service)
+            return _(str(self.detail), service=self.url)
+        return _(str(self.detail), service=self.service)
 
     def document_debug_message(self, debug=True):
         if debug:
-            return _(unicode(self.detail), service=self.url)
+            return _(str(self.detail), service=self.url)
         return None
 
     def as_problem_detail_document(self, debug):
@@ -220,15 +220,15 @@ class HTTP(object):
 
         # Unicode data can't be sent over the wire. Convert it
         # to UTF-8.
-        if 'data' in kwargs and isinstance(kwargs['data'], unicode):
+        if 'data' in kwargs and isinstance(kwargs['data'], str):
             kwargs['data'] = kwargs.get('data').encode("utf8")
         if 'headers' in kwargs:
             headers = kwargs['headers']
             new_headers = {}
-            for k, v in headers.items():
-                if isinstance(k, unicode):
+            for k, v in list(headers.items()):
+                if isinstance(k, str):
                     k = k.encode("utf8")
-                if isinstance(v, unicode):
+                if isinstance(v, str):
                     v = v.encode("utf8")
                 new_headers[k] = v
             kwargs['headers'] = new_headers
@@ -250,14 +250,14 @@ class HTTP(object):
                     url, response.status_code, response.headers,
                     response.content
                 )
-        except requests.exceptions.Timeout, e:
+        except requests.exceptions.Timeout as e:
             # Wrap the requests-specific Timeout exception
             # in a generic RequestTimedOut exception.
-            raise RequestTimedOut(url, e.message)
-        except requests.exceptions.RequestException, e:
+            raise RequestTimedOut(url, e)
+        except requests.exceptions.RequestException as e:
             # Wrap all other requests-specific exceptions in
             # a generic RequestNetworkException.
-            raise RequestNetworkException(url, e.message)
+            raise RequestNetworkException(url, e)
 
         return process_response_with(
             url, response, allowed_response_codes, disallowed_response_codes
@@ -277,12 +277,12 @@ class HTTP(object):
             http status codes that would generate BadResponseExceptions.
         """
         if allowed_response_codes:
-            allowed_response_codes = map(str, allowed_response_codes)
+            allowed_response_codes = list(map(str, allowed_response_codes))
             status_code_not_in_allowed = "Got status code %%s from external server, but can only continue on: %s." % (
                 ", ".join(sorted(allowed_response_codes)),
             )
         if disallowed_response_codes:
-            disallowed_response_codes = map(str, disallowed_response_codes)
+            disallowed_response_codes = list(map(str, disallowed_response_codes))
         else:
             disallowed_response_codes = []
 
@@ -372,7 +372,7 @@ class HTTP(object):
         """
 
         allowed_response_codes = allowed_response_codes or ['2xx', '3xx']
-        allowed_response_codes = map(str, allowed_response_codes)
+        allowed_response_codes = list(map(str, allowed_response_codes))
         code = response.status_code
         series = cls.series(code)
         if str(code) in allowed_response_codes or series in allowed_response_codes:

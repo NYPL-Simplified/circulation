@@ -1,5 +1,5 @@
-from util.problem_detail import ProblemDetail as pd
-from util.http import INTEGRATION_ERROR
+from .util.problem_detail import ProblemDetail as pd
+from .util.http import INTEGRATION_ERROR
 from flask_babel import lazy_gettext as _
 
 # Generic problem detail documents that recapitulate HTTP errors.

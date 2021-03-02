@@ -57,10 +57,10 @@ class TestJSONFormatter(object):
         # As long as all data is either Unicode or UTF-8, any combination
         # of Unicode and bytestrings can be combined in log messages.
 
-        unicode_message = u"An important snowman: %s"
+        unicode_message = "An important snowman: %s"
         byte_message = unicode_message.encode("utf8")
 
-        unicode_snowman = u"☃"
+        unicode_snowman = "☃"
         utf8_snowman = unicode_snowman.encode("utf8")
 
         # Test every combination of Unicode and bytestring message and
@@ -78,7 +78,7 @@ class TestJSONFormatter(object):
             )
             data = json.loads(formatter.format(record))
             # The resulting data is always a Unicode string.
-            eq_(u"An important snowman: ☃", data['message'])
+            eq_("An important snowman: ☃", data['message'])
 
 
 class TestLogConfiguration(DatabaseTest):

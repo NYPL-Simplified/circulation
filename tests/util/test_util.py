@@ -159,7 +159,7 @@ class TestMetadataSimilarity(object):
         return matches
 
     def test_identical_titles_are_identical(self):
-        t = u"a !@#$@#%& the #FDUSG($E% N%SDAMF_) and #$MI# asdff \N{SNOWMAN}"
+        t = "a !@#$@#%& the #FDUSG($E% N%SDAMF_) and #$MI# asdff \N{SNOWMAN}"
         eq_(1, MetadataSimilarity.title_similarity(t, t))
 
     def test_title_similarity(self):
@@ -343,7 +343,7 @@ class TestEnglishDetector(object):
         dutch = Bigrams.from_string(dutch_text)
         assert dutch.difference_from(english_bigrams) > 1
 
-        french_text = u"Dix récits surtout féminins où s'expriment les heures douloureuses et malgré tout ouvertes à l'espérance des 70 dernières années d'Haïti."
+        french_text = "Dix récits surtout féminins où s'expriment les heures douloureuses et malgré tout ouvertes à l'espérance des 70 dernières années d'Haïti."
         french = Bigrams.from_string(french_text)
         assert french.difference_from(english_bigrams) > 1
 

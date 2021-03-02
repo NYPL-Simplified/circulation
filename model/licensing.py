@@ -5,11 +5,11 @@ import datetime
 import logging
 
 import six
-from circulationevent import CirculationEvent
-from complaint import Complaint
-from constants import DataSourceConstants, EditionConstants, LinkRelations, MediaTypes
-from hasfulltablecache import HasFullTableCache
-from patron import Hold, Loan, Patron
+from .circulationevent import CirculationEvent
+from .complaint import Complaint
+from .constants import DataSourceConstants, EditionConstants, LinkRelations, MediaTypes
+from .hasfulltablecache import HasFullTableCache
+from .patron import Hold, Loan, Patron
 from sqlalchemy import (
     Boolean,
     Column,
@@ -225,14 +225,14 @@ class LicensePool(Base):
     def for_foreign_id(self, _db, data_source, foreign_id_type, foreign_id,
                        rights_status=None, collection=None, autocreate=True):
         """Find or create a LicensePool for the given foreign ID."""
-        from collection import CollectionMissing
-        from datasource import DataSource
-        from identifier import Identifier
+        from .collection import CollectionMissing
+        from .datasource import DataSource
+        from .identifier import Identifier
         if not collection:
             raise CollectionMissing()
 
         # Get the DataSource.
-        if isinstance(data_source, basestring):
+        if isinstance(data_source, str):
             data_source = DataSource.lookup(_db, data_source)
 
         # The type of the foreign ID must be the primary identifier
@@ -284,7 +284,7 @@ class LicensePool(Base):
     @classmethod
     def with_no_work(cls, _db):
         """Find LicensePools that have no corresponding Work."""
-        from work import Work
+        from .work import Work
         return _db.query(LicensePool).outerjoin(Work).filter(
             Work.id==None).all()
 
@@ -314,8 +314,8 @@ class LicensePool(Base):
     @classmethod
     def with_complaint(cls, library, resolved=False):
         """Return query for LicensePools that have at least one Complaint."""
-        from collection import Collection
-        from library import Library
+        from .collection import Collection
+        from .library import Library
         _db = Session.object_session(library)
         subquery = _db.query(
                 LicensePool.id,
@@ -354,7 +354,7 @@ class LicensePool(Base):
             priority = DataSourceConstants.OPEN_ACCESS_SOURCE_PRIORITY.index(
                 self.data_source.name
             )
-        except ValueError, e:
+        except ValueError as e:
             # The source of this download is not mentioned in our
             # priority list. Treat it as the lowest priority.
             priority = -1
@@ -443,7 +443,7 @@ class LicensePool(Base):
         :return: A boolean explaining whether any of the presentation
         information associated with this LicensePool actually changed.
         """
-        from edition import Edition
+        from .edition import Edition
         _db = Session.object_session(self)
         old_presentation_edition = self.presentation_edition
         changed = False
@@ -759,7 +759,7 @@ class LicensePool(Base):
         logging.info or a similar method
         """
         edition = self.presentation_edition
-        message = u'CHANGED '
+        message = 'CHANGED '
         args = []
         if self.identifier:
             identifier_template = '%s/%s'
@@ -768,7 +768,7 @@ class LicensePool(Base):
             identifier_template = '%s'
             identifier_args = [self.identifier]
         if edition:
-            message += u'%s "%s" %s (' + identifier_template + ')'
+            message += '%s "%s" %s (' + identifier_template + ')'
             args.extend([edition.medium,
                          edition.title or "[NO TITLE]",
                          edition.author or "[NO AUTHOR]"]
@@ -936,7 +936,7 @@ class LicensePool(Base):
         from calling set_presentation_edition() and assumes we've
         already done that work.
         """
-        from work import Work
+        from .work import Work
 
         if not self.identifier:
             # A LicensePool with no Identifier should never have a Work.
@@ -1103,7 +1103,7 @@ class LicensePool(Base):
     @property
     def open_access_links(self):
         """Yield all open-access Resources for this LicensePool."""
-        from identifier import Identifier
+        from .identifier import Identifier
         open_access = LinkRelations.OPEN_ACCESS_DOWNLOAD
         _db = Session.object_session(self)
         if not self.identifier:
@@ -1388,7 +1388,7 @@ class LicensePoolDeliveryMechanism(Base):
 
     def __repr__(self):
         return native_string(
-            u"<LicensePoolDeliveryMechanism: data_source={0}, identifier={1}, mechanism={2}>".format(
+            "<LicensePoolDeliveryMechanism: data_source={0}, identifier={1}, mechanism={2}>".format(
                 six.ensure_text(str(self.data_source)),
                 six.ensure_text(repr(self.identifier)),
                 six.ensure_text(repr(self.delivery_mechanism))
@@ -1421,37 +1421,37 @@ class DeliveryMechanism(Base, HasFullTableCache):
     (e.g. "application/vnd.adobe.adept+xml" or "application/epub+zip") or an
     informal name ("Kindle via Amazon").
     """
-    KINDLE_CONTENT_TYPE = u"Kindle via Amazon"
-    NOOK_CONTENT_TYPE = u"Nook via B&N"
-    STREAMING_TEXT_CONTENT_TYPE = u"Streaming Text"
-    STREAMING_AUDIO_CONTENT_TYPE = u"Streaming Audio"
-    STREAMING_VIDEO_CONTENT_TYPE = u"Streaming Video"
+    KINDLE_CONTENT_TYPE = "Kindle via Amazon"
+    NOOK_CONTENT_TYPE = "Nook via B&N"
+    STREAMING_TEXT_CONTENT_TYPE = "Streaming Text"
+    STREAMING_AUDIO_CONTENT_TYPE = "Streaming Audio"
+    STREAMING_VIDEO_CONTENT_TYPE = "Streaming Video"
 
     NO_DRM = None
-    ADOBE_DRM = u"application/vnd.adobe.adept+xml"
-    FINDAWAY_DRM = u"application/vnd.librarysimplified.findaway.license+json"
+    ADOBE_DRM = "application/vnd.adobe.adept+xml"
+    FINDAWAY_DRM = "application/vnd.librarysimplified.findaway.license+json"
     AXISNOW_DRM = "application/vnd.librarysimplified.axisnow+json"
-    KINDLE_DRM = u"Kindle DRM"
-    NOOK_DRM = u"Nook DRM"
-    STREAMING_DRM = u"Streaming"
-    LCP_DRM = u"application/vnd.readium.lcp.license.v1.0+json"
+    KINDLE_DRM = "Kindle DRM"
+    NOOK_DRM = "Nook DRM"
+    STREAMING_DRM = "Streaming"
+    LCP_DRM = "application/vnd.readium.lcp.license.v1.0+json"
 
     # This represents the DRM system used by the app called 'Overdrive'
     # and associated with the application/x-od-media media type.
-    OVERDRIVE_DRM = u"Overdrive DRM"
+    OVERDRIVE_DRM = "Overdrive DRM"
 
     # This represents the DRM system used by the app called 'Libby' and
     # associated with the
     # application/vnd.overdrive.circulation.api+json media type and
     # its profiles.
-    LIBBY_DRM = u"Libby DRM"
+    LIBBY_DRM = "Libby DRM"
 
     KNOWN_DRM_TYPES = {
         ADOBE_DRM, FINDAWAY_DRM, AXISNOW_DRM, KINDLE_DRM, NOOK_DRM, STREAMING_DRM, LCP_DRM, OVERDRIVE_DRM, LIBBY_DRM
     }
 
-    BEARER_TOKEN = u"application/vnd.librarysimplified.bearer-token+json"
-    FEEDBOOKS_AUDIOBOOK_DRM = u"http://www.feedbooks.com/audiobooks/access-restriction"
+    BEARER_TOKEN = "application/vnd.librarysimplified.bearer-token+json"
+    FEEDBOOKS_AUDIOBOOK_DRM = "http://www.feedbooks.com/audiobooks/access-restriction"
 
     FEEDBOOKS_AUDIOBOOK_PROFILE = ';profile="%s"' % FEEDBOOKS_AUDIOBOOK_DRM
     STREAMING_PROFILE = ';profile="http://librarysimplified.org/terms/profiles/streaming-media"'
@@ -1570,7 +1570,7 @@ class DeliveryMechanism(Base, HasFullTableCache):
 
     @property
     def is_streaming(self):
-        return self.content_type in self.MEDIA_TYPES_FOR_STREAMING.keys()
+        return self.content_type in list(self.MEDIA_TYPES_FOR_STREAMING.keys())
 
     @property
     def drm_scheme_media_type(self):
@@ -1652,40 +1652,40 @@ class RightsStatus(Base):
     """
 
     # Currently in copyright.
-    IN_COPYRIGHT = u"http://librarysimplified.org/terms/rights-status/in-copyright"
+    IN_COPYRIGHT = "http://librarysimplified.org/terms/rights-status/in-copyright"
 
     # Public domain in the USA.
-    PUBLIC_DOMAIN_USA = u"http://librarysimplified.org/terms/rights-status/public-domain-usa"
+    PUBLIC_DOMAIN_USA = "http://librarysimplified.org/terms/rights-status/public-domain-usa"
 
     # Public domain in some unknown territory
-    PUBLIC_DOMAIN_UNKNOWN = u"http://librarysimplified.org/terms/rights-status/public-domain-unknown"
+    PUBLIC_DOMAIN_UNKNOWN = "http://librarysimplified.org/terms/rights-status/public-domain-unknown"
 
     # Creative Commons Public Domain Dedication (No rights reserved)
-    CC0 = u"https://creativecommons.org/publicdomain/zero/1.0/"
+    CC0 = "https://creativecommons.org/publicdomain/zero/1.0/"
 
     # Creative Commons Attribution (CC BY)
-    CC_BY = u"http://creativecommons.org/licenses/by/4.0/"
+    CC_BY = "http://creativecommons.org/licenses/by/4.0/"
 
     # Creative Commons Attribution-ShareAlike (CC BY-SA)
-    CC_BY_SA = u"https://creativecommons.org/licenses/by-sa/4.0"
+    CC_BY_SA = "https://creativecommons.org/licenses/by-sa/4.0"
 
     # Creative Commons Attribution-NoDerivs (CC BY-ND)
-    CC_BY_ND = u"https://creativecommons.org/licenses/by-nd/4.0"
+    CC_BY_ND = "https://creativecommons.org/licenses/by-nd/4.0"
 
     # Creative Commons Attribution-NonCommercial (CC BY-NC)
-    CC_BY_NC = u"https://creativecommons.org/licenses/by-nc/4.0"
+    CC_BY_NC = "https://creativecommons.org/licenses/by-nc/4.0"
 
     # Creative Commons Attribution-NonCommercial-ShareAlike (CC BY-NC-SA)
-    CC_BY_NC_SA = u"https://creativecommons.org/licenses/by-nc-sa/4.0"
+    CC_BY_NC_SA = "https://creativecommons.org/licenses/by-nc-sa/4.0"
 
     # Creative Commons Attribution-NonCommercial-NoDerivs (CC BY-NC-ND)
-    CC_BY_NC_ND = u"https://creativecommons.org/licenses/by-nc-nd/4.0"
+    CC_BY_NC_ND = "https://creativecommons.org/licenses/by-nc-nd/4.0"
 
     # Open access download but no explicit license
-    GENERIC_OPEN_ACCESS = u"http://librarysimplified.org/terms/rights-status/generic-open-access"
+    GENERIC_OPEN_ACCESS = "http://librarysimplified.org/terms/rights-status/generic-open-access"
 
     # Unknown copyright status.
-    UNKNOWN = u"http://librarysimplified.org/terms/rights-status/unknown"
+    UNKNOWN = "http://librarysimplified.org/terms/rights-status/unknown"
 
     OPEN_ACCESS = [
         PUBLIC_DOMAIN_USA,
@@ -1753,7 +1753,7 @@ class RightsStatus(Base):
 
     @classmethod
     def lookup(cls, _db, uri):
-        if not uri in cls.NAMES.keys():
+        if not uri in list(cls.NAMES.keys()):
             uri = cls.UNKNOWN
         name = cls.NAMES.get(uri)
         create_method_kwargs = dict(name=name)

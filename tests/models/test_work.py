@@ -155,28 +155,28 @@ class TestWork(DatabaseTest):
         gutenberg_source = DataSource.GUTENBERG
         gitenberg_source = DataSource.PROJECT_GITENBERG
 
-        [bob], ignore = Contributor.lookup(self._db, u"Bitshifter, Bob")
+        [bob], ignore = Contributor.lookup(self._db, "Bitshifter, Bob")
         bob.family_name, bob.display_name = bob.default_names()
 
         edition1, pool1 = self._edition(gitenberg_source, Identifier.GUTENBERG_ID,
             with_license_pool=True, with_open_access_download=True, authors=[])
-        edition1.title = u"The 1st Title"
-        edition1.subtitle = u"The 1st Subtitle"
+        edition1.title = "The 1st Title"
+        edition1.subtitle = "The 1st Subtitle"
         edition1.add_contributor(bob, Contributor.AUTHOR_ROLE)
 
         edition2, pool2 = self._edition(gitenberg_source, Identifier.GUTENBERG_ID,
             with_license_pool=True, with_open_access_download=True, authors=[])
-        edition2.title = u"The 2nd Title"
-        edition2.subtitle = u"The 2nd Subtitle"
+        edition2.title = "The 2nd Title"
+        edition2.subtitle = "The 2nd Subtitle"
         edition2.add_contributor(bob, Contributor.AUTHOR_ROLE)
-        [alice], ignore = Contributor.lookup(self._db, u"Adder, Alice")
+        [alice], ignore = Contributor.lookup(self._db, "Adder, Alice")
         alice.family_name, alice.display_name = alice.default_names()
         edition2.add_contributor(alice, Contributor.AUTHOR_ROLE)
 
         edition3, pool3 = self._edition(gutenberg_source, Identifier.GUTENBERG_ID,
             with_license_pool=True, with_open_access_download=True, authors=[])
-        edition3.title = u"The 2nd Title"
-        edition3.subtitle = u"The 2nd Subtitle"
+        edition3.title = "The 2nd Title"
+        edition3.subtitle = "The 2nd Subtitle"
         edition3.add_contributor(bob, Contributor.AUTHOR_ROLE)
         edition3.add_contributor(alice, Contributor.AUTHOR_ROLE)
 
@@ -285,7 +285,7 @@ class TestWork(DatabaseTest):
         assert (datetime.datetime.utcnow() - work.last_update_time) < datetime.timedelta(seconds=2)
 
         # The index has not been updated.
-        eq_([], index.docs.items())
+        eq_([], list(index.docs.items()))
 
         # The Work now has a complete set of WorkCoverageRecords
         # associated with it, reflecting all the operations that
@@ -346,7 +346,7 @@ class TestWork(DatabaseTest):
 
         staff_edition = self._edition(data_source_name=DataSource.LIBRARY_STAFF,
             with_license_pool=False, authors=[])
-        staff_edition.title = u"The Staff Title"
+        staff_edition.title = "The Staff Title"
         staff_edition.primary_identifier = pool2.identifier
         # set edition's authorship to "nope", and make sure the lower-priority
         # editions' authors don't get clobbered
@@ -510,7 +510,7 @@ class TestWork(DatabaseTest):
         eq_(True, work.presentation_ready)
 
         # The work has not been added to the search index.
-        eq_([], search.docs.keys())
+        eq_([], list(search.docs.keys()))
 
         # But the work of adding it to the search engine has been
         # registered.
@@ -538,7 +538,7 @@ class TestWork(DatabaseTest):
         assert_record()
 
         # Restore the title, and everything is fixed.
-        presentation.title = u"foo"
+        presentation.title = "foo"
         work.set_presentation_ready_based_on_content(search_index_client=search)
         eq_(True, work.presentation_ready)
 
@@ -574,13 +574,13 @@ class TestWork(DatabaseTest):
         work.assign_genres_from_weights({Romance : 1000, Fantasy : 1000})
         self._db.commit()
         before = sorted((x.genre.name, x.affinity) for x in work.work_genres)
-        eq_([(u'Fantasy', 0.5), (u'Romance', 0.5)], before)
+        eq_([('Fantasy', 0.5), ('Romance', 0.5)], before)
 
         # But now it's classified under Science Fiction and Romance.
         work.assign_genres_from_weights({Romance : 100, Science_Fiction : 300})
         self._db.commit()
         after = sorted((x.genre.name, x.affinity) for x in work.work_genres)
-        eq_([(u'Romance', 0.25), (u'Science Fiction', 0.75)], after)
+        eq_([('Romance', 0.25), ('Science Fiction', 0.75)], after)
 
     def test_classifications_with_genre(self):
         work = self._work(with_open_access_download=True)
@@ -1499,7 +1499,7 @@ class TestWork(DatabaseTest):
         # The work was not added to the search index when we called
         # external_index_needs_updating. That happens later, when the
         # WorkCoverageRecord is processed.
-        eq_([], index.docs.values())
+        eq_([], list(index.docs.values()))
 
     def test_for_unchecked_subjects(self):
 
@@ -1555,8 +1555,8 @@ class TestWork(DatabaseTest):
         work.marc_record = None
 
         work.calculate_marc_record()
-        assert work.title.encode("utf8") in work.marc_record
-        assert b"online resource" in work.marc_record
+        assert work.title in work.marc_record
+        assert "online resource" in work.marc_record
 
     def test_active_licensepool_ignores_superceded_licensepools(self):
         work = self._work(with_license_pool=True,
@@ -1726,7 +1726,7 @@ class TestWorkConsolidation(DatabaseTest):
         work, created = pool.calculate_work()
         eq_(None, work)
 
-        edition.title = u"foo"
+        edition.title = "foo"
         work, created = pool.calculate_work()
         edition.calculate_presentation()
         eq_(True, created)
@@ -1734,8 +1734,8 @@ class TestWorkConsolidation(DatabaseTest):
         # # The edition is the work's presentation edition.
         eq_(work, edition.work)
         eq_(edition, work.presentation_edition)
-        eq_(u"foo", work.title)
-        eq_(u"[Unknown]", work.author)
+        eq_("foo", work.title)
+        eq_("[Unknown]", work.author)
 
     def test_calculate_work_fails_when_presentation_edition_identifier_does_not_match_license_pool(self):
 

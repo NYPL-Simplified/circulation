@@ -315,7 +315,7 @@ class TestCoverageRecord(DatabaseTest):
 
     def test_bulk_add(self):
         source = DataSource.lookup(self._db, DataSource.GUTENBERG)
-        operation = u'testing'
+        operation = 'testing'
 
         # An untouched identifier.
         i1 = self._identifier()
@@ -325,7 +325,7 @@ class TestCoverageRecord(DatabaseTest):
         existing = self._coverage_record(
             covered, source, operation=operation,
             status=CoverageRecord.TRANSIENT_FAILURE,
-            exception=u'Uh oh'
+            exception='Uh oh'
         )
         original_timestamp = existing.timestamp
 
@@ -377,7 +377,7 @@ class TestCoverageRecord(DatabaseTest):
 
     def test_bulk_add_with_collection(self):
         source = DataSource.lookup(self._db, DataSource.GUTENBERG)
-        operation = u'testing'
+        operation = 'testing'
 
         c1 = self._collection()
         c2 = self._collection()
@@ -390,7 +390,7 @@ class TestCoverageRecord(DatabaseTest):
         existing = self._coverage_record(
             covered, source, operation=operation,
             status=CoverageRecord.TRANSIENT_FAILURE, collection=c1,
-            exception=u'Danger, Will Robinson'
+            exception='Danger, Will Robinson'
         )
         original_timestamp = existing.timestamp
 
@@ -419,7 +419,7 @@ class TestCoverageRecord(DatabaseTest):
         # Bulk add for a different collection.
         resulting_records, ignored_identifiers = CoverageRecord.bulk_add(
             [covered], source, operation=operation, collection=c2,
-            status=CoverageRecord.TRANSIENT_FAILURE, exception=u'Oh no',
+            status=CoverageRecord.TRANSIENT_FAILURE, exception='Oh no',
         )
 
         # A new record has been added to the identifier.
@@ -429,7 +429,7 @@ class TestCoverageRecord(DatabaseTest):
         eq_(CoverageRecord.TRANSIENT_FAILURE, new_record.status)
         eq_(source, new_record.data_source)
         eq_(operation, new_record.operation)
-        eq_(u'Oh no', new_record.exception)
+        eq_('Oh no', new_record.exception)
 
 class TestWorkCoverageRecord(DatabaseTest):
 

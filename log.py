@@ -5,14 +5,14 @@ import json
 import os
 import socket
 from flask_babel import lazy_gettext as _
-from config import Configuration
-from StringIO import StringIO
+from .config import Configuration
+from io import StringIO
 from loggly.handlers import HTTPSHandler as LogglyHandler
 from watchtower import CloudWatchLogHandler
 from boto3.session import Session as AwsSession
-from config import CannotLoadConfiguration
-from model import ExternalIntegration, ConfigurationSetting
-from util.string_helpers import native_string
+from .config import CannotLoadConfiguration
+from .model import ExternalIntegration, ConfigurationSetting
+from .util.string_helpers import native_string
 
 class JSONFormatter(logging.Formatter):
     hostname = socket.gethostname()
@@ -35,7 +35,7 @@ class JSONFormatter(logging.Formatter):
             we don't want to try to interpolate an incompatible type; it
             could lead to a UnicodeDecodeError.
             """
-            if isinstance(s, (bytes, unicode)):
+            if isinstance(s, (bytes, str)):
                 s = native_string(s)
             return s
 
@@ -45,7 +45,7 @@ class JSONFormatter(logging.Formatter):
             )
             try:
                 message = message % record_args
-            except Exception, e:
+            except Exception as e:
                 # There was a problem formatting the log message,
                 # which points to a bug. A problem with the logging
                 # code shouldn't break the code that actually does the
@@ -191,7 +191,7 @@ class Loggly(Logger):
     @classmethod
     def from_configuration(cls, _db, testing=False):
         loggly = None
-        from model import (ExternalIntegration, ConfigurationSetting)
+        from .model import (ExternalIntegration, ConfigurationSetting)
 
         app_name = cls.DEFAULT_APP_NAME
         if _db and not testing:
@@ -219,7 +219,7 @@ class Loggly(Logger):
             )
         try:
             url = cls._interpolate_loggly_url(url, token)
-        except (TypeError, KeyError), e:
+        except (TypeError, KeyError) as e:
             raise CannotLoadConfiguration(
                 "Cannot interpolate token %s into loggly URL %s" % (
                     token, url,
@@ -511,9 +511,9 @@ class LogConfiguration(object):
                 handler = logger.from_configuration(_db, testing)
                 if handler:
                     handlers.append(handler)
-            except Exception, e:
+            except Exception as e:
                 errors.append(
-                    "Error creating logger %s %s" % (logger.NAME, unicode(e))
+                    "Error creating logger %s %s" % (logger.NAME, str(e))
                 )
 
         return log_level, database_log_level, handlers, errors

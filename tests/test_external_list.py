@@ -57,7 +57,7 @@ class TestCustomListFromCSV(DatabaseTest):
         row[fn] = sort_author
         row['isbn'] = self._isbn
 
-        for key in l.subject_fields.keys():
+        for key in list(l.subject_fields.keys()):
             row[key] = ", ".join([self._str, self._str])
 
         for timekey in (l.first_appearance_field,
@@ -73,9 +73,9 @@ class TestCustomListFromCSV(DatabaseTest):
         row = dict()
         eq_(None, m(row))
         row[self.l.annotation_author_name_field] = "Alice"
-        eq_(u" —Alice", m(row))
+        eq_(" —Alice", m(row))
         row[self.l.annotation_author_affiliation_field] = "2nd Street Branch"
-        eq_(u" —Alice, 2nd Street Branch", m(row))
+        eq_(" —Alice, 2nd Street Branch", m(row))
         del row[self.l.annotation_author_name_field]
         eq_(None, m(row))
 

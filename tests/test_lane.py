@@ -346,9 +346,9 @@ class TestFacets(DatabaseTest):
 
     def _configure_facets(self, library, enabled, default):
         """Set facet configuration for the given Library."""
-        for key, values in enabled.items():
+        for key, values in list(enabled.items()):
             library.enabled_facets_setting(key).value = json.dumps(values)
-        for key, value in default.items():
+        for key, value in list(default.items()):
             library.default_facet_setting(key).value = value
 
     def test_max_cache_age(self):
@@ -1831,16 +1831,16 @@ class TestWorkList(DatabaseTest):
         wl.initialize(library=self._default_library)
 
         # No audience.
-        eq_(u'', wl.audience_key)
+        eq_('', wl.audience_key)
 
         # All audiences.
         wl.audiences = Classifier.AUDIENCES
-        eq_(u'', wl.audience_key)
+        eq_('', wl.audience_key)
 
         # Specific audiences.
         wl.audiences = [Classifier.AUDIENCE_CHILDREN,
                         Classifier.AUDIENCE_YOUNG_ADULT]
-        eq_(u'Children,Young+Adult', wl.audience_key)
+        eq_('Children,Young+Adult', wl.audience_key)
 
     def test_parent(self):
         # A WorkList has no parent.

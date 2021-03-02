@@ -6,46 +6,46 @@ import re
 from collections import OrderedDict
 
 class DataSourceConstants(object):
-    GUTENBERG = u"Gutenberg"
-    OVERDRIVE = u"Overdrive"
-    ODILO = u"Odilo"
-    PROJECT_GITENBERG = u"Project GITenberg"
-    STANDARD_EBOOKS = u"Standard Ebooks"
-    UNGLUE_IT = u"unglue.it"
-    BIBLIOTHECA = u"Bibliotheca"
-    OCLC = u"OCLC Classify"
-    OCLC_LINKED_DATA = u"OCLC Linked Data"
-    AMAZON = u"Amazon"
-    XID = u"WorldCat xID"
-    AXIS_360 = u"Axis 360"
-    WEB = u"Web"
-    OPEN_LIBRARY = u"Open Library"
-    CONTENT_CAFE = u"Content Cafe"
-    VIAF = u"VIAF"
-    GUTENBERG_COVER_GENERATOR = u"Gutenberg Illustrated"
-    GUTENBERG_EPUB_GENERATOR = u"Project Gutenberg EPUB Generator"
-    METADATA_WRANGLER = u"Library Simplified metadata wrangler"
-    MANUAL = u"Manual intervention"
-    NOVELIST = u"NoveList Select"
-    NYT = u"New York Times"
-    NYPL_SHADOWCAT = u"NYPL Shadowcat"
-    LIBRARY_STAFF = u"Library staff"
-    ADOBE = u"Adobe DRM"
-    PLYMPTON = u"Plympton"
-    RB_DIGITAL = u"RBdigital"
-    ELIB = u"eLiburutegia"
-    OA_CONTENT_SERVER = u"Library Simplified Open Access Content Server"
-    PRESENTATION_EDITION = u"Presentation edition generator"
-    INTERNAL_PROCESSING = u"Library Simplified Internal Process"
-    FEEDBOOKS = u"FeedBooks"
-    BIBBLIO = u"Bibblio"
-    ENKI = u"Enki"
-    LCP = u"LCP"
-    PROQUEST = u"ProQuest"
+    GUTENBERG = "Gutenberg"
+    OVERDRIVE = "Overdrive"
+    ODILO = "Odilo"
+    PROJECT_GITENBERG = "Project GITenberg"
+    STANDARD_EBOOKS = "Standard Ebooks"
+    UNGLUE_IT = "unglue.it"
+    BIBLIOTHECA = "Bibliotheca"
+    OCLC = "OCLC Classify"
+    OCLC_LINKED_DATA = "OCLC Linked Data"
+    AMAZON = "Amazon"
+    XID = "WorldCat xID"
+    AXIS_360 = "Axis 360"
+    WEB = "Web"
+    OPEN_LIBRARY = "Open Library"
+    CONTENT_CAFE = "Content Cafe"
+    VIAF = "VIAF"
+    GUTENBERG_COVER_GENERATOR = "Gutenberg Illustrated"
+    GUTENBERG_EPUB_GENERATOR = "Project Gutenberg EPUB Generator"
+    METADATA_WRANGLER = "Library Simplified metadata wrangler"
+    MANUAL = "Manual intervention"
+    NOVELIST = "NoveList Select"
+    NYT = "New York Times"
+    NYPL_SHADOWCAT = "NYPL Shadowcat"
+    LIBRARY_STAFF = "Library staff"
+    ADOBE = "Adobe DRM"
+    PLYMPTON = "Plympton"
+    RB_DIGITAL = "RBdigital"
+    ELIB = "eLiburutegia"
+    OA_CONTENT_SERVER = "Library Simplified Open Access Content Server"
+    PRESENTATION_EDITION = "Presentation edition generator"
+    INTERNAL_PROCESSING = "Library Simplified Internal Process"
+    FEEDBOOKS = "FeedBooks"
+    BIBBLIO = "Bibblio"
+    ENKI = "Enki"
+    LCP = "LCP"
+    PROQUEST = "ProQuest"
 
     DEPRECATED_NAMES = {
-        u"3M" : BIBLIOTHECA,
-        u"OneClick" : RB_DIGITAL,
+        "3M" : BIBLIOTHECA,
+        "OneClick" : RB_DIGITAL,
     }
     THREEM = BIBLIOTHECA
     ONECLICK = RB_DIGITAL
@@ -94,16 +94,16 @@ class DataSourceConstants(object):
 
 class EditionConstants(object):
     ALL_MEDIUM = object()
-    BOOK_MEDIUM = u"Book"
-    PERIODICAL_MEDIUM = u"Periodical"
-    AUDIO_MEDIUM = u"Audio"
-    MUSIC_MEDIUM = u"Music"
-    VIDEO_MEDIUM = u"Video"
-    IMAGE_MEDIUM = u"Image"
-    COURSEWARE_MEDIUM = u"Courseware"
+    BOOK_MEDIUM = "Book"
+    PERIODICAL_MEDIUM = "Periodical"
+    AUDIO_MEDIUM = "Audio"
+    MUSIC_MEDIUM = "Music"
+    VIDEO_MEDIUM = "Video"
+    IMAGE_MEDIUM = "Image"
+    COURSEWARE_MEDIUM = "Courseware"
 
-    ELECTRONIC_FORMAT = u"Electronic"
-    CODEX_FORMAT = u"Codex"
+    ELECTRONIC_FORMAT = "Electronic"
+    CODEX_FORMAT = "Codex"
 
     # These are all media known to the system.
     KNOWN_MEDIA = (BOOK_MEDIUM, PERIODICAL_MEDIUM, AUDIO_MEDIUM, MUSIC_MEDIUM,
@@ -114,20 +114,20 @@ class EditionConstants(object):
     FULFILLABLE_MEDIA = [BOOK_MEDIUM, AUDIO_MEDIUM]
 
     medium_to_additional_type = {
-        BOOK_MEDIUM : u"http://schema.org/EBook",
-        AUDIO_MEDIUM : u"http://bib.schema.org/Audiobook",
-        PERIODICAL_MEDIUM : u"http://schema.org/PublicationIssue",
-        MUSIC_MEDIUM :  u"http://schema.org/MusicRecording",
-        VIDEO_MEDIUM :  u"http://schema.org/VideoObject",
-        IMAGE_MEDIUM: u"http://schema.org/ImageObject",
-        COURSEWARE_MEDIUM: u"http://schema.org/Course"
+        BOOK_MEDIUM : "http://schema.org/EBook",
+        AUDIO_MEDIUM : "http://bib.schema.org/Audiobook",
+        PERIODICAL_MEDIUM : "http://schema.org/PublicationIssue",
+        MUSIC_MEDIUM :  "http://schema.org/MusicRecording",
+        VIDEO_MEDIUM :  "http://schema.org/VideoObject",
+        IMAGE_MEDIUM: "http://schema.org/ImageObject",
+        COURSEWARE_MEDIUM: "http://schema.org/Course"
     }
 
     additional_type_to_medium = {}
-    for k, v in medium_to_additional_type.items():
+    for k, v in list(medium_to_additional_type.items()):
         additional_type_to_medium[v] = k
 
-    additional_type_to_medium[u"http://schema.org/Book"] = BOOK_MEDIUM
+    additional_type_to_medium["http://schema.org/Book"] = BOOK_MEDIUM
 
     # Map the medium constants to the strings used when generating
     # permanent work IDs.
@@ -144,32 +144,32 @@ class EditionConstants(object):
 
 class IdentifierConstants(object):
     # Common types of identifiers.
-    OVERDRIVE_ID = u"Overdrive ID"
-    ODILO_ID = u"Odilo ID"
-    BIBLIOTHECA_ID = u"Bibliotheca ID"
-    GUTENBERG_ID = u"Gutenberg ID"
-    AXIS_360_ID = u"Axis 360 ID"
-    ELIB_ID = u"eLiburutegia ID"
-    ASIN = u"ASIN"
-    ISBN = u"ISBN"
-    NOVELIST_ID = u"NoveList ID"
-    OCLC_WORK = u"OCLC Work ID"
-    OCLC_NUMBER = u"OCLC Number"
+    OVERDRIVE_ID = "Overdrive ID"
+    ODILO_ID = "Odilo ID"
+    BIBLIOTHECA_ID = "Bibliotheca ID"
+    GUTENBERG_ID = "Gutenberg ID"
+    AXIS_360_ID = "Axis 360 ID"
+    ELIB_ID = "eLiburutegia ID"
+    ASIN = "ASIN"
+    ISBN = "ISBN"
+    NOVELIST_ID = "NoveList ID"
+    OCLC_WORK = "OCLC Work ID"
+    OCLC_NUMBER = "OCLC Number"
     # RBdigital uses ISBNs for ebooks and eaudio, and its own ids for magazines
-    RB_DIGITAL_ID = u"RBdigital ID"
-    OPEN_LIBRARY_ID = u"OLID"
-    BIBLIOCOMMONS_ID = u"Bibliocommons ID"
-    URI = u"URI"
-    DOI = u"DOI"
-    UPC = u"UPC"
-    BIBBLIO_CONTENT_ITEM_ID = u"Bibblio Content Item ID"
-    ENKI_ID = u"Enki ID"
-    SUDOC_CALL_NUMBER = u"SuDoc Call Number"
-    PROQUEST_ID = u"ProQuest Doc ID"
+    RB_DIGITAL_ID = "RBdigital ID"
+    OPEN_LIBRARY_ID = "OLID"
+    BIBLIOCOMMONS_ID = "Bibliocommons ID"
+    URI = "URI"
+    DOI = "DOI"
+    UPC = "UPC"
+    BIBBLIO_CONTENT_ITEM_ID = "Bibblio Content Item ID"
+    ENKI_ID = "Enki ID"
+    SUDOC_CALL_NUMBER = "SuDoc Call Number"
+    PROQUEST_ID = "ProQuest Doc ID"
 
     DEPRECATED_NAMES = {
-        u"3M ID" : BIBLIOTHECA_ID,
-        u"OneClick ID" : RB_DIGITAL_ID,
+        "3M ID" : BIBLIOTHECA_ID,
+        "OneClick ID" : RB_DIGITAL_ID,
     }
     THREEM_ID = BIBLIOTHECA_ID
     ONECLICK_ID = RB_DIGITAL_ID
@@ -193,22 +193,22 @@ class IdentifierConstants(object):
 
 class LinkRelations(object):
     # Some common link relations.
-    CANONICAL = u"canonical"
-    GENERIC_OPDS_ACQUISITION = u"http://opds-spec.org/acquisition"
-    OPEN_ACCESS_DOWNLOAD = u"http://opds-spec.org/acquisition/open-access"
-    IMAGE = u"http://opds-spec.org/image"
-    THUMBNAIL_IMAGE = u"http://opds-spec.org/image/thumbnail"
-    SAMPLE = u"http://opds-spec.org/acquisition/sample"
-    ILLUSTRATION = u"http://librarysimplified.org/terms/rel/illustration"
-    REVIEW = u"http://schema.org/Review"
-    DESCRIPTION = u"http://schema.org/description"
-    SHORT_DESCRIPTION = u"http://librarysimplified.org/terms/rel/short-description"
-    AUTHOR = u"http://schema.org/author"
-    ALTERNATE = u"alternate"
+    CANONICAL = "canonical"
+    GENERIC_OPDS_ACQUISITION = "http://opds-spec.org/acquisition"
+    OPEN_ACCESS_DOWNLOAD = "http://opds-spec.org/acquisition/open-access"
+    IMAGE = "http://opds-spec.org/image"
+    THUMBNAIL_IMAGE = "http://opds-spec.org/image/thumbnail"
+    SAMPLE = "http://opds-spec.org/acquisition/sample"
+    ILLUSTRATION = "http://librarysimplified.org/terms/rel/illustration"
+    REVIEW = "http://schema.org/Review"
+    DESCRIPTION = "http://schema.org/description"
+    SHORT_DESCRIPTION = "http://librarysimplified.org/terms/rel/short-description"
+    AUTHOR = "http://schema.org/author"
+    ALTERNATE = "alternate"
 
     # TODO: Is this the appropriate relation?
-    DRM_ENCRYPTED_DOWNLOAD = u"http://opds-spec.org/acquisition/"
-    BORROW = u"http://opds-spec.org/acquisition/borrow"
+    DRM_ENCRYPTED_DOWNLOAD = "http://opds-spec.org/acquisition/"
+    BORROW = "http://opds-spec.org/acquisition/borrow"
 
     CIRCULATION_ALLOWED = [OPEN_ACCESS_DOWNLOAD, DRM_ENCRYPTED_DOWNLOAD, BORROW, GENERIC_OPDS_ACQUISITION]
     METADATA_ALLOWED = [CANONICAL, IMAGE, THUMBNAIL_IMAGE, ILLUSTRATION, REVIEW,
@@ -218,32 +218,32 @@ class LinkRelations(object):
 
 
 class MediaTypes(object):
-    EPUB_MEDIA_TYPE = u"application/epub+zip"
-    PDF_MEDIA_TYPE = u"application/pdf"
-    MOBI_MEDIA_TYPE = u"application/x-mobipocket-ebook"
-    AMAZON_KF8_MEDIA_TYPE = u"application/x-mobi8-ebook"
-    TEXT_XML_MEDIA_TYPE = u"text/xml"
-    TEXT_HTML_MEDIA_TYPE = u"text/html"
-    APPLICATION_XML_MEDIA_TYPE = u"application/xml"
-    JPEG_MEDIA_TYPE = u"image/jpeg"
-    PNG_MEDIA_TYPE = u"image/png"
-    GIF_MEDIA_TYPE = u"image/gif"
-    SVG_MEDIA_TYPE = u"image/svg+xml"
-    MP3_MEDIA_TYPE = u"audio/mpeg"
-    MP4_MEDIA_TYPE = u"video/mp4"
-    WMV_MEDIA_TYPE = u"video/x-ms-wmv"
-    SCORM_MEDIA_TYPE = u"application/vnd.librarysimplified.scorm+zip"
-    ZIP_MEDIA_TYPE = u"application/zip"
-    OCTET_STREAM_MEDIA_TYPE = u"application/octet-stream"
-    TEXT_PLAIN = u"text/plain"
-    AUDIOBOOK_MANIFEST_MEDIA_TYPE = u"application/audiobook+json"
-    AUDIOBOOK_PACKAGE_MEDIA_TYPE = u"application/audiobook+zip"
-    MARC_MEDIA_TYPE = u"application/marc"
+    EPUB_MEDIA_TYPE = "application/epub+zip"
+    PDF_MEDIA_TYPE = "application/pdf"
+    MOBI_MEDIA_TYPE = "application/x-mobipocket-ebook"
+    AMAZON_KF8_MEDIA_TYPE = "application/x-mobi8-ebook"
+    TEXT_XML_MEDIA_TYPE = "text/xml"
+    TEXT_HTML_MEDIA_TYPE = "text/html"
+    APPLICATION_XML_MEDIA_TYPE = "application/xml"
+    JPEG_MEDIA_TYPE = "image/jpeg"
+    PNG_MEDIA_TYPE = "image/png"
+    GIF_MEDIA_TYPE = "image/gif"
+    SVG_MEDIA_TYPE = "image/svg+xml"
+    MP3_MEDIA_TYPE = "audio/mpeg"
+    MP4_MEDIA_TYPE = "video/mp4"
+    WMV_MEDIA_TYPE = "video/x-ms-wmv"
+    SCORM_MEDIA_TYPE = "application/vnd.librarysimplified.scorm+zip"
+    ZIP_MEDIA_TYPE = "application/zip"
+    OCTET_STREAM_MEDIA_TYPE = "application/octet-stream"
+    TEXT_PLAIN = "text/plain"
+    AUDIOBOOK_MANIFEST_MEDIA_TYPE = "application/audiobook+json"
+    AUDIOBOOK_PACKAGE_MEDIA_TYPE = "application/audiobook+zip"
+    MARC_MEDIA_TYPE = "application/marc"
 
     # To distinguish internally between Overdrive's audiobook and
     # (hopefully future) ebook manifests, we invent values for the
     # 'profile' parameter.
-    OVERDRIVE_MANIFEST_MEDIA_TYPE = u"application/vnd.overdrive.circulation.api+json"
+    OVERDRIVE_MANIFEST_MEDIA_TYPE = "application/vnd.overdrive.circulation.api+json"
     OVERDRIVE_AUDIOBOOK_MANIFEST_MEDIA_TYPE = OVERDRIVE_MANIFEST_MEDIA_TYPE + ";profile=audiobook"
     OVERDRIVE_EBOOK_MANIFEST_MEDIA_TYPE = OVERDRIVE_MANIFEST_MEDIA_TYPE + ";profile=ebook"
 
@@ -317,7 +317,7 @@ class MediaTypes(object):
         ".jpeg" : JPEG_MEDIA_TYPE,
     }
 
-    for media_type, extension in FILE_EXTENSIONS.items():
+    for media_type, extension in list(FILE_EXTENSIONS.items()):
         extension = '.' + extension
         if extension not in MEDIA_TYPE_FOR_EXTENSION:
             # FILE_EXTENSIONS lists more common extensions first.  If

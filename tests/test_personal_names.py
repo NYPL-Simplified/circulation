@@ -1,5 +1,5 @@
 # encoding: utf-8
-from StringIO import StringIO
+from io import StringIO
 import datetime
 import os
 import sys
@@ -55,65 +55,65 @@ class TestNameConversions(DatabaseTest):
             # because it's in "Family, Given" format or for some other
             # reason.
             eq_(x, m(x))
-        unchanged(u"Bitshifter, Bob")
-        unchanged(u"Prince")
-        unchanged(u"Pope Francis")
-        unchanged(u"Heliodorus (bp. of Tricca.)")
-        unchanged(u"谢新源 (Xie Xinyuan)")
-        unchanged(u"Alfred, Lord Tennyson")
-        unchanged(u"Bob, The Grand Duke of Awesomeness")
+        unchanged("Bitshifter, Bob")
+        unchanged("Prince")
+        unchanged("Pope Francis")
+        unchanged("Heliodorus (bp. of Tricca.)")
+        unchanged("谢新源 (Xie Xinyuan)")
+        unchanged("Alfred, Lord Tennyson")
+        unchanged("Bob, The Grand Duke of Awesomeness")
 
-        sort_name = m(u"Bob Bitshifter")
-        eq_(u"Bitshifter, Bob", sort_name)
+        sort_name = m("Bob Bitshifter")
+        eq_("Bitshifter, Bob", sort_name)
 
         # foreign characters don't confuse the algorithm
-        sort_name = m(u"Боб Битшифтер")
-        eq_(u"Битшифтер, Боб", sort_name)
+        sort_name = m("Боб Битшифтер")
+        eq_("Битшифтер, Боб", sort_name)
 
-        sort_name = m(u"Bob Bitshifter, Jr.")
-        eq_(u"Bitshifter, Bob Jr.", sort_name)
+        sort_name = m("Bob Bitshifter, Jr.")
+        eq_("Bitshifter, Bob Jr.", sort_name)
 
-        sort_name = m(u"Bob Bitshifter, III")
-        eq_(u"Bitshifter, Bob III", sort_name)
+        sort_name = m("Bob Bitshifter, III")
+        eq_("Bitshifter, Bob III", sort_name)
 
         eq_("Beck, James M. (James Montgomery)",
             m("James M. (James Montgomery) Beck"))
 
         # all forms of PhD are recognized
-        sort_name = m(u"John Doe, PhD")
-        eq_(u"Doe, John PhD", sort_name)
-        sort_name = m(u"John Doe, Ph.D.")
-        eq_(u"Doe, John PhD", sort_name)
-        sort_name = m(u"John Doe, Ph D")
-        eq_(u"Doe, John PhD", sort_name)
-        sort_name = m(u"John Doe, Ph. D.")
-        eq_(u"Doe, John PhD", sort_name)
-        sort_name = m(u"John Doe, PHD")
-        eq_(u"Doe, John PhD", sort_name)
+        sort_name = m("John Doe, PhD")
+        eq_("Doe, John PhD", sort_name)
+        sort_name = m("John Doe, Ph.D.")
+        eq_("Doe, John PhD", sort_name)
+        sort_name = m("John Doe, Ph D")
+        eq_("Doe, John PhD", sort_name)
+        sort_name = m("John Doe, Ph. D.")
+        eq_("Doe, John PhD", sort_name)
+        sort_name = m("John Doe, PHD")
+        eq_("Doe, John PhD", sort_name)
 
-        sort_name = m(u"John Doe, M.D.")
-        eq_(u"Doe, John MD", sort_name)
+        sort_name = m("John Doe, M.D.")
+        eq_("Doe, John MD", sort_name)
 
         # corporate names are unchanged
-        unchanged(u"Church of Jesus Christ of Latter-day Saints")
-        unchanged(u"(C) 2006 Vanguard")
+        unchanged("Church of Jesus Christ of Latter-day Saints")
+        unchanged("(C) 2006 Vanguard")
 
         # NOTE: These results are not the best.
-        eq_("XVI, Pope Benedict", m(u"Pope Benedict XVI"))
-        eq_("Byron, Lord", m(u"Lord Byron"))
+        eq_("XVI, Pope Benedict", m("Pope Benedict XVI"))
+        eq_("Byron, Lord", m("Lord Byron"))
 
     def test_name_tidy(self):
         # remove improper comma
-        sort_name = display_name_to_sort_name(u"Bitshifter, Bob,")
-        eq_(u"Bitshifter, Bob", sort_name)
+        sort_name = display_name_to_sort_name("Bitshifter, Bob,")
+        eq_("Bitshifter, Bob", sort_name)
 
         # remove improper period
-        sort_name = display_name_to_sort_name(u"Bitshifter, Bober.")
-        eq_(u"Bitshifter, Bober", sort_name)
+        sort_name = display_name_to_sort_name("Bitshifter, Bober.")
+        eq_("Bitshifter, Bober", sort_name)
 
         # retain proper period
-        sort_name = display_name_to_sort_name(u"Bitshifter, B.")
-        eq_(u"Bitshifter, B.", sort_name)
+        sort_name = display_name_to_sort_name("Bitshifter, B.")
+        eq_("Bitshifter, B.", sort_name)
 
 
 

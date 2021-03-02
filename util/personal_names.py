@@ -3,8 +3,9 @@ from nameparser import HumanName
 from nose.tools import set_trace
 import re
 import unicodedata
+from builtins import str
 
-from permanent_work_id import WorkIDCalculator;
+from .permanent_work_id import WorkIDCalculator;
 
 
 """Fallback algorithms for dealing with personal names when VIAF fails us."""
@@ -191,7 +192,7 @@ def name_tidy(name):
         such as lowercasing.
 
     """
-    name = unicodedata.normalize("NFKD", unicode(name))
+    name = unicodedata.normalize("NFKD",  str(name))
     name = WorkIDCalculator.consecutiveCharacterStrip.sub(" ", name)
 
     name = name.strip()

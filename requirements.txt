@@ -9,12 +9,12 @@ elasticsearch==6.8.1
 elasticsearch-dsl==6.4.0
 enum34==1.1.10
 expiringdict==1.2.1
-feedparser==5.2.1
+feedparser==6.0.2
 Flask==1.1.2
 Flask-Babel==1.0.0
 flask-sqlalchemy-session==1.1
 funcsigs==1.0.2
-futures==3.3.0
+# futures==3.3.0
 # fuzzywuzzy is for author name manipulations
 fuzzywuzzy==0.18.0
 idna==2.10

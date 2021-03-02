@@ -67,7 +67,7 @@ def slugify(text, length_limit=None):
 
     if length_limit:
         slug = slug[:length_limit]
-    return unicode(slug)
+    return str(slug)
 
 
 class MetadataSimilarity(object):
@@ -103,7 +103,7 @@ class MetadataSimilarity(object):
         if not total:
             total = sum(histogram.values())
         total = float(total)
-        for k, v in histogram.items():
+        for k, v in list(histogram.items()):
             histogram[k] = v/total
         return histogram
 
@@ -137,13 +137,13 @@ class MetadataSimilarity(object):
         differences = []
         # For every item that appears in histogram 1, compare its
         # frequency against the frequency of that item in histogram 2.
-        for k, v in counter1.items():
+        for k, v in list(counter1.items()):
             difference = abs(v - counter2.get(k, 0))
             differences.append(difference)
 
         # Add the frequency of every item that appears in histogram 2
         # titles but not in histogram 1.
-        for k, v in counter2.items():
+        for k, v in list(counter2.items()):
             if k not in counter1:
                 differences.append(abs(v))
 
@@ -275,12 +275,12 @@ class Bigrams(object):
 
     def difference_from(self, other_bigrams):
         total_difference = 0
-        for bigram, proportion in self.proportional.items():
+        for bigram, proportion in list(self.proportional.items()):
             other_proportion = other_bigrams.proportional[bigram]
             difference = abs(other_proportion - proportion)
             total_difference += difference
             # print "%s %.4f-%.4f = %.4f => %.4f" % (bigram, other_proportion, proportion, difference, total_difference)
-        for bigram, proportion in other_bigrams.proportional.items():
+        for bigram, proportion in list(other_bigrams.proportional.items()):
             if bigram not in self.proportional:
                 total_difference += proportion
                 # print "%s MISSING %.4f => %.4f" % (bigram, proportion, total_difference)
@@ -527,7 +527,7 @@ class MoneyUtility(object):
         currency = cls.DEFAULT_CURRENCY
         if not amount:
             amount = '0'
-        amount = unicode(amount)
+        amount = str(amount)
         if amount[0] == '$':
             currency = 'USD'
             amount = amount[1:]

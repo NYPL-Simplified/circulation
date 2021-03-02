@@ -205,7 +205,7 @@ class TestRepresentation(DatabaseTest):
         eq_(Representation.JPEG_MEDIA_TYPE, m_file(jpg_file))
         eq_(Representation.ZIP_MEDIA_TYPE, m_file(zip_file))
 
-        for extension, media_type in Representation.MEDIA_TYPE_FOR_EXTENSION.items():
+        for extension, media_type in list(Representation.MEDIA_TYPE_FOR_EXTENSION.items()):
             filename = "file" + extension
             eq_(media_type, m_file(filename))
 
@@ -296,14 +296,14 @@ class TestRepresentation(DatabaseTest):
         eq_(b"some text", fh.read())
 
     def test_unicode_content_utf8_default(self):
-        unicode_content = u"It’s complicated."
+        unicode_content = "It’s complicated."
 
         utf8_content = unicode_content.encode("utf8")
 
         # This bytestring can be decoded as Windows-1252, but that
         # would be the wrong answer.
         bad_windows_1252 = utf8_content.decode("windows-1252")
-        eq_(u"Itâ€™s complicated.", bad_windows_1252)
+        eq_("Itâ€™s complicated.", bad_windows_1252)
 
         representation, ignore = self._representation(self._url, "text/plain")
         representation.set_fetched_content(unicode_content, None)
@@ -314,7 +314,7 @@ class TestRepresentation(DatabaseTest):
         eq_(unicode_content, representation.unicode_content)
 
     def test_unicode_content_windows_1252(self):
-        unicode_content = u"A “love” story"
+        unicode_content = "A “love” story"
         windows_1252_content = unicode_content.encode("windows-1252")
 
         representation, ignore = self._representation(self._url, "text/plain")

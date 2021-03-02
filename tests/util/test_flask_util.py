@@ -26,7 +26,7 @@ class TestResponse(object):
         eq_(1002, response.max_age)
         assert isinstance(response, FlaskResponse)
         eq_(401, response.status_code)
-        eq_("content", response.data)
+        eq_("content", response.data.decode("utf-8"))
         eq_(True, response.direct_passthrough)
 
         # Response.headers is tested in more detail below.
@@ -84,8 +84,8 @@ class TestResponse(object):
     def test_unicode(self):
         # You can easily convert a Response object to Unicode
         # for use in a test.
-        obj = Response(u"some data")
-        eq_(u"some data", unicode(obj))
+        obj = Response("some data")
+        eq_("some data", str(obj))
 
 
 class TestOPDSFeedResponse(object):

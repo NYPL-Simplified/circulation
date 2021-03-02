@@ -465,7 +465,7 @@ class TestErrorHandler(DatabaseTest):
             response = None
             try:
                 self.raise_exception()
-            except Exception, exception:
+            except Exception as exception:
                 response = handler.handle(exception)
             eq_(500, response.status_code)
             eq_("An internal error occured", response.data.decode("utf8"))
@@ -481,7 +481,7 @@ class TestErrorHandler(DatabaseTest):
             response = None
             try:
                 self.raise_exception()
-            except Exception, exception:
+            except Exception as exception:
                 response = handler.handle(exception)
             eq_(500, response.status_code)
             assert response.data.startswith(b'Traceback (most recent call last)')
@@ -492,7 +492,7 @@ class TestErrorHandler(DatabaseTest):
         with self.app.test_request_context('/'):
             try:
                 self.raise_exception(CanBeProblemDetailDocument)
-            except Exception, exception:
+            except Exception as exception:
                 response = handler.handle(exception)
 
             eq_(400, response.status_code)
@@ -511,15 +511,15 @@ class TestErrorHandler(DatabaseTest):
         with self.app.test_request_context('/'):
             try:
                 self.raise_exception(CanBeProblemDetailDocument)
-            except Exception, exception:
+            except Exception as exception:
                 response = handler.handle(exception)
 
             eq_(400, response.status_code)
             data = json.loads(response.data.decode("utf8"))
             eq_(INVALID_URN.title, data['title'])
             assert data['debug_message'].startswith(
-                u"A debug_message which should only appear in debug mode.\n\n"
-                u'Traceback (most recent call last)'
+                "A debug_message which should only appear in debug mode.\n\n"
+                'Traceback (most recent call last)'
             )
 
 
@@ -533,7 +533,7 @@ class TestCompressibleAnnotator(object):
         # Test the @compressible annotator.
 
         # Prepare a value and a gzipped version of the value.
-        value = "Compress me! (Or not.)"
+        value = b"Compress me! (Or not.)"
 
         buffer = BytesIO()
         gzipped = gzip.GzipFile(mode='wb', fileobj=buffer)
@@ -542,7 +542,7 @@ class TestCompressibleAnnotator(object):
         compressed = buffer.getvalue()
 
         # Spot-check the compressed value
-        assert '-(J-.V' in compressed
+        assert b'-(J-.V' in compressed
 
         # This compressible controller function always returns the
         # same value.

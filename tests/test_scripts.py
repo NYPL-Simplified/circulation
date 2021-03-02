@@ -1,10 +1,11 @@
+from nose.tools import set_trace
 import datetime
 import os
 import random
 import shutil
 import stat
 import tempfile
-from StringIO import StringIO
+from io import StringIO
 
 from nose.tools import (
     assert_raises,
@@ -443,7 +444,7 @@ class TestRunMultipleMonitorsScript(DatabaseTest):
 
         # The exception that crashed the second monitor was stored as
         # .exception, in case we want to look at it.
-        eq_("Doomed!", unicode(m2.exception))
+        eq_("Doomed!", str(m2.exception))
         eq_(None, getattr(m1, 'exception', None))
 
 
@@ -1107,9 +1108,9 @@ class TestDatabaseMigrationScript(DatabaseMigrationScriptTest):
         def extract_filenames(core=True, extensions=['.py', '.sql']):
             extensions = tuple(extensions)
             if core:
-                pathnames = filter(lambda p: 'core' in p, self.migration_files)
+                pathnames = [p for p in self.migration_files if 'core' in p]
             else:
-                pathnames = filter(lambda p: 'core' not in p, self.migration_files)
+                pathnames = [p for p in self.migration_files if 'core' not in p]
 
             return [os.path.split(p)[1] for p in pathnames if p.endswith(extensions)]
 
@@ -2513,7 +2514,7 @@ class TestListCollectionMetadataIdentifiersScript(DatabaseTest):
 
         def expected(c):
             return '(%s) %s/%s => %s\n' % (
-                unicode(c.id), c.name, c.protocol, c.metadata_identifier
+                str(c.id), c.name, c.protocol, c.metadata_identifier
             )
 
         # In the output, there's a header, a line describing the format,
@@ -2620,7 +2621,7 @@ class TestMirrorResourcesScript(DatabaseTest):
         )
 
         if settings:
-            for key, value in settings.iteritems():
+            for key, value in settings.items():
                 mirror.setting(key).value = value
 
         integration_link = self._external_integration_link(

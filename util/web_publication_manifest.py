@@ -12,8 +12,7 @@ class JSONable(object):
     of a dictionary.
     """
 
-    # TODO PYTHON3 rename to __str__
-    def __unicode__(self):
+    def __str__(self):
         return json.dumps(self.as_dict)
 
     @property

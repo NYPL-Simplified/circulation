@@ -134,31 +134,31 @@ class TestCoverageProviderProgress(object):
 class CoverageProviderTest(DatabaseTest):
     BIBLIOGRAPHIC_DATA = Metadata(
         DataSource.OVERDRIVE,
-        publisher=u'Perfection Learning',
+        publisher='Perfection Learning',
         language='eng',
-        title=u'A Girl Named Disaster',
+        title='A Girl Named Disaster',
         published=datetime.datetime(1998, 3, 1, 0, 0),
         primary_identifier=IdentifierData(
             type=Identifier.OVERDRIVE_ID,
-            identifier=u'ba9b3419-b0bd-4ca7-a24f-26c4246b6b44'
+            identifier='ba9b3419-b0bd-4ca7-a24f-26c4246b6b44'
         ),
         identifiers = [
             IdentifierData(
                     type=Identifier.OVERDRIVE_ID,
-                    identifier=u'ba9b3419-b0bd-4ca7-a24f-26c4246b6b44'
+                    identifier='ba9b3419-b0bd-4ca7-a24f-26c4246b6b44'
                 ),
-            IdentifierData(type=Identifier.ISBN, identifier=u'9781402550805')
+            IdentifierData(type=Identifier.ISBN, identifier='9781402550805')
         ],
         contributors = [
-            ContributorData(sort_name=u"Nancy Farmer",
+            ContributorData(sort_name="Nancy Farmer",
                             roles=[Contributor.PRIMARY_AUTHOR_ROLE])
         ],
         subjects = [
             SubjectData(type=Subject.TOPIC,
-                        identifier=u'Action & Adventure'),
+                        identifier='Action & Adventure'),
             SubjectData(type=Subject.FREEFORM_AUDIENCE,
-                        identifier=u'Young Adult'),
-            SubjectData(type=Subject.PLACE, identifier=u'Africa')
+                        identifier='Young Adult'),
+            SubjectData(type=Subject.PLACE, identifier='Africa')
         ],
     )
 
@@ -1728,12 +1728,12 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
         # So let's use the CoverageProvider to create an Edition
         # with minimal bibliographic information.
         edition = provider.edition(identifier)
-        edition.title = u"A title"
+        edition.title = "A title"
 
         # Now we can create a Work.
         work = provider.work(identifier)
         assert isinstance(work, Work)
-        eq_(u"A title", work.title)
+        eq_("A title", work.title)
 
         # If necessary, we can tell work() to use a specific
         # LicensePool when calculating the Work. This is an extreme
@@ -1773,10 +1773,10 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
         # If a work exists but is not presentation-ready,
         # CollectionCoverageProvider.work() will call calculate_work()
         # in an attempt to fix it.
-        edition.title = u'Finally a title'
+        edition.title = 'Finally a title'
         work2 = provider.work(pool.identifier, pool)
         eq_(work2, work)
-        eq_(u'Finally a title', work.title)
+        eq_('Finally a title', work.title)
         eq_(True, work.presentation_ready)
 
         # Once the work is presentation_ready, calling
@@ -1939,7 +1939,7 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
         # mark it presentation ready.
         pool = provider.license_pool(identifier)
         edition = provider.edition(identifier)
-        edition.title = u'A title'
+        edition.title = 'A title'
         result = provider.set_presentation_ready(identifier)
         eq_(result, identifier)
         eq_(True, pool.work.presentation_ready)

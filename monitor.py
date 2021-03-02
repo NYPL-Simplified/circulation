@@ -8,10 +8,10 @@ from sqlalchemy.sql.expression import (
     or_,
 )
 
-import log # This sets the appropriate log format and level.
-from config import Configuration
-from metadata_layer import TimestampData
-from model import (
+from . import log # This sets the appropriate log format and level.
+from .config import Configuration
+from .metadata_layer import TimestampData
+from .model import (
     CachedFeed,
     CirculationEvent,
     Collection,
@@ -31,7 +31,7 @@ from model import (
     get_one,
     get_one_or_create,
 )
-from model.configuration import ConfigurationSetting
+from .model.configuration import ConfigurationSetting
 
 
 class Monitor(object):
@@ -668,13 +668,13 @@ class MakePresentationReadyMonitor(NotPresentationReadyWorkSweepMonitor):
 
         try:
             self.prepare(work)
-        except CoverageProvidersFailed, e:
+        except CoverageProvidersFailed as e:
             exception = "Provider(s) failed: %s" % e
-        except Exception, e:
+        except Exception as e:
             self.log.error(
                 "Exception processing work %r", work, exc_info=e
             )
-            exception = unicode(e)
+            exception = str(e)
 
         if exception:
             # Unlike with most Monitors, an exception is not a good
@@ -854,7 +854,7 @@ class WorkReaper(ReaperMonitor):
     MODEL_CLASS = Work
 
     def __init__(self, *args, **kwargs):
-        from external_search import ExternalSearchIndex
+        from .external_search import ExternalSearchIndex
         search_index_client = kwargs.pop('search_index_client', None)
         super(WorkReaper, self).__init__(*args, **kwargs)
         self.search_index_client = (
@@ -913,7 +913,7 @@ class MeasurementReaper(ReaperMonitor):
     def run_once(self, *args, **kwargs):
         rows_deleted = self.query().delete()
         self._db.commit()
-        return TimestampData(achievements=u"Items deleted: %d" % rows_deleted)
+        return TimestampData(achievements="Items deleted: %d" % rows_deleted)
 
 ReaperMonitor.REGISTRY.append(MeasurementReaper)
 

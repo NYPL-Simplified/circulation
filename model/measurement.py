@@ -3,7 +3,7 @@
 from nose.tools import set_trace
 
 from . import Base
-from constants import DataSourceConstants
+from .constants import DataSourceConstants
 
 import bisect
 import logging
@@ -24,16 +24,16 @@ class Measurement(Base):
     __tablename__ = 'measurements'
 
     # Some common measurement types
-    POPULARITY = u"http://librarysimplified.org/terms/rel/popularity"
-    QUALITY = u"http://librarysimplified.org/terms/rel/quality"
-    PUBLISHED_EDITIONS = u"http://librarysimplified.org/terms/rel/editions"
-    HOLDINGS = u"http://librarysimplified.org/terms/rel/holdings"
-    RATING = u"http://schema.org/ratingValue"
-    DOWNLOADS = u"https://schema.org/UserDownloads"
-    PAGE_COUNT = u"https://schema.org/numberOfPages"
-    AWARDS = u"http://librarysimplified.org/terms/rel/awards"
+    POPULARITY = "http://librarysimplified.org/terms/rel/popularity"
+    QUALITY = "http://librarysimplified.org/terms/rel/quality"
+    PUBLISHED_EDITIONS = "http://librarysimplified.org/terms/rel/editions"
+    HOLDINGS = "http://librarysimplified.org/terms/rel/holdings"
+    RATING = "http://schema.org/ratingValue"
+    DOWNLOADS = "https://schema.org/UserDownloads"
+    PAGE_COUNT = "https://schema.org/numberOfPages"
+    AWARDS = "http://librarysimplified.org/terms/rel/awards"
 
-    GUTENBERG_FAVORITE = u"http://librarysimplified.org/terms/rel/lists/gutenberg-favorite"
+    GUTENBERG_FAVORITE = "http://librarysimplified.org/terms/rel/lists/gutenberg-favorite"
 
     # We have a number of ways of measuring popularity: by an opaque
     # number such as Amazon's Sales Rank, or by a directly measured

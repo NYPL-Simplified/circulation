@@ -57,10 +57,10 @@ class TestIntegrationClient(DatabaseTest):
 
     def test_authenticate(self):
 
-        result = IntegrationClient.authenticate(self._db, u"secret")
+        result = IntegrationClient.authenticate(self._db, "secret")
         eq_(self.client, result)
 
-        result = IntegrationClient.authenticate(self._db, u"wrong_secret")
+        result = IntegrationClient.authenticate(self._db, "wrong_secret")
         eq_(None, result)
 
     def test_normalize_url(self):

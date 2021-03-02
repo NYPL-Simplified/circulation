@@ -54,7 +54,7 @@ class TestLowercased(object):
         assert Lowercased(l) is l
 
         # A number such as a Dewey Decimal number is converted to a string.
-        eq_(u"301", Lowercased(301))
+        eq_("301", Lowercased(301))
 
         # A trailing period is removed.
         l = Lowercased("A string.")
@@ -315,22 +315,22 @@ class TestWorkClassifier(DatabaseTest):
         eq_((None, None), self.classifier.target_age(None))
 
     def test_weight_metadata_title(self):
-        self.work.presentation_edition.title = u"Star Trek: The Book"
+        self.work.presentation_edition.title = "Star Trek: The Book"
         expected_genre = self._genre(classifier.Media_Tie_in_SF)
         self.classifier.weigh_metadata()
         eq_(100, self.classifier.genre_weights[expected_genre])
 
     def test_weight_metadata_publisher(self):
         # Genre publisher and imprint
-        self.work.presentation_edition.publisher = u"Harlequin"
+        self.work.presentation_edition.publisher = "Harlequin"
         expected_genre = self._genre(classifier.Romance)
         self.classifier.weigh_metadata()
         eq_(100, self.classifier.genre_weights[expected_genre])
 
     def test_weight_metadata_imprint(self):
         # Imprint is more specific than publisher, so it takes precedence.
-        self.work.presentation_edition.publisher = u"Harlequin"
-        self.work.presentation_edition.imprint = u"Harlequin Intrigue"
+        self.work.presentation_edition.publisher = "Harlequin"
+        self.work.presentation_edition.imprint = "Harlequin Intrigue"
         expected_genre = self._genre(classifier.Romantic_Suspense)
         general_romance = self._genre(classifier.Romance)
 
@@ -340,8 +340,8 @@ class TestWorkClassifier(DatabaseTest):
 
     def test_metadata_implies_audience_and_genre(self):
         # Genre and audience publisher
-        self.work.presentation_edition.publisher = u"Harlequin"
-        self.work.presentation_edition.imprint = u"Harlequin Teen"
+        self.work.presentation_edition.publisher = "Harlequin"
+        self.work.presentation_edition.imprint = "Harlequin Teen"
         expected_genre = self._genre(classifier.Romance)
 
         self.classifier.weigh_metadata()
@@ -349,8 +349,8 @@ class TestWorkClassifier(DatabaseTest):
         eq_(100, self.classifier.audience_weights[Classifier.AUDIENCE_YOUNG_ADULT])
 
     def test_metadata_implies_fiction_status(self):
-        self.work.presentation_edition.publisher = u"Harlequin"
-        self.work.presentation_edition.imprint = u"Harlequin Nonfiction"
+        self.work.presentation_edition.publisher = "Harlequin"
+        self.work.presentation_edition.imprint = "Harlequin Nonfiction"
         self.classifier.weigh_metadata()
 
         eq_(100, self.classifier.fiction_weights[False])
@@ -359,14 +359,14 @@ class TestWorkClassifier(DatabaseTest):
     def test_publisher_excludes_adult_audience(self):
         # We don't know if this is a children's book or a young adult
         # book, but we're confident it's not a book for adults.
-        self.work.presentation_edition.publisher = u"Scholastic Inc."
+        self.work.presentation_edition.publisher = "Scholastic Inc."
 
         self.classifier.weigh_metadata()
         eq_(-100, self.classifier.audience_weights[Classifier.AUDIENCE_ADULT])
         eq_(-100, self.classifier.audience_weights[Classifier.AUDIENCE_ADULTS_ONLY])
 
     def test_imprint_excludes_adult_audience(self):
-        self.work.presentation_edition.imprint = u"Delacorte Books for Young Readers"
+        self.work.presentation_edition.imprint = "Delacorte Books for Young Readers"
 
         self.classifier.weigh_metadata()
         eq_(-100, self.classifier.audience_weights[Classifier.AUDIENCE_ADULT])
@@ -387,7 +387,7 @@ class TestWorkClassifier(DatabaseTest):
         # There's a little bit of evidence that it's a children's book,
         # but not enough to outweight the distributor's silence.
         c2 = self.identifier.classify(
-            source, Subject.TAG, u"Children's books", weight=1
+            source, Subject.TAG, "Children's books", weight=1
         )
         self.classifier.add(c2)
         self.classifier.prepare_to_classify()
@@ -430,7 +430,7 @@ class TestWorkClassifier(DatabaseTest):
         # that implies the book is for children, so no conclusions are
         # drawn in the prepare_to_classify() step.
         source = DataSource.lookup(self._db, DataSource.OVERDRIVE)
-        c = self.identifier.classify(source, Subject.OVERDRIVE, u"Picture Books", weight=1000)
+        c = self.identifier.classify(source, Subject.OVERDRIVE, "Picture Books", weight=1000)
         self.classifier.prepare_to_classify()
         eq_({}, self.classifier.audience_weights)
 
@@ -601,7 +601,7 @@ class TestWorkClassifier(DatabaseTest):
         self.identifier.classify(source, Subject.TAG, "Comic Books", weight=100)
         self.classifier.add(self.identifier.classifications[0])
         genres = self.classifier.genres(fiction=True)
-        eq_([(classifier.Comics_Graphic_Novels, 100)], genres.items())
+        eq_([(classifier.Comics_Graphic_Novels, 100)], list(genres.items()))
 
     def test_format_classification_not_from_license_source_is_ignored(self):
         # This book will be not classified as a comic book, because
@@ -612,7 +612,7 @@ class TestWorkClassifier(DatabaseTest):
         self.identifier.classify(oclc, Subject.TAG, "Comic Books", weight=100)
         self.classifier.add(self.identifier.classifications[0])
         genres = self.classifier.genres(fiction=True)
-        eq_([], genres.items())
+        eq_([], list(genres.items()))
 
     def test_childrens_book_when_no_evidence_for_adult_book(self):
         # There is no evidence in the 'adult' or 'adults only'
@@ -645,7 +645,7 @@ class TestWorkClassifier(DatabaseTest):
         # audience.
         overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
         c1 = self.identifier.classify(
-            overdrive, Subject.OVERDRIVE, u"Picture Books", weight=10000
+            overdrive, Subject.OVERDRIVE, "Picture Books", weight=10000
         )
         self.classifier.add(c1)
 
@@ -657,7 +657,7 @@ class TestWorkClassifier(DatabaseTest):
         # ages 5 to 7.
         overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
         c1 = self.identifier.classify(
-            overdrive, Subject.OVERDRIVE, u"Beginning Readers", weight=2
+            overdrive, Subject.OVERDRIVE, "Beginning Readers", weight=2
         )
         self.classifier.add(c1)
 
@@ -665,7 +665,7 @@ class TestWorkClassifier(DatabaseTest):
         # book for eleven-year-olds.
         oclc = DataSource.lookup(self._db, DataSource.OCLC)
         c2 = self.identifier.classify(
-            oclc, Subject.TAG, u"Grade 6", weight=3
+            oclc, Subject.TAG, "Grade 6", weight=3
         )
         self.classifier.add(c2)
 
@@ -688,8 +688,8 @@ class TestWorkClassifier(DatabaseTest):
     def test_target_age_errs_towards_wider_span(self):
         i = self._identifier()
         source = DataSource.lookup(self._db, DataSource.OVERDRIVE)
-        c1 = i.classify(source, Subject.AGE_RANGE, u"8-9", weight=1)
-        c2 = i.classify(source, Subject.AGE_RANGE, u"6-7", weight=1)
+        c1 = i.classify(source, Subject.AGE_RANGE, "8-9", weight=1)
+        c2 = i.classify(source, Subject.AGE_RANGE, "6-7", weight=1)
 
         overdrive_edition, lp = self._edition(
             data_source_name=source.name, with_license_pool=True,
@@ -717,11 +717,11 @@ class TestWorkClassifier(DatabaseTest):
         # But any given book is either fiction or nonfiction. If we say this
         # book is fiction, it's classified as 100% SF.
         genres = self.classifier.genres(True)
-        eq_([(fiction_genre.genredata, 100)], genres.items())
+        eq_([(fiction_genre.genredata, 100)], list(genres.items()))
 
         # If we say it's nonfiction, it ends up 100% history.
         genres = self.classifier.genres(False)
-        eq_([(nonfiction_genre.genredata, 100)], genres.items())
+        eq_([(nonfiction_genre.genredata, 100)], list(genres.items()))
 
     def test_genres_consolidated_before_classification(self):
         # A book with Romance=100, Historical Romance=5, Romantic
@@ -743,7 +743,7 @@ class TestWorkClassifier(DatabaseTest):
         # eliminated by the low-pass filter.
         self.classifier.genre_weights[romantic_suspense] = 4
 
-        [genre] = self.classifier.genres(True).items()
+        [genre] = list(self.classifier.genres(True).items())
         eq_((historical_romance.genredata, 105), genre)
 
         # TODO: This behavior is a little random. As in, it's
@@ -763,8 +763,8 @@ class TestWorkClassifier(DatabaseTest):
                        weight=1)
         self.classifier.add(c)
         self.classifier.prepare_to_classify()
-        eq_([9], self.classifier.target_age_lower_weights.keys())
-        eq_([12], self.classifier.target_age_upper_weights.keys())
+        eq_([9], list(self.classifier.target_age_lower_weights.keys()))
+        eq_([12], list(self.classifier.target_age_upper_weights.keys()))
 
     def test_overdrive_juvenile_explicit_target_age(self):
         # An Overdrive book that is classified under "Juvenile" and
@@ -777,8 +777,8 @@ class TestWorkClassifier(DatabaseTest):
             c = i.classify(source, Subject.OVERDRIVE, subject, weight=1)
         self.classifier.add(c)
         self.classifier.prepare_to_classify()
-        eq_([0], self.classifier.target_age_lower_weights.keys())
-        eq_([4], self.classifier.target_age_upper_weights.keys())
+        eq_([0], list(self.classifier.target_age_lower_weights.keys()))
+        eq_([4], list(self.classifier.target_age_upper_weights.keys()))
 
     def test_genre_low_pass_filter(self):
 
@@ -792,13 +792,13 @@ class TestWorkClassifier(DatabaseTest):
         # a weight of at least the total weight * 0.15 to qualify.  In
         # this case, the total weight is 115 and the cutoff weight is
         # 17.25.
-        [[genre, weight]] = self.classifier.genres(True).items()
+        [[genre, weight]] = list(self.classifier.genres(True).items())
         eq_(romance.genredata, genre)
 
         # Increase SF's weight past the cutoff and we get both genres.
         self.classifier.genre_weights[sf] = 18
 
-        [[g1, weight], [g2, weight]] = self.classifier.genres(True).items()
+        [[g1, weight], [g2, weight]] = list(self.classifier.genres(True).items())
         eq_(set([g1, g2]), set([romance.genredata, sf.genredata]))
 
     def test_classify_sets_minimum_age_high_if_minimum_lower_than_maximum(self):
@@ -846,12 +846,12 @@ class TestWorkClassifier(DatabaseTest):
         # do an overall test to verify that classify() returns a 4-tuple
         # (genres, fiction, audience, target_age)
 
-        self.work.presentation_edition.title = u"Science Fiction: A Comprehensive History"
+        self.work.presentation_edition.title = "Science Fiction: A Comprehensive History"
         i = self.identifier
         source = DataSource.lookup(self._db, DataSource.OVERDRIVE)
-        c1 = i.classify(source, Subject.OVERDRIVE, u"History", weight=10)
-        c2 = i.classify(source, Subject.OVERDRIVE, u"Science Fiction", weight=100)
-        c3 = i.classify(source, Subject.OVERDRIVE, u"Young Adult Nonfiction", weight=100)
+        c1 = i.classify(source, Subject.OVERDRIVE, "History", weight=10)
+        c2 = i.classify(source, Subject.OVERDRIVE, "Science Fiction", weight=100)
+        c3 = i.classify(source, Subject.OVERDRIVE, "Young Adult Nonfiction", weight=100)
         for classification in i.classifications:
             self.classifier.add(classification)
         self.classifier.prepare_to_classify()
@@ -862,7 +862,7 @@ class TestWorkClassifier(DatabaseTest):
         # looks *even more* like nonfiction (w=100+10), and science
         # fiction is not a genre of nonfiction. So this book can't be
         # science fiction. It must be history.
-        eq_(u"History", genres.keys()[0].name)
+        eq_("History", list(genres.keys())[0].name)
         eq_(False, fiction)
         eq_(Classifier.AUDIENCE_YOUNG_ADULT, audience)
         eq_((12,17), target_age)
@@ -886,13 +886,13 @@ class TestWorkClassifier(DatabaseTest):
         history = self._genre(classifier.History)
         i = self.identifier
         source = DataSource.lookup(self._db, DataSource.AMAZON)
-        c1 = i.classify(source, Subject.TAG, u"History", weight=1)
+        c1 = i.classify(source, Subject.TAG, "History", weight=1)
         eq_([], self.classifier.classifications)
 
         self.classifier.add(c1)
         old_weight = self.classifier.genre_weights[history]
 
-        c2 = i.classify(source, Subject.TAG, u"History", weight=100)
+        c2 = i.classify(source, Subject.TAG, "History", weight=100)
         self.classifier.add(c2)
         # No effect -- the weights are the same as before.
         eq_(old_weight, self.classifier.genre_weights[history])
@@ -900,7 +900,7 @@ class TestWorkClassifier(DatabaseTest):
         # The same classification can come in from another data source and
         # it will be taken into consideration.
         source2 = DataSource.lookup(self._db, DataSource.OCLC_LINKED_DATA)
-        c3 = i.classify(source2, Subject.TAG, u"History", weight=1)
+        c3 = i.classify(source2, Subject.TAG, "History", weight=1)
         self.classifier.add(c3)
         assert self.classifier.genre_weights[history] > old_weight
 
@@ -922,7 +922,7 @@ class TestWorkClassifier(DatabaseTest):
         self.classifier.add(classification1)
         self.classifier.add(classification2)
         (genre_weights, fiction, audience, target_age) = self.classifier.classify()
-        eq_([genre2.name], [genre.name for genre in genre_weights.keys()])
+        eq_([genre2.name], [genre.name for genre in list(genre_weights.keys())])
 
     def test_staff_none_genre_overrides_others(self):
         source = DataSource.lookup(self._db, DataSource.AXIS_360)
@@ -943,7 +943,7 @@ class TestWorkClassifier(DatabaseTest):
         self.classifier.add(classification1)
         self.classifier.add(classification2)
         (genre_weights, fiction, audience, target_age) = self.classifier.classify()
-        eq_(0, len(genre_weights.keys()))
+        eq_(0, len(list(genre_weights.keys())))
 
     def test_staff_fiction_overrides_others(self):
         source = DataSource.lookup(self._db, DataSource.AXIS_360)

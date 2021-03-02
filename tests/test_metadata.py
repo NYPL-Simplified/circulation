@@ -71,7 +71,7 @@ class TestMetadataImporter(DatabaseTest):
         generator = importer.to_metadata(reader)
         m1, m2, m3 = list(generator)
 
-        eq_(u"Horrorst\xf6r", m1.title)
+        eq_("Horrorst\xf6r", m1.title)
         eq_("Grady Hendrix", m1.contributors[0].display_name)
         eq_("Martin Jensen", m2.contributors[0].display_name)
 
@@ -100,11 +100,11 @@ class TestMetadataImporter(DatabaseTest):
         # Now let's check out subjects.
         eq_(
             [
-                ('schema:typicalAgeRange', u'Adult', 100),
-                ('tag', u'Character Driven', 100),
-                ('tag', u'Historical', 100),
-                ('tag', u'Nail-Biters', 100),
-                ('tag', u'Setting Driven', 100)
+                ('schema:typicalAgeRange', 'Adult', 100),
+                ('tag', 'Character Driven', 100),
+                ('tag', 'Historical', 100),
+                ('tag', 'Nail-Biters', 100),
+                ('tag', 'Setting Driven', 100)
             ],
             [(x.type, x.identifier, x.weight)
              for x in sorted(m2.subjects, key=lambda x: x.identifier)]
@@ -773,26 +773,26 @@ class TestMetadataImporter(DatabaseTest):
         last_update = datetime.datetime(2015, 1, 1)
 
         m = Metadata(data_source=data_source,
-                     title=u"New title", data_source_last_updated=last_update)
+                     title="New title", data_source_last_updated=last_update)
         m.apply(edition, None)
 
         coverage = CoverageRecord.lookup(edition, data_source)
         eq_(last_update, coverage.timestamp)
-        eq_(u"New title", edition.title)
+        eq_("New title", edition.title)
 
         older_last_update = datetime.datetime(2014, 1, 1)
         m = Metadata(data_source=data_source,
-                     title=u"Another new title",
+                     title="Another new title",
                      data_source_last_updated=older_last_update
         )
         m.apply(edition, None)
-        eq_(u"New title", edition.title)
+        eq_("New title", edition.title)
 
         coverage = CoverageRecord.lookup(edition, data_source)
         eq_(last_update, coverage.timestamp)
 
         m.apply(edition, None, force=True)
-        eq_(u"Another new title", edition.title)
+        eq_("Another new title", edition.title)
         coverage = CoverageRecord.lookup(edition, data_source)
         eq_(older_last_update, coverage.timestamp)
 
@@ -963,16 +963,16 @@ class TestContributorData(DatabaseTest):
         contributor_new, changed = contributor_data.apply(contributor_old)
 
         eq_(changed, True)
-        eq_(contributor_new.sort_name, u"Doerr, John")
-        eq_(contributor_new.lc, u"1234567")
-        eq_(contributor_new.viaf, u"ABC123")
-        eq_(contributor_new.aliases, [u"Primo"])
-        eq_(contributor_new.display_name, u"Test Author For The Win")
-        eq_(contributor_new.family_name, u"TestAuttie")
-        eq_(contributor_new.wikipedia_name, u"TestWikiAuth")
-        eq_(contributor_new.biography, u"He was born on Main Street.")
+        eq_(contributor_new.sort_name, "Doerr, John")
+        eq_(contributor_new.lc, "1234567")
+        eq_(contributor_new.viaf, "ABC123")
+        eq_(contributor_new.aliases, ["Primo"])
+        eq_(contributor_new.display_name, "Test Author For The Win")
+        eq_(contributor_new.family_name, "TestAuttie")
+        eq_(contributor_new.wikipedia_name, "TestWikiAuth")
+        eq_(contributor_new.biography, "He was born on Main Street.")
 
-        eq_(contributor_new.extra[Contributor.BIRTH_DATE], u"2001-01-01")
+        eq_(contributor_new.extra[Contributor.BIRTH_DATE], "2001-01-01")
         #eq_(contributor_new.contributions, u"Audio")
 
         contributor_new, changed = contributor_data.apply(contributor_new)
@@ -1167,15 +1167,15 @@ class TestMetadata(DatabaseTest):
 
         metadata = Metadata(
             data_source=DataSource.OVERDRIVE,
-            title=u"The Harry Otter and the Seaweed of Ages",
-            sort_title=u"Harry Otter and the Seaweed of Ages, The",
-            subtitle=u"Kelp At It",
-            series=u"The Harry Otter Sagas",
-            series_position=u"4",
-            language=u"eng",
-            medium=u"Audio",
-            publisher=u"Scholastic Inc",
-            imprint=u"Follywood",
+            title="The Harry Otter and the Seaweed of Ages",
+            sort_title="Harry Otter and the Seaweed of Ages, The",
+            subtitle="Kelp At It",
+            series="The Harry Otter Sagas",
+            series_position="4",
+            language="eng",
+            medium="Audio",
+            publisher="Scholastic Inc",
+            imprint="Follywood",
             published=datetime.date(1987, 5, 4),
             issued=datetime.date(1989, 4, 5)
         )
@@ -1183,15 +1183,15 @@ class TestMetadata(DatabaseTest):
         edition_new, changed = metadata.apply(edition_old, pool.collection)
 
         eq_(changed, True)
-        eq_(edition_new.title, u"The Harry Otter and the Seaweed of Ages")
-        eq_(edition_new.sort_title, u"Harry Otter and the Seaweed of Ages, The")
-        eq_(edition_new.subtitle, u"Kelp At It")
-        eq_(edition_new.series, u"The Harry Otter Sagas")
-        eq_(edition_new.series_position, u"4")
-        eq_(edition_new.language, u"eng")
-        eq_(edition_new.medium, u"Audio")
-        eq_(edition_new.publisher, u"Scholastic Inc")
-        eq_(edition_new.imprint, u"Follywood")
+        eq_(edition_new.title, "The Harry Otter and the Seaweed of Ages")
+        eq_(edition_new.sort_title, "Harry Otter and the Seaweed of Ages, The")
+        eq_(edition_new.subtitle, "Kelp At It")
+        eq_(edition_new.series, "The Harry Otter Sagas")
+        eq_(edition_new.series_position, "4")
+        eq_(edition_new.language, "eng")
+        eq_(edition_new.medium, "Audio")
+        eq_(edition_new.publisher, "Scholastic Inc")
+        eq_(edition_new.imprint, "Follywood")
         eq_(edition_new.published, datetime.date(1987, 5, 4))
         eq_(edition_new.issued, datetime.date(1989, 4, 5))
 
@@ -1215,7 +1215,7 @@ class TestMetadata(DatabaseTest):
         metadata = Metadata(
             data_source=DataSource.OVERDRIVE,
             primary_identifier=work.presentation_edition.primary_identifier,
-            title=u"The Harry Otter and the Seaweed of Ages",
+            title="The Harry Otter and the Seaweed of Ages",
         )
         edition, ignore = metadata.edition(self._db)
         metadata.apply(edition, None)
@@ -1294,7 +1294,7 @@ class TestMetadata(DatabaseTest):
         primary_as_data = IdentifierData(
             type=primary.type, identifier=primary.identifier
         )
-        other_data = IdentifierData(type=u"abc", identifier=u"def")
+        other_data = IdentifierData(type="abc", identifier="def")
 
         # Create a Metadata object that mentions the primary
         # identifier (as an Identifier) in `primary_identifier`, but doesn't
@@ -1332,8 +1332,8 @@ class TestMetadata(DatabaseTest):
         # list of identifiers.
         eq_(1, len(primary.equivalencies))
         [equivalency] = primary.equivalencies
-        eq_(equivalency.output.type, u"abc")
-        eq_(equivalency.output.identifier, u"def")
+        eq_(equivalency.output.type, "abc")
+        eq_(equivalency.output.identifier, "def")
 
     def test_apply_no_value(self):
         edition_old, pool = self._edition(with_license_pool=True)
@@ -1499,7 +1499,7 @@ class TestMetadata(DatabaseTest):
         primary_as_data = IdentifierData(
             type=identifier.type, identifier=identifier.identifier
         )
-        other_data = IdentifierData(type=u"abc", identifier=u"def")
+        other_data = IdentifierData(type="abc", identifier="def")
 
         m = Metadata(
             DataSource.GUTENBERG,
@@ -1518,7 +1518,7 @@ class TestMetadata(DatabaseTest):
             series="1",
             series_position=1,
             publisher="Hello World Publishing House",
-            imprint=u"Follywood",
+            imprint="Follywood",
             issued=datetime.datetime.utcnow(),
             published=datetime.datetime.utcnow(),
             identifiers=[primary_as_data, other_data],

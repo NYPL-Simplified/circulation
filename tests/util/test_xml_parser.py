@@ -47,7 +47,7 @@ class TestXMLParser(object):
         data = b'<?xml version="1.0" encoding="utf-8"><tag>I enjoy invalid characters, such as \x00\x01 and \x1F. But I also like \xe2\x80\x9csmart quotes\xe2\x80\x9d.</tag>'
         parser = MockParser()
         [tag] = parser.process_all(data, "/tag")
-        eq_(u'I enjoy invalid characters, such as  and . But I also like “smart quotes”.', tag.text)
+        eq_('I enjoy invalid characters, such as  and . But I also like “smart quotes”.', tag.text)
 
     def test_invalid_entities_are_stripped(self):
         data = '<?xml version="1.0" encoding="utf-8"><tag>I enjoy invalid entities, such as &#x00;&#x01; and &#x1F;</tag>'

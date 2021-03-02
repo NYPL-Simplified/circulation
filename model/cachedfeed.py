@@ -67,14 +67,14 @@ class CachedFeed(Base):
         nullable=True, index=True)
 
     # Distinct types of feeds that might be cached.
-    GROUPS_TYPE = u'groups'
-    PAGE_TYPE = u'page'
-    NAVIGATION_TYPE = u'navigation'
-    CRAWLABLE_TYPE = u'crawlable'
-    RELATED_TYPE = u'related'
-    RECOMMENDATIONS_TYPE = u'recommendations'
-    SERIES_TYPE = u'series'
-    CONTRIBUTOR_TYPE = u'contributor'
+    GROUPS_TYPE = 'groups'
+    PAGE_TYPE = 'page'
+    NAVIGATION_TYPE = 'navigation'
+    CRAWLABLE_TYPE = 'crawlable'
+    RELATED_TYPE = 'related'
+    RECOMMENDATIONS_TYPE = 'recommendations'
+    SERIES_TYPE = 'series'
+    CONTRIBUTOR_TYPE = 'contributor'
 
     # Special constants for cache durations.
     CACHE_FOREVER = object()
@@ -156,7 +156,10 @@ class CachedFeed(Base):
         if should_refresh:
             # This is a cache miss. Either feed_obj is None or
             # it's no good. We need to generate a new feed.
-            feed_data = unicode(refresher_method())
+            feed_data = refresher_method()
+            if isinstance(feed_data, bytes):
+                feed_data = feed_data.decode("utf-8")
+
             generation_time = datetime.datetime.utcnow()
 
             if max_age is not cls.IGNORE_CACHE:
@@ -328,13 +331,19 @@ class CachedFeed(Base):
             lane_id = None
             unique_key = worklist.unique_key
 
-        facets_key = u""
+        facets_key = ""
         if facets is not None:
-            facets_key = unicode(facets.query_string)
+            if isinstance(facets.query_string, bytes):
+                facets_key = facets.query_string.decode("utf-8")
+            else:
+                facets_key = facets.query_string
 
-        pagination_key = u""
+        pagination_key = ""
         if pagination is not None:
-            pagination_key = unicode(pagination.query_string)
+            if isinstance(pagination.query_string, bytes):
+                pagination_key = pagination.query_string.decode("utf-8")
+            else:
+                pagination_key = pagination.query_string
 
         return cls.CachedFeedKeys(
             feed_type=feed_type, library=library, work=work, lane_id=lane_id,

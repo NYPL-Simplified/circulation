@@ -19,9 +19,9 @@ from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm.session import Session
 
-from constants import DataSourceConstants
-from hasfulltablecache import HasFullTableCache
-from library import Library
+from .constants import DataSourceConstants
+from .hasfulltablecache import HasFullTableCache
+from .library import Library
 from . import (
     Base,
     get_one,
@@ -33,13 +33,14 @@ from ..config import (
 )
 from ..mirror import MirrorUploader
 from ..util.string_helpers import random_string
+from six import with_metaclass
 
 
 class ExternalIntegrationLink(Base, HasFullTableCache):
 
     __tablename__ = 'externalintegrationslinks'
 
-    NO_MIRROR_INTEGRATION = u"NO_MIRROR"
+    NO_MIRROR_INTEGRATION = "NO_MIRROR"
     # Possible purposes that a storage external integration can be used for.
     # These string literals may be stored in the database, so changes to them
     # may need to be accompanied by a DB migration.
@@ -120,21 +121,21 @@ class ExternalIntegration(Base, HasFullTableCache):
     #
     # These integrations are associated with external services such as
     # Google Enterprise which authenticate library administrators.
-    ADMIN_AUTH_GOAL = u'admin_auth'
+    ADMIN_AUTH_GOAL = 'admin_auth'
 
     # These integrations are associated with external services such as
     # SIP2 which authenticate library patrons. Other constants related
     # to this are defined in the circulation manager.
-    PATRON_AUTH_GOAL = u'patron_auth'
+    PATRON_AUTH_GOAL = 'patron_auth'
 
     # These integrations are associated with external services such
     # as Overdrive which provide access to books.
-    LICENSE_GOAL = u'licenses'
+    LICENSE_GOAL = 'licenses'
 
     # These integrations are associated with external services such as
     # the metadata wrangler, which provide information about books,
     # but not the books themselves.
-    METADATA_GOAL = u'metadata'
+    METADATA_GOAL = 'metadata'
 
     # These integrations are associated with external services such as
     # S3 that provide access to book covers.
@@ -142,42 +143,42 @@ class ExternalIntegration(Base, HasFullTableCache):
 
     # These integrations are associated with external services like
     # Cloudfront or other CDNs that mirror and/or cache certain domains.
-    CDN_GOAL = u'CDN'
+    CDN_GOAL = 'CDN'
 
     # These integrations are associated with external services such as
     # Elasticsearch that provide indexed search.
-    SEARCH_GOAL = u'search'
+    SEARCH_GOAL = 'search'
 
     # These integrations are associated with external services such as
     # Google Analytics, which receive analytics events.
-    ANALYTICS_GOAL = u'analytics'
+    ANALYTICS_GOAL = 'analytics'
 
     # These integrations are associated with external services such as
     # Adobe Vendor ID, which manage access to DRM-dependent content.
-    DRM_GOAL = u'drm'
+    DRM_GOAL = 'drm'
 
     # These integrations are associated with external services that
     # help patrons find libraries.
-    DISCOVERY_GOAL = u'discovery'
+    DISCOVERY_GOAL = 'discovery'
 
     # These integrations are associated with external services that
     # collect logs of server-side events.
-    LOGGING_GOAL = u'logging'
+    LOGGING_GOAL = 'logging'
 
     # These integrations are associated with external services that
     # a library uses to manage its catalog.
-    CATALOG_GOAL = u'ils_catalog'
+    CATALOG_GOAL = 'ils_catalog'
 
     # Supported protocols for ExternalIntegrations with LICENSE_GOAL.
-    OPDS_IMPORT = u'OPDS Import'
-    OPDS2_IMPORT = u'OPDS 2.0 Import'
+    OPDS_IMPORT = 'OPDS Import'
+    OPDS2_IMPORT = 'OPDS 2.0 Import'
     OVERDRIVE = DataSourceConstants.OVERDRIVE
     ODILO = DataSourceConstants.ODILO
     BIBLIOTHECA = DataSourceConstants.BIBLIOTHECA
     AXIS_360 = DataSourceConstants.AXIS_360
     RB_DIGITAL = DataSourceConstants.RB_DIGITAL
     ONE_CLICK = RB_DIGITAL
-    OPDS_FOR_DISTRIBUTORS = u'OPDS for Distributors'
+    OPDS_FOR_DISTRIBUTORS = 'OPDS for Distributors'
     ENKI = DataSourceConstants.ENKI
     FEEDBOOKS = DataSourceConstants.FEEDBOOKS
     LCP = DataSourceConstants.LCP
@@ -210,67 +211,67 @@ class ExternalIntegration(Base, HasFullTableCache):
     }
 
     # Integrations with METADATA_GOAL
-    BIBBLIO = u'Bibblio'
-    CONTENT_CAFE = u'Content Cafe'
-    NOVELIST = u'NoveList Select'
-    NYPL_SHADOWCAT = u'Shadowcat'
-    NYT = u'New York Times'
-    METADATA_WRANGLER = u'Metadata Wrangler'
-    CONTENT_SERVER = u'Content Server'
+    BIBBLIO = 'Bibblio'
+    CONTENT_CAFE = 'Content Cafe'
+    NOVELIST = 'NoveList Select'
+    NYPL_SHADOWCAT = 'Shadowcat'
+    NYT = 'New York Times'
+    METADATA_WRANGLER = 'Metadata Wrangler'
+    CONTENT_SERVER = 'Content Server'
 
     # Integrations with STORAGE_GOAL
-    S3 = u'Amazon S3'
-    MINIO = u'MinIO'
-    LCP = u'LCP'
+    S3 = 'Amazon S3'
+    MINIO = 'MinIO'
+    LCP = 'LCP'
 
     # Integrations with CDN_GOAL
-    CDN = u'CDN'
+    CDN = 'CDN'
 
     # Integrations with SEARCH_GOAL
-    ELASTICSEARCH = u'Elasticsearch'
+    ELASTICSEARCH = 'Elasticsearch'
 
     # Integrations with DRM_GOAL
-    ADOBE_VENDOR_ID = u'Adobe Vendor ID'
+    ADOBE_VENDOR_ID = 'Adobe Vendor ID'
 
     # Integrations with DISCOVERY_GOAL
-    OPDS_REGISTRATION = u'OPDS Registration'
+    OPDS_REGISTRATION = 'OPDS Registration'
 
     # Integrations with ANALYTICS_GOAL
-    GOOGLE_ANALYTICS = u'Google Analytics'
+    GOOGLE_ANALYTICS = 'Google Analytics'
 
     # Integrations with ADMIN_AUTH_GOAL
-    GOOGLE_OAUTH = u'Google OAuth'
+    GOOGLE_OAUTH = 'Google OAuth'
 
     # List of such ADMIN_AUTH_GOAL integrations
     ADMIN_AUTH_PROTOCOLS = [GOOGLE_OAUTH]
 
     # Integrations with LOGGING_GOAL
-    INTERNAL_LOGGING = u'Internal logging'
-    LOGGLY = u"Loggly"
-    CLOUDWATCH = u"AWS Cloudwatch Logs"
+    INTERNAL_LOGGING = 'Internal logging'
+    LOGGLY = "Loggly"
+    CLOUDWATCH = "AWS Cloudwatch Logs"
 
     # Integrations with CATALOG_GOAL
-    MARC_EXPORT = u"MARC Export"
+    MARC_EXPORT = "MARC Export"
 
     # Keys for common configuration settings
 
     # If there is a special URL to use for access to this API,
     # put it here.
-    URL = u"url"
+    URL = "url"
 
     # If access requires authentication, these settings represent the
     # username/password or key/secret combination necessary to
     # authenticate. If there's a secret but no key, it's stored in
     # 'password'.
-    USERNAME = u"username"
-    PASSWORD = u"password"
+    USERNAME = "username"
+    PASSWORD = "password"
 
     # If the request should use a custom headers, put it here.
-    CUSTOM_ACCEPT_HEADER = u"custom_accept_header"
+    CUSTOM_ACCEPT_HEADER = "custom_accept_header"
 
     # If want to use an identifier different from <id>, use this config.
-    PRIMARY_IDENTIFIER_SOURCE = u"primary_identifier_source"
-    DCTERMS_IDENTIFIER = u"first_dcterms_identifier"
+    PRIMARY_IDENTIFIER_SOURCE = "primary_identifier_source"
+    DCTERMS_IDENTIFIER = "first_dcterms_identifier"
 
     _cache = HasFullTableCache.RESET
     _id_cache = HasFullTableCache.RESET
@@ -312,7 +313,7 @@ class ExternalIntegration(Base, HasFullTableCache):
     )
 
     def __repr__(self):
-        return u"<ExternalIntegration: protocol=%s goal='%s' settings=%d ID=%d>" % (
+        return "<ExternalIntegration: protocol=%s goal='%s' settings=%d ID=%d>" % (
             self.protocol, self.goal, len(self.settings), self.id)
 
     def cache_key(self):
@@ -379,7 +380,7 @@ class ExternalIntegration(Base, HasFullTableCache):
         if len(integrations) > 1:
             logging.warn("Multiple integrations found for '%s'/'%s'" % (protocol, goal))
 
-        if filter(lambda i: i.libraries, integrations) and not library:
+        if [i for i in integrations if i.libraries] and not library:
             raise ValueError(
                 'This ExternalIntegration requires a library and none was provided.'
             )
@@ -586,7 +587,7 @@ class ConfigurationSetting(Base, HasFullTableCache):
     _id_cache = HasFullTableCache.RESET
 
     def __repr__(self):
-        return u'<ConfigurationSetting: key=%s, ID=%d>' % (
+        return '<ConfigurationSetting: key=%s, ID=%d>' % (
             self.key, self.id)
 
     @classmethod
@@ -708,7 +709,7 @@ class ConfigurationSetting(Base, HasFullTableCache):
     @value.setter
     def value(self, new_value):
         if new_value is not None:
-            new_value = unicode(new_value)
+            new_value = str(new_value)
         self._value = new_value
 
     @classmethod
@@ -801,10 +802,8 @@ class ConfigurationSetting(Base, HasFullTableCache):
         return value
 
 
-class HasExternalIntegration(object):
+class HasExternalIntegration(with_metaclass(ABCMeta, object)):
     """Interface allowing to get access to an external integration"""
-
-    __metaclass__ = ABCMeta
 
     @abstractmethod
     def external_integration(self, db):
@@ -819,10 +818,8 @@ class HasExternalIntegration(object):
         raise NotImplementedError()
 
 
-class BaseConfigurationStorage(object):
+class BaseConfigurationStorage(with_metaclass(ABCMeta, object)):
     """Serializes and deserializes values as configuration settings"""
-
-    __metaclass__ = ABCMeta
 
     @abstractmethod
     def save(self, db, setting_name, value):
@@ -1019,10 +1016,8 @@ class ConfigurationOption(object):
         ]
 
 
-class HasConfigurationSettings(object):
+class HasConfigurationSettings(with_metaclass(ABCMeta, object)):
     """Interface representing class containing ConfigurationMetadata properties"""
-
-    __metaclass__ = ABCMeta
 
     @abstractmethod
     def get_setting_value(self, setting_name):

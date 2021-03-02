@@ -17,13 +17,13 @@ from nose.tools import (
 # from psycopg2.errors import UndefinedTable
 from sqlalchemy.orm.session import Session
 from sqlalchemy.exc import ProgrammingError
-from config import Configuration
+from .config import Configuration
 
-from lane import (
+from .lane import (
     Lane,
 )
-from model.constants import MediaTypes
-from model import (
+from .model.constants import MediaTypes
+from .model import (
     Base,
     PresentationCalculationPolicy,
     SessionManager,
@@ -31,7 +31,7 @@ from model import (
     create,
 )
 
-from model import (
+from .model import (
     CoverageRecord,
     Classification,
     Collection,
@@ -61,10 +61,10 @@ from model import (
     Work,
     WorkCoverageRecord,
 )
-from model.configuration import ExternalIntegrationLink
+from .model.configuration import ExternalIntegrationLink
 
-from classifier import Classifier
-from coverage import (
+from .classifier import Classifier
+from .coverage import (
     BibliographicCoverageProvider,
     CollectionCoverageProvider,
     IdentifierCoverageProvider,
@@ -72,13 +72,13 @@ from coverage import (
     WorkCoverageProvider,
 )
 
-from external_search import (
+from .external_search import (
     MockExternalSearchIndex,
     ExternalSearchIndex,
     SearchIndexCoverageProvider,
 )
-from log import LogConfiguration
-import external_search
+from .log import LogConfiguration
+from . import external_search
 import mock
 import inspect
 
@@ -113,7 +113,7 @@ def package_setup():
             statement = table.delete()
         try:
             engine.execute(statement)
-        except ProgrammingError, e:
+        except ProgrammingError as e:
             # TODO PYTHON3
             # if isinstance(e.orig, UndefinedTable):
             if 'does not exist' in e.message:
@@ -141,7 +141,7 @@ class LogCaptureHandler(logging.Handler):
     def _normalize_level(level):
         return level.lower()
 
-    LEVEL_NAMES = [_normalize_level.__func__(level) for level in _level_names]
+    LEVEL_NAMES = list(map(_normalize_level.__func__, _level_names))
 
     def __init__(self, logger, *args, **kwargs):
         """Constructor.
@@ -303,7 +303,7 @@ class DatabaseTest(object):
 
     @property
     def _str(self):
-        return unicode(self._id)
+        return str(self._id)
 
     @property
     def _time(self):
@@ -329,7 +329,7 @@ class DatabaseTest(object):
 
     def _contributor(self, sort_name=None, name=None, **kw_args):
         name = sort_name or name or self._str
-        return get_one_or_create(self._db, Contributor, sort_name=unicode(name), **kw_args)
+        return get_one_or_create(self._db, Contributor, sort_name=str(name), **kw_args)
 
     def _identifier(self, identifier_type=Identifier.GUTENBERG_ID, foreign_id=None):
         if foreign_id:
@@ -360,7 +360,7 @@ class DatabaseTest(object):
             self._db, source, identifier_type, id)[0]
         if not title:
             title = self._str
-        wr.title = unicode(title)
+        wr.title = str(title)
         wr.medium = Edition.BOOK_MEDIUM
         if series:
             wr.series = series
@@ -368,10 +368,10 @@ class DatabaseTest(object):
             wr.language = language
         if authors is None:
             authors = self._str
-        if isinstance(authors, basestring):
+        if isinstance(authors, str):
             authors = [authors]
         if authors:
-            primary_author_name = unicode(authors[0])
+            primary_author_name = str(authors[0])
             contributor = wr.add_contributor(primary_author_name, Contributor.PRIMARY_AUTHOR_ROLE)
             # add_contributor assumes authors[0] is a sort_name,
             # but it may be a display name. If so, set that field as well.
@@ -380,7 +380,7 @@ class DatabaseTest(object):
             wr.author = primary_author_name
 
         for author in authors[1:]:
-            wr.add_contributor(unicode(author), Contributor.AUTHOR_ROLE)
+            wr.add_contributor(str(author), Contributor.AUTHOR_ROLE)
         if publication_date:
             wr.published = publication_date
 
@@ -427,7 +427,7 @@ class DatabaseTest(object):
         if with_open_access_download:
             with_license_pool = True
         language = language or "eng"
-        title = unicode(title or self._str)
+        title = str(title or self._str)
         audience = audience or Classifier.AUDIENCE_ADULT
         if audience == Classifier.AUDIENCE_CHILDREN and not data_source_name:
             # TODO: This is necessary because Gutenberg's childrens books
@@ -513,7 +513,7 @@ class DatabaseTest(object):
             if not isinstance(genres, list):
                 genres = [genres]
             for genre in genres:
-                if isinstance(genre, basestring):
+                if isinstance(genre, str):
                     genre, ignore = Genre.lookup(self._db, genre)
                 lane.genres.append(genre)
         if languages:
@@ -662,7 +662,7 @@ class DatabaseTest(object):
             self._db, Representation, url=url)
         repr.media_type = media_type
         if media_type and content:
-            if isinstance(content, unicode):
+            if isinstance(content, str):
                 content = content.encode("utf8")
             repr.content = content
             repr.fetched_at = datetime.utcnow()
@@ -755,11 +755,11 @@ class DatabaseTest(object):
                 integration.libraries.extend(libraries)
                 self._db.add(integration)
 
-        for attr, value in kwargs.items():
+        for attr, value in list(kwargs.items()):
             setattr(integration, attr, value)
 
         settings = settings or dict()
-        for key, value in settings.items():
+        for key, value in list(settings.items()):
             integration.set_setting(key, value)
 
         return integration
@@ -808,28 +808,28 @@ class DatabaseTest(object):
         objects that all know each other.
         """
         # make some authors
-        [bob], ignore = Contributor.lookup(self._db, u"Bitshifter, Bob")
+        [bob], ignore = Contributor.lookup(self._db, "Bitshifter, Bob")
         bob.family_name, bob.display_name = bob.default_names()
-        [alice], ignore = Contributor.lookup(self._db, u"Adder, Alice")
+        [alice], ignore = Contributor.lookup(self._db, "Adder, Alice")
         alice.family_name, alice.display_name = alice.default_names()
 
         edition_std_ebooks, pool_std_ebooks = self._edition(DataSource.STANDARD_EBOOKS, Identifier.URI,
             with_license_pool=True, with_open_access_download=True, authors=[])
-        edition_std_ebooks.title = u"The Standard Ebooks Title"
-        edition_std_ebooks.subtitle = u"The Standard Ebooks Subtitle"
+        edition_std_ebooks.title = "The Standard Ebooks Title"
+        edition_std_ebooks.subtitle = "The Standard Ebooks Subtitle"
         edition_std_ebooks.add_contributor(alice, Contributor.AUTHOR_ROLE)
 
         edition_git, pool_git = self._edition(DataSource.PROJECT_GITENBERG, Identifier.GUTENBERG_ID,
             with_license_pool=True, with_open_access_download=True, authors=[])
-        edition_git.title = u"The GItenberg Title"
-        edition_git.subtitle = u"The GItenberg Subtitle"
+        edition_git.title = "The GItenberg Title"
+        edition_git.subtitle = "The GItenberg Subtitle"
         edition_git.add_contributor(bob, Contributor.AUTHOR_ROLE)
         edition_git.add_contributor(alice, Contributor.AUTHOR_ROLE)
 
         edition_gut, pool_gut = self._edition(DataSource.GUTENBERG, Identifier.GUTENBERG_ID,
             with_license_pool=True, with_open_access_download=True, authors=[])
-        edition_gut.title = u"The GUtenberg Title"
-        edition_gut.subtitle = u"The GUtenberg Subtitle"
+        edition_gut.title = "The GUtenberg Title"
+        edition_gut.subtitle = "The GUtenberg Subtitle"
         edition_gut.add_contributor(bob, Contributor.AUTHOR_ROLE)
 
         work = self._work(presentation_edition=edition_git)
@@ -908,84 +908,84 @@ class DatabaseTest(object):
         representations = db_connection.query(Representation).all()
 
         if (not works):
-            print "NO Work found"
+            print("NO Work found")
         for wCount, work in enumerate(works):
             # pipe character at end of line helps see whitespace issues
-            print "Work[%s]=%s|" % (wCount, work)
+            print("Work[%s]=%s|" % (wCount, work))
 
             if (not work.license_pools):
-                print "    NO Work.LicensePool found"
+                print("    NO Work.LicensePool found")
             for lpCount, license_pool in enumerate(work.license_pools):
-                print "    Work.LicensePool[%s]=%s|" % (lpCount, license_pool)
+                print("    Work.LicensePool[%s]=%s|" % (lpCount, license_pool))
 
-            print "    Work.presentation_edition=%s|" % work.presentation_edition
+            print("    Work.presentation_edition=%s|" % work.presentation_edition)
 
-        print "__________________________________________________________________\n"
+        print("__________________________________________________________________\n")
         if (not identifiers):
-            print "NO Identifier found"
+            print("NO Identifier found")
         for iCount, identifier in enumerate(identifiers):
-            print "Identifier[%s]=%s|" % (iCount, identifier)
-            print "    Identifier.licensed_through=%s|" % identifier.licensed_through
+            print("Identifier[%s]=%s|" % (iCount, identifier))
+            print("    Identifier.licensed_through=%s|" % identifier.licensed_through)
 
-        print "__________________________________________________________________\n"
+        print("__________________________________________________________________\n")
         if (not license_pools):
-            print "NO LicensePool found"
+            print("NO LicensePool found")
         for index, license_pool in enumerate(license_pools):
-            print "LicensePool[%s]=%s|" % (index, license_pool)
-            print "    LicensePool.work_id=%s|" % license_pool.work_id
-            print "    LicensePool.data_source_id=%s|" % license_pool.data_source_id
-            print "    LicensePool.identifier_id=%s|" % license_pool.identifier_id
-            print "    LicensePool.presentation_edition_id=%s|" % license_pool.presentation_edition_id
-            print "    LicensePool.superceded=%s|" % license_pool.superceded
-            print "    LicensePool.suppressed=%s|" % license_pool.suppressed
+            print("LicensePool[%s]=%s|" % (index, license_pool))
+            print("    LicensePool.work_id=%s|" % license_pool.work_id)
+            print("    LicensePool.data_source_id=%s|" % license_pool.data_source_id)
+            print("    LicensePool.identifier_id=%s|" % license_pool.identifier_id)
+            print("    LicensePool.presentation_edition_id=%s|" % license_pool.presentation_edition_id)
+            print("    LicensePool.superceded=%s|" % license_pool.superceded)
+            print("    LicensePool.suppressed=%s|" % license_pool.suppressed)
 
-        print "__________________________________________________________________\n"
+        print("__________________________________________________________________\n")
         if (not editions):
-            print "NO Edition found"
+            print("NO Edition found")
         for index, edition in enumerate(editions):
             # pipe character at end of line helps see whitespace issues
-            print "Edition[%s]=%s|" % (index, edition)
-            print "    Edition.primary_identifier_id=%s|" % edition.primary_identifier_id
-            print "    Edition.permanent_work_id=%s|" % edition.permanent_work_id
+            print("Edition[%s]=%s|" % (index, edition))
+            print("    Edition.primary_identifier_id=%s|" % edition.primary_identifier_id)
+            print("    Edition.permanent_work_id=%s|" % edition.permanent_work_id)
             if (edition.data_source):
-                print "    Edition.data_source.id=%s|" % edition.data_source.id
-                print "    Edition.data_source.name=%s|" % edition.data_source.name
+                print("    Edition.data_source.id=%s|" % edition.data_source.id)
+                print("    Edition.data_source.name=%s|" % edition.data_source.name)
             else:
-                print "    No Edition.data_source."
+                print("    No Edition.data_source.")
             if (edition.license_pool):
-                print "    Edition.license_pool.id=%s|" % edition.license_pool.id
+                print("    Edition.license_pool.id=%s|" % edition.license_pool.id)
             else:
-                print "    No Edition.license_pool."
+                print("    No Edition.license_pool.")
 
-            print "    Edition.title=%s|" % edition.title
-            print "    Edition.author=%s|" % edition.author
+            print("    Edition.title=%s|" % edition.title)
+            print("    Edition.author=%s|" % edition.author)
             if (not edition.author_contributors):
-                print "    NO Edition.author_contributor found"
+                print("    NO Edition.author_contributor found")
             for acCount, author_contributor in enumerate(edition.author_contributors):
-                print "    Edition.author_contributor[%s]=%s|" % (acCount, author_contributor)
+                print("    Edition.author_contributor[%s]=%s|" % (acCount, author_contributor))
 
-        print "__________________________________________________________________\n"
+        print("__________________________________________________________________\n")
         if (not data_sources):
-            print "NO DataSource found"
+            print("NO DataSource found")
         for index, data_source in enumerate(data_sources):
-            print "DataSource[%s]=%s|" % (index, data_source)
-            print "    DataSource.id=%s|" % data_source.id
-            print "    DataSource.name=%s|" % data_source.name
-            print "    DataSource.offers_licenses=%s|" % data_source.offers_licenses
-            print "    DataSource.editions=%s|" % data_source.editions
-            print "    DataSource.license_pools=%s|" % data_source.license_pools
-            print "    DataSource.links=%s|" % data_source.links
+            print("DataSource[%s]=%s|" % (index, data_source))
+            print("    DataSource.id=%s|" % data_source.id)
+            print("    DataSource.name=%s|" % data_source.name)
+            print("    DataSource.offers_licenses=%s|" % data_source.offers_licenses)
+            print("    DataSource.editions=%s|" % data_source.editions)
+            print("    DataSource.license_pools=%s|" % data_source.license_pools)
+            print("    DataSource.links=%s|" % data_source.links)
 
-        print "__________________________________________________________________\n"
+        print("__________________________________________________________________\n")
         if (not representations):
-            print "NO Representation found"
+            print("NO Representation found")
         for index, representation in enumerate(representations):
-            print "Representation[%s]=%s|" % (index, representation)
-            print "    Representation.id=%s|" % representation.id
-            print "    Representation.url=%s|" % representation.url
-            print "    Representation.mirror_url=%s|" % representation.mirror_url
-            print "    Representation.fetch_exception=%s|" % representation.fetch_exception
-            print "    Representation.mirror_exception=%s|" % representation.mirror_exception
+            print("Representation[%s]=%s|" % (index, representation))
+            print("    Representation.id=%s|" % representation.id)
+            print("    Representation.url=%s|" % representation.url)
+            print("    Representation.mirror_url=%s|" % representation.mirror_url)
+            print("    Representation.fetch_exception=%s|" % representation.fetch_exception)
+            print("    Representation.mirror_exception=%s|" % representation.mirror_exception)
 
         return
 
@@ -1051,7 +1051,7 @@ class DatabaseTest(object):
         """
         library, ignore = get_one_or_create(
             _db, Library, create_method_kwargs=dict(
-                uuid=unicode(uuid.uuid4()),
+                uuid=str(uuid.uuid4()),
                 name="default",
             ), short_name="default"
         )
@@ -1066,12 +1066,12 @@ class DatabaseTest(object):
             library.collections.append(collection)
         return library
 
-    def _catalog(self, name=u"Faketown Public Library"):
+    def _catalog(self, name="Faketown Public Library"):
         source, ignore = get_one_or_create(self._db, DataSource, name=name)
 
     def _integration_client(self, url=None, shared_secret=None):
         url = url or self._url
-        secret = shared_secret or u"secret"
+        secret = shared_secret or "secret"
         return get_one_or_create(
             self._db, IntegrationClient, shared_secret=secret,
             create_method_kwargs=dict(url=url)
@@ -1127,7 +1127,7 @@ class ExternalSearchTest(DatabaseTest):
     to ensure that it works well overall, with a realistic index.
     """
 
-    SIMPLIFIED_TEST_ELASTICSEARCH = os.environ.get('SIMPLIFIED_TEST_ELASTICSEARCH', u'http://localhost:9200')
+    SIMPLIFIED_TEST_ELASTICSEARCH = os.environ.get('SIMPLIFIED_TEST_ELASTICSEARCH', 'http://localhost:9200')
 
     def setup(self):
 
@@ -1142,8 +1142,8 @@ class ExternalSearchTest(DatabaseTest):
             goal=ExternalIntegration.SEARCH_GOAL,
             url=self.SIMPLIFIED_TEST_ELASTICSEARCH,
             settings={
-                ExternalSearchIndex.WORKS_INDEX_PREFIX_KEY : u'test_index',
-                ExternalSearchIndex.TEST_SEARCH_TERM_KEY : u'test_search_term',
+                ExternalSearchIndex.WORKS_INDEX_PREFIX_KEY : 'test_index',
+                ExternalSearchIndex.TEST_SEARCH_TERM_KEY : 'test_search_term',
             }
         )
 
@@ -1506,7 +1506,7 @@ class DummyHTTPClient(object):
         if media_type:
             headers["content-type"] = media_type
         if other_headers:
-            for k, v in other_headers.items():
+            for k, v in list(other_headers.items()):
                 headers[k.lower()] = v
         self.responses.append((response_code, headers, content))
 
@@ -1560,7 +1560,7 @@ class MockRequestsResponse(object):
         content = self.content
         # The queued content might be a JSON string or it might
         # just be the object you'd get from loading a JSON string.
-        if isinstance(content, (unicode, bytes)):
+        if isinstance(content, (str, bytes)):
             content = json.loads(self.content)
         return content
 

@@ -103,7 +103,7 @@ class TestCustomList(DatabaseTest):
         annotated_entry = custom_list.add_entry(
             annotated_edition, annotation="Sure, this is a good book."
         )[0]
-        eq_(u"Sure, this is a good book.", annotated_entry.annotation)
+        eq_("Sure, this is a good book.", annotated_entry.annotation)
         eq_(4, custom_list.size)
 
         # A first_appearance time can be passed to an entry.
@@ -403,12 +403,12 @@ class TestCustomListEntry(DatabaseTest):
         custom_list, [edition] = self._customlist(entries_exist_as_works=False)
         identifier = edition.primary_identifier
         [entry] = custom_list.entries
-        entry_attributes = vars(entry).values()
+        entry_attributes = list(vars(entry).values())
         created = entry.first_appearance
 
         # Running update without entries or forcing doesn't change the entry.
         entry.update(self._db)
-        eq_(entry_attributes, vars(entry).values())
+        eq_(entry_attributes, list(vars(entry).values()))
 
         # Trying to update an entry with entries from a different
         # CustomList is a no-go.
@@ -446,7 +446,7 @@ class TestCustomListEntry(DatabaseTest):
         # But the most recent appearance is of the entry created last.
         eq_(equivalent_entry.most_recent_appearance, entry.most_recent_appearance)
         # Annotations are shared.
-        eq_(u"Whoo, go books!", entry.annotation)
+        eq_("Whoo, go books!", entry.annotation)
         # The Edition and LicensePool are updated to have a Work.
         eq_(entry.edition, work.presentation_edition)
         eq_(entry.work, equivalent.work)

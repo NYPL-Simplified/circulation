@@ -92,7 +92,7 @@ class TestInitialization(DatabaseTest):
         integration.protocol = protocol
 
         if settings:
-            for key, value in settings.iteritems():
+            for key, value in settings.items():
                 integration.setting(key).value = value
 
         uploader = MirrorUploader.mirror(self._db, integration=integration)
@@ -155,7 +155,7 @@ class TestInitialization(DatabaseTest):
         integration.protocol = protocol
 
         if settings:
-            for key, value in settings.iteritems():
+            for key, value in settings.items():
                 integration.setting(key).value = value
 
         assert_raises_regexp(

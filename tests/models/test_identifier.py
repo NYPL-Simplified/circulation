@@ -613,7 +613,7 @@ class TestIdentifier(DatabaseTest):
         )[0]
 
         def get_entry_dict(entry):
-            return feedparser.parse(unicode(etree.tostring(entry))).entries[0]
+            return feedparser.parse(etree.tostring(entry, encoding="unicode")).entries[0]
 
         def format_timestamp(timestamp):
             return timestamp.strftime('%Y-%m-%dT%H:%M:%SZ')
@@ -672,7 +672,7 @@ class TestIdentifier(DatabaseTest):
         entry = get_entry_dict(identifier.opds_entry())
         # The thumbnail has been added to the links.
         eq_(2, len(entry.links))
-        assert any(filter(lambda l: l.href=='http://thumb', entry.links))
+        assert any([l for l in entry.links if l.href=='http://thumb'])
         # And the updated time has been changed accordingly.
         expected = thumbnail.resource.representation.mirrored_at
         eq_(format_timestamp(even_later), entry.updated)
