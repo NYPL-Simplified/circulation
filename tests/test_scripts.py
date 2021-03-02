@@ -1081,10 +1081,11 @@ class TestDirectoryImportScript(DatabaseTest):
         # disk' and thus no way to actually get the book.
         collection = self._default_collection
         collection_type = CollectionType.OPEN_ACCESS
-        args = (collection, collection_type, metadata, policy, "cover directory",
-                "ebook directory", RightsStatus.CC0)
+        shared_args = (collection_type, metadata, policy,
+                       "cover directory", "ebook directory", RightsStatus.CC0)
+        # args = (collection, *shared_args)
         script = Mock(self._db)
-        eq_(None, script.work_from_metadata(*args))
+        eq_(None, script.work_from_metadata(collection, *shared_args))
         eq_(True, metadata.annotated)
 
         # Now let's try it with some files 'on disk'.
@@ -1101,7 +1102,12 @@ class TestDirectoryImportScript(DatabaseTest):
         script = MockDirectoryImportScript(
             self._db, mock_filesystem=mock_filesystem
         )
-        work = script.work_from_metadata(*args)
+        work = script.work_from_metadata(collection, *shared_args)
+
+        # Get the edition that was created for this book. It should have
+        # already been created by `script.work_from_metadata`.
+        edition, is_new_edition = metadata.edition(self._db)
+        eq_(False, is_new_edition)
 
         # We have created a book. It has a cover image, which has a
         # thumbnail.
@@ -1114,6 +1120,9 @@ class TestDirectoryImportScript(DatabaseTest):
             work.cover_thumbnail_url,
             u'https://test-cover-bucket.s3.amazonaws.com/scaled/300/Gutenberg/Gutenberg%20ID/1003/1003.png'
         )
+        eq_(1, len(work.license_pools))
+        eq_(1, len(edition.license_pools))
+        eq_(1, len([lp for lp in edition.license_pools if lp.collection == collection]))
         [pool] = work.license_pools
         eq_(
             pool.open_access_download_url,
@@ -1135,6 +1144,18 @@ class TestDirectoryImportScript(DatabaseTest):
         # save database space.
         eq_("I'm an EPUB.", mirrors[mirror_type_books].content[0])
         eq_(None, epub.content)
+
+        # Now attempt to get a work for a different collection, but with
+        # the same metadata.
+        # Even though there will be two license pools associated with the
+        # work's presentation edition, the call should be successful.
+        collection2 = self._collection('second collection')
+        work2 = script.work_from_metadata(collection2, *shared_args)
+        edition2 = work2.presentation_edition
+        eq_(edition, edition2)
+        eq_(2, len(work2.license_pools))
+        eq_(2, len(edition2.license_pools))
+        eq_(1, len([lp for lp in edition2.license_pools if lp.collection == collection2]))
 
     def test_annotate_metadata(self):
         """Verify that annotate_metadata calls load_circulation_data
