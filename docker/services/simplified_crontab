@@ -121,3 +121,7 @@ HOME=/var/www/circulation
 # ProQuest
 # Run proquest_import_monitor once a week on Sunday at 00:00
 0 0 * * 0 root core/bin/run proquest_import_monitor >> /var/log/cron.log 2>&1
+
+# SAML
+#
+0 5 * * * root core/bin/run saml_monitor >> /var/log/cron.log 2>&1
