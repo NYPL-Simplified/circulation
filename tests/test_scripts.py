@@ -61,9 +61,10 @@ from core.model import (
     DataSource,
     DeliveryMechanism,
     ExternalIntegration,
+    get_one,
     Hyperlink,
     Identifier,
-    get_one,
+    LicensePool,
     Representation,
     RightsStatus,
     Timestamp,
@@ -903,6 +904,8 @@ class TestDirectoryImportScript(DatabaseTest):
         metadata2 = object()
         collection = self._default_collection
         mirrors = object()
+        work = object()
+        licensepool = LicensePool()
 
         class Mock(DirectoryImportScript):
             """Mock the methods called by run_with_arguments."""
@@ -922,6 +925,7 @@ class TestDirectoryImportScript(DatabaseTest):
 
             def work_from_metadata(self, *args):
                 self.work_from_metadata_calls.append(args)
+                return work, licensepool
 
         # First, try a dry run.
 
@@ -1102,7 +1106,7 @@ class TestDirectoryImportScript(DatabaseTest):
         script = MockDirectoryImportScript(
             self._db, mock_filesystem=mock_filesystem
         )
-        work = script.work_from_metadata(collection, *shared_args)
+        work, licensepool_for_work = script.work_from_metadata(collection, *shared_args)
 
         # Get the edition that was created for this book. It should have
         # already been created by `script.work_from_metadata`.
@@ -1124,6 +1128,7 @@ class TestDirectoryImportScript(DatabaseTest):
         eq_(1, len(edition.license_pools))
         eq_(1, len([lp for lp in edition.license_pools if lp.collection == collection]))
         [pool] = work.license_pools
+        eq_(licensepool_for_work, pool)
         eq_(
             pool.open_access_download_url,
             u'https://test-content-bucket.s3.amazonaws.com/Gutenberg/Gutenberg%20ID/1003/A%20book.epub'
@@ -1150,9 +1155,18 @@ class TestDirectoryImportScript(DatabaseTest):
         # Even though there will be two license pools associated with the
         # work's presentation edition, the call should be successful.
         collection2 = self._collection('second collection')
-        work2 = script.work_from_metadata(collection2, *shared_args)
+        work2, licensepool_for_work2 = script.work_from_metadata(collection2, *shared_args)
+
+        # The presentation edition should be the same for both works.
         edition2 = work2.presentation_edition
         eq_(edition, edition2)
+
+        # The licensepool from which the work is calculated should be
+        # associated with collection2.
+        eq_(licensepool_for_work2.collection, collection2)
+
+        # The work and its presentation edition should both have two licensepools,
+        # one for each collection.
         eq_(2, len(work2.license_pools))
         eq_(2, len(edition2.license_pools))
         eq_(1, len([lp for lp in edition2.license_pools if lp.collection == collection2]))
