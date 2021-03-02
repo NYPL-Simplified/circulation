@@ -1374,11 +1374,12 @@ class DirectoryImportScript(TimestampScript):
         if dry_run:
             mirrors = None
 
+        self_hosted_collection = collection_type in (CollectionType.OPEN_ACCESS, CollectionType.PROTECTED_ACCESS)
         replacement_policy = ReplacementPolicy.from_license_source(self._db)
         replacement_policy.mirrors = mirrors
         metadata_records = self.load_metadata(metadata_file, metadata_format, data_source_name, default_medium_type)
         for metadata in metadata_records:
-            self.work_from_metadata(
+            _, licensepool = self.work_from_metadata(
                 collection,
                 collection_type,
                 metadata,
@@ -1388,9 +1389,7 @@ class DirectoryImportScript(TimestampScript):
                 rights_uri
             )
 
-            if collection_type in [CollectionType.OPEN_ACCESS, CollectionType.PROTECTED_ACCESS]:
-                for licensepool in collection.licensepools:
-                    licensepool.self_hosted = True
+            licensepool.self_hosted = True if self_hosted_collection else False
 
             if not dry_run:
                 self._db.commit()
@@ -1481,8 +1480,8 @@ class DirectoryImportScript(TimestampScript):
         :param policy: Replacement policy
         :type policy: ReplacementPolicy
 
-        :return: Work object
-        :rtype: core.model.work.Work
+        :return: A 2-tuple of (Work object, LicensePool object)
+        :rtype: Tuple[core.model.work.Work, LicensePool]
         """
         self.annotate_metadata(collection_type, metadata, policy, *args, **kwargs)
 
@@ -1506,7 +1505,7 @@ class DirectoryImportScript(TimestampScript):
             self.log.info(
                 "FINALIZED %s/%s/%s" % (work.title, work.author, work.sort_author)
             )
-        return work
+        return work, pool
 
     def annotate_metadata(
             self,
