@@ -1,6 +1,8 @@
+import codecs
 import datetime
 import json
 import logging
+import shutil
 import tempfile
 from contextlib import contextmanager
 
@@ -835,48 +837,73 @@ class ProQuestOPDS2ImportMonitor(OPDS2ImportMonitor, HasExternalIntegration):
                     for publication in group.publications:
                         yield publication
 
-    def _download_feed_pages(self):
+    def _download_feed_pages(self, feed_pages_directory):
         """Download all the pages of the ProQuest OPDS feed.
 
         Downloaded feed pages are dumped to the local disk instead of storing them in memory
         in order to decrease the memory footprint.
 
-        :return: List of temporary file handles pointing to feed pages
-        :rtype: List[file]
-        """
-        feed_temporary_files = []
+        We have to wait until all the pages are downloaded because
+        the ProQuest feed structure doesn't allow us to use short-circuit logic
+        (there is no update date and ordering sometimes is incorrect),
+        and we always have to start from scratch.
+        Hence, we need to have all the pages locally before starting the import process.
+        Otherwise, the import won't succeed.
 
+        :param feed_pages_directory: Absolute path to the directory containing temporary files with feed pages
+        :type feed_pages_directory: str
+
+        :return: List of absolute file names containing feed pages
+        :rtype: List[str]
+        """
         self._logger.info("Started downloading feed pages")
 
-        for feed in self._client.download_all_feed_pages(self._db):
-            feed_temporary_file = tempfile.TemporaryFile(mode="r+")
-            feed_temporary_file.write(json.dumps(feed))
-            feed_temporary_file.flush()
+        feed_page_files = []
 
-            feed_temporary_files.append(feed_temporary_file)
+        for feed in self._client.download_all_feed_pages(self._db):
+            feed_page_file = tempfile.NamedTemporaryFile(
+                mode="r+", dir=feed_pages_directory, delete=False
+            )
+
+            try:
+                feed_page_content = json.dumps(
+                    feed, default=str, ensure_ascii=True, encoding="utf-8"
+                )
+                feed_page_file.write(feed_page_content)
+                feed_page_file.flush()
+
+                feed_page_files.append(feed_page_file.name)
+            except:
+                self._logger.exception(
+                    "An unexpected error occurred during saving a feed page to a temporary file"
+                )
+                raise
 
         self._logger.info(
-            "Finished downloading {0} feed pages".format(len(feed_temporary_files))
+            "Finished downloading {0} feed pages".format(len(feed_page_files))
         )
 
-        return feed_temporary_files
+        return feed_page_files
 
-    def _parse_feed(self, page, feed_temporary_file):
+    def _parse_feed_page(self, page, feed_page_file):
         """Parse the ProQuest feed page residing in a temporary file on a local disk.
 
         :param page: Index of the page
         :type page: int
 
-        :param feed_temporary_file: File handle pointing to a temporary file containing the feed page
-        :type feed_temporary_file: file
+        :param feed_page_file: Absolute path to a temporary file containing the feed page
+        :type feed_page_file: str
 
         :return: Parsed OPDS feed page
         :rtype: opds2_ast.OPDS2Feed
         """
         self._logger.info("Page # {0}. Started parsing the feed".format(page))
 
-        feed_temporary_file.seek(0)
-        feed = feed_temporary_file.read()
+        with codecs.open(
+            feed_page_file, "r", encoding="utf-8"
+        ) as feed_page_file_handle:
+            feed = feed_page_file_handle.read()
+
         feed = parse_feed(feed, silent=False)
 
         self._logger.info("Page # {0}. Finished parsing the feed".format(page))
@@ -930,16 +957,19 @@ class ProQuestOPDS2ImportMonitor(OPDS2ImportMonitor, HasExternalIntegration):
         """
         self._logger.info("Started fetching ProQuest paged OPDS 2.0 feeds")
 
-        feed_temporary_files = self._download_feed_pages()
-        page = 1
-        processed_number_of_items = 0
-        total_number_of_items = None
+        feed_pages_directory = tempfile.mkdtemp()
 
         try:
+            feed_page_files = self._download_feed_pages(feed_pages_directory)
+
+            page = 1
+            processed_number_of_items = 0
+            total_number_of_items = None
+
             self._logger.info("Started processing feed pages")
 
-            for feed_temporary_file in feed_temporary_files:
-                feed = self._parse_feed(page, feed_temporary_file)
+            for feed_page_file in feed_page_files:
+                feed = self._parse_feed_page(page, feed_page_file)
 
                 # FIXME: We cannot short-circuit the feed import process
                 #  because ProQuest feed is not ordered by the publication's modified date.
@@ -972,15 +1002,14 @@ class ProQuestOPDS2ImportMonitor(OPDS2ImportMonitor, HasExternalIntegration):
                 yield None, feed
 
             self._logger.info(
-                "Finished processing {0} feed pages".format(len(feed_temporary_files))
+                "Finished processing {0} feed pages".format(len(feed_page_files))
             )
         except Exception:
             self._logger.exception(
                 "An unexpected exception occurred during fetching ProQuest paged OPDS 2.0 feeds"
             )
         finally:
-            for feed_temporary_file in feed_temporary_files:
-                feed_temporary_file.close()
+            shutil.rmtree(feed_pages_directory)
 
         self._logger.info("Finished fetching ProQuest paged OPDS 2.0 feeds")
 

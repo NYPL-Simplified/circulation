@@ -1,13 +1,17 @@
 import datetime
 import json
+import os
+import shutil
+import tempfile
 
 from flask import Response
 from freezegun import freeze_time
-from mock import MagicMock, call, create_autospec, patch
+from mock import ANY, MagicMock, call, create_autospec, patch
 from nose.tools import assert_raises, eq_
 from parameterized import parameterized
 from requests import HTTPError
 
+import core
 from api.authenticator import BaseSAMLAuthenticationProvider
 from api.circulation import BaseCirculationAPI
 from api.circulation_exceptions import CannotFulfill, CannotLoan
@@ -30,6 +34,7 @@ from api.saml.metadata.model import (
     SAMLSubject,
     SAMLSubjectJSONEncoder,
 )
+from core import opds2_import
 from core.metadata_layer import LinkData
 from core.model import (
     Collection,
@@ -1142,6 +1147,168 @@ class TestProQuestOPDS2ImportMonitor(DatabaseTest):
         # Assert
         # Make sure that ProQuestOPDS2ImportMonitor.import_one_feed was called for each paged feed (if any)
         monitor.import_one_feed.assert_has_calls(expected_calls)
+
+    @parameterized.expand(
+        [
+            ("no_pages", []),
+            (
+                "one_page",
+                [fixtures.PROQUEST_FEED_PAGE_1],
+            ),
+            (
+                "two_pages",
+                [fixtures.PROQUEST_FEED_PAGE_1, fixtures.PROQUEST_FEED_PAGE_2],
+            ),
+        ]
+    )
+    def test_monitor_correctly_uses_temporary_files(self, _, feed_pages):
+        """This test makes sure that ProQuestOPDS2ImportMonitor correctly uses temporary files
+            to process the ProQuest feed:
+            - it creates a temporary directory
+            - it downloads all the pages one by one saving them in the temporary directory
+            - when all the pages are dumped to the local drive and stored in the temporary directory,
+                it starts importing those pages
+            - after the import process finished, it deletes the temporary directory
+
+        :param feed_pages: List of ProQuest OPDS 2.0 paged feeds
+        :type feed_pages: List[webpub_manifest_parser.opds2.ast.OPDS2Feed]
+        """
+        # Arrange
+        client = create_autospec(spec=ProQuestAPIClient)
+        client.download_all_feed_pages = MagicMock(
+            return_value=map(fixtures.serialize, feed_pages)
+        )
+
+        client_factory = create_autospec(spec=ProQuestAPIClientFactory)
+        client_factory.create = MagicMock(return_value=client)
+
+        monitor = ProQuestOPDS2ImportMonitor(
+            client_factory, self._db, self._proquest_collection, ProQuestOPDS2Importer
+        )
+        monitor.import_one_feed = MagicMock(return_value=([], []))
+
+        results = {"temp_directory": None, "temp_files": []}
+        original_mkdtemp = tempfile.mkdtemp
+        original_named_temporary_file_constructor = tempfile.NamedTemporaryFile
+        original_rmtree = shutil.rmtree
+        original_parse_feed = core.opds2_import.parse_feed
+
+        def create_temp_directory():
+            results["temp_directory"] = original_mkdtemp()
+
+            return results["temp_directory"]
+
+        def create_temp_file(**kwargs):
+            temp_file = original_named_temporary_file_constructor(**kwargs)
+            results["temp_files"].append(temp_file.name)
+
+            return temp_file
+
+        # Act
+        with patch("tempfile.mkdtemp") as mkdtemp_mock, patch(
+            "tempfile.NamedTemporaryFile"
+        ) as named_temporary_file_constructor_mock, patch(
+            "shutil.rmtree"
+        ) as rmtree_mock, patch(
+            "api.proquest.importer.parse_feed"
+        ) as parse_feed_mock:
+            mkdtemp_mock.side_effect = create_temp_directory
+            named_temporary_file_constructor_mock.side_effect = create_temp_file
+            rmtree_mock.side_effect = original_rmtree
+            parse_feed_mock.side_effect = original_parse_feed
+
+            monitor.run_once(False)
+
+            # Assert
+            # Ensure that the temp directory was successfully created.
+            tempfile.mkdtemp.assert_called_once()
+
+            # Ensure that the number of created temp files is equal to the number of feed pages.
+            tempfile.NamedTemporaryFile.assert_has_calls(
+                [call(mode="r+", dir=results["temp_directory"], delete=False)]
+                * len(feed_pages)
+            )
+
+            # Ensure that parse_feed method was called for each feed page.
+            parse_feed_mock.assert_has_calls(
+                [call(ANY, silent=False)] * len(feed_pages)
+            )
+
+            # Ensure that the temp directory was successfully removed.
+            shutil.rmtree.assert_called_once_with(results["temp_directory"])
+            eq_(False, os.path.exists(results["temp_directory"]))
+
+    def test_monitor_correctly_deletes_temporary_directory_in_the_case_of_any_error(
+        self,
+    ):
+        """This test makes sure that ProQuestOPDS2ImportMonitor correctly deletes the temporary directory
+        even when an error happens.
+        """
+        # Arrange
+        feed_pages = [fixtures.PROQUEST_FEED_PAGE_1, fixtures.PROQUEST_FEED_PAGE_2]
+
+        client = create_autospec(spec=ProQuestAPIClient)
+        client.download_all_feed_pages = MagicMock(
+            return_value=map(fixtures.serialize, feed_pages)
+        )
+
+        client_factory = create_autospec(spec=ProQuestAPIClientFactory)
+        client_factory.create = MagicMock(return_value=client)
+
+        monitor = ProQuestOPDS2ImportMonitor(
+            client_factory, self._db, self._proquest_collection, ProQuestOPDS2Importer
+        )
+        monitor.import_one_feed = MagicMock(return_value=([], []))
+
+        results = {"temp_directory": None, "temp_files": []}
+        original_mkdtemp = tempfile.mkdtemp
+        original_temp_file_constructor = tempfile.NamedTemporaryFile
+        original_rmtree = shutil.rmtree
+
+        def create_temp_directory():
+            results["temp_directory"] = original_mkdtemp()
+
+            return results["temp_directory"]
+
+        def create_temp_file(**kwargs):
+            temp_file = original_temp_file_constructor(**kwargs)
+            results["temp_files"].append(temp_file.name)
+
+            return temp_file
+
+        # Act
+        with patch("tempfile.mkdtemp") as mkdtemp_mock, patch(
+            "tempfile.NamedTemporaryFile"
+        ) as named_temporary_file_constructor_mock, patch(
+            "shutil.rmtree"
+        ) as rmtree_mock, patch(
+            "api.proquest.importer.parse_feed"
+        ) as parse_feed_mock:
+            mkdtemp_mock.side_effect = create_temp_directory
+            named_temporary_file_constructor_mock.side_effect = create_temp_file
+            rmtree_mock.side_effect = original_rmtree
+            parse_feed_mock.side_effect = core.opds2_import.parse_feed
+
+            # An exception will be raised while trying to parse the feed page.
+            parse_feed_mock.side_effect = Exception("")
+
+            monitor.run_once(False)
+
+            # Assert
+            # Ensure that the temp directory was successfully created.
+            tempfile.mkdtemp.assert_called_once()
+
+            # Ensure that only one temp file was created, after this an exception was raised and the process stopped.
+            tempfile.NamedTemporaryFile.assert_has_calls(
+                [call(mode="r+", dir=results["temp_directory"], delete=False)]
+            )
+
+            # Ensure that parse_feed method was called only once.
+            parse_feed_mock.assert_has_calls([call(ANY, silent=False)])
+
+            # Ensure that the temp directory was successfully removed.
+            shutil.rmtree.assert_called_once_with(results["temp_directory"])
+            eq_(False, os.path.exists(results["temp_directory"]))
 
     def test_monitor_correctly_does_not_process_already_processed_pages(self):
         """This test makes sure that the monitor has a short circuit breaker
