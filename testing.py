@@ -1557,14 +1557,12 @@ class MockRequestsResponse(object):
         content = self.content
         # The queued content might be a JSON string or it might
         # just be the object you'd get from loading a JSON string.
-        set_trace()
         if isinstance(content, (str, bytes)):
             content = json.loads(self.content)
         return content
 
     @property
     def text(self):
-        set_trace()
         if isinstance(self.content, bytes):
             return self.content.decode("utf8")
         return self.content
