@@ -810,7 +810,7 @@ class Representation(Base, MediaTypes):
                 response_reviewer((status_code, headers, content))
             exception = None
             media_type = cls._best_media_type(url, headers, presumed_media_type)
-            if not isinstance(content, str):
+            if isinstance(content, str):
                 content = content.encode("utf8")
         except Exception as e:
             # This indicates there was a problem with making the HTTP
@@ -874,7 +874,6 @@ class Representation(Base, MediaTypes):
                 setattr(representation, field, value)
 
             representation.headers = cls.headers_to_string(headers)
-            representation.content = content
             representation.update_image_size()
             return representation, False
 

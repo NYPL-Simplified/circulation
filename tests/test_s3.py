@@ -2,7 +2,7 @@
 import datetime
 import functools
 import os
-from urlparse import urlsplit
+from urllib.parse import urlsplit
 
 import boto3
 import botocore
@@ -954,11 +954,11 @@ class TestS3Uploader(S3UploaderTest):
 
         # In both cases, mirror_url was set to the result of final_mirror_url.
         eq_(
-            u'final_mirror_url was called with bucket books-go, key here.epub',
+            'final_mirror_url was called with bucket books-go, key here.epub',
             epub_rep.mirror_url
         )
         eq_(
-            u'final_mirror_url was called with bucket covers-go, key here.png',
+            'final_mirror_url was called with bucket covers-go, key here.png',
             cover_rep.mirror_url
         )
 
@@ -1107,7 +1107,8 @@ class TestS3Uploader(S3UploaderTest):
         filename = 'filename'
         url = 'https://{0}.s3.{1}.amazonaws.com/{2}'.format(bucket, region, filename)
         expected_url = url + '?AWSAccessKeyId=KEY&Expires=1&Signature=S'
-        s3_uploader = self._create_s3_uploader(region=region, **expiration_settings if expiration_settings else {})
+        settings = expiration_settings if expiration_settings else {}
+        s3_uploader = self._create_s3_uploader(region=region, **settings)
         s3_uploader.split_url = MagicMock(return_value=(bucket, filename))
         s3_uploader.client.generate_presigned_url = MagicMock(return_value=expected_url)
 

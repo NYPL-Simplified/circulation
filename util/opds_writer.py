@@ -168,7 +168,6 @@ class AtomFeed(object):
     def __str__(self):
         if self.feed is None:
             return None
-
         return etree.tostring(self.feed, encoding="unicode", pretty_print=True)
 
 

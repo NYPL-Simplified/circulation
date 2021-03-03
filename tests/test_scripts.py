@@ -2854,7 +2854,7 @@ class TestRebuildSearchIndexScript(DatabaseTest):
                 self.setup_index_called = True
 
             def bulk_update(self, works):
-                self.bulk_update_called_with = works
+                self.bulk_update_called_with = list(works)
                 return works, []
 
         index = MockSearchIndex()

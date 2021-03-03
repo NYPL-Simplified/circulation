@@ -685,7 +685,7 @@ class TestRepresentation(DatabaseTest):
         # And the normalized URL was used as the Representation's
         # storage key.
         normalized_url = "http://url/"
-        eq_("yay", representation.content)
+        eq_("yay", representation.content.decode("utf-8"))
         eq_(normalized_url, representation.url)
         eq_(False, from_cache)
 

@@ -305,7 +305,7 @@ class URNLookupController(object):
             self._db, "Lookup results", this_url, handler.works, annotator,
             precomposed_entries=handler.precomposed_entries,
         )
-        return OPDSFeedResponse(opds_feed)
+        return OPDSFeedResponse(str(opds_feed))
 
     def process_urns(self, urns, **process_urn_kwargs):
         """Process a number of URNs by instantiating a URNLookupHandler
@@ -339,7 +339,7 @@ class URNLookupController(object):
             self._db, urn, this_url, works, annotator,
             precomposed_entries=handler.precomposed_entries
         )
-        return OPDSFeedResponse(opds_feed)
+        return OPDSFeedResponse(str(opds_feed))
 
 
 class URNLookupHandler(object):

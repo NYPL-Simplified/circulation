@@ -10,7 +10,7 @@ import traceback
 import unicodedata
 import uuid
 from collections import defaultdict
-
+from nose.tools import set_trace
 from enum import Enum
 from sqlalchemy import (
     exists,

@@ -278,7 +278,7 @@ class TestWork(DatabaseTest):
         eq_("Adder, Alice ; Bitshifter, Bob", work.sort_author)
 
         # The summary has now been chosen.
-        eq_(chosen_summary, work.summary.representation.content)
+        eq_(chosen_summary, work.summary.representation.unicode_content)
 
         # The last update time has been set.
         # Updating availability also modified work.last_update_time.
@@ -425,7 +425,7 @@ class TestWork(DatabaseTest):
         class Mock(Work):
             def set_summary(self, summary):
                 if isinstance(summary, Resource):
-                    self.summary_text = summary.representation.content
+                    self.summary_text = summary.representation.unicode_content
                 else:
                     self.summary_text = summary
 
@@ -492,7 +492,7 @@ class TestWork(DatabaseTest):
             self._db, DataSource.LIBRARY_STAFF
         )
         m([i1.id, i2.id], [], [])
-        eq_(l1.resource.representation.content, w.summary_text)
+        eq_(l1.resource.representation.unicode_content, w.summary_text)
 
     def test_set_presentation_ready_based_on_content(self):
 
