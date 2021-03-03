@@ -46,6 +46,7 @@
 <span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Column</span><span class="p">,</span>
     <span class="n">ForeignKey</span><span class="p">,</span>
+    <span class="n">Index</span><span class="p">,</span>
     <span class="n">Integer</span><span class="p">,</span>
     <span class="n">Unicode</span><span class="p">,</span>
     <span class="n">UniqueConstraint</span><span class="p">,</span>
@@ -53,6 +54,7 @@
 <span class="kn">from</span> <span class="nn">sqlalchemy.ext.hybrid</span> <span class="kn">import</span> <span class="n">hybrid_property</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="kn">import</span> <span class="n">relationship</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="kn">import</span> <span class="n">Session</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.sql.expression</span> <span class="kn">import</span> <span class="n">and_</span>
 
 <span class="kn">from</span> <span class="nn">constants</span> <span class="kn">import</span> <span class="n">DataSourceConstants</span>
 <span class="kn">from</span> <span class="nn">hasfulltablecache</span> <span class="kn">import</span> <span class="n">HasFullTableCache</span>
@@ -610,11 +612,50 @@
     <span class="n">library_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span>
         <span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;libraries.id&#39;</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span>
     <span class="p">)</span>
-    <span class="n">key</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">key</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">)</span>
     <span class="n">_value</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;value&quot;</span><span class="p">)</span>
 
     <span class="n">__table_args__</span> <span class="o">=</span> <span class="p">(</span>
-        <span class="n">UniqueConstraint</span><span class="p">(</span><span class="s1">&#39;external_integration_id&#39;</span><span class="p">,</span> <span class="s1">&#39;library_id&#39;</span><span class="p">,</span> <span class="s1">&#39;key&#39;</span><span class="p">),</span>
+        <span class="c1"># Unique indexes to prevent the creation of redundant</span>
+        <span class="c1"># configuration settings.</span>
+
+        <span class="c1"># If both external_integration_id and library_id are null,</span>
+        <span class="c1"># then the key--the name of a sitewide setting--must be unique.</span>
+        <span class="n">Index</span><span class="p">(</span>
+            <span class="s2">&quot;ix_configurationsettings_key&quot;</span><span class="p">,</span>
+            <span class="n">key</span><span class="p">,</span>
+            <span class="n">unique</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">postgresql_where</span><span class="o">=</span><span class="n">and_</span><span class="p">(</span>
+                <span class="n">external_integration_id</span><span class="o">==</span><span class="kc">None</span><span class="p">,</span> <span class="n">library_id</span><span class="o">==</span><span class="kc">None</span>
+            <span class="p">)</span>
+        <span class="p">),</span>
+
+        <span class="c1"># If external_integration_id is null but library_id is not,</span>
+        <span class="c1"># then (library_id, key) must be unique.</span>
+        <span class="n">Index</span><span class="p">(</span>
+            <span class="s2">&quot;ix_configurationsettings_library_id_key&quot;</span><span class="p">,</span>
+            <span class="n">library_id</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span>
+            <span class="n">unique</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">postgresql_where</span><span class="o">=</span><span class="p">(</span><span class="n">external_integration_id</span><span class="o">==</span><span class="kc">None</span><span class="p">)</span>
+        <span class="p">),</span>
+
+        <span class="c1"># If library_id is null but external_integration_id is not,</span>
+        <span class="c1"># then (external_integration_id, key) must be unique.</span>
+        <span class="n">Index</span><span class="p">(</span>
+            <span class="s2">&quot;ix_configurationsettings_external_integration_id_key&quot;</span><span class="p">,</span>
+            <span class="n">external_integration_id</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span>
+            <span class="n">unique</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">postgresql_where</span><span class="o">=</span><span class="n">library_id</span><span class="o">==</span><span class="kc">None</span>
+        <span class="p">),</span>
+
+        <span class="c1"># If both external_integration_id and library_id have values,</span>
+        <span class="c1"># then (external_integration_id, library_id, key) must be</span>
+        <span class="c1"># unique.</span>
+        <span class="n">Index</span><span class="p">(</span>
+            <span class="s2">&quot;ix_configurationsettings_external_integration_id_library_id_key&quot;</span><span class="p">,</span>
+            <span class="n">external_integration_id</span><span class="p">,</span> <span class="n">library_id</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span>
+            <span class="n">unique</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="p">),</span>
     <span class="p">)</span>
 
     <span class="n">_cache</span> <span class="o">=</span> <span class="n">HasFullTableCache</span><span class="o">.</span><span class="n">RESET</span>
