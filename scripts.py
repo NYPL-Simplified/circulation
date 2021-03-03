@@ -2810,8 +2810,8 @@ class Explain(IdentifierInputScript):
     def write(self, s):
         """Write a string to self.stdout."""
         # TODO PYTHON3 we write unicode to stdout, not bytes.
-        if isinstance(s, str):
-            s = s.encode("utf8")
+        # if isinstance(s, str):
+        #     s = s.encode("utf8")
         if not s.endswith('\n'):
             s += '\n'
         self.stdout.write(s)

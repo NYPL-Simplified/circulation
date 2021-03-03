@@ -13,8 +13,7 @@ from nose.tools import (
     set_trace,
     eq_,
 )
-# TODO PYTHON3
-# from psycopg2.errors import UndefinedTable
+from psycopg2.errors import UndefinedTable
 from sqlalchemy.orm.session import Session
 from sqlalchemy.exc import ProgrammingError
 from .config import Configuration
@@ -114,9 +113,7 @@ def package_setup():
         try:
             engine.execute(statement)
         except ProgrammingError as e:
-            # TODO PYTHON3
-            # if isinstance(e.orig, UndefinedTable):
-            if 'does not exist' in e.message:
+            if isinstance(e.orig, UndefinedTable):
                 # This is the first time running these tests
                 # on this server, and the tables don't exist yet.
                 pass
