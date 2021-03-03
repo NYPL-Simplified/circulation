@@ -361,7 +361,7 @@
                 <span class="n">_count_activity</span>
             <span class="p">)</span>
 
-<div class="viewcode-block" id="BibliothecaAPI.get_events_between"><a class="viewcode-back" href="../../api.html#api.bibliotheca.BibliothecaAPI.get_events_between">[docs]</a>    <span class="k">def</span> <span class="nf">get_events_between</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">,</span> <span class="n">cache_result</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<div class="viewcode-block" id="BibliothecaAPI.get_events_between"><a class="viewcode-back" href="../../api.html#api.bibliotheca.BibliothecaAPI.get_events_between">[docs]</a>    <span class="k">def</span> <span class="nf">get_events_between</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">,</span> <span class="n">cache_result</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">no_events_error</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Return event objects for events between the given times.&quot;&quot;&quot;</span>
         <span class="n">start</span> <span class="o">=</span> <span class="n">start</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ARGUMENT_TIME_FORMAT</span><span class="p">)</span>
         <span class="n">end</span> <span class="o">=</span> <span class="n">end</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ARGUMENT_TIME_FORMAT</span><span class="p">)</span>
@@ -374,7 +374,7 @@
         <span class="k">if</span> <span class="n">cache_result</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="n">events</span> <span class="o">=</span> <span class="n">EventParser</span><span class="p">()</span><span class="o">.</span><span class="n">process_all</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">content</span><span class="p">)</span>
+            <span class="n">events</span> <span class="o">=</span> <span class="n">EventParser</span><span class="p">()</span><span class="o">.</span><span class="n">process_all</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">content</span><span class="p">,</span> <span class="n">no_events_error</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
                 <span class="s2">&quot;Error parsing Bibliotheca response content: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">response</span><span class="o">.</span><span class="n">content</span><span class="p">,</span>
@@ -1171,14 +1171,18 @@
         <span class="s2">&quot;REMOVED&quot;</span> <span class="p">:</span> <span class="n">CirculationEvent</span><span class="o">.</span><span class="n">DISTRIBUTOR_LICENSE_REMOVE</span><span class="p">,</span>
     <span class="p">}</span>
 
-<div class="viewcode-block" id="EventParser.process_all"><a class="viewcode-back" href="../../api.html#api.bibliotheca.EventParser.process_all">[docs]</a>    <span class="k">def</span> <span class="nf">process_all</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">string</span><span class="p">):</span>
+<div class="viewcode-block" id="EventParser.process_all"><a class="viewcode-back" href="../../api.html#api.bibliotheca.EventParser.process_all">[docs]</a>    <span class="k">def</span> <span class="nf">process_all</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">string</span><span class="p">,</span> <span class="n">no_events_error</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="n">has_events</span> <span class="o">=</span> <span class="kc">False</span>
         <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">super</span><span class="p">(</span><span class="n">EventParser</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">process_all</span><span class="p">(</span>
                 <span class="n">string</span><span class="p">,</span> <span class="s2">&quot;//CloudLibraryEvent&quot;</span><span class="p">):</span>
             <span class="k">yield</span> <span class="n">i</span>
             <span class="n">has_events</span> <span class="o">=</span> <span class="kc">True</span>
 
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">has_events</span><span class="p">:</span>
+        <span class="c1"># If we are catching up on events and we expect to have a time</span>
+        <span class="c1"># period where there are no events, we don&#39;t want to consider that</span>
+        <span class="c1"># action as an error. By default, not having events is not</span>
+        <span class="c1"># considered to be an error.</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">has_events</span> <span class="ow">and</span> <span class="n">no_events_error</span><span class="p">:</span>
             <span class="c1"># An empty list of events may mean nothing happened, or it</span>
             <span class="c1"># may indicate an unreported server-side error. To be</span>
             <span class="c1"># safe, we&#39;ll treat this as a server-initiated error</span>
@@ -1381,17 +1385,38 @@
 <div class="viewcode-block" id="BibliothecaEventMonitor.catch_up_from"><a class="viewcode-back" href="../../api.html#api.bibliotheca.BibliothecaEventMonitor.catch_up_from">[docs]</a>    <span class="k">def</span> <span class="nf">catch_up_from</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">cutoff</span><span class="p">,</span> <span class="n">progress</span><span class="p">):</span>
         <span class="n">added_books</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="n">one_day</span> <span class="o">=</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">days</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">timespan_to_check</span> <span class="o">=</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">minutes</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+
+        <span class="c1"># Not having events in a time period is not considered to be</span>
+        <span class="c1"># an error.</span>
+        <span class="n">no_events_error</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="c1"># But in this case, we do want to consider not getting events as</span>
+        <span class="c1"># an error. Each subsequent time this is run after the first time,</span>
+        <span class="c1"># the timespan to check for event increases by 5 minutes until we</span>
+        <span class="c1"># reach a 70-hour timespan to check for events.</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">progress</span><span class="o">.</span><span class="n">counter</span> <span class="o">==</span> <span class="mi">1</span><span class="p">):</span>
+            <span class="n">no_events_error</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="n">timespan_to_check</span> <span class="o">=</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">hours</span><span class="o">=</span><span class="mi">70</span><span class="p">)</span>
+
+            <span class="n">import_time_delta</span> <span class="o">=</span> <span class="n">cutoff</span> <span class="o">-</span> <span class="n">start</span>
+            <span class="c1"># If we want to check for events in a time period that&#39;s</span>
+            <span class="c1"># longer than 70 hours, then revert back to the initial</span>
+            <span class="c1"># import configuration.</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">import_time_delta</span> <span class="o">&gt;</span> <span class="n">timespan_to_check</span><span class="p">):</span>
+                <span class="n">no_events_error</span> <span class="o">=</span> <span class="kc">False</span>
+                <span class="c1"># Start by checking for events in a 5 minute timespan.</span>
+                <span class="n">progress</span><span class="o">.</span><span class="n">counter</span> <span class="o">=</span> <span class="mi">0</span>
+                <span class="n">timespan_to_check</span> <span class="o">=</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">minutes</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+
         <span class="k">for</span> <span class="n">slice_start</span><span class="p">,</span> <span class="n">slice_cutoff</span><span class="p">,</span> <span class="n">full_slice</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">slice_timespan</span><span class="p">(</span>
-            <span class="n">start</span><span class="p">,</span> <span class="n">cutoff</span><span class="p">,</span> <span class="n">one_day</span>
+            <span class="n">start</span><span class="p">,</span> <span class="n">cutoff</span><span class="p">,</span> <span class="n">timespan_to_check</span>
         <span class="p">):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
                 <span class="s2">&quot;Asking for events between </span><span class="si">%r</span><span class="s2"> and </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">slice_start</span><span class="p">,</span>
                 <span class="n">slice_cutoff</span>
             <span class="p">)</span>
-            <span class="n">event</span> <span class="o">=</span> <span class="kc">None</span>
             <span class="n">events</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">get_events_between</span><span class="p">(</span>
-                <span class="n">slice_start</span><span class="p">,</span> <span class="n">slice_cutoff</span><span class="p">,</span> <span class="n">full_slice</span>
+                <span class="n">slice_start</span><span class="p">,</span> <span class="n">slice_cutoff</span><span class="p">,</span> <span class="n">full_slice</span><span class="p">,</span> <span class="n">no_events_error</span>
             <span class="p">)</span>
             <span class="k">for</span> <span class="n">event</span> <span class="ow">in</span> <span class="n">events</span><span class="p">:</span>
                 <span class="n">event_timestamp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">handle_event</span><span class="p">(</span><span class="o">*</span><span class="n">event</span><span class="p">)</span>
@@ -1399,7 +1424,14 @@
                 <span class="k">if</span> <span class="ow">not</span> <span class="n">i</span> <span class="o">%</span> <span class="mi">1000</span><span class="p">:</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
-        <span class="n">progress</span><span class="o">.</span><span class="n">achievements</span> <span class="o">=</span> <span class="s2">&quot;Events handled: </span><span class="si">%d</span><span class="s2">.&quot;</span> <span class="o">%</span> <span class="n">i</span></div>
+        <span class="n">progress</span><span class="o">.</span><span class="n">achievements</span> <span class="o">=</span> <span class="s2">&quot;Events handled: </span><span class="si">%d</span><span class="s2">.&quot;</span> <span class="o">%</span> <span class="n">i</span>
+        <span class="c1"># If we are in &quot;catch up&quot; mode and we encounter some events, we can</span>
+        <span class="c1"># reset the counter back to 0. Otherwise, keep the counter at 1. This</span>
+        <span class="c1"># will also set it to 1 after the initial run.</span>
+        <span class="k">if</span> <span class="n">progress</span><span class="o">.</span><span class="n">counter</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">progress</span><span class="o">.</span><span class="n">counter</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">progress</span><span class="o">.</span><span class="n">counter</span> <span class="o">=</span> <span class="mi">1</span></div>
 
 <div class="viewcode-block" id="BibliothecaEventMonitor.handle_event"><a class="viewcode-back" href="../../api.html#api.bibliotheca.BibliothecaEventMonitor.handle_event">[docs]</a>    <span class="k">def</span> <span class="nf">handle_event</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bibliotheca_id</span><span class="p">,</span> <span class="n">isbn</span><span class="p">,</span> <span class="n">foreign_patron_id</span><span class="p">,</span>
                      <span class="n">start_time</span><span class="p">,</span> <span class="n">end_time</span><span class="p">,</span> <span class="n">internal_event_type</span><span class="p">):</span>

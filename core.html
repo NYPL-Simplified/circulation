@@ -435,6 +435,11 @@ server.</p>
 <dd></dd></dl>
 
 <dl class="attribute">
+<dt id="core.config.Configuration.ALL_ACCESS">
+<code class="descname">ALL_ACCESS</code><em class="property"> = 1</em><a class="headerlink" href="#core.config.Configuration.ALL_ACCESS" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
 <dt id="core.config.Configuration.ANALYTICS_POLICY">
 <code class="descname">ANALYTICS_POLICY</code><em class="property"> = 'analytics'</em><a class="headerlink" href="#core.config.Configuration.ANALYTICS_POLICY" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -566,7 +571,7 @@ server.</p>
 
 <dl class="attribute">
 <dt id="core.config.Configuration.LIBRARY_SETTINGS">
-<code class="descname">LIBRARY_SETTINGS</code><em class="property"> = [{'format': 'url', 'required': True, 'description': l'The library's main website, e.g. &quot;https://www.nypl.org/&quot; (not this Circulation Manager's URL).', 'key': u'website', 'label': l'URL of the library's website'}, {'category': 'Loans, Holds, &amp; Fines', 'default': 'true', 'label': l'Allow books to be put on hold', 'key': 'allow_holds', 'type': 'select', 'options': [{'key': 'true', 'label': l'Allow holds'}, {'key': 'false', 'label': l'Disable holds'}]}, {'category': 'Lanes &amp; Filters', 'readOnly': True, 'description': l'Patrons will see the selected entry points at the top level and in search results. &lt;p&gt;Currently supported audiobook vendors: Bibliotheca, Axis 360', 'key': 'enabled_entry_points', 'format': 'narrow', 'default': ['Book'], 'type': 'list', 'options': [{'key': 'All', 'label': 'All'}, {'key': 'Book', 'label': 'eBooks'}, {'key': 'Audio', 'label': 'Audiobooks'}], 'label': l'Enabled entry points'}, {'default': 15, 'category': 'Lanes &amp; Filters', 'type': 'number', 'key': 'featured_lane_size', 'label': l'Maximum number of books in the 'featured' lanes'}, {'category': 'Lanes &amp; Filters', 'description': l'Between 0 and 1.', 'default': 0.65, 'max': 1, 'label': l'Minimum quality for books that show up in 'featured' lanes', 'key': 'minimum_featured_quality', 'type': 'number'}, {'category': 'Lanes &amp; Filters', 'default': ['now', 'all', 'always'], 'label': l'Allow patrons to filter availability to', 'paired': 'facets_default_available', 'key': 'facets_enabled_available', 'type': 'list', 'options': [{'key': 'now', 'label': l'Available now'}, {'key': 'all', 'label': l'All'}, {'key': 'always', 'label': l'Yours to keep'}]}, {'category': 'Lanes &amp; Filters', 'default': ['title', 'author', 'added', 'random'], 'label': l'Allow patrons to sort by', 'paired': 'facets_default_order', 'key': 'facets_enabled_order', 'type': 'list', 'options': [{'key': 'title', 'label': l'Title'}, {'key': 'author', 'label': l'Author'}, {'key': 'added', 'label': l'Recently Added'}, {'key': 'random', 'label': l'Random'}]}, {'category': 'Lanes &amp; Filters', 'default': ['full', 'featured'], 'label': l'Allow patrons to filter collection to', 'paired': 'facets_default_collection', 'key': 'facets_enabled_collection', 'type': 'list', 'options': [{'key': 'full', 'label': l'Everything'}, {'key': 'featured', 'label': l'Popular Books'}]}, {'category': 'Lanes &amp; Filters', 'default': 'all', 'skip': True, 'label': l'Default Availability', 'key': 'facets_default_available', 'type': 'select', 'options': [{'key': 'now', 'label': l'Available now'}, {'key': 'all', 'label': l'All'}, {'key': 'always', 'label': l'Yours to keep'}]}, {'category': 'Lanes &amp; Filters', 'default': 'author', 'skip': True, 'label': l'Default Sort by', 'key': 'facets_default_order', 'type': 'select', 'options': [{'key': 'title', 'label': l'Title'}, {'key': 'author', 'label': l'Author'}, {'key': 'added', 'label': l'Recently Added'}, {'key': 'random', 'label': l'Random'}]}, {'category': 'Lanes &amp; Filters', 'default': 'full', 'skip': True, 'label': l'Default Collection', 'key': 'facets_default_collection', 'type': 'select', 'options': [{'key': 'full', 'label': l'Everything'}, {'key': 'featured', 'label': l'Popular Books'}]}]</em><a class="headerlink" href="#core.config.Configuration.LIBRARY_SETTINGS" title="Permalink to this definition">¶</a></dt>
+<code class="descname">LIBRARY_SETTINGS</code><em class="property"> = [{'required': True, 'description': l'The library's main website, e.g. &quot;https://www.nypl.org/&quot; (not this Circulation Manager's URL).', 'level': 3, 'format': 'url', 'label': l'URL of the library's website', 'key': u'website'}, {'category': 'Loans, Holds, &amp; Fines', 'level': 3, 'default': 'true', 'label': l'Allow books to be put on hold', 'key': 'allow_holds', 'type': 'select', 'options': [{'key': 'true', 'label': l'Allow holds'}, {'key': 'false', 'label': l'Disable holds'}]}, {'category': 'Lanes &amp; Filters', 'readOnly': True, 'description': l'Patrons will see the selected entry points at the top level and in search results. &lt;p&gt;Currently supported audiobook vendors: Bibliotheca, Axis 360', 'key': 'enabled_entry_points', 'format': 'narrow', 'default': ['Book'], 'level': 3, 'type': 'list', 'options': [{'key': 'All', 'label': 'All'}, {'key': 'Book', 'label': 'eBooks'}, {'key': 'Audio', 'label': 'Audiobooks'}], 'label': l'Enabled entry points'}, {'category': 'Lanes &amp; Filters', 'level': 1, 'default': 15, 'label': l'Maximum number of books in the 'featured' lanes', 'key': 'featured_lane_size', 'type': 'number'}, {'category': 'Lanes &amp; Filters', 'description': l'Between 0 and 1.', 'key': 'minimum_featured_quality', 'level': 1, 'default': 0.65, 'max': 1, 'type': 'number', 'label': l'Minimum quality for books that show up in 'featured' lanes'}, {'category': 'Lanes &amp; Filters', 'paired': 'facets_default_available', 'key': 'facets_enabled_available', 'level': 2, 'default': ['now', 'all', 'always'], 'type': 'list', 'options': [{'key': 'now', 'label': l'Available now'}, {'key': 'all', 'label': l'All'}, {'key': 'always', 'label': l'Yours to keep'}], 'label': l'Allow patrons to filter availability to'}, {'category': 'Lanes &amp; Filters', 'paired': 'facets_default_order', 'key': 'facets_enabled_order', 'level': 2, 'default': ['title', 'author', 'added', 'random'], 'type': 'list', 'options': [{'key': 'title', 'label': l'Title'}, {'key': 'author', 'label': l'Author'}, {'key': 'added', 'label': l'Recently Added'}, {'key': 'random', 'label': l'Random'}], 'label': l'Allow patrons to sort by'}, {'category': 'Lanes &amp; Filters', 'paired': 'facets_default_collection', 'key': 'facets_enabled_collection', 'level': 2, 'default': ['full', 'featured'], 'type': 'list', 'options': [{'key': 'full', 'label': l'Everything'}, {'key': 'featured', 'label': l'Popular Books'}], 'label': l'Allow patrons to filter collection to'}, {'category': 'Lanes &amp; Filters', 'default': 'all', 'skip': True, 'label': l'Default Availability', 'key': 'facets_default_available', 'type': 'select', 'options': [{'key': 'now', 'label': l'Available now'}, {'key': 'all', 'label': l'All'}, {'key': 'always', 'label': l'Yours to keep'}]}, {'category': 'Lanes &amp; Filters', 'default': 'author', 'skip': True, 'label': l'Default Sort by', 'key': 'facets_default_order', 'type': 'select', 'options': [{'key': 'title', 'label': l'Title'}, {'key': 'author', 'label': l'Author'}, {'key': 'added', 'label': l'Recently Added'}, {'key': 'random', 'label': l'Random'}]}, {'category': 'Lanes &amp; Filters', 'default': 'full', 'skip': True, 'label': l'Default Collection', 'key': 'facets_default_collection', 'type': 'select', 'options': [{'key': 'full', 'label': l'Everything'}, {'key': 'featured', 'label': l'Popular Books'}]}]</em><a class="headerlink" href="#core.config.Configuration.LIBRARY_SETTINGS" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -677,6 +682,16 @@ server.</p>
 <dl class="attribute">
 <dt id="core.config.Configuration.SITE_CONFIGURATION_TIMEOUT">
 <code class="descname">SITE_CONFIGURATION_TIMEOUT</code><em class="property"> = 'site_configuration_timeout'</em><a class="headerlink" href="#core.config.Configuration.SITE_CONFIGURATION_TIMEOUT" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.config.Configuration.SYS_ADMIN_ONLY">
+<code class="descname">SYS_ADMIN_ONLY</code><em class="property"> = 3</em><a class="headerlink" href="#core.config.Configuration.SYS_ADMIN_ONLY" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.config.Configuration.SYS_ADMIN_OR_MANAGER">
+<code class="descname">SYS_ADMIN_OR_MANAGER</code><em class="property"> = 2</em><a class="headerlink" href="#core.config.Configuration.SYS_ADMIN_OR_MANAGER" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -5259,7 +5274,7 @@ it is formatted using formatException() and appended to the message.</p>
 
 <dl class="attribute">
 <dt id="core.log.JSONFormatter.hostname">
-<code class="descname">hostname</code><em class="property"> = 'travis-job-3a0010ab-53bf-4b77-a90a-1ad83f667027'</em><a class="headerlink" href="#core.log.JSONFormatter.hostname" title="Permalink to this definition">¶</a></dt>
+<code class="descname">hostname</code><em class="property"> = 'travis-job-2f024730-34f1-426e-9a44-cbbf5d9ce162'</em><a class="headerlink" href="#core.log.JSONFormatter.hostname" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -7845,7 +7860,7 @@ and another.</p>
 
 <dl class="classmethod">
 <dt id="core.opds.AcquisitionFeed.single_entry">
-<em class="property">classmethod </em><code class="descname">single_entry</code><span class="sig-paren">(</span><em>_db</em>, <em>work</em>, <em>annotator</em>, <em>force_create=False</em>, <em>raw=False</em>, <em>**response_kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/opds.html#AcquisitionFeed.single_entry"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.opds.AcquisitionFeed.single_entry" title="Permalink to this definition">¶</a></dt>
+<em class="property">classmethod </em><code class="descname">single_entry</code><span class="sig-paren">(</span><em>_db</em>, <em>work</em>, <em>annotator</em>, <em>force_create=False</em>, <em>raw=False</em>, <em>use_cache=True</em>, <em>**response_kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/opds.html#AcquisitionFeed.single_entry"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.opds.AcquisitionFeed.single_entry" title="Permalink to this definition">¶</a></dt>
 <dd><p>Create a single-entry OPDS document for one specific work.</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
@@ -7860,6 +7875,7 @@ if there’s already a cached one.</li>
 <li><strong>raw</strong> – If this is False (the default), a Flask Response will be returned,
 ready to be sent over the network. Otherwise an object representing
 the underlying OPDS entry will be returned.</li>
+<li><strong>use_cache</strong> – Boolean value determining whether the OPDS cache shall be used.</li>
 <li><strong>response_kwargs</strong> – These keyword arguments will be passed into the Response
 constructor, if it is invoked.</li>
 </ul>
@@ -8060,6 +8076,28 @@ for a subclass that does something.</p>
 <dt id="core.opds.Annotator.groups_url">
 <em class="property">classmethod </em><code class="descname">groups_url</code><span class="sig-paren">(</span><em>lane</em>, <em>facets=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/opds.html#Annotator.groups_url"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.opds.Annotator.groups_url" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
+
+<dl class="method">
+<dt id="core.opds.Annotator.is_work_entry_solo">
+<code class="descname">is_work_entry_solo</code><span class="sig-paren">(</span><em>work</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/opds.html#Annotator.is_work_entry_solo"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.opds.Annotator.is_work_entry_solo" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="docutils">
+<dt>Return a boolean value indicating whether the work’s OPDS catalog entry is served by itself,</dt>
+<dd>rather than as a part of the feed.</dd>
+</dl>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>work</strong> (<a class="reference internal" href="core.model.html#core.model.work.Work" title="core.model.work.Work"><em>core.model.work.Work</em></a>) – Work object</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">Boolean value indicating whether the work’s OPDS catalog entry is served by itself,
+rather than as a part of the feed</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body">bool</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
 
 <dl class="classmethod">
 <dt id="core.opds.Annotator.lane_id">

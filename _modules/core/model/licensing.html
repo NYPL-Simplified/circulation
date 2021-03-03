@@ -39,6 +39,12 @@
 <span class="kn">import</span> <span class="nn">datetime</span>
 <span class="kn">import</span> <span class="nn">logging</span>
 
+<span class="kn">import</span> <span class="nn">six</span>
+<span class="kn">from</span> <span class="nn">circulationevent</span> <span class="kn">import</span> <span class="n">CirculationEvent</span>
+<span class="kn">from</span> <span class="nn">complaint</span> <span class="kn">import</span> <span class="n">Complaint</span>
+<span class="kn">from</span> <span class="nn">constants</span> <span class="kn">import</span> <span class="n">DataSourceConstants</span><span class="p">,</span> <span class="n">EditionConstants</span><span class="p">,</span> <span class="n">LinkRelations</span><span class="p">,</span> <span class="n">MediaTypes</span>
+<span class="kn">from</span> <span class="nn">hasfulltablecache</span> <span class="kn">import</span> <span class="n">HasFullTableCache</span>
+<span class="kn">from</span> <span class="nn">patron</span> <span class="kn">import</span> <span class="n">Hold</span><span class="p">,</span> <span class="n">Loan</span><span class="p">,</span> <span class="n">Patron</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Boolean</span><span class="p">,</span>
     <span class="n">Column</span><span class="p">,</span>
@@ -55,31 +61,13 @@
 <span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="kn">import</span> <span class="n">Session</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy.sql.functions</span> <span class="kn">import</span> <span class="n">func</span>
 
-<span class="kn">from</span> <span class="nn">circulationevent</span> <span class="kn">import</span> <span class="n">CirculationEvent</span>
-<span class="kn">from</span> <span class="nn">complaint</span> <span class="kn">import</span> <span class="n">Complaint</span>
-<span class="kn">from</span> <span class="nn">constants</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">DataSourceConstants</span><span class="p">,</span>
-    <span class="n">EditionConstants</span><span class="p">,</span>
-    <span class="n">LinkRelations</span><span class="p">,</span>
-    <span class="n">MediaTypes</span><span class="p">,</span>
-<span class="p">)</span>
-<span class="kn">from</span> <span class="nn">hasfulltablecache</span> <span class="kn">import</span> <span class="n">HasFullTableCache</span>
-<span class="kn">from</span> <span class="nn">patron</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">Patron</span><span class="p">,</span>
-    <span class="n">Loan</span><span class="p">,</span>
-    <span class="n">Hold</span><span class="p">,</span>
-<span class="p">)</span>
-<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">Base</span><span class="p">,</span>
-    <span class="n">create</span><span class="p">,</span>
-    <span class="n">flush</span><span class="p">,</span>
-    <span class="n">get_one</span><span class="p">,</span>
-    <span class="n">get_one_or_create</span><span class="p">,</span>
-<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">..util.string_helpers</span> <span class="kn">import</span> <span class="n">native_string</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">Base</span><span class="p">,</span> <span class="n">create</span><span class="p">,</span> <span class="n">flush</span><span class="p">,</span> <span class="n">get_one</span><span class="p">,</span> <span class="n">get_one_or_create</span>
 
 
 <div class="viewcode-block" id="PolicyException"><a class="viewcode-back" href="../../../core.model.html#core.model.licensing.PolicyException">[docs]</a><span class="k">class</span> <span class="nc">PolicyException</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
     <span class="k">pass</span></div>
+
 
 <div class="viewcode-block" id="License"><a class="viewcode-back" href="../../../core.model.html#core.model.licensing.License">[docs]</a><span class="k">class</span> <span class="nc">License</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;A single license for a work from a given source.</span>
@@ -213,7 +201,7 @@
     <span class="n">patrons_in_hold_queue</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span><span class="n">default</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
 
     <span class="c1"># Set to True for collections imported using MirrorUploaded</span>
-    <span class="n">self_hosted</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Boolean</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">self_hosted</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Boolean</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 
     <span class="c1"># This lets us cache the work of figuring out the best open access</span>
     <span class="c1"># link for this LicensePool.</span>
@@ -502,11 +490,7 @@
 
         <span class="c1"># Note: We can do a cleaner solution, if we refactor to not use metadata&#39;s</span>
         <span class="c1"># methods to update editions.  For now, we&#39;re choosing to go with the below approach.</span>
-        <span class="kn">from</span> <span class="nn">..metadata_layer</span> <span class="kn">import</span> <span class="p">(</span>
-            <span class="n">Metadata</span><span class="p">,</span>
-            <span class="n">IdentifierData</span><span class="p">,</span>
-            <span class="n">ReplacementPolicy</span><span class="p">,</span>
-        <span class="p">)</span>
+        <span class="kn">from</span> <span class="nn">..metadata_layer</span> <span class="kn">import</span> <span class="n">IdentifierData</span><span class="p">,</span> <span class="n">Metadata</span><span class="p">,</span> <span class="n">ReplacementPolicy</span>
 
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">all_editions</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
             <span class="c1"># There&#39;s only one edition associated with this</span>
@@ -1438,7 +1422,13 @@
                 <span class="n">LicensePool</span><span class="o">.</span><span class="n">identifier</span><span class="o">==</span><span class="bp">self</span><span class="o">.</span><span class="n">identifier</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="s2">&quot;&lt;LicensePoolDeliveryMechanism: data_source=</span><span class="si">%s</span><span class="s2">, identifier=</span><span class="si">%r</span><span class="s2">, mechanism=</span><span class="si">%r</span><span class="s2">&gt;&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data_source</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">delivery_mechanism</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">native_string</span><span class="p">(</span>
+            <span class="sa">u</span><span class="s2">&quot;&lt;LicensePoolDeliveryMechanism: data_source=</span><span class="si">{0}</span><span class="s2">, identifier=</span><span class="si">{1}</span><span class="s2">, mechanism=</span><span class="si">{2}</span><span class="s2">&gt;&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                <span class="n">six</span><span class="o">.</span><span class="n">ensure_text</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data_source</span><span class="p">)),</span>
+                <span class="n">six</span><span class="o">.</span><span class="n">ensure_text</span><span class="p">(</span><span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">identifier</span><span class="p">)),</span>
+                <span class="n">six</span><span class="o">.</span><span class="n">ensure_text</span><span class="p">(</span><span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">delivery_mechanism</span><span class="p">))</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
 
     <span class="n">__table_args__</span> <span class="o">=</span> <span class="p">(</span>
         <span class="n">UniqueConstraint</span><span class="p">(</span><span class="s1">&#39;data_source_id&#39;</span><span class="p">,</span> <span class="s1">&#39;identifier_id&#39;</span><span class="p">,</span>

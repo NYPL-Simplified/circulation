@@ -1409,11 +1409,12 @@
         <span class="k">if</span> <span class="n">dry_run</span><span class="p">:</span>
             <span class="n">mirrors</span> <span class="o">=</span> <span class="kc">None</span>
 
+        <span class="n">self_hosted_collection</span> <span class="o">=</span> <span class="n">collection_type</span> <span class="ow">in</span> <span class="p">(</span><span class="n">CollectionType</span><span class="o">.</span><span class="n">OPEN_ACCESS</span><span class="p">,</span> <span class="n">CollectionType</span><span class="o">.</span><span class="n">PROTECTED_ACCESS</span><span class="p">)</span>
         <span class="n">replacement_policy</span> <span class="o">=</span> <span class="n">ReplacementPolicy</span><span class="o">.</span><span class="n">from_license_source</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">)</span>
         <span class="n">replacement_policy</span><span class="o">.</span><span class="n">mirrors</span> <span class="o">=</span> <span class="n">mirrors</span>
         <span class="n">metadata_records</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">load_metadata</span><span class="p">(</span><span class="n">metadata_file</span><span class="p">,</span> <span class="n">metadata_format</span><span class="p">,</span> <span class="n">data_source_name</span><span class="p">,</span> <span class="n">default_medium_type</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">metadata</span> <span class="ow">in</span> <span class="n">metadata_records</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">work_from_metadata</span><span class="p">(</span>
+            <span class="n">_</span><span class="p">,</span> <span class="n">licensepool</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">work_from_metadata</span><span class="p">(</span>
                 <span class="n">collection</span><span class="p">,</span>
                 <span class="n">collection_type</span><span class="p">,</span>
                 <span class="n">metadata</span><span class="p">,</span>
@@ -1423,9 +1424,7 @@
                 <span class="n">rights_uri</span>
             <span class="p">)</span>
 
-            <span class="k">if</span> <span class="n">collection_type</span> <span class="ow">in</span> <span class="p">[</span><span class="n">CollectionType</span><span class="o">.</span><span class="n">OPEN_ACCESS</span><span class="p">,</span> <span class="n">CollectionType</span><span class="o">.</span><span class="n">PROTECTED_ACCESS</span><span class="p">]:</span>
-                <span class="k">for</span> <span class="n">licensepool</span> <span class="ow">in</span> <span class="n">collection</span><span class="o">.</span><span class="n">licensepools</span><span class="p">:</span>
-                    <span class="n">licensepool</span><span class="o">.</span><span class="n">self_hosted</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="n">licensepool</span><span class="o">.</span><span class="n">self_hosted</span> <span class="o">=</span> <span class="kc">True</span> <span class="k">if</span> <span class="n">self_hosted_collection</span> <span class="k">else</span> <span class="kc">False</span>
 
             <span class="k">if</span> <span class="ow">not</span> <span class="n">dry_run</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span></div>
@@ -1516,8 +1515,8 @@
 <span class="sd">        :param policy: Replacement policy</span>
 <span class="sd">        :type policy: ReplacementPolicy</span>
 
-<span class="sd">        :return: Work object</span>
-<span class="sd">        :rtype: core.model.work.Work</span>
+<span class="sd">        :return: A 2-tuple of (Work object, LicensePool object)</span>
+<span class="sd">        :rtype: Tuple[core.model.work.Work, LicensePool]</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">annotate_metadata</span><span class="p">(</span><span class="n">collection_type</span><span class="p">,</span> <span class="n">metadata</span><span class="p">,</span> <span class="n">policy</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
 
@@ -1528,9 +1527,8 @@
 
         <span class="n">edition</span><span class="p">,</span> <span class="n">new</span> <span class="o">=</span> <span class="n">metadata</span><span class="o">.</span><span class="n">edition</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">)</span>
         <span class="n">metadata</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">edition</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">replace</span><span class="o">=</span><span class="n">policy</span><span class="p">)</span>
-        <span class="n">data_source</span> <span class="o">=</span> <span class="n">metadata</span><span class="o">.</span><span class="n">data_source</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">)</span>
         <span class="p">[</span><span class="n">pool</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">edition</span><span class="o">.</span><span class="n">license_pools</span>
-                  <span class="k">if</span> <span class="n">x</span><span class="o">.</span><span class="n">data_source</span> <span class="o">==</span> <span class="n">data_source</span><span class="p">]</span>
+                  <span class="k">if</span> <span class="n">x</span><span class="o">.</span><span class="n">collection</span> <span class="o">==</span> <span class="n">collection</span><span class="p">]</span>
         <span class="k">if</span> <span class="n">new</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Created new edition for </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">edition</span><span class="o">.</span><span class="n">title</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
@@ -1542,7 +1540,7 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
                 <span class="s2">&quot;FINALIZED </span><span class="si">%s</span><span class="s2">/</span><span class="si">%s</span><span class="s2">/</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">work</span><span class="o">.</span><span class="n">title</span><span class="p">,</span> <span class="n">work</span><span class="o">.</span><span class="n">author</span><span class="p">,</span> <span class="n">work</span><span class="o">.</span><span class="n">sort_author</span><span class="p">)</span>
             <span class="p">)</span>
-        <span class="k">return</span> <span class="n">work</span></div>
+        <span class="k">return</span> <span class="n">work</span><span class="p">,</span> <span class="n">pool</span></div>
 
 <div class="viewcode-block" id="DirectoryImportScript.annotate_metadata"><a class="viewcode-back" href="../scripts.html#scripts.DirectoryImportScript.annotate_metadata">[docs]</a>    <span class="k">def</span> <span class="nf">annotate_metadata</span><span class="p">(</span>
             <span class="bp">self</span><span class="p">,</span>

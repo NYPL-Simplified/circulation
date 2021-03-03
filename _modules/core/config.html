@@ -247,13 +247,21 @@
         <span class="p">},</span>
     <span class="p">]</span>
 
+    <span class="c1"># The &quot;level&quot; property determines which admins will be able to modify the setting.  Level 1 settings can be modified by anyone.</span>
+    <span class="c1"># Level 2 settings can be modified only by library managers and system admins (i.e. not by librarians).  Level 3 settings can be changed only by system admins.</span>
+    <span class="c1"># If no level is specified, the setting will be treated as Level 1 by default.</span>
+    <span class="n">ALL_ACCESS</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">SYS_ADMIN_OR_MANAGER</span> <span class="o">=</span> <span class="mi">2</span>
+    <span class="n">SYS_ADMIN_ONLY</span> <span class="o">=</span> <span class="mi">3</span>
+
     <span class="n">LIBRARY_SETTINGS</span> <span class="o">=</span> <span class="p">[</span>
         <span class="p">{</span>
             <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">WEBSITE_URL</span><span class="p">,</span>
             <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;URL of the library&#39;s website&quot;</span><span class="p">),</span>
             <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;The library&#39;s main website, e.g. </span><span class="se">\&quot;</span><span class="s2">https://www.nypl.org/</span><span class="se">\&quot;</span><span class="s2"> (not this Circulation Manager&#39;s URL).&quot;</span><span class="p">),</span>
             <span class="s2">&quot;required&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
-            <span class="s2">&quot;format&quot;</span><span class="p">:</span> <span class="s2">&quot;url&quot;</span>
+            <span class="s2">&quot;format&quot;</span><span class="p">:</span> <span class="s2">&quot;url&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;level&quot;</span><span class="p">:</span> <span class="n">SYS_ADMIN_ONLY</span>
         <span class="p">},</span>
         <span class="p">{</span>
             <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">ALLOW_HOLDS</span><span class="p">,</span>
@@ -265,6 +273,7 @@
             <span class="p">],</span>
             <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="s2">&quot;true&quot;</span><span class="p">,</span>
             <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Loans, Holds, &amp; Fines&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;level&quot;</span><span class="p">:</span> <span class="n">SYS_ADMIN_ONLY</span>
         <span class="p">},</span>
         <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">EntryPoint</span><span class="o">.</span><span class="n">ENABLED_SETTING</span><span class="p">,</span>
           <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Enabled entry points&quot;</span><span class="p">),</span>
@@ -280,7 +289,8 @@
           <span class="c1"># Renders a component with options that get narrowed down as the user makes selections.</span>
           <span class="s2">&quot;format&quot;</span><span class="p">:</span> <span class="s2">&quot;narrow&quot;</span><span class="p">,</span>
           <span class="c1"># Renders an input field that cannot be edited.</span>
-          <span class="s2">&quot;readOnly&quot;</span><span class="p">:</span> <span class="kc">True</span>
+          <span class="s2">&quot;readOnly&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+          <span class="s2">&quot;level&quot;</span><span class="p">:</span> <span class="n">SYS_ADMIN_ONLY</span>
         <span class="p">},</span>
         <span class="p">{</span>
             <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">FEATURED_LANE_SIZE</span><span class="p">,</span>
@@ -288,6 +298,8 @@
             <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;number&quot;</span><span class="p">,</span>
             <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="mi">15</span><span class="p">,</span>
             <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Lanes &amp; Filters&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;level&quot;</span><span class="p">:</span> <span class="n">ALL_ACCESS</span>
+
         <span class="p">},</span>
         <span class="p">{</span>
             <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">MINIMUM_FEATURED_QUALITY</span><span class="p">,</span>
@@ -297,6 +309,7 @@
             <span class="s2">&quot;max&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
             <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="n">DEFAULT_MINIMUM_FEATURED_QUALITY</span><span class="p">,</span>
             <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Lanes &amp; Filters&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;level&quot;</span><span class="p">:</span> <span class="n">ALL_ACCESS</span>
         <span class="p">},</span>
     <span class="p">]</span> <span class="o">+</span> <span class="p">[</span>
         <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">ConfigurationConstants</span><span class="o">.</span><span class="n">ENABLED_FACETS_KEY_PREFIX</span> <span class="o">+</span> <span class="n">group</span><span class="p">,</span>
@@ -310,6 +323,7 @@
           <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Lanes &amp; Filters&quot;</span><span class="p">,</span>
           <span class="c1"># Tells the front end that each of these settings is related to the corresponding default setting.</span>
           <span class="s2">&quot;paired&quot;</span><span class="p">:</span> <span class="n">ConfigurationConstants</span><span class="o">.</span><span class="n">DEFAULT_FACET_KEY_PREFIX</span> <span class="o">+</span> <span class="n">group</span><span class="p">,</span>
+          <span class="s2">&quot;level&quot;</span><span class="p">:</span> <span class="n">SYS_ADMIN_OR_MANAGER</span>
         <span class="p">}</span> <span class="k">for</span> <span class="n">group</span><span class="p">,</span> <span class="n">description</span> <span class="ow">in</span> <span class="n">FacetConstants</span><span class="o">.</span><span class="n">GROUP_DESCRIPTIONS</span><span class="o">.</span><span class="n">iteritems</span><span class="p">()</span>
     <span class="p">]</span> <span class="o">+</span> <span class="p">[</span>
         <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">ConfigurationConstants</span><span class="o">.</span><span class="n">DEFAULT_FACET_KEY_PREFIX</span> <span class="o">+</span> <span class="n">group</span><span class="p">,</span>

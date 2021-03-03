@@ -72,6 +72,10 @@
     <span class="c1"># The name of the setting that controls how long static files are cached.</span>
     <span class="n">STATIC_FILE_CACHE_TIME</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;static_file_cache_time&quot;</span>
 
+    <span class="c1"># The name of the setting controlling how long authentication</span>
+    <span class="c1"># documents are cached.</span>
+    <span class="n">AUTHENTICATION_DOCUMENT_CACHE_TIME</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;authentication_document_cache_time&quot;</span>
+
     <span class="c1"># A custom link to a Terms of Service document to be understood by</span>
     <span class="c1"># users of the administrative interface.</span>
     <span class="c1">#</span>
@@ -231,6 +235,13 @@
             <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;number&quot;</span><span class="p">,</span>
         <span class="p">},</span>
         <span class="p">{</span>
+            <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">AUTHENTICATION_DOCUMENT_CACHE_TIME</span><span class="p">,</span>
+            <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Cache time for authentication documents (in seconds)&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;required&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+            <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;number&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="mi">3600</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="p">{</span>
             <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">CUSTOM_TOS_HREF</span><span class="p">,</span>
             <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Custom Terms of Service link&quot;</span><span class="p">),</span>
             <span class="s2">&quot;required&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
@@ -246,19 +257,25 @@
         <span class="p">}</span>
     <span class="p">]</span>
 
+    <span class="c1"># The &quot;level&quot; property determines which admins will be able to modify the setting.  Level 1 settings can be modified by anyone.</span>
+    <span class="c1"># Level 2 settings can be modified only by library managers and system admins (i.e. not by librarians).  Level 3 settings can be changed only by system admins.</span>
+    <span class="c1"># If no level is specified, the setting will be treated as Level 1 by default.</span>
+
     <span class="n">LIBRARY_SETTINGS</span> <span class="o">=</span> <span class="n">CoreConfiguration</span><span class="o">.</span><span class="n">LIBRARY_SETTINGS</span> <span class="o">+</span> <span class="p">[</span>
         <span class="p">{</span>
             <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">LIBRARY_DESCRIPTION</span><span class="p">,</span>
             <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;A short description of this library&quot;</span><span class="p">),</span>
             <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;This will be shown to people who aren&#39;t sure they&#39;ve chosen the right library.&quot;</span><span class="p">),</span>
             <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Basic Information&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;level&quot;</span><span class="p">:</span> <span class="n">CoreConfiguration</span><span class="o">.</span><span class="n">SYS_ADMIN_ONLY</span>
         <span class="p">},</span>
         <span class="p">{</span>
             <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">Announcements</span><span class="o">.</span><span class="n">SETTING_NAME</span><span class="p">,</span>
             <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Scheduled announcements&quot;</span><span class="p">),</span>
             <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Announcements will be displayed to authenticated patrons.&quot;</span><span class="p">),</span>
             <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Announcements&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;announcements&quot;</span>
+            <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;announcements&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;level&quot;</span><span class="p">:</span> <span class="n">CoreConfiguration</span><span class="o">.</span><span class="n">ALL_ACCESS</span>
         <span class="p">},</span>
         <span class="p">{</span>
             <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">HELP_EMAIL</span><span class="p">,</span>
@@ -266,6 +283,7 @@
             <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;An email address a patron can use if they need help, e.g. &#39;simplyehelp@yourlibrary.org&#39;.&quot;</span><span class="p">),</span>
             <span class="s2">&quot;required&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
             <span class="s2">&quot;format&quot;</span><span class="p">:</span> <span class="s2">&quot;email&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;level&quot;</span><span class="p">:</span> <span class="n">CoreConfiguration</span><span class="o">.</span><span class="n">SYS_ADMIN_ONLY</span>
         <span class="p">},</span>
         <span class="p">{</span>
             <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">HELP_WEB</span><span class="p">,</span>
@@ -273,19 +291,22 @@
             <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;A URL for patrons to get help.&quot;</span><span class="p">),</span>
             <span class="s2">&quot;format&quot;</span><span class="p">:</span> <span class="s2">&quot;url&quot;</span><span class="p">,</span>
             <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Patron Support&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;level&quot;</span><span class="p">:</span> <span class="n">CoreConfiguration</span><span class="o">.</span><span class="n">ALL_ACCESS</span>
         <span class="p">},</span>
         <span class="p">{</span>
             <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">HELP_URI</span><span class="p">,</span>
             <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Patron support custom integration URI&quot;</span><span class="p">),</span>
             <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;A custom help integration like Helpstack, e.g. &#39;helpstack:nypl.desk.com&#39;.&quot;</span><span class="p">),</span>
             <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Patron Support&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;level&quot;</span><span class="p">:</span> <span class="n">CoreConfiguration</span><span class="o">.</span><span class="n">SYS_ADMIN_ONLY</span>
         <span class="p">},</span>
         <span class="p">{</span>
             <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">COPYRIGHT_DESIGNATED_AGENT_EMAIL</span><span class="p">,</span>
             <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Copyright designated agent email&quot;</span><span class="p">),</span>
             <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Patrons of this library should use this email address to send a DMCA notification (or other copyright complaint) to the library.&lt;br/&gt;If no value is specified here, the general patron support address will be used.&quot;</span><span class="p">),</span>
             <span class="s2">&quot;format&quot;</span><span class="p">:</span> <span class="s2">&quot;email&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Patron Support&quot;</span>
+            <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Patron Support&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;level&quot;</span><span class="p">:</span> <span class="n">CoreConfiguration</span><span class="o">.</span><span class="n">SYS_ADMIN_OR_MANAGER</span>
         <span class="p">},</span>
         <span class="p">{</span>
             <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">CONFIGURATION_CONTACT_EMAIL</span><span class="p">,</span>
@@ -293,6 +314,7 @@
             <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;This email address will be shared as part of integrations that you set up through this interface. It will not be shared with the general public. This gives the administrator of the remote integration a way to contact you about problems with this library&#39;s use of that integration.&lt;br/&gt;If no value is specified here, the general patron support address will be used.&quot;</span><span class="p">),</span>
             <span class="s2">&quot;format&quot;</span><span class="p">:</span> <span class="s2">&quot;email&quot;</span><span class="p">,</span>
             <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Patron Support&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;level&quot;</span><span class="p">:</span> <span class="n">CoreConfiguration</span><span class="o">.</span><span class="n">SYS_ADMIN_OR_MANAGER</span>
         <span class="p">},</span>
         <span class="p">{</span>
             <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">DEFAULT_NOTIFICATION_EMAIL_ADDRESS</span><span class="p">,</span>
@@ -301,6 +323,7 @@
             <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="n">STANDARD_NOREPLY_EMAIL_ADDRESS</span><span class="p">,</span>
             <span class="s2">&quot;required&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
             <span class="s2">&quot;format&quot;</span><span class="p">:</span> <span class="s2">&quot;email&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;level&quot;</span><span class="p">:</span> <span class="n">CoreConfiguration</span><span class="o">.</span><span class="n">SYS_ADMIN_ONLY</span>
         <span class="p">},</span>
         <span class="p">{</span>
             <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">COLOR_SCHEME</span><span class="p">,</span>
@@ -328,6 +351,7 @@
             <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;select&quot;</span><span class="p">,</span>
             <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="n">DEFAULT_COLOR_SCHEME</span><span class="p">,</span>
             <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Client Interface Customization&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;level&quot;</span><span class="p">:</span> <span class="n">CoreConfiguration</span><span class="o">.</span><span class="n">SYS_ADMIN_OR_MANAGER</span>
         <span class="p">},</span>
         <span class="p">{</span>
             <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">WEB_PRIMARY_COLOR</span><span class="p">,</span>
@@ -336,6 +360,7 @@
             <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;color-picker&quot;</span><span class="p">,</span>
             <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="n">DEFAULT_WEB_PRIMARY_COLOR</span><span class="p">,</span>
             <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Client Interface Customization&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;level&quot;</span><span class="p">:</span> <span class="n">CoreConfiguration</span><span class="o">.</span><span class="n">SYS_ADMIN_OR_MANAGER</span>
         <span class="p">},</span>
         <span class="p">{</span>
             <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">WEB_SECONDARY_COLOR</span><span class="p">,</span>
@@ -344,6 +369,7 @@
             <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;color-picker&quot;</span><span class="p">,</span>
             <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="n">DEFAULT_WEB_SECONDARY_COLOR</span><span class="p">,</span>
             <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Client Interface Customization&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;level&quot;</span><span class="p">:</span> <span class="n">CoreConfiguration</span><span class="o">.</span><span class="n">SYS_ADMIN_OR_MANAGER</span>
         <span class="p">},</span>
         <span class="p">{</span>
             <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">WEB_CSS_FILE</span><span class="p">,</span>
@@ -351,6 +377,7 @@
             <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Give web applications a CSS file to customize the catalog display.&quot;</span><span class="p">),</span>
             <span class="s2">&quot;format&quot;</span><span class="p">:</span> <span class="s2">&quot;url&quot;</span><span class="p">,</span>
             <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Client Interface Customization&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;level&quot;</span><span class="p">:</span> <span class="n">CoreConfiguration</span><span class="o">.</span><span class="n">SYS_ADMIN_ONLY</span>
         <span class="p">},</span>
         <span class="p">{</span>
             <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">WEB_HEADER_LINKS</span><span class="p">,</span>
@@ -358,6 +385,7 @@
             <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;This gives web applications a list of links to display in the header. Specify labels for each link in the same order under &#39;Web header labels&#39;.&quot;</span><span class="p">),</span>
             <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;list&quot;</span><span class="p">,</span>
             <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Client Interface Customization&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;level&quot;</span><span class="p">:</span> <span class="n">CoreConfiguration</span><span class="o">.</span><span class="n">SYS_ADMIN_OR_MANAGER</span>
         <span class="p">},</span>
         <span class="p">{</span>
             <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">WEB_HEADER_LABELS</span><span class="p">,</span>
@@ -365,6 +393,7 @@
             <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Labels for each link under &#39;Web header links&#39;.&quot;</span><span class="p">),</span>
             <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;list&quot;</span><span class="p">,</span>
             <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Client Interface Customization&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;level&quot;</span><span class="p">:</span> <span class="n">CoreConfiguration</span><span class="o">.</span><span class="n">SYS_ADMIN_OR_MANAGER</span>
         <span class="p">},</span>
         <span class="p">{</span>
             <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">LOGO</span><span class="p">,</span>
@@ -372,6 +401,7 @@
             <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;image&quot;</span><span class="p">,</span>
             <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;The image must be in GIF, PNG, or JPG format, approximately square, no larger than 135x135 pixels, and look good on a white background.&quot;</span><span class="p">),</span>
             <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Client Interface Customization&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;level&quot;</span><span class="p">:</span> <span class="n">CoreConfiguration</span><span class="o">.</span><span class="n">ALL_ACCESS</span>
         <span class="p">},</span>
         <span class="p">{</span>
             <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">HIDDEN_CONTENT_TYPES</span><span class="p">,</span>
@@ -379,6 +409,7 @@
             <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;text&quot;</span><span class="p">,</span>
             <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s1">&#39;A list of content types to hide from all clients, e.g. &lt;code&gt;[&quot;application/pdf&quot;]&lt;/code&gt;. This can be left blank except to solve specific problems.&#39;</span><span class="p">),</span>
             <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Client Interface Customization&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;level&quot;</span><span class="p">:</span> <span class="n">CoreConfiguration</span><span class="o">.</span><span class="n">SYS_ADMIN_ONLY</span>
         <span class="p">},</span>
         <span class="p">{</span>
             <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">LIBRARY_FOCUS_AREA</span><span class="p">,</span>
@@ -388,7 +419,8 @@
             <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Geographic Areas&quot;</span><span class="p">,</span>
             <span class="s2">&quot;format&quot;</span><span class="p">:</span> <span class="s2">&quot;geographic&quot;</span><span class="p">,</span>
             <span class="s2">&quot;instructions&quot;</span><span class="p">:</span> <span class="n">AREA_INPUT_INSTRUCTIONS</span><span class="p">,</span>
-            <span class="s2">&quot;capitalize&quot;</span><span class="p">:</span> <span class="kc">True</span>
+            <span class="s2">&quot;capitalize&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+            <span class="s2">&quot;level&quot;</span><span class="p">:</span> <span class="n">CoreConfiguration</span><span class="o">.</span><span class="n">ALL_ACCESS</span>
         <span class="p">},</span>
         <span class="p">{</span>
             <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">LIBRARY_SERVICE_AREA</span><span class="p">,</span>
@@ -398,13 +430,15 @@
             <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Geographic Areas&quot;</span><span class="p">,</span>
             <span class="s2">&quot;format&quot;</span><span class="p">:</span> <span class="s2">&quot;geographic&quot;</span><span class="p">,</span>
             <span class="s2">&quot;instructions&quot;</span><span class="p">:</span> <span class="n">AREA_INPUT_INSTRUCTIONS</span><span class="p">,</span>
-            <span class="s2">&quot;capitalize&quot;</span><span class="p">:</span> <span class="kc">True</span>
+            <span class="s2">&quot;capitalize&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+            <span class="s2">&quot;level&quot;</span><span class="p">:</span> <span class="n">CoreConfiguration</span><span class="o">.</span><span class="n">ALL_ACCESS</span>
         <span class="p">},</span>
         <span class="p">{</span>
             <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">MAX_OUTSTANDING_FINES</span><span class="p">,</span>
             <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Maximum amount in fines a patron can have before losing lending privileges&quot;</span><span class="p">),</span>
             <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;number&quot;</span><span class="p">,</span>
             <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Loans, Holds, &amp; Fines&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;level&quot;</span><span class="p">:</span> <span class="n">CoreConfiguration</span><span class="o">.</span><span class="n">ALL_ACCESS</span>
         <span class="p">},</span>
         <span class="p">{</span>
             <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">LOAN_LIMIT</span><span class="p">,</span>
@@ -412,6 +446,7 @@
             <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;(Note: depending on distributor settings, a patron may be able to exceed the limit by checking out books directly from a distributor&#39;s app. They may also get a limit exceeded error before they reach these limits if a distributor has a smaller limit.)&quot;</span><span class="p">),</span>
             <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;number&quot;</span><span class="p">,</span>
             <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Loans, Holds, &amp; Fines&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;level&quot;</span><span class="p">:</span> <span class="n">CoreConfiguration</span><span class="o">.</span><span class="n">ALL_ACCESS</span>
         <span class="p">},</span>
         <span class="p">{</span>
             <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">HOLD_LIMIT</span><span class="p">,</span>
@@ -419,36 +454,42 @@
             <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;(Note: depending on distributor settings, a patron may be able to exceed the limit by checking out books directly from a distributor&#39;s app. They may also get a limit exceeded error before they reach these limits if a distributor has a smaller limit.)&quot;</span><span class="p">),</span>
             <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;number&quot;</span><span class="p">,</span>
             <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Loans, Holds, &amp; Fines&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;level&quot;</span><span class="p">:</span> <span class="n">CoreConfiguration</span><span class="o">.</span><span class="n">ALL_ACCESS</span>
         <span class="p">},</span>
         <span class="p">{</span>
             <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">TERMS_OF_SERVICE</span><span class="p">,</span>
             <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Terms of Service URL&quot;</span><span class="p">),</span>
             <span class="s2">&quot;format&quot;</span><span class="p">:</span> <span class="s2">&quot;url&quot;</span><span class="p">,</span>
             <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Links&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;level&quot;</span><span class="p">:</span> <span class="n">CoreConfiguration</span><span class="o">.</span><span class="n">ALL_ACCESS</span>
         <span class="p">},</span>
         <span class="p">{</span>
             <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">PRIVACY_POLICY</span><span class="p">,</span>
             <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Privacy Policy URL&quot;</span><span class="p">),</span>
             <span class="s2">&quot;format&quot;</span><span class="p">:</span> <span class="s2">&quot;url&quot;</span><span class="p">,</span>
             <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Links&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;level&quot;</span><span class="p">:</span> <span class="n">CoreConfiguration</span><span class="o">.</span><span class="n">ALL_ACCESS</span>
         <span class="p">},</span>
         <span class="p">{</span>
             <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">COPYRIGHT</span><span class="p">,</span>
             <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Copyright URL&quot;</span><span class="p">),</span>
             <span class="s2">&quot;format&quot;</span><span class="p">:</span> <span class="s2">&quot;url&quot;</span><span class="p">,</span>
             <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Links&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;level&quot;</span><span class="p">:</span> <span class="n">CoreConfiguration</span><span class="o">.</span><span class="n">SYS_ADMIN_OR_MANAGER</span>
         <span class="p">},</span>
         <span class="p">{</span>
             <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">ABOUT</span><span class="p">,</span>
             <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;About URL&quot;</span><span class="p">),</span>
             <span class="s2">&quot;format&quot;</span><span class="p">:</span> <span class="s2">&quot;url&quot;</span><span class="p">,</span>
             <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Links&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;level&quot;</span><span class="p">:</span> <span class="n">CoreConfiguration</span><span class="o">.</span><span class="n">ALL_ACCESS</span>
         <span class="p">},</span>
         <span class="p">{</span>
             <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">LICENSE</span><span class="p">,</span>
             <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;License URL&quot;</span><span class="p">),</span>
             <span class="s2">&quot;format&quot;</span><span class="p">:</span> <span class="s2">&quot;url&quot;</span><span class="p">,</span>
             <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Links&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;level&quot;</span><span class="p">:</span> <span class="n">CoreConfiguration</span><span class="o">.</span><span class="n">SYS_ADMIN_OR_MANAGER</span>
         <span class="p">},</span>
         <span class="p">{</span>
             <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">REGISTER</span><span class="p">,</span>
@@ -456,7 +497,8 @@
             <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;A URL where someone who doesn&#39;t have a library card yet can sign up for one.&quot;</span><span class="p">),</span>
             <span class="s2">&quot;format&quot;</span><span class="p">:</span> <span class="s2">&quot;url&quot;</span><span class="p">,</span>
             <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Patron Support&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;allowed&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;nypl.card-creator:https://patrons.librarysimplified.org/&quot;</span><span class="p">]</span>
+            <span class="s2">&quot;allowed&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;nypl.card-creator:https://patrons.librarysimplified.org/&quot;</span><span class="p">],</span>
+            <span class="s2">&quot;level&quot;</span><span class="p">:</span> <span class="n">CoreConfiguration</span><span class="o">.</span><span class="n">ALL_ACCESS</span>
         <span class="p">},</span>
         <span class="p">{</span>
             <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">LARGE_COLLECTION_LANGUAGES</span><span class="p">,</span>
@@ -466,6 +508,7 @@
             <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">LANGUAGE_DESCRIPTION</span><span class="p">,</span>
             <span class="s2">&quot;optional&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
             <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Languages&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;level&quot;</span><span class="p">:</span> <span class="n">CoreConfiguration</span><span class="o">.</span><span class="n">ALL_ACCESS</span>
         <span class="p">},</span>
         <span class="p">{</span>
             <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">SMALL_COLLECTION_LANGUAGES</span><span class="p">,</span>
@@ -475,6 +518,7 @@
             <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">LANGUAGE_DESCRIPTION</span><span class="p">,</span>
             <span class="s2">&quot;optional&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
             <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Languages&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;level&quot;</span><span class="p">:</span> <span class="n">CoreConfiguration</span><span class="o">.</span><span class="n">ALL_ACCESS</span>
         <span class="p">},</span>
         <span class="p">{</span>
             <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">TINY_COLLECTION_LANGUAGES</span><span class="p">,</span>
@@ -484,6 +528,7 @@
             <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">LANGUAGE_DESCRIPTION</span><span class="p">,</span>
             <span class="s2">&quot;optional&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
             <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Languages&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;level&quot;</span><span class="p">:</span> <span class="n">CoreConfiguration</span><span class="o">.</span><span class="n">ALL_ACCESS</span>
         <span class="p">},</span>
     <span class="p">]</span>
 

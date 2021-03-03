@@ -120,7 +120,7 @@
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>db</strong> (<em>sqlalchemy.orm.session.Session</em>) – Database session</td>
 </tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">Iterable list of feed pages</td>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">Iterable list of feed pages in a form of Python dictionaries</td>
 </tr>
 <tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body">Iterable[dict]</td>
 </tr>
@@ -136,11 +136,17 @@
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
 <li><strong>db</strong> (<em>sqlalchemy.orm.session.Session</em>) – Database session</li>
 <li><strong>page</strong> (<em>int</em>) – Page index (max = 32,766)</li>
 <li><strong>hits_per_page</strong> (<em>int</em>) – Number of publications on a single page (max = 32,766)</li>
 </ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">Python dictionary object containing the feed’s page</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">dict</p>
 </td>
 </tr>
 </tbody>
@@ -494,12 +500,35 @@ if the string contains an incorrect identifier</td>
 
 <dl class="class">
 <dt id="api.proquest.importer.ProQuestOPDS2ImportMonitor">
-<em class="property">class </em><code class="descclassname">api.proquest.importer.</code><code class="descname">ProQuestOPDS2ImportMonitor</code><span class="sig-paren">(</span><em>client_factory</em>, <em>db</em>, <em>collection</em>, <em>import_class</em>, <em>force_reimport=False</em>, <em>**import_class_kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/proquest/importer.html#ProQuestOPDS2ImportMonitor"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.proquest.importer.ProQuestOPDS2ImportMonitor" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="descclassname">api.proquest.importer.</code><code class="descname">ProQuestOPDS2ImportMonitor</code><span class="sig-paren">(</span><em>client_factory</em>, <em>db</em>, <em>collection</em>, <em>import_class</em>, <em>force_reimport=False</em>, <em>process_removals=False</em>, <em>**import_class_kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/proquest/importer.html#ProQuestOPDS2ImportMonitor"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.proquest.importer.ProQuestOPDS2ImportMonitor" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="core.html#core.opds2_import.OPDS2ImportMonitor" title="core.opds2_import.OPDS2ImportMonitor"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.opds2_import.OPDS2ImportMonitor</span></code></a>, <a class="reference internal" href="core.model.html#core.model.configuration.HasExternalIntegration" title="core.model.configuration.HasExternalIntegration"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.model.configuration.HasExternalIntegration</span></code></a></p>
 <dl class="attribute">
 <dt id="api.proquest.importer.ProQuestOPDS2ImportMonitor.PROTOCOL">
 <code class="descname">PROTOCOL</code><em class="property"> = u'ProQuest'</em><a class="headerlink" href="#api.proquest.importer.ProQuestOPDS2ImportMonitor.PROTOCOL" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
+
+<dl class="method">
+<dt id="api.proquest.importer.ProQuestOPDS2ImportMonitor.run_once">
+<code class="descname">run_once</code><span class="sig-paren">(</span><em>progress_ignore</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/proquest/importer.html#ProQuestOPDS2ImportMonitor.run_once"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.proquest.importer.ProQuestOPDS2ImportMonitor.run_once" title="Permalink to this definition">¶</a></dt>
+<dd><p>Do the actual work of the Monitor.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>progress</strong> – A TimestampData representing the
+work done by the Monitor up to this point.</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">A TimestampData representing how you want the
+Monitor’s entry in the <cite>timestamps</cite> table to look like
+from this point on.  NOTE: Modifying the incoming
+<cite>progress</cite> and returning it is generally a bad idea,
+because the incoming <cite>progress</cite> is full of old
+data. Instead, return a new TimestampData containing data
+for only the fields you want to set.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
 
 </dd></dl>
 
@@ -511,6 +540,11 @@ if the string contains an incorrect identifier</td>
 <dl class="attribute">
 <dt id="api.proquest.importer.ProQuestOPDS2Importer.DESCRIPTION">
 <code class="descname">DESCRIPTION</code><em class="property"> = l'Import books from a ProQuest OPDS 2.0 feed.'</em><a class="headerlink" href="#api.proquest.importer.ProQuestOPDS2Importer.DESCRIPTION" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.proquest.importer.ProQuestOPDS2Importer.LIBRARY_SETTINGS">
+<code class="descname">LIBRARY_SETTINGS</code><em class="property"> = [{'default': 21, 'type': 'number', 'description': l'Until it hears otherwise from the distributor, this server will assume that any given loan for this library from this collection will last this number of days. This number is usually a negotiated value between the library and the distributor. This only affects estimates&amp;mdash;it cannot affect the actual length of loans.', 'key': 'ebook_loan_duration', 'label': l'Default Loan Period (in Days)'}]</em><a class="headerlink" href="#api.proquest.importer.ProQuestOPDS2Importer.LIBRARY_SETTINGS" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -743,6 +777,11 @@ any reason.</td>
 <em class="property">class </em><code class="descclassname">api.proquest.scripts.</code><code class="descname">ProQuestOPDS2ImportScript</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/proquest/scripts.html#ProQuestOPDS2ImportScript"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.proquest.scripts.ProQuestOPDS2ImportScript" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="core.html#core.scripts.OPDSImportScript" title="core.scripts.OPDSImportScript"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.scripts.OPDSImportScript</span></code></a></p>
 <p>Runs a ProQuestOPDS2ImportMonitor.</p>
+<dl class="classmethod">
+<dt id="api.proquest.scripts.ProQuestOPDS2ImportScript.arg_parser">
+<em class="property">classmethod </em><code class="descname">arg_parser</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/proquest/scripts.html#ProQuestOPDS2ImportScript.arg_parser"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.proquest.scripts.ProQuestOPDS2ImportScript.arg_parser" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
 <dl class="method">
 <dt id="api.proquest.scripts.ProQuestOPDS2ImportScript.run_monitor">
 <code class="descname">run_monitor</code><span class="sig-paren">(</span><em>collection</em>, <em>force=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/proquest/scripts.html#ProQuestOPDS2ImportScript.run_monitor"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.proquest.scripts.ProQuestOPDS2ImportScript.run_monitor" title="Permalink to this definition">¶</a></dt>

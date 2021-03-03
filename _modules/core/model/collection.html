@@ -552,6 +552,26 @@
         <span class="n">metadata_identifier</span> <span class="o">=</span> <span class="n">protocol</span> <span class="o">+</span> <span class="s1">&#39;:&#39;</span> <span class="o">+</span> <span class="n">account_id</span>
         <span class="k">return</span> <span class="n">encode</span><span class="p">(</span><span class="n">metadata_identifier</span><span class="p">)</span>
 
+<div class="viewcode-block" id="Collection.disassociate_library"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Collection.disassociate_library">[docs]</a>    <span class="k">def</span> <span class="nf">disassociate_library</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">library</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Disassociate a Library from this Collection and delete any relevant</span>
+<span class="sd">        ConfigurationSettings.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">library</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">library</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">libraries</span><span class="p">:</span>
+            <span class="c1"># No-op.</span>
+            <span class="k">return</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">libraries</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">library</span><span class="p">)</span>
+
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="n">qu</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span>
+            <span class="n">ConfigurationSetting</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+            <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">library</span><span class="o">==</span><span class="n">library</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+            <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">external_integration</span><span class="o">==</span><span class="bp">self</span><span class="o">.</span><span class="n">external_integration</span>
+        <span class="p">)</span>
+        <span class="n">qu</span><span class="o">.</span><span class="n">delete</span><span class="p">()</span></div>
+
     <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">_decode_metadata_identifier</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">metadata_identifier</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Invert the metadata_identifier property.&quot;&quot;&quot;</span>
@@ -857,6 +877,10 @@
 
         <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
 
+        <span class="c1"># Disassociate all libraries from this collection.</span>
+        <span class="k">for</span> <span class="n">library</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">libraries</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">disassociate_library</span><span class="p">(</span><span class="n">library</span><span class="p">)</span>
+
         <span class="c1"># Delete all the license pools. This should be the only part</span>
         <span class="c1"># of the application where LicensePools are permanently</span>
         <span class="c1"># deleted.</span>
@@ -867,6 +891,11 @@
                 <span class="n">_db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
             <span class="k">if</span> <span class="n">work</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">work</span><span class="o">.</span><span class="n">license_pools</span><span class="p">:</span>
                 <span class="n">work</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">search_index</span><span class="p">)</span>
+
+        <span class="c1"># Delete the ExternalIntegration associated with this</span>
+        <span class="c1"># Collection, assuming it wasn&#39;t deleted already.</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">external_integration</span><span class="p">:</span>
+            <span class="n">_db</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">external_integration</span><span class="p">)</span>
 
         <span class="c1"># Now delete the Collection itself.</span>
         <span class="n">_db</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>

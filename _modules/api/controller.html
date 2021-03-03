@@ -78,7 +78,7 @@
     <span class="n">OAuthController</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">base_controller</span> <span class="kn">import</span> <span class="n">BaseCirculationManagerController</span>
-<span class="kn">from</span> <span class="nn">circulation</span> <span class="kn">import</span> <span class="n">CirculationAPI</span>
+<span class="kn">from</span> <span class="nn">circulation</span> <span class="kn">import</span> <span class="n">CirculationAPI</span><span class="p">,</span> <span class="n">FulfillmentInfo</span>
 <span class="kn">from</span> <span class="nn">circulation_exceptions</span> <span class="kn">import</span> <span class="o">*</span>
 <span class="kn">from</span> <span class="nn">config</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Configuration</span><span class="p">,</span>
@@ -156,6 +156,7 @@
     <span class="n">load_lanes</span><span class="p">,</span>
     <span class="n">ContributorFacets</span><span class="p">,</span>
     <span class="n">ContributorLane</span><span class="p">,</span>
+    <span class="n">HasSeriesFacets</span><span class="p">,</span>
     <span class="n">JackpotFacets</span><span class="p">,</span>
     <span class="n">JackpotWorkList</span><span class="p">,</span>
     <span class="n">RecommendationLane</span><span class="p">,</span>
@@ -336,8 +337,13 @@
 
         <span class="bp">self</span><span class="o">.</span><span class="n">patron_web_domains</span> <span class="o">=</span> <span class="n">patron_web_domains</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">setup_configuration_dependent_controllers</span><span class="p">()</span>
+        <span class="n">authentication_document_cache_time</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span>
+            <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">sitewide</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">Configuration</span><span class="o">.</span><span class="n">AUTHENTICATION_DOCUMENT_CACHE_TIME</span>
+            <span class="p">)</span><span class="o">.</span><span class="n">value_or_default</span><span class="p">(</span><span class="mi">3600</span><span class="p">)</span>
+        <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">authentication_for_opds_documents</span> <span class="o">=</span> <span class="n">ExpiringDict</span><span class="p">(</span>
-            <span class="n">max_len</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">max_age_seconds</span><span class="o">=</span><span class="mi">3600</span>
+            <span class="n">max_len</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">max_age_seconds</span><span class="o">=</span><span class="n">authentication_document_cache_time</span>
         <span class="p">)</span></div>
 
     <span class="nd">@property</span>
@@ -572,9 +578,15 @@
 <span class="sd">        OPDS document in the cache, then return the cached version.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">name</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">library</span><span class="o">.</span><span class="n">short_name</span>
-        <span class="k">if</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">authentication_for_opds_documents</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">authentication_for_opds_documents</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">auth</span><span class="o">.</span><span class="n">create_authentication_document</span><span class="p">()</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">authentication_for_opds_documents</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
+        <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">authentication_for_opds_documents</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># The document was not in the cache, either because it&#39;s</span>
+            <span class="c1"># expired or because the cache itself has been disabled.</span>
+            <span class="c1"># Create a new one and stick it in the cache for next</span>
+            <span class="c1"># time.</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">auth</span><span class="o">.</span><span class="n">create_authentication_document</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">authentication_for_opds_documents</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+        <span class="k">return</span> <span class="n">value</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">sitewide_key_pair</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -596,6 +608,30 @@
 
 
 <div class="viewcode-block" id="CirculationManagerController"><a class="viewcode-back" href="../../api.html#api.controller.CirculationManagerController">[docs]</a><span class="k">class</span> <span class="nc">CirculationManagerController</span><span class="p">(</span><span class="n">BaseCirculationManagerController</span><span class="p">):</span>
+
+<div class="viewcode-block" id="CirculationManagerController.get_patron_circ_objects"><a class="viewcode-back" href="../../api.html#api.controller.CirculationManagerController.get_patron_circ_objects">[docs]</a>    <span class="k">def</span> <span class="nf">get_patron_circ_objects</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">object_class</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">license_pools</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">patron</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">[]</span>
+        <span class="n">pool_ids</span> <span class="o">=</span> <span class="p">[</span><span class="n">pool</span><span class="o">.</span><span class="n">id</span> <span class="k">for</span> <span class="n">pool</span> <span class="ow">in</span> <span class="n">license_pools</span><span class="p">]</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">object_class</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+            <span class="n">object_class</span><span class="o">.</span><span class="n">patron_id</span><span class="o">==</span><span class="n">patron</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+            <span class="n">object_class</span><span class="o">.</span><span class="n">license_pool_id</span><span class="o">.</span><span class="n">in_</span><span class="p">(</span><span class="n">pool_ids</span><span class="p">)</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">options</span><span class="p">(</span><span class="n">eagerload</span><span class="p">(</span><span class="n">object_class</span><span class="o">.</span><span class="n">license_pool</span><span class="p">))</span><span class="o">.</span><span class="n">all</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="CirculationManagerController.get_patron_loan"><a class="viewcode-back" href="../../api.html#api.controller.CirculationManagerController.get_patron_loan">[docs]</a>    <span class="k">def</span> <span class="nf">get_patron_loan</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">license_pools</span><span class="p">):</span>
+        <span class="n">loans</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_patron_circ_objects</span><span class="p">(</span><span class="n">Loan</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">license_pools</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">loans</span><span class="p">:</span>
+            <span class="n">loan</span> <span class="o">=</span> <span class="n">loans</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">return</span> <span class="n">loan</span><span class="p">,</span> <span class="n">loan</span><span class="o">.</span><span class="n">license_pool</span>
+        <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span></div>
+
+<div class="viewcode-block" id="CirculationManagerController.get_patron_hold"><a class="viewcode-back" href="../../api.html#api.controller.CirculationManagerController.get_patron_hold">[docs]</a>    <span class="k">def</span> <span class="nf">get_patron_hold</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">license_pools</span><span class="p">):</span>
+        <span class="n">holds</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_patron_circ_objects</span><span class="p">(</span><span class="n">Hold</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">license_pools</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">holds</span><span class="p">:</span>
+            <span class="n">hold</span> <span class="o">=</span> <span class="n">holds</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">return</span> <span class="n">hold</span><span class="p">,</span> <span class="n">hold</span><span class="o">.</span><span class="n">license_pool</span>
+        <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span></div>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">circulation</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -1162,39 +1198,90 @@
             <span class="n">facets</span><span class="o">=</span><span class="n">facets</span>
         <span class="p">)</span></div>
 
-<div class="viewcode-block" id="OPDSFeedController.qa_feed"><a class="viewcode-back" href="../../api.html#api.controller.OPDSFeedController.qa_feed">[docs]</a>    <span class="k">def</span> <span class="nf">qa_feed</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">feed_class</span><span class="o">=</span><span class="n">AcquisitionFeed</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Create an OPDS feed containing the information necessary to</span>
-<span class="sd">        run a full set of integration tests against this server and</span>
-<span class="sd">        the vendors it relies on.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">_qa_feed</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">feed_factory</span><span class="p">,</span> <span class="n">feed_title</span><span class="p">,</span> <span class="n">controller_name</span><span class="p">,</span> <span class="n">facet_class</span><span class="p">,</span>
+                 <span class="n">worklist_factory</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create some kind of OPDS feed designed for consumption by an</span>
+<span class="sd">        automated QA process.</span>
 
+<span class="sd">        :param feed_factory: This function will be called to create the feed.</span>
+<span class="sd">           It must either be AcquisitionFeed.groups or Acquisition.page,</span>
+<span class="sd">           or it must take the same arguments as those methods.</span>
+<span class="sd">        :param feed_title: String title of the feed.</span>
+<span class="sd">        :param controller_name: Controller name to use when generating</span>
+<span class="sd">           the URL to the feed.</span>
+<span class="sd">        :param facet_class: Faceting class to load (through</span>
+<span class="sd">            load_facets_from_request).</span>
+<span class="sd">        :param worklist_factory: Function that takes (Library, Facets)</span>
+<span class="sd">            and returns a Worklist configured to generate the feed.</span>
+<span class="sd">        :return: A ProblemDetail if there&#39;s a problem loading the faceting</span>
+<span class="sd">            object; otherwise the return value of `feed_factory`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">library</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">library</span>
         <span class="n">search_engine</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">search_engine</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">search_engine</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
             <span class="k">return</span> <span class="n">search_engine</span>
 
         <span class="n">url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">url_for</span><span class="p">(</span>
-            <span class="s2">&quot;qa_feed&quot;</span><span class="p">,</span>
+            <span class="n">controller_name</span><span class="p">,</span>
             <span class="n">library_short_name</span><span class="o">=</span><span class="n">library</span><span class="o">.</span><span class="n">short_name</span><span class="p">,</span>
         <span class="p">)</span>
 
         <span class="n">facets</span> <span class="o">=</span> <span class="n">load_facets_from_request</span><span class="p">(</span>
-            <span class="n">base_class</span><span class="o">=</span><span class="n">JackpotFacets</span><span class="p">,</span> <span class="n">default_entrypoint</span><span class="o">=</span><span class="n">EverythingEntryPoint</span>
+            <span class="n">base_class</span><span class="o">=</span><span class="n">facet_class</span><span class="p">,</span> <span class="n">default_entrypoint</span><span class="o">=</span><span class="n">EverythingEntryPoint</span>
         <span class="p">)</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">facets</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
             <span class="k">return</span> <span class="n">facets</span>
 
-        <span class="n">jwl</span> <span class="o">=</span> <span class="n">JackpotWorkList</span><span class="p">(</span><span class="n">library</span><span class="p">,</span> <span class="n">facets</span><span class="p">)</span>
-        <span class="n">annotator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">annotator</span><span class="p">(</span><span class="n">jwl</span><span class="p">)</span>
+        <span class="n">worklist</span> <span class="o">=</span> <span class="n">worklist_factory</span><span class="p">(</span><span class="n">library</span><span class="p">,</span> <span class="n">facets</span><span class="p">)</span>
+        <span class="n">annotator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">annotator</span><span class="p">(</span><span class="n">worklist</span><span class="p">)</span>
 
         <span class="c1"># Since this feed will be consumed by an automated client, and</span>
         <span class="c1"># we&#39;re choosing titles for specific purposes, there&#39;s no</span>
         <span class="c1"># reason to put more than a single item in each group.</span>
         <span class="n">pagination</span> <span class="o">=</span> <span class="n">Pagination</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">feed_class</span><span class="o">.</span><span class="n">groups</span><span class="p">(</span>
-            <span class="n">_db</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;QA test feed&quot;</span><span class="p">,</span> <span class="n">url</span><span class="o">=</span><span class="n">url</span><span class="p">,</span> <span class="n">pagination</span><span class="o">=</span><span class="n">pagination</span><span class="p">,</span>
-            <span class="n">worklist</span><span class="o">=</span><span class="n">jwl</span><span class="p">,</span> <span class="n">annotator</span><span class="o">=</span><span class="n">annotator</span><span class="p">,</span> <span class="n">search_engine</span><span class="o">=</span><span class="n">search_engine</span><span class="p">,</span>
-            <span class="n">max_age</span><span class="o">=</span><span class="n">CachedFeed</span><span class="o">.</span><span class="n">IGNORE_CACHE</span>
+        <span class="k">return</span> <span class="n">feed_factory</span><span class="p">(</span>
+            <span class="n">_db</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="n">feed_title</span><span class="p">,</span> <span class="n">url</span><span class="o">=</span><span class="n">url</span><span class="p">,</span> <span class="n">pagination</span><span class="o">=</span><span class="n">pagination</span><span class="p">,</span>
+            <span class="n">worklist</span><span class="o">=</span><span class="n">worklist</span><span class="p">,</span> <span class="n">annotator</span><span class="o">=</span><span class="n">annotator</span><span class="p">,</span> <span class="n">search_engine</span><span class="o">=</span><span class="n">search_engine</span><span class="p">,</span>
+            <span class="n">facets</span><span class="o">=</span><span class="n">facets</span><span class="p">,</span> <span class="n">max_age</span><span class="o">=</span><span class="n">CachedFeed</span><span class="o">.</span><span class="n">IGNORE_CACHE</span>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="OPDSFeedController.qa_feed"><a class="viewcode-back" href="../../api.html#api.controller.OPDSFeedController.qa_feed">[docs]</a>    <span class="k">def</span> <span class="nf">qa_feed</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">feed_class</span><span class="o">=</span><span class="n">AcquisitionFeed</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create an OPDS feed containing the information necessary to</span>
+<span class="sd">        run a full set of integration tests against this server and</span>
+<span class="sd">        the vendors it relies on.</span>
+
+<span class="sd">        :param feed_class: Class to substitute for AcquisitionFeed during</span>
+<span class="sd">            tests.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">def</span> <span class="nf">factory</span><span class="p">(</span><span class="n">library</span><span class="p">,</span> <span class="n">facets</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">JackpotWorkList</span><span class="p">(</span><span class="n">library</span><span class="p">,</span> <span class="n">facets</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_qa_feed</span><span class="p">(</span>
+            <span class="n">feed_factory</span><span class="o">=</span><span class="n">feed_class</span><span class="o">.</span><span class="n">groups</span><span class="p">,</span>
+            <span class="n">feed_title</span><span class="o">=</span><span class="s2">&quot;QA test feed&quot;</span><span class="p">,</span>
+            <span class="n">controller_name</span><span class="o">=</span><span class="s2">&quot;qa_feed&quot;</span><span class="p">,</span>
+            <span class="n">facet_class</span><span class="o">=</span><span class="n">JackpotFacets</span><span class="p">,</span>
+            <span class="n">worklist_factory</span><span class="o">=</span><span class="n">factory</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="OPDSFeedController.qa_series_feed"><a class="viewcode-back" href="../../api.html#api.controller.OPDSFeedController.qa_series_feed">[docs]</a>    <span class="k">def</span> <span class="nf">qa_series_feed</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">feed_class</span><span class="o">=</span><span class="n">AcquisitionFeed</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create an OPDS feed containing books that belong to _some_</span>
+<span class="sd">        series, without regard to _which_ series.</span>
+
+<span class="sd">        :param feed_class: Class to substitute for AcquisitionFeed during</span>
+<span class="sd">            tests.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">def</span> <span class="nf">factory</span><span class="p">(</span><span class="n">library</span><span class="p">,</span> <span class="n">facets</span><span class="p">):</span>
+            <span class="n">wl</span> <span class="o">=</span> <span class="n">WorkList</span><span class="p">()</span>
+            <span class="n">wl</span><span class="o">.</span><span class="n">initialize</span><span class="p">(</span><span class="n">library</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">wl</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_qa_feed</span><span class="p">(</span>
+            <span class="n">feed_factory</span><span class="o">=</span><span class="n">feed_class</span><span class="o">.</span><span class="n">page</span><span class="p">,</span>
+            <span class="n">feed_title</span><span class="o">=</span><span class="s2">&quot;QA series test feed&quot;</span><span class="p">,</span>
+            <span class="n">controller_name</span><span class="o">=</span><span class="s2">&quot;qa_series_feed&quot;</span><span class="p">,</span>
+            <span class="n">facet_class</span><span class="o">=</span><span class="n">HasSeriesFacets</span><span class="p">,</span>
+            <span class="n">worklist_factory</span><span class="o">=</span><span class="n">factory</span>
         <span class="p">)</span></div></div>
 
 
@@ -1268,29 +1355,7 @@
 
 <div class="viewcode-block" id="LoanController"><a class="viewcode-back" href="../../api.html#api.controller.LoanController">[docs]</a><span class="k">class</span> <span class="nc">LoanController</span><span class="p">(</span><span class="n">CirculationManagerController</span><span class="p">):</span>
 
-<div class="viewcode-block" id="LoanController.get_patron_circ_objects"><a class="viewcode-back" href="../../api.html#api.controller.LoanController.get_patron_circ_objects">[docs]</a>    <span class="k">def</span> <span class="nf">get_patron_circ_objects</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">object_class</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">license_pools</span><span class="p">):</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">patron</span><span class="p">:</span>
-            <span class="k">return</span> <span class="p">[]</span>
-        <span class="n">pool_ids</span> <span class="o">=</span> <span class="p">[</span><span class="n">pool</span><span class="o">.</span><span class="n">id</span> <span class="k">for</span> <span class="n">pool</span> <span class="ow">in</span> <span class="n">license_pools</span><span class="p">]</span>
 
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">object_class</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
-            <span class="n">object_class</span><span class="o">.</span><span class="n">patron_id</span><span class="o">==</span><span class="n">patron</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
-            <span class="n">object_class</span><span class="o">.</span><span class="n">license_pool_id</span><span class="o">.</span><span class="n">in_</span><span class="p">(</span><span class="n">pool_ids</span><span class="p">)</span>
-        <span class="p">)</span><span class="o">.</span><span class="n">options</span><span class="p">(</span><span class="n">eagerload</span><span class="p">(</span><span class="n">object_class</span><span class="o">.</span><span class="n">license_pool</span><span class="p">))</span><span class="o">.</span><span class="n">all</span><span class="p">()</span></div>
-
-<div class="viewcode-block" id="LoanController.get_patron_loan"><a class="viewcode-back" href="../../api.html#api.controller.LoanController.get_patron_loan">[docs]</a>    <span class="k">def</span> <span class="nf">get_patron_loan</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">license_pools</span><span class="p">):</span>
-        <span class="n">loans</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_patron_circ_objects</span><span class="p">(</span><span class="n">Loan</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">license_pools</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">loans</span><span class="p">:</span>
-            <span class="n">loan</span> <span class="o">=</span> <span class="n">loans</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-            <span class="k">return</span> <span class="n">loan</span><span class="p">,</span> <span class="n">loan</span><span class="o">.</span><span class="n">license_pool</span>
-        <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span></div>
-
-<div class="viewcode-block" id="LoanController.get_patron_hold"><a class="viewcode-back" href="../../api.html#api.controller.LoanController.get_patron_hold">[docs]</a>    <span class="k">def</span> <span class="nf">get_patron_hold</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">license_pools</span><span class="p">):</span>
-        <span class="n">holds</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_patron_circ_objects</span><span class="p">(</span><span class="n">Hold</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">license_pools</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">holds</span><span class="p">:</span>
-            <span class="n">hold</span> <span class="o">=</span> <span class="n">holds</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-            <span class="k">return</span> <span class="n">hold</span><span class="p">,</span> <span class="n">hold</span><span class="o">.</span><span class="n">license_pool</span>
-        <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span></div>
 
 <div class="viewcode-block" id="LoanController.sync"><a class="viewcode-back" href="../../api.html#api.controller.LoanController.sync">[docs]</a>    <span class="k">def</span> <span class="nf">sync</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Sync the authenticated patron&#39;s loans and holds with all third-party</span>
@@ -1617,7 +1682,7 @@
             <span class="c1"># If this is a streaming delivery mechanism, create an OPDS entry</span>
             <span class="c1"># with a fulfillment link to the streaming reader url.</span>
             <span class="n">feed</span> <span class="o">=</span> <span class="n">LibraryLoanAndHoldAnnotator</span><span class="o">.</span><span class="n">single_item_feed</span><span class="p">(</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">circulation</span><span class="p">,</span> <span class="n">loan</span><span class="p">,</span> <span class="n">fulfillment</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">circulation</span><span class="p">,</span> <span class="n">loan</span><span class="p">,</span> <span class="n">fulfillment</span><span class="o">=</span><span class="n">fulfillment</span>
             <span class="p">)</span>
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">feed</span><span class="p">,</span> <span class="n">Response</span><span class="p">):</span>
                 <span class="k">return</span> <span class="n">feed</span>
@@ -1751,12 +1816,12 @@
                 <span class="n">status_code</span><span class="o">=</span><span class="mi">404</span>
             <span class="p">)</span>
 
-        <span class="k">if</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">method</span><span class="o">==</span><span class="s1">&#39;GET&#39;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;GET&#39;</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">loan</span><span class="p">:</span>
                 <span class="n">item</span> <span class="o">=</span> <span class="n">loan</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">item</span> <span class="o">=</span> <span class="n">hold</span>
-            <span class="k">return</span> <span class="n">CirculationManagerLoanAndHoldAnnotator</span><span class="o">.</span><span class="n">single_item_feed</span><span class="p">(</span>
+            <span class="k">return</span> <span class="n">LibraryLoanAndHoldAnnotator</span><span class="o">.</span><span class="n">single_item_feed</span><span class="p">(</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">circulation</span><span class="p">,</span> <span class="n">item</span>
             <span class="p">)</span></div></div>
 
@@ -1909,17 +1974,37 @@
 <span class="sd">        returns a single entry while the /works lookup protocol returns a</span>
 <span class="sd">        feed containing any number of entries.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-
         <span class="n">library</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">library</span>
         <span class="n">work</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">load_work</span><span class="p">(</span><span class="n">library</span><span class="p">,</span> <span class="n">identifier_type</span><span class="p">,</span> <span class="n">identifier</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">work</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
             <span class="k">return</span> <span class="n">work</span>
 
-        <span class="n">annotator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">annotator</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">AcquisitionFeed</span><span class="o">.</span><span class="n">single_entry</span><span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">work</span><span class="p">,</span> <span class="n">annotator</span><span class="p">,</span>
-            <span class="n">max_age</span><span class="o">=</span><span class="n">OPDSFeed</span><span class="o">.</span><span class="n">DEFAULT_MAX_AGE</span>
-        <span class="p">)</span></div>
+        <span class="n">patron</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">patron</span>
+
+        <span class="k">if</span> <span class="n">patron</span><span class="p">:</span>
+            <span class="n">pools</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">load_licensepools</span><span class="p">(</span><span class="n">library</span><span class="p">,</span> <span class="n">identifier_type</span><span class="p">,</span> <span class="n">identifier</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">pools</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
+                <span class="k">return</span> <span class="n">pools</span>
+
+            <span class="n">loan</span><span class="p">,</span> <span class="n">pool</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_patron_loan</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">pools</span><span class="p">)</span>
+            <span class="n">hold</span> <span class="o">=</span> <span class="kc">None</span>
+
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">loan</span><span class="p">:</span>
+                <span class="n">hold</span><span class="p">,</span> <span class="n">pool</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_patron_hold</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">pools</span><span class="p">)</span>
+
+            <span class="n">item</span> <span class="o">=</span> <span class="n">loan</span> <span class="ow">or</span> <span class="n">hold</span>
+            <span class="n">pool</span> <span class="o">=</span> <span class="n">pool</span> <span class="ow">or</span> <span class="n">pools</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+            <span class="k">return</span> <span class="n">LibraryLoanAndHoldAnnotator</span><span class="o">.</span><span class="n">single_item_feed</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">circulation</span><span class="p">,</span> <span class="n">item</span> <span class="ow">or</span> <span class="n">pool</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">annotator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">annotator</span><span class="p">(</span><span class="n">lane</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+
+            <span class="k">return</span> <span class="n">AcquisitionFeed</span><span class="o">.</span><span class="n">single_entry</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">work</span><span class="p">,</span> <span class="n">annotator</span><span class="p">,</span>
+                <span class="n">max_age</span><span class="o">=</span><span class="n">OPDSFeed</span><span class="o">.</span><span class="n">DEFAULT_MAX_AGE</span>
+            <span class="p">)</span></div>
 
 <div class="viewcode-block" id="WorkController.related"><a class="viewcode-back" href="../../api.html#api.controller.WorkController.related">[docs]</a>    <span class="k">def</span> <span class="nf">related</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier_type</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">novelist_api</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                 <span class="n">feed_class</span><span class="o">=</span><span class="n">AcquisitionFeed</span><span class="p">):</span>

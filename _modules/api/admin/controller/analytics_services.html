@@ -57,7 +57,6 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">goal</span> <span class="o">=</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">ANALYTICS_GOAL</span>
 
 <div class="viewcode-block" id="AnalyticsServicesController.process_analytics_services"><a class="viewcode-back" href="../../../../api.admin.controller.html#api.admin.controller.analytics_services.AnalyticsServicesController.process_analytics_services">[docs]</a>    <span class="k">def</span> <span class="nf">process_analytics_services</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">require_system_admin</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;GET&#39;</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">process_get</span><span class="p">()</span>
         <span class="k">else</span><span class="p">:</span>
@@ -66,6 +65,11 @@
 <div class="viewcode-block" id="AnalyticsServicesController.process_get"><a class="viewcode-back" href="../../../../api.admin.controller.html#api.admin.controller.analytics_services.AnalyticsServicesController.process_get">[docs]</a>    <span class="k">def</span> <span class="nf">process_get</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;GET&#39;</span><span class="p">:</span>
             <span class="n">services</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_integration_info</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">goal</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">protocols</span><span class="p">)</span>
+            <span class="c1"># Librarians should be able to see, but not modify local analytics services.</span>
+            <span class="c1"># Setting the level to 2 will communicate that to the front end.</span>
+            <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">services</span><span class="p">:</span>
+                <span class="k">if</span> <span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="s2">&quot;protocol&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;core.local_analytics_provider&#39;</span><span class="p">):</span>
+                    <span class="n">x</span><span class="p">[</span><span class="s2">&quot;level&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">2</span>
             <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span>
                 <span class="n">analytics_services</span><span class="o">=</span><span class="n">services</span><span class="p">,</span>
                 <span class="n">protocols</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">protocols</span><span class="p">,</span>
@@ -76,6 +80,11 @@
         <span class="n">protocol</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;protocol&quot;</span><span class="p">)</span>
         <span class="n">url</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;url&quot;</span><span class="p">)</span>
         <span class="n">fields</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="n">name</span><span class="p">,</span> <span class="s2">&quot;protocol&quot;</span><span class="p">:</span> <span class="n">protocol</span><span class="p">,</span> <span class="s2">&quot;url&quot;</span><span class="p">:</span> <span class="n">url</span><span class="p">}</span>
+
+        <span class="c1"># Don&#39;t let librarians create local analytics services.</span>
+        <span class="k">if</span> <span class="n">protocol</span> <span class="o">==</span> <span class="s1">&#39;core.local_analytics_provider&#39;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">require_higher_than_librarian</span><span class="p">()</span>
+
         <span class="n">form_field_error</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">validate_form_fields</span><span class="p">(</span><span class="o">**</span><span class="n">fields</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">form_field_error</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">form_field_error</span>
@@ -106,7 +115,6 @@
             <span class="k">return</span> <span class="n">protocol_error</span>
 
         <span class="n">service</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span>
-
         <span class="k">if</span> <span class="n">is_new</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="n">service</span><span class="o">.</span><span class="n">id</span><span class="p">),</span> <span class="mi">201</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>

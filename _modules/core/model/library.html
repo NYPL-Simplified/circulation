@@ -141,7 +141,7 @@
     <span class="c1"># ConfigurationSettings.</span>
     <span class="n">settings</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span>
         <span class="s2">&quot;ConfigurationSetting&quot;</span><span class="p">,</span> <span class="n">backref</span><span class="o">=</span><span class="s2">&quot;library&quot;</span><span class="p">,</span>
-        <span class="n">lazy</span><span class="o">=</span><span class="s2">&quot;joined&quot;</span><span class="p">,</span> <span class="n">cascade</span><span class="o">=</span><span class="s2">&quot;all, delete-orphan&quot;</span><span class="p">,</span>
+        <span class="n">lazy</span><span class="o">=</span><span class="s2">&quot;joined&quot;</span><span class="p">,</span> <span class="n">cascade</span><span class="o">=</span><span class="s2">&quot;all, delete&quot;</span><span class="p">,</span>
     <span class="p">)</span>
 
     <span class="c1"># A Library may have many CirculationEvents</span>

@@ -305,6 +305,15 @@
 <span class="k">def</span> <span class="nf">acquisition_groups</span><span class="p">(</span><span class="n">lane_identifier</span><span class="p">):</span>
     <span class="k">return</span> <span class="n">app</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">opds_feeds</span><span class="o">.</span><span class="n">groups</span><span class="p">(</span><span class="n">lane_identifier</span><span class="p">)</span></div>
 
+<div class="viewcode-block" id="qa_series_feed"><a class="viewcode-back" href="../../api.html#api.routes.qa_series_feed">[docs]</a><span class="nd">@library_route</span><span class="p">(</span><span class="s1">&#39;/feed/qa/series&#39;</span><span class="p">)</span>
+<span class="nd">@has_library</span>
+<span class="nd">@allows_patron_web</span>
+<span class="nd">@requires_auth</span>
+<span class="nd">@returns_problem_detail</span>
+<span class="nd">@compressible</span>
+<span class="k">def</span> <span class="nf">qa_series_feed</span><span class="p">():</span>
+    <span class="k">return</span> <span class="n">app</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">opds_feeds</span><span class="o">.</span><span class="n">qa_series_feed</span><span class="p">()</span></div>
+
 <div class="viewcode-block" id="qa_feed"><a class="viewcode-back" href="../../api.html#api.routes.qa_feed">[docs]</a><span class="nd">@library_route</span><span class="p">(</span><span class="s1">&#39;/feed/qa&#39;</span><span class="p">)</span>
 <span class="nd">@has_library</span>
 <span class="nd">@allows_patron_web</span>
@@ -529,6 +538,7 @@
 
 <div class="viewcode-block" id="permalink"><a class="viewcode-back" href="../../api.html#api.routes.permalink">[docs]</a><span class="nd">@library_route</span><span class="p">(</span><span class="s1">&#39;/works/&lt;identifier_type&gt;/&lt;path:identifier&gt;&#39;</span><span class="p">)</span>
 <span class="nd">@has_library</span>
+<span class="nd">@allows_auth</span>
 <span class="nd">@allows_patron_web</span>
 <span class="nd">@returns_problem_detail</span>
 <span class="nd">@compressible</span>

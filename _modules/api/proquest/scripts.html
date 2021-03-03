@@ -37,7 +37,6 @@
 
 <span class="kn">from</span> <span class="nn">api.proquest.client</span> <span class="kn">import</span> <span class="n">ProQuestAPIClientFactory</span>
 <span class="kn">from</span> <span class="nn">api.proquest.importer</span> <span class="kn">import</span> <span class="n">ProQuestOPDS2ImportMonitor</span>
-
 <span class="kn">from</span> <span class="nn">core.scripts</span> <span class="kn">import</span> <span class="n">OPDSImportScript</span>
 
 
@@ -48,6 +47,18 @@
         <span class="nb">super</span><span class="p">(</span><span class="n">ProQuestOPDS2ImportScript</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+<div class="viewcode-block" id="ProQuestOPDS2ImportScript.arg_parser"><a class="viewcode-back" href="../../../api.proquest.html#api.proquest.scripts.ProQuestOPDS2ImportScript.arg_parser">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">arg_parser</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
+        <span class="n">parser</span> <span class="o">=</span> <span class="n">OPDSImportScript</span><span class="o">.</span><span class="n">arg_parser</span><span class="p">()</span>
+        <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+            <span class="s2">&quot;--process-removals&quot;</span><span class="p">,</span>
+            <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Remove from the Circulation Manager&#39;s catalog items that are no longer present in the ProQuest feed&quot;</span><span class="p">,</span>
+            <span class="n">dest</span><span class="o">=</span><span class="s2">&quot;process_removals&quot;</span><span class="p">,</span>
+            <span class="n">action</span><span class="o">=</span><span class="s2">&quot;store_true&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">parser</span></div>
 
 <div class="viewcode-block" id="ProQuestOPDS2ImportScript.run_monitor"><a class="viewcode-back" href="../../../api.proquest.html#api.proquest.scripts.ProQuestOPDS2ImportScript.run_monitor">[docs]</a>    <span class="k">def</span> <span class="nf">run_monitor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">force</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Run the monitor for the specified collection.</span>
@@ -67,6 +78,7 @@
             <span class="p">)</span>
         <span class="p">)</span>
 
+        <span class="n">parsed</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_command_line</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">)</span>
         <span class="n">client_factory</span> <span class="o">=</span> <span class="n">ProQuestAPIClientFactory</span><span class="p">()</span>
         <span class="n">monitor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">monitor_class</span><span class="p">(</span>
             <span class="n">client_factory</span><span class="p">,</span>
@@ -74,6 +86,7 @@
             <span class="n">collection</span><span class="p">,</span>
             <span class="n">import_class</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">importer_class</span><span class="p">,</span>
             <span class="n">force_reimport</span><span class="o">=</span><span class="n">force</span><span class="p">,</span>
+            <span class="n">process_removals</span><span class="o">=</span><span class="n">parsed</span><span class="o">.</span><span class="n">process_removals</span><span class="p">,</span>
         <span class="p">)</span>
 
         <span class="n">monitor</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>

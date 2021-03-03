@@ -116,6 +116,21 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">hidden_content_types</span> <span class="o">=</span> <span class="n">hidden_content_types</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">test_mode</span> <span class="o">=</span> <span class="n">test_mode</span>
 
+<div class="viewcode-block" id="CirculationManagerAnnotator.is_work_entry_solo"><a class="viewcode-back" href="../../api.html#api.opds.CirculationManagerAnnotator.is_work_entry_solo">[docs]</a>    <span class="k">def</span> <span class="nf">is_work_entry_solo</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">work</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return a boolean value indicating whether the work&#39;s OPDS catalog entry is served by itself,</span>
+<span class="sd">            rather than as a part of the feed.</span>
+
+<span class="sd">        :param work: Work object</span>
+<span class="sd">        :type work: core.model.work.Work</span>
+
+<span class="sd">        :return: Boolean value indicating whether the work&#39;s OPDS catalog entry is served by itself,</span>
+<span class="sd">            rather than as a part of the feed</span>
+<span class="sd">        :rtype: bool</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">any</span><span class="p">(</span>
+            <span class="n">work</span> <span class="ow">in</span> <span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">active_loans_by_work</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">active_holds_by_work</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">active_fulfillments_by_work</span><span class="p">)</span>
+        <span class="p">)</span></div>
+
     <span class="k">def</span> <span class="nf">_lane_identifier</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">lane</span><span class="p">):</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">lane</span><span class="p">,</span> <span class="n">Lane</span><span class="p">):</span>
             <span class="k">return</span> <span class="n">lane</span><span class="o">.</span><span class="n">id</span>
@@ -1472,7 +1487,7 @@
 <span class="sd">        or hold.</span>
 
 <span class="sd">        :param circulation: A CirculationAPI</span>
-<span class="sd">        :param item: A Loan or Hold -- perhaps one that was just created or looked up.</span>
+<span class="sd">        :param item: A Loan, Hold, or LicensePool if first two are missing.</span>
 <span class="sd">        :param fulfillment: A FulfillmentInfo representing the format in which an active loan</span>
 <span class="sd">            should be fulfilled.</span>
 <span class="sd">        :param test_mode: Passed along to the constructor for this annotator class.</span>
@@ -1482,19 +1497,36 @@
 
 <span class="sd">        :return: An OPDSEntryResponse</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="n">item</span><span class="p">)</span>
-        <span class="n">license_pool</span> <span class="o">=</span> <span class="n">item</span><span class="o">.</span><span class="n">license_pool</span>
-        <span class="n">work</span> <span class="o">=</span> <span class="n">license_pool</span><span class="o">.</span><span class="n">work</span> <span class="ow">or</span> <span class="n">license_pool</span><span class="o">.</span><span class="n">presentation_edition</span><span class="o">.</span><span class="n">work</span>
-        <span class="n">library</span> <span class="o">=</span> <span class="n">item</span><span class="o">.</span><span class="n">library</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">item</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Argument &#39;item&#39; must be non-empty&quot;</span><span class="p">)</span>
 
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="n">LicensePool</span><span class="p">):</span>
+            <span class="n">license_pool</span> <span class="o">=</span> <span class="n">item</span>
+            <span class="n">library</span> <span class="o">=</span> <span class="n">circulation</span><span class="o">.</span><span class="n">library</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="p">(</span><span class="n">Loan</span><span class="p">,</span> <span class="n">Hold</span><span class="p">)):</span>
+            <span class="n">license_pool</span> <span class="o">=</span> <span class="n">item</span><span class="o">.</span><span class="n">license_pool</span>
+            <span class="n">library</span> <span class="o">=</span> <span class="n">item</span><span class="o">.</span><span class="n">library</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Argument &#39;item&#39; must be an instance of </span><span class="si">{0}</span><span class="s2">, </span><span class="si">{1}</span><span class="s2">, or </span><span class="si">{2}</span><span class="s2"> classes&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                    <span class="n">Loan</span><span class="p">,</span> <span class="n">Hold</span><span class="p">,</span> <span class="n">LicensePool</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="n">item</span><span class="p">)</span>
+        <span class="n">work</span> <span class="o">=</span> <span class="n">license_pool</span><span class="o">.</span><span class="n">work</span> <span class="ow">or</span> <span class="n">license_pool</span><span class="o">.</span><span class="n">presentation_edition</span><span class="o">.</span><span class="n">work</span>
         <span class="n">active_loans_by_work</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="n">active_holds_by_work</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="n">active_fulfillments_by_work</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">item_dictionary</span> <span class="o">=</span> <span class="kc">None</span>
+
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="n">Loan</span><span class="p">):</span>
-            <span class="n">d</span> <span class="o">=</span> <span class="n">active_loans_by_work</span>
+            <span class="n">item_dictionary</span> <span class="o">=</span> <span class="n">active_loans_by_work</span>
         <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="n">Hold</span><span class="p">):</span>
-            <span class="n">d</span> <span class="o">=</span> <span class="n">active_holds_by_work</span>
-        <span class="n">d</span><span class="p">[</span><span class="n">work</span><span class="p">]</span> <span class="o">=</span> <span class="n">item</span>
+            <span class="n">item_dictionary</span> <span class="o">=</span> <span class="n">active_holds_by_work</span>
+
+        <span class="k">if</span> <span class="n">item_dictionary</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">item_dictionary</span><span class="p">[</span><span class="n">work</span><span class="p">]</span> <span class="o">=</span> <span class="n">item</span>
 
         <span class="k">if</span> <span class="n">fulfillment</span><span class="p">:</span>
             <span class="n">active_fulfillments_by_work</span><span class="p">[</span><span class="n">work</span><span class="p">]</span> <span class="o">=</span> <span class="n">fulfillment</span>

@@ -37,6 +37,9 @@
 <span class="kn">from</span> <span class="nn">contextlib</span> <span class="kn">import</span> <span class="n">contextmanager</span>
 
 <span class="kn">import</span> <span class="nn">requests</span>
+<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
+<span class="kn">from</span> <span class="nn">requests</span> <span class="kn">import</span> <span class="n">HTTPError</span><span class="p">,</span> <span class="n">Request</span>
+
 <span class="kn">from</span> <span class="nn">core.exceptions</span> <span class="kn">import</span> <span class="n">BaseError</span>
 <span class="kn">from</span> <span class="nn">core.model</span> <span class="kn">import</span> <span class="n">DeliveryMechanism</span>
 <span class="kn">from</span> <span class="nn">core.model.configuration</span> <span class="kn">import</span> <span class="p">(</span>
@@ -48,8 +51,6 @@
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">core.util</span> <span class="kn">import</span> <span class="n">is_session</span>
 <span class="kn">from</span> <span class="nn">core.util.string_helpers</span> <span class="kn">import</span> <span class="n">is_string</span>
-<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
-<span class="kn">from</span> <span class="nn">requests</span> <span class="kn">import</span> <span class="n">HTTPError</span><span class="p">,</span> <span class="n">Request</span>
 
 
 <div class="viewcode-block" id="ProQuestAPIClientConfiguration"><a class="viewcode-back" href="../../../api.proquest.html#api.proquest.client.ProQuestAPIClientConfiguration">[docs]</a><span class="k">class</span> <span class="nc">ProQuestAPIClientConfiguration</span><span class="p">(</span><span class="n">ConfigurationGrouping</span><span class="p">):</span>
@@ -462,6 +463,9 @@
 
 <span class="sd">        :param hits_per_page: Number of publications on a single page (max = 32,767)</span>
 <span class="sd">        :type hits_per_page: int</span>
+
+<span class="sd">        :return: Python dictionary object containing the feed&#39;s page</span>
+<span class="sd">        :rtype: dict</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
             <span class="s2">&quot;Started downloading page # </span><span class="si">{0}</span><span class="s2"> (</span><span class="si">{1}</span><span class="s2"> hits) of a paginated OPDS 2.0 feed from </span><span class="si">{2}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
@@ -502,6 +506,9 @@
 
 <span class="sd">        :param hits_per_page: Number of publications on a single page (max = 32,766)</span>
 <span class="sd">        :type hits_per_page: int</span>
+
+<span class="sd">        :return: Python dictionary object containing the feed&#39;s page</span>
+<span class="sd">        :rtype: dict</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">is_session</span><span class="p">(</span><span class="n">db</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;&quot;db&quot; argument must be a valid SQLAlchemy session&#39;</span><span class="p">)</span>
@@ -545,7 +552,7 @@
 <span class="sd">        :param db: Database session</span>
 <span class="sd">        :type db: sqlalchemy.orm.session.Session</span>
 
-<span class="sd">        :return: Iterable list of feed pages</span>
+<span class="sd">        :return: Iterable list of feed pages in a form of Python dictionaries</span>
 <span class="sd">        :rtype: Iterable[dict]</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">is_session</span><span class="p">(</span><span class="n">db</span><span class="p">):</span>
