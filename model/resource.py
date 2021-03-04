@@ -1286,6 +1286,8 @@ class Representation(Base, MediaTypes):
         or in a file on disk.
         """
         if self.content:
+            if not isinstance(self.content, bytes):
+                self.content = self.content.encode("utf-8")
             return BytesIO(self.content)
         elif self.local_path:
             if not os.path.exists(self.local_path):

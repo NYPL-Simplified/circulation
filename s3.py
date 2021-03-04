@@ -1,7 +1,7 @@
 import functools
 import logging
 from contextlib import contextmanager
-from six.moves.urllib.parse import quote, urlsplit, unquote_plus
+from urllib.parse import quote, urlsplit, unquote_plus
 
 import boto3
 import botocore
@@ -474,27 +474,22 @@ class S3Uploader(MirrorUploader):
         :param key: Either a key, or a list of parts to be
                     assembled into a key.
 
-        :return: A bytestring that can be used as an S3 key.
-
-        TODO PYTHON3 This is rewritten to return a Unicode string.
+        :return: A string that can be used as an S3 key.
         """
         if isinstance(key, str):
             parts = key.split('/')
         else:
             parts = key
         new_parts = []
+
         for part in parts:
-            if isinstance(part, str):
-                part = part.encode("utf-8")
-            else:
-                part = str(part)
-
+            if isinstance(part, bytes):
+                part = part.decode("utf-8")
             if encode:
-                part = quote(part)
-
+                part = quote(str(part))
             new_parts.append(part)
 
-        return b'/'.join(new_parts)
+        return '/'.join(new_parts)
 
     def book_url(self, identifier, extension='.epub', open_access=True,
                  data_source=None, title=None):
