@@ -160,6 +160,8 @@ class CachedFeed(Base):
             
             if isinstance(feed_data, bytes):
                 feed_data = feed_data.decode("utf-8")
+            else:
+                feed_data = str(feed_data)
 
             generation_time = datetime.datetime.utcnow()
 
@@ -183,7 +185,7 @@ class CachedFeed(Base):
                     feed_obj.content = feed_data
                     feed_obj.timestamp = generation_time
         elif feed_obj:
-            feed_data = str(feed_obj.content)
+            feed_data = feed_obj.content
 
         if raw and feed_obj:
             return feed_obj

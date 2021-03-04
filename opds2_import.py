@@ -354,7 +354,7 @@ class OPDS2Importer(OPDSImporter):
         sorted_raw_image_links = list(
             reversed(
                 sorted(
-                    publication.images.links, key=lambda link: (link.width, link.height)
+                    publication.images.links, key=lambda link: (link.width or 0, link.height or 0)
                 )
             )
         )

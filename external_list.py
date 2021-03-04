@@ -8,14 +8,14 @@ import os
 from sqlalchemy import or_
 from sqlalchemy.orm.session import Session
 
-from opds_import import SimplifiedOPDSLookup
+from .opds_import import SimplifiedOPDSLookup
 import logging
-from config import Configuration
-from metadata_layer import (
+from .config import Configuration
+from .metadata_layer import (
     CSVMetadataImporter,
     ReplacementPolicy,
 )
-from model import (
+from .model import (
     get_one,
     get_one_or_create,
     Classification,
@@ -27,7 +27,7 @@ from model import (
     Subject,
     Work,
 )
-from util import LanguageCodes
+from .util import LanguageCodes
 
 class CustomListFromCSV(CSVMetadataImporter):
     """Create a CustomList, with entries, from a CSV file."""
@@ -141,7 +141,7 @@ class CustomListFromCSV(CSVMetadataImporter):
             if annotation_author_affiliation:
                 annotation_extra += ', ' + annotation_author_affiliation
         if annotation_extra:
-            return u' —' + annotation_extra
+            return ' —' + annotation_extra
         return None
 
 
@@ -228,7 +228,7 @@ class TitleFromExternalList(object):
         # ID if possible.
         try:
             edition, is_new = self.metadata.edition(_db)
-        except ValueError, e:
+        except ValueError as e:
             self.log.info(
                 "Ignoring %s, no corresponding edition.", self.metadata.title
             )
@@ -291,7 +291,7 @@ class MembershipManager(object):
 
         # Anything still left in current_membership used to be in the
         # list but is no longer. Remove these entries from the list.
-        for entry_list in current_membership.values():
+        for entry_list in list(current_membership.values()):
             for entry in entry_list:
                 self.log.debug("Deleting %s" % entry.edition.title)
                 self._db.delete(entry)
