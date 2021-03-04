@@ -60,4 +60,4 @@ watchtower==0.8.0
 Werkzeug==1.0.1
 
 multipledispatch==0.6.0
-webpub-manifest-parser
+webpub-manifest-parser==0.0.4

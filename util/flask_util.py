@@ -65,11 +65,7 @@ class Response(FlaskResponse):
                 private = False
         self.private = private
 
-        body = response
-        if isinstance(body, etree._Element):
-            body = etree.tostring(body, encoding="unicode")
-        elif isinstance(body, bytes):
-            body = body.decode("utf-8")
+        body = str(response)
 
         super(Response, self).__init__(
             response=body,
