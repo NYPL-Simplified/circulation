@@ -1218,7 +1218,7 @@ class TestOPDS(DatabaseTest):
         eq_(CachedFeed.GROUPS_TYPE, cached.type)
 
         # So the feed contains no entries.
-        parsed = feedparser.parse(feed)
+        parsed = feedparser.parse(str(feed))
         eq_([], parsed['entries'])
 
         # but our mock Annotator got a chance to modify the feed in place.

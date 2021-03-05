@@ -204,7 +204,7 @@ class TestOPDS2Importer(OPDSTest):
         )
         eq_(
             MediaTypes.EPUB_MEDIA_TYPE,
-            moby_dick_delivery_mechanism.delivery_mechanism.media_type,
+            moby_dick_delivery_mechanism.delivery_mechanism.content_type,
         )
 
         # 2.2. Edition with non open-access acquisition links (Adventures of Huckleberry Finn)
@@ -230,7 +230,7 @@ class TestOPDS2Importer(OPDSTest):
         )
         eq_(
             MediaTypes.EPUB_MEDIA_TYPE,
-            huckleberry_finn_delivery_mechanisms[0].delivery_mechanism.media_type,
+            huckleberry_finn_delivery_mechanisms[0].delivery_mechanism.content_type,
         )
 
         eq_(
@@ -239,7 +239,7 @@ class TestOPDS2Importer(OPDSTest):
         )
         eq_(
             MediaTypes.EPUB_MEDIA_TYPE,
-            huckleberry_finn_delivery_mechanisms[1].delivery_mechanism.media_type,
+            huckleberry_finn_delivery_mechanisms[1].delivery_mechanism.content_type,
         )
 
         # 3. Make sure that work objects contain all the required metadata

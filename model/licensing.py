@@ -1492,10 +1492,10 @@ class DeliveryMechanism(Base, HasFullTableCache):
     # If the default client supports a given media type with no DRM,
     # we can infer that the client _also_ supports that media type via
     # bearer token exchange.
-    for media_type, drm in list(default_client_can_fulfill_lookup):
-        if media_type is not None and drm == NO_DRM:
+    for _media_type, _drm in list(default_client_can_fulfill_lookup):
+        if _media_type is not None and _drm == NO_DRM:
             default_client_can_fulfill_lookup.add(
-                (media_type, BEARER_TOKEN)
+                (_media_type, BEARER_TOKEN)
             )
 
     license_pool_delivery_mechanisms = relationship(
