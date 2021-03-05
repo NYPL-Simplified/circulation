@@ -283,7 +283,7 @@ class TestLogConfiguration(DatabaseTest):
         assert_raises(KeyError, m, "http://%(atoken)s/", "token")
 
     def test_cloudwatch_initialization_exception(self):
-        """Make sure if an exception is thrown during initalization its caught."""
+        # Make sure if an exception is thrown during initalization its caught.
 
         integration = self.cloudwatch_integration()
         integration.set_setting(CloudwatchLogs.CREATE_GROUP, "TRUE")

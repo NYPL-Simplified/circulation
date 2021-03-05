@@ -80,7 +80,6 @@ class AtomFeed(object):
 
     @classmethod
     def add_link_to_entry(cls, entry, children=None, **kwargs):
-        # TODO EDWIN check
         if 'title' in kwargs:
             kwargs['title'] = str(kwargs['title'])
         link = cls.E.link(**kwargs)

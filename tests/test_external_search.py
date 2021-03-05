@@ -2583,8 +2583,6 @@ class TestQuery(DatabaseTest):
                 # works that match the filter an edge over works that
                 # don't.
                 (Mock.SUBSTRING_HYPOTHESES, 1.1),
-                # TODO PYTHON3 the multi-match hypotheses show up before
-                # the others.
                 ('author query 1', 2),
                 ('author query 2', 3),
                 ('topic query', 4),

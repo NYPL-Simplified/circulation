@@ -1990,9 +1990,8 @@ class TestBibliographicCoverageProvider(CoverageProviderTest):
         self.identifier = self.pool.identifier
 
     def test_work_set_presentation_ready_on_success(self):
-        """When a Work is successfully run through a
-        BibliographicCoverageProvider, it's set as presentation-ready.
-        """
+        # When a Work is successfully run through a
+        # BibliographicCoverageProvider, it's set as presentation-ready.
         provider = AlwaysSuccessfulBibliographicCoverageProvider(
             self.pool.collection
         )
@@ -2258,17 +2257,17 @@ class TestMARCRecordWorkCoverageProvider(DatabaseTest):
 
         provider = MARCRecordWorkCoverageProvider(self._db)
         work = self._work(with_license_pool=True)
-        work.marc_record = 'old junk'
+        work.marc_record = b'old junk'
         work.presentation_ready = False
 
         # The work is not presentation-ready, so nothing happens.
         provider.run()
-        eq_('old junk', work.marc_record)
+        eq_(b'old junk', work.marc_record)
 
         # The work is presentation-ready, so its MARC record is
         # regenerated.
         work.presentation_ready = True
         provider.run()
-        assert work.title in work.marc_record
-        assert "online resource" in work.marc_record
+        assert work.title.encode("utf-8") in work.marc_record
+        assert b"online resource" in work.marc_record
 

@@ -589,8 +589,6 @@ class MARCExporter(object):
         record = None
         existing_record = getattr(work, annotator.marc_cache_field)
         if existing_record and not force_create:
-            if not isinstance(existing_record, bytes):
-                existing_record = existing_record.encode("utf-8")
             record = Record(data=existing_record, force_utf8=True)
 
         if not record:
@@ -612,7 +610,8 @@ class MARCExporter(object):
             annotator.add_ebooks_subject(record)
 
             data = record.as_marc()
-            setattr(work, annotator.marc_cache_field, data.decode("utf-8"))
+            setattr(work, annotator.marc_cache_field, data)
+
         # Add additional fields that should not be cached.
         annotator.annotate_work_record(work, pool, edition, identifier, record, integration)
         return record

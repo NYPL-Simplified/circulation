@@ -6,6 +6,7 @@ import logging
 from collections import Counter
 
 from sqlalchemy import (
+    Binary,
     Boolean,
     Column,
     DateTime,
@@ -220,7 +221,7 @@ class Work(Base):
     # A precalculated MARC record containing metadata about this
     # work that would be relevant to display in a library's public
     # catalog.
-    marc_record = Column(String, default=None)
+    marc_record = Column(Binary, default=None)
 
     # These fields are potentially large and can be deferred if you
     # don't need all the data in a Work.
