@@ -227,7 +227,7 @@ class Configuration(ConfigurationConstants):
             "description": _("The library's main website, e.g. \"https://www.nypl.org/\" (not this Circulation Manager's URL)."),
             "required": True,
             "format": "url",
-            "level": ALL_ACCESS
+            "level": SYS_ADMIN_ONLY
         },
         {
             "key": ALLOW_HOLDS,
