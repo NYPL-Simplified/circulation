@@ -20,7 +20,7 @@ from .ast import (
     Visitor,
 )
 from .parser import DSLParser
-
+import types
 
 class DSLEvaluationError(BaseError):
     """Raised when evaluation of a DSL expression fails."""
@@ -66,7 +66,7 @@ class DSLEvaluationVisitor(Visitor):
         "str": str,
     }
 
-    BUILTIN_CLASSES = [float, int, str]
+    BUILTIN_CLASSES = [float, int, str, types.ModuleType]
 
     def __init__(self, context=None, safe_classes=None):
         """Initialize a new instance of DSLEvaluationVisitor class.
@@ -363,7 +363,7 @@ class DSLEvaluationVisitor(Visitor):
 
                 arguments.append(argument)
 
-        function_class = getattr(function, "im_class", None)
+        function_class = getattr(function.__self__, "__class__", None)
 
         if function_class and function_class not in self.safe_classes:
             raise DSLEvaluationError(

@@ -2258,7 +2258,7 @@ class TestMARCRecordWorkCoverageProvider(DatabaseTest):
 
         provider = MARCRecordWorkCoverageProvider(self._db)
         work = self._work(with_license_pool=True)
-        work.marc_record = b'old junk'
+        work.marc_record = 'old junk'
         work.presentation_ready = False
 
         # The work is not presentation-ready, so nothing happens.

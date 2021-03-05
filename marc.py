@@ -613,7 +613,6 @@ class MARCExporter(object):
 
             data = record.as_marc()
             setattr(work, annotator.marc_cache_field, data.decode("utf-8"))
-
         # Add additional fields that should not be cached.
         annotator.annotate_work_record(work, pool, edition, identifier, record, integration)
         return record

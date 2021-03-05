@@ -544,8 +544,8 @@ class TestMARCExporter(DatabaseTest):
         titles = [fields[0].get_subfields("a")[0] for fields in title_fields]
         eq_(set([w1.title, w2.title]), set(titles))
 
-        assert w1.title.encode("utf8") in w1.marc_record
-        assert w2.title.encode("utf8") in w2.marc_record
+        assert w1.title in w1.marc_record
+        assert w2.title in w2.marc_record
 
         self._db.delete(cache)
 
