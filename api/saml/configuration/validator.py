@@ -1,4 +1,5 @@
 import logging
+import re
 from enum import Enum
 
 import six
@@ -8,6 +9,7 @@ from api.admin.problem_details import INCOMPLETE_CONFIGURATION
 from api.admin.validator import Validator
 from api.saml.configuration.model import SAMLConfiguration
 from api.saml.metadata.filter import SAMLSubjectFilter, SAMLSubjectFilterError
+from api.saml.metadata.model import SAMLSubjectPatronIDExtractor
 from api.saml.metadata.parser import SAMLMetadataParser, SAMLMetadataParsingError
 from core.problem_details import *
 from core.util.problem_detail import ProblemDetail
@@ -15,8 +17,8 @@ from core.util.problem_detail import ProblemDetail
 SAML_INCORRECT_METADATA = pd(
     "http://librarysimplified.org/terms/problem/saml/incorrect-metadata-format",
     status_code=400,
-    title=_("SAML metadata has incorrect format."),
-    detail=_("SAML metadata has incorrect format."),
+    title=_("SAML metadata has an incorrect format."),
+    detail=_("SAML metadata has an incorrect format."),
 )
 
 SAML_GENERIC_PARSING_ERROR = pd(
@@ -31,8 +33,15 @@ SAML_GENERIC_PARSING_ERROR = pd(
 SAML_INCORRECT_FILTRATION_EXPRESSION = pd(
     "http://librarysimplified.org/terms/problem/saml/incorrect-filtration-expression-format",
     status_code=400,
-    title=_("SAML filtration expression has incorrect format."),
-    detail=_("SAML filtration expression has incorrect format."),
+    title=_("SAML filtration expression has an incorrect format."),
+    detail=_("SAML filtration expression has an incorrect format."),
+)
+
+SAML_INCORRECT_PATRON_ID_REGULAR_EXPRESSION = pd(
+    "http://librarysimplified.org/terms/problem/saml/incorrect-patron-id-regex",
+    status_code=400,
+    title=_("SAML patron ID regular expression has an incorrect format."),
+    detail=_("SAML patron ID regular expression has an incorrect format."),
 )
 
 
@@ -266,11 +275,66 @@ class SAMLSettingsValidator(Validator):
 
                 return SAML_INCORRECT_FILTRATION_EXPRESSION.detailed(
                     _(
-                        "SAML filtration expression has incorrect format: {0}".format(
+                        u"SAML filtration expression has an incorrect format: {0}".format(
                             six.ensure_text(str(exception))
                         )
                     )
                 )
+
+    def _validate_patron_id_regular_expression(
+        self, settings, content, setting_key, setting_name
+    ):
+        """Validate a regular expression used to extract a unique patron ID from SAML attributes.
+
+        :param settings: Dictionary containing provider's settings (SAMLAuthenticationProvider.SETTINGS)
+        :type: Dict
+
+        :param content: Dictionary containing submitted form's metadata
+        :type content: werkzeug.datastructures.MultiDict
+
+        :param setting_key: Setting's key
+        :param setting_key: str
+
+        :param setting_name: Setting's name
+        :param setting_name: str
+
+        :return: ProblemDetail object if the regular expression is invalid
+        :rtype: Optional[ProblemDetail]
+        """
+        patron_id_regular_expression = self._get_setting_value(
+            settings, content, setting_key, setting_name, False
+        )
+
+        if patron_id_regular_expression:
+            try:
+                regex = re.compile(patron_id_regular_expression)
+
+                if (
+                    SAMLSubjectPatronIDExtractor.PATRON_ID_REGULAR_EXPRESSION_NAMED_GROUP
+                    not in regex.groupindex
+                ):
+                    return SAML_INCORRECT_PATRON_ID_REGULAR_EXPRESSION.detailed(
+                        _(
+                            u"SAML patron ID regular expression '{0}' does not have mandatory named group '{1}'".format(
+                                six.ensure_text(patron_id_regular_expression),
+                                six.ensure_text(
+                                    SAMLSubjectPatronIDExtractor.PATRON_ID_REGULAR_EXPRESSION_NAMED_GROUP
+                                ),
+                            )
+                        )
+                    )
+            except re.error as exception:
+                error_message = u"SAML patron ID regular expression '{0}' has an incorrect format: {1}".format(
+                    six.ensure_text(patron_id_regular_expression), exception
+                )
+
+                self._logger.exception(error_message)
+
+                return SAML_INCORRECT_PATRON_ID_REGULAR_EXPRESSION.detailed(
+                    _(error_message)
+                )
+
+        return None
 
     def validate(self, settings, content):
         """Validates provider's setting values submitted by the user
@@ -330,4 +394,11 @@ class SAMLSettingsValidator(Validator):
         if isinstance(validation_result, ProblemDetail):
             return validation_result
 
-        return None
+        validation_result = self._validate_patron_id_regular_expression(
+            settings,
+            content,
+            SAMLConfiguration.patron_id_regular_expression.key,
+            SAMLConfiguration.patron_id_regular_expression.label,
+        )
+
+        return validation_result

@@ -20,6 +20,7 @@ from api.saml.metadata.model import (
     SAMLAttributeType,
     SAMLIdentityProviderMetadata,
     SAMLLocalizedMetadataItem,
+    SAMLNameID,
     SAMLNameIDFormat,
     SAMLOrganization,
     SAMLService,
@@ -27,11 +28,10 @@ from api.saml.metadata.model import (
     SAMLSubject,
     SAMLSubjectJSONEncoder,
     SAMLUIInfo,
-    SAMLNameID,
 )
-from api.saml.metadata.parser import SAMLSubjectParser, SAMLMetadataParser
+from api.saml.metadata.parser import SAMLMetadataParser, SAMLSubjectParser
 from api.saml.provider import SAML_INVALID_SUBJECT, SAMLWebSSOAuthenticationProvider
-from core.model.configuration import HasExternalIntegration, ConfigurationStorage
+from core.model.configuration import ConfigurationStorage, HasExternalIntegration
 from core.python_expression_dsl.evaluator import DSLEvaluationVisitor, DSLEvaluator
 from core.python_expression_dsl.parser import DSLParser
 from core.util.problem_detail import ProblemDetail
@@ -273,9 +273,19 @@ class TestSAMLWebSSOAuthenticationProvider(ControllerTest):
         configuration.get_identity_providers = MagicMock(
             return_value=identity_providers
         )
+        configuration.patron_id_use_name_id = True
+        configuration.patron_id_attributes = []
+        configuration.patron_id_regular_expression = None
+
+        configuration_factory_create_context_manager = MagicMock()
+        configuration_factory_create_context_manager.__enter__ = MagicMock(
+            return_value=configuration
+        )
 
         configuration_factory = create_autospec(spec=SAMLConfigurationFactory)
-        configuration_factory.create = MagicMock(return_value=configuration)
+        configuration_factory.create = MagicMock(
+            return_value=configuration_factory_create_context_manager
+        )
 
         onelogin_configuration = SAMLOneLoginConfiguration(configuration)
         subject_parser = SAMLSubjectParser()
@@ -350,10 +360,126 @@ class TestSAMLWebSSOAuthenticationProvider(ControllerTest):
                     complete=True,
                 ),
             ),
+            (
+                "subject_has_unique_name_id_but_use_of_name_id_is_switched_off_using_integer_literal",
+                SAMLSubject(
+                    SAMLNameID(SAMLNameIDFormat.UNSPECIFIED, "", "", "12345"),
+                    SAMLAttributeStatement([]),
+                ),
+                SAML_INVALID_SUBJECT.detailed("Subject does not have a unique ID"),
+                0,
+            ),
+            (
+                "subject_has_unique_name_id_but_use_of_name_id_is_switched_off_using_string_literal",
+                SAMLSubject(
+                    SAMLNameID(SAMLNameIDFormat.UNSPECIFIED, "", "", "12345"),
+                    SAMLAttributeStatement([]),
+                ),
+                SAML_INVALID_SUBJECT.detailed("Subject does not have a unique ID"),
+                "0",
+            ),
+            (
+                "subject_has_unique_name_id_but_use_of_name_id_is_switched_off_using_none",
+                SAMLSubject(
+                    SAMLNameID(SAMLNameIDFormat.UNSPECIFIED, "", "", "12345"),
+                    SAMLAttributeStatement([]),
+                ),
+                SAML_INVALID_SUBJECT.detailed("Subject does not have a unique ID"),
+                None,
+            ),
+            (
+                "subject_has_unique_name_id_and_use_of_name_id_is_switched_on_using_integer_literal",
+                SAMLSubject(
+                    SAMLNameID(SAMLNameIDFormat.UNSPECIFIED, "", "", "12345"),
+                    SAMLAttributeStatement([]),
+                ),
+                PatronData(
+                    permanent_id="12345",
+                    authorization_identifier="12345",
+                    external_type="A",
+                    complete=True,
+                ),
+                1,
+            ),
+            (
+                "subject_has_unique_name_id_and_use_of_name_id_is_switched_on_using_string_literal",
+                SAMLSubject(
+                    SAMLNameID(SAMLNameIDFormat.UNSPECIFIED, "", "", "12345"),
+                    SAMLAttributeStatement([]),
+                ),
+                PatronData(
+                    permanent_id="12345",
+                    authorization_identifier="12345",
+                    external_type="A",
+                    complete=True,
+                ),
+                "1",
+            ),
+            (
+                "subject_has_unique_id_matching_the_regular_expression",
+                SAMLSubject(
+                    None,
+                    SAMLAttributeStatement(
+                        [
+                            SAMLAttribute(
+                                name=SAMLAttributeType.eduPersonPrincipalName.name,
+                                values=["firstname.lastname@university.org"],
+                            )
+                        ]
+                    ),
+                ),
+                PatronData(
+                    permanent_id="firstname.lastname",
+                    authorization_identifier="firstname.lastname",
+                    external_type="A",
+                    complete=True,
+                ),
+                False,
+                [SAMLAttributeType.eduPersonPrincipalName.name],
+                fixtures.PATRON_ID_REGULAR_EXPRESSION_ORG,
+            ),
+            (
+                "subject_has_unique_id_not_matching_the_regular_expression",
+                SAMLSubject(
+                    None,
+                    SAMLAttributeStatement(
+                        [
+                            SAMLAttribute(
+                                name=SAMLAttributeType.eduPersonPrincipalName.name,
+                                values=["firstname.lastname@university.com"],
+                            )
+                        ]
+                    ),
+                ),
+                SAML_INVALID_SUBJECT.detailed("Subject does not have a unique ID"),
+                False,
+                [SAMLAttributeType.eduPersonPrincipalName.name],
+                fixtures.PATRON_ID_REGULAR_EXPRESSION_ORG,
+            ),
         ]
     )
-    def test_remote_patron_lookup(self, _, subject, expected_result):
+    def test_remote_patron_lookup(
+        self,
+        _,
+        subject,
+        expected_result,
+        patron_id_use_name_id=None,
+        patron_id_attributes=None,
+        patron_id_regular_expression=None,
+    ):
         # Arrange
+        with self._configuration_factory.create(
+            self._configuration_storage, self._db, SAMLConfiguration
+        ) as configuration:
+            if patron_id_use_name_id is not None:
+                configuration.patron_id_use_name_id = patron_id_use_name_id
+            if patron_id_attributes is not None:
+                configuration.patron_id_attributes = json.dumps(patron_id_attributes)
+            if patron_id_regular_expression is not None:
+                configuration.patron_id_regular_expression = (
+                    patron_id_regular_expression
+                )
+
         provider = SAMLWebSSOAuthenticationProvider(
             self._default_library, self._integration
         )

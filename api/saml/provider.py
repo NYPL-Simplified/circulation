@@ -18,10 +18,10 @@ from api.saml.metadata.model import (
     SAMLNameIDFormat,
     SAMLSubject,
     SAMLSubjectJSONEncoder,
-    SAMLSubjectUIDExtractor,
+    SAMLSubjectPatronIDExtractor,
 )
 from api.saml.metadata.parser import SAMLMetadataParser
-from core.model import Credential, DataSource, get_one_or_create
+from core.model import Credential, DataSource, Session, get_one_or_create
 from core.model.configuration import ConfigurationStorage, HasExternalIntegration
 from core.python_expression_dsl.evaluator import DSLEvaluationVisitor, DSLEvaluator
 from core.python_expression_dsl.parser import DSLParser
@@ -73,6 +73,21 @@ class SAMLWebSSOAuthenticationProvider(
         self._configuration_storage = ConfigurationStorage(self)
         self._configuration_factory = SAMLConfigurationFactory(SAMLMetadataParser())
         self._authentication_manager_factory = SAMLAuthenticationManagerFactory()
+
+        db = Session.object_session(library)
+
+        with self.get_configuration(db) as configuration:
+            self._patron_id_use_name_id = (
+                str(configuration.patron_id_use_name_id) == "1"
+            )
+            self._patron_id_attributes = (
+                json.loads(configuration.patron_id_attributes)
+                if configuration.patron_id_attributes
+                else []
+            )
+            self._patron_id_regular_expression = (
+                configuration.patron_id_regular_expression
+            )
 
     def _authentication_flow_document(self, db):
         """Creates a Authentication Flow object for use in an Authentication for OPDS document.
@@ -409,7 +424,11 @@ class SAMLWebSSOAuthenticationProvider(
         if not isinstance(subject, SAMLSubject):
             return SAML_INVALID_SUBJECT.detailed("Incorrect subject type")
 
-        extractor = SAMLSubjectUIDExtractor()
+        extractor = SAMLSubjectPatronIDExtractor(
+            self._patron_id_use_name_id,
+            self._patron_id_attributes,
+            self._patron_id_regular_expression,
+        )
         uid = extractor.extract(subject)
 
         if uid is None:

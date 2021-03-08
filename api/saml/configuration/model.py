@@ -1,3 +1,4 @@
+import cgi
 import json
 from threading import Lock
 
@@ -10,7 +11,7 @@ from api.saml.metadata.federations.model import (
     SAMLFederatedIdentityProvider,
     SAMLFederation,
 )
-from api.saml.metadata.model import SAMLServiceProviderMetadata
+from api.saml.metadata.model import SAMLAttributeType, SAMLServiceProviderMetadata
 from api.saml.metadata.parser import SAMLMetadataParser
 from core.exceptions import BaseError
 from core.model.configuration import (
@@ -62,6 +63,67 @@ class SAMLConfiguration(ConfigurationGrouping):
         options=[],
         default=[],
         format="narrow",
+    )
+
+    patron_id_use_name_id = ConfigurationMetadata(
+        key="saml_patron_id_use_name_id",
+        label=_("Patron ID: Use SAML NameID"),
+        description=_(
+            "Boolean value indicating whether SAML NameID should be searched for a unique patron ID: "
+            "<br>"
+            "- <b>0</b> means that NameID won't be used, "
+            "<br>"
+            "- <b>1</b> (default) means that Circulation Manager will scan NameID in search for a patron ID. "
+            "If found, it will supersede any SAML attributes selected in the next section."
+        ),
+        type=ConfigurationAttributeType.NUMBER,
+        required=False,
+        default=1,
+    )
+
+    patron_id_attributes = ConfigurationMetadata(
+        key="saml_patron_id_attributes",
+        label=_("Patron ID: SAML Attributes"),
+        description=_(
+            "List of SAML attributes that MAY contain a unique patron ID. "
+            "The attributes will be scanned sequentially in the order you chose them, "
+            "and the first existing attribute will be used to extract a unique patron ID."
+            "<br>"
+            "NOTE: If a SAML attribute contains several values, only the first will be used."
+        ),
+        type=ConfigurationAttributeType.MENU,
+        required=False,
+        options=[
+            ConfigurationOption(attribute.name, attribute.name)
+            for attribute in SAMLAttributeType
+        ],
+        default=[
+            SAMLAttributeType.eduPersonUniqueId.name,
+            SAMLAttributeType.eduPersonTargetedID.name,
+            SAMLAttributeType.eduPersonPrincipalName.name,
+            SAMLAttributeType.uid.name,
+        ],
+        format="narrow",
+    )
+
+    patron_id_regular_expression = ConfigurationMetadata(
+        key="saml_patron_id_regular_expression",
+        label=_("Patron ID: Regular expression"),
+        description=_(
+            "Regular expression used to extract a unique patron ID from the attributes "
+            "specified in <b>Patron ID: SAML Attributes</b> and/or NameID (if <b>Patron ID: Use SAML NameID</b> is 1). "
+            "<br>"
+            "The expression MUST contain a named group <b>patron_id</b> used to match the patron ID. "
+            "For example:"
+            "<br>"
+            "<pre>"
+            "{the_regex_pattern}"
+            "</pre>"
+            "The expression will extract the <b>patron_id</b> from the first SAML attribute that matches "
+            "or NameID if it matches the expression."
+        ).format(the_regex_pattern=cgi.escape(r"(?P<patron_id>.+)@university\.org")),
+        type=ConfigurationAttributeType.TEXT,
+        required=False,
     )
 
     non_federated_identity_provider_xml_metadata = ConfigurationMetadata(
