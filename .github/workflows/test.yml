@@ -1,0 +1,40 @@
+name: Test Server Core
+on: [push, pull_request]
+
+jobs:
+  test-core:
+    name: Run Core Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          path: server_core
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 2.7
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install tox
+
+      - name: Run docker containers for Tests
+        run: |
+          docker run -d -p 9005:5432/tcp --name db -e POSTGRES_USER=simplified_test -e POSTGRES_PASSWORD=test -e POSTGRES_DB=simplified_circulation_test postgres:9.6
+          docker run -d -p 9006:9200/tcp --name es -e discovery.type=single-node elasticsearch:6.8.6
+          docker run -d -p 9007:9000/tcp --name minio -e MINIO_ACCESS_KEY=simplified -e MINIO_SECRET_KEY=12345678901234567890 bitnami/minio:latest
+          docker exec es elasticsearch-plugin install -s analysis-icu
+          docker restart es
+
+      - name: Run Core Tests
+        run: tox
+        working-directory: server_core
+        env:
+          SIMPLIFIED_TEST_DATABASE: "postgres://simplified_test:test@localhost:9005/simplified_circulation_test"
+          SIMPLIFIED_TEST_ELASTICSEARCH: "http://localhost:9006"
+          SIMPLIFIED_TEST_MINIO_ENDPOINT_URL: "http://localhost:9007"
+          SIMPLIFIED_TEST_MINIO_USER: "simplified"
+          SIMPLIFIED_TEST_MINIO_PASSWORD: "12345678901234567890"
