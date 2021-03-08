@@ -7,7 +7,6 @@ from ...python_expression_dsl.evaluator import (
     DSLEvaluator,
 )
 from ...python_expression_dsl.parser import DSLParseError, DSLParser
-from nose.tools import set_trace
 
 class Subject(object):
     """Dummy object designed for testing DSLEvaluator."""

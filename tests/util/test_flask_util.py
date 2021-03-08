@@ -26,7 +26,7 @@ class TestResponse(object):
         eq_(1002, response.max_age)
         assert isinstance(response, FlaskResponse)
         eq_(401, response.status_code)
-        eq_("content", response.data.decode("utf-8"))
+        eq_("content", str(response))
         eq_(True, response.direct_passthrough)
 
         # Response.headers is tested in more detail below.

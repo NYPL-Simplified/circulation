@@ -1358,7 +1358,7 @@ class TestAcquisitionFeed(DatabaseTest):
         eq_(10, response.max_age)
         eq_(private, response.private)
 
-        assert '<title>feed title</title>' in response.data.decode("utf-8")
+        assert '<title>feed title</title>' in str(response)
 
     def test_as_response(self):
         # Verify the ability to convert an AcquisitionFeed object to an
@@ -1373,7 +1373,7 @@ class TestAcquisitionFeed(DatabaseTest):
         # We get an OPDSFeedResponse containing the feed in its
         # entity-body.
         assert isinstance(response, OPDSFeedResponse)
-        assert '<title>feed title</title>' in response.data.decode("utf-8")
+        assert '<title>feed title</title>' in str(response)
 
         # The caching expectations are respected.
         eq_(101, response.max_age)
@@ -1395,7 +1395,7 @@ class TestAcquisitionFeed(DatabaseTest):
 
         # The content of the feed is unchanged.
         eq_(200, response.status_code)
-        assert '<title>feed title</title>' in response.data.decode("utf-8")
+        assert '<title>feed title</title>' in str(response)
 
         # But the max_age and private settings have been overridden.
         eq_(0, response.max_age)
@@ -1650,7 +1650,7 @@ class TestAcquisitionFeed(DatabaseTest):
         eq_(0, entry.max_age)
         eq_(entry.private, private)
 
-        entry_data = entry.data.decode("utf-8")
+        entry_data = str(entry)
         assert original_pool.presentation_edition.title in entry_data
         assert new_pool.presentation_edition.title not in entry_data
 
@@ -1665,7 +1665,7 @@ class TestAcquisitionFeed(DatabaseTest):
         entry = AcquisitionFeed.single_entry(self._db, work, TestAnnotator)
 
         expected = str(work.presentation_edition.issued.date())
-        assert expected in entry.data.decode("utf-8")
+        assert expected in str(entry)
 
     def test_single_entry_is_opds_message(self):
         # When single_entry has to deal with an 'OPDS entry' that
@@ -1690,8 +1690,8 @@ class TestAcquisitionFeed(DatabaseTest):
         # We got an OPDS entry containing the message.
         assert isinstance(response, OPDSEntryResponse)
         eq_(200, response.status_code)
-        assert '500' in response.data.decode("utf-8")
-        assert 'oops' in response.data.decode("utf-8")
+        assert '500' in str(response)
+        assert 'oops' in str(response)
 
         # Our caching preferences were overridden.
         eq_(True, response.private)
