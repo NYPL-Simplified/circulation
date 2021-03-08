@@ -1,8 +1,11 @@
 import datetime
+import logging
+import re
 from enum import Enum
 from json import JSONDecoder, JSONEncoder
 from json.decoder import WHITESPACE
 
+import six
 from onelogin.saml2.constants import OneLogin_Saml2_Constants
 
 from core.util.string_helpers import is_string
@@ -1235,74 +1238,154 @@ class SAMLSubjectJSONDecoder(JSONDecoder):
         return subject
 
 
-class SAMLSubjectUIDExtractor(object):
-    """Implements an algorithm for extracting a subject's unique ID from its attributes"""
+class SAMLSubjectPatronIDExtractor(object):
+    """Extracts a unique patron ID from SAML subjects.
+
+    This class accepts several parameters in its constructor, allowing it to override its behavior.
+    The default behavior is described below.
+
+    Unfortunately, there is no single standard regarding what attributes can be treated as unique IDs.
+    Different systems use different attributes, and all of them have their pros and cons.
+    By default, this class looks for a unique patron ID in the following attributes.
+
+    1. eduPersonUniqueId
+       (https://wiki.refeds.org/display/STAN/eduPerson+2020-01#eduPerson2020-01-eduPersonUniqueId)
+
+       A long-lived, non re-assignable, omnidirectional identifier suitable for use as a principal identifier
+       by authentication providers or as a unique external key by applications.
+
+    2. eduPersonTargetedID
+       (https://wiki.refeds.org/display/STAN/eduPerson+2020-01#eduPerson2020-01-eduPersonTargetedID)
+
+       A persistent, non-reassigned, opaque identifier for a principal.
+       eduPersonTargetedID is an abstracted version of the SAML V2.0 Name Identifier format of
+       "urn:oasis:names:tc:SAML:2.0:nameid-format:persistent"
+       (see http://www.oasis-open.org/committees/download.php/35711).
+
+       NOTE: eduPersonTargetedID is DEPRECATED and will be marked as obsolete in a future version
+       of this specification. Its equivalent definition in SAML 2.0 has been replaced by a new specification
+       for standard Subject Identifier attributes
+       [https://docs.oasis-open.org/security/saml-subject-id-attr/v1.0/saml-subject-id-attr-v1.0.html],
+       one of which ("urn:oasis:names:tc:SAML:attribute:pairwise-id") is a direct replacement for this identifier
+       with a simpler syntax and safer comparison rules.
+       Existing use of this attribute in SAML 1.1 or SAML 2.0 should be phased out
+       in favor of the new Subject Identifier attributes."
+
+    3. uid
+       (http://oid-info.com/get/0.9.2342.19200300.100.1.1)
+
+       See IETF RFC 4519.
+       IETF RFC 1274 uses the identifier "userid".
+
+    4. Name ID
+       The extractor fetches the first name ID it could find as a last resort which may no be correct.
+       It might be better to fetch only persistent name IDs.
+
+    Also, please note that eduPersonTargetedID attribute and name IDs should be phased out and replaced with
+    the pairwise-id attribute from the OASIS SAML 2.0 SubjectID Attributes Profile.
+    However, it's not yet supported by most of the IdPs.
+    """
+
+    PATRON_ID_REGULAR_EXPRESSION_NAMED_GROUP = "patron_id"
+
+    def __init__(self, use_name_id=True, attributes=None, regular_expression=None):
+        """Initialize a new instance of SAMLSubjectPatronIDExtractor class.
+
+        :param use_name_id: Boolean value indicating whether NameID should be searched for a unique patron ID
+        :type use_name_id: bool
+
+        :param attributes: List of SAML attributes which should be searched for a unique patron ID
+        :type attributes: List[SAMLAttributeType]
+
+        :param regular_expression: Regular expression used to extract a unique patron ID from SAML attributes
+        :type regular_expression: str
+        """
+        # To keep backward compatibility, we assume that use_name_id is True by default.
+        self._use_name_id = bool(use_name_id) if use_name_id is not None else True
+
+        # To keep backward compatibility, by default, we use the attributes described above.
+        self._patron_id_attributes = (
+            attributes
+            if attributes
+            else [
+                SAMLAttributeType.eduPersonUniqueId.name,
+                SAMLAttributeType.eduPersonTargetedID.name,
+                SAMLAttributeType.uid.name,
+            ]
+        )
+
+        # If the regex is present, we compile it to speed up the matching process.
+        self._patron_id_regular_expression = (
+            re.compile(regular_expression) if regular_expression else None
+        )
+
+        self._logger = logging.getLogger(__name__)
+
+    def _extract_patron_id(self, patron_id_candidate):
+        """Extract a unique patron ID from the string.
+
+        :param patron_id_candidate: String containing a value that potentially may be a unique patron ID
+        :type patron_id_candidate: str
+
+        :return: Unique patron ID if any, None otherwise
+        :rtype: Optional[str]
+        """
+        patron_id = None
+
+        if self._patron_id_regular_expression:
+            match = self._patron_id_regular_expression.match(patron_id_candidate)
+
+            if match:
+                patron_id = match.group(self.PATRON_ID_REGULAR_EXPRESSION_NAMED_GROUP)
+        else:
+            patron_id = patron_id_candidate
+
+        return patron_id
 
     def extract(self, subject):
-        """Extracts a unique ID from the subject object
+        """Extract a unique patron ID from the SAML subject.
 
-        :param subject: Subject object
-        :type subject: api.saml.metadata.Subject
+        :param subject: SAML subject
+        :type subject: SAMLSubject
 
         :return: Unique ID
         :rtype: string
 
-        Unfortunately, there is no single standard regarding what attributes can be treated as unique IDs.
-        Different systems use different attributes and all of them have their pros and cons.
-        This class implements an algorithm which tries different attributes in the following order
-        and selects the first of them as the unique ID:
-
-        1. eduPersonUniqueId
-           (https://wiki.refeds.org/display/STAN/eduPerson+2020-01#eduPerson2020-01-eduPersonUniqueId)
-
-           A long-lived, non re-assignable, omnidirectional identifier suitable for use as a principal identifier
-           by authentication providers or as a unique external key by applications.
-
-        2. eduPersonTargetedID
-           (https://wiki.refeds.org/display/STAN/eduPerson+2020-01#eduPerson2020-01-eduPersonTargetedID)
-
-           A persistent, non-reassigned, opaque identifier for a principal.
-           eduPersonTargetedID is an abstracted version of the SAML V2.0 Name Identifier format of
-           "urn:oasis:names:tc:SAML:2.0:nameid-format:persistent"
-           (see http://www.oasis-open.org/committees/download.php/35711).
-
-           NOTE: eduPersonTargetedID is DEPRECATED and will be marked as obsolete in a future version
-           of this specification. Its equivalent definition in SAML 2.0 has been replaced by a new specification
-           for standard Subject Identifier attributes
-           [https://docs.oasis-open.org/security/saml-subject-id-attr/v1.0/saml-subject-id-attr-v1.0.html],
-           one of which ("urn:oasis:names:tc:SAML:attribute:pairwise-id") is a direct replacement for this identifier
-           with a simpler syntax and safer comparison rules.
-           Existing use of this attribute in SAML 1.1 or SAML 2.0 should be phased out
-           in favor of the new Subject Identifier attributes."
-
-        3. uid
-           http://oid-info.com/get/0.9.2342.19200300.100.1.1
-
-           See IETF RFC 4519.
-           IETF RFC 1274 uses the identifier "userid".
-
-        4. Name ID
-           The extractor fetches the first name ID it could find as a last resort which may no be correct.
-           It might be better to fetch only persistent name IDs.
-
-        Also, please note that eduPersonTargetedID attribute and name IDs should be phased out and replaced with
-        the pairwise-id attribute from the OASIS SAML 2.0 SubjectID Attributes Profile.
-        However, it's not yet supported by most of the IdPs
+        :return: Unique patron ID if any
+        :rtype: Optional[str]
         """
-        unique_id_attributes = [
-            SAMLAttributeType.eduPersonUniqueId,
-            SAMLAttributeType.eduPersonTargetedID,
-            SAMLAttributeType.uid,
-        ]
+        self._logger.info(
+            u"Trying to extract a unique patron ID from {0}".format(
+                six.ensure_text(repr(subject))
+            )
+        )
+
+        patron_id = None
 
         if subject.attribute_statement:
-            for unique_id_attribute in unique_id_attributes:
-                if unique_id_attribute.name in subject.attribute_statement.attributes:
-                    unique_id_attribute = subject.attribute_statement.attributes[
-                        unique_id_attribute.name
+            for patron_id_attribute in self._patron_id_attributes:
+                if patron_id_attribute in subject.attribute_statement.attributes:
+                    patron_id_attribute = subject.attribute_statement.attributes[
+                        patron_id_attribute
                     ]
 
-                    return unique_id_attribute.values[0]
+                    # NOTE: It takes the first value.
+                    patron_id_candidate = patron_id_attribute.values[0]
+                    patron_id = self._extract_patron_id(patron_id_candidate)
 
-        if subject.name_id and subject.name_id.name_id:
-            return subject.name_id.name_id
+                    if patron_id is not None:
+                        break
+
+        if patron_id is None and self._use_name_id:
+            if subject.name_id and subject.name_id.name_id:
+                patron_id_candidate = subject.name_id.name_id
+                patron_id = self._extract_patron_id(patron_id_candidate)
+
+        self._logger.info(
+            u"Extracted a unique patron ID from {0}: {1}".format(
+                six.ensure_text(repr(subject)),
+                six.ensure_text(patron_id) if patron_id else u"",
+            )
+        )
+
+        return patron_id
