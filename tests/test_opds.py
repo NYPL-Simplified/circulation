@@ -207,8 +207,7 @@ class TestAnnotators(DatabaseTest):
         lcsh_uri = Subject.uri_lookup[Subject.LCSH]
         assert ([{'term': u'lcsh1', 'label': u'name2', rating_value: 2},
              {'term': u'lcsh2', 'label': u'name3', rating_value: 3}] ==
-            # TODO PYTHON3 should not be necessary to sort.
-            sorted(category_tags[lcsh_uri]))
+            category_tags[lcsh_uri])
 
         genre_uri = Subject.uri_lookup[Subject.SIMPLIFIED_GENRE]
         assert [dict(label='Fiction', term=Subject.SIMPLIFIED_GENRE+"Fiction")] == category_tags[genre_uri]
@@ -444,6 +443,12 @@ class TestOPDS(DatabaseTest):
                       self.romance]
         )
 
+    def _assert_xml_equal(self, a, b):
+        # Compare xml is the same, we use etree to canonicalize the xml
+        # then compare the canonical versions
+        assert etree.tostring(a, method="c14n2") == \
+            etree.tostring(etree.fromstring(b), method="c14n2")
+
     def test_acquisition_link(self):
         m = AcquisitionFeed.acquisition_link
         rel = AcquisitionFeed.BORROW_REL
@@ -451,17 +456,27 @@ class TestOPDS(DatabaseTest):
 
         # A doubly-indirect acquisition link.
         a = m(rel, href, ["text/html", "text/plain", "application/pdf"])
-        # TODO PYTHON3 order of attrs is different
-        assert etree.tounicode(a) == '<link href="%s" rel="http://opds-spec.org/acquisition/borrow" type="text/html"><ns0:indirectAcquisition xmlns:ns0="http://opds-spec.org/2010/catalog" type="text/plain"><ns0:indirectAcquisition type="application/pdf"/></ns0:indirectAcquisition></link>' % href
+        self._assert_xml_equal(
+            a,
+            '<link href="%s" rel="http://opds-spec.org/acquisition/borrow" type="text/html"><ns0:indirectAcquisition '
+            'xmlns:ns0="http://opds-spec.org/2010/catalog" type="text/plain"><ns0:indirectAcquisition '
+            'type="application/pdf"/></ns0:indirectAcquisition></link>' % href
+        )
 
         # A direct acquisition link.
         b = m(rel, href, ["application/epub"])
-        # TODO PYTHON3 order of attrs is different
-        assert etree.tounicode(b) == '<link href="%s" rel="http://opds-spec.org/acquisition/borrow" type="application/epub"/>' % href
+        self._assert_xml_equal(
+            b,
+            '<link href="%s" rel="http://opds-spec.org/acquisition/borrow" type="application/epub"/>' % href,
+        )
 
         # A direct acquisition link to a document with embedded access restriction rules.
         c = m(rel, href, ['application/audiobook+json;profile=http://www.feedbooks.com/audiobooks/access-restriction'])
-        assert etree.tounicode(c) == '<link href="%s" rel="http://opds-spec.org/acquisition/borrow" type="application/audiobook+json;profile=http://www.feedbooks.com/audiobooks/access-restriction"/>' % href
+        self._assert_xml_equal(
+            c,
+            '<link href="%s" rel="http://opds-spec.org/acquisition/borrow" '
+            'type="application/audiobook+json;profile=http://www.feedbooks.com/audiobooks/access-restriction"/>' % href
+        )
 
     def test_group_uri(self):
         work = self._work(with_open_access_download=True, authors="Alice")
@@ -545,24 +560,19 @@ class TestOPDS(DatabaseTest):
         rel = AcquisitionFeed.ACQUISITION_REL
         href = self._url
         types = [DeliveryMechanism.LCP_DRM, Representation.EPUB_MEDIA_TYPE]
-        expected_result = re.sub(
-            r'\s{2,}|\n+',
-            '',
-            '''
-            <link href="{0}" rel="http://opds-spec.org/acquisition" type="application/vnd.readium.lcp.license.v1.0+json">
-                <ns0:hashed_passphrase xmlns:ns0="http://readium.org/lcp-specs/ns">{1}</ns0:hashed_passphrase>
-                <ns0:indirectAcquisition xmlns:ns0="http://opds-spec.org/2010/catalog" type="application/epub+zip"/>
-            </link>
-            '''.format(href, hashed_passphrase)
-        )
+        expected_result = (
+            '<link href="{0}" rel="http://opds-spec.org/acquisition" '
+            'type="application/vnd.readium.lcp.license.v1.0+json">'
+            '<ns0:hashed_passphrase xmlns:ns0="http://readium.org/lcp-specs/ns">{1}</ns0:hashed_passphrase>'
+            '<ns0:indirectAcquisition xmlns:ns0="http://opds-spec.org/2010/catalog" type="application/epub+zip"/>'
+            '</link>').format(href, hashed_passphrase)
 
         # Act
         lcp_credential_factory.set_hashed_passphrase(self._db, patron, hashed_passphrase)
         acquisition_link = AcquisitionFeed.acquisition_link(rel, href, types, loan)
-        result = etree.tostring(acquisition_link)
 
         # Assert
-        assert result == expected_result
+        self._assert_xml_equal(acquisition_link, expected_result)
 
     def test_lane_feed_contains_facet_links(self):
         work = self._work(with_open_access_download=True)
