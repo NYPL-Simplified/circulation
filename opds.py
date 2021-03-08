@@ -1,6 +1,6 @@
 import datetime
 import logging
-from six.moves.urllib.parse import quote
+from urllib.parse import quote
 from collections import (
     defaultdict,
 )
@@ -1361,7 +1361,7 @@ class AcquisitionFeed(OPDSFeed):
                 category_tags.append(category_tag)
         entry.extend(category_tags)
 
-        # print " ID %s TITLE %s AUTHORS %s" % (tag, work.title, work.authors)
+        # print(" ID %s TITLE %s AUTHORS %s" % (tag, work.title, work.authors))
         language = edition.language_code
         if language:
             language_tag = AtomFeed.makeelement("{%s}language" % AtomFeed.DCTERMS_NS)

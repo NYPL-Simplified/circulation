@@ -3,13 +3,12 @@
 import datetime
 import logging
 import random
-from six.moves.urllib.parse import quote, unquote
+from urllib.parse import quote, unquote
 from abc import ABCMeta, abstractmethod
 from collections import defaultdict
 from functools import total_ordering
 
 import isbnlib
-import six
 from .classification import Classification, Subject
 from .constants import IdentifierConstants, LinkRelations
 from .coverage import CoverageRecord
@@ -32,13 +31,10 @@ from sqlalchemy.orm.session import Session
 from sqlalchemy.sql import select
 from sqlalchemy.sql.expression import and_, or_
 
-from ..util.string_helpers import native_string
 from ..util.summary import SummaryEvaluator
 from . import Base, PresentationCalculationPolicy, create, get_one, get_one_or_create
 
-
-@six.add_metaclass(ABCMeta)
-class IdentifierParser(object):
+class IdentifierParser(metaclass=ABCMeta):
     """Interface for identifier parsers."""
 
     @abstractmethod
@@ -83,12 +79,10 @@ class Identifier(Base, IdentifierConstants):
     def __repr__(self):
         records = self.primarily_identifies
         if records and records[0].title:
-            title = ' prim_ed=%d ("%s")' % (records[0].id, six.ensure_text(records[0].title))
+            title = ' prim_ed=%d ("%s")' % (records[0].id, records[0].title)
         else:
             title = ""
-        return native_string(
-            "%s/%s ID=%s%s" % (six.ensure_text(self.type), six.ensure_text(self.identifier), self.id, title)
-        )
+        return "%s/%s ID=%s%s" % (self.type, self.identifier, self.id, title)
 
     # One Identifier may serve as the primary identifier for
     # several Editions.

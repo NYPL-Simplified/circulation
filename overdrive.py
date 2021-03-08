@@ -4,8 +4,7 @@ import isbnlib
 import os
 import json
 import logging
-import urllib.parse
-import urllib.request, urllib.parse, urllib.error
+from urllib.parse import urlsplit, quote, urlunsplit
 import sys
 
 from sqlalchemy.orm.exc import (
@@ -531,8 +530,8 @@ class OverdriveAPI(object):
         The availability part is to make sure we always use v2 of the
         availability API, even if Overdrive sent us a link to v1.
         """
-        parts = list(urllib.parse.urlsplit(url))
-        parts[2] = urllib.parse.quote(parts[2])
+        parts = list(urlsplit(url))
+        parts[2] = quote(parts[2])
         endings = ("/availability", "/availability/")
         if (parts[2].startswith("/v1/collections/")
             and any(parts[2].endswith(x) for x in endings)):
@@ -545,7 +544,7 @@ class OverdriveAPI(object):
         query_string = query_string.replace("{", "%7B")
         query_string = query_string.replace("}", "%7D")
         parts[3] = query_string
-        return urllib.parse.urlunsplit(tuple(parts))
+        return urlunsplit(tuple(parts))
 
     def _do_get(self, url, headers):
         """This method is overridden in MockOverdriveAPI."""

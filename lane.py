@@ -4,7 +4,7 @@ from nose.tools import set_trace
 import datetime
 import logging
 import time
-from six.moves.urllib.parse import quote_plus
+from urllib.parse import quote_plus
 
 from psycopg2.extras import NumericRange
 from sqlalchemy.sql import select

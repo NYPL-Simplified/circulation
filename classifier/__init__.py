@@ -17,7 +17,7 @@ import json
 import os
 import pkgutil
 import re
-from six.moves.urllib.parse import urlparse
+from urllib.parse import urlparse
 from collections import (
     Counter,
     defaultdict,
@@ -1467,9 +1467,9 @@ class WorkClassifier(object):
         proportion of the weight of the parent genre, assign the
         parent's weight to the subgenre and remove the parent.
         """
-        #print "Before consolidation:"
+        #print("Before consolidation:")
         #for genre, weight in weights.items():
-        #    print "", genre, weight
+        #    print("", genre, weight)
 
         # Convert Genre objects to GenreData.
         consolidated = Counter()
@@ -1485,9 +1485,9 @@ class WorkClassifier(object):
                     if ((not parent in heaviest_child)
                         or weight > heaviest_child[parent][1]):
                         heaviest_child[parent] = (genre, weight)
-        #print "Heaviest child:"
+        #print("Heaviest child:")
         #for parent, (genre, weight) in heaviest_child.items():
-        #    print "", parent, genre, weight
+        #    print("", parent, genre, weight)
         made_it = False
         while not made_it:
             for parent, (child, weight) in sorted(list(heaviest_child.items())):
@@ -1506,12 +1506,12 @@ class WorkClassifier(object):
                         break
             # We made it all the way through the dict without changing it.
             made_it = True
-        #print "Final heaviest child:"
+        #print("Final heaviest child:")
         #for parent, (genre, weight) in heaviest_child.items():
-        #    print "", parent, genre, weight
-        #print "After consolidation:"
+        #    print("", parent, genre, weight)
+        #print("After consolidation:")
         #for genre, weight in consolidated.items():
-        #    print "", genre, weight
+        #    print("", genre, weight)
         return consolidated
 
 # Make a dictionary of classification schemes to classifiers.

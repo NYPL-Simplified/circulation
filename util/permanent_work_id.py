@@ -242,9 +242,8 @@ class WorkIDCalculator(object):
         if len(tmp_title) > 0:
             title = tmp_title
         else:
-            # print "Just saved us from trimming %s to nothing" % full_title
-            title = cls.specialCharacterStrip.sub(
-                "", full_title)
+            # print("Just saved us from trimming %s to nothing" % full_title)
+            title = cls.specialCharacterStrip.sub("", full_title)
 
 
         # If the title includes a : in it, take the first part as the title and the second as the subtitle
@@ -279,7 +278,7 @@ class WorkIDCalculator(object):
             title = title[:title_end]
         title = title.strip()
         if not title:
-            # print "Title %s was normalized to nothing" % full_title
+            # print("Title %s was normalized to nothing" % full_title)
             title = full_title
         return title
 

@@ -29,7 +29,7 @@ from core.model import (
 
 
 def dedupe(edition):
-    print "Deduping edition %s (%s)" % (edition.id, edition.title)
+    print("Deduping edition %s (%s)" % (edition.id, edition.title))
     primary_author = [x for x in edition.contributions if x.role==Contributor.PRIMARY_AUTHOR_ROLE]
     seen = set()
     contributors_with_roles = set()
@@ -38,7 +38,7 @@ def dedupe(edition):
 
     if primary_author:
         primary_author_contribution = primary_author[0]
-        print " Primary author: %s" % primary_author_contribution.contributor.name
+        print(" Primary author: %s" % primary_author_contribution.contributor.name)
         seen.add((primary_author_contribution.contributor, Contributor.AUTHOR_ROLE))
         contributors_with_roles.add(primary_author_contribution.contributor)
 
@@ -50,22 +50,22 @@ def dedupe(edition):
             continue
         key = (contributor, role)
         if key in seen:
-            print " Removing duplicate %s %s" % (role, contributor.name)
+            print(" Removing duplicate %s %s" % (role, contributor.name))
             _db.delete(contribution)
             continue
         seen.add(key)
         if role == 'Unknown':
             if contributor in contributors_with_roles:
-                print " Found unknown role for %s, but mystery already resolved." % contributor.name
+                print(" Found unknown role for %s, but mystery already resolved." % contributor.name)
                 _db.delete(contribution)
             else:
-                print " The role of %s is a mystery." % contributor.name
+                print(" The role of %s is a mystery." % contributor.name)
                 unresolved_mysteries[contributor] = contribution
         else:
-            print " Found %s %s" % (role, contributor.name)
+            print(" Found %s %s" % (role, contributor.name))
             contributors_with_roles.add(contributor)
             if contributor in unresolved_mysteries:
-                print " Deleting now-resolved mystery."
+                print(" Deleting now-resolved mystery.")
                 now_resolved = unresolved_mysteries[contributor]
                 resolved_mysteries.add(now_resolved)
                 del unresolved_mysteries[contributor]
@@ -95,7 +95,7 @@ qu = _db.query(Edition).join(Edition.contributions).join(
             unknown_role_or_duplicate_author_role
         )
 
-print "Fixing %s Editions." % qu.count()
+print("Fixing %s Editions." % qu.count())
 qu = qu.limit(1000)
 results = True
 while results:
@@ -107,4 +107,4 @@ while results:
         dedupe(ed)
     _db.commit()
     b = time.time()
-    print "Batch processed in %.2f sec" % (b-a)
+    print("Batch processed in %.2f sec" % (b-a))

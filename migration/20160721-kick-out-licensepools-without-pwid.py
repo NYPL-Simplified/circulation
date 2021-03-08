@@ -26,12 +26,12 @@ _db = production_session()
 
 def fix(_db, description, qu):
     a = 0
-    print "%s: %s" % (description, qu.count())
+    print("%s: %s" % (description, qu.count()))
     for lp in qu:
         lp.calculate_work()
         a += 1
         if not a % 10:
-            print "Committing"
+            print("Committing")
             _db.commit()
 
 no_presentation_edition = _db.query(LicensePool).outerjoin(
@@ -67,4 +67,4 @@ fix(_db, "Pools with work but no title", no_title)
 _db.commit()
 
 qu = _db.query(Work).filter(~Work.license_pools.any())
-print "Deleting %d works with no license pools." % qu.count()
+print("Deleting %d works with no license pools." % qu.count())

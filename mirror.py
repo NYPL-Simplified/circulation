@@ -1,12 +1,10 @@
 import datetime
 from abc import abstractmethod, ABCMeta
-from six.moves.urllib.parse import urlsplit
-from six import with_metaclass
+from urllib.parse import urlsplit
 
 from .config import CannotLoadConfiguration
 
-
-class MirrorUploader(with_metaclass(ABCMeta, object)):
+class MirrorUploader(metaclass=ABCMeta):
     """Handles the job of uploading a representation's content to
     a mirror that we control.
     """

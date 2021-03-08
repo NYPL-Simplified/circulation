@@ -130,9 +130,7 @@ class LogCaptureHandler(logging.Handler):
     """A `logging.Handler` context manager that captures the messages
     of emitted log records in the context of the specified `logger`.
     """
-    # TODO: These could be extracted from logging._levelNames in Python2
-    #  or from logging._levelToName in Python 3
-    _level_names = ['CRITICAL', 'ERROR', 'WARNING', 'INFO', 'DEBUG', 'NOTSET']
+    _level_names = logging._levelToName.values()
 
     @staticmethod
     def _normalize_level(level):

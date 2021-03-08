@@ -11,7 +11,6 @@ from functools import total_ordering
 from .identifier import Identifier
 from .licensing import LicensePool
 from .work import Work
-from ..util.string_helpers import native_string
 
 import datetime
 import logging
@@ -64,9 +63,8 @@ class CustomList(Base):
     # interface for managing this.
 
     def __repr__(self):
-        return native_string(
-            '<Custom List name="%s" foreign_identifier="%s" [%d entries]>' % (
-            self.name, self.foreign_identifier, len(self.entries))
+        return '<Custom List name="%s" foreign_identifier="%s" [%d entries]>' % (
+            self.name, self.foreign_identifier, len(self.entries)
         )
 
     def __eq__(self, other):

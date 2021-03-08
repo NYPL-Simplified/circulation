@@ -1,7 +1,6 @@
 import datetime
 import logging
 import traceback
-import urllib.request, urllib.parse, urllib.error
 from io import BytesIO, StringIO
 
 import dateutil
@@ -42,7 +41,7 @@ from .model.configuration import ExternalIntegrationLink
 from .monitor import CollectionMonitor
 from nose.tools import set_trace
 from .selftest import HasSelfTests, SelfTestResult
-from six.moves.urllib.parse import urljoin, urlparse
+from urllib.parse import urljoin, urlparse, quote
 from sqlalchemy.orm import aliased
 from sqlalchemy.orm.session import Session
 from .util.http import HTTP, BadResponseException
@@ -346,7 +345,7 @@ class MetadataWranglerOPDSLookup(SimplifiedOPDSLookup, HasSelfTests):
         if self.collection.protocol == ExternalIntegration.OPDS_IMPORT:
             # Open access OPDS_IMPORT collections need to send a DataSource to
             # allow OPDS lookups on the Metadata Wrangler.
-            data_source = '?data_source=' + urllib.parse.quote(self.collection.data_source.name)
+            data_source = '?data_source=' + quote(self.collection.data_source.name)
 
         return (self.base_url
             + self.collection.metadata_identifier
@@ -406,10 +405,10 @@ class MetadataWranglerOPDSLookup(SimplifiedOPDSLookup, HasSelfTests):
             that goes into library records).
         """
         args = "display_name=%s" % (
-            urllib.parse.quote(working_display_name.encode("utf8"))
+            quote(working_display_name.encode("utf8"))
         )
         if identifier:
-            args += "&urn=%s" % urllib.parse.quote(identifier.urn)
+            args += "&urn=%s" % quote(identifier.urn)
         url = self.base_url + self.CANONICALIZE_ENDPOINT + "?" + args
         logging.info("GET %s", url)
         return self._get(url)

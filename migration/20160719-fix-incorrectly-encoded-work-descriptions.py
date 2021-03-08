@@ -23,7 +23,7 @@ client = ExternalSearchIndex()
 base = _db.query(Work).filter(Work.summary_text != None).order_by(Work.id)
 results = True
 offset = 0
-print "Looking at %d works." % base.count()
+print("Looking at %d works." % base.count())
 while results:
     fixed = 0
     qu = base.offset(offset).limit(1000)
@@ -38,10 +38,10 @@ while results:
                 final = windows_1252_from_unicode.decode("utf8")
                 # If we get to this point, it's UTF-8 that was incorrectly
                 # encoded as Windows-1252.
-            except UnicodeDecodeError, e:
+            except UnicodeDecodeError as e:
                 # It was Windows-1252 all along.
                 final = windows_1252_from_unicode.decode("windows-1252")
-        except UnicodeEncodeError, e:
+        except UnicodeEncodeError as e:
             # This description can't be encoded as Windows-1252, an
             # indication that it was originally UTF-8 and is not
             # subject to this problem.
@@ -49,12 +49,12 @@ while results:
 
         if possibly_bad != final:
             work.summary_text = final
-            print "%s\n =>\n %s" % (possibly_bad.encode("utf8"), final.encode("utf8"))
+            print("%s\n =>\n %s" % (possibly_bad.encode("utf8"), final.encode("utf8")))
             work.calculate_opds_entries()
             work.update_external_index(client)
-            print
+            print()
             fixed += 1
         pass
     offset += 1000
-    print "At %s, %s/%s needed fixing." % (offset, fixed, len(results))
+    print("At %s, %s/%s needed fixing." % (offset, fixed, len(results)))
     _db.commit()

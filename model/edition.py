@@ -47,8 +47,6 @@ from ..util import (
     TitleProcessor
 )
 from ..util.permanent_work_id import WorkIDCalculator
-from ..util.string_helpers import native_string
-
 
 class Edition(Base, EditionConstants):
 
@@ -138,11 +136,11 @@ class Edition(Base, EditionConstants):
 
     def __repr__(self):
         id_repr = repr(self.primary_identifier)
-        a = ("Edition %s [%r] (%s/%s/%s)" % (
+        return "Edition %s [%r] (%s/%s/%s)" % (
             self.id, id_repr, self.title,
             ", ".join([x.sort_name for x in self.contributors]),
-            self.language))
-        return native_string(a)
+            self.language
+        )
 
     @property
     def language_code(self):

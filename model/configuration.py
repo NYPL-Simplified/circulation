@@ -35,8 +35,6 @@ from ..config import (
 )
 from ..mirror import MirrorUploader
 from ..util.string_helpers import random_string
-from six import with_metaclass
-
 
 class ExternalIntegrationLink(Base, HasFullTableCache):
 
@@ -843,7 +841,7 @@ class ConfigurationSetting(Base, HasFullTableCache):
         return value
 
 
-class HasExternalIntegration(with_metaclass(ABCMeta, object)):
+class HasExternalIntegration(metaclass=ABCMeta):
     """Interface allowing to get access to an external integration"""
 
     @abstractmethod
@@ -859,7 +857,7 @@ class HasExternalIntegration(with_metaclass(ABCMeta, object)):
         raise NotImplementedError()
 
 
-class BaseConfigurationStorage(with_metaclass(ABCMeta, object)):
+class BaseConfigurationStorage(metaclass=ABCMeta):
     """Serializes and deserializes values as configuration settings"""
 
     @abstractmethod
@@ -1057,7 +1055,7 @@ class ConfigurationOption(object):
         ]
 
 
-class HasConfigurationSettings(with_metaclass(ABCMeta, object)):
+class HasConfigurationSettings(metaclass=ABCMeta):
     """Interface representing class containing ConfigurationMetadata properties"""
 
     @abstractmethod

@@ -4,7 +4,6 @@
 import datetime
 import logging
 
-import six
 from .circulationevent import CirculationEvent
 from .complaint import Complaint
 from .constants import DataSourceConstants, EditionConstants, LinkRelations, MediaTypes
@@ -26,7 +25,6 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.orm.session import Session
 from sqlalchemy.sql.functions import func
 
-from ..util.string_helpers import native_string
 from . import Base, create, flush, get_one, get_one_or_create
 
 
@@ -1387,12 +1385,10 @@ class LicensePoolDeliveryMechanism(Base):
                 LicensePool.identifier==self.identifier)
 
     def __repr__(self):
-        return native_string(
-            "<LicensePoolDeliveryMechanism: data_source={0}, identifier={1}, mechanism={2}>".format(
-                six.ensure_text(str(self.data_source)),
-                six.ensure_text(repr(self.identifier)),
-                six.ensure_text(repr(self.delivery_mechanism))
-            )
+        return  "<LicensePoolDeliveryMechanism: data_source={0}, identifier={1}, mechanism={2}>".format(
+            str(self.data_source),
+            repr(self.identifier),
+            repr(self.delivery_mechanism)
         )
 
     __table_args__ = (

@@ -29,7 +29,6 @@ from sqlalchemy.orm import (
 )
 from sqlalchemy.orm.session import Session
 from ..util.personal_names import display_name_to_sort_name
-from ..util.string_helpers import native_string
 
 class Contributor(Base):
     """Someone (usually human) who contributes to books."""
@@ -165,9 +164,7 @@ class Contributor(Base):
             extra += " lc=%s" % self.lc
         if self.viaf:
             extra += " viaf=%s" % self.viaf
-        return native_string(
-            "Contributor %d (%s)" % (self.id, self.sort_name)
-        )
+        return "Contributor %d (%s)" % (self.id, self.sort_name)
 
     @classmethod
     def author_contributor_tiers(cls):

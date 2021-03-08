@@ -7,7 +7,7 @@ import re
 from nose.tools import assert_raises, eq_
 from parameterized import parameterized
 
-from ...util.string_helpers import UnicodeAwareBase64, base64, is_string, random_string
+from ...util.string_helpers import UnicodeAwareBase64, base64, random_string
 
 
 class TestUnicodeAwareBase64(object):
@@ -103,17 +103,3 @@ class TestRandomString(object):
             # Each byte is represented as two digits, so the length of the
             # string is twice the length passed in to the function.
             eq_(size * 2, len(x))
-
-
-class TestIsString(object):
-    @parameterized.expand(
-        [
-            ("byte_string", "test", True),
-            ("unicode_string", "test", True),
-            ("not_string", 1, False),
-        ]
-    )
-    def test_is_string(self, _, value, expected_result):
-        result = is_string(value)
-
-        eq_(expected_result, result)

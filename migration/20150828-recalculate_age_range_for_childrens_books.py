@@ -31,6 +31,6 @@ class RecalculateAgeRangeMonitor(SubjectSweepMonitor):
         old_target_age = subject.target_age
         subject.assign_to_genre()
         if subject.target_age != old_target_age and subject.target_age.lower != None:
-            print "%r: %r->%r" % (subject, old_target_age, subject.target_age)
+            print("%r: %r->%r" % (subject, old_target_age, subject.target_age))
 
 RunMonitorScript(RecalculateAgeRangeMonitor).run()

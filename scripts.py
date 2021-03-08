@@ -2883,10 +2883,10 @@ class Explain(IdentifierInputScript):
                 genre = genre.name
             else:
                 genre = "(!genre)"
-            #print "%s  %s says: %s/%s %s w=%s" % (
+            #print("%s  %s says: %s/%s %s w=%s" % (
             #    indent, classification.data_source.name,
             #    subject.identifier, subject.name, genre, classification.weight
-            #)
+            #))
         seen.add(identifier)
         for equivalency in identifier.equivalencies:
             if equivalency.id in seen:

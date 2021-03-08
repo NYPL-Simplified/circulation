@@ -65,7 +65,6 @@ from ..classifier import (
 )
 from ..config import CannotLoadConfiguration
 from ..util import LanguageCodes
-from ..util.string_helpers import native_string
 
 
 class WorkGenre(Base):
@@ -323,12 +322,10 @@ class Work(Base):
         return complaints
 
     def __repr__(self):
-        return native_string(
-            '<Work #%s "%s" (by %s) %s lang=%s (%s lp)>' % (
-                self.id, self.title, self.author,
-                ", ".join([g.name for g in self.genres]), self.language,
-                len(self.license_pools)
-            )
+        return '<Work #%s "%s" (by %s) %s lang=%s (%s lp)>' % (
+            self.id, self.title, self.author,
+            ", ".join([g.name for g in self.genres]), self.language,
+            len(self.license_pools)
         )
 
     @classmethod

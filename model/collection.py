@@ -54,12 +54,7 @@ from . import (
     get_one,
     get_one_or_create,
 )
-from ..util.string_helpers import (
-    base64,
-    native_string,
-)
-from six import with_metaclass
-
+from ..util.string_helpers import base64
 
 class Collection(Base, HasFullTableCache):
 
@@ -160,10 +155,8 @@ class Collection(Base, HasFullTableCache):
     GLOBAL_COLLECTION_DATA_SOURCES = [DataSource.ENKI]
 
     def __repr__(self):
-        return native_string(
-            '<Collection "%s"/"%s" ID=%d>' % (
-                self.name, self.protocol, self.id
-            )
+        return '<Collection "%s"/"%s" ID=%d>' % (
+            self.name, self.protocol, self.id
         )
 
     def cache_key(self):
@@ -927,7 +920,7 @@ collections_customlists = Table(
     UniqueConstraint('collection_id', 'customlist_id'),
 )
 
-class HasExternalIntegrationPerCollection(with_metaclass(ABCMeta, object)):
+class HasExternalIntegrationPerCollection(metaclass=ABCMeta):
     """Interface allowing to get access to an external integration"""
 
     @abstractmethod

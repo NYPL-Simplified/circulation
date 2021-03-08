@@ -19,7 +19,6 @@ from sqlalchemy.orm.session import Session
 from sqlalchemy.sql.expression import and_
 
 from ..util import is_session
-from ..util.string_helpers import is_string
 from . import Base, get_one, get_one_or_create
 
 
@@ -116,7 +115,7 @@ class Credential(Base):
                allow_persistent_token=False, allow_empty_token=False,
                collection=None, force_refresh=False):
         from .datasource import DataSource
-        if is_string(data_source):
+        if isinstance(data_source, str):
             data_source = DataSource.lookup(_db, data_source)
         credential, is_new = get_one_or_create(
             _db, Credential, data_source=data_source, type=token_type, patron=patron, collection=collection)
@@ -187,9 +186,9 @@ class Credential(Base):
 
         if not is_session(_db):
             raise ValueError('"_db" argument must be a valid SQLAlchemy session')
-        if not is_string(data_source_name) or not data_source_name:
+        if not isinstance(data_source_name, str) or not data_source_name:
             raise ValueError('"data_source_name" argument must be a non-empty string')
-        if not is_string(token_type) or not token_type:
+        if not isinstance(token_type, str) or not token_type:
             raise ValueError('"token_type" argument must be a non-empty string')
         if not isinstance(patron, Patron):
             raise ValueError('"patron" argument must be an instance of Patron class')

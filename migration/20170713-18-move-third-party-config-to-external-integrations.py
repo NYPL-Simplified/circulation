@@ -30,18 +30,18 @@ try:
     _db = production_session()
 
     # Import CDN configuration.
-    cdn_conf = Configuration.integration(u'CDN')
+    cdn_conf = Configuration.integration('CDN')
 
     if cdn_conf and isinstance(cdn_conf, dict):
-        for k, v in cdn_conf.items():
+        for k, v in list(cdn_conf.items()):
             cdn = EI(protocol=EI.CDN, goal=EI.CDN_GOAL)
             _db.add(cdn)
-            cdn.url = unicode(v)
-            cdn.setting(Configuration.CDN_MIRRORED_DOMAIN_KEY).value = unicode(k)
+            cdn.url = str(v)
+            cdn.setting(Configuration.CDN_MIRRORED_DOMAIN_KEY).value = str(k)
             log_import(cdn)
 
     # Import Elasticsearch configuration.
-    elasticsearch_conf = Configuration.integration(u'Elasticsearch')
+    elasticsearch_conf = Configuration.integration('Elasticsearch')
     if elasticsearch_conf:
         url = elasticsearch_conf.get('url')
         works_index = elasticsearch_conf.get(ExternalSearchIndex.WORKS_INDEX_KEY)
@@ -50,7 +50,7 @@ try:
         _db.add(integration)
 
         if url:
-            integration.url = unicode(url)
+            integration.url = str(url)
         if works_index:
             integration.set_setting(
                 ExternalSearchIndex.WORKS_INDEX_KEY, works_index
@@ -75,11 +75,11 @@ try:
             S3Uploader.BOOK_COVERS_BUCKET_KEY,
             S3Uploader.OA_CONTENT_BUCKET_KEY,
         ]
-        for k, v in s3_conf.items():
+        for k, v in list(s3_conf.items()):
             if not k in S3_SETTINGS:
                 log.warn('No ExternalIntegration goal for "%s" S3 bucket' % k)
                 continue
-            integration.setting(unicode(k)).value = unicode(v)
+            integration.setting(str(k)).value = str(v)
 
         log_import(integration)
 

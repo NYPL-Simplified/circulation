@@ -1,7 +1,7 @@
 import os
 import datetime
 import random
-import urllib.request, urllib.parse, urllib.error
+from urllib.parse import quote
 from io import StringIO
 from nose.tools import (
     set_trace,
@@ -176,7 +176,7 @@ class TestMetadataWranglerOPDSLookup(OPDSTest):
             data_source_name=DataSource.OA_CONTENT_SERVER
         )
         lookup.collection = opds
-        data_source_args = '?data_source=%s' % urllib.parse.quote(opds.data_source.name)
+        data_source_args = '?data_source=%s' % quote(opds.data_source.name)
         assert lookup.get_collection_url('banana').endswith(data_source_args)
 
     def test_lookup_endpoint(self):

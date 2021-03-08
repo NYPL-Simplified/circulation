@@ -1,5 +1,5 @@
 """Turn local URLs into CDN URLs."""
-from six.moves.urllib.parse import urlsplit, urlunsplit
+from urllib.parse import urlsplit, urlunsplit
 
 from .config import Configuration, CannotLoadConfiguration
 

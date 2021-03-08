@@ -1,7 +1,7 @@
 import logging
 from nose.tools import set_trace
 import requests
-from six.moves.urllib.parse import urlparse
+from urllib.parse import urlparse
 from flask_babel import lazy_gettext as _
 from .problem_detail import (
     ProblemDetail as pd,

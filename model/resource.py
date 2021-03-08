@@ -20,7 +20,6 @@ from .licensing import (
     LicensePoolDeliveryMechanism,
 )
 from ..util.http import HTTP
-from ..util.string_helpers import native_string
 
 from io import BytesIO
 import datetime
@@ -51,7 +50,7 @@ from sqlalchemy.orm.session import Session
 from sqlalchemy.sql.expression import or_
 import time
 import traceback
-from six.moves.urllib.parse import urlparse, urlsplit, quote
+from urllib.parse import urlparse, urlsplit, quote
 
 class Resource(Base):
     """An external resource that may be mirrored locally.
@@ -616,7 +615,7 @@ class Representation(Base, MediaTypes):
         elif self.resource:
             # This really shouldn't happen.
             url = self.resource.url
-        return native_string(url)
+        return url
 
     @property
     def is_usable(self):

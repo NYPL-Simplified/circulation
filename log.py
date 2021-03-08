@@ -12,7 +12,6 @@ from watchtower import CloudWatchLogHandler
 from boto3.session import Session as AwsSession
 from .config import CannotLoadConfiguration
 from .model import ExternalIntegration, ConfigurationSetting
-from .util.string_helpers import native_string
 
 class JSONFormatter(logging.Formatter):
     hostname = socket.gethostname()
@@ -25,7 +24,6 @@ class JSONFormatter(logging.Formatter):
         self.app_name = app_name or LogConfiguration.DEFAULT_APP_NAME
 
     def format(self, record):
-        message = native_string(record.msg)
         def only_native_strings(s):
             """Convert any kind of string-like object to the native string
             implementation in this version of Python. Leave everything
@@ -35,9 +33,10 @@ class JSONFormatter(logging.Formatter):
             we don't want to try to interpolate an incompatible type; it
             could lead to a UnicodeDecodeError.
             """
-            if isinstance(s, (bytes, str)):
-                s = native_string(s)
+            if isinstance(s, bytes):
+                s = s.decode("utf-8")
             return s
+        message = only_native_strings(record.msg)
 
         if record.args:
             record_args = tuple(
@@ -70,13 +69,10 @@ class JSONFormatter(logging.Formatter):
 
 class StringFormatter(logging.Formatter):
     """Encode all output as a string.
-    
-    In Python 2, this means a UTF-8 bytestring. In Python 3, it means a
-    Unicode string.
     """
     def format(self, record):
         data = super(StringFormatter, self).format(record)
-        return native_string(data)
+        return str(data)
 
 
 class Logger(object):

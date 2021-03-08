@@ -20,7 +20,6 @@ from ..classifier import (
     Erotica,
     GenreData,
 )
-from ..util.string_helpers import native_string
 
 import logging
 
@@ -173,7 +172,7 @@ class Subject(Base):
             age_range = ""
         a = '[%s:%s%s%s%s%s%s]' % (
             self.type, self.identifier, name, fiction, audience, genre, age_range)
-        return native_string(a)
+        return str(a)
 
     @property
     def target_age_string(self):

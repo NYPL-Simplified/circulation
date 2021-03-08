@@ -30,6 +30,7 @@ from sqlalchemy.orm import (
     backref,
     relationship,
 )
+from urllib.parse import quote, unquote
 
 class DataSource(Base, HasFullTableCache, DataSourceConstants):
 
@@ -133,7 +134,7 @@ class DataSource(Base, HasFullTableCache, DataSourceConstants):
         if not uri.startswith(cls.URI_PREFIX):
             return None
         name = uri[len(cls.URI_PREFIX):]
-        return urllib.parse.unquote(name)
+        return unquote(name)
 
     @classmethod
     def from_uri(cls, _db, uri):
@@ -141,7 +142,7 @@ class DataSource(Base, HasFullTableCache, DataSourceConstants):
 
     @property
     def uri(self):
-        return self.URI_PREFIX + urllib.parse.quote(self.name)
+        return self.URI_PREFIX + quote(self.name)
 
     @classmethod
     def license_source_for(cls, _db, identifier):

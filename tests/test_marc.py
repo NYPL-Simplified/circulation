@@ -6,7 +6,7 @@ from nose.tools import (
 import datetime
 from pymarc import Record, MARCReader
 from io import StringIO
-import urllib.request, urllib.parse, urllib.error
+from urllib.parse import quote
 from sqlalchemy.orm.session import Session
 
 from . import DatabaseTest
@@ -528,8 +528,8 @@ class TestMARCExporter(DatabaseTest):
         eq_(None, cache.representation.content)
         eq_("https://test-marc-bucket.s3.amazonaws.com/%s/%s/%s.mrc" % (
             self._default_library.short_name,
-            urllib.parse.quote(str(cache.representation.fetched_at)),
-            urllib.parse.quote(lane.display_name)),
+            quote(str(cache.representation.fetched_at)),
+            quote(lane.display_name)),
             mirror.uploaded[0].mirror_url)
         eq_(None, cache.start_time)
         assert cache.end_time > now
@@ -565,8 +565,8 @@ class TestMARCExporter(DatabaseTest):
         eq_(None, cache.representation.content)
         eq_("https://test-marc-bucket.s3.amazonaws.com/%s/%s/%s.mrc" % (
             self._default_library.short_name,
-            urllib.parse.quote(str(cache.representation.fetched_at)),
-            urllib.parse.quote(worklist.display_name)),
+            quote(str(cache.representation.fetched_at)),
+            quote(worklist.display_name)),
             mirror.uploaded[0].mirror_url)
         eq_(None, cache.start_time)
         assert cache.end_time > now
@@ -598,9 +598,9 @@ class TestMARCExporter(DatabaseTest):
         eq_(mirror.uploaded[0], cache.representation)
         eq_(None, cache.representation.content)
         eq_("https://test-marc-bucket.s3.amazonaws.com/%s/%s-%s/%s.mrc" % (
-            self._default_library.short_name, urllib.parse.quote(str(start_time)),
-            urllib.parse.quote(str(cache.representation.fetched_at)),
-            urllib.parse.quote(lane.display_name)),
+            self._default_library.short_name, quote(str(start_time)),
+            quote(str(cache.representation.fetched_at)),
+            quote(lane.display_name)),
             mirror.uploaded[0].mirror_url)
         eq_(start_time, cache.start_time)
         assert cache.end_time > now
