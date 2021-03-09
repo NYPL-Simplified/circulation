@@ -1227,8 +1227,8 @@ class TestOPDSImporter(OPDSImporterTest):
         # to create the second LicensePool didn't include a data source,
         # so the source of the OPDS feed (the open-access content server)
         # was used.
-        sources = [pool.data_source.name for pool in pools_g]
-        assert [DataSource.GUTENBERG, DataSource.OA_CONTENT_SERVER] == sources
+        assert set([DataSource.GUTENBERG, DataSource.OA_CONTENT_SERVER]) == \
+            set([pool.data_source.name for pool in pools_g])
 
     def test_import_with_unrecognized_distributor_creates_distributor(self):
         """We get a book from a previously unknown data source, with a license
@@ -1909,8 +1909,88 @@ class TestCombine(object):
 
 class TestMirroring(OPDSImporterTest):
 
-    def test_importer_gets_appropriate_mirror_for_collection(self):
+    @pytest.fixture()
+    def http(self):
+        class DummyHashedHttpClient(object):
+            def __init__(self):
+                self.responses = {}
+                self.requests = []
 
+            def queue_response(self, url, response_code, media_type='text_html', other_headers=None, content=''):
+                headers = {}
+                if media_type:
+                    headers["content-type"] = media_type
+                if other_headers:
+                    for k, v in other_headers.items():
+                        headers[k.lower()] = v
+                self.responses[url] = (response_code, headers, content)
+
+            def do_get(self, url, *args, **kwargs):
+                self.requests.append(url)
+                return self.responses.pop(url)
+        return DummyHashedHttpClient()
+
+    @pytest.fixture()
+    def svg(self):
+        svg = u"""<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
+          "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+
+        <svg xmlns="http://www.w3.org/2000/svg" width="1000" height="500">
+            <ellipse cx="50" cy="25" rx="50" ry="25" style="fill:blue;"/>
+        </svg>"""
+        return svg
+
+    @pytest.fixture()
+    def png(self):
+        with open(self.sample_cover_path("test-book-cover.png")) as png_file:
+            png = png_file.read()
+        return png
+
+    @pytest.fixture()
+    def epub10441(self):
+        return {
+            'url': 'http://www.gutenberg.org/ebooks/10441.epub.images',
+            'response_code': 200,
+            'content': b'I am 10441.epub.images',
+            'media_type': Representation.EPUB_MEDIA_TYPE
+        }
+
+    @pytest.fixture()
+    def epub10441_cover(self, svg):
+        return {
+            'url': 'https://s3.amazonaws.com/book-covers.nypl.org/Gutenberg-Illustrated/10441/cover_10441_9.png',
+            'response_code': 200,
+            'content': svg,
+            'media_type': Representation.SVG_MEDIA_TYPE
+        }
+
+    @pytest.fixture()
+    def epub10557(self):
+        return {
+            'url': 'http://www.gutenberg.org/ebooks/10557.epub.images',
+            'response_code': 200,
+            'content': b'I am 10557.epub.images',
+            'media_type': Representation.EPUB_MEDIA_TYPE
+        }
+
+    @pytest.fixture()
+    def epub10557_cover_broken(self):
+        return {
+            'url':  'http://root/broken-cover-image',
+            'response_code': 404,
+            'media_type': "text/plain"
+        }
+
+    @pytest.fixture()
+    def epub10557_cover_working(self, png):
+        return {
+            'url': 'http://root/working-cover-image',
+            'response_code': 200,
+            'content': png,
+            'media_type': Representation.PNG_MEDIA_TYPE
+        }
+
+    def test_importer_gets_appropriate_mirror_for_collection(self):
         # The default collection is not configured to mirror the
         # resources it finds for either its books or covers.
         collection = self._default_collection
@@ -1969,36 +2049,15 @@ class TestMirroring(OPDSImporterTest):
         assert "some-covers" == mirrors[ExternalIntegrationLink.COVERS].get_bucket(
             S3UploaderConfiguration.BOOK_COVERS_BUCKET_KEY)
 
-    def test_resources_are_mirrored_on_import(self):
-
-        svg = u"""<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
-  "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
-
-<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="500">
-    <ellipse cx="50" cy="25" rx="50" ry="25" style="fill:blue;"/>
-</svg>"""
-
-        open_png = open(self.sample_cover_path("test-book-cover.png"), "rb").read()
-
-        http = DummyHTTPClient()
-        http.queue_response(
-        200, content='I am 10441.epub.images',
-        media_type=Representation.EPUB_MEDIA_TYPE
-        )
-        http.queue_response(
-        200, content=svg, media_type=Representation.SVG_MEDIA_TYPE
-        )
-        http.queue_response(
-        200, content='I am 10557.epub.images',
-        media_type=Representation.EPUB_MEDIA_TYPE,
-        )
+    def test_resources_are_mirrored_on_import(self, http, png, svg, epub10441, epub10557, epub10441_cover,
+                                              epub10557_cover_broken, epub10557_cover_working):
+        http.queue_response(**epub10441)
+        http.queue_response(**epub10441_cover)
+        http.queue_response(**epub10557)
         # The request to http://root/broken-cover-image
         # will result in a 404 error, and the image will not be mirrored.
-        http.queue_response(404, media_type="text/plain")
-        http.queue_response(
-        200, content=open_png,
-        media_type=Representation.PNG_MEDIA_TYPE
-        )
+        http.queue_response(**epub10557_cover_broken)
+        http.queue_response(**epub10557_cover_working)
 
         s3_for_books = MockS3Uploader()
         s3_for_covers = MockS3Uploader()
@@ -2013,36 +2072,51 @@ class TestMirroring(OPDSImporterTest):
             importer.import_from_feed(self.content_server_mini_feed,
                                       feed_url='http://root')
         )
-        e1 = imported_editions[0]
-        e2 = imported_editions[1]
 
         assert 2 == len(pools)
 
-        # The import process requested each remote resource in the
-        # order they appeared in the OPDS feed. The thumbnail
-        # image was not requested, since we never trust foreign thumbnails.
-        assert http.requests == [
-            'http://www.gutenberg.org/ebooks/10441.epub.images',
-            'https://s3.amazonaws.com/book-covers.nypl.org/Gutenberg-Illustrated/10441/cover_10441_9.png',
-            'http://www.gutenberg.org/ebooks/10557.epub.images',
-            'http://root/broken-cover-image',
-            'http://root/working-cover-image'
+        # Both items were requested
+        assert epub10441['url'] in http.requests
+        assert epub10557['url'] in http.requests
+
+        # The import process requested each remote resource in the feed. The thumbnail
+        # image was not requested, since we never trust foreign thumbnails. The order they
+        # are requested in is not deterministic, but after requesting the epub the images
+        # should be requested.
+        index = http.requests.index(epub10441['url'])
+        assert http.requests[index+1] == epub10441_cover['url']
+
+        index = http.requests.index(epub10557['url'])
+        assert http.requests[index:index+3] == [
+            epub10557['url'],
+            epub10557_cover_broken['url'],
+            epub10557_cover_working['url']
         ]
 
-        [e1_oa_link, e1_image_link, e1_thumbnail_link,
-         e1_description_link ] = sorted(
-            e1.primary_identifier.links, key=lambda x: x.rel
+        if http.requests.index(epub10441['url']) < http.requests.index(epub10557['url']):
+            e_10441_index = 0
+            e_10557_index = 1
+        else:
+            e_10441_index = 1
+            e_10557_index = 0
+
+        e_10441 = imported_editions[e_10441_index]
+        e_10557 = imported_editions[e_10557_index]
+
+        [e_10441_oa_link, e_10441_image_link, e_10441_thumbnail_link,
+         e_10441_description_link] = sorted(
+            e_10441.primary_identifier.links, key=lambda x: x.rel
         )
-        [e2_broken_image_link, e2_working_image_link, e2_oa_link] = sorted(
-           e2.primary_identifier.links, key=lambda x: x.resource.url
+        [e_10557_broken_image_link, e_10557_working_image_link, e_10557_oa_link] = sorted(
+           e_10557.primary_identifier.links, key=lambda x: x.resource.url
         )
 
         # The thumbnail image is associated with the Identifier, but
         # it's not used because it's associated with a representation
         # (cover_10441_9.png with media type "image/png") that no
         # longer has a resource associated with it.
-        assert Hyperlink.THUMBNAIL_IMAGE == e1_thumbnail_link.rel
-        hypothetical_full_representation = e1_thumbnail_link.resource.representation.thumbnail_of
+        assert Hyperlink.THUMBNAIL_IMAGE == e_10441_thumbnail_link.rel
+        hypothetical_full_representation = e_10441_thumbnail_link.resource.representation.thumbnail_of
         assert None == hypothetical_full_representation.resource
         assert (Representation.PNG_MEDIA_TYPE ==
             hypothetical_full_representation.media_type)
@@ -2051,35 +2125,36 @@ class TestMirroring(OPDSImporterTest):
         # it turned out to be an SVG file, not a PNG, so we created a new
         # Representation. TODO: Obviously we could do better here.
         assert (Representation.SVG_MEDIA_TYPE ==
-            e1_image_link.resource.representation.media_type)
+            e_10441_image_link.resource.representation.media_type)
 
         # The two open-access links were mirrored to S3, as were the
         # original SVG image, the working PNG image, and its thumbnail, which we generated. The
         # The broken PNG image was not mirrored because our attempt to download
         # it resulted in a 404 error.
-        imported_book_representations = [
-            e1_oa_link.resource.representation,
-            e2_oa_link.resource.representation
-        ]
-        imported_cover_representations = [
-            e1_image_link.resource.representation,
-            e2_working_image_link.resource.representation,
-            e2_working_image_link.resource.representation.thumbnails[0]
-        ]
-        assert imported_book_representations == s3_for_books.uploaded
-        assert imported_cover_representations == s3_for_covers.uploaded
+        imported_book_representations = {e_10441_oa_link.resource.representation,
+                                         e_10557_oa_link.resource.representation}
+        imported_cover_representations = {e_10441_image_link.resource.representation,
+                                          e_10557_working_image_link.resource.representation,
+                                          e_10557_working_image_link.resource.representation.thumbnails[0]}
+
+        assert imported_book_representations == set(s3_for_books.uploaded)
+        assert imported_cover_representations == set(s3_for_covers.uploaded)
 
         assert 2 == len(s3_for_books.uploaded)
         assert 3 == len(s3_for_covers.uploaded)
 
+        assert epub10441['content'] == s3_for_books.content[e_10441_index]
+        assert epub10557['content'] == s3_for_books.content[e_10557_index]
+
         svg_bytes = svg.encode("utf8")
-        assert b"I am 10441.epub.images" == s3_for_books.content[0]
-        assert b"I am 10557.epub.images" == s3_for_books.content[1]
-        assert svg_bytes == s3_for_covers.content[0]
-        assert open_png == s3_for_covers.content[1]
-        #We don't know what the thumbnail is, but we know it's smaller than the
-        #original cover image.
-        assert(len(s3_for_covers.content[1]) > len(s3_for_covers.content[2]))
+        covers_content = s3_for_covers.content[:]
+        assert svg_bytes in covers_content
+        covers_content.remove(svg_bytes)
+        assert png in covers_content
+        covers_content.remove(png)
+
+        # We don't know what the thumbnail is, but we know it's smaller than the original cover image.
+        assert(len(png) > len(covers_content[0]))
 
         # Each resource was 'mirrored' to an Amazon S3 bucket.
         #
@@ -2098,10 +2173,10 @@ class TestMirroring(OPDSImporterTest):
         book2_url = 'https://test-content-bucket.s3.amazonaws.com/Library%20Simplified%20Open%20Access%20Content%20Server/Gutenberg%20ID/10557/Johnny%20Crow%27s%20Party.epub.images'
         book2_png_cover = 'https://test-cover-bucket.s3.amazonaws.com/Library%20Simplified%20Open%20Access%20Content%20Server/Gutenberg%20ID/10557/working-cover-image.png'
         book2_png_thumbnail = 'https://test-cover-bucket.s3.amazonaws.com/scaled/300/Library%20Simplified%20Open%20Access%20Content%20Server/Gutenberg%20ID/10557/working-cover-image.png'
-        uploaded_urls = [x.mirror_url for x in s3_for_covers.uploaded]
-        uploaded_book_urls = [x.mirror_url for x in s3_for_books.uploaded]
-        assert [book1_svg_cover, book2_png_cover, book2_png_thumbnail] == uploaded_urls
-        assert [book1_url, book2_url] == uploaded_book_urls
+        uploaded_urls = {x.mirror_url for x in s3_for_covers.uploaded}
+        uploaded_book_urls = {x.mirror_url for x in s3_for_books.uploaded}
+        assert {book1_svg_cover, book2_png_cover, book2_png_thumbnail} == uploaded_urls
+        assert {book1_url, book2_url} == uploaded_book_urls
 
 
         # If we fetch the feed again, and the entries have been updated since the
@@ -2110,14 +2185,17 @@ class TestMirroring(OPDSImporterTest):
         cutoff = datetime.datetime(2013, 1, 2, 16, 56, 40)
 
         http.queue_response(
+            epub10441['url'],
             304, media_type=Representation.EPUB_MEDIA_TYPE
         )
 
         http.queue_response(
+            epub10441_cover['url'],
             304, media_type=Representation.SVG_MEDIA_TYPE
         )
 
         http.queue_response(
+            epub10557['url'],
             304, media_type=Representation.EPUB_MEDIA_TYPE
         )
 
@@ -2125,58 +2203,44 @@ class TestMirroring(OPDSImporterTest):
             importer.import_from_feed(self.content_server_mini_feed)
         )
 
-        assert [e1, e2] == imported_editions
+        assert {e_10441, e_10557} == set(imported_editions)
 
         # Nothing new has been uploaded
         assert 2 == len(s3_for_books.uploaded)
 
         # If the content has changed, it will be mirrored again.
-        http.queue_response(
-            200, content="I am a new version of 10441.epub.images",
-            media_type=Representation.EPUB_MEDIA_TYPE
-        )
-
-        http.queue_response(
-            200, content=svg,
-            media_type=Representation.SVG_MEDIA_TYPE
-        )
-
-        http.queue_response(
-            200, content="I am a new version of 10557.epub.images",
-            media_type=Representation.EPUB_MEDIA_TYPE
-        )
+        epub10441_updated = epub10441.copy()
+        epub10441_updated['content'] = b"I am a new version of 10441.epub.images"
+        http.queue_response(**epub10441_updated)
+        http.queue_response(**epub10441_cover)
+        epub10557_updated = epub10557.copy()
+        epub10557_updated['content'] = b"I am a new version of 10557.epub.images"
+        http.queue_response(**epub10557_updated)
 
         imported_editions, pools, works, failures = (
             importer.import_from_feed(self.content_server_mini_feed)
         )
 
-        assert [e1, e2] == imported_editions
+        assert {e_10441, e_10557} == set(imported_editions)
         assert 4 == len(s3_for_books.uploaded)
-        assert b"I am a new version of 10441.epub.images" == s3_for_books.content[2]
-        assert svg_bytes == s3_for_covers.content[3]
-        assert b"I am a new version of 10557.epub.images" == s3_for_books.content[3]
+        assert epub10441_updated['content'] in s3_for_books.content[-2:]
+        assert svg_bytes == s3_for_covers.content.pop()
+        assert epub10557_updated['content'] in s3_for_books.content[-2:]
 
 
-    def test_content_resources_not_mirrored_on_import_if_no_collection(self):
+    def test_content_resources_not_mirrored_on_import_if_no_collection(self, http, svg, epub10557_cover_broken,
+                                                                       epub10557_cover_working, epub10441_cover):
         # If you don't provide a Collection to the OPDSImporter, no
         # LicensePools are created for the book and content resources
         # (like EPUB editions of the book) are not mirrored. Only
         # metadata resources (like the book cover) are mirrored.
 
-        svg = """<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
-  "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
 
-<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="500">
-    <ellipse cx="50" cy="25" rx="50" ry="25" style="fill:blue;"/>
-</svg>"""
-
-        http = DummyHTTPClient()
         # The request to http://root/broken-cover-image
         # will result in a 404 error, and the image will not be mirrored.
-        http.queue_response(404, media_type="text/plain")
-        http.queue_response(
-            200, content=svg, media_type=Representation.SVG_MEDIA_TYPE
-        )
+        http.queue_response(**epub10557_cover_broken)
+        http.queue_response(**epub10557_cover_working)
+        http.queue_response(**epub10441_cover)
 
         s3 = MockS3Uploader()
         mirrors = dict(covers_mirror=s3)
@@ -2200,11 +2264,12 @@ class TestMirroring(OPDSImporterTest):
         # were not requested because no Collection was provided to the
         # importer. The thumbnail image was not requested, since we
         # were going to make our own thumbnail anyway.
-        assert http.requests == [
-            'https://s3.amazonaws.com/book-covers.nypl.org/Gutenberg-Illustrated/10441/cover_10441_9.png',
-            'http://root/broken-cover-image',
-            'http://root/working-cover-image'
-        ]
+        assert len(http.requests) == 3
+        assert set(http.requests) == {
+            epub10441_cover['url'],
+            epub10557_cover_broken['url'],
+            epub10557_cover_working['url']
+        }
 
 
 class TestOPDSImportMonitor(OPDSImporterTest):
@@ -2544,7 +2609,7 @@ class TestOPDSImportMonitor(OPDSImporterTest):
         headers = {'Some other': 'header'}
         new_headers = monitor._update_headers(headers)
         assert ['Some other'] == headers.keys()
-        assert ['Some other', 'Accept'] == new_headers.keys()
+        assert ['Accept', 'Some other'] == sorted(new_headers.keys())
 
         # If a custom_accept_header exist, will be used instead a default value
         new_headers = monitor._update_headers(headers)
