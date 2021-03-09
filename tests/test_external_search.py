@@ -3782,7 +3782,7 @@ class TestFilter(DatabaseTest):
         # added to the collection. This requires an aggregate function
         # and potentially a nested filter.
         f.order = added_to_collection
-        first_field = validate_sort_order(f, sort_field)
+        first_field = validate_sort_order(f, added_to_collection)
 
         # Here there's no nested filter but there is an aggregate
         # function. If a book is available through multiple
@@ -3825,7 +3825,7 @@ class TestFilter(DatabaseTest):
         # collections or lists associated with the filter.
         f.order = last_update
         f.collection_ids = []
-        first_field = validate_sort_order(f, sort_field)
+        first_field = validate_sort_order(f, last_update)
         assert dict(last_update_time='asc') == first_field
 
         # Or it can be *incredibly complicated*, if there _are_
@@ -3833,7 +3833,7 @@ class TestFilter(DatabaseTest):
         # unfortunately, is almost all the time.
         f.collection_ids = [self._default_collection.id]
         f.customlist_restriction_sets = [[1], [1,2]]
-        first_field = validate_sort_order(f, sort_field)
+        first_field = validate_sort_order(f, last_update)
 
         # Here, the ordering is done by a script that runs on the
         # ElasticSearch server.
