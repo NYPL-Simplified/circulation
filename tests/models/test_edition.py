@@ -191,12 +191,13 @@ class TestEdition(DatabaseTest):
         policy = PresentationCalculationPolicy(
             equivalent_identifier_threshold=0.5
         )
-        eq_(set([identifier, edition.primary_identifier]),
-            set(edition.equivalent_identifiers(policy=policy)))
+
+        eq_([identifier, edition.primary_identifier],
+            edition.equivalent_identifiers(policy=policy))
 
         policy.equivalent_identifier_threshold = 0.7
-        eq_(set([edition.primary_identifier]),
-            set(edition.equivalent_identifiers(policy=policy)))
+        eq_([edition.primary_identifier],
+            edition.equivalent_identifiers(policy=policy))
 
     def test_recursive_edition_equivalence(self):
 

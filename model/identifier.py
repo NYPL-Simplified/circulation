@@ -853,9 +853,6 @@ class Identifier(Base, IdentifierConstants):
             return False
         return (self.type, self.identifier) == (other.type, other.identifier)
 
-    def __hash__(self):
-        return self.id
-
     def __lt__(self, other):
         """Comparison implementation for total_ordering."""
         if other is None or not isinstance(other, Identifier):

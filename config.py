@@ -60,7 +60,13 @@ class ConfigurationConstants(object):
     # one configuring which facet is the default.
     ENABLED_FACETS_KEY_PREFIX = "facets_enabled_"
     DEFAULT_FACET_KEY_PREFIX = "facets_default_"
-
+    
+    # The "level" property determines which admins will be able to modify the setting.  Level 1 settings can be modified by anyone.
+    # Level 2 settings can be modified only by library managers and system admins (i.e. not by librarians).  Level 3 settings can be changed only by system admins.
+    # If no level is specified, the setting will be treated as Level 1 by default.
+    ALL_ACCESS = 1
+    SYS_ADMIN_OR_MANAGER = 2
+    SYS_ADMIN_ONLY = 3
 
 class Configuration(ConfigurationConstants):
 
@@ -212,14 +218,6 @@ class Configuration(ConfigurationConstants):
         },
     ]
 
-    # The "level" property determines which admins will be able to modify the setting.  Level 1 settings can be modified by anyone.
-    # Level 2 settings can be modified only by library managers and system admins (i.e. not by librarians).  Level 3 settings can be changed only by system admins.
-    # If no level is specified, the setting will be treated as Level 1 by default.
-    ALL_ACCESS = 1
-    global SYS_ADMIN_OR_MANAGER
-    SYS_ADMIN_OR_MANAGER = 2
-    SYS_ADMIN_ONLY = 3
-
     LIBRARY_SETTINGS = [
         {
             "key": WEBSITE_URL,
@@ -227,7 +225,7 @@ class Configuration(ConfigurationConstants):
             "description": _("The library's main website, e.g. \"https://www.nypl.org/\" (not this Circulation Manager's URL)."),
             "required": True,
             "format": "url",
-            "level": SYS_ADMIN_ONLY
+            "level": ConfigurationConstants.SYS_ADMIN_ONLY
         },
         {
             "key": ALLOW_HOLDS,
@@ -239,7 +237,7 @@ class Configuration(ConfigurationConstants):
             ],
             "default": "true",
             "category": "Loans, Holds, & Fines",
-            "level": SYS_ADMIN_ONLY
+            "level": ConfigurationConstants.SYS_ADMIN_ONLY
         },
         { "key": EntryPoint.ENABLED_SETTING,
           "label": _("Enabled entry points"),
@@ -256,7 +254,7 @@ class Configuration(ConfigurationConstants):
           "format": "narrow",
           # Renders an input field that cannot be edited.
           "readOnly": True,
-          "level": SYS_ADMIN_ONLY
+          "level": ConfigurationConstants.SYS_ADMIN_ONLY
         },
         {
             "key": FEATURED_LANE_SIZE,
@@ -264,7 +262,7 @@ class Configuration(ConfigurationConstants):
             "type": "number",
             "default": 15,
             "category": "Lanes & Filters",
-            "level": ALL_ACCESS
+            "level": ConfigurationConstants.ALL_ACCESS
 
         },
         {
@@ -275,7 +273,7 @@ class Configuration(ConfigurationConstants):
             "max": 1,
             "default": DEFAULT_MINIMUM_FEATURED_QUALITY,
             "category": "Lanes & Filters",
-            "level": ALL_ACCESS
+            "level": ConfigurationConstants.ALL_ACCESS
         },
     ] + [
         { "key": ConfigurationConstants.ENABLED_FACETS_KEY_PREFIX + group,
@@ -289,7 +287,7 @@ class Configuration(ConfigurationConstants):
           "category": "Lanes & Filters",
           # Tells the front end that each of these settings is related to the corresponding default setting.
           "paired": ConfigurationConstants.DEFAULT_FACET_KEY_PREFIX + group,
-          "level": SYS_ADMIN_OR_MANAGER
+          "level": ConfigurationConstants.SYS_ADMIN_OR_MANAGER
         } for group, description in FacetConstants.GROUP_DESCRIPTIONS.items()
     ] + [
         { "key": ConfigurationConstants.DEFAULT_FACET_KEY_PREFIX + group,
