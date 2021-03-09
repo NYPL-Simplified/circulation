@@ -393,7 +393,7 @@ class BaseCoverageProvider(object):
         num_ignored = 0
         records = []
 
-        unhandled_items = batch
+        unhandled_items = set(batch)
         success_items = []
         for item in results:
             if isinstance(item, CoverageFailure):

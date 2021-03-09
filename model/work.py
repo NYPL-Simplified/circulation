@@ -656,7 +656,7 @@ class Work(Base):
             Hyperlink,
         )
 
-        works = list(works_or_identifiers)
+        works = list(set(works_or_identifiers))
         if not isinstance(works[0], cls):
             # This assumes that everything in the provided list is the
             # same class: either Work or Identifier.
