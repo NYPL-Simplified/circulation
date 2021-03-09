@@ -207,7 +207,7 @@ class TestAnnotators(DatabaseTest):
         lcsh_uri = Subject.uri_lookup[Subject.LCSH]
         assert ([{'term': u'lcsh1', 'label': u'name2', rating_value: 2},
              {'term': u'lcsh2', 'label': u'name3', rating_value: 3}] ==
-            category_tags[lcsh_uri])
+            sorted(category_tags[lcsh_uri], key=lambda x: x[rating_value]))
 
         genre_uri = Subject.uri_lookup[Subject.SIMPLIFIED_GENRE]
         assert [dict(label='Fiction', term=Subject.SIMPLIFIED_GENRE+"Fiction")] == category_tags[genre_uri]
