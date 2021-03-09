@@ -2286,7 +2286,7 @@ class TestOPDSImportMonitor(OPDSImporterTest):
             # First we will get the first page of the OPDS feed.
             def follow_one_link(self, url):
                 self.follow_one_link_called_with.append(url)
-                return (url, "some content")
+                return ([], "some content")
 
         feed_url = self._url
         self._default_collection.external_account_id = feed_url
@@ -2296,7 +2296,7 @@ class TestOPDSImportMonitor(OPDSImporterTest):
         expect = "Retrieve the first page of the OPDS feed (%s)" % feed_url
         eq_(expect, first_page.name)
         eq_(True, first_page.success)
-        eq_((feed_url, "some content"), first_page.result)
+        eq_(([], "some content"), first_page.result)
 
         # follow_one_link was called once.
         [link] = monitor.follow_one_link_called_with
