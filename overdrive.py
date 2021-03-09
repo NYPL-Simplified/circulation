@@ -504,7 +504,7 @@ class OverdriveAPI(object):
             item_id=identifier.identifier
         )
         status_code, headers, content = self.get(url, {})
-        if isinstance(content, str):
+        if isinstance(content, (bytes, str)):
             content = json.loads(content)
         return content
 
