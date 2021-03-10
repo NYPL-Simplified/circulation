@@ -230,7 +230,7 @@ class TestCirculationManagerAnnotator(DatabaseTest):
             worklist.initialize(None)
             annotator = CirculationManagerAnnotator(worklist, test_mode=True)
             feed = AcquisitionFeed(self._db, "test", "url", [work], annotator)
-            feed = feedparser.parse(unicode(feed))
+            feed = feedparser.parse(str(feed))
             [entry] = feed.entries
             return entry
 
@@ -368,7 +368,7 @@ class TestLibraryAnnotator(VendorIDTest):
         }
 
         # Set up configuration settings for links.
-        for rel, value in link_config.iteritems():
+        for rel, value in link_config.items():
             ConfigurationSetting.for_library(rel, self._default_library).value = value
 
         # Set up settings for navigation links.
@@ -712,7 +712,7 @@ class TestLibraryAnnotator(VendorIDTest):
         with_auth, no_auth = linksets
 
         # Some links are present no matter what.
-        for expect in [u'alternate', u'issues', u'related']:
+        for expect in ['alternate', 'issues', 'related']:
             assert expect in with_auth
             assert expect in no_auth
 
@@ -720,8 +720,8 @@ class TestLibraryAnnotator(VendorIDTest):
         # links -- one to borrow the book and one to annotate the
         # book.
         for expect in [
-                u'http://www.w3.org/ns/oa#annotationservice',
-                u'http://opds-spec.org/acquisition/borrow'
+                'http://www.w3.org/ns/oa#annotationservice',
+                'http://opds-spec.org/acquisition/borrow'
         ]:
             assert expect in with_auth
             assert expect not in no_auth
@@ -746,11 +746,11 @@ class TestLibraryAnnotator(VendorIDTest):
         links = set([x['rel'] for x in entry_parsed['links']])
 
         # These links are still present.
-        for expect in [u'alternate', u'issues', u'related', u'http://www.w3.org/ns/oa#annotationservice']:
+        for expect in ['alternate', 'issues', 'related', 'http://www.w3.org/ns/oa#annotationservice']:
             assert expect in links
 
         # But the borrow link is gone.
-        assert u'http://opds-spec.org/acquisition/borrow' not in links
+        assert 'http://opds-spec.org/acquisition/borrow' not in links
 
         # There are no links to create analytics events for this title,
         # because the library has no analytics configured.
@@ -788,7 +788,7 @@ class TestLibraryAnnotator(VendorIDTest):
             )
             feed = AcquisitionFeed(self._db, "test", "url", [], annotator)
             annotator.annotate_feed(feed, lane)
-            parsed = feedparser.parse(unicode(feed))
+            parsed = feedparser.parse(str(feed))
             linksets.append([x['rel'] for x in parsed['feed']['links']])
 
         with_auth, without_auth = linksets
@@ -796,7 +796,7 @@ class TestLibraryAnnotator(VendorIDTest):
         # There's always a self link, a search link, and an auth
         # document link.
         for rel in (
-                'self', 'search', u'http://opds-spec.org/auth/document'
+                'self', 'search', 'http://opds-spec.org/auth/document'
         ):
             assert rel in with_auth
             assert rel in without_auth
@@ -804,8 +804,8 @@ class TestLibraryAnnotator(VendorIDTest):
         # But there's only a bookshelf link and an annotation link
         # when patron authentication is enabled.
         for rel in (
-                u'http://opds-spec.org/shelf',
-                u'http://www.w3.org/ns/oa#annotationservice'
+                'http://opds-spec.org/shelf',
+                'http://www.w3.org/ns/oa#annotationservice'
         ):
             assert rel in with_auth
             assert rel not in without_auth
@@ -819,7 +819,7 @@ class TestLibraryAnnotator(VendorIDTest):
             LibraryAnnotator(None, lane, self._default_library, test_mode=True,
                              **kwargs)
         )
-        return feedparser.parse(unicode(feed))
+        return feedparser.parse(str(feed))
 
     def assert_link_on_entry(self, entry, link_type=None, rels=None,
                              partials_by_rel=None
@@ -841,7 +841,7 @@ class TestLibraryAnnotator(VendorIDTest):
             [get_link_by_rel(rel) for rel in rels]
 
         partials_by_rel = partials_by_rel or dict()
-        for rel, uri_partials in partials_by_rel.items():
+        for rel, uri_partials in list(partials_by_rel.items()):
             link = get_link_by_rel(rel)
             if not isinstance(uri_partials, list):
                 uri_partials = [uri_partials]
@@ -906,7 +906,7 @@ class TestLibraryAnnotator(VendorIDTest):
         )
 
         # When there are two authors, they each get a contributor link.
-        work.presentation_edition.add_contributor(u'Oprah', Contributor.AUTHOR_ROLE)
+        work.presentation_edition.add_contributor('Oprah', Contributor.AUTHOR_ROLE)
         work.calculate_presentation(
             PresentationCalculationPolicy(regenerate_opds_entries=True),
             MockExternalSearchIndex()
@@ -931,7 +931,7 @@ class TestLibraryAnnotator(VendorIDTest):
         )
         feed = self.get_parsed_feed([work])
         [entry] = feed.entries
-        eq_([], filter(lambda l: l.rel=='contributor', entry.links))
+        eq_([], [l for l in entry.links if l.rel=='contributor'])
 
     def test_work_entry_includes_series_link(self):
         """A series lane link is added to the work entry when its in a series
@@ -951,7 +951,7 @@ class TestLibraryAnnotator(VendorIDTest):
         work = self._work(with_open_access_download=True)
         feed = self.get_parsed_feed([work])
         [entry] = feed.entries
-        eq_([], filter(lambda l: l.rel=='series', entry.links))
+        eq_([], [l for l in entry.links if l.rel=='series'])
 
     def test_work_entry_includes_recommendations_link(self):
         work = self._work(with_open_access_download=True)
@@ -959,14 +959,14 @@ class TestLibraryAnnotator(VendorIDTest):
         # If NoveList Select isn't configured, there's no recommendations link.
         feed = self.get_parsed_feed([work])
         [entry] = feed.entries
-        eq_([], filter(lambda l: l.rel=='recommendations', entry.links))
+        eq_([], [l for l in entry.links if l.rel=='recommendations'])
 
         # There's a recommendation link when configuration is found, though!
         NoveListAPI.IS_CONFIGURED = None
         self._external_integration(
             ExternalIntegration.NOVELIST,
-            goal=ExternalIntegration.METADATA_GOAL, username=u'library',
-            password=u'sure', libraries=[self._default_library],
+            goal=ExternalIntegration.METADATA_GOAL, username='library',
+            password='sure', libraries=[self._default_library],
         )
 
         feed = self.get_parsed_feed([work])
@@ -1020,7 +1020,7 @@ class TestLibraryAnnotator(VendorIDTest):
         ).total_seconds() < 1
 
         # No entries in the feed...
-        raw = unicode(response)
+        raw = str(response)
         feed = feedparser.parse(raw)
         eq_(0, len(feed['entries']))
 
@@ -1082,7 +1082,7 @@ class TestLibraryAnnotator(VendorIDTest):
         # Get the feed.
         feed_obj = LibraryLoanAndHoldAnnotator.active_loans_for(
             None, patron, test_mode=True)
-        raw = unicode(feed_obj)
+        raw = str(feed_obj)
         feed = feedparser.parse(raw)
 
         # The only entries in the feed is the work currently out on loan
@@ -1119,23 +1119,23 @@ class TestLibraryAnnotator(VendorIDTest):
     def test_loan_feed_includes_patron(self):
         patron = self._patron()
 
-        patron.username = u'bellhooks'
-        patron.authorization_identifier = u'987654321'
+        patron.username = 'bellhooks'
+        patron.authorization_identifier = '987654321'
         feed_obj = LibraryLoanAndHoldAnnotator.active_loans_for(
             None, patron, test_mode=True)
-        raw = unicode(feed_obj)
+        raw = str(feed_obj)
         feed_details = feedparser.parse(raw)['feed']
 
         assert "simplified:authorizationIdentifier" in raw
         assert "simplified:username" in raw
         eq_(patron.username, feed_details['simplified_patron']['simplified:username'])
-        eq_(u'987654321', feed_details['simplified_patron']['simplified:authorizationidentifier'])
+        eq_('987654321', feed_details['simplified_patron']['simplified:authorizationidentifier'])
 
     def test_loans_feed_includes_annotations_link(self):
         patron = self._patron()
         feed_obj = LibraryLoanAndHoldAnnotator.active_loans_for(
             None, patron, test_mode=True)
-        raw = unicode(feed_obj)
+        raw = str(feed_obj)
         feed = feedparser.parse(raw)['feed']
         links = feed['links']
 
@@ -1161,7 +1161,7 @@ class TestLibraryAnnotator(VendorIDTest):
             None, patron, test_mode=True)
 
         # ...but it's empty.
-        assert '<entry>' not in unicode(feed_obj)
+        assert '<entry>' not in str(feed_obj)
 
     def test_acquisition_feed_includes_license_information(self):
         work = self._work(with_open_access_download=True)
@@ -1177,7 +1177,7 @@ class TestLibraryAnnotator(VendorIDTest):
         feed = AcquisitionFeed(
             self._db, "title", "url", [work], self.annotator
         )
-        u = unicode(feed)
+        u = str(feed)
         holds_re = re.compile('<opds:holds\W+total="25"\W*/>', re.S)
         assert holds_re.search(u) is not None
 
@@ -1208,7 +1208,7 @@ class TestLibraryAnnotator(VendorIDTest):
 
         feed_obj = LibraryLoanAndHoldAnnotator.active_loans_for(
             None, patron, test_mode=True)
-        raw = unicode(feed_obj)
+        raw = str(feed_obj)
 
         entries = feedparser.parse(raw)['entries']
         eq_(1, len(entries))
@@ -1243,7 +1243,7 @@ class TestLibraryAnnotator(VendorIDTest):
 
         feed_obj = LibraryLoanAndHoldAnnotator.active_loans_for(
             None, patron, test_mode=True)
-        raw = unicode(feed_obj)
+        raw = str(feed_obj)
 
         entries = feedparser.parse(raw)['entries']
         eq_(1, len(entries))
@@ -1266,7 +1266,7 @@ class TestLibraryAnnotator(VendorIDTest):
         feed_obj = LibraryLoanAndHoldAnnotator.single_item_feed(
             circulation, pool, test_mode=True
         )
-        raw = unicode(feed_obj)
+        raw = str(feed_obj)
 
         entries = feedparser.parse(raw)['entries']
         eq_(1, len(entries))
@@ -1288,7 +1288,7 @@ class TestLibraryAnnotator(VendorIDTest):
         feed_obj = LibraryLoanAndHoldAnnotator.single_item_feed(
             circulation, loan, test_mode=True
         )
-        raw = unicode(feed_obj)
+        raw = str(feed_obj)
 
         entries = feedparser.parse(raw)['entries']
         eq_(1, len(entries))
@@ -1328,7 +1328,7 @@ class TestLibraryAnnotator(VendorIDTest):
         feed_obj = LibraryLoanAndHoldAnnotator.single_item_feed(
             circulation, loan, fulfillment, test_mode=True
         )
-        raw = unicode(feed_obj)
+        raw = str(feed_obj)
 
         entries = feedparser.parse(raw)['entries']
         eq_(1, len(entries))
@@ -1447,7 +1447,7 @@ class TestLibraryAnnotator(VendorIDTest):
             # relations to URLs.
             feed = AcquisitionFeed(self._db, "test", "url", [], annotator)
             annotator.annotate_feed(feed, lane)
-            raw = unicode(feed)
+            raw = str(feed)
             parsed = feedparser.parse(raw)['feed']
             links = parsed['links']
 
@@ -1839,7 +1839,7 @@ class TestSharedCollectionAnnotator(DatabaseTest):
             self._db, "test", "url", works,
             SharedCollectionAnnotator(self.collection, lane, test_mode=True)
         )
-        return feedparser.parse(unicode(feed))
+        return feedparser.parse(str(feed))
 
     def assert_link_on_entry(self, entry, link_type=None, rels=None,
                              partials_by_rel=None
@@ -1861,7 +1861,7 @@ class TestSharedCollectionAnnotator(DatabaseTest):
             [get_link_by_rel(rel) for rel in rels]
 
         partials_by_rel = partials_by_rel or dict()
-        for rel, uri_partials in partials_by_rel.items():
+        for rel, uri_partials in list(partials_by_rel.items()):
             link = get_link_by_rel(rel)
             if not isinstance(uri_partials, list):
                 uri_partials = [uri_partials]

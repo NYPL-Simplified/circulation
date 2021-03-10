@@ -1138,7 +1138,7 @@ class TestProQuestOPDS2ImportMonitor(DatabaseTest):
         monitor = ProQuestOPDS2ImportMonitor(
             client_factory, self._db, self._proquest_collection, ProQuestOPDS2Importer
         )
-        monitor._get_feeds = MagicMock(return_value=zip([None] * len(feeds), feeds))
+        monitor._get_feeds = MagicMock(return_value=list(zip([None] * len(feeds), feeds)))
         monitor.import_one_feed = MagicMock(return_value=([], []))
 
         # Act
@@ -1176,7 +1176,7 @@ class TestProQuestOPDS2ImportMonitor(DatabaseTest):
         # Arrange
         client = create_autospec(spec=ProQuestAPIClient)
         client.download_all_feed_pages = MagicMock(
-            return_value=map(fixtures.serialize, feed_pages)
+            return_value=list(map(fixtures.serialize, feed_pages))
         )
 
         client_factory = create_autospec(spec=ProQuestAPIClientFactory)
@@ -1249,7 +1249,7 @@ class TestProQuestOPDS2ImportMonitor(DatabaseTest):
 
         client = create_autospec(spec=ProQuestAPIClient)
         client.download_all_feed_pages = MagicMock(
-            return_value=map(fixtures.serialize, feed_pages)
+            return_value=list(map(fixtures.serialize, feed_pages))
         )
 
         client_factory = create_autospec(spec=ProQuestAPIClientFactory)
@@ -1383,7 +1383,7 @@ class TestProQuestOPDS2ImportMonitor(DatabaseTest):
         monitor = ProQuestOPDS2ImportMonitor(
             client_factory, self._db, self._proquest_collection, ProQuestOPDS2Importer
         )
-        monitor._get_feeds = MagicMock(return_value=zip([None] * len(feeds), feeds))
+        monitor._get_feeds = MagicMock(return_value=list(zip([None] * len(feeds), feeds)))
         monitor.import_one_feed = MagicMock(return_value=([], []))
 
         # Act

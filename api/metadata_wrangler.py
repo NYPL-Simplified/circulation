@@ -3,7 +3,7 @@
 import datetime
 import feedparser
 from nose.tools import set_trace
-from StringIO import StringIO
+from io import StringIO
 from lxml import etree
 
 from sqlalchemy import and_, func, or_
@@ -12,7 +12,7 @@ from sqlalchemy.orm import (
     contains_eager,
 )
 
-from config import CannotLoadConfiguration
+from .config import CannotLoadConfiguration
 from core.coverage import CoverageFailure
 from core.metadata_layer import TimestampData
 from core.model import (
@@ -285,8 +285,8 @@ class MWAuxiliaryMetadataMonitor(MetadataWranglerCollectionMonitor):
         identifiers_by_urn, _failures = Identifier.parse_urns(
             self._db, urns, autocreate=False
         )
-        urns = identifiers_by_urn.keys()
-        identifiers = identifiers_by_urn.values()
+        urns = list(identifiers_by_urn.keys())
+        identifiers = list(identifiers_by_urn.values())
 
         self.importer.build_identifier_mapping(urns)
         mapped_identifiers = list()

@@ -572,14 +572,14 @@ class TestBibliothecaAPI(BibliothecaAPITest):
         # Information about the license has been added to an 'encrypted'
         # object within metadata.
         encrypted = metadata['encrypted']
-        eq_(u'http://librarysimplified.org/terms/drm/scheme/FAE',
+        eq_('http://librarysimplified.org/terms/drm/scheme/FAE',
             encrypted['scheme'])
-        eq_(u'abcdef01234789abcdef0123', encrypted[u'findaway:checkoutId'])
-        eq_(u'1234567890987654321ababa', encrypted[u'findaway:licenseId'])
-        eq_(u'3M', encrypted[u'findaway:accountId'])
-        eq_(u'123456', encrypted[u'findaway:fulfillmentId'])
-        eq_(u'aaaaaaaa-4444-cccc-dddd-666666666666',
-            encrypted[u'findaway:sessionKey'])
+        eq_('abcdef01234789abcdef0123', encrypted['findaway:checkoutId'])
+        eq_('1234567890987654321ababa', encrypted['findaway:licenseId'])
+        eq_('3M', encrypted['findaway:accountId'])
+        eq_('123456', encrypted['findaway:fulfillmentId'])
+        eq_('aaaaaaaa-4444-cccc-dddd-666666666666',
+            encrypted['findaway:sessionKey'])
 
         # Every entry in the license document's 'items' list has
         # become a readingOrder item in the manifest.
@@ -702,7 +702,7 @@ class TestEventParser(BibliothecaAPITest):
         (threem_id, isbn, patron_id, start_time, end_time,
          internal_event_type) = event
         eq_('d5rf89', threem_id)
-        eq_(u'9781101190623', isbn)
+        eq_('9781101190623', isbn)
         eq_(None, patron_id)
         eq_(datetime(2016, 4, 28, 11, 4, 6), start_time)
         eq_(None, end_time)
@@ -766,20 +766,20 @@ class TestErrorParser(BibliothecaAPITest):
         msg=self.sample_data("error_exceeded_limit.xml")
         error = ErrorParser().process_all(msg)
         assert isinstance(error, PatronLoanLimitReached)
-        eq_(u'Patron cannot loan more than 12 documents', error.message)
+        eq_('Patron cannot loan more than 12 documents', error.message)
 
     def test_exceeded_hold_limit(self):
         msg=self.sample_data("error_exceeded_hold_limit.xml")
         error = ErrorParser().process_all(msg)
         assert isinstance(error, PatronHoldLimitReached)
-        eq_(u'Patron cannot have more than 15 holds', error.message)
+        eq_('Patron cannot have more than 15 holds', error.message)
 
     def test_wrong_status(self):
         msg=self.sample_data("error_no_licenses.xml")
         error = ErrorParser().process_all(msg)
         assert isinstance(error, NoLicenses)
         eq_(
-            u'the patron document status was CAN_WISH and not one of CAN_LOAN,RESERVATION',
+            'the patron document status was CAN_WISH and not one of CAN_LOAN,RESERVATION',
             error.message
         )
 
@@ -1208,7 +1208,7 @@ class TestItemListParser(BibliothecaAPITest):
         identifiers = sorted(
             cooked.identifiers, key=lambda x: x.identifier
         )
-        eq_([u'9781250015280', u'9781250031112', u'ddf4gr9'],
+        eq_(['9781250015280', '9781250031112', 'ddf4gr9'],
             [x.identifier for x in identifiers])
 
         [author] = cooked.contributors
@@ -1255,10 +1255,10 @@ class TestItemListParser(BibliothecaAPITest):
 
         # We found one author and three narrators.
         eq_(
-            sorted([(u'Riggs, Ransom', u'Author'),
-                    (u'Callow, Simon', u'Narrator'),
-                    (u'Mann, Bruce', u'Narrator'),
-                    (u'Hagon, Garrick', u'Narrator')]),
+            sorted([('Riggs, Ransom', 'Author'),
+                    ('Callow, Simon', 'Narrator'),
+                    ('Mann, Bruce', 'Narrator'),
+                    ('Hagon, Garrick', 'Narrator')]),
             sorted(names_and_roles)
         )
 

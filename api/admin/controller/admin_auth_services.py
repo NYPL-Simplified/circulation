@@ -62,9 +62,9 @@ class AdminAuthServicesController(SettingsController):
             return result
 
         if is_new:
-            return Response(unicode(auth_service.protocol), 201)
+            return Response(str(auth_service.protocol), 201)
         else:
-            return Response(unicode(auth_service.protocol), 200)
+            return Response(str(auth_service.protocol), 200)
 
     def validate_form_fields(self, **fields):
         """Check that 1) the user has selected a valid protocol, 2) the user has not
@@ -97,4 +97,4 @@ class AdminAuthServicesController(SettingsController):
         if not service:
             return MISSING_SERVICE
         self._db.delete(service)
-        return Response(unicode(_("Deleted")), 200)
+        return Response(str(_("Deleted")), 200)

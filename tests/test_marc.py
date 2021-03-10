@@ -3,7 +3,7 @@ from nose.tools import (
     set_trace,
 )
 from pymarc import Record
-import urllib
+import urllib.request, urllib.parse, urllib.error
 
 from . import DatabaseTest
 from core.config import Configuration
@@ -121,13 +121,13 @@ class TestLibraryAnnotator(DatabaseTest):
         # - <web-client-base>/book/<encoded-work-url>
         client_url_template = "{client_base}/book/{work_link}"
 
-        qualified_identifier = urllib.quote(identifier.type + "/" + identifier.identifier, safe='')
+        qualified_identifier = urllib.parse.quote(identifier.type + "/" + identifier.identifier, safe='')
         cm_base_url = "http://test-circulation-manager"
 
         expected_work_link = work_link_template.format(
             cm_base=cm_base_url, lib=lib_short_name, qid=qualified_identifier
         )
-        encoded_work_link = urllib.quote(expected_work_link, safe='')
+        encoded_work_link = urllib.parse.quote(expected_work_link, safe='')
 
         client_base_1 = "http://web_catalog"
         client_base_2 = "http://another_web_catalog"

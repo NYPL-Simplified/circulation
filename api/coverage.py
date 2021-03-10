@@ -7,7 +7,7 @@ so on.
 import logging
 from lxml import etree
 from nose.tools import set_trace
-from StringIO import StringIO
+from io import StringIO
 from core.coverage import (
     CoverageFailure,
     CollectionCoverageProvider,
@@ -135,7 +135,7 @@ class OPDSImportCoverageProvider(CollectionCoverageProvider):
         # foreign data source will reocgnize.
         id_mapping = self.create_identifier_mapping(batch)
         if id_mapping:
-            foreign_identifiers = id_mapping.keys()
+            foreign_identifiers = list(id_mapping.keys())
         else:
             foreign_identifiers = batch
 

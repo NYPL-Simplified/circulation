@@ -13,19 +13,19 @@ import re
 import requests
 from sqlalchemy.orm.session import Session
 import string
-import urlparse
+import urllib.parse
 import uuid
 
-from circulation import (
+from .circulation import (
     APIAwareFulfillmentInfo,
     BaseCirculationAPI,
     FulfillmentInfo,
     HoldInfo,
     LoanInfo,
 )
-from circulation_exceptions import *
+from .circulation_exceptions import *
 
-from config import Configuration
+from .config import Configuration
 
 from core.analytics import Analytics
 
@@ -94,7 +94,7 @@ from core.util.web_publication_manifest import (
     AudiobookManifest as CoreAudiobookManifest
 )
 
-from selftest import (
+from .selftest import (
     HasSelfTests,
     SelfTestResult,
 )
@@ -298,7 +298,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
                 params=None, verbosity='complete'):
         """Make an HTTP request.
         """
-        if verbosity not in self.RESPONSE_VERBOSITY.values():
+        if verbosity not in list(self.RESPONSE_VERBOSITY.values()):
             verbosity = self.RESPONSE_VERBOSITY[2]
 
         headers = dict(extra_headers)
@@ -450,7 +450,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
                 if isinstance(resp_obj, dict):
                     message = resp_obj.get('message', None)
 
-        except Exception, e:
+        except Exception as e:
             self.log.error("Item circulation request failed: %r", e, exc_info=e)
             raise RemoteInitiatedServerError(e.message, action)
 
@@ -568,7 +568,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         # successful holds return a numeric transaction id
         try:
             transaction_id = int(resp_obj)
-        except Exception, e:
+        except Exception as e:
             self.log.error("Item hold request failed: %r", e, exc_info=e)
             raise CannotHold(e.message)
 
@@ -1158,7 +1158,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         message = resp_dict.get('message', None)
         try:
             self.validate_response(response, message, action=action)
-        except (PatronNotFoundOnRemote, NotFoundOnRemote), e:
+        except (PatronNotFoundOnRemote, NotFoundOnRemote) as e:
             # That's okay.
             return None
 
@@ -1193,7 +1193,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
                 # if we failed, then we got back a dictionary with an error message
                 if isinstance(resp_obj, dict):
                     message = resp_obj.get('message', None)
-        except Exception, e:
+        except Exception as e:
             self.log.error("Patron checkouts failed: %r", e, exc_info=e)
             raise RemoteInitiatedServerError(e.message, action)
 
@@ -1281,7 +1281,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
                 # if we failed, then we got back a dictionary with an error message
                 if isinstance(resp_obj, dict):
                     message = resp_obj.get('message', None)
-        except Exception, e:
+        except Exception as e:
             self.log.error("Patron holds failed: %r", e, exc_info=e)
             raise RemoteInitiatedServerError(e.message, action)
 
@@ -1442,7 +1442,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
 
         try:
             respdict = response.json()
-        except Exception, e:
+        except Exception as e:
             raise BadResponseException("availability_search", "RBDigital availability response not parseable.")
 
         if not respdict:
@@ -1484,7 +1484,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
 
         try:
             resplist = response.json()
-        except Exception, e:
+        except Exception as e:
             raise BadResponseException(url, "RBDigital all catalog response not parseable.")
 
         return response.json()
@@ -1661,7 +1661,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
 
         try:
             resplist = response.json()
-        except Exception, e:
+        except Exception as e:
             raise BadResponseException(url, "RBDigital availability response not parsable.")
         return resplist
 
@@ -1684,7 +1684,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
 
         try:
             respdict = response.json()
-        except Exception, e:
+        except Exception as e:
             raise BadResponseException(url, "RBDigital isbn search response not parseable.")
 
         if not respdict:
@@ -1909,7 +1909,7 @@ class RBFulfillmentInfo(APIAwareFulfillmentInfo):
 
         try:
             part = int(part)
-        except ValueError, e:
+        except ValueError as e:
             raise CannotPartiallyFulfill(
                 _('"%(part)s" is not a valid part number', part=part),
             )
@@ -1965,7 +1965,7 @@ class RBFulfillmentInfo(APIAwareFulfillmentInfo):
             if self.fulfillment_proxy and fulfillment_proxy.use_proxy_links:
                 self._content = fulfillment_proxy.proxied_manifest(self.manifest)
             else:
-                self._content = unicode(self.manifest)
+                self._content = str(self.manifest)
         else:
             # We have some other kind of file. The download link
             # points to an access document for that file.
@@ -2009,13 +2009,13 @@ class MockRBDigitalAPI(RBDigitalAPI):
             _db, Collection,
             name="Test RBDigital Collection",
             create_method_kwargs=dict(
-                external_account_id=u'library_id_123',
+                external_account_id='library_id_123',
             )
         )
         integration = collection.create_external_integration(
             protocol=ExternalIntegration.RB_DIGITAL
         )
-        integration.password = u'abcdef123hijklm'
+        integration.password = 'abcdef123hijklm'
         library.collections.append(collection)
         for library in _db.query(Library):
             for key, value in (
@@ -2714,7 +2714,7 @@ class RBDigitalFulfillmentProxy(object):
         return Response(
             response=response.content,
             status=response.status_code,
-            headers=response.headers.items()
+            headers=list(response.headers.items())
         )
 
     # The `_remove_api_base_url` and `_add_api_base_url` methods are used
@@ -2744,9 +2744,9 @@ class RBDigitalFulfillmentProxy(object):
     @staticmethod
     def _make_proxy_url(url, token):
         # Transform a fulfillment URL to its proxy form
-        url_components = urlparse.urlsplit(url)
+        url_components = urllib.parse.urlsplit(url)
         new_path = '{}/rbdproxy/{}'.format(url_components.path, token)
-        url = urlparse.urlunparse((
+        url = urllib.parse.urlunparse((
             url_components.scheme,
             url_components.netloc,
             new_path,

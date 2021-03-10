@@ -20,7 +20,7 @@ from core.model import (
     LicensePool
 )
 import unicodedata
-import urlparse
+import urllib.parse
 import datetime
 from psycopg2.extras import NumericRange
 
@@ -77,7 +77,7 @@ class TestGoogleAnalyticsProvider(DatabaseTest):
         ga = MockGoogleAnalyticsProvider(integration, self._default_library)
 
         work = self._work(
-            title=u"pi\u00F1ata", authors=u"chlo\u00E9", fiction=True,
+            title="pi\u00F1ata", authors="chlo\u00E9", fiction=True,
             audience="audience", language="lang",
             with_license_pool=True, genre="Folklore",
             with_open_access_download=True
@@ -96,7 +96,7 @@ class TestGoogleAnalyticsProvider(DatabaseTest):
         assert 'Neighborhood' not in ga.params
 
         # Let's take a look at what _is_ being sent.
-        params = urlparse.parse_qs(ga.params)
+        params = urllib.parse.parse_qs(ga.params)
 
         eq_(1, ga.count)
         eq_(integration.url, ga.url)
@@ -144,7 +144,7 @@ class TestGoogleAnalyticsProvider(DatabaseTest):
 
         now = datetime.datetime.utcnow()
         ga.collect_event(self._default_library, pool, CirculationEvent.DISTRIBUTOR_CHECKIN, now)
-        params = urlparse.parse_qs(ga.params)
+        params = urllib.parse.parse_qs(ga.params)
 
         eq_(1, ga.count)
         eq_(integration.url, ga.url)
@@ -182,7 +182,7 @@ class TestGoogleAnalyticsProvider(DatabaseTest):
 
         now = datetime.datetime.utcnow()
         ga.collect_event(self._default_library, None, CirculationEvent.NEW_PATRON, now)
-        params = urlparse.parse_qs(ga.params)
+        params = urllib.parse.parse_qs(ga.params)
 
         eq_(1, ga.count)
         eq_(integration.url, ga.url)

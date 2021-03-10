@@ -47,7 +47,7 @@ class PatronUtility(object):
         try:
             cls.assert_borrowing_privileges(patron)
             return True
-        except CannotLoan, e:
+        except CannotLoan as e:
             return False
 
     @classmethod

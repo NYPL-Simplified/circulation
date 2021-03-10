@@ -2,12 +2,12 @@ from nose.tools import set_trace
 import datetime
 from flask_babel import lazy_gettext as _
 
-from authenticator import (
+from .authenticator import (
     BasicAuthenticationProvider,
     PatronData,
 )
 
-from config import (
+from .config import (
     CannotLoadConfiguration,
 )
 

@@ -1,7 +1,7 @@
 import csv
 import json
 import re
-from StringIO import StringIO
+from io import StringIO
 from contextlib import contextmanager
 from datetime import datetime, timedelta
 
@@ -79,7 +79,7 @@ class AdminControllerTest(CirculationControllerTest):
         setup_admin(self._db)
         setup_admin_controllers(self.manager)
         self.admin, ignore = create(
-            self._db, Admin, email=u'example@nypl.org',
+            self._db, Admin, email='example@nypl.org',
         )
         self.admin.password = "password"
 
@@ -307,10 +307,10 @@ class TestSignInController(AdminControllerTest):
     def setup(self):
         super(TestSignInController, self).setup()
         self.admin.credential = json.dumps({
-            u'access_token': u'abc123',
-            u'client_id': u'', u'client_secret': u'',
-            u'refresh_token': u'', u'token_expiry': u'', u'token_uri': u'',
-            u'user_agent': u'', u'invalid': u''
+            'access_token': 'abc123',
+            'client_id': '', 'client_secret': '',
+            'refresh_token': '', 'token_expiry': '', 'token_uri': '',
+            'user_agent': '', 'invalid': ''
         })
         self.admin.password_hashed = None
 
@@ -439,8 +439,8 @@ class TestSignInController(AdminControllerTest):
 
         # Creates a new admin with fresh details.
         new_admin_details = {
-            'email' : u'admin@nypl.org',
-            'credentials' : u'gnarly',
+            'email' : 'admin@nypl.org',
+            'credentials' : 'gnarly',
             'type': GoogleOAuthAdminAuthenticationProvider.NAME,
             'roles': [{ "role": AdminRole.LIBRARY_MANAGER, "library": self._default_library.short_name }],
         }
@@ -464,8 +464,8 @@ class TestSignInController(AdminControllerTest):
 
         # Or overwrites credentials for an existing admin.
         existing_admin_details = {
-            'email' : u'example@nypl.org',
-            'credentials' : u'b-a-n-a-n-a-s',
+            'email' : 'example@nypl.org',
+            'credentials' : 'b-a-n-a-n-a-s',
             'type': GoogleOAuthAdminAuthenticationProvider.NAME,
             'roles': [{ "role": AdminRole.LIBRARY_MANAGER, "library": self._default_library.short_name }],
         }
@@ -845,9 +845,9 @@ class TestTimestampsController(AdminControllerTest):
         eq_(set(response.keys()), set(["coverage_provider", "monitor", "script", "other"]))
 
         cp_service = response["coverage_provider"]
-        cp_name, cp_collection = cp_service.items()[0]
+        cp_name, cp_collection = list(cp_service.items())[0]
         eq_(cp_name, "test_cp")
-        cp_collection_name, [cp_timestamp] = cp_collection.items()[0]
+        cp_collection_name, [cp_timestamp] = list(cp_collection.items())[0]
         eq_(cp_collection_name, self.collection.name)
         eq_(cp_timestamp.get("exception"), None)
         eq_(cp_timestamp.get("start"), self.start)
@@ -855,9 +855,9 @@ class TestTimestampsController(AdminControllerTest):
         eq_(cp_timestamp.get("achievements"), None)
 
         monitor_service = response["monitor"]
-        monitor_name, monitor_collection = monitor_service.items()[0]
+        monitor_name, monitor_collection = list(monitor_service.items())[0]
         eq_(monitor_name, "test_monitor")
-        monitor_collection_name, [monitor_timestamp] = monitor_collection.items()[0]
+        monitor_collection_name, [monitor_timestamp] = list(monitor_collection.items())[0]
         eq_(monitor_collection_name, self.collection.name)
         eq_(monitor_timestamp.get("exception"), "stack trace string")
         eq_(monitor_timestamp.get("start"), self.start)
@@ -865,9 +865,9 @@ class TestTimestampsController(AdminControllerTest):
         eq_(monitor_timestamp.get("achievements"), None)
 
         script_service = response["script"]
-        script_name, script_collection = script_service.items()[0]
+        script_name, script_collection = list(script_service.items())[0]
         eq_(script_name, "test_script")
-        script_collection_name, [script_timestamp] = script_collection.items()[0]
+        script_collection_name, [script_timestamp] = list(script_collection.items())[0]
         eq_(script_collection_name, "No associated collection")
         eq_(script_timestamp.get("exception"), None)
         eq_(script_timestamp.get("duration"), duration)
@@ -875,9 +875,9 @@ class TestTimestampsController(AdminControllerTest):
         eq_(script_timestamp.get("achievements"), "ran a script")
 
         other_service = response["other"]
-        other_name, other_collection = other_service.items()[0]
+        other_name, other_collection = list(other_service.items())[0]
         eq_(other_name, "test_other")
-        other_collection_name, [other_timestamp] = other_collection.items()[0]
+        other_collection_name, [other_timestamp] = list(other_collection.items())[0]
         eq_(other_collection_name, "No associated collection")
         eq_(other_timestamp.get("exception"), None)
         eq_(other_timestamp.get("duration"), duration)

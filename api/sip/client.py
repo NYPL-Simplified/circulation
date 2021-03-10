@@ -409,7 +409,7 @@ class SIPClient(Constants):
             response = self.read_message()
             try:
                 parsed = parser(response)
-            except RequestResend, e:
+            except RequestResend as e:
                 # Instead of a response, we got a request to resend the data.
                 # Generate a new checksum but do not include or increment
                 # the sequence number.
@@ -610,7 +610,7 @@ class SIPClient(Constants):
         # 14-character string into a dictionary of booleans.
         try:
             parsed = self.parse_patron_status(response.get('patron_status'))
-        except ValueError, e:
+        except ValueError as e:
             parsed = {}
         response['patron_status_parsed'] = parsed
         return response
@@ -716,7 +716,7 @@ class SIPClient(Constants):
 
         :return: A 14-element dictionary mapping flag names to boolean values.
         """
-        if (not isinstance(status_string, basestring)
+        if (not isinstance(status_string, str)
             or len(status_string) != 14):
             raise ValueError(
                 "Patron status must be a 14-character string."

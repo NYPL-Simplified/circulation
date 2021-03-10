@@ -168,7 +168,7 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
             sip.disconnect()
             return info
 
-        except IOError, e:
+        except IOError as e:
             raise RemoteIntegrationException(
                 self.server or 'unknown server', e.message
             )
@@ -329,7 +329,7 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
             try:
                 date_value = datetime.strptime(value, format)
                 break
-            except ValueError, e:
+            except ValueError as e:
                 continue
         return date_value
 

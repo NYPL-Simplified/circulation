@@ -117,7 +117,7 @@ class TestConfiguration(DatabaseTest):
             Configuration.TINY_COLLECTION_LANGUAGES : ["rus"],
         }
 
-        for key, value in old_settings.items():
+        for key, value in list(old_settings.items()):
             ConfigurationSetting.for_library(
                 key, library).value = json.dumps(value)
 

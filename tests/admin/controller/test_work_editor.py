@@ -14,7 +14,7 @@ import math
 import operator
 import os
 from PIL import Image
-from StringIO import StringIO
+from io import StringIO
 from tests.admin.controller.test_controller import AdminControllerTest
 from tests.test_controller import CirculationControllerTest
 from core.classifier import (
@@ -48,6 +48,7 @@ from core.testing import (
     MockRequestsResponse,
 )
 from datetime import date, datetime, timedelta
+from functools import reduce
 
 class TestWorkController(AdminControllerTest):
 
@@ -102,8 +103,8 @@ class TestWorkController(AdminControllerTest):
 
     def test_roles(self):
         roles = self.manager.admin_work_controller.roles()
-        assert Contributor.ILLUSTRATOR_ROLE in roles.values()
-        assert Contributor.NARRATOR_ROLE in roles.values()
+        assert Contributor.ILLUSTRATOR_ROLE in list(roles.values())
+        assert Contributor.NARRATOR_ROLE in list(roles.values())
         eq_(Contributor.ILLUSTRATOR_ROLE,
             roles[Contributor.MARC_ROLE_CODES[Contributor.ILLUSTRATOR_ROLE]])
         eq_(Contributor.NARRATOR_ROLE,
@@ -111,16 +112,16 @@ class TestWorkController(AdminControllerTest):
 
     def test_languages(self):
         languages = self.manager.admin_work_controller.languages()
-        assert 'en' in languages.keys()
-        assert 'fre' in languages.keys()
-        names = [name for sublist in languages.values() for name in sublist]
+        assert 'en' in list(languages.keys())
+        assert 'fre' in list(languages.keys())
+        names = [name for sublist in list(languages.values()) for name in sublist]
         assert 'English' in names
         assert 'French' in names
 
     def test_media(self):
         media = self.manager.admin_work_controller.media()
-        assert Edition.BOOK_MEDIUM in media.values()
-        assert Edition.medium_to_additional_type[Edition.BOOK_MEDIUM] in media.keys()
+        assert Edition.BOOK_MEDIUM in list(media.values())
+        assert Edition.medium_to_additional_type[Edition.BOOK_MEDIUM] in list(media.keys())
 
     def test_rights_status(self):
         rights_status = self.manager.admin_work_controller.rights_status()
@@ -895,7 +896,7 @@ class TestWorkController(AdminControllerTest):
         expected_histogram = processed.histogram()
 
         root_mean_square = math.sqrt(reduce(operator.add,
-                                            map(lambda a,b: (a-b)**2, image_histogram, expected_histogram))/len(image_histogram))
+                                            list(map(lambda a,b: (a-b)**2, image_histogram, expected_histogram)))/len(image_histogram))
         assert root_mean_square < 10
 
         # Here the title and author are added in the center. Compare the result
@@ -910,7 +911,7 @@ class TestWorkController(AdminControllerTest):
         expected_histogram = expected_image.histogram()
 
         root_mean_square = math.sqrt(reduce(operator.add,
-                                            map(lambda a,b: (a-b)**2, image_histogram, expected_histogram))/len(image_histogram))
+                                            list(map(lambda a,b: (a-b)**2, image_histogram, expected_histogram)))/len(image_histogram))
         assert root_mean_square < 10
 
     def test_preview_book_cover(self):

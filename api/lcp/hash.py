@@ -15,10 +15,8 @@ class HashingError(BaseError):
     """Raised in the case of errors occurred during hashing"""
 
 
-class Hasher(object):
+class Hasher(object, metaclass=ABCMeta):
     """Base class for all implementations of different hashing algorithms"""
-
-    __metaclass__ = ABCMeta
 
     def __init__(self, hashing_algorithm):
         """Initializes a new instance of Hasher class

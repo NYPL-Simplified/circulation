@@ -15,8 +15,8 @@ import json
 import os
 from money import Money
 import re
-import urllib
-import urlparse
+import urllib.request, urllib.parse, urllib.error
+import urllib.parse
 import flask
 from flask import url_for, Flask
 from core.opds import OPDSFeed
@@ -73,7 +73,7 @@ from api.problem_details import *
 from api.testing import VendorIDTest
 
 from . import DatabaseTest
-from test_controller import ControllerTest
+from .test_controller import ControllerTest
 
 class MockAuthenticationProvider(object):
     """An AuthenticationProvider that always authenticates requests for
@@ -1191,7 +1191,7 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             Configuration.WEB_CSS_FILE: "http://style.css",
         }
 
-        for rel, value in link_config.iteritems():
+        for rel, value in link_config.items():
             ConfigurationSetting.for_library(rel, self._default_library).value = value
 
         ConfigurationSetting.for_library(
@@ -1221,7 +1221,7 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             Configuration.HELP_URI, library).value = "custom:uri"
 
         base_url = ConfigurationSetting.sitewide(self._db, Configuration.BASE_URL_KEY)
-        base_url.value = u'http://circulation-manager/'
+        base_url.value = 'http://circulation-manager/'
 
         # Configure three announcements: two active and one
         # inactive.
@@ -2781,13 +2781,13 @@ class TestOAuthController(AuthenticatorTest):
         response = self.controller.oauth_authentication_redirect(params, self._db)
         eq_(302, response.status_code)
         expected_state = dict(redirect_uri="", provider=self.oauth1.NAME)
-        expected_state = urllib.quote(json.dumps(expected_state))
+        expected_state = urllib.parse.quote(json.dumps(expected_state))
         eq_("http://oauth1.com/?state=" + expected_state, response.location)
 
         params = dict(provider=self.oauth2.NAME, redirect_uri="http://foo.com/")
         response = self.controller.oauth_authentication_redirect(params, self._db)
         eq_(302, response.status_code)
-        expected_state = urllib.quote(json.dumps(params))
+        expected_state = urllib.parse.quote(json.dumps(params))
         eq_("http://oauth2.org/?state=" + expected_state, response.location)
 
         # If we don't recognize the OAuth provider you get sent to
@@ -2798,8 +2798,8 @@ class TestOAuthController(AuthenticatorTest):
         response = self.controller.oauth_authentication_redirect(params, self._db)
         eq_(302, response.status_code)
         assert response.location.startswith("http://foo.com/#")
-        fragments = urlparse.parse_qs(
-            urlparse.urlparse(response.location).fragment
+        fragments = urllib.parse.parse_qs(
+            urllib.parse.urlparse(response.location).fragment
         )
         error = json.loads(fragments.get('error')[0])
         eq_(UNKNOWN_OAUTH_PROVIDER.uri, error.get('type'))
@@ -2813,7 +2813,7 @@ class TestOAuthController(AuthenticatorTest):
         params = dict(code="foo", state=json.dumps(dict(provider=self.oauth1.NAME)))
         response = self.controller.oauth_authentication_callback(self._db, params)
         eq_(302, response.status_code)
-        fragments = urlparse.parse_qs(urlparse.urlparse(response.location).fragment)
+        fragments = urllib.parse.parse_qs(urllib.parse.urlparse(response.location).fragment)
         token = fragments.get("access_token")[0]
         provider_name, provider_token = self.auth.decode_bearer_token(token)
         eq_(self.oauth1.NAME, provider_name)
@@ -2823,7 +2823,7 @@ class TestOAuthController(AuthenticatorTest):
         params = dict(code="foo", state=json.dumps(dict(provider=self.oauth2.NAME)))
         response = self.controller.oauth_authentication_callback(self._db, params)
         eq_(302, response.status_code)
-        fragments = urlparse.parse_qs(urlparse.urlparse(response.location).fragment)
+        fragments = urllib.parse.parse_qs(urllib.parse.urlparse(response.location).fragment)
         token = fragments.get("access_token")[0]
         provider_name, provider_token = self.auth.decode_bearer_token(token)
         eq_(self.oauth2.NAME, provider_name)
@@ -2844,7 +2844,7 @@ class TestOAuthController(AuthenticatorTest):
         params = dict(code="foo", state=json.dumps(dict(provider=("not_an_oauth_provider"))))
         response = self.controller.oauth_authentication_callback(self._db, params)
         eq_(302, response.status_code)
-        fragments = urlparse.parse_qs(urlparse.urlparse(response.location).fragment)
+        fragments = urllib.parse.parse_qs(urllib.parse.urlparse(response.location).fragment)
         eq_(None, fragments.get('access_token'))
         error = json.loads(fragments.get('error')[0])
         eq_(UNKNOWN_OAUTH_PROVIDER.uri, error.get('type'))

@@ -38,7 +38,7 @@ class VendorIDTest(DatabaseTest):
     integration.
     """
 
-    TEST_VENDOR_ID = u"vendor id"
+    TEST_VENDOR_ID = "vendor id"
     TEST_NODE_VALUE = 114740953091845
 
     def initialize_adobe(self, vendor_id_library, short_token_libraries=[]):

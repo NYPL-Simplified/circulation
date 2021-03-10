@@ -25,7 +25,7 @@ from core.model import (
     Loan,
 )
 
-from odl import (
+from .odl import (
     ODLAPI,
     SharedODLAPI,
 )

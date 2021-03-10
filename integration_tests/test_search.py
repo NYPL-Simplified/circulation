@@ -28,7 +28,7 @@
 
 from functools import wraps
 import logging
-import urllib
+import urllib.request, urllib.parse, urllib.error
 from nose.tools import (
     eq_,
     set_trace,
@@ -68,7 +68,7 @@ def known_to_fail(f):
     def decorated(*args, **kwargs):
         try:
             ignore = f(*args, **kwargs)
-        except Exception, e:
+        except Exception as e:
             SearchTest.expected_failures.append(f)
             logging.info("Expected this test to fail, and it did: %r" % e)
             return
@@ -98,12 +98,12 @@ class Evaluator(object):
     def __init__(self, **kwargs):
         self.kwargs = dict()
         self.original_kwargs = dict()
-        for k, v in kwargs.items():
+        for k, v in list(kwargs.items()):
             self.original_kwargs[k] = v
-            if isinstance(v, basestring):
+            if isinstance(v, str):
                 v = v.lower()
             self.kwargs[k] = v
-        for k, v in self.kwargs.items():
+        for k, v in list(self.kwargs.items()):
             setattr(self, k, v)
 
     def evaluate(self, hits):
@@ -152,7 +152,7 @@ class Evaluator(object):
         """Extract a field from a search result."""
         result = result or self.first
         value = getattr(result, field, None)
-        if isinstance(value, basestring):
+        if isinstance(value, str):
             value = value.lower()
         return value
 
@@ -252,7 +252,7 @@ class Evaluator(object):
     def match_result(self, result):
         """Does the given result match these criteria?"""
 
-        for field, expect in self.kwargs.items():
+        for field, expect in list(self.kwargs.items()):
             fields = None
             if field == 'subject':
                 success, value, expect_str = self._match_subject(expect, result)
@@ -1008,12 +1008,12 @@ class TestPartialTitleSearch(SearchTest):
         # A single word is so unusual that it can identify the book
         # we're looking for.
         for query in (
-            "Hurin", u"Húrin"
+            "Hurin", "Húrin"
         ):
             self.search(
                 query,
                 FirstMatch(
-                    title=u"The Children of Húrin", author=re.compile("tolkien")
+                    title="The Children of Húrin", author=re.compile("tolkien")
                 )
             )
 
@@ -2691,7 +2691,7 @@ class TestISurvived(VariantSearchTest):
 
 class TestDorkDiaries(VariantSearchTest):
     # Test different ways of spelling "Dork Diaries"
-    EVALUATOR = SpecificAuthor(re.compile(u"Rachel .* Russell", re.I))
+    EVALUATOR = SpecificAuthor(re.compile("Rachel .* Russell", re.I))
 
     def test_correct_spelling(self):
         self.search('dork diaries')
@@ -3087,5 +3087,5 @@ def teardown_module():
         for success in successes:
             logging.info(
                 "Line #%d: %s",
-                success.func_code.co_firstlineno, success.func_name,
+                success.__code__.co_firstlineno, success.__name__,
             )

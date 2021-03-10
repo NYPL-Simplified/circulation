@@ -13,12 +13,12 @@ import sys
 import flask
 from flask import Response
 from flask_babel import lazy_gettext as _
-from config import (
+from .config import (
     CannotLoadConfiguration,
     Configuration,
 )
 from api.base_controller import BaseCirculationManagerController
-from problem_details import *
+from .problem_details import *
 from sqlalchemy.orm.session import Session
 from core.util.xmlparser import XMLParser
 from core.util.problem_detail import ProblemDetail
@@ -190,9 +190,9 @@ class AdobeVendorIDRequestHandler(object):
         parser = AdobeSignInRequestParser()
         try:
             data = parser.process(data)
-        except Exception, e:
+        except Exception as e:
             logging.error("Error processing %s", data, exc_info=e)
-            return self.error_document(self.AUTH_ERROR_TYPE, unicode(e))
+            return self.error_document(self.AUTH_ERROR_TYPE, str(e))
         user_id = label = None
         if not data:
             return self.error_document(
@@ -227,9 +227,9 @@ class AdobeVendorIDRequestHandler(object):
                     self.ACCOUNT_INFO_ERROR_TYPE,
                     "Could not find user identifer in request document.")
             label = urn_to_label(data['user'])
-        except Exception, e:
+        except Exception as e:
             return self.error_document(
-                self.ACCOUNT_INFO_ERROR_TYPE, unicode(e))
+                self.ACCOUNT_INFO_ERROR_TYPE, str(e))
 
         if label:
             return self.ACCOUNT_INFO_RESPONSE_TEMPLATE % dict(label=label)
@@ -346,7 +346,7 @@ class AdobeVendorIDModel(object):
         self.authenticator = authenticator
         self.temporary_token_duration = (
             temporary_token_duration or datetime.timedelta(minutes=10))
-        if isinstance(node_value, basestring):
+        if isinstance(node_value, str):
             node_value = int(node_value, 16)
         self.node_value = node_value
 
@@ -468,7 +468,7 @@ class AdobeVendorIDModel(object):
                 library_uri, foreign_patron_identifier = utility.decode(
                     authdata
                 )
-            except Exception, e:
+            except Exception as e:
                 # Not a problem -- we'll try the old system.
                 pass
 
@@ -503,7 +503,7 @@ class AdobeVendorIDModel(object):
             # another library's circulation manager.
             try:
                 library_uri, foreign_patron_identifier = utility.decode_two_part_short_client_token(token, signature)
-            except Exception, e:
+            except Exception as e:
                 # This didn't work--either the incoming data was wrong
                 # or this technique wasn't the right one to use.
                 pass
@@ -653,7 +653,7 @@ class AuthdataUtility(object):
 
         # Fill in secrets_by_library_uri and library_uris_by_short_name
         # for other libraries.
-        for uri, v in other_libraries.items():
+        for uri, v in list(other_libraries.items()):
             short_name, secret = v
             short_name = short_name.upper()
             if short_name in self.library_uris_by_short_name:
@@ -672,8 +672,8 @@ class AuthdataUtility(object):
             self.secret
         )
 
-    VENDOR_ID_KEY = u'vendor_id'
-    OTHER_LIBRARIES_KEY = u'other_libraries'
+    VENDOR_ID_KEY = 'vendor_id'
+    OTHER_LIBRARIES_KEY = 'other_libraries'
 
     @classmethod
     def from_config(cls, library, _db=None):
@@ -835,7 +835,7 @@ class AuthdataUtility(object):
         try:
             decoded = base64.decodestring(authdata)
             potential_tokens.append(decoded)
-        except Exception, e:
+        except Exception as e:
             # Do nothing -- the authdata was not encoded to begin with.
             pass
 
@@ -844,7 +844,7 @@ class AuthdataUtility(object):
         for authdata in potential_tokens:
             try:
                 return self._decode(authdata)
-            except Exception, e:
+            except Exception as e:
                 self.log.error("Error decoding %s", authdata, exc_info=e)
                 exceptions.append(e)
 
@@ -1104,7 +1104,7 @@ class VendorIDLibraryConfigurationScript(Script):
 
         chosen_website = args.website_url
         if not chosen_website:
-            for website in other_libraries.keys():
+            for website in list(other_libraries.keys()):
                 self.explain(output, other_libraries, website)
             return
 

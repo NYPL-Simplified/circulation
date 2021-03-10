@@ -2,17 +2,17 @@ from nose.tools import set_trace
 from flask_babel import lazy_gettext as _
 import requests
 import logging
-from authenticator import (
+from .authenticator import (
     BasicAuthenticationProvider,
     PatronData,
 )
-from config import (
+from .config import (
     Configuration,
     CannotLoadConfiguration,
 )
-from circulation_exceptions import RemoteInitiatedServerError
-import urlparse
-import urllib
+from .circulation_exceptions import RemoteInitiatedServerError
+import urllib.parse
+import urllib.request, urllib.parse, urllib.error
 from core.model import (
     get_one_or_create,
     ExternalIntegration,
@@ -87,13 +87,13 @@ class FirstBookAuthenticationAPI(BasicAuthenticationProvider):
 
     def remote_pin_test(self, barcode, pin):
         url = self.root + "&accesscode=%s&pin=%s" % tuple(map(
-            urllib.quote, (barcode, pin)
+            urllib.parse.quote, (barcode, pin)
         ))
         try:
             response = self.request(url)
-        except requests.exceptions.ConnectionError, e:
+        except requests.exceptions.ConnectionError as e:
             raise RemoteInitiatedServerError(
-                unicode(e),
+                str(e),
                 self.NAME
             )
         if response.status_code != 200:
@@ -144,7 +144,7 @@ class MockFirstBookAuthenticationAPI(FirstBookAuthenticationAPI):
             return MockFirstBookResponse(
                 self.failure_status_code, "Error %s" % self.failure_status_code
             )
-        qa = urlparse.parse_qs(url)
+        qa = urllib.parse.parse_qs(url)
         if 'accesscode' in qa and 'pin' in qa:
             [code] = qa['accesscode']
             [pin] = qa['pin']

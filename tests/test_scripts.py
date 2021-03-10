@@ -8,7 +8,7 @@ import contextlib
 import datetime
 import flask
 import json
-from StringIO import StringIO
+from io import StringIO
 
 from api.adobe_vendor_id import (
     AdobeVendorIDModel,
@@ -158,7 +158,7 @@ class TestLaneScript(DatabaseTest):
         super(TestLaneScript, self).setup()
         base_url_setting = ConfigurationSetting.sitewide(
             self._db, Configuration.BASE_URL_KEY)
-        base_url_setting.value = u'http://test-circulation-manager/'
+        base_url_setting.value = 'http://test-circulation-manager/'
         for k, v in [
                 (Configuration.LARGE_COLLECTION_LANGUAGES, []),
                 (Configuration.SMALL_COLLECTION_LANGUAGES, []),
@@ -734,7 +734,7 @@ class TestInstanceInitializationScript(DatabaseTest):
         # not yet meen initialized. But we can test it by calling it
         # directly.
         timestamp = get_one(
-            self._db, Timestamp, service=u"Database Migration",
+            self._db, Timestamp, service="Database Migration",
             service_type=Timestamp.SCRIPT_TYPE
         )
         eq_(None, timestamp)
@@ -750,7 +750,7 @@ class TestInstanceInitializationScript(DatabaseTest):
 
         # It initializes the database.
         timestamp = get_one(
-            self._db, Timestamp, service=u"Database Migration",
+            self._db, Timestamp, service="Database Migration",
             service_type=Timestamp.SCRIPT_TYPE
         )
         assert timestamp
@@ -805,7 +805,7 @@ class TestShortClientTokenLibraryConfigurationScript(DatabaseTest):
             output
         )
         eq_(
-            u'Current Short Client Token configuration for http://foo/:\n Vendor ID: vendorid\n Library name: libraryname\n Shared secret: secret\n',
+            'Current Short Client Token configuration for http://foo/:\n Vendor ID: vendorid\n Library name: libraryname\n Shared secret: secret\n',
             output.getvalue()
         )
         [integration] = self._default_library.integrations
@@ -821,7 +821,7 @@ class TestShortClientTokenLibraryConfigurationScript(DatabaseTest):
             self._db, "http://foo/", "newid", "newname", "newsecret",
             output
         )
-        expect = u'Current Short Client Token configuration for http://foo/:\n Vendor ID: newid\n Library name: newname\n Shared secret: newsecret\n'
+        expect = 'Current Short Client Token configuration for http://foo/:\n Vendor ID: newid\n Library name: newname\n Shared secret: newsecret\n'
         eq_(expect, output.getvalue())
         expect_settings = [
             ('password', 'newsecret'), ('username', 'newname'),
@@ -1070,7 +1070,7 @@ class TestDirectoryImportScript(DatabaseTest):
         metadata = Metadata(
             DataSource.GUTENBERG,
             primary_identifier=identifier,
-            title=u"A book"
+            title="A book"
         )
         metadata.annotated = False
         datasource = DataSource.lookup(self._db, DataSource.GUTENBERG)
@@ -1118,11 +1118,11 @@ class TestDirectoryImportScript(DatabaseTest):
         eq_("A book", work.title)
         eq_(
             work.cover_full_url,
-            u'https://test-cover-bucket.s3.amazonaws.com/Gutenberg/Gutenberg%20ID/1003/1003.jpg'
+            'https://test-cover-bucket.s3.amazonaws.com/Gutenberg/Gutenberg%20ID/1003/1003.jpg'
         )
         eq_(
             work.cover_thumbnail_url,
-            u'https://test-cover-bucket.s3.amazonaws.com/scaled/300/Gutenberg/Gutenberg%20ID/1003/1003.png'
+            'https://test-cover-bucket.s3.amazonaws.com/scaled/300/Gutenberg/Gutenberg%20ID/1003/1003.png'
         )
         eq_(1, len(work.license_pools))
         eq_(1, len(edition.license_pools))
@@ -1131,7 +1131,7 @@ class TestDirectoryImportScript(DatabaseTest):
         eq_(licensepool_for_work, pool)
         eq_(
             pool.open_access_download_url,
-            u'https://test-content-bucket.s3.amazonaws.com/Gutenberg/Gutenberg%20ID/1003/A%20book.epub'
+            'https://test-content-bucket.s3.amazonaws.com/Gutenberg/Gutenberg%20ID/1003/A%20book.epub'
         )
         eq_(RightsStatus.CC0,
             pool.delivery_mechanisms[0].rights_status.uri)
@@ -1329,7 +1329,7 @@ class TestDirectoryImportScript(DatabaseTest):
         eq_(Hyperlink.OPEN_ACCESS_DOWNLOAD, link.rel)
         eq_(
             link.href,
-            u'https://test-content-bucket.s3.amazonaws.com/Gutenberg/Gutenberg%20ID/2345/Name%20of%20book.epub'
+            'https://test-content-bucket.s3.amazonaws.com/Gutenberg/Gutenberg%20ID/2345/Name%20of%20book.epub'
         )
         eq_(Representation.EPUB_MEDIA_TYPE, link.media_type)
         eq_("I'm an EPUB.", link.content)
@@ -1372,7 +1372,7 @@ class TestDirectoryImportScript(DatabaseTest):
         eq_(Hyperlink.IMAGE, link.rel)
         eq_(
             link.href,
-            u'https://test-cover-bucket.s3.amazonaws.com/Gutenberg/Gutenberg%20ID/2345/2345.jpg'
+            'https://test-cover-bucket.s3.amazonaws.com/Gutenberg/Gutenberg%20ID/2345/2345.jpg'
         )
         eq_(Representation.JPEG_MEDIA_TYPE, link.media_type)
         eq_("I'm an image.", link.content)

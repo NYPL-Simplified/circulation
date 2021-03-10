@@ -44,7 +44,6 @@ from core.model.configuration import (
 )
 from core.opds2_import import OPDS2Importer, OPDS2ImportMonitor, parse_feed
 from core.opds_import import OPDSImporter
-from core.util.string_helpers import is_string
 
 MISSING_AFFILIATION_ID = BaseError(
     _(
@@ -171,7 +170,7 @@ class ProQuestOPDS2Importer(OPDS2Importer, BaseCirculationAPI, HasExternalIntegr
     """Allows to import ProQuest OPDS 2.0 feeds into Circulation Manager."""
 
     NAME = ExternalIntegration.PROQUEST
-    DESCRIPTION = _(u"Import books from a ProQuest OPDS 2.0 feed.")
+    DESCRIPTION = _("Import books from a ProQuest OPDS 2.0 feed.")
     SETTINGS = (
         ProQuestOPDS2ImporterConfiguration.to_settings()
         + ProQuestAPIClientConfiguration.to_settings()
@@ -278,7 +277,7 @@ class ProQuestOPDS2Importer(OPDS2Importer, BaseCirculationAPI, HasExternalIntegr
         if configuration.affiliation_attributes:
             if isinstance(configuration.affiliation_attributes, list):
                 affiliation_attributes = configuration.affiliation_attributes
-            elif is_string(configuration.affiliation_attributes):
+            elif isintance(configuration.affiliation_attributes, str):
                 affiliation_attributes = tuple(
                     map(
                         str.strip,
@@ -445,7 +444,7 @@ class ProQuestOPDS2Importer(OPDS2Importer, BaseCirculationAPI, HasExternalIntegr
         :rtype: List[LinkData]
         """
         self._logger.debug(
-            u"Started extracting image links from {0}".format(
+            "Started extracting image links from {0}".format(
                 encode(publication.images)
             )
         )
@@ -470,7 +469,7 @@ class ProQuestOPDS2Importer(OPDS2Importer, BaseCirculationAPI, HasExternalIntegr
             image_links.append(cover_link)
 
         self._logger.debug(
-            u"Finished extracting image links from {0}: {1}".format(
+            "Finished extracting image links from {0}: {1}".format(
                 encode(publication.images), encode(image_links)
             )
         )
@@ -509,7 +508,7 @@ class ProQuestOPDS2Importer(OPDS2Importer, BaseCirculationAPI, HasExternalIntegr
         :rtype: List[Tuple[str, str]]
         """
         self._logger.debug(
-            u"Started extracting media types and a DRM scheme from {0}".format(
+            "Started extracting media types and a DRM scheme from {0}".format(
                 encode(link)
             )
         )
@@ -544,7 +543,7 @@ class ProQuestOPDS2Importer(OPDS2Importer, BaseCirculationAPI, HasExternalIntegr
                 )
 
         self._logger.debug(
-            u"Finished extracting media types and a DRM scheme from {0}: {1}".format(
+            "Finished extracting media types and a DRM scheme from {0}: {1}".format(
                 encode(link), encode(media_types_and_drm_scheme)
             )
         )

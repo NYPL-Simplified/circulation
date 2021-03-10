@@ -733,10 +733,10 @@ class TestOdiloRepresentationExtractor(OdiloAPITest):
         eq_("1", metadata.series_position)
         eq_("ANBOCO", metadata.publisher)
         eq_(2013, metadata.published.year)
-        eq_(02, metadata.published.month)
-        eq_(02, metadata.published.day)
+        eq_(0o2, metadata.published.month)
+        eq_(0o2, metadata.published.day)
         eq_(2017, metadata.data_source_last_updated.year)
-        eq_(03, metadata.data_source_last_updated.month)
+        eq_(0o3, metadata.data_source_last_updated.month)
         eq_(10, metadata.data_source_last_updated.day)
         # Related IDs.
         eq_((Identifier.ODILO_ID, '00010982'),
@@ -752,13 +752,13 @@ class TestOdiloRepresentationExtractor(OdiloAPITest):
 
         subjects = sorted(metadata.subjects, key=lambda x: x.identifier)
         weight = Classification.TRUSTED_DISTRIBUTOR_WEIGHT
-        eq_([(u'Children', 'tag', weight),
-             (u'Classics', 'tag', weight),
-             (u'FIC004000', 'BISAC', weight),
-             (u'Fantasy', 'tag', weight),
-             (u'K-12', 'Grade level', weight),
-             (u'LIT009000', 'BISAC', weight),
-             (u'YAF019020', 'BISAC', weight)],
+        eq_([('Children', 'tag', weight),
+             ('Classics', 'tag', weight),
+             ('FIC004000', 'BISAC', weight),
+             ('Fantasy', 'tag', weight),
+             ('K-12', 'Grade level', weight),
+             ('LIT009000', 'BISAC', weight),
+             ('YAF019020', 'BISAC', weight)],
             [(x.identifier, x.type, x.weight) for x in subjects]
             )
 

@@ -14,7 +14,7 @@ from flask_babel import lazy_gettext as _
 
 from sqlalchemy.orm.session import Session
 
-from config import CannotLoadConfiguration
+from .config import CannotLoadConfiguration
 from core.app_server import cdn_url_for
 from core.model import (
     get_one,
@@ -146,7 +146,7 @@ class COPPAGate(CustomIndexView):
                 library, annotator, url_for
             )
         headers = { "Content-Type": OPDSFeed.NAVIGATION_FEED_TYPE }
-        return Response(unicode(self.navigation_feed), 200, headers)
+        return Response(str(self.navigation_feed), 200, headers)
 
     def _navigation_feed(self, library, annotator, url_for=None):
         """Generate an OPDS feed for navigating the COPPA age gate."""
@@ -193,11 +193,11 @@ class COPPAGate(CustomIndexView):
         """Create an <entry> that serves as navigation."""
         E = OPDSFeed.E
         content_tag = E.content(type="text")
-        content_tag.text = unicode(content)
+        content_tag.text = str(content)
         now = datetime.datetime.utcnow()
         entry = E.entry(
             E.id(href),
-            E.title(unicode(title)),
+            E.title(str(title)),
             content_tag,
             E.updated(OPDSFeed._strftime(now))
         )

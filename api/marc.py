@@ -1,6 +1,6 @@
 from nose.tools import set_trace
 from pymarc import Field
-import urllib
+import urllib.request, urllib.parse, urllib.error
 
 from core.config import Configuration
 from core.marc import (
@@ -63,7 +63,7 @@ class LibraryAnnotator(Annotator):
             ConfigurationSetting.library_id==library.id
         ) if s.value]
 
-        qualified_identifier = urllib.quote(identifier.type + "/" + identifier.identifier, safe='')
+        qualified_identifier = urllib.parse.quote(identifier.type + "/" + identifier.identifier, safe='')
 
         for web_client_base_url in settings:
             link = "{}/{}/works/{}".format(
@@ -71,7 +71,7 @@ class LibraryAnnotator(Annotator):
                 library.short_name,
                 qualified_identifier,
             )
-            encoded_link = urllib.quote(link, safe='')
+            encoded_link = urllib.parse.quote(link, safe='')
             url = "{}/book/{}".format(
                 web_client_base_url,
                 encoded_link

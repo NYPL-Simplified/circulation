@@ -4,7 +4,7 @@ from nose.tools import (
     set_trace,
 )
 import datetime
-from StringIO import StringIO
+from io import StringIO
 
 from core.testing import DatabaseTest
 from core.model import (
@@ -126,7 +126,7 @@ class TestRunSelfTestsScript(DatabaseTest):
         default_api_map = CirculationAPI(
             self._db, self._default_library
         ).default_api_map
-        for k, v in default_api_map.items():
+        for k, v in list(default_api_map.items()):
             eq_(api_map[k], v)
 
         # But a couple things were added to the map that are not in

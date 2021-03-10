@@ -8,7 +8,7 @@ from api.admin.problem_details import *
 from api.axis import (Axis360API, MockAxis360API)
 from core.opds_import import (OPDSImporter, OPDSImportMonitor)
 from core.selftest import HasSelfTests
-from test_controller import SettingsControllerTest
+from .test_controller import SettingsControllerTest
 
 class TestCollectionSelfTests(SettingsControllerTest):
     def test_collection_self_tests_with_no_identifier(self):

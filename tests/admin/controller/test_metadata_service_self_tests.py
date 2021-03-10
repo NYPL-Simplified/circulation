@@ -8,7 +8,7 @@ from core.selftest import (
     HasSelfTests,
     SelfTestResult,
 )
-from test_controller import SettingsControllerTest
+from .test_controller import SettingsControllerTest
 from core.model import (
     create,
     ExternalIntegration,

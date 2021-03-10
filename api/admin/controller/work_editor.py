@@ -57,9 +57,9 @@ from datetime import date, datetime, timedelta
 import json
 import os
 from PIL import Image, ImageDraw, ImageFont
-from StringIO import StringIO
+from io import StringIO
 import textwrap
-import urllib
+import urllib.request, urllib.parse, urllib.error
 
 class WorkController(AdminCirculationManagerController):
 
@@ -155,7 +155,7 @@ class WorkController(AdminCirculationManagerController):
         return {uri: dict(name=name,
                           open_access=(uri in RightsStatus.OPEN_ACCESS),
                           allows_derivatives=(uri in RightsStatus.ALLOWS_DERIVATIVES))
-                for uri, name in RightsStatus.NAMES.iteritems()}
+                for uri, name in list(RightsStatus.NAMES.items())}
 
     def edit(self, identifier_type, identifier):
         """Edit a work's metadata."""
@@ -185,26 +185,26 @@ class WorkController(AdminCirculationManagerController):
 
         new_title = flask.request.form.get("title")
         if new_title and work.title != new_title:
-            staff_edition.title = unicode(new_title)
+            staff_edition.title = str(new_title)
             changed = True
 
         new_subtitle = flask.request.form.get("subtitle")
         if work.subtitle != new_subtitle:
             if work.subtitle and not new_subtitle:
                 new_subtitle = NO_VALUE
-            staff_edition.subtitle = unicode(new_subtitle)
+            staff_edition.subtitle = str(new_subtitle)
             changed = True
 
         # The form data includes roles and names for contributors in the same order.
         new_contributor_roles = flask.request.form.getlist("contributor-role")
-        new_contributor_names = [unicode(n) for n in flask.request.form.getlist("contributor-name")]
+        new_contributor_names = [str(n) for n in flask.request.form.getlist("contributor-name")]
         # The first author in the form is considered the primary author, even
         # though there's no separate MARC code for that.
         for i, role in enumerate(new_contributor_roles):
             if role == Contributor.AUTHOR_ROLE:
                 new_contributor_roles[i] = Contributor.PRIMARY_AUTHOR_ROLE
                 break
-        roles_and_names = zip(new_contributor_roles, new_contributor_names)
+        roles_and_names = list(zip(new_contributor_roles, new_contributor_names))
 
         # Remove any contributions that weren't in the form, and remove contributions
         # that already exist from the list so they won't be added again.
@@ -227,7 +227,7 @@ class WorkController(AdminCirculationManagerController):
             # adding a contributor, in which case it will have no
             # corresponding name and can be ignored.
             if name:
-                if role not in Contributor.MARC_ROLE_CODES.keys():
+                if role not in list(Contributor.MARC_ROLE_CODES.keys()):
                     self._db.rollback()
                     return UNKNOWN_ROLE.detailed(
                         _("Role %(role)s is not one of the known contributor roles.",
@@ -240,7 +240,7 @@ class WorkController(AdminCirculationManagerController):
         if work.series != new_series:
             if work.series and not new_series:
                 new_series = NO_VALUE
-            staff_edition.series = unicode(new_series)
+            staff_edition.series = str(new_series)
             changed = True
 
         new_series_position = flask.request.form.get("series_position")
@@ -260,7 +260,7 @@ class WorkController(AdminCirculationManagerController):
 
         new_medium = flask.request.form.get("medium")
         if new_medium:
-            if new_medium not in Edition.medium_to_additional_type.keys():
+            if new_medium not in list(Edition.medium_to_additional_type.keys()):
                 self._db.rollback()
                 return UNKNOWN_MEDIUM.detailed(
                     _("Medium %(medium)s is not one of the known media.",
@@ -284,14 +284,14 @@ class WorkController(AdminCirculationManagerController):
         if new_publisher != staff_edition.publisher:
             if staff_edition.publisher and not new_publisher:
                 new_publisher = NO_VALUE
-            staff_edition.publisher = unicode(new_publisher)
+            staff_edition.publisher = str(new_publisher)
             changed = True
 
         new_imprint = flask.request.form.get("imprint")
         if new_imprint != staff_edition.imprint:
             if staff_edition.imprint and not new_imprint:
                 new_imprint = NO_VALUE
-            staff_edition.imprint = unicode(new_imprint)
+            staff_edition.imprint = str(new_imprint)
             changed = True
 
         new_issued = flask.request.form.get("issued")
@@ -770,7 +770,7 @@ class WorkController(AdminCirculationManagerController):
 
         title_position = flask.request.form.get("title_position")
         if image_url and not image_file:
-            image_file = StringIO(urllib.urlopen(image_url).read())
+            image_file = StringIO(urllib.request.urlopen(image_url).read())
 
         image = Image.open(image_file)
         result = self._validate_cover_image(image)
@@ -973,4 +973,4 @@ class WorkController(AdminCirculationManagerController):
             for lane in affected_lanes:
                 lane.update_size(self._db, self.search_engine)
 
-            return Response(unicode(_("Success")), 200)
+            return Response(str(_("Success")), 200)

@@ -1,19 +1,19 @@
 import logging
 from nose.tools import set_trace
 from lxml import etree
-from urlparse import urljoin
-from urllib import urlencode
+from urllib.parse import urljoin
+from urllib.parse import urlencode
 import datetime
 import requests
 from money import Money
 from flask_babel import lazy_gettext as _
 
 from core.util.xmlparser import XMLParser
-from authenticator import (
+from .authenticator import (
     BasicAuthenticationProvider,
     PatronData,
 )
-from config import (
+from .config import (
     Configuration,
     CannotLoadConfiguration,
 )
@@ -247,7 +247,7 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
         return False
 
     def _remote_patron_lookup(self, patron_or_patrondata_or_identifier):
-        if isinstance(patron_or_patrondata_or_identifier, basestring):
+        if isinstance(patron_or_patrondata_or_identifier, str):
             identifier = patron_or_patrondata_or_identifier
         else:
             identifier = patron_or_patrondata_or_identifier.authorization_identifier

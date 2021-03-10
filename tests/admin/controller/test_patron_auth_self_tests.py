@@ -10,7 +10,7 @@ from core.selftest import (
     SelfTestResult,
 )
 from api.simple_authentication import SimpleAuthenticationProvider
-from test_controller import SettingsControllerTest
+from .test_controller import SettingsControllerTest
 from core.model import (
     create,
     ExternalIntegration,

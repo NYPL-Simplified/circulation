@@ -91,12 +91,12 @@ class AdminAnnotator(LibraryAnnotator):
             )
 
     def complaints_url(self, facets, pagination):
-        kwargs = dict(facets.items())
-        kwargs.update(dict(pagination.items()))
+        kwargs = dict(list(facets.items()))
+        kwargs.update(dict(list(pagination.items())))
         return self.url_for("complaints", _external=True, **kwargs)
 
     def suppressed_url(self, pagination):
-        kwargs = dict(pagination.items())
+        kwargs = dict(list(pagination.items()))
         return self.url_for("suppressed", _external=True, **kwargs)
 
     def annotate_feed(self, feed):
@@ -125,7 +125,7 @@ class AdminFeed(AcquisitionFeed):
         results = pagination.modify_database_query(_db, q).all()
 
         if len(results) > 0:
-            (pools, counts) = zip(*results)
+            (pools, counts) = list(zip(*results))
         else:
             pools = ()
 
@@ -152,7 +152,7 @@ class AdminFeed(AcquisitionFeed):
             AdminFeed.add_link_to_feed(feed.feed, rel="previous", href=annotator.complaints_url(facets, previous_page))
 
         annotator.annotate_feed(feed)
-        return unicode(feed)
+        return str(feed)
 
     @classmethod
     def suppressed(cls, _db, title, url, annotator, pagination=None):
@@ -191,5 +191,5 @@ class AdminFeed(AcquisitionFeed):
             AdminFeed.add_link_to_feed(feed.feed, rel="previous", href=annotator.suppressed_url(previous_page))
 
         annotator.annotate_feed(feed)
-        return unicode(feed)
+        return str(feed)
 

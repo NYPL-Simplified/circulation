@@ -7,8 +7,8 @@ import base64
 import datetime
 import flask
 import json
-import urllib
-from StringIO import StringIO
+import urllib.request, urllib.parse, urllib.error
+from io import StringIO
 from werkzeug.datastructures import ImmutableMultiDict, MultiDict
 from api.admin.exceptions import *
 from api.config import Configuration
@@ -36,7 +36,7 @@ from api.admin.controller.library_settings import LibrarySettingsController
 from api.admin.announcement_list_validator import AnnouncementListValidator
 from api.admin.geographic_validator import GeographicValidator
 from api.testing import AnnouncementTest
-from test_controller import SettingsControllerTest
+from .test_controller import SettingsControllerTest
 
 class TestLibrarySettings(SettingsControllerTest, AnnouncementTest):
 
@@ -51,7 +51,7 @@ class TestLibrarySettings(SettingsControllerTest, AnnouncementTest):
             Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS: "email@example.com"
         }
         defaults.update(fields)
-        form = MultiDict(defaults.items())
+        form = MultiDict(list(defaults.items()))
         return form
 
     def test_libraries_get_with_no_libraries(self):
@@ -81,8 +81,8 @@ class TestLibrarySettings(SettingsControllerTest, AnnouncementTest):
         with self.request_context_with_admin("/"):
             response = self.manager.admin_library_settings_controller.process_get()
             library_settings = response.get("libraries")[0].get("settings")
-            eq_(library_settings.get("focus_area"), {u'CA': [{u'N3L': u'Paris, Ontario'}], u'US': [{u'11235': u'Brooklyn, NY'}]})
-            eq_(library_settings.get("service_area"), {u'CA': [{u'J2S': u'Saint-Hyacinthe Southwest, Quebec'}], u'US': [{u'31415': u'Savannah, GA'}]})
+            eq_(library_settings.get("focus_area"), {'CA': [{'N3L': 'Paris, Ontario'}], 'US': [{'11235': 'Brooklyn, NY'}]})
+            eq_(library_settings.get("service_area"), {'CA': [{'J2S': 'Saint-Hyacinthe Southwest, Quebec'}], 'US': [{'31415': 'Savannah, GA'}]})
 
     def test_libraries_get_with_announcements(self):
         # Delete any existing library created by the controller test setup.
@@ -155,7 +155,7 @@ class TestLibrarySettings(SettingsControllerTest, AnnouncementTest):
             eq_(l2.short_name, libraries[1].get("short_name"))
 
             eq_({}, libraries[0].get("settings"))
-            eq_(4, len(libraries[1].get("settings").keys()))
+            eq_(4, len(list(libraries[1].get("settings").keys())))
             settings = libraries[1].get("settings")
             eq_("5", settings.get(Configuration.FEATURED_LANE_SIZE))
             eq_(FacetConstants.ORDER_RANDOM,

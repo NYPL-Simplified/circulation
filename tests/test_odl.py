@@ -8,8 +8,8 @@ import json
 import datetime
 import re
 import base64
-import urllib
-import urlparse
+import urllib.request, urllib.parse, urllib.error
+import urllib.parse
 
 from . import DatabaseTest
 from core.metadata_layer import TimestampData
@@ -79,10 +79,10 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
         response = self.api.get_license_status_document(loan)
         requested_url = self.api.requests[0][0]
 
-        parsed = urlparse.urlparse(requested_url)
+        parsed = urllib.parse.urlparse(requested_url)
         eq_("https", parsed.scheme)
         eq_("loan.feedbooks.net", parsed.netloc)
-        params = urlparse.parse_qs(parsed.query)
+        params = urllib.parse.parse_qs(parsed.query)
 
         eq_(self.license.identifier, params.get("id")[0])
 
@@ -95,12 +95,12 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
         # Loans expire in 21 days by default.
         now = datetime.datetime.utcnow()
         after_expiration = now + datetime.timedelta(days=23)
-        expires = urllib.unquote_plus(params.get("expires")[0])
+        expires = urllib.parse.unquote_plus(params.get("expires")[0])
         expires = datetime.datetime.strptime(expires, "%Y-%m-%dT%H:%M:%S.%fZ")
         assert expires > now
         assert expires < after_expiration
 
-        notification_url = urllib.unquote_plus(params.get("notification_url")[0])
+        notification_url = urllib.parse.unquote_plus(params.get("notification_url")[0])
         eq_("http://odl_notify?loan_id=%s&library_short_name=%s" % (loan.id, self._default_library.short_name),
             notification_url)
 
@@ -1365,7 +1365,7 @@ class TestODLImporter(DatabaseTest, BaseODLTest):
             license.checkout_url)
         eq_("https://license.feedbooks.net/license/status/?uuid=1",
             license.status_url)
-        eq_(datetime.datetime(2019, 3, 31, 03, 13, 35), license.expires)
+        eq_(datetime.datetime(2019, 3, 31, 0o3, 13, 35), license.expires)
         eq_(None, license.remaining_checkouts)
         eq_(1, license.concurrent_checkouts)
 
@@ -1723,7 +1723,7 @@ class TestSharedODLAPI(DatabaseTest, BaseODLTest):
         eq_(self.pool.identifier.type, hold.identifier_type)
         eq_(self.pool.identifier.identifier, hold.identifier)
         eq_(datetime.datetime(2018, 3, 8, 18, 50, 18), hold.start_date)
-        eq_(datetime.datetime(2018, 3, 29, 17, 44, 01), hold.end_date)
+        eq_(datetime.datetime(2018, 3, 29, 17, 44, 0o1), hold.end_date)
         eq_(1, hold.hold_position)
         eq_("http://localhost:6500/AL/collections/DPLA%20Exchange/holds/18", hold.external_identifier)
 
@@ -1810,7 +1810,7 @@ class TestSharedODLAPI(DatabaseTest, BaseODLTest):
         eq_(self.pool.identifier.type, hold_info.identifier_type)
         eq_(self.pool.identifier.identifier, hold_info.identifier)
         eq_(datetime.datetime(2018, 3, 8, 18, 50, 18), hold_info.start_date)
-        eq_(datetime.datetime(2018, 3, 29, 17, 44, 01), hold_info.end_date)
+        eq_(datetime.datetime(2018, 3, 29, 17, 44, 0o1), hold_info.end_date)
         eq_([hold.external_identifier], self.api.requests[2:])
 
         # The patron's hold has been deleted on the remote.

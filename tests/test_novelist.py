@@ -37,8 +37,8 @@ class TestNoveListAPI(DatabaseTest):
         super(TestNoveListAPI, self).setup()
         self.integration = self._external_integration(
             ExternalIntegration.NOVELIST,
-            ExternalIntegration.METADATA_GOAL, username=u'library',
-            password=u'yep', libraries=[self._default_library],
+            ExternalIntegration.METADATA_GOAL, username='library',
+            password='yep', libraries=[self._default_library],
         )
         self.novelist = NoveListAPI.from_config(self._default_library)
 
@@ -66,7 +66,7 @@ class TestNoveListAPI(DatabaseTest):
         self.integration.password = None
         assert_raises(CannotLoadConfiguration, NoveListAPI.from_config, self._default_library)
 
-        self.integration.password = u'yep'
+        self.integration.password = 'yep'
         self.integration.username = None
         assert_raises(CannotLoadConfiguration, NoveListAPI.from_config, self._default_library)
 
@@ -121,12 +121,12 @@ class TestNoveListAPI(DatabaseTest):
         vampire = self.sample_representation("vampire_kisses.json")
         metadata = self.novelist.lookup_info_to_metadata(vampire)
 
-        [lexile] = filter(lambda s: s.type=='Lexile', metadata.subjects)
-        eq_(u'630', lexile.identifier)
-        eq_(u'Vampire kisses manga', metadata.series)
+        [lexile] = [s for s in metadata.subjects if s.type=='Lexile']
+        eq_('630', lexile.identifier)
+        eq_('Vampire kisses manga', metadata.series)
         # The full title should be selected, since every volume
         # has the same main title: 'Vampire kisses'
-        eq_(u'Vampire kisses: blood relatives. Volume 1', metadata.title)
+        eq_('Vampire kisses: blood relatives. Volume 1', metadata.title)
         eq_(1, metadata.series_position)
         eq_(5, len(metadata.recommendations))
 

@@ -28,7 +28,7 @@ class AnnouncementListValidator(Validator):
             _("Invalid announcement list format: %(announcements)r",
               announcements=announcements)
         )
-        if isinstance(announcements, basestring):
+        if isinstance(announcements, str):
             try:
                 announcements = json.loads(announcements)
             except ValueError:
@@ -60,7 +60,7 @@ class AnnouncementListValidator(Validator):
                 _("Invalid announcement format: %(announcement)r", announcement=announcement)
             )
 
-        validated['id'] = announcement.get('id', unicode(uuid.uuid4()))
+        validated['id'] = announcement.get('id', str(uuid.uuid4()))
 
         for required_field in ('content',):
             if not required_field in announcement:
@@ -135,10 +135,10 @@ class AnnouncementListValidator(Validator):
 
         :return: A ProblemDetail if validation fails; otherwise a datetime.date.
         """
-        if isinstance(value, basestring):
+        if isinstance(value, str):
             try:
                 value = datetime.datetime.strptime(value, cls.DATE_FORMAT)
-            except ValueError, e:
+            except ValueError as e:
                 return INVALID_INPUT.detailed(
                     _("Value for %(field)s is not a date: %(date)s", field=field, date=value)
                 )

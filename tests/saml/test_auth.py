@@ -3,7 +3,7 @@ from base64 import b64encode
 from copy import copy
 from xml.dom.minidom import Document
 
-from database_test import DatabaseTest
+from .database_test import DatabaseTest
 from defusedxml.lxml import fromstring
 from freezegun import freeze_time
 from mock import MagicMock, PropertyMock, create_autospec, patch

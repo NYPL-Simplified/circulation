@@ -5,7 +5,7 @@ from nose.tools import (
     eq_,
     set_trace,
 )
-from StringIO import StringIO
+from io import StringIO
 from zipfile import ZipFile
 from . import (
     DatabaseTest,
@@ -50,12 +50,12 @@ class TestFeedbooksOPDSImporter(DatabaseTest):
             FeedbooksOPDSImporter.REALLY_IMPORT_KEY: "true",
             FeedbooksOPDSImporter.REPLACEMENT_CSS_KEY: None,
         }
-        for setting, value in defaults.items():
+        for setting, value in list(defaults.items()):
             if setting not in settings:
                 settings[setting] = value
 
         collection.external_account_id = settings.pop('language', 'de')
-        for setting, value in settings.items():
+        for setting, value in list(settings.items()):
             if value is None:
                 continue
             collection.external_integration.set_setting(setting, value)
@@ -124,8 +124,8 @@ class TestFeedbooksOPDSImporter(DatabaseTest):
         metadata, failures = self.importer.extract_feed_data(
             feed, "http://url/"
         )
-        [(key, value)] = metadata.items()
-        eq_(u'http://www.feedbooks.com/book/677', key)
+        [(key, value)] = list(metadata.items())
+        eq_('http://www.feedbooks.com/book/677', key)
         eq_("Discourse on the Method", value.title)
 
         # Instead of the short description from feed.atom, we have the
@@ -137,7 +137,7 @@ class TestFeedbooksOPDSImporter(DatabaseTest):
         # Here's a Metadata that has a bad (truncated) description.
         metadata = Metadata(self.data_source)
 
-        bad_description = LinkData(rel=Hyperlink.DESCRIPTION, media_type="text/plain", content=u"The Discourse on the Method is a philosophical and mathematical treatise published by Ren\xe9 Descartes in 1637. Its full name is Discourse on the Method of Rightly Conducting the Reason, and Searching for Truth in the Sciences (French title: Discour...")
+        bad_description = LinkData(rel=Hyperlink.DESCRIPTION, media_type="text/plain", content="The Discourse on the Method is a philosophical and mathematical treatise published by Ren\xe9 Descartes in 1637. Its full name is Discourse on the Method of Rightly Conducting the Reason, and Searching for Truth in the Sciences (French title: Discour...")
 
         irrelevant_description = LinkData(
             rel=Hyperlink.DESCRIPTION, media_type="text/plain",
@@ -211,7 +211,7 @@ class TestFeedbooksOPDSImporter(DatabaseTest):
 
         feed = self.sample_file("feed_with_open_access_book.atom")
         imports, errors = self.importer.extract_feed_data(feed)
-        [book] = imports.values()
+        [book] = list(imports.values())
         open_access_links = [x for x in book.circulation.links
                              if x.rel==Hyperlink.OPEN_ACCESS_DOWNLOAD]
         links = sorted(x.href for x in open_access_links)
@@ -243,7 +243,7 @@ class TestFeedbooksOPDSImporter(DatabaseTest):
 
         # The replacement CSS is retrieved during the FeedbooksImporter
         # constructor.
-        eq_([u'http://css/'], self.http.requests)
+        eq_(['http://css/'], self.http.requests)
 
         # OPDSImporter.content_modifier has been set to call replace_css
         # when necessary.
@@ -263,7 +263,7 @@ class TestFeedbooksOPDSImporter(DatabaseTest):
         # mirrored.
         self.http.queue_response(404, media_type="text/plain")
 
-        self.metadata.lookups = { u"René Descartes" : "Descartes, Rene" }
+        self.metadata.lookups = { "René Descartes" : "Descartes, Rene" }
         feed = self.sample_file("feed_with_open_access_book.atom")
         self.http.queue_response(
             200, OPDSFeed.ACQUISITION_FEED_TYPE,
@@ -276,13 +276,13 @@ class TestFeedbooksOPDSImporter(DatabaseTest):
 
         # The work has been created and has metadata.
         eq_("Discourse on the Method", work.title)
-        eq_(u'Ren\xe9 Descartes', work.author)
+        eq_('Ren\xe9 Descartes', work.author)
 
         # Two more mock HTTP requests have now made.
         eq_([
-            u'http://css/',
-            u'http://www.feedbooks.com/book/677.epub',
-            u'http://covers.feedbooks.net/book/677.jpg?size=large&t=1428398185',
+            'http://css/',
+            'http://www.feedbooks.com/book/677.epub',
+            'http://covers.feedbooks.net/book/677.jpg?size=large&t=1428398185',
         ],
             self.http.requests
         )
@@ -295,11 +295,11 @@ class TestFeedbooksOPDSImporter(DatabaseTest):
             mechanism.resource.representation.mirror_url,
             'https://test-content-bucket.s3.amazonaws.com/FeedBooks/URI/http%3A//www.feedbooks.com/book/677/Discourse%20on%20the%20Method.epub'
         )
-        eq_(u'application/epub+zip', mechanism.delivery_mechanism.content_type)
+        eq_('application/epub+zip', mechanism.delivery_mechanism.content_type)
 
         # From information contained in the OPDS entry we determined
         # the book's license to be CC-BY-NC.
-        eq_(u'https://creativecommons.org/licenses/by-nc/4.0',
+        eq_('https://creativecommons.org/licenses/by-nc/4.0',
             mechanism.rights_status.uri)
 
         # The pool is marked as open-access, because it has an open-access
@@ -325,7 +325,7 @@ class TestFeedbooksOPDSImporter(DatabaseTest):
 
     def test_in_copyright_book_not_mirrored(self):
 
-        self.metadata.lookups = { u"René Descartes" : "Descartes, Rene" }
+        self.metadata.lookups = { "René Descartes" : "Descartes, Rene" }
         feed = self.sample_file("feed_with_in_copyright_book.atom")
         self.http.queue_response(
             200, OPDSFeed.ACQUISITION_FEED_TYPE,
@@ -336,7 +336,7 @@ class TestFeedbooksOPDSImporter(DatabaseTest):
 
         # The work has been created and has metadata.
         eq_("Discourse on the Method", work.title)
-        eq_(u'Ren\xe9 Descartes', work.author)
+        eq_('Ren\xe9 Descartes', work.author)
 
         # No mock HTTP requests were made.
         eq_([], self.http.requests)
@@ -472,5 +472,5 @@ class TestFeedbooksImportMonitor(DatabaseTest):
 
         # The URL is always a feedbooks.com URL based on the collection's
         # language setting.
-        eq_(u"http://www.feedbooks.com/books/recent.atom?lang=somelanguage",
+        eq_("http://www.feedbooks.com/books/recent.atom?lang=somelanguage",
             monitor.opds_url(collection))

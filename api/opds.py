@@ -1,5 +1,5 @@
 import datetime
-import urllib
+import urllib.request, urllib.parse, urllib.error
 import copy
 import logging
 from nose.tools import set_trace
@@ -53,14 +53,14 @@ from api.lanes import (
 )
 from core.app_server import cdn_url_for
 
-from adobe_vendor_id import AuthdataUtility
-from annotations import AnnotationWriter
-from circulation import BaseCirculationAPI
-from config import (
+from .adobe_vendor_id import AuthdataUtility
+from .annotations import AnnotationWriter
+from .circulation import BaseCirculationAPI
+from .config import (
     CannotLoadConfiguration,
     Configuration,
 )
-from novelist import NoveListAPI
+from .novelist import NoveListAPI
 from core.analytics import Analytics
 
 class CirculationManagerAnnotator(Annotator):
@@ -113,7 +113,7 @@ class CirculationManagerAnnotator(Annotator):
     def url_for(self, *args, **kwargs):
         if self.test_mode:
             new_kwargs = {}
-            for k, v in kwargs.items():
+            for k, v in list(kwargs.items()):
                 if not k.startswith('_'):
                     new_kwargs[k] = v
             return self.test_url_for(False, *args, **new_kwargs)
@@ -138,8 +138,8 @@ class CirculationManagerAnnotator(Annotator):
         for k, v in sorted(kwargs.items()):
             if v is None:
                 v = ''
-            v = urllib.quote(str(v))
-            k = urllib.quote(str(k))
+            v = urllib.parse.quote(str(v))
+            k = urllib.parse.quote(str(k))
             url += connector + "%s=%s" % (k, v)
             connector = '&'
         return url
@@ -156,9 +156,9 @@ class CirculationManagerAnnotator(Annotator):
             lane_identifier = self._lane_identifier(lane)
             kwargs = dict(lane_identifier=lane_identifier)
         if facets != None:
-            kwargs.update(dict(facets.items()))
+            kwargs.update(dict(list(facets.items())))
         if pagination != None:
-            kwargs.update(dict(pagination.items()))
+            kwargs.update(dict(list(pagination.items())))
         if extra_kwargs:
             kwargs.update(extra_kwargs)
         return self.cdn_url_for(route, _external=True, **kwargs)
@@ -559,7 +559,7 @@ class LibraryAnnotator(CirculationManagerAnnotator):
         except ValueError:
             hidden_types = setting.value
         hidden_types = hidden_types or []
-        if isinstance(hidden_types, basestring):
+        if isinstance(hidden_types, str):
             hidden_types = [hidden_types]
         elif not isinstance(hidden_types, list):
             hidden_types = list(hidden_types)
@@ -581,7 +581,7 @@ class LibraryAnnotator(CirculationManagerAnnotator):
     def groups_url(self, lane, facets=None):
         lane_identifier = self._lane_identifier(lane)
         if facets:
-            kwargs = dict(facets.items())
+            kwargs = dict(list(facets.items()))
         else:
             kwargs = {}
 
@@ -606,9 +606,9 @@ class LibraryAnnotator(CirculationManagerAnnotator):
         lane_identifier = self._lane_identifier(lane)
         kwargs = dict(q=query)
         if facets:
-            kwargs.update(dict(facets.items()))
+            kwargs.update(dict(list(facets.items())))
         if pagination:
-            kwargs.update(dict(pagination.items()))
+            kwargs.update(dict(list(pagination.items())))
         return self.url_for(
             "lane_search", lane_identifier=lane_identifier,
             library_short_name=self.library.short_name,
@@ -637,7 +637,7 @@ class LibraryAnnotator(CirculationManagerAnnotator):
             title = lane.get('label', lane_name)
             lane = lane['lane']
 
-        if isinstance(lane, basestring):
+        if isinstance(lane, str):
             return lane, lane_name
 
         if hasattr(lane, 'display_name') and not title:
@@ -785,8 +785,8 @@ class LibraryAnnotator(CirculationManagerAnnotator):
 
         audience_key=None
         if audiences:
-            audience_strings = [urllib.quote_plus(a) for a in sorted(audiences)]
-            audience_key = u','.join(audience_strings)
+            audience_strings = [urllib.parse.quote_plus(a) for a in sorted(audiences)]
+            audience_key = ','.join(audience_strings)
 
         return language_key, audience_key
 
@@ -888,7 +888,7 @@ class LibraryAnnotator(CirculationManagerAnnotator):
                     )
                 else:
                     search_facets = self.facets
-                search_facet_kwargs.update(dict(search_facets.items()))
+                search_facet_kwargs.update(dict(list(search_facets.items())))
 
 
             lane_identifier = self._lane_identifier(lane)

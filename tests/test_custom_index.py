@@ -219,7 +219,7 @@ class TestCOPPAGate(DatabaseTest):
 
         # The feed as a whole incorporates the return values of
         # the methods that were called.
-        feed = unicode(feed)
+        feed = str(feed)
         assert "<gate/>" in feed
         eq_(2, feed.count("<entry/>"))
 

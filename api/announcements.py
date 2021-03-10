@@ -2,7 +2,7 @@ import datetime
 
 from core.util.problem_detail import ProblemDetail
 
-from admin.announcement_list_validator import AnnouncementListValidator
+from .admin.announcement_list_validator import AnnouncementListValidator
 
 class Announcements(object):
     """Data model class for a library's announcements.

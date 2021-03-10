@@ -111,9 +111,9 @@ class MetadataServicesController(SitewideRegistrationController):
         service.name = name
 
         if is_new:
-            return Response(unicode(service.id), 201)
+            return Response(str(service.id), 201)
         else:
-            return Response(unicode(service.id), 200)
+            return Response(str(service.id), 200)
 
     def validate_form_fields(self, **fields):
         """The 'name' and 'protocol' fields cannot be blank, and the protocol must

@@ -564,9 +564,9 @@ class TestBibliographicParser(BaseEnkiTest):
         m = parser.extract_bibliographic(data['result'])
         assert isinstance(m, Metadata)
 
-        eq_(u'Le But est le Seul Choix', m.title)
-        eq_(u'fre', m.language)
-        eq_(u'Law of Time Press', m.publisher)
+        eq_('Le But est le Seul Choix', m.title)
+        eq_('fre', m.language)
+        eq_('Law of Time Press', m.publisher)
 
         # Two identifiers, Enki and ISBN, with Enki being primary.
         enki, isbn = sorted(m.identifiers, key=lambda x: x.type)
@@ -603,10 +603,10 @@ class TestBibliographicParser(BaseEnkiTest):
         for i in subjects:
             eq_(i.type, Subject.TAG)
             eq_(None, i.name)
-        eq_([u'BODY MIND SPIRIT Spirituality General',
-             u'BODY, MIND & SPIRIT / Spirituality / General.',
-             u'Spirituality',
-             u'Spirituality.'],
+        eq_(['BODY MIND SPIRIT Spirituality General',
+             'BODY, MIND & SPIRIT / Spirituality / General.',
+             'Spirituality',
+             'Spirituality.'],
             [x.identifier for x in subjects]
         )
 
@@ -856,7 +856,7 @@ class TestEnkiImport(BaseEnkiTest):
 
         identifier = licensepool.identifier
         eq_(Identifier.ENKI_ID, identifier.type)
-        eq_(u"34278", identifier.identifier)
+        eq_("34278", identifier.identifier)
 
         # The LicensePool and Edition take their data from the mock API
         # requests.

@@ -16,7 +16,7 @@ from core.testing import MockRequestsResponse
 import json
 import pypostalcode
 from tests.admin.controller.test_controller import SettingsControllerTest
-import urllib
+import urllib.request, urllib.parse, urllib.error
 import uszipcode
 
 class TestGeographicValidator(SettingsControllerTest):
@@ -113,9 +113,9 @@ class TestGeographicValidator(SettingsControllerTest):
             called_with = []
             def mock_ask_registry(self, service_area_object, db):
                 places = {"US": ["Chicago"], "CA": ["Victoria, BC"]}
-                service_area_info = json.loads(urllib.unquote(service_area_object))
-                nation = service_area_info.keys()[0]
-                city_or_county = service_area_info.values()[0]
+                service_area_info = json.loads(urllib.parse.unquote(service_area_object))
+                nation = list(service_area_info.keys())[0]
+                city_or_county = list(service_area_info.values())[0]
                 if city_or_county == "ERROR":
                     test.responses.append(MockRequestsResponse(502))
                 elif city_or_county in places[nation]:
@@ -253,9 +253,9 @@ class TestGeographicValidator(SettingsControllerTest):
         us_zip_unformatted = validator.look_up_zip("06759", "US")
         assert isinstance(us_zip_unformatted, uszipcode.SimpleZipcode)
         us_zip_formatted = validator.look_up_zip("06759", "US", True)
-        eq_(us_zip_formatted, {'06759': u'Litchfield, CT'})
+        eq_(us_zip_formatted, {'06759': 'Litchfield, CT'})
 
         ca_zip_unformatted = validator.look_up_zip("R2V", "CA")
         assert isinstance(ca_zip_unformatted, pypostalcode.PostalCode)
         ca_zip_formatted = validator.look_up_zip("R2V", "CA", True)
-        eq_(ca_zip_formatted, {'R2V': u'Winnipeg (Seven Oaks East), Manitoba'})
+        eq_(ca_zip_formatted, {'R2V': 'Winnipeg (Seven Oaks East), Manitoba'})

@@ -21,7 +21,7 @@ from core.model import (
 from core.model.configuration import ExternalIntegrationLink
 from core.s3 import S3UploaderConfiguration
 from core.selftest import HasSelfTests
-from test_controller import SettingsControllerTest
+from .test_controller import SettingsControllerTest
 
 
 class TestCollectionSettings(SettingsControllerTest):

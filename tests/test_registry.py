@@ -819,7 +819,7 @@ class TestLibraryRegistrationScript(DatabaseTest):
         base_url_setting = ConfigurationSetting.sitewide(
             self._db, Configuration.BASE_URL_KEY
         )
-        base_url_setting.value = u'http://test-circulation-manager/'
+        base_url_setting.value = 'http://test-circulation-manager/'
 
         library = self._default_library
         library2 = self._library()

@@ -678,7 +678,7 @@ class SAMLSubjectParser(object):
             attribute.value: attribute for attribute in SAMLAttributeType
         }
 
-        for name, attribute_values in attributes.iteritems():
+        for name, attribute_values in list(attributes.items()):
             if name in attribute_names:
                 name = attribute_names[name].name
 

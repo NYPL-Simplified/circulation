@@ -2,7 +2,7 @@ import datetime
 import json
 import os
 from lxml import etree
-from StringIO import StringIO
+from io import StringIO
 from nose.tools import (
     eq_,
     assert_raises,
@@ -108,31 +108,31 @@ class Axis360Test(DatabaseTest):
     # without having to parse it from an XML file.
     BIBLIOGRAPHIC_DATA = Metadata(
         DataSource.AXIS_360,
-        publisher=u'Random House Inc',
+        publisher='Random House Inc',
         language='eng',
-        title=u'Faith of My Fathers : A Family Memoir',
-        imprint=u'Random House Inc2',
+        title='Faith of My Fathers : A Family Memoir',
+        imprint='Random House Inc2',
         published=datetime.datetime(2000, 3, 7, 0, 0),
         primary_identifier=IdentifierData(
             type=Identifier.AXIS_360_ID,
-            identifier=u'0003642860'
+            identifier='0003642860'
         ),
         identifiers = [
-            IdentifierData(type=Identifier.ISBN, identifier=u'9780375504587')
+            IdentifierData(type=Identifier.ISBN, identifier='9780375504587')
         ],
         contributors = [
-            ContributorData(sort_name=u"McCain, John",
+            ContributorData(sort_name="McCain, John",
                             roles=[Contributor.PRIMARY_AUTHOR_ROLE]
                         ),
-            ContributorData(sort_name=u"Salter, Mark",
+            ContributorData(sort_name="Salter, Mark",
                             roles=[Contributor.AUTHOR_ROLE]
                         ),
         ],
         subjects = [
             SubjectData(type=Subject.BISAC,
-                        identifier=u'BIOGRAPHY & AUTOBIOGRAPHY / Political'),
+                        identifier='BIOGRAPHY & AUTOBIOGRAPHY / Political'),
             SubjectData(type=Subject.FREEFORM_AUDIENCE,
-                        identifier=u'Adult'),
+                        identifier='Adult'),
         ],
     )
 
@@ -539,12 +539,12 @@ class TestAxis360API(Axis360Test):
         # We asked for information on two identifiers.
         [request] = self.api.requests
         kwargs = request[-1]
-        eq_({'titleIds': u'2001,2002'}, kwargs['params'])
+        eq_({'titleIds': '2001,2002'}, kwargs['params'])
 
         # We got information on only one.
         [(metadata, circulation)] = results
         eq_((id1, False), metadata.primary_identifier.load(self._db))
-        eq_(u'El caso de la gracia : Un periodista explora las evidencias de unas vidas transformadas', metadata.title)
+        eq_('El caso de la gracia : Un periodista explora las evidencias de unas vidas transformadas', metadata.title)
         eq_(2, circulation.licenses_owned)
 
     def test_reap(self):
@@ -658,7 +658,7 @@ class TestAxis360API(Axis360Test):
         eq_(e, lp.work.presentation_edition)
 
         # The Edition reflects what it said in BIBLIOGRAPHIC_DATA
-        eq_(u'Faith of My Fathers : A Family Memoir', e.title)
+        eq_('Faith of My Fathers : A Family Memoir', e.title)
 
         # Three analytics events were sent out.
         #
@@ -764,18 +764,18 @@ class TestCirculationMonitor(Axis360Test):
         )
         edition, license_pool = monitor.process_book(
             self.BIBLIOGRAPHIC_DATA, self.AVAILABILITY_DATA)
-        eq_(u'Faith of My Fathers : A Family Memoir', edition.title)
-        eq_(u'eng', edition.language)
-        eq_(u'Random House Inc', edition.publisher)
-        eq_(u'Random House Inc2', edition.imprint)
+        eq_('Faith of My Fathers : A Family Memoir', edition.title)
+        eq_('eng', edition.language)
+        eq_('Random House Inc', edition.publisher)
+        eq_('Random House Inc2', edition.imprint)
 
         eq_(Identifier.AXIS_360_ID, edition.primary_identifier.type)
-        eq_(u'0003642860', edition.primary_identifier.identifier)
+        eq_('0003642860', edition.primary_identifier.identifier)
 
         [isbn] = [x for x in edition.equivalent_identifiers()
                   if x is not edition.primary_identifier]
         eq_(Identifier.ISBN, isbn.type)
-        eq_(u'9780375504587', isbn.identifier)
+        eq_('9780375504587', isbn.identifier)
 
         eq_(["McCain, John", "Salter, Mark"],
             sorted([x.sort_name for x in edition.contributors]),
@@ -785,8 +785,8 @@ class TestCirculationMonitor(Axis360Test):
             (x.subject.type, x.subject.identifier)
             for x in edition.primary_identifier.classifications
         )
-        eq_([(Subject.BISAC, u'BIOGRAPHY & AUTOBIOGRAPHY / Political'),
-             (Subject.FREEFORM_AUDIENCE, u'Adult')], subs)
+        eq_([(Subject.BISAC, 'BIOGRAPHY & AUTOBIOGRAPHY / Political'),
+             (Subject.FREEFORM_AUDIENCE, 'Adult')], subs)
 
         eq_(9, license_pool.licenses_owned)
         eq_(8, license_pool.licenses_available)
@@ -796,7 +796,7 @@ class TestCirculationMonitor(Axis360Test):
         # Three circulation events were created, backdated to the
         # last_checked date of the license pool.
         events = license_pool.circulation_events
-        eq_([u'distributor_title_add', u'distributor_check_in', u'distributor_license_add'],
+        eq_(['distributor_title_add', 'distributor_check_in', 'distributor_license_add'],
             [x.type for x in events])
         for e in events:
             eq_(e.start, license_pool.last_checked)
@@ -834,7 +834,7 @@ class TestCirculationMonitor(Axis360Test):
         """
         edition, licensepool = self._edition(
             with_license_pool=True, identifier_type=Identifier.AXIS_360_ID,
-            identifier_id=u'0003642860'
+            identifier_id='0003642860'
         )
         # We start off with availability information based on the
         # default for test data.
@@ -880,12 +880,12 @@ class TestParsers(Axis360Test):
         eq_(None, av1)
         eq_(None, av2)
 
-        eq_(u'Faith of My Fathers : A Family Memoir', bib1.title)
+        eq_('Faith of My Fathers : A Family Memoir', bib1.title)
         eq_('eng', bib1.language)
         eq_(datetime.datetime(2000, 3, 7, 0, 0), bib1.published)
 
-        eq_(u'Simon & Schuster', bib2.publisher)
-        eq_(u'Pocket Books', bib2.imprint)
+        eq_('Simon & Schuster', bib2.publisher)
+        eq_('Pocket Books', bib2.imprint)
 
         eq_(Edition.BOOK_MEDIUM, bib1.medium)
 
@@ -937,8 +937,8 @@ class TestParsers(Axis360Test):
         eq_([Contributor.PRIMARY_AUTHOR_ROLE], cont.roles)
 
         axis_id, isbn = sorted(bib1.identifiers, key=lambda x: x.identifier)
-        eq_(u'0003642860', axis_id.identifier)
-        eq_(u'9780375504587', isbn.identifier)
+        eq_('0003642860', axis_id.identifier)
+        eq_('9780375504587', isbn.identifier)
 
         # Check the subjects for #2 because it includes an audience,
         # unlike #1.
@@ -947,13 +947,13 @@ class TestParsers(Axis360Test):
              Subject.AXIS_360_AUDIENCE], [x.type for x in subjects])
         general_fiction, women_sleuths, romantic_suspense = sorted([
             x.name for x in subjects if x.type==Subject.BISAC])
-        eq_(u'FICTION / General', general_fiction)
-        eq_(u'FICTION / Mystery & Detective / Women Sleuths', women_sleuths)
-        eq_(u'FICTION / Romance / Suspense', romantic_suspense)
+        eq_('FICTION / General', general_fiction)
+        eq_('FICTION / Mystery & Detective / Women Sleuths', women_sleuths)
+        eq_('FICTION / Romance / Suspense', romantic_suspense)
 
         [adult] = [x.identifier for x in subjects
                    if x.type==Subject.AXIS_360_AUDIENCE]
-        eq_(u'General Adult', adult)
+        eq_('General Adult', adult)
 
         # The second book has a cover image simulating some possible
         # future case, where B&T change their cover service so that
@@ -1466,7 +1466,7 @@ class TestAxis360FulfillmentInfoResponseParser(Axis360Test):
 
         assert isinstance(manifest, AxisNowManifest)
         eq_({"book_vault_uuid": "1c11c31f-81c2-41bb-9179-491114c3f121", "isbn": "9780547351551"},
-            json.loads(unicode(manifest)))
+            json.loads(str(manifest)))
 
         # Try with a bad expiration date.
         bad_date = get_data()
@@ -1563,7 +1563,7 @@ class TestAxis360FulfillmentInfo(Axis360Test):
         # The Axis360FulfillmentInfo now contains a Findaway manifest
         # document.
         eq_(DeliveryMechanism.FINDAWAY_DRM, fulfillment.content_type)
-        assert isinstance(fulfillment.content, unicode)
+        assert isinstance(fulfillment.content, str)
 
         # The manifest document combines information from the
         # fulfillment document and the metadata document.
@@ -1603,7 +1603,7 @@ class TestAxis360FulfillmentInfo(Axis360Test):
         # document derived from the fulfillment document.
         eq_(DeliveryMechanism.AXISNOW_DRM, fulfillment.content_type)
         eq_(
-            u'{"book_vault_uuid": "1c11c31f-81c2-41bb-9179-491114c3f121", "isbn": "9780547351551"}',
+            '{"book_vault_uuid": "1c11c31f-81c2-41bb-9179-491114c3f121", "isbn": "9780547351551"}',
             fulfillment.content
         )
 
@@ -1621,8 +1621,8 @@ class TestAxisNowManifest(object):
     def test_unicode(self):
         manifest = AxisNowManifest("A UUID", "An ISBN")
         eq_(
-            u'{"book_vault_uuid": "A UUID", "isbn": "An ISBN"}',
-            unicode(manifest)
+            '{"book_vault_uuid": "A UUID", "isbn": "An ISBN"}',
+            str(manifest)
         )
         eq_(DeliveryMechanism.AXISNOW_DRM, manifest.MEDIA_TYPE)
 

@@ -30,7 +30,7 @@ from core.metadata_layer import (
     TimestampData,
 )
 from core.selftest import HasSelfTests
-from circulation import (
+from .circulation import (
     BaseCirculationAPI,
     LoanInfo,
     FulfillmentInfo,
@@ -40,8 +40,8 @@ from core.testing import (
     DatabaseTest,
     MockRequestsResponse,
 )
-from config import IntegrationException
-from circulation_exceptions import *
+from .config import IntegrationException
+from .circulation_exceptions import *
 
 class OPDSForDistributorsAPI(BaseCirculationAPI, HasSelfTests):
     NAME = "OPDS for Distributors"
@@ -126,7 +126,7 @@ class OPDSForDistributorsAPI(BaseCirculationAPI, HasSelfTests):
 
             try:
                 auth_doc = json.loads(response.content)
-            except Exception, e:
+            except Exception as e:
                 raise LibraryAuthorizationFailedException("Could not load authentication document from %s" % current_url)
             auth_types = auth_doc.get('authentication', [])
             credentials_types = [t for t in auth_types if t['type'] == "http://opds-spec.org/auth/oauth/client_credentials"]
@@ -195,7 +195,7 @@ class OPDSForDistributorsAPI(BaseCirculationAPI, HasSelfTests):
                 license_pool_id=licensepool.id,
             )
             _db.delete(loan)
-        except Exception, e:
+        except Exception as e:
             # The patron didn't have this book checked out.
             pass
 
@@ -367,7 +367,7 @@ class OPDSForDistributorsReaperMonitor(OPDSForDistributorsImportMonitor):
         identifiers, failures = Identifier.parse_urns(
             self._db, self.seen_identifiers
         )
-        identifier_ids = [x.id for x in identifiers.values()]
+        identifier_ids = [x.id for x in list(identifiers.values())]
 
         # At this point we've gone through the feed and collected all the identifiers.
         # If there's anything we didn't see, we know it's no longer available.
@@ -403,14 +403,14 @@ class MockOPDSForDistributorsAPI(OPDSForDistributorsAPI):
         collection, ignore = get_one_or_create(
             _db, Collection,
             name="Test OPDS For Distributors Collection", create_method_kwargs=dict(
-                external_account_id=u"http://opds",
+                external_account_id="http://opds",
             )
         )
         integration = collection.create_external_integration(
             protocol=OPDSForDistributorsAPI.NAME
         )
-        integration.username = u'a'
-        integration.password = u'b'
+        integration.username = 'a'
+        integration.password = 'b'
         library.collections.append(collection)
         return collection
 

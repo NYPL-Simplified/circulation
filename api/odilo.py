@@ -9,7 +9,7 @@ from sqlalchemy.orm.session import Session
 
 from flask_babel import lazy_gettext as _
 
-from circulation import (
+from .circulation import (
     LoanInfo,
     HoldInfo,
     FulfillmentInfo,
@@ -23,7 +23,7 @@ from core.model import (
     Identifier
 )
 
-from selftest import (
+from .selftest import (
     HasSelfTests,
     SelfTestResult,
 )
@@ -33,7 +33,7 @@ from core.monitor import (
 )
 from core.util.http import HTTP
 
-from circulation_exceptions import *
+from .circulation_exceptions import *
 
 from core.model import (
     get_one_or_create,
@@ -319,7 +319,7 @@ class OdiloRepresentationExtractor(object):
 
 class OdiloAPI(BaseCirculationAPI, HasSelfTests):
     log = logging.getLogger("Odilo API")
-    LIBRARY_API_BASE_URL = u"library_api_base_url"
+    LIBRARY_API_BASE_URL = "library_api_base_url"
 
     NAME = ExternalIntegration.ODILO
     DESCRIPTION = _("Integrate an Odilo library collection.")
@@ -362,7 +362,7 @@ class OdiloAPI(BaseCirculationAPI, HasSelfTests):
 
     # maps a 2-tuple (media_type, drm_mechanism) to the internal string used in Odilo API to describe that setup.
     delivery_mechanism_to_internal_format = {
-        v: k for k, v in OdiloRepresentationExtractor.format_data_for_odilo_format.iteritems()
+        v: k for k, v in list(OdiloRepresentationExtractor.format_data_for_odilo_format.items())
         }
 
     error_to_exception = {
@@ -995,15 +995,15 @@ class MockOdiloAPI(OdiloAPI):
             _db, Collection,
             name="Test Odilo Collection",
             create_method_kwargs=dict(
-                external_account_id=u'library_id_123',
+                external_account_id='library_id_123',
             )
         )
         integration = collection.create_external_integration(
             protocol=ExternalIntegration.ODILO
         )
-        integration.username = u'username'
-        integration.password = u'password'
-        integration.setting(OdiloAPI.LIBRARY_API_BASE_URL).value = u'http://library_api_base_url/api/v2'
+        integration.username = 'username'
+        integration.password = 'password'
+        integration.setting(OdiloAPI.LIBRARY_API_BASE_URL).value = 'http://library_api_base_url/api/v2'
         library.collections.append(collection)
 
         return collection

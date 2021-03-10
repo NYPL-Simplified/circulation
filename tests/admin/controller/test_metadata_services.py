@@ -20,7 +20,7 @@ from core.model import (
     get_one,
     Library,
 )
-from test_controller import SettingsControllerTest
+from .test_controller import SettingsControllerTest
 
 class TestMetadataServices(SettingsControllerTest):
     def create_service(self, name):
@@ -98,7 +98,7 @@ class TestMetadataServices(SettingsControllerTest):
             [service] = response.get("metadata_services")
             eq_(metadata_service.id, service.get("id"))
             eq_(ExternalIntegration.METADATA_WRANGLER, service.get("protocol"))
-            eq_(service.has_key("self_test_results"), True)
+            eq_("self_test_results" in service, True)
             # The exception is because there isn't a library registered with the metadata service.
             # But we just need to make sure that the response has a self_test_results attribute--for this test,
             # it doesn't matter what it is--so that's fine.

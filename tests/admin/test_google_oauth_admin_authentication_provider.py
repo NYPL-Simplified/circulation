@@ -88,7 +88,7 @@ class TestGoogleOAuthAdminAuthenticationProvider(DatabaseTest):
 
         google = GoogleOAuthAdminAuthenticationProvider(auth_integration, "", test_mode=True)
 
-        eq_(["nypl.org"], google.domains.keys())
+        eq_(["nypl.org"], list(google.domains.keys()))
         eq_([self._default_library], google.domains["nypl.org"])
 
         l2 = self._library()

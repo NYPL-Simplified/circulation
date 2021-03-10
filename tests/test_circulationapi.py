@@ -642,7 +642,7 @@ class TestCirculationAPI(DatabaseTest):
             try:
                 circulation.enforce_limits(patron, pool)
                 raise Exception("Expected a %r" % expected_exception)
-            except Exception, e:
+            except Exception as e:
                 assert isinstance(e, expected_exception)
                 # If .limit is set it means we were able to find a
                 # specific limit in the database, which means the
@@ -727,7 +727,7 @@ class TestCirculationAPI(DatabaseTest):
         self.pool.licenses_available = 0
         try:
             self.borrow()
-        except Exception, e:
+        except Exception as e:
             # The result is a PatronHoldLimitReached configured with the
             # library's hold limit.
             assert isinstance(e, PatronHoldLimitReached)

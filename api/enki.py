@@ -6,19 +6,19 @@ import json
 import logging
 from flask_babel import lazy_gettext as _
 
-from config import (
+from .config import (
     CannotLoadConfiguration,
 )
 
-from circulation import (
+from .circulation import (
     LoanInfo,
     FulfillmentInfo,
     BaseCirculationAPI
 )
 
-from circulation_exceptions import *
+from .circulation_exceptions import *
 
-from selftest import (
+from .selftest import (
     HasSelfTests,
     SelfTestResult,
 )
@@ -72,7 +72,7 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
 
     PRODUCTION_BASE_URL = "https://enkilibrary.org/API/"
 
-    ENKI_LIBRARY_ID_KEY = u'enki_library_id'
+    ENKI_LIBRARY_ID_KEY = 'enki_library_id'
     DESCRIPTION = _("Integrate an Enki collection.")
     SETTINGS = [
         { "key": ExternalIntegration.URL, "label": _("URL"), "default": PRODUCTION_BASE_URL, "required": True, "format": "url" },
@@ -86,10 +86,10 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
     item_endpoint = "ItemAPI"
     user_endpoint = "UserAPI"
 
-    NAME = u"Enki"
+    NAME = "Enki"
     ENKI = NAME
     ENKI_EXTERNAL = NAME
-    ENKI_ID = u"Enki ID"
+    ENKI_ID = "Enki ID"
 
     # Create a lookup table between common DeliveryMechanism identifiers
     # and Enki format types.
@@ -192,7 +192,7 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
                 params=params,
                 **kwargs
             )
-        except RequestTimedOut, e:
+        except RequestTimedOut as e:
             if not retry_on_timeout:
                 raise e
             self.log.info(
@@ -301,7 +301,7 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
         response = self.request(url, params=args)
         try:
             data = json.loads(response.content)
-        except ValueError, e:
+        except ValueError as e:
             # This is most likely a 'not found' error.
             return None
 
@@ -465,7 +465,7 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
                 raise CirculationException(response.content)
         for loan in result['checkedOutItems']:
             yield self.parse_patron_loans(loan)
-        for type, holds in result['holds'].items():
+        for type, holds in list(result['holds'].items()):
             for hold in holds:
                 yield self.parse_patron_holds(hold)
 
@@ -558,16 +558,16 @@ class BibliographicParser(object):
     # Convert the English names of languages given in the Enki API to
     # the codes we use internally.
     LANGUAGE_CODES = {
-        "English": u"eng",
-        "French" : u"fre",
-        "Spanish": u"spa",
+        "English": "eng",
+        "French" : "fre",
+        "Spanish": "spa",
     }
 
     def process_all(self, json_data):
-        if isinstance(json_data, basestring):
+        if isinstance(json_data, str):
             json_data = json.loads(json_data)
         returned_titles = json_data.get("result", {}).get("titles", [])
-	for book in returned_titles:
+        for book in returned_titles:
             data = self.extract_bibliographic(book)
             if data:
                 yield data

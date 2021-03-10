@@ -123,7 +123,7 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
         eq_("863718", patrondata.permanent_id)
         eq_("Booth Excessive Fines Test", patrondata.personal_name)
         eq_(100, patrondata.fines)
-        eq_(datetime(2019, 10, 04), patrondata.authorization_expires)
+        eq_(datetime(2019, 10, 0o4), patrondata.authorization_expires)
 
         # We happen to know that this patron can't borrow books due to
         # excessive fines, but that information doesn't show up as a

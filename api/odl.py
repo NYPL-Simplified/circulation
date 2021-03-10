@@ -5,14 +5,14 @@ import json
 import uuid
 import datetime
 from flask_babel import lazy_gettext as _
-import urlparse
+import urllib.parse
 from collections import defaultdict
 import flask
 from flask import Response
 import feedparser
 from lxml import etree
-from problem_details import NO_LICENSES
-from StringIO import StringIO
+from .problem_details import NO_LICENSES
+from io import StringIO
 import re
 from uritemplate import URITemplate
 
@@ -55,7 +55,7 @@ from core.metadata_layer import (
     LicenseData,
     TimestampData,
 )
-from circulation import (
+from .circulation import (
     BaseCirculationAPI,
     LoanInfo,
     FulfillmentInfo,
@@ -72,8 +72,8 @@ from core.testing import (
     DatabaseTest,
     MockRequestsResponse,
 )
-from circulation_exceptions import *
-from shared_collection import BaseSharedCollectionAPI
+from .circulation_exceptions import *
+from .shared_collection import BaseSharedCollectionAPI
 
 class ODLAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
     """ODL (Open Distribution to Libraries) is a specification that allows
@@ -259,7 +259,7 @@ class ODLAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
 
         try:
             status_doc = json.loads(response.content)
-        except ValueError, e:
+        except ValueError as e:
             raise BadResponseException(url, "License Status Document was not valid JSON.")
         if status_doc.get("status") not in self.STATUS_VALUES:
             raise BadResponseException(url, "License Status Document had an unknown status value.")
@@ -764,7 +764,7 @@ class ODLAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
     def checkout_to_external_library(self, client, licensepool, hold=None):
         try:
             return self._checkout(client, licensepool, hold)
-        except NoAvailableCopies, e:
+        except NoAvailableCopies as e:
             return self._place_hold(client, licensepool)
 
     def checkin_from_external_library(self, client, loan):
@@ -966,15 +966,15 @@ class MockODLAPI(ODLAPI):
         collection, ignore = get_one_or_create(
             _db, Collection,
             name="Test ODL Collection", create_method_kwargs=dict(
-                external_account_id=u"http://odl",
+                external_account_id="http://odl",
             )
         )
         integration = collection.create_external_integration(
             protocol=ODLAPI.NAME
         )
-        integration.username = u'a'
-        integration.password = u'b'
-        integration.url = u'http://metadata'
+        integration.username = 'a'
+        integration.password = 'b'
+        integration.url = 'http://metadata'
         library.collections.append(collection)
         return collection
 
@@ -997,7 +997,7 @@ class MockODLAPI(ODLAPI):
 
     def _url_for(self, *args, **kwargs):
         del kwargs["_external"]
-        return "http://%s?%s" % ("/".join(args), "&".join(["%s=%s" % (key, val) for key, val in kwargs.items()]))
+        return "http://%s?%s" % ("/".join(args), "&".join(["%s=%s" % (key, val) for key, val in list(kwargs.items())]))
 
 
 class SharedODLAPI(BaseCirculationAPI):
@@ -1088,9 +1088,9 @@ class SharedODLAPI(BaseCirculationAPI):
             hold = holds.one()
             try:
                 hold_info_response = self._get(hold.external_identifier)
-            except RemoteIntegrationException, e:
+            except RemoteIntegrationException as e:
                 raise CannotLoan()
-            feed = feedparser.parse(unicode(hold_info_response.content))
+            feed = feedparser.parse(str(hold_info_response.content))
             entries = feed.get("entries")
             if len(entries) < 1:
                 raise CannotLoan()
@@ -1109,14 +1109,14 @@ class SharedODLAPI(BaseCirculationAPI):
             checkout_url = borrow_links[0].resource.url
         try:
             response = self._get(checkout_url, allowed_response_codes=["2xx", "3xx", "403", "404"])
-        except RemoteIntegrationException, e:
+        except RemoteIntegrationException as e:
             raise CannotLoan()
         if response.status_code == 403:
             raise NoAvailableCopies()
         elif response.status_code == 404:
             if hasattr(response, 'json') and response.json().get('type', '') == NO_LICENSES.uri:
                 raise NoLicenses()
-        feed = feedparser.parse(unicode(response.content))
+        feed = feedparser.parse(str(response.content))
         entries = feed.get("entries")
         if len(entries) < 1:
             raise CannotLoan()
@@ -1176,11 +1176,11 @@ class SharedODLAPI(BaseCirculationAPI):
         info_url = loan.external_identifier
         try:
             response = self._get(info_url, allowed_response_codes=["2xx", "3xx", "404"])
-        except RemoteIntegrationException, e:
+        except RemoteIntegrationException as e:
             raise CannotReturn()
         if response.status_code == 404:
             raise NotCheckedOut()
-        feed = feedparser.parse(unicode(response.content))
+        feed = feedparser.parse(str(response.content))
         entries = feed.get("entries")
         if len(entries) < 1:
             raise CannotReturn()
@@ -1191,7 +1191,7 @@ class SharedODLAPI(BaseCirculationAPI):
         revoke_url = revoke_links[0].get("href")
         try:
             self._get(revoke_url)
-        except RemoteIntegrationException, e:
+        except RemoteIntegrationException as e:
             raise CannotReturn()
         return True
 
@@ -1217,7 +1217,7 @@ class SharedODLAPI(BaseCirculationAPI):
         info_url = loan.external_identifier
         try:
             response = self._get(info_url, allowed_response_codes=["2xx", "3xx", "404"])
-        except RemoteIntegrationException, e:
+        except RemoteIntegrationException as e:
             raise CannotFulfill()
         if response.status_code == 404:
             raise NotCheckedOut()
@@ -1225,7 +1225,7 @@ class SharedODLAPI(BaseCirculationAPI):
         requested_content_type = internal_format.delivery_mechanism.content_type
         requested_drm_scheme = internal_format.delivery_mechanism.drm_scheme
 
-        feed = feedparser.parse(unicode(response.content))
+        feed = feedparser.parse(str(response.content))
         entries = feed.get("entries")
         if len(entries) < 1:
             raise CannotFulfill()
@@ -1237,7 +1237,7 @@ class SharedODLAPI(BaseCirculationAPI):
 
         # The entry is parsed with etree to get indirect acquisitions
         parser = SharedODLImporter.PARSER_CLASS()
-        root = etree.parse(StringIO(unicode(response.content)))
+        root = etree.parse(StringIO(str(response.content)))
 
         fulfill_url = SharedODLImporter.get_fulfill_url(response.content, requested_content_type, requested_drm_scheme)
         if not fulfill_url:
@@ -1247,7 +1247,7 @@ class SharedODLAPI(BaseCirculationAPI):
         # authenticate the library.
         try:
             response = self._get(fulfill_url)
-        except RemoteIntegrationException, e:
+        except RemoteIntegrationException as e:
             raise CannotFulfill()
         return FulfillmentInfo(
             licensepool.collection,
@@ -1278,11 +1278,11 @@ class SharedODLAPI(BaseCirculationAPI):
         info_url = hold.external_identifier
         try:
             response = self._get(info_url, allowed_response_codes=["2xx", "3xx", "404"])
-        except RemoteIntegrationException, e:
+        except RemoteIntegrationException as e:
             raise CannotReleaseHold()
         if response.status_code == 404:
             raise NotOnHold()
-        feed = feedparser.parse(unicode(response.content))
+        feed = feedparser.parse(str(response.content))
         entries = feed.get("entries")
         if len(entries) < 1:
             raise CannotReleaseHold()
@@ -1296,7 +1296,7 @@ class SharedODLAPI(BaseCirculationAPI):
         revoke_url = revoke_links[0].get("href")
         try:
             self._get(revoke_url)
-        except RemoteIntegrationException, e:
+        except RemoteIntegrationException as e:
             raise CannotReleaseHold()
         return True
 
@@ -1321,7 +1321,7 @@ class SharedODLAPI(BaseCirculationAPI):
             if response.status_code == 404:
                 # 404 is returned when the loan has been deleted. Leave this loan out of the result.
                 continue
-            feed = feedparser.parse(unicode(response.content))
+            feed = feedparser.parse(str(response.content))
             entries = feed.get("entries")
             if len(entries) < 1:
                 raise CirculationException()
@@ -1350,7 +1350,7 @@ class SharedODLAPI(BaseCirculationAPI):
             if response.status_code == 404:
                 # 404 is returned when the hold has been deleted. Leave this hold out of the result.
                 continue
-            feed = feedparser.parse(unicode(response.content))
+            feed = feedparser.parse(str(response.content))
             entries = feed.get("entries")
             if len(entries) < 1:
                 raise CirculationException()
@@ -1384,7 +1384,7 @@ class SharedODLImporter(OPDSImporter):
     @classmethod
     def get_fulfill_url(cls, entry, requested_content_type, requested_drm_scheme):
         parser = cls.PARSER_CLASS()
-        root = etree.parse(StringIO(unicode(entry)))
+        root = etree.parse(StringIO(str(entry)))
 
         fulfill_url = None
         for link_tag in parser._xpath(root, 'atom:link'):
@@ -1483,7 +1483,7 @@ class MockSharedODLAPI(SharedODLAPI):
         collection, ignore = get_one_or_create(
             _db, Collection,
             name="Test Shared ODL Collection", create_method_kwargs=dict(
-                external_account_id=u"http://shared-odl",
+                external_account_id="http://shared-odl",
             )
         )
         integration = collection.create_external_integration(

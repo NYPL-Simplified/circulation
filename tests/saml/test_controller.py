@@ -1,5 +1,5 @@
 import json
-import urllib
+import urllib.request, urllib.parse, urllib.error
 
 from flask import request
 from mock import MagicMock, PropertyMock, create_autospec
@@ -100,7 +100,7 @@ class TestSAMLController(ControllerTest):
                     )
                 ),
                 "http://localhost?"
-                + urllib.urlencode(
+                + urllib.parse.urlencode(
                     {
                         SAMLController.LIBRARY_SHORT_NAME: "default",
                         SAMLController.PROVIDER_NAME: SAMLWebSSOAuthenticationProvider.NAME,
@@ -115,7 +115,7 @@ class TestSAMLController(ControllerTest):
                 "http://localhost",
                 None,
                 "http://localhost?"
-                + urllib.urlencode(
+                + urllib.parse.urlencode(
                     {
                         SAMLController.LIBRARY_SHORT_NAME: "default",
                         SAMLController.PROVIDER_NAME: SAMLWebSSOAuthenticationProvider.NAME,
@@ -130,7 +130,7 @@ class TestSAMLController(ControllerTest):
                 "http://localhost#fragment",
                 None,
                 "http://localhost?"
-                + urllib.urlencode(
+                + urllib.parse.urlencode(
                     {
                         SAMLController.LIBRARY_SHORT_NAME: "default",
                         SAMLController.PROVIDER_NAME: SAMLWebSSOAuthenticationProvider.NAME,
@@ -146,7 +146,7 @@ class TestSAMLController(ControllerTest):
                 "http://localhost?access_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9&patron_info=%7B%7D",
                 None,
                 "http://localhost?"
-                + urllib.urlencode(
+                + urllib.parse.urlencode(
                     {
                         "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9",
                         "patron_info": "{}",
@@ -210,7 +210,7 @@ class TestSAMLController(ControllerTest):
         if redirect_uri:
             params[SAMLController.REDIRECT_URI] = redirect_uri
 
-        query = urllib.urlencode(params)
+        query = urllib.parse.urlencode(params)
 
         with self.app.test_request_context(
             "http://circulationmanager.org/saml_authenticate?" + query
@@ -266,7 +266,7 @@ class TestSAMLController(ControllerTest):
                 "with_missing_provider_name",
                 {
                     SAMLController.RELAY_STATE: "http://localhost?"
-                    + urllib.urlencode({SAMLController.LIBRARY_SHORT_NAME: "default"})
+                    + urllib.parse.urlencode({SAMLController.LIBRARY_SHORT_NAME: "default"})
                 },
                 None,
                 None,
@@ -282,7 +282,7 @@ class TestSAMLController(ControllerTest):
                 "with_missing_idp_entity_id",
                 {
                     SAMLController.RELAY_STATE: "http://localhost?"
-                    + urllib.urlencode(
+                    + urllib.parse.urlencode(
                         {
                             SAMLController.LIBRARY_SHORT_NAME: "default",
                             SAMLController.PROVIDER_NAME: SAMLWebSSOAuthenticationProvider.NAME,
@@ -303,7 +303,7 @@ class TestSAMLController(ControllerTest):
                 "when_finish_authentication_fails",
                 {
                     SAMLController.RELAY_STATE: "http://localhost?"
-                    + urllib.urlencode(
+                    + urllib.parse.urlencode(
                         {
                             SAMLController.LIBRARY_SHORT_NAME: "default",
                             SAMLController.PROVIDER_NAME: SAMLWebSSOAuthenticationProvider.NAME,
@@ -323,7 +323,7 @@ class TestSAMLController(ControllerTest):
                 "when_saml_callback_fails",
                 {
                     SAMLController.RELAY_STATE: "http://localhost?"
-                    + urllib.urlencode(
+                    + urllib.parse.urlencode(
                         {
                             SAMLController.LIBRARY_SHORT_NAME: "default",
                             SAMLController.PROVIDER_NAME: SAMLWebSSOAuthenticationProvider.NAME,
@@ -343,7 +343,7 @@ class TestSAMLController(ControllerTest):
                 "when_saml_callback_returns_correct_patron",
                 {
                     SAMLController.RELAY_STATE: "http://localhost?"
-                    + urllib.urlencode(
+                    + urllib.parse.urlencode(
                         {
                             SAMLController.LIBRARY_SHORT_NAME: "default",
                             SAMLController.PROVIDER_NAME: SAMLWebSSOAuthenticationProvider.NAME,

@@ -586,7 +586,7 @@ class TestOverdriveAPI(OverdriveAPITest):
 
         def process_error_response(message):
             # Attempt to process a response that resulted in an error.
-            if isinstance(message, basestring):
+            if isinstance(message, str):
                 data = dict(errorCode=message)
             else:
                 data = message
@@ -1359,7 +1359,7 @@ class TestOverdriveAPI(OverdriveAPITest):
         # newly created LicensePool.
         raw['id'] = pool.identifier.identifier
 
-        wr.title = u"The real title."
+        wr.title = "The real title."
         eq_(1, pool.licenses_owned)
         eq_(1, pool.licenses_available)
         eq_(0, pool.licenses_reserved)
@@ -1373,7 +1373,7 @@ class TestOverdriveAPI(OverdriveAPITest):
         eq_(p2, pool)
         # The title didn't change to that title given in the availability
         # information, because we already set a title for that work.
-        eq_(u"The real title.", wr.title)
+        eq_("The real title.", wr.title)
         eq_(raw['copiesOwned'], pool.licenses_owned)
         eq_(raw['copiesAvailable'], pool.licenses_available)
         eq_(0, pool.licenses_reserved)
@@ -1477,7 +1477,7 @@ class TestOverdriveAPICredentials(OverdriveAPITest):
             return obj.get(key, 'none')
 
         def _make_token(scope, username, password, grant_type='password'):
-            return u'%s|%s|%s|%s' % (grant_type, scope, username, password)
+            return '%s|%s|%s|%s' % (grant_type, scope, username, password)
 
         class MockAPI(MockOverdriveAPI):
 
@@ -1535,13 +1535,13 @@ class TestOverdriveAPICredentials(OverdriveAPITest):
             self._db, library, api_map={ExternalIntegration.OVERDRIVE: MockAPI}
         )
         od_apis = {api.collection.name: api
-                   for api in circulation.api_for_collection.values()}
+                   for api in list(circulation.api_for_collection.values())}
 
         # Ensure that we have the correct number of OverDrive collections.
         eq_(len(library_collection_properties), len(od_apis))
 
         # Verify that the expected credentials match what we got.
-        for name in expected_credentials.keys() + list(reversed(expected_credentials.keys())):
+        for name in list(expected_credentials.keys()) + list(reversed(list(expected_credentials.keys()))):
             credential = od_apis[name].get_patron_credential(patron, pin)
             eq_(expected_credentials[name], credential.credential)
 
@@ -1757,10 +1757,10 @@ class TestSyncBookshelf(OverdriveAPITest):
         # Identifiers.
         identifiers = [loan.license_pool.identifier.identifier
                        for loan in loans]
-        eq_(sorted([u'a5a3d737-34d4-4d69-aad8-eba4e46019a3',
-                    u'99409f99-45a5-4238-9e10-98d1435cde04',
-                    u'993e4b33-823c-40af-8f61-cac54e1cba5d',
-                    u'a2ec6f3a-ebfe-4c95-9638-2cb13be8de5a']),
+        eq_(sorted(['a5a3d737-34d4-4d69-aad8-eba4e46019a3',
+                    '99409f99-45a5-4238-9e10-98d1435cde04',
+                    '993e4b33-823c-40af-8f61-cac54e1cba5d',
+                    'a2ec6f3a-ebfe-4c95-9638-2cb13be8de5a']),
             sorted(identifiers)
         )
 

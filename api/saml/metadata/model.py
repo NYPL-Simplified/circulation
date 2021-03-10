@@ -5,8 +5,6 @@ from json.decoder import WHITESPACE
 
 from onelogin.saml2.constants import OneLogin_Saml2_Constants
 
-from core.util.string_helpers import is_string
-
 
 class SAMLLocalizedMetadataItem(object):
     """Represents md:localizedNameType."""
@@ -20,7 +18,7 @@ class SAMLLocalizedMetadataItem(object):
         :param language: String containing language of the actual value
         :type language: Optional[string]
         """
-        if not value and not is_string(value):
+        if not value and not isinstance(value, str):
             raise ValueError("Argument 'value' must be a non-empty string")
         self._value = value
         self._language = language
@@ -1183,7 +1181,7 @@ class SAMLSubjectJSONEncoder(JSONEncoder):
         if subject.attribute_statement and subject.attribute_statement.attributes:
             result["attributes"] = {
                 attribute.name: attribute.values
-                for attribute in subject.attribute_statement.attributes.itervalues()
+                for attribute in list(subject.attribute_statement.attributes.values())
             }
 
         return result

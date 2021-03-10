@@ -10,7 +10,7 @@ from core.model import (
     AdminRole,
     ConfigurationSetting
 )
-from test_controller import SettingsControllerTest
+from .test_controller import SettingsControllerTest
 from werkzeug.datastructures import ImmutableMultiDict, MultiDict
 import flask
 
