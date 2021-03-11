@@ -16,6 +16,8 @@ from wsgiref.handlers import format_date_time
 import feedparser
 import flask
 import urlparse
+
+import pytest
 from flask import Response as FlaskResponse
 from flask import url_for
 from flask_sqlalchemy_session import current_session
@@ -150,10 +152,12 @@ class ControllerTest(VendorIDTest):
         username="unittestuser", password="unittestpassword"
     )
 
-    def setup(self, _db=None, set_up_circulation_manager=True):
-        super(ControllerTest, self).setup()
-        _db = _db or self._db
+    def setup_method(self):
+        super(ControllerTest, self).setup_method()
         self.app = app
+
+        if not hasattr(self, 'setup_circulation_manager'):
+            self.setup_circulation_manager = True
 
         # PRESERVE_CONTEXT_ON_EXCEPTION needs to be off in tests
         # to prevent one test failure from breaking later tests as well.
@@ -166,14 +170,17 @@ class ControllerTest(VendorIDTest):
         Configuration.instance[Configuration.INTEGRATIONS][ExternalIntegration.CDN] = {
             "" : "http://cdn"
         }
+
+        if self.setup_circulation_manager:
+            # NOTE: Any reference to self._default_library below this
+            # point in this method will cause the tests in
+            # TestScopedSession to hang.
+            self.set_base_url(self._db)
+            app.manager = self.circulation_manager_setup(self._db)
+
+    def set_base_url(self, _db):
         base_url = ConfigurationSetting.sitewide(_db, Configuration.BASE_URL_KEY)
         base_url.value = u'http://test-circulation-manager/'
-
-        # NOTE: Any reference to self._default_library below this
-        # point in this method will cause the tests in
-        # TestScopedSession to hang.
-        if set_up_circulation_manager:
-            app.manager = self.circulation_manager_setup(_db)
 
     def circulation_manager_setup(self, _db):
         """Set up initial Library arrangements for this test.
@@ -305,8 +312,8 @@ class CirculationControllerTest(ControllerTest):
         ["english_1", "Quite British", "John Bull", "eng", True],
     ]
 
-    def setup(self):
-        super(CirculationControllerTest, self).setup()
+    def setup_method(self):
+        super(CirculationControllerTest, self).setup_method()
         self.works = []
         for (variable_name, title, author, language, fiction) in self.BOOKS:
             work = self._work(title, author, language=language, fiction=fiction,
@@ -1586,8 +1593,8 @@ class TestMultipleLibraries(CirculationControllerTest):
                     response.headers['location'])
 
 class TestLoanController(CirculationControllerTest):
-    def setup(self):
-        super(TestLoanController, self).setup()
+    def setup_method(self):
+        super(TestLoanController, self).setup_method()
         self.pool = self.english_1.license_pools[0]
         [self.mech1] = self.pool.delivery_mechanisms
         self.mech2 = self.pool.set_delivery_mechanism(
@@ -2512,8 +2519,8 @@ class TestLoanController(CirculationControllerTest):
             assert patron.last_loan_activity_sync > new_sync_time
 
 class TestAnnotationController(CirculationControllerTest):
-    def setup(self):
-        super(TestAnnotationController, self).setup()
+    def setup_method(self):
+        super(TestAnnotationController, self).setup_method()
         self.pool = self.english_1.license_pools[0]
         self.edition = self.pool.presentation_edition
         self.identifier = self.edition.primary_identifier
@@ -2754,8 +2761,8 @@ class TestAnnotationController(CirculationControllerTest):
 
 
 class TestWorkController(CirculationControllerTest):
-    def setup(self):
-        super(TestWorkController, self).setup()
+    def setup_method(self):
+        super(TestWorkController, self).setup_method()
         [self.lp] = self.english_1.license_pools
         self.edition = self.lp.presentation_edition
         self.datasource = self.lp.data_source.name
@@ -3384,7 +3391,7 @@ class TestWorkController(CirculationControllerTest):
         metadata = Metadata(overdrive)
         recommended_identifier = self._identifier()
         metadata.recommendations = [recommended_identifier]
-        mock_api.setup(metadata)
+        mock_api.setup_method(metadata)
 
         # Now, ask for works related to self.english_1.
         with mock_search_index(self.manager.external_search):
@@ -3443,7 +3450,7 @@ class TestWorkController(CirculationControllerTest):
                 cls.called_with = kwargs
                 return Response("An OPDS feed")
 
-        mock_api.setup(metadata)
+        mock_api.setup_method(metadata)
         with self.request_context_with_library('/?entrypoint=Audio'):
             response = self.manager.work_controller.related(
                 self.identifier.type, self.identifier.identifier,
@@ -4833,8 +4840,8 @@ class TestMARCRecordController(CirculationControllerTest):
 
 
 class TestAnalyticsController(CirculationControllerTest):
-    def setup(self):
-        super(TestAnalyticsController, self).setup()
+    def setup_method(self):
+        super(TestAnalyticsController, self).setup_method()
         [self.lp] = self.english_1.license_pools
         self.identifier = self.lp.identifier
 
@@ -4897,8 +4904,8 @@ class TestAnalyticsController(CirculationControllerTest):
 
 class TestDeviceManagementProtocolController(ControllerTest):
 
-    def setup(self):
-        super(TestDeviceManagementProtocolController, self).setup()
+    def setup_method(self):
+        super(TestDeviceManagementProtocolController, self).setup_method()
         self.initialize_adobe(self.library, self.libraries)
         self.auth = dict(Authorization=self.valid_auth)
 
@@ -5109,8 +5116,9 @@ class TestSharedCollectionController(ControllerTest):
     """Test that other circ managers can register to borrow books
     from a shared collection."""
 
-    def setup(self):
-        super(TestSharedCollectionController, self).setup(set_up_circulation_manager=False)
+    def setup_method(self):
+        self.setup_circulation_manager = False
+        super(TestSharedCollectionController, self).setup_method()
         from api.odl import ODLAPI
         self.collection = self._collection(protocol=ODLAPI.NAME)
         self._default_library.collections = [self.collection]
@@ -5586,8 +5594,8 @@ class TestProfileController(ControllerTest):
     Protocol.
     """
 
-    def setup(self):
-        super(TestProfileController, self).setup()
+    def setup_method(self):
+        super(TestProfileController, self).setup_method()
 
         # Nothing will happen to this patron. This way we can verify
         # that a patron can only see/modify their own profile.
@@ -5698,13 +5706,13 @@ class TestScopedSession(ControllerTest):
         ControllerTest.setup_class()
         initialize_database(autoinitialize=False)
 
-    def setup(self):
+    def setup_method(self):
         # We will be calling circulation_manager_setup ourselves,
         # because we want objects like Libraries to be created in the
         # scoped session.
-        super(TestScopedSession, self).setup(
-            app._db, set_up_circulation_manager=False
-        )
+        self.setup_circulation_manager = False
+        super(TestScopedSession, self).setup_method()
+        self.set_base_url(app._db)
 
     def make_default_libraries(self, _db):
         libraries = []

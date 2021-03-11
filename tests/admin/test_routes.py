@@ -34,7 +34,8 @@ from ..test_routes import (
     MockApp,
     MockManager,
     MockController,
-    RouteTest
+    RouteTest,
+    RouteTestFixtures,
 )
 
 class MockAdminApp(object):
@@ -76,10 +77,26 @@ class MockAdminController(MockController):
     def bulk_circulation_events(self):
         return "data", "date", "date_end", "library"
 
-class AdminRouteTest(RouteTest):
-    def setup(self, _db=None):
-        super(RouteTest, self).setup(_db=_db, set_up_circulation_manager=False)
-        if not RouteTest.REAL_CIRCULATION_MANAGER:
+
+class AdminRouteTest(ControllerTest, RouteTestFixtures):
+
+    # The first time setup_method() is called, it will instantiate a real
+    # CirculationManager object and store it in REAL_CIRCULATION_MANAGER.
+    # We only do this once because it takes about a second to instantiate
+    # this object. Calling any of this object's methods could be problematic,
+    # since it's probably left over from a previous test, but we won't be
+    # calling any methods -- we just want to verify the _existence_,
+    # in a real CirculationManager, of the methods called in
+    # routes.py.
+    @classmethod
+    def setup_class(cls):
+        super(AdminRouteTest, cls).setup_class()
+        cls.REAL_CIRCULATION_MANAGER = None
+
+    def setup_method(self):
+        self.setup_circulation_manager = False
+        super(AdminRouteTest, self).setup_method()
+        if not self.REAL_CIRCULATION_MANAGER:
             library = self._default_library
             # Set up the necessary configuration so that when we
             # instantiate the CirculationManager it gets an
@@ -91,7 +108,7 @@ class AdminRouteTest(RouteTest):
             circ_manager = CirculationManager(self._db, testing=True)
             manager = AdminController(circ_manager)
             setup_admin_controllers(circ_manager)
-            RouteTest.REAL_CIRCULATION_MANAGER = circ_manager
+            self.REAL_CIRCULATION_MANAGER = circ_manager
 
         app = MockAdminApp()
         # Also mock the api app in order to use functions from api/routes
@@ -121,8 +138,9 @@ class AdminRouteTest(RouteTest):
         # Need to also mock the route app from /api/routes.
         self.api_routes.app = api_app
 
-    def teardown(self):
-        super(AdminRouteTest, self).teardown()
+    def teardown_method(self):
+        super(ControllerTest, self).teardown_method()
+        self.routes.app = self.original_app
         self.api_routes.app = self.original_api_app
 
     def assert_authenticated_request_calls(self, url, method, *args, **kwargs):
