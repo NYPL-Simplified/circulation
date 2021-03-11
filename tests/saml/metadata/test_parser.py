@@ -1,6 +1,6 @@
 import defusedxml
+import pytest
 from mock import MagicMock, create_autospec
-from nose.tools import eq_, raises
 from onelogin.saml2.auth import OneLogin_Saml2_Auth
 from parameterized import parameterized
 
@@ -28,15 +28,14 @@ from tests.saml import fixtures
 
 
 class TestSAMLMetadataParser(object):
-    @raises(SAMLMetadataParsingError)
     def test_parse_raises_exception_when_xml_metadata_has_incorrect_format(self):
         # Arrange
         metadata_parser = SAMLMetadataParser()
 
         # Act
-        metadata_parser.parse(fixtures.INCORRECT_XML)
+        with pytest.raises(SAMLMetadataParsingError):
+            metadata_parser.parse(fixtures.INCORRECT_XML)
 
-    @raises(SAMLMetadataParsingError)
     def test_parse_raises_exception_when_idp_metadata_does_not_contain_sso_service(
         self,
     ):
@@ -44,11 +43,11 @@ class TestSAMLMetadataParser(object):
         metadata_parser = SAMLMetadataParser()
 
         # Act
-        metadata_parser.parse(
-            fixtures.INCORRECT_XML_WITH_ONE_IDP_METADATA_WITHOUT_SSO_SERVICE
-        )
+        with pytest.raises(SAMLMetadataParsingError):
+            metadata_parser.parse(
+                fixtures.INCORRECT_XML_WITH_ONE_IDP_METADATA_WITHOUT_SSO_SERVICE
+            )
 
-    @raises(SAMLMetadataParsingError)
     def test_parse_raises_exception_when_idp_metadata_contains_sso_service_with_wrong_binding(
         self,
     ):
@@ -56,9 +55,10 @@ class TestSAMLMetadataParser(object):
         metadata_parser = SAMLMetadataParser()
 
         # Act
-        metadata_parser.parse(
-            fixtures.INCORRECT_XML_WITH_ONE_IDP_METADATA_WITH_SSO_SERVICE_WITH_WRONG_BINDING
-        )
+        with pytest.raises(SAMLMetadataParsingError):
+            metadata_parser.parse(
+                fixtures.INCORRECT_XML_WITH_ONE_IDP_METADATA_WITH_SSO_SERVICE_WITH_WRONG_BINDING
+            )
 
     def test_parse_does_not_raise_exception_when_xml_metadata_does_not_have_display_names(
         self,
@@ -487,15 +487,15 @@ class TestSAMLMetadataParser(object):
             ) ==
             parsing_results[1].provider)
 
-    @raises(SAMLMetadataParsingError)
     def test_parse_raises_exception_when_sp_metadata_does_not_contain_acs_service(self):
         # Arrange
         metadata_parser = SAMLMetadataParser()
 
         # Act
-        metadata_parser.parse(
-            fixtures.INCORRECT_XML_WITH_ONE_SP_METADATA_WITHOUT_ACS_SERVICE
-        )
+        with pytest.raises(SAMLMetadataParsingError):
+            metadata_parser.parse(
+                fixtures.INCORRECT_XML_WITH_ONE_SP_METADATA_WITHOUT_ACS_SERVICE
+            )
 
     def test_parse_correctly_parses_one_sp_metadata(self):
         # Arrange

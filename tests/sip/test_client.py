@@ -1,10 +1,5 @@
 """Standalone tests of the SIP2 client."""
 import pytest
-from nose.tools import (
-    eq_,
-    set_trace,
-    assert_raises,
-)
 import os
 import socket
 import ssl

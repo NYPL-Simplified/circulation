@@ -1,9 +1,5 @@
 import pytest
-from nose.tools import (
-    set_trace,
-    eq_,
-    assert_raises
-)
+
 import base64
 import datetime
 import flask

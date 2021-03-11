@@ -2,7 +2,6 @@ import json
 
 from flask import request
 from mock import MagicMock, create_autospec, patch, call
-from nose.tools import eq_
 
 from api.controller import CirculationManager
 from api.lcp.collection import LCPAPI

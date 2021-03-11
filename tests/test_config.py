@@ -2,11 +2,6 @@ from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_OAEP
 
 from collections import Counter
-from nose.tools import (
-    assert_raises_regexp,
-    eq_,
-    set_trace,
-)
 import json
 
 from core.config import Configuration as CoreConfiguration

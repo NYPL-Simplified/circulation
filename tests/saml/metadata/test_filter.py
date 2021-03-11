@@ -1,5 +1,4 @@
 import pytest
-from nose.tools import assert_raises, eq_
 from parameterized import parameterized
 
 from api.saml.metadata.filter import SAMLSubjectFilter, SAMLSubjectFilterError

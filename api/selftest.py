@@ -1,4 +1,3 @@
-from nose.tools import set_trace
 import sys
 from sqlalchemy.orm.session import Session
 

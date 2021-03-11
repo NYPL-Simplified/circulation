@@ -1,5 +1,4 @@
 from mock import create_autospec, patch, ANY
-from nose.tools import eq_
 
 from api.lcp.importer import LCPImporter
 from api.lcp.mirror import LCPMirror

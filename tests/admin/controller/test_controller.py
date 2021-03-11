@@ -8,10 +8,7 @@ from datetime import datetime, timedelta
 import feedparser
 import flask
 import pytest
-from nose.tools import (
-    eq_,
-    assert_raises
-)
+
 from werkzeug.datastructures import MultiDict
 from werkzeug.http import dump_cookie
 

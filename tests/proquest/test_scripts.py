@@ -2,7 +2,6 @@ import json
 import sys
 
 from mock import MagicMock, create_autospec, patch
-from nose.tools import eq_
 
 from api.proquest.client import ProQuestAPIClient, ProQuestAPIClientFactory
 from api.proquest.importer import ProQuestOPDS2Importer, ProQuestOPDS2ImportMonitor

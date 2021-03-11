@@ -1,9 +1,4 @@
 import json
-from nose.tools import (
-    eq_,
-    set_trace,
-)
-
 from oauth2client import client as GoogleClient
 
 from core.testing import DatabaseTest

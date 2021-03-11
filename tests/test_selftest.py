@@ -1,8 +1,4 @@
 """Test circulation-specific extensions to the self-test infrastructure."""
-from nose.tools import (
-    eq_,
-    set_trace,
-)
 import datetime
 from StringIO import StringIO
 

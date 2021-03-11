@@ -1,4 +1,3 @@
-from nose.tools import set_trace
 import logging
 import flask
 import base64

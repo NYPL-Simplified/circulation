@@ -9,13 +9,6 @@ import random
 import urllib
 import uuid
 
-from nose.tools import (
-    eq_,
-    assert_raises,
-    assert_raises_regexp,
-    set_trace,
-)
-
 from StringIO import StringIO
 
 from api.authenticator import BasicAuthenticationProvider
@@ -293,10 +286,9 @@ class TestRBDigitalAPI(RBDigitalAPITest):
 
     def test_availability_exception(self):
         self.api.queue_response(500)
-        assert_raises_regexp(
-            BadResponseException, "Bad response from availability_search",
-            self.api.get_all_available_through_search
-        )
+        with pytest.raises(BadResponseException) as excinfo:
+            self.api.get_all_available_through_search()
+        assert "Bad response from availability_search" in str(excinfo.value)
 
     def test_search(self):
         datastr, datadict = self.api.get_data("response_search_one_item_1.json")
@@ -384,10 +376,9 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         assert very_neg == (0, snap_date_searcher.INDEXED_GREATER_THAN_MATCH)
         assert very_pos == (snapshots_max_index, snap_date_searcher.INDEXED_LESS_THAN_MATCH)
 
-        assert_raises_regexp(
-            TypeError, ".*'key' must be 'None' or a callable.",
-            self.api._FuzzyBinarySearcher, snapshots, key="not a callable"
-        )
+        with pytest.raises(TypeError) as excinfo:
+            self.api._FuzzyBinarySearcher(snapshots, key="not a callable")
+        assert "'key' must be 'None' or a callable." in str(excinfo.value)
 
     def test_align_delta_dates_to_available_snapshots(self):
         datastr, datadict = self.api.get_data("response_catalog_availability_dates_multi.json")
@@ -430,29 +421,25 @@ class TestRBDigitalAPI(RBDigitalAPITest):
 
         # date alignment cannot work without at least one snapshot
         self.api.queue_response(status_code=200, content=u"[]")
-        assert_raises_regexp(
-            BadResponseException, ".*RBDigital available-dates response contains no snapshots.",
-            self.api.align_dates_to_available_snapshots, from_date="2000-02-02", to_date="2000-01-01"
-        )
+        with pytest.raises(BadResponseException) as excinfo:
+            self.api.align_dates_to_available_snapshots(from_date="2000-02-02", to_date="2000-01-01")
+        assert "RBDigital available-dates response contains no snapshots." in str(excinfo.value)
         self.api.queue_response(status_code=200, content=u"[]")
-        assert_raises_regexp(
-            BadResponseException, ".*RBDigital available-dates response contains no snapshots.",
-            self.api.align_dates_to_available_snapshots
-        )
+        with pytest.raises(BadResponseException) as excinfo:
+            self.api.align_dates_to_available_snapshots()
+        assert "RBDigital available-dates response contains no snapshots." in str(excinfo.value)
 
         # exception for invalid json
         self.api.queue_response(status_code=200, content="this is not JSON")
-        assert_raises_regexp(
-            BadResponseException, ".*RBDigital available-dates response not parsable.",
-            self.api.align_dates_to_available_snapshots
-        )
+        with pytest.raises(BadResponseException) as excinfo:
+            self.api.align_dates_to_available_snapshots()
+        assert "RBDigital available-dates response not parsable." in str(excinfo.value)
 
 
     def test_get_delta(self):
-        assert_raises_regexp(
-            ValueError, 'from_date 2000-02-02 cannot be after to_date 2000-01-01.',
-            self.api.get_delta, from_date="2000-02-02", to_date="2000-01-01"
-        )
+        with pytest.raises(ValueError) as excinfo:
+            self.api.get_delta(from_date="2000-02-02", to_date="2000-01-01")
+        assert 'from_date 2000-02-02 cannot be after to_date 2000-01-01.' in str(excinfo.value)
 
         # The effective begin and end snapshot dates (after availability alignment)
         # cannot be the same.
@@ -460,35 +447,30 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         # and there is an exact snapshot date match, ...
         available_dates_string, datadict = self.api.get_data("response_catalog_availability_dates_multi.json")
         self.api.queue_response(status_code=200, content=available_dates_string)
-        assert_raises_regexp(
-            ValueError, 'The effective begin and end RBDigital catalog snapshot dates cannot be the same.',
-            self.api.get_delta, from_date="2020-04-01", to_date="2020-04-01"
-        )
+        with pytest.raises(ValueError) as excinfo:
+            self.api.get_delta(from_date="2020-04-01", to_date="2020-04-01")
+        assert 'The effective begin and end RBDigital catalog snapshot dates cannot be the same.' in str(excinfo.value)
         # but can also occur when:
         # - both dates are less than the date of the first snapshot, ...
         self.api.queue_response(status_code=200, content=available_dates_string)
-        assert_raises_regexp(
-            ValueError, 'The effective begin and end RBDigital catalog snapshot dates cannot be the same.',
-            self.api.get_delta, from_date="1960-01-01", to_date="1960-01-02"
-        )
+        with pytest.raises(ValueError) as excinfo:
+            self.api.get_delta(from_date="1960-01-01", to_date="1960-01-02")
+        assert 'The effective begin and end RBDigital catalog snapshot dates cannot be the same.' in str(excinfo.value)
         # - both dates are greater than the date of the last snapshot, or ...
         self.api.queue_response(status_code=200, content=available_dates_string)
-        assert_raises_regexp(
-            ValueError, 'The effective begin and end RBDigital catalog snapshot dates cannot be the same.',
-            self.api.get_delta, from_date="2999-12-31", to_date="2999-12-31"
-        )
+        with pytest.raises(ValueError) as excinfo:
+            self.api.get_delta(from_date="2999-12-31", to_date="2999-12-31")
+        assert 'The effective begin and end RBDigital catalog snapshot dates cannot be the same.' in str(excinfo.value)
         # - only a single snapshot is available
         datastr, datadict = self.api.get_data("response_catalog_availability_dates_only_one.json")
         self.api.queue_response(status_code=200, content=datastr)
-        assert_raises_regexp(
-            ValueError, 'The effective begin and end RBDigital catalog snapshot dates cannot be the same.',
-            self.api.get_delta, from_date="1960-01-01", to_date="2999-12-31"
-        )
+        with pytest.raises(ValueError) as excinfo:
+            self.api.get_delta(from_date="1960-01-01", to_date="2999-12-31")
+        assert 'The effective begin and end RBDigital catalog snapshot dates cannot be the same.' in str(excinfo.value)
         self.api.queue_response(status_code=200, content=datastr)
-        assert_raises_regexp(
-            ValueError, 'The effective begin and end RBDigital catalog snapshot dates cannot be the same.',
-            self.api.get_delta
-        )
+        with pytest.raises(ValueError) as excinfo:
+            self.api.get_delta()
+        assert 'The effective begin and end RBDigital catalog snapshot dates cannot be the same.' in str(excinfo.value)
 
         # Retrieving a delta requires first retrieving a list of dated
         # snapshots, then retrieving the changes between those dates.
@@ -747,10 +729,9 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         # Test the case where the patron already exists.
         datastr, datadict = api.get_data("response_patron_create_fail_already_exists.json")
         api.queue_response(status_code=409, content=datastr)
-        assert_raises_regexp(
-            RemotePatronCreationFailedException, 'create_patron: http=409, response={"message":"A patron account with the specified username, email address, or card number already exists for this library."}',
-            api.create_patron, *args
-        )
+        with pytest.raises(RemotePatronCreationFailedException) as excinfo:
+            api.create_patron(*args)
+        assert 'create_patron: http=409, response={"message":"A patron account with the specified username, email address, or card number already exists for this library."}' in str(excinfo.value)
 
     def test__find_or_create_create_patron_caches_bearer_token(self):
         # Test that the method that creates an RBDigital account caches
@@ -945,10 +926,9 @@ class TestRBDigitalAPI(RBDigitalAPITest):
             "response_patron_internal_id_error.json"
         )
         self.api.queue_response(status_code=500, content=datastr)
-        assert_raises_regexp(
-            InvalidInputException, "patron_id:",
-            m, identifier
-        )
+        with pytest.raises(InvalidInputException) as excinfo:
+            m(identifier)
+        assert "patron_id:" in str(excinfo.value)
 
     def test_get_ebook_availability_info(self):
         datastr, datadict = self.api.get_data("response_availability_ebook_1.json")
@@ -1160,10 +1140,9 @@ class TestRBDigitalAPI(RBDigitalAPITest):
 
         datastr, datadict = self.api.get_data("response_checkout_unavailable.json")
         self.api.queue_response(status_code=409, content=datastr)
-        assert_raises_regexp(
-            NoAvailableCopies, "Title is not available for checkout",
-            self.api.circulate_item, rbdigital_id, edition.primary_identifier.identifier
-        )
+        with pytest.raises(NoAvailableCopies) as excinfo:
+            self.api.circulate_item(rbdigital_id, edition.primary_identifier.identifier)
+        assert "Title is not available for checkout" in str(excinfo.value)
         request_url, request_args, request_kwargs = self.api.requests[-1]
         assert "checkouts" in request_url
         assert "post" == request_kwargs.get("method")
@@ -1180,11 +1159,9 @@ class TestRBDigitalAPI(RBDigitalAPITest):
 
         datastr, datadict = self.api.get_data("response_return_unavailable.json")
         self.api.queue_response(status_code=409, content=datastr)
-        assert_raises_regexp(
-            NotCheckedOut, "checkin:",
-            self.api.circulate_item, rbdigital_id, edition.primary_identifier.identifier,
-            return_item=True
-        )
+        with pytest.raises(NotCheckedOut) as excinfo:
+            self.api.circulate_item(rbdigital_id, edition.primary_identifier.identifier, return_item=True)
+        assert "checkin:" in str(excinfo.value)
         request_url, request_args, request_kwargs = self.api.requests[-1]
         assert "checkouts" in request_url
         assert "delete" == request_kwargs.get("method")
@@ -1607,19 +1584,17 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         # because we can't distinguish between the two cases.)
         datastr, datadict = self.api.get_data("response_patron_hold_fail_409_already_exists.json")
         self.api.queue_response(status_code=409, content=datastr)
-        assert_raises_regexp(
-            CannotHold, ".*Hold or Checkout already exists.",
-            self.api.place_hold, patron, None, pool, None
-        )
+        with pytest.raises(CannotHold) as excinfo:
+            self.api.place_hold(patron, None, pool, None)
+        assert "Hold or Checkout already exists." in str(excinfo.value)
 
         # If the patron has reached a limit and cannot place any more holds,
         # CannotHold is raised.
         datastr, datadict = self.api.get_data("response_patron_hold_fail_409_reached_limit.json")
         self.api.queue_response(status_code=409, content=datastr)
-        assert_raises_regexp(
-            CannotHold, ".*You have reached your checkout limit and therefore are unable to place additional holds.",
-            self.api.place_hold, patron, None, pool, None
-        )
+        with pytest.raises(CannotHold) as excinfo:
+            self.api.place_hold(patron, None, pool, None)
+        assert "You have reached your checkout limit and therefore are unable to place additional holds." in str(excinfo.value)
 
         # Finally let's test a successful hold.
         datastr, datadict = self.api.get_data("response_patron_hold_success.json")
@@ -1838,26 +1813,23 @@ class TestRBFulfillmentInfo(RBDigitalAPITest):
         m = info.fulfill_part
 
         info._content_type = "not/an/audiobook"
-        assert_raises_regexp(
-            CannotPartiallyFulfill,
-            "This work does not support partial fulfillment."
-        )
+        with pytest.raises(CannotPartiallyFulfill) as excinfo:
+            m(3)
+        assert "This work does not support partial fulfillment." in str(excinfo.value)
 
         info._content_type = Representation.AUDIOBOOK_MANIFEST_MEDIA_TYPE
-        assert_raises_regexp(
-            CannotPartiallyFulfill,
-            '"not a number" is not a valid part number', m, "not a number"
-        )
+        with pytest.raises(CannotPartiallyFulfill) as excinfo:
+            m("not a number")
+        assert '"not a number" is not a valid part number' in str(excinfo.value)
 
-        assert_raises_regexp(
-            CannotPartiallyFulfill, 'Could not locate part number -1', m, -1
-        )
+        with pytest.raises(CannotPartiallyFulfill) as excinfo:
+            m(-1)
+        assert 'Could not locate part number -1' in str(excinfo.value)
 
         # There are 21 parts in this audiobook, numbered from 0 to 20.
-        assert_raises_regexp(
-            CannotPartiallyFulfill, 'Could not locate part number 21', m,
-            len(manifest.readingOrder)
-        )
+        with pytest.raises(CannotPartiallyFulfill) as excinfo:
+            m(len(manifest.readingOrder))
+        assert 'Could not locate part number 21' in str(excinfo.value)
 
         # Finally, let's fulfill a part that does exist.
         part_index = 10
@@ -1904,10 +1876,9 @@ class TestAudiobookManifest(RBDigitalAPITest):
         # that clients cannot directly retrieve the access document
         # from the primary downloadUrl, not providing a function to
         # generate this alternative is treated as an error.
-        assert_raises_regexp(
-            TypeError, "__init__\(\) takes exactly .* arguments .*",
-            AudiobookManifest, book
-        )
+        with pytest.raises(TypeError) as excinfo:
+            AudiobookManifest(book)
+        assert "__init__() takes exactly 3 arguments (2 given)" in str(excinfo.value)
 
         manifest = AudiobookManifest(book, fulfill_part_url)
 

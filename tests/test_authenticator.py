@@ -3,12 +3,6 @@ don't interact with any particular source of truth.
 """
 import pytest
 from flask_babel import lazy_gettext as _
-from nose.tools import (
-    assert_raises_regexp,
-    eq_,
-    set_trace,
-)
-
 import datetime
 from decimal import Decimal
 import json

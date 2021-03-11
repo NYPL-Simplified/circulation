@@ -4,12 +4,6 @@ from decimal import Decimal
 import json
 
 import pytest
-from nose.tools import (
-    assert_raises_regexp,
-    eq_,
-    set_trace,
-)
-
 from api.config import (
     CannotLoadConfiguration,
     Configuration,

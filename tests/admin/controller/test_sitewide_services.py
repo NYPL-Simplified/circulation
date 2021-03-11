@@ -1,8 +1,4 @@
-from nose.tools import (
-    set_trace,
-    eq_,
-    assert_raises
-)
+
 import flask
 from api.admin.controller import SettingsController
 from api.admin.controller.sitewide_services import *

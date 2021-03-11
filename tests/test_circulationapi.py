@@ -4,7 +4,6 @@ from datetime import datetime, timedelta
 import flask
 import pytest
 from flask import Flask
-from nose.tools import assert_raises, assert_raises_regexp, eq_
 from parameterized import parameterized
 
 from api.authenticator import LibraryAuthenticator, PatronData
@@ -232,7 +231,9 @@ class TestCirculationAPI(DatabaseTest):
         # This is the expected behavior in most cases--you tried to
         # renew the loan and failed because it's not time yet.
         self.remote.queue_checkout(CannotRenew())
-        assert_raises_regexp(CannotRenew, 'CannotRenew', self.borrow)
+        with pytest.raises(CannotRenew) as excinfo:
+            self.borrow()
+        assert 'CannotRenew' in str(excinfo.value)
 
     def test_attempt_renew_with_local_loan_and_no_available_copies(self):
         """We have a local loan and a remote loan but the patron tried to
@@ -255,11 +256,9 @@ class TestCirculationAPI(DatabaseTest):
         # Contrast with the way NoAvailableCopies is handled in
         # test_loan_becomes_hold_if_no_available_copies.
         self.remote.queue_checkout(NoAvailableCopies())
-        assert_raises_regexp(
-            CannotRenew,
-            "You cannot renew a loan if other patrons have the work on hold.",
-            self.borrow
-        )
+        with pytest.raises(CannotRenew) as excinfo:
+            self.borrow()
+        assert "You cannot renew a loan if other patrons have the work on hold." in str(excinfo.value)
 
     def test_loan_becomes_hold_if_no_available_copies(self):
         # We want to borrow this book but there are no copies.

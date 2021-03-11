@@ -22,7 +22,6 @@ from flask import Response as FlaskResponse
 from flask import url_for
 from flask_sqlalchemy_session import current_session
 from mock import MagicMock, patch
-from nose.tools import assert_raises, eq_
 from werkzeug.datastructures import ImmutableMultiDict
 from werkzeug.exceptions import NotFound
 

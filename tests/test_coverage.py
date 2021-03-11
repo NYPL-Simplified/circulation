@@ -1,8 +1,4 @@
-from nose.tools import (
-    assert_raises_regexp,
-    set_trace,
-    eq_,
-)
+import pytest
 
 from core.testing import (
     DatabaseTest,
@@ -68,10 +64,9 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
 
         response = MockRequestsResponse(200, {"content-type" : "text/plain"}, "Some data")
         provider.lookup_client.queue_response(response)
-        assert_raises_regexp(
-            BadResponseException, "Wrong media type: text/plain",
-            provider.import_feed_response, response, None
-        )
+        with pytest.raises(BadResponseException) as excinfo:
+            provider.import_feed_response(response, None)
+        assert "Wrong media type: text/plain" in str(excinfo.value)
 
     def test_process_batch_with_identifier_mapping(self):
         """Test that internal identifiers are mapped to and from the form used

@@ -9,11 +9,6 @@ import json
 import pytest
 from lxml import etree
 from mock import create_autospec
-from nose.tools import (
-    set_trace,
-    eq_,
-    assert_raises,
-)
 import feedparser
 from core.testing import DatabaseTest
 

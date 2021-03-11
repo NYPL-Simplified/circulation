@@ -3,7 +3,6 @@ import json
 
 from freezegun import freeze_time
 from mock import create_autospec, MagicMock, patch
-from nose.tools import eq_
 
 from api.lcp.collection import LCPAPI, LCPFulfilmentInfo
 from api.lcp.encrypt import LCPEncryptionConfiguration

@@ -2,13 +2,7 @@
 import json
 
 import pytest
-from nose.tools import (
-    assert_raises_regexp,
-    eq_,
-    ok_,
-    assert_raises,
-    set_trace
-)
+
 
 import datetime
 import os
@@ -190,11 +184,10 @@ class TestOdiloAPI(OdiloAPITest):
 
             json.dumps(dict(errors=[dict(description="Oops")]))
         )
-        assert_raises_regexp(
-            BadResponseException, "Bad response from .*: Oops",
-            self.api.refresh_creds,
-            credential
-        )
+        with pytest.raises(BadResponseException) as excinfo:
+            self.api.refresh_creds(credential)
+        assert "Bad response from" in str(excinfo.value)
+        assert "Oops" in str(excinfo.value)
 
         # If there's a 400 response but no error information,
         # the generic error message is used.
@@ -203,11 +196,10 @@ class TestOdiloAPI(OdiloAPITest):
 
             json.dumps(dict())
         )
-        assert_raises_regexp(
-            BadResponseException, "Bad response from .*: .* may not be the right base URL.",
-            self.api.refresh_creds,
-            credential
-        )
+        with pytest.raises(BadResponseException) as excinfo:
+            self.api.refresh_creds(credential)
+        assert "Bad response from" in str(excinfo.value)
+        assert "may not be the right base URL." in str(excinfo.value)
 
     def test_401_after_token_refresh_raises_error(self):
         assert "bearer token" == self.api.token
@@ -224,11 +216,12 @@ class TestOdiloAPI(OdiloAPITest):
         self.api.queue_response(401)
 
         # That raises a BadResponseException
-        assert_raises_regexp(
-            BadResponseException, "Bad response from .*:Something's wrong with the Odilo OAuth Bearer Token!",
-        )
+        with pytest.raises(BadResponseException) as excinfo:
+            self.api.get(self._url, {})
+        assert "Something's wrong with the Odilo OAuth Bearer Token!" in str(excinfo.value)
 
-        self.api.log.info('Test 401 after token refresh raises error ok!')
+        # The bearer token has been updated.
+        assert "new bearer token" == self.api.token
 
     def test_external_integration(self):
         assert (self.collection.external_integration ==

@@ -1,4 +1,3 @@
-from nose.tools import eq_
 from api.kansas_patron import KansasAuthenticationAPI
 from core.testing import DatabaseTest
 from . import sample_data

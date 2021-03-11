@@ -6,12 +6,6 @@ import datetime
 import feedparser
 import pytest
 
-from nose.tools import (
-    assert_raises_regexp,
-    eq_,
-    set_trace,
-)
-
 from core.config import (
     CannotLoadConfiguration,
     Configuration,
@@ -86,10 +80,9 @@ class TestMWCollectionUpdateMonitor(MonitorTest):
         class Mock(object):
             authenticated = False
         self.monitor.lookup = Mock()
-        assert_raises_regexp(
-            Exception, "no authentication credentials",
-            self.monitor.run_once, self.ts
-        )
+        with pytest.raises(Exception) as excinfo:
+            self.monitor.run_once(self.ts)
+        assert "no authentication credentials" in str(excinfo.value)
 
     def test_import_one_feed(self):
         data = sample_data('metadata_updates_response.opds', 'opds')
@@ -321,10 +314,9 @@ class TestMWAuxiliaryMetadataMonitor(MonitorTest):
         class Mock(object):
             authenticated = False
         self.monitor.lookup = Mock()
-        assert_raises_regexp(
-            Exception, "no authentication credentials",
-            self.monitor.run_once, self.ts
-        )
+        with pytest.raises(Exception) as excinfo:
+            self.monitor.run_once(self.ts)
+        assert "no authentication credentials" in str(excinfo.value)
 
     def prep_feed_identifiers(self):
         ignored = self._identifier()
@@ -581,10 +573,9 @@ class TestMetadataWranglerCollectionRegistrar(MetadataWranglerCoverageProviderTe
 
         id1 = self._identifier()
         id2 = self._identifier()
-        assert_raises_regexp(
-            BadResponseException, 'Wrong media type',
-            self.provider.process_batch, [id1, id2]
-        )
+        with pytest.raises(BadResponseException) as excinfo:
+            self.provider.process_batch([id1, id2])
+        assert 'Wrong media type' in str(excinfo.value)
         assert [] == id1.coverage_records
         assert [] == id2.coverage_records
 
@@ -593,10 +584,9 @@ class TestMetadataWranglerCollectionRegistrar(MetadataWranglerCoverageProviderTe
             500, {'content-type': OPDSFeed.ACQUISITION_FEED_TYPE},
             'Internal Server Error'
         )
-        assert_raises_regexp(
-            BadResponseException, "Got status code 500",
-            self.provider.process_batch, [id1, id2]
-        )
+        with pytest.raises(BadResponseException) as excinfo:
+            self.provider.process_batch([id1, id2])
+        assert "Got status code 500" in str(excinfo.value)
         assert [] == id1.coverage_records
         assert [] == id2.coverage_records
 

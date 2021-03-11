@@ -1,8 +1,5 @@
-from nose.tools import (
-    assert_raises_regexp,
-    set_trace,
-    eq_,
-)
+import pytest
+
 import json
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_OAEP
@@ -348,10 +345,9 @@ class TestRemoteRegistry(DatabaseTest):
 
         # No other media type is allowed.
         image = data_url("an image!", "image/png")
-        assert_raises_regexp(
-            ValueError, "Unsupported media type in data: URL: image/png",
-            m, image
-        )
+        with pytest.raises(ValueError) as excinfo:
+            m(image)
+        assert "Unsupported media type in data: URL: image/png" in str(excinfo.value)
 
         # Incoming HTML is sanitized.
         dirty_html = data_url("<script>alert!</script><p>Some HTML</p>")
@@ -359,30 +355,26 @@ class TestRemoteRegistry(DatabaseTest):
 
         # Now test various malformed data: URLs.
         no_header = "foobar"
-        assert_raises_regexp(
-            ValueError, "Not a data: URL: foobar",
-            m, no_header
-        )
+        with pytest.raises(ValueError) as excinfo:
+            m(no_header)
+        assert "Not a data: URL: foobar" in str(excinfo.value)
 
         no_comma = "data:blah"
-        assert_raises_regexp(
-            ValueError, "Invalid data: URL: data:blah",
-            m, no_comma
-        )
+        with pytest.raises(ValueError) as excinfo:
+            m(no_comma)
+        assert "Invalid data: URL: data:blah" in str(excinfo.value)
 
         too_many_commas = "data:blah,blah,blah"
-        assert_raises_regexp(
-            ValueError, "Invalid data: URL: data:blah,blah,blah",
-            m, too_many_commas
-        )
+        with pytest.raises(ValueError) as excinfo:
+            m(too_many_commas)
+        assert "Invalid data: URL: data:blah,blah,blah" in str(excinfo.value)
 
         # data: URLs don't have to be base64-encoded, but those are the
         # only kind we support.
         not_encoded = "data:blah,content"
-        assert_raises_regexp(
-            ValueError, "data: URL not base64-encoded: data:blah,content",
-            m, not_encoded
-        )
+        with pytest.raises(ValueError) as excinfo:
+            m(not_encoded)
+        assert "data: URL not base64-encoded: data:blah,content" in str(excinfo.value)
 
 
 class TestRegistration(DatabaseTest):

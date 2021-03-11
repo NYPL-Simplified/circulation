@@ -1,9 +1,4 @@
 import pytest
-from nose.tools import (
-    assert_raises_regexp,
-    eq_,
-    set_trace,
-)
 from lxml import etree
 
 from flask import Response
@@ -87,15 +82,13 @@ class TestCustomPatronCatalog(DatabaseTest):
 
         assert lane == m(library1, lane.id)
 
-        assert_raises_regexp(
-            CannotLoadConfiguration,
-            "No lane with ID", m, library1, -2
-        )
+        with pytest.raises(CannotLoadConfiguration) as excinfo:
+            m(library1, -2)
+        assert "No lane with ID" in str(excinfo.value)
 
-        assert_raises_regexp(
-            CannotLoadConfiguration,
-            "is for the wrong library", m, library2, lane.id
-        )
+        with pytest.raises(CannotLoadConfiguration) as excinfo:
+            m(library2, lane.id)
+        assert "is for the wrong library" in str(excinfo.value)
 
     def test_replace_link(self):
         """Test the replace_link helper method."""

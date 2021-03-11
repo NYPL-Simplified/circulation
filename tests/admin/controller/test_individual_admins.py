@@ -1,9 +1,5 @@
 import pytest
-from nose.tools import (
-    set_trace,
-    eq_,
-    assert_raises
-)
+
 import flask
 from flask_babel import lazy_gettext as _
 import json

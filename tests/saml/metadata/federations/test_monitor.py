@@ -1,5 +1,4 @@
 from mock import MagicMock, create_autospec
-from nose.tools import eq_
 
 from api.saml.metadata.federations.loader import SAMLFederatedIdentityProviderLoader
 from api.saml.metadata.federations.model import (

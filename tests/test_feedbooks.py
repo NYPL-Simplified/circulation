@@ -1,10 +1,7 @@
 # encoding: utf-8
+import pytest
+
 import os
-from nose.tools import (
-    assert_raises_regexp,
-    eq_,
-    set_trace,
-)
 from StringIO import StringIO
 from zipfile import ZipFile
 from core.testing import DatabaseTest
@@ -83,10 +80,9 @@ class TestFeedbooksOPDSImporter(DatabaseTest):
         set to true.
         """
         settings = {FeedbooksOPDSImporter.REALLY_IMPORT_KEY: "false"}
-        assert_raises_regexp(
-            Exception, "configured to not actually do an import",
-            self._importer, **settings
-        )
+        with pytest.raises(Exception) as excinfo:
+            self._importer(**settings)
+        assert "configured to not actually do an import" in str(excinfo.value)
 
     def test_unique_identifier(self):
         # The unique account ID is the language of the Feedbooks
@@ -101,19 +97,17 @@ class TestFeedbooksOPDSImporter(DatabaseTest):
         settings = {FeedbooksOPDSImporter.REPLACEMENT_CSS_KEY: "http://foo"}
 
         self.http.queue_response(500, content="An error message")
-        assert_raises_regexp(
-            IOError, "Replacement stylesheet URL returned 500 response code",
-            self._importer, **settings
-        )
+        with pytest.raises(IOError) as excinfo:
+            self._importer(**settings)
+        assert "Replacement stylesheet URL returned 500 response code" in str(excinfo.value)
 
         self.http.queue_response(
             200, content="We have many CSS offerings",
             media_type="text/html"
         )
-        assert_raises_regexp(
-            IOError, "Replacement stylesheet is 'text/html', not a CSS document.",
-            self._importer, **settings
-        )
+        with pytest.raises(IOError) as excinfo:
+            self._importer(**settings)
+        assert "Replacement stylesheet is 'text/html', not a CSS document." in str(excinfo.value)
 
     def test_extract_feed_data_improves_descriptions(self):
         feed = self.sample_file("feed.atom")

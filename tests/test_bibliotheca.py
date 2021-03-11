@@ -1,12 +1,6 @@
 # encoding: utf-8
 import pytest
-from nose.tools import (
-    set_trace,
-    eq_,
-    assert_raises,
-    assert_raises_regexp,
 
-)
 from datetime import datetime, timedelta
 import json
 import os
@@ -1057,7 +1051,7 @@ class TestBibliothecaEventMonitor(BibliothecaAPITest):
         api.queue_response(
             200, content=self.sample_data("empty_event_batch.xml")
         )
-        
+
         assert after_timestamp.counter == 1
 
         with pytest.raises(RemoteInitiatedServerError) as excinfo:
@@ -1066,7 +1060,7 @@ class TestBibliothecaEventMonitor(BibliothecaAPITest):
 
         # One request was made but no events were found.
         assert 16 == len(api.requests)
-        
+
         # If we are in "catch up" mode and the timespan to check for events
         # is longer than 70 hours, we revert back to checking for events
         # in 5-minute intervals.
@@ -1085,7 +1079,7 @@ class TestBibliothecaEventMonitor(BibliothecaAPITest):
             )
 
         after_timestamp = monitor.run_once(before_timestamp)
-        
+
         assert after_timestamp.counter == 0
 
     def test_handle_event(self):

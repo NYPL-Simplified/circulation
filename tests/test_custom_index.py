@@ -1,8 +1,5 @@
-from nose.tools import (
-    assert_raises_regexp,
-    eq_,
-    set_trace,
-)
+import pytest
+
 from lxml import etree
 
 from flask import Response
@@ -35,9 +32,9 @@ class TestCustomIndexView(DatabaseTest):
         c.register(Mock1)
         assert Mock1 == c.BY_PROTOCOL[Mock1.PROTOCOL]
 
-        assert_raises_regexp(ValueError,
-                             "Duplicate index view for protocol: A protocol",
-                             c.register, Mock2)
+        with pytest.raises(ValueError) as excinfo:
+            c.register(Mock2)
+        assert "Duplicate index view for protocol: A protocol" in str(excinfo.value)
         c.BY_PROTOCOL = old_registry
 
     def test_default_registry(self):
@@ -109,7 +106,7 @@ class TestCOPPAGate(DatabaseTest):
         self._db.commit()
         with pytest.raises(CannotLoadConfiguration) as excinfo:
             COPPAGate(self._default_library, self.integration)
-        assert "Lane .* is for the wrong library" in str(excinfo.value)
+        assert "Lane {} is for the wrong library".format(self.lane1.id) in str(excinfo.value)
         self.lane1.library_id = self._default_library.id
 
         # If the lane ID doesn't correspond to a real lane, the
@@ -118,10 +115,9 @@ class TestCOPPAGate(DatabaseTest):
             self._db, COPPAGate.REQUIREMENT_MET_LANE, self._default_library,
             self.integration
         ).value = -100
-        assert_raises_regexp(
-            CannotLoadConfiguration, "No lane with ID: -100",
-            COPPAGate, self._default_library, self.integration
-        )
+        with pytest.raises(CannotLoadConfiguration) as excinfo:
+            COPPAGate(self._default_library, self.integration)
+        assert "No lane with ID: -100" in str(excinfo.value)
 
     def test_invocation(self):
         """Test the ability of a COPPAGate to act as a view."""

@@ -1,6 +1,5 @@
 from itertools import tee
 
-from nose.tools import eq_
 from parameterized import parameterized
 from werkzeug.datastructures import MultiDict
 

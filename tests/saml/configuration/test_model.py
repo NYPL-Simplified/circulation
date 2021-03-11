@@ -2,7 +2,6 @@ import json
 
 import sqlalchemy
 from mock import MagicMock, PropertyMock, call, create_autospec
-from nose.tools import eq_
 from parameterized import parameterized
 
 from api.app import initialize_database

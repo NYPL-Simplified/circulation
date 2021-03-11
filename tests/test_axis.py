@@ -5,13 +5,6 @@ import os
 import pytest
 from lxml import etree
 from StringIO import StringIO
-from nose.tools import (
-    eq_,
-    assert_raises,
-    assert_raises_regexp,
-    set_trace,
-)
-
 from core.analytics import Analytics
 from core.mock_analytics_provider import MockAnalyticsProvider
 from core.coverage import CoverageFailure
@@ -267,10 +260,10 @@ class TestAxis360API(Axis360Test):
     def test_availability_exception(self):
 
         self.api.queue_response(500)
-        assert_raises_regexp(
-            RemoteIntegrationException, "Bad response from http://axis.test/availability/v2: Got status code 500 from external server, cannot continue.",
-            self.api.availability
-        )
+
+        with pytest.raises(RemoteIntegrationException) as excinfo:
+            self.api.availability()
+        assert "Bad response from http://axis.test/availability/v2: Got status code 500 from external server, cannot continue." in str(excinfo.value)
 
     def test_refresh_bearer_token_after_401(self):
         """If we get a 401, we will fetch a new bearer token and try the
@@ -290,10 +283,9 @@ class TestAxis360API(Axis360Test):
         """
         api = MockAxis360API(self._db, self.collection, with_token=False)
         api.queue_response(412)
-        assert_raises_regexp(
-            RemoteIntegrationException, "Bad response from http://axis.test/accesstoken: Got status code 412 from external server, but can only continue on: 200.",
-            api.refresh_bearer_token
-        )
+        with pytest.raises(RemoteIntegrationException) as excinfo:
+            api.refresh_bearer_token()
+        assert "Bad response from http://axis.test/accesstoken: Got status code 412 from external server, but can only continue on: 200." in str(excinfo.value)
 
     def test_exception_after_401_with_fresh_token(self):
         """If we get a 401 immediately after refreshing the token, we will
@@ -1112,26 +1104,23 @@ class TestRaiseExceptionOnError(TestResponseParser):
     def test_internal_server_error(self):
         data = self.sample_data("internal_server_error.xml")
         parser = HoldReleaseResponseParser(None)
-        assert_raises_regexp(
-            RemoteInitiatedServerError, "Internal Server Error",
-            parser.process_all, data
-        )
+        with pytest.raises(RemoteInitiatedServerError) as excinfo:
+            parser.process_all(data)
+        assert "Internal Server Error" in str(excinfo.value)
 
     def test_internal_server_error(self):
         data = self.sample_data("invalid_error_code.xml")
         parser = HoldReleaseResponseParser(None)
-        assert_raises_regexp(
-            RemoteInitiatedServerError, "Invalid response code from Axis 360: abcd",
-            parser.process_all, data
-        )
+        with pytest.raises(RemoteInitiatedServerError) as excinfo:
+            parser.process_all(data)
+        assert "Invalid response code from Axis 360: abcd" in str(excinfo.value)
 
     def test_missing_error_code(self):
         data = self.sample_data("missing_error_code.xml")
         parser = HoldReleaseResponseParser(None)
-        assert_raises_regexp(
-            RemoteInitiatedServerError, "No status code!",
-            parser.process_all, data
-        )
+        with pytest.raises(RemoteInitiatedServerError) as excinfo:
+            parser.process_all(data)
+        assert "No status code!" in str(excinfo.value)
 
 
 class TestCheckoutResponseParser(TestResponseParser):
@@ -1303,10 +1292,9 @@ class TestJSONResponseParser(object):
         m(success)
 
         # If it indicates failure, an appropriate exception is raised.
-        assert_raises_regexp(
-            PatronAuthorizationFailedException, "A message",
-            m, failure
-        )
+        with pytest.raises(PatronAuthorizationFailedException) as excinfo:
+            m(failure)
+        assert "A message" in str(excinfo.value)
 
         # If the Status object is missing, a more generic exception is
         # raised.

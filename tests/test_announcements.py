@@ -1,7 +1,3 @@
-from nose.tools import (
-    eq_,
-    set_trace,
-)
 import datetime
 import json
 

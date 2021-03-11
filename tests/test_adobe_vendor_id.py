@@ -2,12 +2,7 @@ import base64
 import json
 
 import pytest
-from nose.tools import (
-    set_trace,
-    eq_,
-    assert_raises,
-    assert_raises_regexp
-)
+
 import jwt
 from jwt.exceptions import (
     DecodeError,
@@ -775,10 +770,9 @@ class TestAuthdataUtility(VendorIDTest):
         # we can't decode the authdata
         foreign_authdata.secret = 'A new secret'
         vendor_id, authdata = foreign_authdata.encode(patron_identifier)
-        assert_raises_regexp(
-            DecodeError, "Signature verification failed",
-            self.authdata.decode, authdata
-        )
+        with pytest.raises(DecodeError) as excinfo:
+            self.authdata.decode(authdata)
+        assert "Signature verification failed" in str(excinfo.value)
 
     def test_decode_from_unknown_library_fails(self):
 
@@ -792,10 +786,9 @@ class TestAuthdataUtility(VendorIDTest):
         )
         vendor_id, authdata = foreign_authdata.encode("A patron")
         # They can encode, but we cna't decode.
-        assert_raises_regexp(
-            DecodeError, "Unknown library: http://some-other-library.org/",
-            self.authdata.decode, authdata
-        )
+        with pytest.raises(DecodeError) as excinfo:
+            self.authdata.decode(authdata)
+        assert "Unknown library: http://some-other-library.org/" in str(excinfo.value)
 
     def test_cannot_decode_token_from_future(self):
         future = datetime.datetime.utcnow() + datetime.timedelta(days=365)
@@ -816,20 +809,18 @@ class TestAuthdataUtility(VendorIDTest):
         )
 
     def test_cannot_encode_null_patron_identifier(self):
-        assert_raises_regexp(
-            ValueError, "No patron identifier specified",
-            self.authdata.encode, None
-        )
+        with pytest.raises(ValueError) as excinfo:
+            self.authdata.encode(None)
+        assert "No patron identifier specified" in str(excinfo.value)
 
     def test_cannot_decode_null_patron_identifier(self):
 
         authdata = self.authdata._encode(
             self.authdata.library_uri, None,
         )
-        assert_raises_regexp(
-            DecodeError, "No subject specified",
-            self.authdata.decode, authdata
-        )
+        with pytest.raises(DecodeError) as excinfo:
+            self.authdata.decode(authdata)
+        assert "No subject specified" in str(excinfo.value)
 
     def test_short_client_token_round_trip(self):
         """Encoding a token and immediately decoding it gives the expected
@@ -901,32 +892,28 @@ class TestAuthdataUtility(VendorIDTest):
         vendor_id, token = foreign_authdata.encode_short_client_token(
             patron_identifier
         )
-        assert_raises_regexp(
-            ValueError, "Invalid signature for",
-            self.authdata.decode_short_client_token, token
-        )
+        with pytest.raises(ValueError) as excinfo:
+            self.authdata.decode_short_client_token(token)
+        assert "Invalid signature for" in str(excinfo.value)
 
     def test_decode_client_token_errors(self):
         """Test various token errors"""
         m = self.authdata._decode_short_client_token
 
         # A token has to contain at least two pipe characters.
-        assert_raises_regexp(
-            ValueError, "Invalid client token",
-            m, "foo|", "signature"
-        )
+        with pytest.raises(ValueError) as excinfo:
+            m("foo|", "signature")
+        assert "Invalid client token" in str(excinfo.value)
 
         # The expiration time must be numeric.
-        assert_raises_regexp(
-            ValueError, 'Expiration time "a time" is not numeric',
-            m, "library|a time|patron", "signature"
-        )
+        with pytest.raises(ValueError) as excinfo:
+            m("library|a time|patron", "signature")
+        assert 'Expiration time "a time" is not numeric' in str(excinfo.value)
 
         # The patron identifier must not be blank.
-        assert_raises_regexp(
-            ValueError, 'Token library|1234| has empty patron identifier',
-            m, "library|1234|", "signature"
-        )
+        with pytest.raises(ValueError) as excinfo:
+            m("library|1234|", "signature")
+        assert 'Token library|1234| has empty patron identifier' in str(excinfo.value)
 
         # The library must be a known one.
         with pytest.raises(ValueError) as excinfo:
@@ -945,10 +932,9 @@ class TestAuthdataUtility(VendorIDTest):
         assert 'Token mylibrary|1234|patron expired at 1970-01-01 00:20:34' in str(excinfo.value)
 
         # Finally, the signature must be valid.
-        assert_raises_regexp(
-            ValueError, 'Invalid signature for',
-            m, "mylibrary|99999999999|patron", "signature"
-        )
+        with pytest.raises(ValueError) as excinfo:
+            m("mylibrary|99999999999|patron", "signature")
+        assert 'Invalid signature for' in str(excinfo.value)
 
     def test_adobe_base64_encode_decode(self):
         """Test our special variant of base64 encoding designed to avoid

@@ -1,8 +1,4 @@
-from nose.tools import (
-    set_trace,
-    eq_,
-    assert_raises
-)
+
 from flask_babel import lazy_gettext as _
 from core.selftest import (
     HasSelfTests,

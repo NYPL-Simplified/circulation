@@ -1,7 +1,6 @@
 import json
 
 from mock import PropertyMock, create_autospec
-from nose.tools import eq_
 
 from api.admin.controller.collection_settings import CollectionSettingsController
 from api.controller import CirculationManager

@@ -1,10 +1,5 @@
 # encoding: utf-8
 import pytest
-from nose.tools import (
-    set_trace, eq_, ok_,
-    assert_raises,
-    assert_raises_regexp,
-)
 import pkgutil
 import json
 from datetime import (
@@ -344,10 +339,9 @@ class TestOverdriveAPI(OverdriveAPITest):
 
         # Most of the time, an error simply results in an exception.
         api.queue_response(400, content=api_response)
-        assert_raises_regexp(
-            Exception, "exception in _process_checkout_error",
-            api.checkout, patron, pin, pool, "internal format is ignored"
-        )
+        with pytest.raises(Exception) as excinfo:
+            api.checkout(patron, pin, pool, "internal format is ignored")
+        assert "exception in _process_checkout_error" in str(excinfo.value)
         assert (patron, pin, pool, "some data") == api._process_checkout_error_called_with.pop()
 
         # However, if _process_checkout_error is able to recover from
@@ -403,21 +397,19 @@ class TestOverdriveAPI(OverdriveAPITest):
             return m(patron, pin, pool, error)
 
         # Errors not specifically known become generic CannotLoan exceptions.
-        assert_raises_regexp(
-            CannotLoan, "WeirdError", with_error_code, "WeirdError"
-        )
+        with pytest.raises(CannotLoan) as excinfo:
+            with_error_code("WeirdError")
+        assert "WeirdError" in str(excinfo.value)
 
         # If the data passed in to _process_checkout_error is not what
         # the real Overdrive API would send, the error is even more
         # generic.
-        assert_raises_regexp(
-            CannotLoan, "Unknown Error",
-            m, patron, pin, pool, "Not a dict"
-        )
-        assert_raises_regexp(
-            CannotLoan, "Unknown Error",
-            m, patron, pin, pool, dict(errorCodePresent=False)
-        )
+        with pytest.raises(CannotLoan) as excinfo:
+            m(patron, pin, pool, "Not a dict")
+        assert "Unknown Error" in str(excinfo.value)
+        with pytest.raises(CannotLoan) as excinfo:
+            m(patron, pin, pool, dict(errorCodePresent=False))
+        assert "Unknown Error" in str(excinfo.value)
 
         # Some known errors become specific subclasses of CannotLoan.
         pytest.raises(PatronLoanLimitReached, with_error_code,
@@ -1603,17 +1595,15 @@ class TestExtractData(OverdriveAPITest):
 
         # Here we don't even know the name of the format.
         empty = dict()
-        assert_raises_regexp(
-            IOError, "No linkTemplates for format \(unknown\)",
-            m, empty, error_url
-        )
+        with pytest.raises(IOError) as excinfo:
+            m(empty, error_url)
+        assert "No linkTemplates for format (unknown)" in str(excinfo.value)
 
         # Here we know the name, but there are no link templates.
         no_templates = dict(formatType='someformat')
-        assert_raises_regexp(
-            IOError, "No linkTemplates for format someformat",
-            m, no_templates, error_url
-        )
+        with pytest.raises(IOError) as excinfo:
+            m(no_templates, error_url)
+        assert "No linkTemplates for format someformat" in str(excinfo.value)
 
         # Here there's a link template structure, but no downloadLink
         # inside.
@@ -1621,10 +1611,9 @@ class TestExtractData(OverdriveAPITest):
             formatType='someformat',
             linkTemplates=dict()
         )
-        assert_raises_regexp(
-            IOError, "No downloadLink for format someformat",
-            m, no_download_link, error_url
-        )
+        with pytest.raises(IOError) as excinfo:
+            m(no_download_link, error_url)
+        assert "No downloadLink for format someformat" in str(excinfo.value)
 
         # Here there's a downloadLink structure, but no href inside.
         href_is_missing = dict(
@@ -1633,10 +1622,9 @@ class TestExtractData(OverdriveAPITest):
                 downloadLink=dict()
             )
         )
-        assert_raises_regexp(
-            IOError, "No downloadLink href for format someformat",
-            m, href_is_missing, error_url
-        )
+        with pytest.raises(IOError) as excinfo:
+            m(href_is_missing, error_url)
+        assert "No downloadLink href for format someformat" in str(excinfo.value)
 
         # Now we finally get to the cases where there is an actual
         # download link.  The behavior is different based on whether

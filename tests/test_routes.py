@@ -2,11 +2,6 @@ import contextlib
 import logging
 
 import pytest
-from nose.tools import (
-    assert_raises,
-    eq_,
-    set_trace,
-)
 import flask
 from flask import Response
 from werkzeug.exceptions import MethodNotAllowed
@@ -492,7 +487,7 @@ class TestLoansController(RouteTest):
             authenticated=True
         )
         self.assert_supported_methods(url, 'GET', 'PUT')
-        
+
         url = '/works/<identifier_type>/<identifier>/borrow/<mechanism_id>'
         self.assert_request_calls_method_using_identifier(
             url, self.controller.borrow,

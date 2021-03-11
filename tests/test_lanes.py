@@ -2,12 +2,6 @@
 from collections import Counter
 
 import pytest
-from nose.tools import (
-    set_trace,
-    eq_,
-    assert_raises,
-    assert_raises_regexp,
-)
 import json
 import datetime
 from mock import MagicMock
@@ -742,13 +736,9 @@ class TestContributorLane(LaneTest):
         )
 
     def test_initialization(self):
-        assert_raises_regexp(
-            ValueError,
-            "ContributorLane can't be created without contributor",
-            ContributorLane,
-            self._default_library,
-            None
-        )
+        with pytest.raises(ValueError) as excinfo:
+            ContributorLane(self._default_library, None)
+        assert "ContributorLane can't be created without contributor" in str(excinfo.value)
 
         parent = WorkList()
         parent.initialize(self._default_library)

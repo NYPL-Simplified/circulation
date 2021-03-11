@@ -3,7 +3,6 @@ import os
 
 import pytest
 from freezegun import freeze_time
-from nose.tools import assert_raises
 from parameterized import parameterized
 
 import tests.saml.fixtures

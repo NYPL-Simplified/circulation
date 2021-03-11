@@ -1,10 +1,4 @@
 import pytest
-from nose.tools import (
-    assert_raises_regexp,
-    set_trace,
-    eq_,
-)
-
 import contextlib
 import datetime
 import flask

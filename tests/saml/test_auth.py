@@ -7,7 +7,6 @@ from database_test import DatabaseTest
 from defusedxml.lxml import fromstring
 from freezegun import freeze_time
 from mock import MagicMock, PropertyMock, create_autospec, patch
-from nose.tools import eq_
 from onelogin.saml2.utils import OneLogin_Saml2_Utils
 from parameterized import parameterized
 from six.moves.urllib.parse import parse_qs, urlsplit

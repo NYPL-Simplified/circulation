@@ -1,9 +1,4 @@
 import pytest
-from nose.tools import (
-    eq_,
-    set_trace,
-    assert_raises_regexp,
-)
 from api.config import (
     CannotLoadConfiguration,
 )

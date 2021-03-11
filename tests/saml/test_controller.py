@@ -3,7 +3,6 @@ import urllib
 
 from flask import request
 from mock import MagicMock, PropertyMock, create_autospec
-from nose.tools import eq_
 from parameterized import parameterized
 from six.moves.urllib.parse import parse_qs, urlsplit
 

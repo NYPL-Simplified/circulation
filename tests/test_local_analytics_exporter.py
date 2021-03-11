@@ -1,9 +1,4 @@
 from datetime import datetime, timedelta, date
-from nose.tools import (
-    set_trace,
-    eq_,
-    assert_raises,
-)
 import csv
 
 from core.testing import DatabaseTest

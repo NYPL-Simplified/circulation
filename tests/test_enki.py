@@ -1,12 +1,4 @@
 import pytest
-from nose.tools import (
-    assert_raises,
-    assert_raises_regexp,
-    set_trace,
-    eq_,
-    assert_not_equal,
-    raises,
-)
 import datetime
 import os
 import pkgutil
@@ -233,10 +225,9 @@ class TestEnkiAPI(BaseEnkiTest):
                     )
                 )
         api = Oops(self._db, self.collection)
-        assert_raises_regexp(
-            RemoteIntegrationException, "An unknown error occured",
-            api.request, "url"
-        )
+        with pytest.raises(RemoteIntegrationException) as excinfo:
+            api.request("url")
+        assert "An unknown error occured" in str(excinfo.value)
 
     def test__minutes_since(self):
         """Test the _minutes_since helper method."""
@@ -396,40 +387,40 @@ class TestEnkiAPI(BaseEnkiTest):
         assert loan.start_date == None
         assert loan.end_date == datetime.datetime(2017, 9, 13, 19, 42, 35, 0)
 
-    @raises(AuthorizationFailedException)
     def test_checkout_bad_authorization(self):
         """Test that the correct exception is thrown upon an unsuccessful login."""
-        data = self.get_data("login_unsuccessful.json")
-        self.api.queue_response(200, content=data)
-        result = json.loads(data)
+        with pytest.raises(AuthorizationFailedException):
+            data = self.get_data("login_unsuccessful.json")
+            self.api.queue_response(200, content=data)
+            result = json.loads(data)
 
-        edition, pool = self._edition(
-            identifier_type=Identifier.ENKI_ID,
-            data_source_name=DataSource.ENKI,
-            with_license_pool=True
-        )
-        pool.identifier.identifier = 'notanid'
+            edition, pool = self._edition(
+                identifier_type=Identifier.ENKI_ID,
+                data_source_name=DataSource.ENKI,
+                with_license_pool=True
+            )
+            pool.identifier.identifier = 'notanid'
 
-        patron = self._patron(external_identifier='notabarcode')
+            patron = self._patron(external_identifier='notabarcode')
 
-        loan = self.api.checkout(patron,'notapin',pool,None)
+            loan = self.api.checkout(patron,'notapin',pool,None)
 
-    @raises(NoAvailableCopies)
     def test_checkout_not_available(self):
         """Test that the correct exception is thrown upon an unsuccessful login."""
-        data = self.get_data("no_copies.json")
-        self.api.queue_response(200, content=data)
-        result = json.loads(data)
+        with pytest.raises(NoAvailableCopies):
+            data = self.get_data("no_copies.json")
+            self.api.queue_response(200, content=data)
+            result = json.loads(data)
 
-        edition, pool = self._edition(
-            identifier_type=Identifier.ENKI_ID,
-            data_source_name=DataSource.ENKI,
-            with_license_pool=True
-        )
-        pool.identifier.identifier = 'econtentRecord1'
-        patron = self._patron(external_identifier='12345678901234')
+            edition, pool = self._edition(
+                identifier_type=Identifier.ENKI_ID,
+                data_source_name=DataSource.ENKI,
+                with_license_pool=True
+            )
+            pool.identifier.identifier = 'econtentRecord1'
+            patron = self._patron(external_identifier='12345678901234')
 
-        loan = self.api.checkout(patron,'1234',pool,None)
+            loan = self.api.checkout(patron,'1234',pool,None)
 
     def test_fulfillment_open_access_parser(self):
         """Test that fulfillment info for non-ACS Enki books is parsed correctly."""

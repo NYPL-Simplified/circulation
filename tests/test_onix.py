@@ -1,8 +1,5 @@
 from StringIO import StringIO
 
-from nose.tools import (
-    eq_,
-)
 from parameterized import parameterized
 
 from api.onix import ONIXExtractor

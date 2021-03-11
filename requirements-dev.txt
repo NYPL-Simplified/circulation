@@ -1,4 +1,3 @@
-nose
 -r core/requirements-dev.txt
 -r requirements-base.txt
 

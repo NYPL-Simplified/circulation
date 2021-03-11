@@ -2,10 +2,6 @@ import json
 
 import flask
 import pytest
-from nose.tools import (
-    eq_,
-    assert_raises,
-)
 from werkzeug.datastructures import MultiDict
 
 from api.admin.exceptions import *
@@ -108,7 +104,7 @@ class TestCatalogServicesController(SettingsControllerTest):
             response = self.manager.admin_catalog_services_controller.process_catalog_services()
             assert response == INTEGRATION_NAME_ALREADY_IN_USE
 
-    
+
         service, ignore = create(
             self._db, ExternalIntegration,
             protocol=ExternalIntegration.MARC_EXPORT,
@@ -202,7 +198,7 @@ class TestCatalogServicesController(SettingsControllerTest):
             assert response.status_code == 201
 
         service = get_one(self._db, ExternalIntegration, goal=ExternalIntegration.CATALOG_GOAL)
-        # There was one S3 integration and it was selected. The service has an 
+        # There was one S3 integration and it was selected. The service has an
         # External Integration Link to the storage integration that is created
         # in a POST with purpose of ExternalIntegrationLink.MARC.
         integration_link = get_one(

@@ -1,5 +1,5 @@
+import pytest
 from mock import MagicMock, create_autospec, patch
-from nose.tools import eq_, raises
 
 from api.saml.metadata.federations import incommon
 from api.saml.metadata.federations.loader import (
@@ -15,7 +15,6 @@ from tests.saml import fixtures
 
 class TestSAMLMetadataLoader(object):
     @patch("urllib2.urlopen")
-    @raises(SAMLMetadataLoadingError)
     def test_load_idp_metadata_raises_error_when_xml_is_incorrect(self, urlopen_mock):
         # Arrange
         url = "http://md.incommon.org/InCommon/metadata.xml"
@@ -26,7 +25,8 @@ class TestSAMLMetadataLoader(object):
         metadata_loader = SAMLMetadataLoader()
 
         # Act
-        metadata_loader.load_idp_metadata(url)
+        with pytest.raises(SAMLMetadataLoadingError):
+            metadata_loader.load_idp_metadata(url)
 
     @patch("urllib2.urlopen")
     def test_load_idp_metadata_correctly_loads_one_descriptor(self, urlopen_mock):

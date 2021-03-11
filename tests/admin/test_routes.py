@@ -1,10 +1,5 @@
 import contextlib
 import logging
-from nose.tools import (
-    assert_raises,
-    eq_,
-    set_trace,
-)
 import flask
 from flask import Response
 from werkzeug.exceptions import MethodNotAllowed
@@ -67,13 +62,13 @@ class MockAdminController(MockController):
                 "authenticated_admin_from_request called without authorizing",
                 401
             )
-    
+
     def get_csrf_token(self):
         if self.csrf_token:
             return "some token"
         else:
             return INVALID_CSRF_TOKEN
-    
+
     def bulk_circulation_events(self):
         return "data", "date", "date_end", "library"
 
@@ -180,7 +175,7 @@ class AdminRouteTest(ControllerTest, RouteTestFixtures):
         response = self.request(url, http_method)
 
         assert response.headers['Content-type'] == 'text/csv'
-    
+
     def assert_redirect_call(self, url, *args, **kwargs):
 
         # Correctly render the sign in again template when the admin
@@ -243,11 +238,11 @@ class TestAdminSignIn(AdminRouteTest):
     def test_sign_in(self):
         url = '/admin/sign_in'
         self.assert_request_calls(url, self.controller.sign_in)
-    
+
     def test_sign_out(self):
         url = '/admin/sign_out'
         self.assert_authenticated_request_calls(url, self.controller.sign_out)
-    
+
     def test_change_password(self):
         url = '/admin/change_password'
         self.assert_authenticated_request_calls(
@@ -491,7 +486,7 @@ class TestAdminIndividualAdminSettings(AdminRouteTest):
             url, self.controller.process_individual_admins
         )
         self.assert_supported_methods(url, 'GET', 'POST')
-    
+
     def test_process_delete(self):
         url = "/admin/individual_admin/<email>"
         self.assert_authenticated_request_calls(
@@ -509,7 +504,7 @@ class TestAdminPatronAuthServices(AdminRouteTest):
             url, self.controller.process_patron_auth_services
         )
         self.assert_supported_methods(url, 'GET', 'POST')
-    
+
     def test_process_delete(self):
         url = "/admin/patron_auth_service/<service_id>"
         self.assert_authenticated_request_calls(
@@ -538,7 +533,7 @@ class TestAdminPatron(AdminRouteTest):
             url, self.controller.lookup_patron, http_method='POST'
         )
         self.assert_supported_methods(url, 'POST')
-    
+
     def test_reset_adobe_id(self):
         url = "/admin/manage_patrons/reset_adobe_id"
         self.assert_authenticated_request_calls(
@@ -557,7 +552,7 @@ class TestAdminMetadataServices(AdminRouteTest):
             url, self.controller.process_metadata_services
         )
         self.assert_supported_methods(url, 'GET', 'POST')
-    
+
     def test_process_delete(self):
         url = "/admin/metadata_service/<service_id>"
         self.assert_authenticated_request_calls(
@@ -575,7 +570,7 @@ class TestAdminAnalyticsServices(AdminRouteTest):
             url, self.controller.process_analytics_services
         )
         self.assert_supported_methods(url, 'GET', 'POST')
-    
+
     def test_process_delete(self):
         url = "/admin/analytics_service/<service_id>"
         self.assert_authenticated_request_calls(
@@ -593,7 +588,7 @@ class TestAdminCDNServices(AdminRouteTest):
             url, self.controller.process_cdn_services
         )
         self.assert_supported_methods(url, 'GET', 'POST')
-    
+
     def test_process_delete(self):
         url = "/admin/cdn_service/<service_id>"
         self.assert_authenticated_request_calls(
@@ -611,7 +606,7 @@ class TestAdminSearchServices(AdminRouteTest):
             url, self.controller.process_services
         )
         self.assert_supported_methods(url, 'GET', 'POST')
-    
+
     def test_process_delete(self):
         url = "/admin/search_service/<service_id>"
         self.assert_authenticated_request_calls(
@@ -640,7 +635,7 @@ class TestAdminStorageServices(AdminRouteTest):
             url, self.controller.process_services
         )
         self.assert_supported_methods(url, 'GET', 'POST')
-    
+
     def test_process_delete(self):
         url = "/admin/storage_service/<service_id>"
         self.assert_authenticated_request_calls(
@@ -658,7 +653,7 @@ class TestAdminCatalogServices(AdminRouteTest):
             url, self.controller.process_catalog_services
         )
         self.assert_supported_methods(url, 'GET', 'POST')
-    
+
     def test_process_delete(self):
         url = "/admin/catalog_service/<service_id>"
         self.assert_authenticated_request_calls(
@@ -676,7 +671,7 @@ class TestAdminDiscoveryServices(AdminRouteTest):
             url, self.controller.process_discovery_services
         )
         self.assert_supported_methods(url, 'GET', 'POST')
-    
+
     def test_process_delete(self):
         url = "/admin/discovery_service/<service_id>"
         self.assert_authenticated_request_calls(
@@ -694,7 +689,7 @@ class TestAdminSitewideServices(AdminRouteTest):
             url, self.controller.process_services
         )
         self.assert_supported_methods(url, 'GET', 'POST')
-    
+
     def test_process_delete(self):
         url = "/admin/sitewide_setting/<key>"
         self.assert_authenticated_request_calls(
@@ -712,7 +707,7 @@ class TestAdminLoggingServices(AdminRouteTest):
             url, self.controller.process_services
         )
         self.assert_supported_methods(url, 'GET', 'POST')
-    
+
     def test_process_delete(self):
         url = "/admin/logging_service/<key>"
         self.assert_authenticated_request_calls(
@@ -741,7 +736,7 @@ class TestAdminCustomListsServices(AdminRouteTest):
             url, self.controller.custom_lists
         )
         self.assert_supported_methods(url, 'GET', 'POST')
-    
+
     def test_custom_list(self):
         url = "/admin/custom_list/<list_id>"
         self.assert_authenticated_request_calls(
@@ -758,7 +753,7 @@ class TestAdminLanes(AdminRouteTest):
         url = "/admin/lanes"
         self.assert_authenticated_request_calls(url, self.controller.lanes)
         self.assert_supported_methods(url, 'GET', 'POST')
-    
+
     def test_lane(self):
         url = "/admin/lane/<lane_identifier>"
         self.assert_authenticated_request_calls(
@@ -772,21 +767,21 @@ class TestAdminLanes(AdminRouteTest):
             url, self.controller.show_lane, '<lane_identifier>', http_method='POST'
         )
         self.assert_supported_methods(url, 'POST')
-    
+
     def test_hide_lane(self):
         url = "/admin/lane/<lane_identifier>/hide"
         self.assert_authenticated_request_calls(
             url, self.controller.hide_lane, '<lane_identifier>', http_method='POST'
         )
         self.assert_supported_methods(url, 'POST')
-    
+
     def test_reset(self):
         url = "/admin/lanes/reset"
         self.assert_authenticated_request_calls(
             url, self.controller.reset, http_method='POST'
         )
         self.assert_supported_methods(url, 'POST')
-    
+
     def test_change_order(self):
         url = "/admin/lanes/change_order"
         self.assert_authenticated_request_calls(

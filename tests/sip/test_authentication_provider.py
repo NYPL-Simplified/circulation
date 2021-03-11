@@ -1,11 +1,6 @@
 from datetime import datetime
 
 import pytest
-from nose.tools import (
-    assert_raises_regexp,
-    set_trace,
-    eq_,
-)
 from api.sip.client import MockSIPClient
 from api.sip import SIP2AuthenticationProvider
 from core.util.http import RemoteIntegrationException

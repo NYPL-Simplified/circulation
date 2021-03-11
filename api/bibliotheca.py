@@ -15,7 +15,6 @@ import hashlib
 
 from flask_babel import lazy_gettext as _
 
-from nose.tools import set_trace
 
 from sqlalchemy import or_
 from sqlalchemy.orm.session import Session

@@ -1,4 +1,3 @@
-from nose.tools import set_trace
 
 from flask import url_for
 

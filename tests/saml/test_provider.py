@@ -3,7 +3,6 @@ import json
 
 from freezegun import freeze_time
 from mock import MagicMock, create_autospec, patch
-from nose.tools import eq_
 from parameterized import parameterized
 
 from api.authenticator import PatronData

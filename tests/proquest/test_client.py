@@ -3,7 +3,6 @@ import json
 import pytest
 import requests_mock
 from mock import MagicMock, create_autospec
-from nose.tools import assert_raises, eq_
 from parameterized import parameterized
 from requests import HTTPError
 

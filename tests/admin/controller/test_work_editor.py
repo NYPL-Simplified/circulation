@@ -1,9 +1,5 @@
 import pytest
-from nose.tools import (
-    set_trace,
-    eq_,
-    assert_raises
-)
+
 from api.admin.exceptions import *
 from api.admin.problem_details import *
 import feedparser

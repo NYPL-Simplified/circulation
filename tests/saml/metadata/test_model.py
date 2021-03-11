@@ -1,4 +1,3 @@
-from nose.tools import eq_
 from parameterized import parameterized
 
 from api.saml.metadata.model import (

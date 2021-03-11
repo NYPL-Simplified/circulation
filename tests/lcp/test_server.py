@@ -5,7 +5,6 @@ import urlparse
 
 import requests_mock
 from mock import create_autospec, MagicMock
-from nose.tools import eq_
 from parameterized import parameterized
 
 from api.lcp import utils

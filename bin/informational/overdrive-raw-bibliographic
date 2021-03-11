@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-from nose.tools import set_trace
 import json
 import os
 import sys
@@ -19,7 +18,7 @@ class OverdriveRawBibliographicScript(IdentifierInputScript):
         args = self.parse_command_line(self._db)
         for collection in Collection.by_protocol(
             self._db, ExternalIntegration.OVERDRIVE
-        ): 
+        ):
             overdrive = OverdriveAPI(self._db, collection)
             for identifier in args.identifiers:
                 data = overdrive.metadata_lookup(identifier)

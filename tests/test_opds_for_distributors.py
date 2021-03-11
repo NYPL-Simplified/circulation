@@ -1,10 +1,4 @@
 import pytest
-from nose.tools import (
-    set_trace,
-    eq_,
-    assert_raises,
-    assert_raises_regexp,
-)
 import datetime
 import os
 import json

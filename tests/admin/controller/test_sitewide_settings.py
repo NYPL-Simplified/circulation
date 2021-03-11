@@ -1,9 +1,5 @@
 import pytest
-from nose.tools import (
-    set_trace,
-    eq_,
-    assert_raises
-)
+
 from api.admin.exceptions import *
 from api.config import Configuration
 from core.opds import AcquisitionFeed

@@ -1,9 +1,4 @@
 import pytest
-from nose.tools import (
-    assert_raises,
-    set_trace,
-    eq_,
-)
 import base64
 import json
 import flask

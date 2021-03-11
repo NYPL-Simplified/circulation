@@ -2,7 +2,6 @@ import json
 import logging
 import urllib
 from collections import Counter
-from nose.tools import set_trace
 from flask_babel import lazy_gettext as _
 
 from core.config import (

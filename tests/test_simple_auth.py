@@ -1,9 +1,4 @@
 import pytest
-from nose.tools import (
-    eq_,
-    assert_raises_regexp,
-    set_trace,
-)
 import json
 
 from api.authenticator import PatronData

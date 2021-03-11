@@ -1,9 +1,5 @@
 import pytest
-from nose.tools import (
-    set_trace,
-    eq_,
-    assert_raises
-)
+
 import flask
 from werkzeug.datastructures import MultiDict
 from api.admin.exceptions import *

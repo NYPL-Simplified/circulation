@@ -1,10 +1,5 @@
 import datetime
 import random
-from nose.tools import (
-    set_trace,
-    eq_,
-)
-
 from core.testing import (
     DatabaseTest,
 )

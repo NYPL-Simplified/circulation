@@ -8,7 +8,6 @@ import pytest
 from flask import Response
 from freezegun import freeze_time
 from mock import ANY, MagicMock, call, create_autospec, patch
-from nose.tools import assert_raises, eq_
 from parameterized import parameterized
 from requests import HTTPError
 

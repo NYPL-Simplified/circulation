@@ -1,8 +1,4 @@
 from flask_babel import lazy_gettext as _
-from nose.tools import (
-    eq_,
-    set_trace,
-)
 from core.util.problem_detail import ProblemDetail
 from api.config import Configuration
 from api.circulation_exceptions import *

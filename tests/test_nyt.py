@@ -2,11 +2,6 @@
 import os
 
 import pytest
-from nose.tools import (
-    set_trace, eq_,
-    assert_raises,
-    assert_raises_regexp,
-)
 import datetime
 import json
 
@@ -138,10 +133,9 @@ class TestNYTBestSellerAPI(NYTBestSellerAPITest):
         def result_403(*args, **kwargs):
             return 403, None, None
         self.api.do_get = result_403
-        assert_raises_regexp(
-            IntegrationException, "API authentication failed",
-            self.api.request, "some path"
-        )
+        with pytest.raises(IntegrationException) as excinfo:
+            self.api.request("some path")
+        assert "API authentication failed" in str(excinfo.value)
 
         def result_500(*args, **kwargs):
             return 500, {}, "bad value"

@@ -1,8 +1,3 @@
-from nose.tools import (
-    eq_,
-    set_trace,
-)
-
 from core.testing import DatabaseTest
 from api.admin.problem_details import *
 from api.admin.password_admin_authentication_provider import PasswordAdminAuthenticationProvider
