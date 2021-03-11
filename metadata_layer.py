@@ -434,7 +434,7 @@ class ContributorData(object):
             identifier_obj, self.display_name)
         sort_name = None
 
-        if isinstance(response, str):
+        if isinstance(response, (bytes, str)):
             sort_name = response
         else:
             log = logging.getLogger("Abstract metadata layer")
@@ -2291,7 +2291,7 @@ class CSVMetadataImporter(object):
         """All potential field names that would identify an identifier."""
         for identifier_type in self.IDENTIFIER_PRECEDENCE:
             field_names = self.identifier_fields.get(identifier_type, [])
-            if isinstance(field_names, str):
+            if isinstance(field_names, (bytes, str)):
                 field_names = [field_names]
             for field_name in field_names:
                 yield field_name
@@ -2307,7 +2307,7 @@ class CSVMetadataImporter(object):
         """Get a value from one of the given fields and ensure it comes in as
         Unicode.
         """
-        if isinstance(names, str):
+        if isinstance(names, (bytes, str)):
             return self.__field(row, names, default)
         if not names:
             return default

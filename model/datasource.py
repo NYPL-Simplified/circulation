@@ -159,7 +159,7 @@ class DataSource(Base, HasFullTableCache, DataSourceConstants):
         """A query that locates all DataSources that provide licenses for
         books identified by the given identifier.
         """
-        if isinstance(identifier, str):
+        if isinstance(identifier, (bytes, str)):
             type = identifier
         else:
             type = identifier.type
@@ -172,7 +172,7 @@ class DataSource(Base, HasFullTableCache, DataSourceConstants):
         """Finds the DataSources that provide metadata for books
         identified by the given identifier.
         """
-        if isinstance(identifier, str):
+        if isinstance(identifier, (bytes, str)):
             type = identifier
         else:
             type = identifier.type

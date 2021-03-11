@@ -1354,7 +1354,7 @@ class AcquisitionFeed(OPDSFeed):
         category_tags = []
         for scheme, categories in list(categories_by_scheme.items()):
             for category in categories:
-                if isinstance(category, str):
+                if isinstance(category, (bytes, str)):
                     category = dict(term=category)
                 category = dict(list(map(str, (k, v))) for k, v in list(category.items()))
                 category_tag = AtomFeed.category(scheme=scheme, **category)

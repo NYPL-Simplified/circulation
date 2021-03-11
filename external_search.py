@@ -355,7 +355,7 @@ class ExternalSearchIndex(HasSelfTests):
 
             # If only the source code was provided, configure it as a
             # Painless script.
-            if isinstance(definition, str):
+            if isinstance(definition, (bytes, str)):
                 definition = dict(script=dict(lang="painless", source=definition))
 
             # Put it in the database.
@@ -2348,7 +2348,7 @@ class Filter(SearchBase):
             return self._audiences
 
         as_is = self._audiences
-        if isinstance(as_is, str):
+        if isinstance(as_is, (bytes, str)):
             as_is = [as_is]
 
         # At this point we know we have a specific list of audiences.
@@ -2927,7 +2927,7 @@ class Filter(SearchBase):
         """
         if s is None:
             return []
-        if isinstance(s, str):
+        if isinstance(s, (bytes, str)):
             s = [s]
         return [cls._scrub(x) for x in s]
 
@@ -3273,7 +3273,7 @@ class SearchIndexCoverageProvider(WorkPresentationProvider):
 
         records = list(successes)
         for (work, error) in failures:
-            if not isinstance(error, str):
+            if not isinstance(error, (bytes, str)):
                 error = repr(error)
             records.append(CoverageFailure(work, error))
 

@@ -598,7 +598,7 @@ class Work(Base):
     def with_genre(cls, _db, genre):
         """Find all Works classified under the given genre."""
         from .classification import Genre
-        if isinstance(genre, str):
+        if isinstance(genre, (bytes, str)):
             genre, ignore = Genre.lookup(_db, genre)
         return _db.query(Work).join(WorkGenre).filter(WorkGenre.genre==genre)
 

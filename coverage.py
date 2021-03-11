@@ -772,7 +772,7 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
             return DataSource.lookup(_db, cls.DATA_SOURCE_NAME)
         if isinstance(data_source, DataSource):
             return data_source
-        if isinstance(data_source, str):
+        if isinstance(data_source, (bytes, str)):
             return DataSource.lookup(_db, data_source, autocreate=autocreate)
 
     @property
@@ -1146,7 +1146,7 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
             return license_pools[0]
 
         data_source = data_source or self.data_source
-        if isinstance(data_source, str):
+        if isinstance(data_source, (bytes, str)):
             data_source = DataSource.lookup(self._db, data_source)
 
         # This Collection has no LicensePool for the given Identifier.

@@ -92,7 +92,7 @@ class CustomList(Base):
             data_sources = [data_sources]
         ids = []
         for ds in data_sources:
-            if isinstance(ds, str):
+            if isinstance(ds, (bytes, str)):
                 ds = DataSource.lookup(_db, ds)
             ids.append(ds.id)
         return _db.query(CustomList).filter(CustomList.data_source_id.in_(ids))

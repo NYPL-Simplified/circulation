@@ -2720,7 +2720,7 @@ class Lane(Base, DatabaseBackedWorkList, HierarchyWorkList):
         """
         if self._audiences and self._target_age and value != self._audiences:
             raise ValueError("Cannot modify Lane.audiences when Lane.target_age is set!")
-        if isinstance(value, str):
+        if isinstance(value, (bytes, str)):
             value = [value]
         self._audiences = value
 
@@ -2954,7 +2954,7 @@ class Lane(Base, DatabaseBackedWorkList, HierarchyWorkList):
         Mainly used in tests.
         """
         _db = Session.object_session(self)
-        if isinstance(genre, str):
+        if isinstance(genre, (bytes, str)):
             genre, ignore = Genre.lookup(_db, genre)
         lanegenre, is_new = get_one_or_create(
             _db, LaneGenre, lane=self, genre=genre

@@ -270,7 +270,7 @@ class Edition(Base, EditionConstants):
 
         """
         # Look up the data source if necessary.
-        if isinstance(data_source, str):
+        if isinstance(data_source, (bytes, str)):
             data_source = DataSource.lookup(_db, data_source)
 
         identifier, ignore = Identifier.for_foreign_id(
@@ -444,7 +444,7 @@ class Edition(Base, EditionConstants):
                         **kwargs):
         """Assign a contributor to this Edition."""
         _db = Session.object_session(self)
-        if isinstance(roles, str):
+        if isinstance(roles, (bytes, str)):
             roles = [roles]
 
         # First find or create the Contributor.

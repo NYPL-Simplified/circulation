@@ -90,7 +90,7 @@ class MatchingRule(object):
                     % special_variables[rule]
                 )
 
-            if isinstance(rule, str):
+            if isinstance(rule, (bytes, str)):
                 # It's a string. We do case-insensitive comparisons,
                 # so lowercase it.
                 self.ruleset.append(Lowercased(rule))

@@ -127,7 +127,7 @@ class DeweyDecimalClassifier(Classifier):
             # young adult nonfiction.
             return None
 
-        if (isinstance(identifier, str) and (
+        if (isinstance(identifier, (bytes, str)) and (
                 identifier.startswith('Y') or identifier.startswith('J'))):
             # Young adult/children's literature--not necessarily fiction
             identifier = identifier[1:]
@@ -152,13 +152,13 @@ class DeweyDecimalClassifier(Classifier):
             # Juvenile fiction
             return cls.AUDIENCE_CHILDREN
 
-        if isinstance(identifier, str) and identifier.startswith('J'):
+        if isinstance(identifier, (bytes, str)) and identifier.startswith('J'):
             return cls.AUDIENCE_CHILDREN
 
-        if isinstance(identifier, str) and identifier.startswith('Y'):
+        if isinstance(identifier, (bytes, str)) and identifier.startswith('Y'):
             return cls.AUDIENCE_YOUNG_ADULT
 
-        if isinstance(identifier, str) and identifier=='FIC':
+        if isinstance(identifier, (bytes, str)) and identifier=='FIC':
             # FIC is used for all types of fiction.
             return None
 

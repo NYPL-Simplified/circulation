@@ -66,7 +66,7 @@ class BaseCoverageRecord(object):
         """
         if not count_as_covered:
             count_as_covered = cls.DEFAULT_COUNT_AS_COVERED
-        elif isinstance(count_as_covered, str):
+        elif isinstance(count_as_covered, (bytes, str)):
             count_as_covered = [count_as_covered]
 
         # If there is no coverage record, then of course the item is
@@ -367,7 +367,7 @@ class CoverageRecord(Base, BaseCoverageRecord):
             raise ValueError(
                 "Cannot look up a coverage record for %r." % edition)
 
-        if isinstance(data_source, str):
+        if isinstance(data_source, (bytes, str)):
             data_source = DataSource.lookup(_db, data_source)
 
         return get_one(
