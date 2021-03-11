@@ -1,3 +1,4 @@
+import pytest
 from nose.tools import (
     set_trace,
     eq_,
@@ -50,7 +51,7 @@ class TestMetadataServices(SettingsControllerTest):
         self._db.flush()
 
         with self.request_context_with_admin("/"):
-            assert_raises(
+            pytest.raises(
                 AdminNotAuthorized,
                 controller.process_metadata_services
             )
@@ -113,7 +114,7 @@ class TestMetadataServices(SettingsControllerTest):
         assert m(wrangler)[0] == MetadataWranglerOPDSLookup
         assert m(nyt)[0] == NYTBestSellerAPI
         assert m(novelist)[0] == NoveListAPI
-        assert_raises(NotImplementedError, m, fake)
+        pytest.raises(NotImplementedError, m, fake)
 
     def test_metadata_services_post_errors(self):
         controller = self.manager.admin_metadata_services_controller
@@ -396,7 +397,7 @@ class TestMetadataServices(SettingsControllerTest):
 
         with self.request_context_with_admin("/", method="DELETE"):
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_metadata_services_controller.process_delete,
                           novelist_service.id)
 

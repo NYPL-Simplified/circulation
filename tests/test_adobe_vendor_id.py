@@ -1,5 +1,7 @@
 import base64
 import json
+
+import pytest
 from nose.tools import (
     set_trace,
     eq_,
@@ -624,11 +626,9 @@ class TestAuthdataUtility(VendorIDTest):
 
         # Then an attempt to use it to get an AuthdataUtility
         # will fail...
-        assert_raises_regexp(
-            ValueError,
-            "No database connection provided and could not derive one from Library object!",
-            AuthdataUtility.from_config, library
-        )
+        with pytest.raises(ValueError) as excinfo:
+            AuthdataUtility.from_config(library)
+        assert "No database connection provided and could not derive one from Library object!" in str(excinfo.value)
 
         # ...unless a database session is provided in the constructor.
         authdata = AuthdataUtility.from_config(library, self._db)
@@ -645,7 +645,7 @@ class TestAuthdataUtility(VendorIDTest):
             self._db, ExternalIntegration.USERNAME, library, registry)
         old_short_name = setting.value
         setting.value = None
-        assert_raises(
+        pytest.raises(
             CannotLoadConfiguration, AuthdataUtility.from_config,
             library
         )
@@ -654,7 +654,7 @@ class TestAuthdataUtility(VendorIDTest):
         setting = library.setting(Configuration.WEBSITE_URL)
         old_value = setting.value
         setting.value = None
-        assert_raises(
+        pytest.raises(
             CannotLoadConfiguration, AuthdataUtility.from_config, library
         )
         setting.value = old_value
@@ -663,7 +663,7 @@ class TestAuthdataUtility(VendorIDTest):
             self._db, ExternalIntegration.PASSWORD, library, registry)
         old_secret = setting.value
         setting.value = None
-        assert_raises(
+        pytest.raises(
             CannotLoadConfiguration, AuthdataUtility.from_config, library
         )
         setting.value = old_secret
@@ -689,7 +689,7 @@ class TestAuthdataUtility(VendorIDTest):
                 "http://b/" : ("A", "secret2"),
             })
         )
-        assert_raises(ValueError, AuthdataUtility.from_config, library)
+        pytest.raises(ValueError, AuthdataUtility.from_config, library)
 
         # If there is no Adobe Vendor ID integration set up,
         # from_config() returns None.
@@ -802,7 +802,7 @@ class TestAuthdataUtility(VendorIDTest):
         authdata = self.authdata._encode(
             "Patron identifier", iat=future
         )
-        assert_raises(
+        pytest.raises(
             InvalidIssuedAtError, self.authdata.decode, authdata
         )
 
@@ -811,7 +811,7 @@ class TestAuthdataUtility(VendorIDTest):
         authdata = self.authdata._encode(
             "Patron identifier", exp=expires
         )
-        assert_raises(
+        pytest.raises(
             ExpiredSignatureError, self.authdata.decode, authdata
         )
 
@@ -929,26 +929,20 @@ class TestAuthdataUtility(VendorIDTest):
         )
 
         # The library must be a known one.
-        assert_raises_regexp(
-            ValueError,
-            'I don\'t know how to handle tokens from library "LIBRARY"',
-            m, "library|1234|patron", "signature"
-        )
+        with pytest.raises(ValueError) as excinfo:
+            m("library|1234|patron", "signature")
+        assert 'I don\'t know how to handle tokens from library "LIBRARY"' in str(excinfo.value)
 
         # We must have the shared secret for the given library.
         self.authdata.library_uris_by_short_name['LIBRARY'] = 'http://a-library.com/'
-        assert_raises_regexp(
-            ValueError,
-            'I don\'t know the secret for library http://a-library.com/',
-            m, "library|1234|patron", "signature"
-        )
+        with pytest.raises(ValueError) as excinfo:
+            m("library|1234|patron", "signature")
+        assert 'I don\'t know the secret for library http://a-library.com/' in str(excinfo.value)
 
         # The token must not have expired.
-        assert_raises_regexp(
-            ValueError,
-            'Token mylibrary|1234|patron expired at 1970-01-01 00:20:34',
-            m, "mylibrary|1234|patron", "signature"
-        )
+        with pytest.raises(ValueError) as excinfo:
+            m("mylibrary|1234|patron", "signature")
+        assert 'Token mylibrary|1234|patron expired at 1970-01-01 00:20:34' in str(excinfo.value)
 
         # Finally, the signature must be valid.
         assert_raises_regexp(

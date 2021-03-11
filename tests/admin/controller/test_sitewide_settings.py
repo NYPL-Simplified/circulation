@@ -1,3 +1,4 @@
+import pytest
 from nose.tools import (
     set_trace,
     eq_,
@@ -48,7 +49,7 @@ class TestSitewideSettings(SettingsControllerTest):
 
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
             self._db.flush()
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_sitewide_configuration_settings_controller.process_get)
 
     def test_sitewide_settings_post_errors(self):
@@ -71,7 +72,7 @@ class TestSitewideSettings(SettingsControllerTest):
                 ("key", Configuration.SECRET_KEY),
                 ("value", "secret"),
             ])
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_sitewide_configuration_settings_controller.process_post)
 
     def test_sitewide_settings_post_create(self):
@@ -110,7 +111,7 @@ class TestSitewideSettings(SettingsControllerTest):
 
         with self.request_context_with_admin("/", method="DELETE"):
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_sitewide_configuration_settings_controller.process_delete,
                           setting.key)
 

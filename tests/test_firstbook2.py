@@ -1,3 +1,4 @@
+import pytest
 from nose.tools import (
     assert_raises,
     assert_raises_regexp,
@@ -100,19 +101,15 @@ class TestFirstBook(DatabaseTest):
 
     def test_broken_service_remote_pin_test(self):
         api = self.mock_api(failure_status_code=502)
-        assert_raises_regexp(
-            RemoteInitiatedServerError,
-            "Got unexpected response code 502. Content: Error 502",
-            api.remote_pin_test, "key", "pin"
-        )
+        with pytest.raises(RemoteInitiatedServerError) as excinfo:
+            api.remote_pin_test("key", "pin")
+        assert "Got unexpected response code 502. Content: Error 502" in str(excinfo.value)
 
     def test_bad_connection_remote_pin_test(self):
         api = self.mock_api(bad_connection=True)
-        assert_raises_regexp(
-            RemoteInitiatedServerError,
-            "Could not connect!",
-            api.remote_pin_test, "key", "pin"
-        )
+        with pytest.raises(RemoteInitiatedServerError) as excinfo:
+            api.remote_pin_test("key", "pin")
+        assert "Could not connect!" in str(excinfo.value)
 
     def test_authentication_flow_document(self):
         # We're about to call url_for, so we must create an
@@ -139,4 +136,4 @@ class TestFirstBook(DatabaseTest):
 
         # If the secrets don't match, decoding won't work.
         self.api.secret = "bad secret"
-        assert_raises(jwt.DecodeError, self.api._decode, token)
+        pytest.raises(jwt.DecodeError, self.api._decode, token)

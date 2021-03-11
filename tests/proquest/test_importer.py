@@ -4,6 +4,7 @@ import os
 import shutil
 import tempfile
 
+import pytest
 from flask import Response
 from freezegun import freeze_time
 from mock import ANY, MagicMock, call, create_autospec, patch
@@ -428,7 +429,7 @@ class TestProQuestOPDS2Importer(DatabaseTest):
             # Act
             importer = ProQuestOPDS2Importer(self._db, self._proquest_collection)
 
-            with assert_raises(CannotLoan):
+            with pytest.raises(CannotLoan):
                 importer.checkout(
                     self._proquest_patron,
                     "pin",
@@ -480,7 +481,7 @@ class TestProQuestOPDS2Importer(DatabaseTest):
 
             # Act
             importer = ProQuestOPDS2Importer(self._db, self._proquest_collection)
-            with assert_raises(CannotLoan):
+            with pytest.raises(CannotLoan):
                 importer.checkout(
                     self._proquest_patron,
                     "pin",
@@ -822,7 +823,7 @@ class TestProQuestOPDS2Importer(DatabaseTest):
             # Act
             importer = ProQuestOPDS2Importer(self._db, self._proquest_collection)
 
-            with assert_raises(CannotFulfill):
+            with pytest.raises(CannotFulfill):
                 importer.fulfill(
                     self._proquest_patron,
                     "pin",
@@ -876,7 +877,7 @@ class TestProQuestOPDS2Importer(DatabaseTest):
             # Act
             importer = ProQuestOPDS2Importer(self._db, self._proquest_collection)
 
-            with assert_raises(CannotFulfill):
+            with pytest.raises(CannotFulfill):
                 importer.fulfill(
                     self._proquest_patron,
                     "pin",

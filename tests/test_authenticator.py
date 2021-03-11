@@ -1,7 +1,7 @@
 """Test the base authentication framework: that is, the classes that
 don't interact with any particular source of truth.
 """
-
+import pytest
 from flask_babel import lazy_gettext as _
 from nose.tools import (
     assert_raises_regexp,
@@ -715,22 +715,19 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             "protocol", "some other goal"
         )
         auth = LibraryAuthenticator(_db=self._db, library=self._default_library)
-        assert_raises_regexp(
-            CannotLoadConfiguration,
-            "Was asked to register an integration with goal=some other goal as though it were a way of authenticating patrons.",
-            auth.register_provider, integration
-        )
+        with pytest.raises(CannotLoadConfiguration) as excinfo:
+            auth.register_provider(integration)
+        assert "Was asked to register an integration with goal=some other goal as though it were a way of authenticating patrons." in str(excinfo.value)
 
     def test_register_fails_when_integration_not_associated_with_library(self):
         integration = self._external_integration(
             "protocol", ExternalIntegration.PATRON_AUTH_GOAL
         )
         auth = LibraryAuthenticator(_db=self._db, library=self._default_library)
-        assert_raises_regexp(
-            CannotLoadConfiguration,
-            "Was asked to register an integration with library .*, which doesn't use it.",
-            auth.register_provider, integration
-        )
+        with pytest.raises(CannotLoadConfiguration) as excinfo:
+            auth.register_provider(integration)
+        assert "Was asked to register an integration with library {}, which doesn't use it."\
+                   .format(self._default_library.name) in str(excinfo.value)
 
     def test_register_fails_when_integration_module_does_not_contain_provider_class(self):
         library = self._default_library
@@ -739,11 +736,9 @@ class TestLibraryAuthenticator(AuthenticatorTest):
         )
         library.integrations.append(integration)
         auth = LibraryAuthenticator(_db=self._db, library=library)
-        assert_raises_regexp(
-            CannotLoadConfiguration,
-            "Loaded module api.lanes but could not find a class called AuthenticationProvider inside.",
-            auth.register_provider, integration
-        )
+        with pytest.raises(CannotLoadConfiguration) as excinfo:
+            auth.register_provider(integration)
+        assert "Loaded module api.lanes but could not find a class called AuthenticationProvider inside." in str(excinfo.value)
 
     def test_register_provider_fails_but_does_not_explode_on_remote_integration_error(self):
         library = self._default_library
@@ -755,11 +750,11 @@ class TestLibraryAuthenticator(AuthenticatorTest):
         )
         library.integrations.append(integration)
         auth = LibraryAuthenticator(_db=self._db, library=library)
-        assert_raises_regexp(
-            CannotLoadConfiguration,
-            "Could not instantiate .* authentication provider for library .*, possibly due to a network connection problem.",
-            auth.register_provider, integration
-        )
+        with pytest.raises(CannotLoadConfiguration) as excinfo:
+            auth.register_provider(integration)
+        assert "Could not instantiate" in str(excinfo.value)
+        assert "authentication provider for library {}, possibly due to a network connection problem."\
+               .format(self._default_library.name) in str(excinfo.value)
 
     def test_register_provider_basic_auth(self):
         firstbook = self._external_integration(
@@ -817,12 +812,9 @@ class TestLibraryAuthenticator(AuthenticatorTest):
 
         # But you can't create an Authenticator that uses OAuth
         # without providing a secret.
-        assert_raises_regexp(
-            LibraryAuthenticator,
-            "OAuth providers are configured, but secret for signing bearer tokens is not.",
-            library=self._default_library,
-            oauth_providers=[oauth]
-        )
+        with pytest.raises(CannotLoadConfiguration) as excinfo:
+            LibraryAuthenticator(_db=self._db, library=self._default_library, oauth_providers=[oauth])
+        assert "OAuth providers are configured, but secret for signing bearer tokens is not." in str(excinfo.value)
 
     def test_supports_patron_authentication(self):
         authenticator = LibraryAuthenticator.from_config(
@@ -920,21 +912,17 @@ class TestLibraryAuthenticator(AuthenticatorTest):
         authenticator.register_basic_auth_provider(basic1)
         authenticator.register_basic_auth_provider(basic1)
 
-        assert_raises_regexp(
-            CannotLoadConfiguration,
-            "Two basic auth providers configured",
-            authenticator.register_basic_auth_provider, basic2
-        )
+        with pytest.raises(CannotLoadConfiguration) as excinfo:
+            authenticator.register_basic_auth_provider(basic2)
+        assert "Two basic auth providers configured" in str(excinfo.value)
 
         authenticator.register_oauth_provider(oauth1)
         authenticator.register_oauth_provider(oauth1)
         authenticator.register_oauth_provider(oauth2)
 
-        assert_raises_regexp(
-            CannotLoadConfiguration,
-            'Two different OAuth providers claim the name "provider1"',
-            authenticator.register_oauth_provider, oauth1_dupe
-        )
+        with pytest.raises(CannotLoadConfiguration) as excinfo:
+            authenticator.register_oauth_provider(oauth1_dupe)
+        assert 'Two different OAuth providers claim the name "provider1"' in str(excinfo.value)
 
     def test_oauth_provider_lookup(self):
 
@@ -1920,12 +1908,9 @@ class TestBasicAuthenticationProvider(AuthenticatorTest):
 
         # But if you don't, testing_patron_or_bust() will raise an
         # exception.
-        assert_raises_regexp(
-            CannotLoadConfiguration,
-            "No test patron identifier is configured",
-            no_testing_patron.testing_patron_or_bust,
-            self._db
-        )
+        with pytest.raises(CannotLoadConfiguration) as excinfo:
+            no_testing_patron.testing_patron_or_bust(self._db)
+        assert "No test patron identifier is configured" in str(excinfo.value)
 
         # We configure a testing patron but their username and
         # password don't actually authenticate anyone. We don't crash,
@@ -1941,12 +1926,9 @@ class TestBasicAuthenticationProvider(AuthenticatorTest):
         assert (None, "2") == value
 
         # And testing_patron_or_bust() still doesn't work.
-        assert_raises_regexp(
-            IntegrationException,
-            "Remote declined to authenticate the test patron.",
-            missing_patron.testing_patron_or_bust,
-            self._db
-        )
+        with pytest.raises(IntegrationException) as excinfo:
+            missing_patron.testing_patron_or_bust(self._db)
+        assert "Remote declined to authenticate the test patron." in str(excinfo.value)
 
         # We configure a testing patron but authenticating them
         # results in a problem detail document.
@@ -1964,12 +1946,9 @@ class TestBasicAuthenticationProvider(AuthenticatorTest):
         assert (PATRON_OF_ANOTHER_LIBRARY, "2") == value
 
         # And testing_patron_or_bust() still doesn't work.
-        assert_raises_regexp(
-            IntegrationException,
-            "Test patron lookup returned a problem detail",
-            problem_patron.testing_patron_or_bust,
-            self._db
-        )
+        with pytest.raises(IntegrationException) as excinfo:
+            problem_patron.testing_patron_or_bust(self._db)
+        assert "Test patron lookup returned a problem detail" in str(excinfo.value)
 
         # We configure a testing patron but authenticating them
         # results in something (non None) that's not a Patron
@@ -1989,12 +1968,9 @@ class TestBasicAuthenticationProvider(AuthenticatorTest):
         assert (not_a_patron, "2") == value
 
         # And testing_patron_or_bust() still doesn't work.
-        assert_raises_regexp(
-            IntegrationException,
-            "Test patron lookup returned invalid value for patron",
-            problem_patron.testing_patron_or_bust,
-            self._db
-        )
+        with pytest.raises(IntegrationException) as excinfo:
+            problem_patron.testing_patron_or_bust(self._db)
+        assert "Test patron lookup returned invalid value for patron" in str(excinfo.value)
 
         # Here, we configure a testing patron who is authenticated by
         # their username and password.

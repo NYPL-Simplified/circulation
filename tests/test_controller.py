@@ -5627,7 +5627,7 @@ class TestProfileController(ControllerTest):
             assert None == request_patron.synchronize_annotations
 
             # This means we can't create annotations for them.
-            assert_raises(ValueError,  Annotation.get_one_or_create,
+            pytest.raises(ValueError,  Annotation.get_one_or_create,
                 self._db, patron=request_patron, identifier=identifier
             )
 
@@ -5831,7 +5831,7 @@ class TestStaticFileController(CirculationControllerTest):
         assert expected_content == response.response.file.read()
 
         with self.app.test_request_context("/"):
-            assert_raises(NotFound, self.app.manager.static_files.static_file,
+            pytest.raises(NotFound, self.app.manager.static_files.static_file,
                           directory, "missing.png")
 
     def test_image(self):

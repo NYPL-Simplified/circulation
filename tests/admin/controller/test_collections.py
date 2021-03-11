@@ -1,6 +1,7 @@
 import json
 
 import flask
+import pytest
 from nose.tools import (
     eq_,
     assert_raises
@@ -286,7 +287,7 @@ class TestCollectionSettings(SettingsControllerTest):
                 ("name", "Collection 1"),
                 ("protocol", "Overdrive"),
             ])
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_collection_settings_controller.process_collections)
 
         self.admin.add_role(AdminRole.SYSTEM_ADMIN)
@@ -719,7 +720,7 @@ class TestCollectionSettings(SettingsControllerTest):
 
         with self.request_context_with_admin("/", method="DELETE"):
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_collection_settings_controller.process_delete,
                           collection.id)
 

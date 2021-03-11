@@ -1,3 +1,4 @@
+import pytest
 from nose.tools import (
     set_trace,
     eq_,
@@ -26,7 +27,7 @@ class TestCDNServices(SettingsControllerTest):
 
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
             self._db.flush()
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_cdn_services_controller.process_cdn_services)
 
     def test_cdn_services_get_with_one_service(self):
@@ -108,7 +109,7 @@ class TestCDNServices(SettingsControllerTest):
                 (ExternalIntegration.URL, "cdn url"),
                 (Configuration.CDN_MIRRORED_DOMAIN_KEY, "mirrored domain"),
             ])
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_cdn_services_controller.process_cdn_services)
 
     def test_cdn_services_post_create(self):
@@ -188,7 +189,7 @@ class TestCDNServices(SettingsControllerTest):
 
         with self.request_context_with_admin("/", method="DELETE"):
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_cdn_services_controller.process_delete,
                           cdn_service.id)
 

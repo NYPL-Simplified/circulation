@@ -1,5 +1,7 @@
 import contextlib
 import logging
+
+import pytest
 from nose.tools import (
     assert_raises,
     eq_,
@@ -223,7 +225,7 @@ class RouteTestFixtures(object):
             check.add('HEAD')
         for method in check:
             logging.debug("MethodNotAllowed should be raised on %s", method)
-            assert_raises(MethodNotAllowed, self.request, url, method)
+            pytest.raises(MethodNotAllowed, self.request, url, method)
             logging.debug("And it was.")
 
 

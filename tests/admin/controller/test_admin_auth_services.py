@@ -1,3 +1,4 @@
+import pytest
 from nose.tools import (
     set_trace,
     eq_,
@@ -37,7 +38,7 @@ class TestAdminAuthServices(SettingsControllerTest):
 
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
             self._db.flush()
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_auth_services_controller.process_admin_auth_services)
 
     def test_admin_auth_services_get_with_google_oauth_service(self):
@@ -119,7 +120,7 @@ class TestAdminAuthServices(SettingsControllerTest):
                 ("password", "password"),
                 ("domains", "nypl.org"),
             ])
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_auth_services_controller.process_admin_auth_services)
 
     def test_admin_auth_services_post_create(self):
@@ -199,7 +200,7 @@ class TestAdminAuthServices(SettingsControllerTest):
 
         with self.request_context_with_admin("/", method="DELETE"):
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_auth_services_controller.process_delete,
                           auth_service.protocol)
 

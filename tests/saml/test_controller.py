@@ -419,7 +419,7 @@ class TestSAMLController(ControllerTest):
                     if finish_authentication_result
                     else saml_callback_result
                 )
-                assert error["type"] == problem.uri,
+                assert error["type"] == problem.uri
                 assert error["status"] == problem.status_code
                 assert error["title"] == problem.title
                 assert error["detail"] == problem.detail

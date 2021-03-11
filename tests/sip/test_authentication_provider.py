@@ -1,4 +1,6 @@
 from datetime import datetime
+
+import pytest
 from nose.tools import (
     assert_raises_regexp,
     set_trace,
@@ -231,12 +233,9 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
         integration = self._external_integration(self._str)
         provider = SIP2AuthenticationProvider(self._default_library, integration, client=client)
 
-        assert_raises_regexp(
-            RemoteIntegrationException,
-            "Error accessing unknown server: Doom!",
-            provider.remote_authenticate,
-            "username", "password",
-        )
+        with pytest.raises(RemoteIntegrationException) as excinfo:
+            provider.remote_authenticate("username", "password",)
+        assert "Error accessing unknown server: Doom!" in str(excinfo.value)
 
     def test_ioerror_during_send_becomes_remoteintegrationexception(self):
         """If there's an IOError communicating with the server,
@@ -252,12 +251,9 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
         provider = SIP2AuthenticationProvider(
             self._default_library, integration, client=client
         )
-        assert_raises_regexp(
-            RemoteIntegrationException,
-            "Error accessing server.local: Doom!",
-            provider.remote_authenticate,
-            "username", "password",
-        )
+        with pytest.raises(RemoteIntegrationException) as excinfo:
+            provider.remote_authenticate("username", "password",)
+        assert "Error accessing server.local: Doom!" in str(excinfo.value)
 
     def test_parse_date(self):
         parse = SIP2AuthenticationProvider.parse_date

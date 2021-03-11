@@ -107,12 +107,9 @@ class TestCOPPAGate(DatabaseTest):
         library = self._library()
         self.lane1.library = library
         self._db.commit()
-        assert_raises_regexp(
-            CannotLoadConfiguration,
-            "Lane .* is for the wrong library",
-            COPPAGate,
-            self._default_library, self.integration
-        )
+        with pytest.raises(CannotLoadConfiguration) as excinfo:
+            COPPAGate(self._default_library, self.integration)
+        assert "Lane .* is for the wrong library" in str(excinfo.value)
         self.lane1.library_id = self._default_library.id
 
         # If the lane ID doesn't correspond to a real lane, the

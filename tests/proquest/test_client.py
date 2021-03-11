@@ -1,5 +1,6 @@
 import json
 
+import pytest
 import requests_mock
 from mock import MagicMock, create_autospec
 from nose.tools import assert_raises, eq_
@@ -91,7 +92,7 @@ class TestProQuestAPIClient(DatabaseTest):
             request_mock.get(books_catalog_service_url, **response_arguments)
 
             # Act
-            with assert_raises(expected_exception_class):
+            with pytest.raises(expected_exception_class):
                 self._client.download_feed_page(self._db, page, hits_per_page)
 
     def test_download_feed_page_successfully_extracts_feed_from_correct_response(self):
@@ -234,7 +235,7 @@ class TestProQuestAPIClient(DatabaseTest):
             request_mock.get(partner_auth_token_service_url, **response_arguments)
 
             # Act
-            with assert_raises(expected_exception_class):
+            with pytest.raises(expected_exception_class):
                 self._client.create_token(self._db, affiliation_id)
 
     def test_create_token_correctly_extracts_token(self):
@@ -304,7 +305,7 @@ class TestProQuestAPIClient(DatabaseTest):
             request_mock.get(download_link_service_url, **response_arguments)
 
             # Act
-            with assert_raises(expected_exception_class):
+            with pytest.raises(expected_exception_class):
                 self._client.get_book(self._db, token, document_id)
 
     def test_get_book_correctly_extracts_open_access_books(self):

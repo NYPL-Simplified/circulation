@@ -1,3 +1,4 @@
+import pytest
 from nose.tools import assert_raises, eq_
 from parameterized import parameterized
 
@@ -114,7 +115,7 @@ class TestSAMLSubjectFilter(object):
 
         # Act
         if expected_exception:
-            with assert_raises(expected_exception):
+            with pytest.raises(expected_exception):
                 subject_filter.execute(expression, subject)
         else:
             result = subject_filter.execute(expression, subject)
@@ -160,7 +161,7 @@ class TestSAMLSubjectFilter(object):
 
         # Act
         if expected_exception:
-            with assert_raises(expected_exception):
+            with pytest.raises(expected_exception):
                 subject_filter.validate(expression)
         else:
             subject_filter.validate(expression)

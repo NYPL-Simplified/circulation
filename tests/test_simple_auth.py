@@ -1,3 +1,4 @@
+import pytest
 from nose.tools import (
     eq_,
     assert_raises_regexp,
@@ -23,11 +24,9 @@ class TestSimpleAuth(DatabaseTest):
         p = SimpleAuthenticationProvider
         integration = self._external_integration(self._str)
 
-        assert_raises_regexp(
-            CannotLoadConfiguration,
-            "Test identifier and password not set.",
-            p, self._default_library, integration
-        )
+        with pytest.raises(CannotLoadConfiguration) as excinfo:
+            p(self._default_library, integration)
+        assert "Test identifier and password not set." in str(excinfo.value)
 
         integration.setting(p.TEST_IDENTIFIER).value = "barcode"
         integration.setting(p.TEST_PASSWORD).value = "pass"
@@ -77,11 +76,9 @@ class TestSimpleAuth(DatabaseTest):
         p = SimpleAuthenticationProvider
         integration = self._external_integration(self._str)
 
-        assert_raises_regexp(
-            CannotLoadConfiguration,
-            "Test identifier and password not set.",
-            p, self._default_library, integration
-        )
+        with pytest.raises(CannotLoadConfiguration) as excinfo:
+            p(self._default_library, integration)
+        assert "Test identifier and password not set." in str(excinfo.value)
 
         integration.setting(p.TEST_IDENTIFIER).value = "barcode"
         integration.setting(p.TEST_PASSWORD).value = "pass"

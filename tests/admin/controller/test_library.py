@@ -1,3 +1,4 @@
+import pytest
 from nose.tools import (
     set_trace,
     eq_,
@@ -396,7 +397,7 @@ class TestLibrarySettings(SettingsControllerTest, AnnouncementTest):
 
         with self.request_context_with_admin("/", method="DELETE"):
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_library_settings_controller.process_delete,
                           library.uuid)
 

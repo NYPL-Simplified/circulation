@@ -1,6 +1,8 @@
 import datetime
 import json
 import os
+
+import pytest
 from lxml import etree
 from StringIO import StringIO
 from nose.tools import (
@@ -305,11 +307,9 @@ class TestAxis360API(Axis360Test):
 
         self.api.queue_response(301)
 
-        assert_raises_regexp(
-            RemoteIntegrationException,
-            ".*Got status code 401 from external server, cannot continue.",
-            self.api.request, "http://url/"
-        )
+        with pytest.raises(RemoteIntegrationException) as excinfo:
+            self.api.request("http://url/")
+        assert "Got status code 401 from external server, cannot continue." in str(excinfo.value)
 
         # The fourth request never got made.
         assert [301] == [x.status_code for x in self.api.responses]
@@ -396,7 +396,7 @@ class TestAxis360API(Axis360Test):
         # an attempt to fulfill that title will fail with NoActiveLoan.
         data = self.sample_data("availability_with_audiobook_fulfillment.xml")
         self.api.queue_response(200, content=data)
-        assert_raises(NoActiveLoan, fulfill)
+        pytest.raises(NoActiveLoan, fulfill)
 
         # If an ebook is checked out and we're not asking for it to be
         # fulfilled through AxisNow, we get a regular FulfillmentInfo
@@ -427,7 +427,7 @@ class TestAxis360API(Axis360Test):
         pool.identifier.identifier = '0015176429'
         data = self.sample_data("availability_without_fulfillment.xml")
         self.api.queue_response(200, content=data)
-        assert_raises(CannotFulfill, fulfill)
+        pytest.raises(CannotFulfill, fulfill)
 
         # If we ask to fulfill an audiobook, we get an AudiobookFulfillmentInfo.
         #
@@ -1155,12 +1155,12 @@ class TestCheckoutResponseParser(TestResponseParser):
     def test_parse_already_checked_out(self):
         data = self.sample_data("already_checked_out.xml")
         parser = CheckoutResponseParser(None)
-        assert_raises(AlreadyCheckedOut, parser.process_all, data)
+        pytest.raises(AlreadyCheckedOut, parser.process_all, data)
 
     def test_parse_not_found_on_remote(self):
         data = self.sample_data("not_found_on_remote.xml")
         parser = CheckoutResponseParser(None)
-        assert_raises(NotFoundOnRemote, parser.process_all, data)
+        pytest.raises(NotFoundOnRemote, parser.process_all, data)
 
 class TestHoldResponseParser(TestResponseParser):
 
@@ -1178,7 +1178,7 @@ class TestHoldResponseParser(TestResponseParser):
     def test_parse_already_on_hold(self):
         data = self.sample_data("already_on_hold.xml")
         parser = HoldResponseParser(None)
-        assert_raises(AlreadyOnHold, parser.process_all, data)
+        pytest.raises(AlreadyOnHold, parser.process_all, data)
 
 class TestHoldReleaseResponseParser(TestResponseParser):
 
@@ -1190,7 +1190,7 @@ class TestHoldReleaseResponseParser(TestResponseParser):
     def test_failure(self):
         data = self.sample_data("release_hold_failure.xml")
         parser = HoldReleaseResponseParser(None)
-        assert_raises(NotOnHold, parser.process_all, data)
+        pytest.raises(NotOnHold, parser.process_all, data)
 
 class TestAvailabilityResponseParser(Axis360Test, BaseParserTest):
     """Unlike other response parser tests, this one needs
@@ -1287,11 +1287,9 @@ class TestJSONResponseParser(object):
         assert "value" == m("key", parsed)
 
         # If not, it raises a RemoteInitiatedServerError.
-        assert_raises_regexp(
-            RemoteInitiatedServerError,
-            "Required key absent not present in Axis 360 fulfillment document: {'key': 'value'}",
-            m, "absent", parsed
-        )
+        with pytest.raises(RemoteInitiatedServerError) as excinfo:
+            m("absent", parsed)
+        assert "Required key absent not present in Axis 360 fulfillment document: {'key': 'value'}" in str(excinfo.value)
 
     def test_verify_status_code(self):
         success = dict(Status=dict(Code=0000))
@@ -1312,11 +1310,9 @@ class TestJSONResponseParser(object):
 
         # If the Status object is missing, a more generic exception is
         # raised.
-        assert_raises_regexp(
-            RemoteInitiatedServerError,
-            "Required key Status not present in Axis 360 fulfillment document",
-            m, missing
-        )
+        with pytest.raises(RemoteInitiatedServerError) as excinfo:
+            m(missing)
+        assert "Required key Status not present in Axis 360 fulfillment document" in str(excinfo.value)
 
     def test_parse(self):
 
@@ -1345,11 +1341,9 @@ class TestJSONResponseParser(object):
             (doc, ("new_value",), {}) == parser.called_with)
 
         # Non-JSON input causes an error.
-        assert_raises_regexp(
-            RemoteInitiatedServerError,
-            "Invalid response from Axis 360 \(was expecting JSON\): I'm not JSON",
-            parser.parse, "I'm not JSON"
-        )
+        with pytest.raises(RemoteInitiatedServerError) as excinfo:
+            parser.parse("I'm not JSON")
+        assert "Invalid response from Axis 360 (was expecting JSON): I'm not JSON" in str(excinfo.value)
 
 
 
@@ -1417,20 +1411,16 @@ class TestAxis360FulfillmentInfoResponseParser(Axis360Test):
         ):
             missing_field = get_data()
             del missing_field[field]
-            assert_raises_regexp(
-                RemoteInitiatedServerError,
-                "Required key %s not present" % field,
-                m, missing_field, pool
-            )
+            with pytest.raises(RemoteInitiatedServerError) as excinfo:
+                m(missing_field, pool)
+            assert "Required key %s not present" % field in str(excinfo.value)
 
         # Try with a bad expiration date.
         bad_date = get_data()
         bad_date['ExpirationDate'] = 'not-a-date'
-        assert_raises_regexp(
-            RemoteInitiatedServerError,
-            "Could not parse expiration date: not-a-date",
-            m, bad_date, pool
-        )
+        with pytest.raises(RemoteInitiatedServerError) as excinfo:
+            m(bad_date, pool)
+        assert "Could not parse expiration date: not-a-date" in str(excinfo.value)
 
     def test__parse_axisnow(self):
         # _parse will create a valid AxisNowManifest given a
@@ -1463,11 +1453,9 @@ class TestAxis360FulfillmentInfoResponseParser(Axis360Test):
         # Try with a bad expiration date.
         bad_date = get_data()
         bad_date['ExpirationDate'] = 'not-a-date'
-        assert_raises_regexp(
-            RemoteInitiatedServerError,
-            "Could not parse expiration date: not-a-date",
-            m, bad_date, pool
-        )
+        with pytest.raises(RemoteInitiatedServerError) as excinfo:
+            m(bad_date, pool)
+        assert "Could not parse expiration date: not-a-date" in str(excinfo.value)
 
 
 class TestAudiobookMetadataParser(Axis360Test):

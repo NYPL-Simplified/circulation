@@ -1,3 +1,4 @@
+import pytest
 from nose.tools import (
     set_trace,
     eq_,
@@ -183,11 +184,9 @@ class TestOPDSForDistributorsAPI(DatabaseTest):
     def test_get_token_errors(self):
         no_auth_document = '<feed></feed>'
         self.api.queue_response(200, content=no_auth_document)
-        assert_raises_regexp(
-            LibraryAuthorizationFailedException,
-            "No authentication document link found in http://opds",
-            self.api._get_token, self._db
-        )
+        with pytest.raises(LibraryAuthorizationFailedException) as excinfo:
+            self.api._get_token(self._db)
+        assert "No authentication document link found in http://opds" in str(excinfo.value)
 
         feed = '<feed><link rel="http://opds-spec.org/auth/document" href="http://authdoc"/></feed>'
         self.api.queue_response(200, content=feed)
@@ -195,11 +194,9 @@ class TestOPDSForDistributorsAPI(DatabaseTest):
             "authentication": []
         })
         self.api.queue_response(200, content=auth_doc_without_client_credentials)
-        assert_raises_regexp(
-            LibraryAuthorizationFailedException,
-            "Could not find any credential-based authentication mechanisms in http://authdoc",
-            self.api._get_token, self._db
-        )
+        with pytest.raises(LibraryAuthorizationFailedException) as excinfo:
+            self.api._get_token(self._db)
+        assert "Could not find any credential-based authentication mechanisms in http://authdoc" in str(excinfo.value)
 
         self.api.queue_response(200, content=feed)
         auth_doc_without_links = json.dumps({
@@ -208,11 +205,9 @@ class TestOPDSForDistributorsAPI(DatabaseTest):
             }]
         })
         self.api.queue_response(200, content=auth_doc_without_links)
-        assert_raises_regexp(
-            LibraryAuthorizationFailedException,
-            "Could not find any authentication links in http://authdoc",
-            self.api._get_token, self._db
-        )
+        with pytest.raises(LibraryAuthorizationFailedException) as excinfo:
+            self.api._get_token(self._db)
+        assert "Could not find any authentication links in http://authdoc" in str(excinfo.value)
 
         self.api.queue_response(200, content=feed)
         auth_doc = json.dumps({
@@ -227,11 +222,9 @@ class TestOPDSForDistributorsAPI(DatabaseTest):
         self.api.queue_response(200, content=auth_doc)
         token_response = json.dumps({"error": "unexpected error"})
         self.api.queue_response(200, content=token_response)
-        assert_raises_regexp(
-            LibraryAuthorizationFailedException,
-            "Document retrieved from http://authenticate is not a bearer token: {.*unexpected error.*}",
-            self.api._get_token, self._db
-        )
+        with pytest.raises(LibraryAuthorizationFailedException) as excinfo:
+            self.api._get_token(self._db)
+        assert 'Document retrieved from http://authenticate is not a bearer token: {"error": "unexpected error"}' in str(excinfo.value)
 
     def test_checkin(self):
         # The patron has two loans, one from this API's collection and
@@ -302,7 +295,7 @@ class TestOPDSForDistributorsAPI(DatabaseTest):
         )
         # This pool doesn't have an acquisition link, so
         # we can't fulfill it yet.
-        assert_raises(CannotFulfill, self.api.fulfill,
+        pytest.raises(CannotFulfill, self.api.fulfill,
                       patron, "1234", pool, Representation.EPUB_MEDIA_TYPE)
 
         # Set up an epub acquisition link for the pool.

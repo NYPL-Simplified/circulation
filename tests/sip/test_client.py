@@ -1,5 +1,5 @@
 """Standalone tests of the SIP2 client."""
-
+import pytest
 from nose.tools import (
     eq_,
     set_trace,
@@ -176,7 +176,7 @@ class TestBasicProtocol(object):
         sip.queue_response('96')
 
         # After reaching the maximum the client should give an IOError
-        assert_raises(IOError, sip.login)
+        pytest.raises(IOError, sip.login)
 
         # We should send as many requests as we are allowed retries
         assert sip.MAXIMUM_RETRIES == len(sip.requests)
@@ -199,7 +199,7 @@ class TestLogin(object):
     def test_login_failure(self):
         sip = MockSIPClient('user_id', 'password')
         sip.queue_response('940')
-        assert_raises(IOError, sip.login)
+        pytest.raises(IOError, sip.login)
 
     def test_login_happens_when_user_id_and_password_specified(self):
         sip = MockSIPClient('user_id', 'password')
@@ -245,7 +245,7 @@ class TestLogin(object):
 
         # We don't even get a chance to make the patron information request
         # because our login attempt fails.
-        assert_raises(IOError,  sip.patron_information, 'patron_identifier')
+        pytest.raises(IOError,  sip.patron_information, 'patron_identifier')
 
     def test_login_does_not_happen_implicitly_when_user_id_and_password_not_specified(self):
         sip = MockSIPClient()
@@ -365,9 +365,9 @@ class TestPatronResponse(object):
 
     def test_parse_patron_status(self):
         m = MockSIPClient.parse_patron_status
-        assert_raises(ValueError, m, None)
-        assert_raises(ValueError, m, "")
-        assert_raises(ValueError, m, " " * 20)
+        pytest.raises(ValueError, m, None)
+        pytest.raises(ValueError, m, "")
+        pytest.raises(ValueError, m, " " * 20)
         parsed = m("Y Y Y Y Y Y Y ")
         for yes in [
                 'charge privileges denied',

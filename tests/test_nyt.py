@@ -1,5 +1,7 @@
 # encoding: utf-8
 import os
+
+import pytest
 from nose.tools import (
     set_trace, eq_,
     assert_raises,
@@ -70,22 +72,18 @@ class TestNYTBestSellerAPI(NYTBestSellerAPITest):
 
     def test_from_config(self):
         # You have to have an ExternalIntegration for the NYT.
-        assert_raises_regexp(
-            CannotLoadConfiguration,
-            "No ExternalIntegration found for the NYT.",
-            NYTBestSellerAPI.from_config, self._db
-        )
+        with pytest.raises(CannotLoadConfiguration) as excinfo:
+            NYTBestSellerAPI.from_config(self._db)
+        assert "No ExternalIntegration found for the NYT." in str(excinfo.value)
         integration = self._external_integration(
             protocol=ExternalIntegration.NYT,
             goal=ExternalIntegration.METADATA_GOAL
         )
 
         # It has to have the api key in its 'password' setting.
-        assert_raises_regexp(
-            CannotLoadConfiguration,
-            "No NYT API key is specified",
-            NYTBestSellerAPI.from_config, self._db
-        )
+        with pytest.raises(CannotLoadConfiguration) as excinfo:
+            NYTBestSellerAPI.from_config(self._db)
+        assert "No NYT API key is specified" in str(excinfo.value)
 
         integration.password = "api key"
 

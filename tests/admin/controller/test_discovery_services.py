@@ -1,3 +1,4 @@
+import pytest
 from nose.tools import (
     set_trace,
     eq_,
@@ -34,7 +35,7 @@ class TestDiscoveryServices(SettingsControllerTest):
             # Only system admins can see the discovery services.
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
             self._db.flush()
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_discovery_services_controller.process_discovery_services)
 
     def test_discovery_services_get_with_one_service(self):
@@ -124,7 +125,7 @@ class TestDiscoveryServices(SettingsControllerTest):
                 ("protocol", ExternalIntegration.OPDS_REGISTRATION),
                 (ExternalIntegration.URL, "registry url"),
             ])
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           controller.process_discovery_services)
 
     def test_discovery_services_post_create(self):
@@ -198,7 +199,7 @@ class TestDiscoveryServices(SettingsControllerTest):
 
         with self.request_context_with_admin("/", method="DELETE"):
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_discovery_services_controller.process_delete,
                           discovery_service.id)
 

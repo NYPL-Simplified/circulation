@@ -1,5 +1,7 @@
 import datetime
 from decimal import Decimal
+
+import pytest
 from nose.tools import (
     set_trace, eq_,
     assert_raises,
@@ -84,7 +86,7 @@ class TestPatronUtility(DatabaseTest):
         # If your card expires you lose borrowing privileges.
         patron.authorization_expires = one_day_ago
         assert False == PatronUtility.has_borrowing_privileges(patron)
-        assert_raises(
+        pytest.raises(
             AuthorizationExpired,
             PatronUtility.assert_borrowing_privileges, patron
         )
@@ -99,7 +101,7 @@ class TestPatronUtility(DatabaseTest):
                 return True
         assert False == Mock.has_borrowing_privileges(patron)
         assert patron == Mock.called_with
-        assert_raises(
+        pytest.raises(
             OutstandingFines,
             Mock.assert_borrowing_privileges, patron
         )
@@ -109,7 +111,7 @@ class TestPatronUtility(DatabaseTest):
         # might know, and might store that information in the
         # patron's block_reason.
         patron.block_reason = PatronData.EXCESSIVE_FINES
-        assert_raises(
+        pytest.raises(
             OutstandingFines,
             PatronUtility.assert_borrowing_privileges, patron
         )
@@ -118,7 +120,7 @@ class TestPatronUtility(DatabaseTest):
         # privileges.
         patron.block_reason = "some reason"
         assert False == PatronUtility.has_borrowing_privileges(patron)
-        assert_raises(
+        pytest.raises(
             AuthorizationBlocked,
             PatronUtility.assert_borrowing_privileges, patron
         )

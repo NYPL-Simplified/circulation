@@ -1,3 +1,4 @@
+import pytest
 from nose.tools import (
     assert_raises_regexp,
     set_trace,
@@ -787,12 +788,9 @@ class TestShortClientTokenLibraryConfigurationScript(DatabaseTest):
         self.script = ShortClientTokenLibraryConfigurationScript(self._db)
 
     def test_identify_library_by_url(self):
-        assert_raises_regexp(
-            Exception,
-            "Could not locate library with URL http://bar/. Available URLs: http://foo/",
-            self.script.set_secret,
-            self._db, "http://bar/", "vendorid", "libraryname", "secret", None
-        )
+        with pytest.raises(Exception) as excinfo:
+            self.script.set_secret(self._db, "http://bar/", "vendorid", "libraryname", "secret", None)
+        assert "Could not locate library with URL http://bar/. Available URLs: http://foo/" in str(excinfo.value)
 
     def test_set_secret(self):
         assert [] == self._default_library.integrations

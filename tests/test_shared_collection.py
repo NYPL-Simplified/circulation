@@ -1,3 +1,4 @@
+import pytest
 from nose.tools import (
     assert_raises,
     set_trace,
@@ -101,7 +102,7 @@ class TestSharedCollectionAPI(DatabaseTest):
         shared_collection = SharedCollectionAPI(self._db)
         # The collection isn't a shared collection, so looking up its API
         # raises an exception.
-        assert_raises(CirculationException, shared_collection.api, collection)
+        pytest.raises(CirculationException, shared_collection.api, collection)
 
         collection.protocol = ODLAPI.NAME
         shared_collection = SharedCollectionAPI(self._db)
@@ -109,19 +110,19 @@ class TestSharedCollectionAPI(DatabaseTest):
 
     def test_register(self):
         # An auth document URL is required to register.
-        assert_raises(InvalidInputException, self.shared_collection.register,
+        pytest.raises(InvalidInputException, self.shared_collection.register,
                       self.collection, None)
 
         # If the url doesn't return a valid auth document, there's an exception.
         auth_response = "not json"
         def do_get(*args, **kwargs):
             return MockRequestsResponse(200, content=auth_response)
-        assert_raises(RemoteInitiatedServerError, self.shared_collection.register,
+        pytest.raises(RemoteInitiatedServerError, self.shared_collection.register,
                       self.collection, "http://library.org/auth", do_get=do_get)
 
         # The auth document also must have a link to the library's catalog.
         auth_response = json.dumps({"links": []})
-        assert_raises(RemoteInitiatedServerError, self.shared_collection.register,
+        pytest.raises(RemoteInitiatedServerError, self.shared_collection.register,
                       self.collection, "http://library.org/auth", do_get=do_get)
 
         # If no external library URLs are configured, no one can register.
@@ -129,7 +130,7 @@ class TestSharedCollectionAPI(DatabaseTest):
         ConfigurationSetting.for_externalintegration(
             BaseSharedCollectionAPI.EXTERNAL_LIBRARY_URLS, self.collection.external_integration
         ).value = None
-        assert_raises(AuthorizationFailedException, self.shared_collection.register,
+        pytest.raises(AuthorizationFailedException, self.shared_collection.register,
                       self.collection, "http://library.org/auth", do_get=do_get)
 
         # If the library's URL isn't in the configuration, it can't register.
@@ -137,22 +138,22 @@ class TestSharedCollectionAPI(DatabaseTest):
         ConfigurationSetting.for_externalintegration(
             BaseSharedCollectionAPI.EXTERNAL_LIBRARY_URLS, self.collection.external_integration
         ).value = json.dumps(["http://library.org"])
-        assert_raises(AuthorizationFailedException, self.shared_collection.register,
+        pytest.raises(AuthorizationFailedException, self.shared_collection.register,
                       self.collection, "http://differentlibrary.org/auth", do_get=do_get)
 
         # Or if the public key is missing from the auth document.
         auth_response = json.dumps({"links": [{"href": "http://library.org", "rel": "start"}]})
-        assert_raises(RemoteInitiatedServerError, self.shared_collection.register,
+        pytest.raises(RemoteInitiatedServerError, self.shared_collection.register,
                       self.collection, "http://library.org/auth", do_get=do_get)
 
         auth_response = json.dumps({"public_key": { "type": "not RSA", "value": "123" },
                                     "links": [{"href": "http://library.org", "rel": "start"}]})
-        assert_raises(RemoteInitiatedServerError, self.shared_collection.register,
+        pytest.raises(RemoteInitiatedServerError, self.shared_collection.register,
                       self.collection, "http://library.org/auth", do_get=do_get)
 
         auth_response = json.dumps({"public_key": { "type": "RSA" },
                                     "links": [{"href": "http://library.org", "rel": "start"}]})
-        assert_raises(RemoteInitiatedServerError, self.shared_collection.register,
+        pytest.raises(RemoteInitiatedServerError, self.shared_collection.register,
                       self.collection, "http://library.org/auth", do_get=do_get)
 
 
@@ -175,7 +176,7 @@ class TestSharedCollectionAPI(DatabaseTest):
         other_client, ignore = IntegrationClient.register(self._db, "http://other_library.org")
 
         # Trying to borrow raises an exception.
-        assert_raises(AuthorizationFailedException, self.shared_collection.borrow,
+        pytest.raises(AuthorizationFailedException, self.shared_collection.borrow,
                       self.collection, other_client, self.pool)
 
         # A client that's registered with the collection can borrow.
@@ -184,7 +185,7 @@ class TestSharedCollectionAPI(DatabaseTest):
 
         # If the client's checking out an existing hold, the hold must be for that client.
         hold, ignore = create(self._db, Hold, integration_client=other_client, license_pool=self.pool)
-        assert_raises(CannotLoan, self.shared_collection.borrow,
+        pytest.raises(CannotLoan, self.shared_collection.borrow,
                       self.collection, self.client, self.pool, hold=hold)
 
         hold.integration_client = self.client
@@ -194,7 +195,7 @@ class TestSharedCollectionAPI(DatabaseTest):
     def test_revoke_loan(self):
         other_client, ignore = IntegrationClient.register(self._db, "http://other_library.org")
         loan, ignore = create(self._db, Loan, integration_client=other_client, license_pool=self.pool)
-        assert_raises(NotCheckedOut, self.shared_collection.revoke_loan,
+        pytest.raises(NotCheckedOut, self.shared_collection.revoke_loan,
                       self.collection, self.client, loan)
 
         loan.integration_client = self.client
@@ -204,13 +205,13 @@ class TestSharedCollectionAPI(DatabaseTest):
     def test_fulfill(self):
         other_client, ignore = IntegrationClient.register(self._db, "http://other_library.org")
         loan, ignore = create(self._db, Loan, integration_client=other_client, license_pool=self.pool)
-        assert_raises(CannotFulfill, self.shared_collection.fulfill,
+        pytest.raises(CannotFulfill, self.shared_collection.fulfill,
                       self.collection, self.client, loan, self.delivery_mechanism)
 
         loan.integration_client = self.client
 
         # If the API does not return content or a content link, the loan can't be fulfilled.
-        assert_raises(CannotFulfill, self.shared_collection.fulfill,
+        pytest.raises(CannotFulfill, self.shared_collection.fulfill,
                       self.collection, self.client, loan, self.delivery_mechanism)
         assert [(self.client, loan, self.delivery_mechanism)] == self.api.fulfills
 
@@ -232,7 +233,7 @@ class TestSharedCollectionAPI(DatabaseTest):
         other_client, ignore = IntegrationClient.register(self._db, "http://other_library.org")
         hold, ignore = create(self._db, Hold, integration_client=other_client, license_pool=self.pool)
 
-        assert_raises(CannotReleaseHold, self.shared_collection.revoke_hold,
+        pytest.raises(CannotReleaseHold, self.shared_collection.revoke_hold,
                       self.collection, self.client, hold)
 
         hold.integration_client = self.client

@@ -1,3 +1,4 @@
+import pytest
 from nose.tools import (
     set_trace,
     eq_,
@@ -96,7 +97,7 @@ class TestWorkController(AdminControllerTest):
 
         self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
         with self.request_context_with_library_and_admin("/"):
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_work_controller.details,
                           lp.identifier.type, lp.identifier.identifier)
 
@@ -369,7 +370,7 @@ class TestWorkController(AdminControllerTest):
             flask.request.form = ImmutableMultiDict([
                 ("title", "Another new title"),
             ])
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_work_controller.edit,
                           lp.identifier.type, lp.identifier.identifier)
 
@@ -616,7 +617,7 @@ class TestWorkController(AdminControllerTest):
                 ("fiction", "nonfiction"),
                 ("genres", "Biography")
             ])
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_work_controller.edit_classifications,
                           lp.identifier.type, lp.identifier.identifier)
 
@@ -633,7 +634,7 @@ class TestWorkController(AdminControllerTest):
         lp.suppressed = False
         self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
         with self.request_context_with_library_and_admin("/"):
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_work_controller.suppress,
                           lp.identifier.type, lp.identifier.identifier)
 
@@ -669,7 +670,7 @@ class TestWorkController(AdminControllerTest):
         lp.suppressed = True
         self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
         with self.request_context_with_library_and_admin("/"):
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_work_controller.unsuppress,
                           lp.identifier.type, lp.identifier.identifier)
 
@@ -709,7 +710,7 @@ class TestWorkController(AdminControllerTest):
 
         self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
         with self.request_context_with_library_and_admin("/"):
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_work_controller.refresh_metadata,
                           lp.identifier.type, lp.identifier.identifier, provider=success_provider)
 
@@ -752,7 +753,7 @@ class TestWorkController(AdminControllerTest):
 
         self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
         with self.request_context_with_library_and_admin("/"):
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_work_controller.complaints,
                           lp.identifier.type, lp.identifier.identifier)
 
@@ -811,7 +812,7 @@ class TestWorkController(AdminControllerTest):
         self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
         with self.request_context_with_library_and_admin("/"):
             flask.request.form = ImmutableMultiDict([("type", type1)])
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_work_controller.resolve_complaints,
                           lp.identifier.type, lp.identifier.identifier)
 
@@ -857,7 +858,7 @@ class TestWorkController(AdminControllerTest):
 
         self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
         with self.request_context_with_library_and_admin("/"):
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_work_controller.classifications,
                           lp.identifier.type, lp.identifier.identifier)
 
@@ -954,7 +955,7 @@ class TestWorkController(AdminControllerTest):
 
         self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
         with self.request_context_with_library_and_admin("/"):
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_work_controller.preview_book_cover,
                           identifier.type, identifier.identifier)
 
@@ -1122,7 +1123,7 @@ class TestWorkController(AdminControllerTest):
 
         self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
         with self.request_context_with_library_and_admin("/"):
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_work_controller.preview_book_cover,
                           identifier.type, identifier.identifier)
 
@@ -1144,7 +1145,7 @@ class TestWorkController(AdminControllerTest):
 
         self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
         with self.request_context_with_library_and_admin("/"):
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_work_controller.custom_lists,
                           identifier.type, identifier.identifier)
 
@@ -1223,6 +1224,6 @@ class TestWorkController(AdminControllerTest):
             flask.request.form = MultiDict([
                 ("lists", json.dumps([{ "name": "another new list" }]))
             ])
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_work_controller.custom_lists,
                           identifier.type, identifier.identifier)

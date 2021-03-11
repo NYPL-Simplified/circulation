@@ -1,3 +1,4 @@
+import pytest
 from mock import patch, create_autospec, MagicMock
 from nose.tools import eq_, assert_raises
 from parameterized import parameterized
@@ -93,7 +94,7 @@ class TestLCPEncryptor(DatabaseTest):
 
                     # Act
                     if expected_exception:
-                        with assert_raises(LCPEncryptionException) as exception_metadata:
+                        with pytest.raises(LCPEncryptionException) as exception_metadata:
                             encryptor.encrypt(self._db, file_path, identifier.identifier)
 
                         # Assert

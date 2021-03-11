@@ -1,6 +1,7 @@
 import datetime
 import os
 
+import pytest
 from freezegun import freeze_time
 from nose.tools import assert_raises
 from parameterized import parameterized
@@ -84,7 +85,7 @@ class TestSAMLFederatedMetadataExpirationValidator(object):
         # Act, assert
         with freeze_time(current_time):
             if expected_exception:
-                with assert_raises(expected_exception):
+                with pytest.raises(expected_exception):
                     validator.validate(federation, metadata)
             else:
                 validator.validate(federation, metadata)
@@ -128,7 +129,7 @@ class TestSAMLMetadataSignatureValidator(object):
 
         # Act, assert
         if expected_exception:
-            with assert_raises(expected_exception):
+            with pytest.raises(expected_exception):
                 validator.validate(federation, metadata)
         else:
             validator.validate(federation, metadata)

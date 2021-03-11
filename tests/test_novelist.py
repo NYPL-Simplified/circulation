@@ -1,5 +1,7 @@
 import datetime
 import json
+
+import pytest
 from nose.tools import (
     set_trace,
     eq_,
@@ -65,11 +67,11 @@ class TestNoveListAPI(DatabaseTest):
 
         # Without either configuration value, an error is raised.
         self.integration.password = None
-        assert_raises(CannotLoadConfiguration, NoveListAPI.from_config, self._default_library)
+        pytest.raises(CannotLoadConfiguration, NoveListAPI.from_config, self._default_library)
 
         self.integration.password = u'yep'
         self.integration.username = None
-        assert_raises(CannotLoadConfiguration, NoveListAPI.from_config, self._default_library)
+        pytest.raises(CannotLoadConfiguration, NoveListAPI.from_config, self._default_library)
 
     def test_is_configured(self):
         # If an ExternalIntegration exists, the API is_configured
@@ -85,10 +87,10 @@ class TestNoveListAPI(DatabaseTest):
 
     def test_review_response(self):
         invalid_credential_response = (403, {}, 'HTML Access Denied page')
-        assert_raises(Exception, self.novelist.review_response, invalid_credential_response)
+        pytest.raises(Exception, self.novelist.review_response, invalid_credential_response)
 
         missing_argument_response = (200, {}, '"Missing ISBN, UPC, or Client Identifier!"')
-        assert_raises(Exception, self.novelist.review_response, missing_argument_response)
+        pytest.raises(Exception, self.novelist.review_response, missing_argument_response)
 
         response = (200, {}, "Here's the goods!")
         assert response == self.novelist.review_response(response)
@@ -184,7 +186,7 @@ class TestNoveListAPI(DatabaseTest):
             ]
         )
         # An error is raised.
-        assert_raises(
+        pytest.raises(
             ValueError, self.novelist.get_series_information,
             metadata, series_info, book_info
         )

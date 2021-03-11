@@ -2,6 +2,8 @@ import pkgutil
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 import json
+
+import pytest
 from nose.tools import (
     assert_raises_regexp,
     eq_,
@@ -81,11 +83,9 @@ class TestMilleniumPatronAPI(DatabaseTest):
         assert "http://example.com/" == api.root
         assert ["a", "b"] == [x.pattern for x in api.blacklist]
 
-        assert_raises_regexp(
-            CannotLoadConfiguration,
-            "Unrecognized Millenium Patron API neighborhood mode: nope.",
-            self.mock_api, neighborhood_mode="nope"
-        )
+        with pytest.raises(CannotLoadConfiguration) as excinfo:
+            self.mock_api(neighborhood_mode="nope")
+        assert "Unrecognized Millenium Patron API neighborhood mode: nope." in str(excinfo.value)
 
     def test__remote_patron_lookup_no_such_patron(self):
         self.api.enqueue("dump.no such barcode.html")
@@ -491,12 +491,9 @@ class TestMilleniumPatronAPI(DatabaseTest):
         assert True == m("caroline janice cherryh", "cherryh")
 
     def test_misconfigured_authentication_mode(self):
-        assert_raises_regexp(
-            CannotLoadConfiguration,
-            "Unrecognized Millenium Patron API authentication mode: nosuchauthmode.",
-            self.mock_api,
-            auth_mode = 'nosuchauthmode'
-        )
+        with pytest.raises(CannotLoadConfiguration) as excinfo:
+            self.mock_api(auth_mode = 'nosuchauthmode')
+        assert "Unrecognized Millenium Patron API authentication mode: nosuchauthmode." in str(excinfo.value)
 
     def test_authorization_without_password(self):
         """Test authorization when no password is required, only

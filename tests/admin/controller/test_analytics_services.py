@@ -1,3 +1,4 @@
+import pytest
 from nose.tools import (
     set_trace,
     eq_,
@@ -196,7 +197,7 @@ class TestAnalyticsServices(SettingsControllerTest):
                 (ExternalIntegration.URL, "url"),
                 ("libraries", json.dumps([])),
             ])
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_analytics_services_controller.process_analytics_services)
 
     def test_analytics_services_post_create(self):
@@ -313,7 +314,7 @@ class TestAnalyticsServices(SettingsControllerTest):
 
         with self.request_context_with_admin("/", method="DELETE"):
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_analytics_services_controller.process_delete,
                           ga_service.id)
 

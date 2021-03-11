@@ -1,3 +1,4 @@
+import pytest
 from nose.tools import (
     eq_,
     set_trace,
@@ -40,17 +41,13 @@ class TestGoogleAnalyticsProvider(DatabaseTest):
             protocol="api.google_analytics_provider",
         )
 
-        assert_raises_regexp(
-            CannotLoadConfiguration,
-            "Google Analytics can't be configured without a library.",
-            GoogleAnalyticsProvider, integration
-        )
+        with pytest.raises(CannotLoadConfiguration) as excinfo:
+            GoogleAnalyticsProvider(integration)
+        assert "Google Analytics can't be configured without a library." in str(excinfo.value)
 
-        assert_raises_regexp(
-            CannotLoadConfiguration,
-            "Missing tracking id for library %s" % self._default_library.short_name,
-            GoogleAnalyticsProvider, integration, self._default_library
-        )
+        with pytest.raises(CannotLoadConfiguration) as excinfo:
+            GoogleAnalyticsProvider(integration, self._default_library)
+        assert "Missing tracking id for library %s" % self._default_library.short_name in str(excinfo.value)
 
         ConfigurationSetting.for_library_and_externalintegration(
             self._db, GoogleAnalyticsProvider.TRACKING_ID, self._default_library, integration

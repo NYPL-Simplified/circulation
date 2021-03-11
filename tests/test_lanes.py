@@ -1,5 +1,7 @@
 # encoding: utf-8
 from collections import Counter
+
+import pytest
 from nose.tools import (
     set_trace,
     eq_,
@@ -449,7 +451,7 @@ class TestRelatedBooksLane(DatabaseTest):
         self._db.delete(self.edition.contributions[0])
         self._db.commit()
 
-        assert_raises(
+        pytest.raises(
             ValueError, RelatedBooksLane, self._default_library, self.work, ""
         )
 
@@ -660,10 +662,10 @@ class TestSeriesLane(LaneTest):
 
     def test_initialization(self):
         # An error is raised if SeriesLane is created with an empty string.
-        assert_raises(
+        pytest.raises(
             ValueError, SeriesLane, self._default_library, ''
         )
-        assert_raises(
+        pytest.raises(
             ValueError, SeriesLane, self._default_library, None
         )
 

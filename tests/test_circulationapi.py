@@ -2,6 +2,7 @@
 from datetime import datetime, timedelta
 
 import flask
+import pytest
 from flask import Flask
 from nose.tools import assert_raises, assert_raises_regexp, eq_
 from parameterized import parameterized
@@ -375,7 +376,7 @@ class TestCirculationAPI(DatabaseTest):
         yesterday = now - timedelta(days=1)
         self.patron.authorization_expires = yesterday
 
-        assert_raises(AuthorizationExpired, self.borrow)
+        pytest.raises(AuthorizationExpired, self.borrow)
         self.patron.authorization_expires = old_expires
 
     def test_borrow_with_outstanding_fines(self):
@@ -398,11 +399,11 @@ class TestCirculationAPI(DatabaseTest):
         )
         setting.value = "$0.50"
 
-        assert_raises(OutstandingFines, self.borrow)
+        pytest.raises(OutstandingFines, self.borrow)
 
         # Test the case where any amount of fines are too much.
         setting.value = "$0"
-        assert_raises(OutstandingFines, self.borrow)
+        pytest.raises(OutstandingFines, self.borrow)
 
 
         # Remove the fine policy, and borrow succeeds.
@@ -425,7 +426,7 @@ class TestCirculationAPI(DatabaseTest):
 
         # ...except the patron is blocked
         self.patron.block_reason = "some reason"
-        assert_raises(AuthorizationBlocked, self.borrow)
+        pytest.raises(AuthorizationBlocked, self.borrow)
         self.patron.block_reason = None
 
     def test_no_licenses_prompts_availability_update(self):
@@ -435,7 +436,7 @@ class TestCirculationAPI(DatabaseTest):
         assert [] == self.remote.availability_updated_for
 
         # We're not able to borrow the book...
-        assert_raises(NoLicenses, self.borrow)
+        pytest.raises(NoLicenses, self.borrow)
 
         # But the availability of the book gets immediately updated,
         # so that we don't keep offering the book.
@@ -472,7 +473,7 @@ class TestCirculationAPI(DatabaseTest):
         self.circulation = MockCirculationAPI(self._db, self._default_library)
 
         # checkout() raised the expected NotImplementedError
-        assert_raises(NotImplementedError, self.borrow)
+        pytest.raises(NotImplementedError, self.borrow)
 
         # But before that happened, enforce_limits was called once.
         assert [(self.patron, self.pool)] == self.circulation.enforce_limits_calls
@@ -763,10 +764,10 @@ class TestCirculationAPI(DatabaseTest):
 
         # fulfill_open_access() and fulfill() will both raise
         # FormatNotAvailable.
-        assert_raises(FormatNotAvailable, self.circulation.fulfill_open_access,
+        pytest.raises(FormatNotAvailable, self.circulation.fulfill_open_access,
                       self.pool, i_want_an_epub)
 
-        assert_raises(FormatNotAvailable, self.circulation.fulfill,
+        pytest.raises(FormatNotAvailable, self.circulation.fulfill,
                       self.patron, '1234', self.pool,
                       broken_lpdm,
                       sync_on_failure=False
@@ -789,7 +790,7 @@ class TestCirculationAPI(DatabaseTest):
         # It's still not going to work because the Resource has no
         # Representation.
         assert None == link.resource.representation
-        assert_raises(FormatNotAvailable, self.circulation.fulfill_open_access,
+        pytest.raises(FormatNotAvailable, self.circulation.fulfill_open_access,
                       self.pool, i_want_an_epub)
 
         # Let's add a Representation to the Resource.
@@ -836,7 +837,7 @@ class TestCirculationAPI(DatabaseTest):
             DeliveryMechanism.NO_DRM
         )
         working_lpdm.delivery_mechanism = irrelevant_delivery_mechanism
-        assert_raises(FormatNotAvailable, self.circulation.fulfill_open_access,
+        pytest.raises(FormatNotAvailable, self.circulation.fulfill_open_access,
                       self.pool, i_want_an_epub)
 
     def test_fulfill(self):
@@ -872,7 +873,7 @@ class TestCirculationAPI(DatabaseTest):
                 None, '1234', self.pool, self.pool.delivery_mechanisms[0]
             )
 
-        assert_raises(NoActiveLoan, try_to_fulfill)
+        pytest.raises(NoActiveLoan, try_to_fulfill)
 
         # However, if CirculationAPI.can_fulfill_without_loan() says it's
         # okay, the title will be fulfilled anyway.

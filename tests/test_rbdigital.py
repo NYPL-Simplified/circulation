@@ -1,4 +1,6 @@
 import datetime
+
+import pytest
 from dateutil.relativedelta import relativedelta
 import json
 from lxml import etree
@@ -710,7 +712,7 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         api = RemoteLookupFailAndRecoveryAndFail(
             self._db, self.collection, base_path=self.base_path
         )
-        assert_raises(RemotePatronCreationFailedException, api._find_or_create_remote_account, patron)
+        pytest.raises(RemotePatronCreationFailedException, api._find_or_create_remote_account, patron)
         assert ["a barcode", "mock email address"] == api.patron_remote_identifier_lookup_called_with
         assert [patron, patron] == api.patron_email_address_called_with
 
@@ -798,7 +800,7 @@ class TestRBDigitalAPI(RBDigitalAPITest):
 
         patron = self._patron("a barcode")
         api = ApiThrowsException(self._db, self.collection, base_path=self.base_path)
-        assert_raises(CirculationException, api.patron_remote_identifier, patron)
+        pytest.raises(CirculationException, api.patron_remote_identifier, patron)
         data_source = DataSource.lookup(self._db, DataSource.RB_DIGITAL)
         credential, new = get_one_or_create(
             self._db,
@@ -906,11 +908,9 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         # Without a setting for DEFAULT_NOTIFICATION_EMAIL_ADDRESS, we
         # can't calculate the email address to send RBdigital for a
         # patron.
-        assert_raises_regexp(
-            RemotePatronCreationFailedException,
-            "Cannot create remote account for patron because library's default notification address is not set.",
-            m, patron, auth
-        )
+        with pytest.raises(RemotePatronCreationFailedException) as excinfo:
+            m(patron, auth)
+        assert "Cannot create remote account for patron because library's default notification address is not set." in str(excinfo.value)
 
         self._set_notification_address(patron.library)
         address = m(patron, auth)
@@ -967,11 +967,9 @@ class TestRBDigitalAPI(RBDigitalAPITest):
 
 
         self.api.queue_response(status_code=404, content="{}")
-        assert_raises_regexp(
-            BadResponseException,
-            "Bad response from .*",
-            self.api.get_metadata_by_isbn, identifier='97BADISBNFAKE'
-        )
+        with pytest.raises(BadResponseException) as excinfo:
+            self.api.get_metadata_by_isbn(identifier='97BADISBNFAKE')
+        assert "Bad response from " in str(excinfo.value)
 
         datastr, datadict = self.api.get_data("response_isbn_found_1.json")
         self.api.queue_response(status_code=200, content=datastr)
@@ -1239,7 +1237,7 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         # queue unexpected non-empty response from the server
         self.api.queue_response(status_code=200, content=json.dumps({"error_code": "error"}))
 
-        assert_raises(CirculationException, self.api.checkin,
+        pytest.raises(CirculationException, self.api.checkin,
                       patron, None, pool)
 
     def test_checkout(self):
@@ -1369,7 +1367,7 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         self.api.queue_response(status_code=200, content=datastr)
 
         # The patron can't fulfill the book if it's not one of their checkouts.
-        assert_raises(NoActiveLoan, self.api.fulfill,
+        pytest.raises(NoActiveLoan, self.api.fulfill,
                       patron, None, pool2, None)
 
         # Try again with a scenario where the patron has no active
@@ -1377,7 +1375,7 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         datastr, datadict = self.api.get_data("response_patron_checkouts_200_emptylist.json")
         self.api.queue_response(status_code=200, content=datastr)
 
-        assert_raises(NoActiveLoan, self.api.fulfill,
+        pytest.raises(NoActiveLoan, self.api.fulfill,
                       patron, None, pool, None)
 
     def test_fulfill_audiobook(self):
@@ -1656,7 +1654,7 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         # queue unexpected non-empty response from the server
         self.api.queue_response(status_code=200, content=json.dumps({"error_code": "error"}))
 
-        assert_raises(CirculationException, self.api.release_hold,
+        pytest.raises(CirculationException, self.api.release_hold,
                       patron, None, pool)
 
     def test_update_licensepool_for_identifier(self):

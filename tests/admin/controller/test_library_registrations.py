@@ -1,3 +1,4 @@
+import pytest
 from nose.tools import (
     set_trace,
     eq_,
@@ -189,7 +190,7 @@ class TestLibraryRegistration(SettingsControllerTest):
             # request.
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
             self._db.flush()
-            assert_raises(AdminNotAuthorized, m)
+            pytest.raises(AdminNotAuthorized, m)
 
     def test_discovery_service_library_registrations_post(self):
         """Test what might happen when you POST to
@@ -203,7 +204,7 @@ class TestLibraryRegistration(SettingsControllerTest):
         # registration process.
         self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
         with self.request_context_with_admin("/", method="POST"):
-            assert_raises(AdminNotAuthorized, m,
+            pytest.raises(AdminNotAuthorized, m,
                           do_get=self.do_request, do_post=self.do_request)
         self.admin.add_role(AdminRole.SYSTEM_ADMIN)
 

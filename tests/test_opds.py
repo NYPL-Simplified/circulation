@@ -5,6 +5,8 @@ import datetime
 import os
 import re
 import json
+
+import pytest
 from lxml import etree
 from mock import create_autospec
 from nose.tools import (
@@ -1418,12 +1420,12 @@ class TestLibraryAnnotator(VendorIDTest):
 
         # If there's no way to fulfill the book, borrow_link raises
         # UnfulfillableWork.
-        assert_raises(
+        pytest.raises(
             UnfulfillableWork,
             annotator.borrow_link,
             pool, None, [])
 
-        assert_raises(
+        pytest.raises(
             UnfulfillableWork,
             annotator.borrow_link,
             pool, None, [kindle_mechanism])
@@ -1907,12 +1909,12 @@ class TestSharedCollectionAnnotator(DatabaseTest):
 
         # If there's no way to fulfill the book, borrow_link raises
         # UnfulfillableWork.
-        assert_raises(
+        pytest.raises(
             UnfulfillableWork,
             annotator.borrow_link,
             pool, None, [])
 
-        assert_raises(
+        pytest.raises(
             UnfulfillableWork,
             annotator.borrow_link,
             pool, None, [kindle_mechanism])

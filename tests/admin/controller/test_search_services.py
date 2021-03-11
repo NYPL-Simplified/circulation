@@ -1,3 +1,4 @@
+import pytest
 from nose.tools import (
     set_trace,
     eq_,
@@ -26,7 +27,7 @@ class TestSearchServices(SettingsControllerTest):
 
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
             self._db.flush()
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_search_services_controller.process_services)
 
     def test_search_services_get_with_one_service(self):
@@ -125,7 +126,7 @@ class TestSearchServices(SettingsControllerTest):
                 (ExternalIntegration.URL, "search url"),
                 (ExternalSearchIndex.WORKS_INDEX_PREFIX_KEY, "works-index-prefix"),
             ])
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                          controller.process_services)
 
     def test_search_services_post_create(self):
@@ -186,7 +187,7 @@ class TestSearchServices(SettingsControllerTest):
 
         with self.request_context_with_admin("/", method="DELETE"):
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_search_services_controller.process_delete,
                           search_service.id)
 

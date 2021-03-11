@@ -4,6 +4,7 @@ wrangler.
 
 import datetime
 import feedparser
+import pytest
 
 from nose.tools import (
     assert_raises_regexp,
@@ -476,11 +477,9 @@ class TestBaseMetadataWranglerCoverageProvider(MetadataWranglerCoverageProviderT
         class UnauthenticatedLookupClient(object):
             authenticated = False
 
-        assert_raises_regexp(
-            CannotLoadConfiguration,
-            "Authentication for the Library Simplified Metadata Wrangler ",
-            self.Mock, self.collection, UnauthenticatedLookupClient()
-        )
+        with pytest.raises(CannotLoadConfiguration) as excinfo:
+            self.Mock(self.collection, UnauthenticatedLookupClient())
+        assert "Authentication for the Library Simplified Metadata Wrangler " in str(excinfo.value)
 
     def test_input_identifier_types(self):
         """Verify all the different types of identifiers we send

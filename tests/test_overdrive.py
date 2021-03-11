@@ -1,4 +1,5 @@
 # encoding: utf-8
+import pytest
 from nose.tools import (
     set_trace, eq_, ok_,
     assert_raises,
@@ -419,9 +420,9 @@ class TestOverdriveAPI(OverdriveAPITest):
         )
 
         # Some known errors become specific subclasses of CannotLoan.
-        assert_raises(PatronLoanLimitReached, with_error_code,
+        pytest.raises(PatronLoanLimitReached, with_error_code,
                       "PatronHasExceededCheckoutLimit")
-        assert_raises(PatronLoanLimitReached, with_error_code,
+        pytest.raises(PatronLoanLimitReached, with_error_code,
                       "PatronHasExceededCheckoutLimit_ForCPC")
 
         # There are two cases where we need to make follow-up API
@@ -430,7 +431,7 @@ class TestOverdriveAPI(OverdriveAPITest):
         # First, if the error is "NoCopiesAvailable", we know we have
         # out-of-date availability information and we need to call
         # update_licensepool before raising NoAvailbleCopies().
-        assert_raises(NoAvailableCopies, with_error_code,
+        pytest.raises(NoAvailableCopies, with_error_code,
                       "NoCopiesAvailable")
         assert identifier.identifier == api.update_licensepool_called_with.pop()
 
@@ -587,27 +588,27 @@ class TestOverdriveAPI(OverdriveAPITest):
             return api.process_place_hold_response(response, None, None, None)
 
         # Some error messages result in specific CirculationExceptions.
-        assert_raises(
+        pytest.raises(
             CannotRenew, process_error_response, "NotWithinRenewalWindow"
         )
-        assert_raises(
+        pytest.raises(
             PatronHoldLimitReached, process_error_response,
             "PatronExceededHoldLimit"
         )
 
         # An unrecognized error message results in a generic
         # CannotHold.
-        assert_raises(CannotHold, process_error_response, "SomeOtherError")
+        pytest.raises(CannotHold, process_error_response, "SomeOtherError")
 
         # Same if the error message is missing or the response can't be
         # processed.
-        assert_raises(CannotHold, process_error_response, dict())
-        assert_raises(CannotHold, process_error_response, None)
+        pytest.raises(CannotHold, process_error_response, dict())
+        pytest.raises(CannotHold, process_error_response, None)
 
         # Same if the error code isn't in the 4xx or 2xx range
         # (which shouldn't happen in real life).
         response = MockRequestsResponse(999)
-        assert_raises(
+        pytest.raises(
             CannotHold, api.process_place_hold_response,
             response, None, None, None
         )
@@ -877,7 +878,7 @@ class TestOverdriveAPI(OverdriveAPITest):
             with_license_pool=True
         )
         self.api.queue_response(400, content=over_hold_limit)
-        assert_raises(
+        pytest.raises(
             PatronHoldLimitReached,
             self.api.place_hold, self._patron(), 'pin', pool,
             notification_email_address='foo@bar.com'
@@ -961,7 +962,7 @@ class TestOverdriveAPI(OverdriveAPITest):
         self.api.queue_response(400, content=lock_in_format_not_available)
 
         # Trying to get a fulfillment link raises an exception.
-        assert_raises(
+        pytest.raises(
             FormatNotAvailable,
             self.api.get_fulfillment_link,
             self._patron(), 'pin', pool.identifier.identifier,
@@ -984,7 +985,7 @@ class TestOverdriveAPI(OverdriveAPITest):
         self.api.queue_response(400, content=lock_in_format_not_available)
         self.api.queue_response(200, content=bibliographic)
 
-        assert_raises(
+        pytest.raises(
             FormatNotAvailable,
             self.api.fulfill,
             self._patron(), 'pin', pool,
@@ -1544,7 +1545,7 @@ class TestExtractData(OverdriveAPITest):
             json, "ebook-epub-adobe", "http://foo.com/")
         assert "http://patron.api.overdrive.com/v1/patrons/me/checkouts/76C1B7D0-17F4-4C05-8397-C66C17411584/formats/ebook-epub-adobe/downloadlink?errorpageurl=http://foo.com/" == url
 
-        assert_raises(
+        pytest.raises(
             NoAcceptableFormat,
             MockOverdriveAPI.get_download_link,
             json, "no-such-format", "http://foo.com/"
@@ -1552,7 +1553,7 @@ class TestExtractData(OverdriveAPITest):
 
     def test_get_download_link_raises_exception_if_loan_fulfilled_on_incompatible_platform(self):
         data, json = self.sample_json("checkout_response_book_fulfilled_on_kindle.json")
-        assert_raises(
+        pytest.raises(
             FulfilledOnIncompatiblePlatform,
             MockOverdriveAPI.get_download_link,
             json, "ebook-epub-adobe", "http://foo.com/"

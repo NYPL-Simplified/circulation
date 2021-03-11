@@ -1,3 +1,4 @@
+import pytest
 from nose.tools import (
     set_trace,
     eq_,
@@ -148,7 +149,7 @@ class TestIndividualAdmins(SettingsControllerTest):
                     self.manager.admin_individual_admin_settings_controller.process_post()
                     self._db.rollback()
                 else:
-                    assert_raises(AdminNotAuthorized,
+                    pytest.raises(AdminNotAuthorized,
                                   self.manager.admin_individual_admin_settings_controller.process_post)
 
         # Various types of user trying to change a system admin's roles
@@ -207,7 +208,7 @@ class TestIndividualAdmins(SettingsControllerTest):
                     self.manager.admin_individual_admin_settings_controller.process_post()
                     self._db.rollback()
                 else:
-                    assert_raises(AdminNotAuthorized,
+                    pytest.raises(AdminNotAuthorized,
                                   self.manager.admin_individual_admin_settings_controller.process_post)
 
         # Various types of user trying to change a system admin's password
@@ -358,7 +359,7 @@ class TestIndividualAdmins(SettingsControllerTest):
         system_admin.add_role(AdminRole.SYSTEM_ADMIN)
 
         with self.request_context_with_admin("/", method="DELETE", admin=librarian):
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_individual_admin_settings_controller.process_delete,
                           librarian.email)
 
@@ -366,7 +367,7 @@ class TestIndividualAdmins(SettingsControllerTest):
             response = self.manager.admin_individual_admin_settings_controller.process_delete(librarian.email)
             assert response.status_code == 200
 
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_individual_admin_settings_controller.process_delete,
                           system_admin.email)
 
@@ -391,7 +392,7 @@ class TestIndividualAdmins(SettingsControllerTest):
                 ("password", "pass"),
                 ("roles", json.dumps([{ "role": AdminRole.LIBRARY_MANAGER, "library": self._default_library.short_name }])),
             ])
-            assert_raises(AdminNotAuthorized, self.manager.admin_individual_admin_settings_controller.process_post)
+            pytest.raises(AdminNotAuthorized, self.manager.admin_individual_admin_settings_controller.process_post)
             self._db.rollback()
 
         # The password is required.

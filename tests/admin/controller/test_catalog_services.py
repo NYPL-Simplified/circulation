@@ -1,6 +1,7 @@
 import json
 
 import flask
+import pytest
 from nose.tools import (
     eq_,
     assert_raises,
@@ -35,7 +36,7 @@ class TestCatalogServicesController(SettingsControllerTest):
 
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
             self._db.flush()
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_catalog_services_controller.process_catalog_services)
 
         def test_catalog_services_get_with_marc_exporter(self):
@@ -152,7 +153,7 @@ class TestCatalogServicesController(SettingsControllerTest):
                 ("protocol", ME.NAME),
                 ("mirror_integration_id", s3.id),
             ])
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_catalog_services_controller.process_catalog_services)
 
         # This should be the last test to check since rolling back database
@@ -274,7 +275,7 @@ class TestCatalogServicesController(SettingsControllerTest):
 
         with self.request_context_with_admin("/", method="DELETE"):
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_catalog_services_controller.process_delete,
                           service.id)
 

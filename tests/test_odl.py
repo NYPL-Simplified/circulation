@@ -1,3 +1,4 @@
+import pytest
 from nose.tools import (
     set_trace,
     eq_,
@@ -117,12 +118,12 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
         loan, ignore = self.license.loan_to(self.patron)
 
         self.api.queue_response(200, content="not json")
-        assert_raises(
+        pytest.raises(
             BadResponseException, self.api.get_license_status_document, loan,
         )
 
         self.api.queue_response(200, content=json.dumps(dict(status="unknown")))
-        assert_raises(
+        pytest.raises(
             BadResponseException, self.api.get_license_status_document, loan,
         )
 
@@ -222,7 +223,7 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
 
     def test_checkin_not_checked_out(self):
         # Not checked out locally.
-        assert_raises(
+        pytest.raises(
             NotCheckedOut, self.api.checkin,
             self.patron, "pin", self.pool,
         )
@@ -237,7 +238,7 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
         })
 
         self.api.queue_response(200, content=lsd)
-        assert_raises(
+        pytest.raises(
             NotCheckedOut, self.api.checkin,
             self.patron, "pin", self.pool,
         )
@@ -369,7 +370,7 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
         existing_loan.external_identifier = self._str
         existing_loan.end = datetime.datetime.utcnow() + datetime.timedelta(days=3)
 
-        assert_raises(
+        pytest.raises(
             AlreadyCheckedOut, self.api.checkout,
             self.patron, "pin", self.pool, Representation.EPUB_MEDIA_TYPE,
         )
@@ -383,7 +384,7 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
         hold, ignore = self.pool.on_hold_to(self.patron, start=yesterday, end=yesterday, position=0)
         other_hold, ignore = self.pool.on_hold_to(self._patron(), start=datetime.datetime.utcnow())
 
-        assert_raises(
+        pytest.raises(
             NoAvailableCopies, self.api.checkout,
             self.patron, "pin", self.pool, Representation.EPUB_MEDIA_TYPE,
         )
@@ -394,7 +395,7 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
         self.pool.licenses_available = 0
         existing_loan, ignore = self.license.loan_to(self._patron())
 
-        assert_raises(
+        pytest.raises(
             NoAvailableCopies, self.api.checkout,
             self.patron, "pin", self.pool, Representation.EPUB_MEDIA_TYPE,
         )
@@ -410,7 +411,7 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
         # A different patron has the only copy reserved.
         other_patron_hold, ignore = self.pool.on_hold_to(self._patron(), position=0, start=last_week)
 
-        assert_raises(
+        pytest.raises(
             NoAvailableCopies, self.api.checkout,
             self.patron, "pin", self.pool, Representation.EPUB_MEDIA_TYPE,
         )
@@ -420,7 +421,7 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
         # The patron has a hold, but another patron is ahead in the holds queue.
         hold, ignore = self.pool.on_hold_to(self._patron(), position=1, start=yesterday)
 
-        assert_raises(
+        pytest.raises(
             NoAvailableCopies, self.api.checkout,
             self.patron, "pin", self.pool, Representation.EPUB_MEDIA_TYPE,
         )
@@ -431,7 +432,7 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
         hold.start = last_week - datetime.timedelta(days=1)
         hold.end = yesterday
 
-        assert_raises(
+        pytest.raises(
             NoAvailableCopies, self.api.checkout,
             self.patron, "pin", self.pool, Representation.EPUB_MEDIA_TYPE,
         )
@@ -443,7 +444,7 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
         self.pool.licenses_owned = 0
         self.license.remaining_checkouts = 0
 
-        assert_raises(
+        pytest.raises(
             NoLicenses, self.api.checkout,
             self.patron, "pin", self.pool, Representation.EPUB_MEDIA_TYPE,
         )
@@ -457,7 +458,7 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
         self.license.remaining_checkouts = 1
         self.license.expires = datetime.datetime.utcnow() - datetime.timedelta(weeks=1)
 
-        assert_raises(
+        pytest.raises(
             NoLicenses, self.api.checkout,
             self.patron, "pin", self.pool, Representation.EPUB_MEDIA_TYPE,
         )
@@ -468,7 +469,7 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
         self.license.remaining_checkouts = 0
         self.license.expires = datetime.datetime.utcnow() + datetime.timedelta(weeks=1)
 
-        assert_raises(
+        pytest.raises(
             NoLicenses, self.api.checkout,
             self.patron, "pin", self.pool, Representation.EPUB_MEDIA_TYPE,
         )
@@ -479,7 +480,7 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
         })
 
         self.api.queue_response(200, content=lsd)
-        assert_raises(
+        pytest.raises(
             CannotLoan, self.api.checkout,
             self.patron, "pin", self.pool, Representation.EPUB_MEDIA_TYPE,
         )
@@ -495,7 +496,7 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
         })
 
         self.api.queue_response(200, content=lsd)
-        assert_raises(
+        pytest.raises(
             CannotLoan, self.api.checkout,
             self.patron, "pin", self.pool, Representation.EPUB_MEDIA_TYPE,
         )
@@ -575,7 +576,7 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
         })
 
         self.api.queue_response(200, content=lsd)
-        assert_raises(
+        pytest.raises(
             CannotFulfill, self.api.fulfill,
             self.patron, "pin", self.pool, Representation.EPUB_MEDIA_TYPE,
         )
@@ -915,14 +916,14 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
 
     def test_place_hold_already_on_hold(self):
         self.pool.on_hold_to(self.patron)
-        assert_raises(
+        pytest.raises(
             AlreadyOnHold, self.api.place_hold,
             self.patron, "pin", self.pool, "notifications@librarysimplified.org",
         )
 
     def test_place_hold_currently_available(self):
         self.pool.licenses_owned = 1
-        assert_raises(
+        pytest.raises(
             CurrentlyAvailable, self.api.place_hold,
             self.patron, "pin", self.pool, "notifications@librarysimplified.org",
         )
@@ -958,7 +959,7 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
         assert 0 == other_hold.position
 
     def test_release_hold_not_on_hold(self):
-        assert_raises(
+        pytest.raises(
             NotOnHold, self.api.release_hold,
             self.patron, "pin", self.pool,
         )
@@ -1524,7 +1525,7 @@ class TestSharedODLAPI(DatabaseTest, BaseODLTest):
         # The library has not registered with the remote collection yet.
         def do_get(url, headers=None, allowed_response_codes=None):
             raise Exception("do_get should not be called")
-        assert_raises(LibraryAuthorizationFailedException, api._get,
+        pytest.raises(LibraryAuthorizationFailedException, api._get,
                       "test url", patron=self.patron, do_get=do_get)
 
         # Once the library registers, it gets a shared secret that is included
@@ -1579,13 +1580,13 @@ class TestSharedODLAPI(DatabaseTest, BaseODLTest):
 
     def test_checkout_already_checked_out(self):
         loan, ignore = self.pool.loan_to(self.patron)
-        assert_raises(AlreadyCheckedOut, self.api.checkout, self.patron, "pin",
+        pytest.raises(AlreadyCheckedOut, self.api.checkout, self.patron, "pin",
                       self.pool, Representation.EPUB_MEDIA_TYPE)
         assert [] == self.api.requests
 
     def test_checkout_no_available_copies(self):
         self.api.queue_response(403)
-        assert_raises(NoAvailableCopies, self.api.checkout, self.patron, "pin",
+        pytest.raises(NoAvailableCopies, self.api.checkout, self.patron, "pin",
                       self.pool, Representation.EPUB_MEDIA_TYPE)
         assert ([self.pool.identifier.links[0].resource.url] ==
              self.api.requests)
@@ -1596,7 +1597,7 @@ class TestSharedODLAPI(DatabaseTest, BaseODLTest):
             headers=NO_LICENSES.response[2],
             content=NO_LICENSES.response[0],
         )
-        assert_raises(NoLicenses, self.api.checkout, self.patron, "pin",
+        pytest.raises(NoLicenses, self.api.checkout, self.patron, "pin",
                       self.pool, Representation.EPUB_MEDIA_TYPE)
         assert ([self.pool.identifier.links[0].resource.url] ==
              self.api.requests)
@@ -1605,20 +1606,20 @@ class TestSharedODLAPI(DatabaseTest, BaseODLTest):
         hold, ignore = self.pool.on_hold_to(self.patron)
         hold_info_response = self.get_data("shared_collection_hold_info_reserved.opds")
         self.api.queue_response(200, content=hold_info_response)
-        assert_raises(NoAvailableCopies, self.api.checkout, self.patron, "pin",
+        pytest.raises(NoAvailableCopies, self.api.checkout, self.patron, "pin",
                       self.pool, Representation.EPUB_MEDIA_TYPE)
         assert [hold.external_identifier] == self.api.requests
 
     def test_checkout_cannot_loan(self):
         self.api.queue_response(500)
-        assert_raises(CannotLoan, self.api.checkout, self.patron, "pin",
+        pytest.raises(CannotLoan, self.api.checkout, self.patron, "pin",
                       self.pool, Representation.EPUB_MEDIA_TYPE)
         assert ([self.pool.identifier.links[0].resource.url] ==
              self.api.requests)
 
         # This pool has no borrow link.
         pool = self._licensepool(None, collection=self.collection)
-        assert_raises(CannotLoan, self.api.checkout, self.patron, "pin",
+        pytest.raises(CannotLoan, self.api.checkout, self.patron, "pin",
                       pool, Representation.EPUB_MEDIA_TYPE)
 
     def test_checkin_success(self):
@@ -1633,25 +1634,25 @@ class TestSharedODLAPI(DatabaseTest, BaseODLTest):
             self.api.requests)
 
     def test_checkin_not_checked_out(self):
-        assert_raises(NotCheckedOut, self.api.checkin, self.patron, "pin", self.pool)
+        pytest.raises(NotCheckedOut, self.api.checkin, self.patron, "pin", self.pool)
         assert [] == self.api.requests
 
         loan, ignore = self.pool.loan_to(self.patron, external_identifier=self._str)
         self.api.queue_response(404)
-        assert_raises(NotCheckedOut, self.api.checkin, self.patron, "pin", self.pool)
+        pytest.raises(NotCheckedOut, self.api.checkin, self.patron, "pin", self.pool)
         assert [loan.external_identifier] == self.api.requests
 
     def test_checkin_cannot_return(self):
         loan, ignore = self.pool.loan_to(self.patron, external_identifier=self._str)
         self.api.queue_response(500)
-        assert_raises(CannotReturn, self.api.checkin, self.patron, "pin", self.pool)
+        pytest.raises(CannotReturn, self.api.checkin, self.patron, "pin", self.pool)
         assert [loan.external_identifier] == self.api.requests
 
 
         loan_info_response = self.get_data("shared_collection_loan_info.opds")
         self.api.queue_response(200, content=loan_info_response)
         self.api.queue_response(500)
-        assert_raises(CannotReturn, self.api.checkin, self.patron, "pin", self.pool)
+        pytest.raises(CannotReturn, self.api.checkin, self.patron, "pin", self.pool)
         assert ([loan.external_identifier,
              "http://localhost:6500/AL/collections/DPLA%20Exchange/loans/33/revoke"] ==
             self.api.requests[1:])
@@ -1675,32 +1676,32 @@ class TestSharedODLAPI(DatabaseTest, BaseODLTest):
             self.api.requests)
 
     def test_fulfill_not_checked_out(self):
-        assert_raises(NotCheckedOut, self.api.fulfill, self.patron, "pin",
+        pytest.raises(NotCheckedOut, self.api.fulfill, self.patron, "pin",
                       self.pool, self.pool.delivery_mechanisms[0])
         assert [] == self.api.requests
 
         loan, ignore = self.pool.loan_to(self.patron, external_identifier=self._str)
         self.api.queue_response(404)
-        assert_raises(NotCheckedOut, self.api.fulfill, self.patron, "pin",
+        pytest.raises(NotCheckedOut, self.api.fulfill, self.patron, "pin",
                       self.pool, self.pool.delivery_mechanisms[0])
         assert [loan.external_identifier] == self.api.requests
 
     def test_fulfill_cannot_fulfill(self):
         loan, ignore = self.pool.loan_to(self.patron, external_identifier=self._str)
         self.api.queue_response(500)
-        assert_raises(CannotFulfill, self.api.fulfill, self.patron, "pin",
+        pytest.raises(CannotFulfill, self.api.fulfill, self.patron, "pin",
                       self.pool, self.pool.delivery_mechanisms[0])
         assert [loan.external_identifier] == self.api.requests
 
         self.api.queue_response(200, content="not opds")
-        assert_raises(CannotFulfill, self.api.fulfill, self.patron, "pin",
+        pytest.raises(CannotFulfill, self.api.fulfill, self.patron, "pin",
                       self.pool, self.pool.delivery_mechanisms[0])
         assert [loan.external_identifier] == self.api.requests[1:]
 
         loan_info_response = self.get_data("shared_collection_loan_info.opds")
         self.api.queue_response(200, content=loan_info_response)
         self.api.queue_response(500)
-        assert_raises(CannotFulfill, self.api.fulfill, self.patron, "pin",
+        pytest.raises(CannotFulfill, self.api.fulfill, self.patron, "pin",
                       self.pool, self.pool.delivery_mechanisms[0])
         assert ([loan.external_identifier,
              "http://localhost:6500/AL/collections/DPLA%20Exchange/loans/33/fulfill/2"] ==
@@ -1710,7 +1711,7 @@ class TestSharedODLAPI(DatabaseTest, BaseODLTest):
         loan, ignore = self.pool.loan_to(self.patron)
         loan_info_response = self.get_data("shared_collection_loan_info_no_epub.opds")
         self.api.queue_response(200, content=loan_info_response)
-        assert_raises(FormatNotAvailable, self.api.fulfill, self.patron, "pin",
+        pytest.raises(FormatNotAvailable, self.api.fulfill, self.patron, "pin",
                       self.pool, self.pool.delivery_mechanisms[0])
         assert [loan.external_identifier] == self.api.requests
 
@@ -1732,7 +1733,7 @@ class TestSharedODLAPI(DatabaseTest, BaseODLTest):
 
     def test_place_hold_already_checked_out(self):
         loan, ignore = self.pool.loan_to(self.patron)
-        assert_raises(AlreadyCheckedOut, self.api.place_hold, self.patron, "pin",
+        pytest.raises(AlreadyCheckedOut, self.api.place_hold, self.patron, "pin",
                       self.pool, "notification@librarysimplified.org")
         assert [] == self.api.requests
 
@@ -1748,24 +1749,24 @@ class TestSharedODLAPI(DatabaseTest, BaseODLTest):
             self.api.requests)
 
     def test_release_hold_not_on_hold(self):
-        assert_raises(NotOnHold, self.api.release_hold, self.patron, "pin", self.pool)
+        pytest.raises(NotOnHold, self.api.release_hold, self.patron, "pin", self.pool)
         assert [] == self.api.requests
 
         hold, ignore = self.pool.on_hold_to(self.patron, external_identifier=self._str)
         self.api.queue_response(404)
-        assert_raises(NotOnHold, self.api.release_hold, self.patron, "pin", self.pool)
+        pytest.raises(NotOnHold, self.api.release_hold, self.patron, "pin", self.pool)
         assert [hold.external_identifier] == self.api.requests
 
     def test_release_hold_cannot_release_hold(self):
         hold, ignore = self.pool.on_hold_to(self.patron, external_identifier=self._str)
         self.api.queue_response(500)
-        assert_raises(CannotReleaseHold, self.api.release_hold, self.patron, "pin", self.pool)
+        pytest.raises(CannotReleaseHold, self.api.release_hold, self.patron, "pin", self.pool)
         assert [hold.external_identifier] == self.api.requests
 
         hold_response = self.get_data("shared_collection_hold_info_reserved.opds")
         self.api.queue_response(200, content=hold_response)
         self.api.queue_response(500)
-        assert_raises(CannotReleaseHold, self.api.release_hold, self.patron, "pin", self.pool)
+        pytest.raises(CannotReleaseHold, self.api.release_hold, self.patron, "pin", self.pool)
         assert ([hold.external_identifier,
              "http://localhost:6500/AL/collections/DPLA%20Exchange/holds/18/revoke"] ==
             self.api.requests[1:])
@@ -1822,13 +1823,13 @@ class TestSharedODLAPI(DatabaseTest, BaseODLTest):
     def test_patron_activity_remote_integration_exception(self):
         loan, ignore = self.pool.loan_to(self.patron, external_identifier=self._str)
         self.api.queue_response(500)
-        assert_raises(RemoteIntegrationException, self.api.patron_activity, self.patron, "pin")
+        pytest.raises(RemoteIntegrationException, self.api.patron_activity, self.patron, "pin")
         assert [loan.external_identifier] == self.api.requests
         self._db.delete(loan)
 
         hold, ignore = self.pool.on_hold_to(self.patron, external_identifier=self._str)
         self.api.queue_response(500)
-        assert_raises(RemoteIntegrationException, self.api.patron_activity, self.patron, "pin")
+        pytest.raises(RemoteIntegrationException, self.api.patron_activity, self.patron, "pin")
         assert [hold.external_identifier] == self.api.requests[1:]
 
 class TestSharedODLImporter(DatabaseTest, BaseODLTest):

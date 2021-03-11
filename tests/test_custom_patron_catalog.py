@@ -1,3 +1,4 @@
+import pytest
 from nose.tools import (
     assert_raises_regexp,
     eq_,
@@ -36,11 +37,9 @@ class TestCustomPatronCatalog(DatabaseTest):
         c.register(Mock1)
         assert Mock1 == c.BY_PROTOCOL[Mock1.PROTOCOL]
 
-        assert_raises_regexp(
-            ValueError,
-            "Duplicate patron catalog for protocol: A protocol",
-            c.register, Mock2
-        )
+        with pytest.raises(ValueError) as excinfo:
+            c.register(Mock2)
+        assert "Duplicate patron catalog for protocol: A protocol" in str(excinfo.value)
         c.BY_PROTOCOL = old_registry
 
     def test_default_registry(self):

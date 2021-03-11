@@ -1,3 +1,4 @@
+import pytest
 from nose.tools import (
     assert_raises,
     assert_raises_regexp,
@@ -78,11 +79,9 @@ class TestEnkiAPI(BaseEnkiTest):
         collection = self._collection(
             protocol=ExternalIntegration.OVERDRIVE
         )
-        assert_raises_regexp(
-            ValueError,
-            "Collection protocol is Overdrive, but passed into EnkiAPI!",
-            EnkiAPI, self._db, collection
-        )
+        with pytest.raises(ValueError) as excinfo:
+            EnkiAPI(self._db, collection)
+        assert "Collection protocol is Overdrive, but passed into EnkiAPI!" in str(excinfo.value)
 
         collection.protocol = ExternalIntegration.ENKI
         EnkiAPI(self._db, collection)
@@ -214,7 +213,7 @@ class TestEnkiAPI(BaseEnkiTest):
                 raise RequestTimedOut("url", "timeout")
 
         api = TimesOut(self._db, self.collection)
-        assert_raises(RequestTimedOut, api.request, "url")
+        pytest.raises(RequestTimedOut, api.request, "url")
 
         # Only two requests were made.
         assert 2 == api.calls
@@ -513,15 +512,15 @@ class TestEnkiAPI(BaseEnkiTest):
         patron = self._patron()
         self.api.queue_response(404, "No such patron")
         collect = lambda: list(self.api.patron_activity(patron, 'pin'))
-        assert_raises(PatronNotFoundOnRemote, collect)
+        pytest.raises(PatronNotFoundOnRemote, collect)
 
         msg = dict(result=dict(message="Login unsuccessful."))
         self.api.queue_response(200, content=json.dumps(msg))
-        assert_raises(AuthorizationFailedException, collect)
+        pytest.raises(AuthorizationFailedException, collect)
 
         msg = dict(result=dict(message="Some other error."))
         self.api.queue_response(200, content=json.dumps(msg))
-        assert_raises(CirculationException, collect)
+        pytest.raises(CirculationException, collect)
 
 class TestBibliographicParser(BaseEnkiTest):
 

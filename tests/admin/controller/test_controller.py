@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 
 import feedparser
 import flask
+import pytest
 from nose.tools import (
     eq_,
     assert_raises
@@ -270,7 +271,7 @@ class TestViewController(AdminControllerTest):
 class TestAdminCirculationManagerController(AdminControllerTest):
     def test_require_system_admin(self):
         with self.request_context_with_admin('/admin'):
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_work_controller.require_system_admin)
 
             self.admin.add_role(AdminRole.SYSTEM_ADMIN)
@@ -278,7 +279,7 @@ class TestAdminCirculationManagerController(AdminControllerTest):
 
     def test_require_sitewide_library_manager(self):
         with self.request_context_with_admin('/admin'):
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_work_controller.require_sitewide_library_manager)
 
             self.admin.add_role(AdminRole.SITEWIDE_LIBRARY_MANAGER)
@@ -286,7 +287,7 @@ class TestAdminCirculationManagerController(AdminControllerTest):
 
     def test_require_library_manager(self):
         with self.request_context_with_admin('/admin'):
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_work_controller.require_library_manager,
                           self._default_library)
 
@@ -295,7 +296,7 @@ class TestAdminCirculationManagerController(AdminControllerTest):
 
     def test_require_librarian(self):
         with self.request_context_with_admin('/admin'):
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_work_controller.require_librarian,
                           self._default_library)
 
@@ -671,7 +672,7 @@ class TestPatronController(AdminControllerTest):
 
         # User doesn't have admin permission
         with self.request_context_with_library("/"):
-            assert_raises(AdminNotAuthorized, m, authenticator)
+            pytest.raises(AdminNotAuthorized, m, authenticator)
 
         # No form data specified
         with self.request_context_with_library_and_admin("/"):
@@ -832,7 +833,7 @@ class TestTimestampsController(AdminControllerTest):
 
     def test_diagnostics_admin_not_authorized(self):
         with self.request_context_with_admin("/"):
-            assert_raises(AdminNotAuthorized, self.manager.timestamps_controller.diagnostics)
+            pytest.raises(AdminNotAuthorized, self.manager.timestamps_controller.diagnostics)
 
     def test_diagnostics(self):
         duration = (self.finish - self.start).total_seconds()
@@ -929,7 +930,7 @@ class TestFeedController(AdminControllerTest):
 
         self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
         with self.request_context_with_library_and_admin("/"):
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_feed_controller.complaints)
 
     def test_suppressed(self):
@@ -947,7 +948,7 @@ class TestFeedController(AdminControllerTest):
 
         self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
         with self.request_context_with_library_and_admin("/"):
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_feed_controller.suppressed)
 
     def test_genres(self):
@@ -1001,7 +1002,7 @@ class TestCustomListsController(AdminControllerTest):
 
         self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
         with self.request_context_with_library_and_admin("/"):
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_custom_lists_controller.custom_lists)
 
     def test_custom_lists_post_errors(self):
@@ -1059,7 +1060,7 @@ class TestCustomListsController(AdminControllerTest):
                 ("name", "name"),
                 ("collections", json.dumps([])),
             ])
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_custom_lists_controller.custom_lists)
 
     def test_custom_lists_post_collection_with_wrong_library(self):
@@ -1135,7 +1136,7 @@ class TestCustomListsController(AdminControllerTest):
 
         self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
         with self.request_context_with_library_and_admin("/"):
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_custom_lists_controller.custom_list,
                           list.id)
 
@@ -1207,7 +1208,7 @@ class TestCustomListsController(AdminControllerTest):
                 ("entries", json.dumps(new_entries)),
                 ("collections", json.dumps([c.id for c in new_collections])),
             ])
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_custom_lists_controller.custom_list,
                           list.id)
 
@@ -1291,7 +1292,7 @@ class TestCustomListsController(AdminControllerTest):
         data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
         list, ignore = create(self._db, CustomList, name=self._str, data_source=data_source)
         with self.request_context_with_library_and_admin("/", method="DELETE"):
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_custom_lists_controller.custom_list,
                           list.id)
 
@@ -1338,7 +1339,7 @@ class TestLanesController(AdminControllerTest):
         with self.request_context_with_library_and_admin("/"):
             flask.request.library = library
             # The admin is not a librarian for this library.
-            assert_raises(AdminNotAuthorized, self.manager.admin_lanes_controller.lanes)
+            pytest.raises(AdminNotAuthorized, self.manager.admin_lanes_controller.lanes)
             self.admin.add_role(AdminRole.LIBRARIAN, library)
             response = self.manager.admin_lanes_controller.lanes()
 
@@ -1415,7 +1416,7 @@ class TestLanesController(AdminControllerTest):
                 ("display_name", "lane"),
                 ("custom_list_ids", json.dumps([list.id])),
             ])
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_lanes_controller.lanes)
 
         lane1 = self._lane("lane1")
@@ -1584,7 +1585,7 @@ class TestLanesController(AdminControllerTest):
         library = self._library()
         with self.request_context_with_library_and_admin("/", method="DELETE"):
             flask.request.library = library
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_lanes_controller.lane,
                           lane.id)
 
@@ -1616,7 +1617,7 @@ class TestLanesController(AdminControllerTest):
 
         self.admin.remove_role(AdminRole.LIBRARY_MANAGER, self._default_library)
         with self.request_context_with_library_and_admin("/"):
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_lanes_controller.show_lane,
                           parent.id)
 
@@ -1636,7 +1637,7 @@ class TestLanesController(AdminControllerTest):
         lane = self._lane()
         self.admin.remove_role(AdminRole.LIBRARY_MANAGER, self._default_library)
         with self.request_context_with_library_and_admin("/"):
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_lanes_controller.show_lane,
                           lane.id)
 
@@ -1646,7 +1647,7 @@ class TestLanesController(AdminControllerTest):
 
         with self.request_context_with_library_and_admin("/"):
             flask.request.library = library
-            assert_raises(AdminNotAuthorized, self.manager.admin_lanes_controller.reset)
+            pytest.raises(AdminNotAuthorized, self.manager.admin_lanes_controller.reset)
 
             self.admin.add_role(AdminRole.LIBRARY_MANAGER, library)
             response = self.manager.admin_lanes_controller.reset()
@@ -1676,7 +1677,7 @@ class TestLanesController(AdminControllerTest):
             flask.request.library = library
             flask.request.data = json.dumps(new_order)
 
-            assert_raises(AdminNotAuthorized, self.manager.admin_lanes_controller.change_order)
+            pytest.raises(AdminNotAuthorized, self.manager.admin_lanes_controller.change_order)
 
             self.admin.add_role(AdminRole.LIBRARY_MANAGER, library)
             response = self.manager.admin_lanes_controller.change_order()

@@ -1,3 +1,4 @@
+import pytest
 from nose.tools import (
     set_trace,
     eq_,
@@ -44,7 +45,7 @@ class TestPatronAuth(SettingsControllerTest):
 
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
             self._db.flush()
-            assert_raises(
+            pytest.raises(
                 AdminNotAuthorized,
                 self.manager.admin_patron_auth_services_controller.process_patron_auth_services
             )
@@ -370,7 +371,7 @@ class TestPatronAuth(SettingsControllerTest):
             flask.request.form = MultiDict([
                 ("protocol", SimpleAuthenticationProvider.__module__),
             ] + self._common_basic_auth_arguments())
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_patron_auth_services_controller.process_patron_auth_services)
 
     def _get_mock(self):
@@ -505,7 +506,7 @@ class TestPatronAuth(SettingsControllerTest):
 
         with self.request_context_with_admin("/", method="DELETE"):
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_patron_auth_services_controller.process_delete,
                           auth_service.id)
 

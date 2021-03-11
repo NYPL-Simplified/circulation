@@ -1,4 +1,5 @@
 # encoding: utf-8
+import pytest
 from nose.tools import (
     set_trace,
     eq_,
@@ -262,11 +263,9 @@ class TestBibliothecaAPI(BibliothecaAPITest):
     def test_bad_response_raises_exception(self):
         self.api.queue_response(500, content="oops")
         identifier = self._identifier()
-        assert_raises_regexp(
-            BadResponseException,
-            ".*Got status code 500.*",
-            self.api.bibliographic_lookup, identifier
-        )
+        with pytest.raises(BadResponseException) as excinfo:
+            self.api.bibliographic_lookup(identifier)
+        assert "Got status code 500" in str(excinfo.value)
 
     def test_put_request(self):
         """This is a basic test to make sure the method calls line up
@@ -300,7 +299,7 @@ class TestBibliothecaAPI(BibliothecaAPITest):
         self.api.queue_response(500)
         now = datetime.now()
         an_hour_ago = now - timedelta(minutes=3600)
-        assert_raises(
+        pytest.raises(
             BadResponseException,
             self.api.get_events_between, an_hour_ago, now
         )
@@ -437,7 +436,7 @@ class TestBibliothecaAPI(BibliothecaAPITest):
         patron = self._patron()
         edition, pool = self._edition(with_license_pool=True)
         self.api.queue_response(400, content=self.sample_data("error_exceeded_hold_limit.xml"))
-        assert_raises(PatronHoldLimitReached, self.api.place_hold,
+        pytest.raises(PatronHoldLimitReached, self.api.place_hold,
                       patron, 'pin', pool)
 
     def test_get_audio_fulfillment_file(self):
@@ -684,11 +683,9 @@ class TestEventParser(BibliothecaAPITest):
         # But if we consider not having events for a certain time
         # period, then an exception should be raised.
         no_events_error = True
-        assert_raises_regexp(
-            RemoteInitiatedServerError,
-            "No events returned from server. This may not be an error, but treating it as one to be safe.",
-            list, EventParser().process_all(data, no_events_error)
-        )
+        with pytest.raises(RemoteInitiatedServerError) as excinfo:
+            list(EventParser().process_all(data, no_events_error))
+        assert "No events returned from server. This may not be an error, but treating it as one to be safe." in str(excinfo.value)
 
     def test_parse_empty_end_date_event(self):
         data = self.sample_data("empty_end_date_event.xml")
@@ -1063,11 +1060,9 @@ class TestBibliothecaEventMonitor(BibliothecaAPITest):
         
         assert after_timestamp.counter == 1
 
-        assert_raises_regexp(
-            RemoteInitiatedServerError,
-            "No events returned from server. This may not be an error, but treating it as one to be safe.",
-            monitor.run_once, after_timestamp
-        )
+        with pytest.raises(RemoteInitiatedServerError) as excinfo:
+            monitor.run_once(after_timestamp)
+        assert "No events returned from server. This may not be an error, but treating it as one to be safe." in str(excinfo.value)
 
         # One request was made but no events were found.
         assert 16 == len(api.requests)

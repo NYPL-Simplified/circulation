@@ -1,3 +1,4 @@
+import pytest
 from nose.tools import (
     set_trace,
     eq_,
@@ -60,7 +61,7 @@ class TestCollectionRegistration(SettingsControllerTest):
 
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
             self._db.flush()
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_collection_library_registrations_controller.process_collection_library_registrations)
 
     def test_collection_library_registrations_post(self):
@@ -73,7 +74,7 @@ class TestCollectionRegistration(SettingsControllerTest):
         # registration process.
         self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
         with self.request_context_with_admin("/", method="POST"):
-            assert_raises(AdminNotAuthorized, m)
+            pytest.raises(AdminNotAuthorized, m)
         self.admin.add_role(AdminRole.SYSTEM_ADMIN)
 
         # The collection ID doesn't correspond to any real collection.
