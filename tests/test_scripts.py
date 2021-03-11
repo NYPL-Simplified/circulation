@@ -408,7 +408,7 @@ class TestCacheFacetListsPerLane(TestLaneScript):
             response = script.do_generate(lane, facets, pagination)
             assert isinstance(response, OPDSFeedResponse)
             eq_(AcquisitionFeed.ACQUISITION_FEED_TYPE, response.content_type)
-            assert response.data.startswith('<feed')
+            assert response.get_data(as_text=True).startswith('<feed')
 
 
 class TestCacheOPDSGroupFeedPerLane(TestLaneScript):
@@ -475,7 +475,7 @@ class TestCacheOPDSGroupFeedPerLane(TestLaneScript):
             # we get a Flask response.
             response = script.do_generate(lane, facets, pagination)
             eq_(AcquisitionFeed.ACQUISITION_FEED_TYPE, response.content_type)
-            assert response.data.startswith('<feed')
+            assert response.get_data(as_text=True).startswith('<feed')
 
     def test_facets(self):
         # Normally we yield one FeaturedFacets object for each of the
@@ -1093,7 +1093,7 @@ class TestDirectoryImportScript(DatabaseTest):
         eq_(True, metadata.annotated)
 
         # Now let's try it with some files 'on disk'.
-        with open(self.sample_cover_path('test-book-cover.png')) as fh:
+        with open(self.sample_cover_path('test-book-cover.png'), "rb") as fh:
             image = fh.read()
         mock_filesystem = {
             'cover directory' : (

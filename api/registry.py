@@ -1,5 +1,4 @@
 from nose.tools import set_trace
-import base64
 import feedparser
 from flask_babel import lazy_gettext as _
 from html_sanitizer import Sanitizer
@@ -21,6 +20,7 @@ from core.util.problem_detail import (
     ProblemDetail,
     JSON_MEDIA_TYPE as PROBLEM_DETAIL_JSON_MEDIA_TYPE,
 )
+from core.util.string_helpers import base64
 
 from api.adobe_vendor_id import AuthdataUtility
 from api.config import Configuration

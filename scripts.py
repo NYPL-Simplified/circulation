@@ -1829,7 +1829,7 @@ class NovelistSnapshotScript(TimestampScript, LibraryInputScript):
             try:
                 api = NoveListAPI.from_config(library)
             except CannotLoadConfiguration as e:
-                self.log.info(e.message)
+                self.log.info(str(e))
                 continue
             if (api):
                 response = api.put_items_novelist(library)

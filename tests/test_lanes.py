@@ -90,11 +90,11 @@ class TestLaneCreation(DatabaseTest):
         for lane in lanes:
             eq_(self._default_library, lane.library)
             # They all are restricted to English and Spanish.
-            eq_(x.languages, languages)
+            eq_(lane.languages, languages)
 
             # They have no restrictions on media type -- that's handled
             # with entry points.
-            eq_(None, x.media)
+            eq_(None, lane.media)
 
         eq_(
             ['Fiction', 'Nonfiction', 'Young Adult Fiction',

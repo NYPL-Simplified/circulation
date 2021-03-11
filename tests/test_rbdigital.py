@@ -186,7 +186,7 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         )
         eq_(False, no_patron_credential.success)
         eq_("Library has no test patron configured.",
-            no_patron_credential.exception.message)
+            str(no_patron_credential.exception))
 
         eq_("Checking patron activity, using test patron for library %s" % with_default_patron.name,
             patron_activity.name)
@@ -218,7 +218,7 @@ class TestRBDigitalAPI(RBDigitalAPITest):
 
         # We gave up after the first test failed.
         eq_("Counting ebooks in collection", result.name)
-        eq_("Invalid library id is provided or permission denied", result.exception.message)
+        eq_("Invalid library id is provided or permission denied", str(result.exception))
         eq_(repr(error), result.exception.debug_message)
 
     def test_external_integration(self):

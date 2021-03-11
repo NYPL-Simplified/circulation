@@ -452,7 +452,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
 
         except Exception as e:
             self.log.error("Item circulation request failed: %r", e, exc_info=e)
-            raise RemoteInitiatedServerError(e.message, action)
+            raise RemoteInitiatedServerError(str(e), action)
 
         self.validate_response(response=response, message=message, action=action)
 
@@ -570,7 +570,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
             transaction_id = int(resp_obj)
         except Exception as e:
             self.log.error("Item hold request failed: %r", e, exc_info=e)
-            raise CannotHold(e.message)
+            raise CannotHold(str(e))
 
         self.log.debug("Patron %s/%s reserved item %s with transaction id %s.", patron.authorization_identifier,
             patron_rbdigital_id, item_rbdigital_id, resp_obj)
@@ -1194,8 +1194,8 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
                 if isinstance(resp_obj, dict):
                     message = resp_obj.get('message', None)
         except Exception as e:
-            self.log.error("Patron checkouts failed: %r", e, exc_info=e)
-            raise RemoteInitiatedServerError(e.message, action)
+            self.log.error("Patron checkouts failed: %r", str(e), exc_info=e)
+            raise RemoteInitiatedServerError(str(e), action)
 
         self.validate_response(response=response, message=message, action=action)
 
@@ -1282,8 +1282,8 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
                 if isinstance(resp_obj, dict):
                     message = resp_obj.get('message', None)
         except Exception as e:
-            self.log.error("Patron holds failed: %r", e, exc_info=e)
-            raise RemoteInitiatedServerError(e.message, action)
+            self.log.error("Patron holds failed: %r", str(e), exc_info=e)
+            raise RemoteInitiatedServerError(str(e), action)
 
         self.validate_response(response=response, message=message, action=action)
 
@@ -2354,9 +2354,9 @@ class RBDigitalBibliographicCoverageProvider(BibliographicCoverageProvider):
         try:
             response_dictionary = self.api.get_metadata_by_isbn(identifier)
         except BadResponseException as error:
-            return self.failure(identifier, error.message)
+            return self.failure(identifier, str(error))
         except IOError as error:
-            return self.failure(identifier, error.message)
+            return self.failure(identifier, str(error))
 
         if not response_dictionary:
             message = "Cannot find RBDigital metadata for %r" % identifier

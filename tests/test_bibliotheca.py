@@ -103,9 +103,9 @@ class TestBibliothecaAPI(BibliothecaAPITest):
         )
 
     def test__run_self_tests(self):
-        """Verify that BibliothecaAPI._run_self_tests() calls the right
-        methods.
-        """
+        # Verify that BibliothecaAPI._run_self_tests() calls the right
+        # methods.
+
         class Mock(MockBibliothecaAPI):
             "Mock every method used by BibliothecaAPI._run_self_tests."
 
@@ -150,7 +150,7 @@ class TestBibliothecaAPI(BibliothecaAPITest):
         )
         eq_(False, no_patron_credential.success)
         eq_("Library has no test patron configured.",
-            no_patron_credential.exception.message)
+            no_patron_credential.exception.args[0])
 
         eq_("Asking for circulation events for the last five minutes",
             recent_circulation_events.name)
@@ -168,7 +168,7 @@ class TestBibliothecaAPI(BibliothecaAPITest):
         eq_("password1", pin)
 
     def test_full_path(self):
-        id = self.api.library_id
+        id = self.api.library_id.decode("utf-8")
         eq_("/cirrus/library/%s/foo" % id, self.api.full_path("foo"))
         eq_("/cirrus/library/%s/foo" % id, self.api.full_path("/foo"))
         eq_("/cirrus/library/%s/foo" % id,
@@ -176,16 +176,16 @@ class TestBibliothecaAPI(BibliothecaAPITest):
         )
 
     def test_full_url(self):
-        id = self.api.library_id
+        id = self.api.library_id.decode("utf-8")
         eq_("http://bibliotheca.test/cirrus/library/%s/foo" % id,
             self.api.full_url("foo"))
         eq_("http://bibliotheca.test/cirrus/library/%s/foo" % id,
             self.api.full_url("/foo"))
 
     def test_request_signing(self):
-        """Confirm a known correct result for the Bibliotheca request signing
-        algorithm.
-        """
+        # Confirm a known correct result for the Bibliotheca request signing
+        # algorithm.
+
         self.api.queue_response(200)
         response = self.api.request("some_url")
         [request] = self.api.requests

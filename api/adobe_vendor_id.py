@@ -3,7 +3,6 @@ from nose.tools import set_trace
 import json
 import logging
 import uuid
-import base64
 import os
 import datetime
 import jwt
@@ -35,6 +34,7 @@ from core.model import (
     Patron,
 )
 from core.scripts import Script
+from core.util.string_helpers import base64
 
 class AdobeVendorIDController(object):
 

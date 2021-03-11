@@ -133,9 +133,9 @@ class TestNYTBestSellerAPI(NYTBestSellerAPITest):
         eq_("Combined Print & E-Book Fiction", list_info['display_name'])
 
     def test_request_failure(self):
-        """Verify that certain unexpected HTTP results are turned into
-        IntegrationExceptions.
-        """
+        # Verify that certain unexpected HTTP results are turned into
+        # IntegrationExceptions.
+
         self.api.api_key = "some key"
         def result_403(*args, **kwargs):
             return 403, None, None
@@ -152,7 +152,7 @@ class TestNYTBestSellerAPI(NYTBestSellerAPITest):
             self.api.request("some path")
             raise Exception("Expected an IntegrationException!")
         except IntegrationException as e:
-            eq_("Unknown API error (status 500)", e.message)
+            eq_("Unknown API error (status 500)", str(e))
             assert e.debug_message.startswith("Response from")
             assert e.debug_message.endswith("was: 'bad value'")
 
@@ -163,7 +163,7 @@ class TestNYTBestSellerList(NYTBestSellerAPITest):
     """
 
     def test_creation(self):
-        """Just creating a list doesn't add any items to it."""
+        # Just creating a list doesn't add any items to it.
         list_name = "combined-print-and-e-book-fiction"
         l = self.api.best_seller_list(list_name)
         eq_(True, isinstance(l, NYTBestSellerList))
@@ -208,9 +208,9 @@ class TestNYTBestSellerList(NYTBestSellerAPITest):
         eq_(datetime.datetime(2015, 2, 1), title.most_recent_appearance)
 
     def test_historical_dates(self):
-        """This list was published 208 times since the start of the API,
-        and we can figure out when.
-        """
+        # This list was published 208 times since the start of the API,
+        # and we can figure out when.
+
         list_name = "combined-print-and-e-book-fiction"
         l = self.api.best_seller_list(list_name)
         dates = list(l.all_dates)

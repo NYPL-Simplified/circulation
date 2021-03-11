@@ -693,8 +693,8 @@ class Configuration(CoreConfiguration):
         if not public or not private:
             key = RSA.generate(2048)
             encryptor = PKCS1_OAEP.new(key)
-            public = key.publickey().exportKey()
-            private = key.exportKey()
+            public = key.publickey().exportKey().decode("utf8")
+            private = key.exportKey().decode("utf8")
             setting.value = json.dumps([public, private])
         return public, private
 

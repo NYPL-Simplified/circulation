@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 
 import flask
 from flask import Flask
-from nose.tools import assert_raises, assert_raises_regexp, eq_
+from nose.tools import assert_raises, assert_raises_regexp, eq_, set_trace
 from parameterized import parameterized
 
 from api.authenticator import LibraryAuthenticator, PatronData
@@ -1523,10 +1523,10 @@ class TestConfigurationFailures(DatabaseTest):
             raise CannotLoadConfiguration("doomed!")
 
     def test_configuration_exception_is_stored(self):
-        """If the initialization of an API object raises
-        CannotLoadConfiguration, the exception is stored with the
-        CirculationAPI rather than being propagated.
-        """
+        # If the initialization of an API object raises
+        # CannotLoadConfiguration, the exception is stored with the
+        # CirculationAPI rather than being propagated.
+
         api_map = {self._default_collection.protocol : self.MisconfiguredAPI}
         circulation = CirculationAPI(
             self._db, self._default_library, api_map=api_map
@@ -1540,7 +1540,7 @@ class TestConfigurationFailures(DatabaseTest):
         # constructor has been stored in initialization_exceptions.
         e = circulation.initialization_exceptions[self._default_collection.id]
         assert isinstance(e, CannotLoadConfiguration)
-        eq_("doomed!", e.message)
+        eq_("doomed!", str(e))
 
 
 class TestFulfillmentInfo(DatabaseTest):

@@ -217,7 +217,7 @@ class OdiloRepresentationExtractor(object):
             try:
                 published = datetime.datetime.strptime(published, "%Y%m%d")
             except ValueError as e:
-                cls.log.warn('Cannot parse publication date from: ' + published + ', message: ' + e.message)
+                cls.log.warn('Cannot parse publication date from: ' + published + ', message: ' + str(e))
 
         # yyyyMMdd --> record last modification date
         last_update = book.get('modificationDate')
@@ -225,7 +225,7 @@ class OdiloRepresentationExtractor(object):
             try:
                 last_update = datetime.datetime.strptime(last_update, "%Y%m%d")
             except ValueError as e:
-                cls.log.warn('Cannot parse last update date from: ' + last_update + ', message: ' + e.message)
+                cls.log.warn('Cannot parse last update date from: ' + last_update + ', message: ' + str(e))
 
         language = book.get('language', 'spa')
 

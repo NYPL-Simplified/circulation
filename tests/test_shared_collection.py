@@ -3,7 +3,6 @@ from nose.tools import (
     set_trace,
     eq_,
 )
-import base64
 import json
 import flask
 from Crypto.PublicKey import RSA
@@ -24,6 +23,7 @@ from core.model import (
     create,
     get_one,
 )
+from core.util.string_helpers import base64
 from api.circulation import FulfillmentInfo
 
 from . import DatabaseTest
@@ -88,7 +88,7 @@ class TestSharedCollectionAPI(DatabaseTest):
         # constructor has been stored in initialization_exceptions.
         e = shared_collection.initialization_exceptions[self._default_collection.id]
         assert isinstance(e, CannotLoadConfiguration)
-        eq_("doomed!", e.message)
+        eq_("doomed!", str(e))
 
     def test_api_for_licensepool(self):
         collection = self._collection(protocol=ODLAPI.NAME)

@@ -44,8 +44,7 @@ class LocalAnalyticsExporter(object):
         writer = csv.writer(output, encoding="utf-8")
         writer.writerow(header)
         writer.writerows(results)
-
-        return output.getvalue()
+        return output.getvalue().decode("utf-8")
 
     def analytics_query(self, start, end,  locations=None, library=None):
         """Build a database query that fetches rows of analytics data.

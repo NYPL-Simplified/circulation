@@ -246,7 +246,7 @@ class RouteTest(ControllerTest):
         if authentication_required:
             eq_(401, response.status_code)
             eq_("authenticated_patron_from_request called without authorizing",
-                response.data)
+                response.get_data(as_text=True))
         else:
             eq_(200, response.status_code)
 
@@ -762,7 +762,7 @@ class TestHealthCheck(RouteTest):
         # This is how we know we actually called health_check() and
         # not a mock method -- the Response returned by the mock
         # system would have an explanatory message in its .data.
-        eq_("", response.data)
+        eq_("", response.get_data(as_text=True))
 
 
 class TestExceptionHandler(RouteTest):
@@ -790,7 +790,7 @@ class TestExceptionHandler(RouteTest):
             eq_(value_error, routes.h.handled)
 
             # The Response is created was passed along.
-            eq_("handled it", result.data)
+            eq_("handled it", result.get_data(as_text=True))
             eq_(500, result.status_code)
 
         # werkzeug HTTPExceptions are _not_ run through

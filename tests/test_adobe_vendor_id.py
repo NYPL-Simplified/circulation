@@ -1,4 +1,4 @@
-import base64
+# import base64
 import json
 from nose.tools import (
     set_trace,
@@ -46,6 +46,7 @@ from api.config import (
 )
 
 from api.simple_authentication import SimpleAuthenticationProvider
+from core.util.string_helpers import base64
 
 
 class TestVendorIDModel(VendorIDTest):
@@ -840,9 +841,8 @@ class TestAuthdataUtility(VendorIDTest):
         )
 
     def test_short_client_token_round_trip(self):
-        """Encoding a token and immediately decoding it gives the expected
-        result.
-        """
+        # Encoding a token and immediately decoding it gives the expected
+        # result.
         vendor_id, token = self.authdata.encode_short_client_token("a patron")
         eq_(self.authdata.vendor_id, vendor_id)
 
@@ -851,9 +851,8 @@ class TestAuthdataUtility(VendorIDTest):
         eq_("a patron", patron)
 
     def test_short_client_token_encode_known_value(self):
-        """Verify that the encoding algorithm gives a known value on known
-        input.
-        """
+        # Verify that the encoding algorithm gives a known value on known
+        # input.
         value = self.authdata._encode_short_client_token(
             "a library", "a patron identifier", 1234.5
         )
@@ -916,7 +915,7 @@ class TestAuthdataUtility(VendorIDTest):
         )
 
     def test_decode_client_token_errors(self):
-        """Test various token errors"""
+        # Test various token errors
         m = self.authdata._decode_short_client_token
 
         # A token has to contain at least two pipe characters.
@@ -966,9 +965,8 @@ class TestAuthdataUtility(VendorIDTest):
         )
 
     def test_adobe_base64_encode_decode(self):
-        """Test our special variant of base64 encoding designed to avoid
-        triggering an Adobe bug.
-        """
+        # Test our special variant of base64 encoding designed to avoid
+        # triggering an Adobe bug.
         value = "!\tFN6~'Es52?X!#)Z*_S"
 
         encoded = AuthdataUtility.adobe_base64_encode(value)
@@ -982,7 +980,6 @@ class TestAuthdataUtility(VendorIDTest):
             encoded.replace(":", "+").replace(";", "/").replace("@", "=") + "\n",
             base64.encodestring(value)
         )
-
         # We can reverse the encoding to get the original value.
         eq_(value, AuthdataUtility.adobe_base64_decode(encoded))
 

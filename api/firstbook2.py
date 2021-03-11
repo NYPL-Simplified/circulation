@@ -182,7 +182,7 @@ class MockFirstBookAuthenticationAPI(FirstBookAuthenticationAPI):
         # First Book's job.
 
         # The JWT must be signed with the shared secret.
-        payload = jwt.decode(token, self.secret, algorithm=self.ALGORITHM)
+        payload = jwt.decode(token, self.secret, algorithms=self.ALGORITHM)
 
         # The 'iat' field in the payload must be a recent timestamp.
         assert (time.time()-int(payload['iat'])) < 2

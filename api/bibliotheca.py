@@ -7,7 +7,6 @@ from datetime import datetime, timedelta
 import os
 import re
 import logging
-import base64
 import urllib.parse
 import time
 import hmac
@@ -95,7 +94,7 @@ from core.metadata_layer import (
     ReplacementPolicy,
     SubjectData,
 )
-
+from core.util.string_helpers import base64
 from core.testing import DatabaseTest
 
 class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):

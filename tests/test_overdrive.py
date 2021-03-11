@@ -112,9 +112,9 @@ class TestOverdriveAPI(OverdriveAPITest):
             assert i not in needs_lock_in
 
     def test__run_self_tests(self):
-        """Verify that OverdriveAPI._run_self_tests() calls the right
-        methods.
-        """
+        # Verify that OverdriveAPI._run_self_tests() calls the right
+        # methods.
+
         class Mock(MockOverdriveAPI):
             "Mock every method used by OverdriveAPI._run_self_tests."
 
@@ -190,7 +190,7 @@ class TestOverdriveAPI(OverdriveAPITest):
         )
         eq_(False, no_patron_credential.success)
         eq_("Library has no test patron configured.",
-            no_patron_credential.exception.message)
+            str(no_patron_credential.exception))
 
         eq_(
             "Checking Patron Authentication privileges, using test patron for library %s" % with_default_patron.name,
@@ -219,7 +219,7 @@ class TestOverdriveAPI(OverdriveAPITest):
 
         # Only one test will be run.
         [check_creds] = self.api._run_self_tests(self._db)
-        eq_("Failure!", check_creds.exception.message)
+        eq_("Failure!", str(check_creds.exception))
 
     def test_default_notification_email_address(self):
         """Test the ability of the Overdrive API to detect an email address

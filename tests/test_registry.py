@@ -6,7 +6,6 @@ from nose.tools import (
 import json
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_OAEP
-import base64
 import os
 from . import (
     DatabaseTest
@@ -463,8 +462,7 @@ class TestRegistration(DatabaseTest):
         eq_("default", setting.value)
 
     def test_push(self):
-        """Test the other methods orchestrated by the push() method.
-        """
+        # Test the other methods orchestrated by the push() method.
 
         class MockRegistry(RemoteRegistry):
 
@@ -573,7 +571,7 @@ class TestRegistration(DatabaseTest):
         results = registration._process_registration_result_called_with
         message, cipher, actual_stage = results
         eq_("you did it!", message)
-        eq_(cipher._key.exportKey(), private_key)
+        eq_(cipher._key.exportKey().decode("utf-8"), private_key)
         eq_(actual_stage, stage)
 
         # If a nonexistent stage is provided a ProblemDetail is the result.
@@ -864,7 +862,7 @@ class TestLibraryRegistrationScript(DatabaseTest):
             # library registry.
             eq_(
                 RemoteRegistry.DEFAULT_LIBRARY_REGISTRY_URL,
-                x[0].integration.url
+                i[0].integration.url
             )
 
     def test_process_library(self):

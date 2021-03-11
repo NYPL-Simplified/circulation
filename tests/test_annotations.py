@@ -414,15 +414,15 @@ class TestAnnotationParser(AnnotationTest):
             }]
         }]
         data["http://www.w3.org/ns/oa#hasTarget"] = [{
-            "http://www.w3.org/ns/oa#hasSource": [{
-                "@id": self.identifier.urn
-            }],
             "http://www.w3.org/ns/oa#hasSelector": [{
                 "@type": ["http://www.w3.org/ns/oa#FragmentSelector"],
                 "http://www.w3.org/1999/02/22-rdf-syntax-ns#value": [{
                     "@value": "epubcfi(/6/4[chap01ref]!/4[body01]/10[para05]/3:10)"
                 }]
-            }]
+            }],
+            "http://www.w3.org/ns/oa#hasSource": [{
+                "@id": self.identifier.urn
+            }],
         }]
 
         data_json = json.dumps(data)

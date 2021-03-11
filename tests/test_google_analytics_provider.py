@@ -107,9 +107,9 @@ class TestGoogleAnalyticsProvider(DatabaseTest):
         eq_(str(now), params['cd1'][0])
         eq_(lp.identifier.identifier, params['cd2'][0])
         eq_(lp.identifier.type, params['cd3'][0])
-        eq_(unicodedata.normalize("NFKD", work.title).encode('utf8'),
+        eq_(unicodedata.normalize("NFKD", work.title),
             params['cd4'][0])
-        eq_(unicodedata.normalize("NFKD", work.author).encode('utf8'),
+        eq_(unicodedata.normalize("NFKD", work.author),
             params['cd5'][0])
         eq_("fiction", params['cd6'][0])
         eq_("audience", params['cd7'][0])

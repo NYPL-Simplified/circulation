@@ -1619,13 +1619,14 @@ class SettingsController(AdminCirculationManagerController):
                     )
 
         except Exception as e:
-        #     # This is bad, but not so bad that we should short-circuit
-        #     # this whole process -- that might prevent an admin from
-        #     # making the configuration changes necessary to fix
-        #     # this problem.
+            # This is bad, but not so bad that we should short-circuit
+            # this whole process -- that might prevent an admin from
+            # making the configuration changes necessary to fix
+            # this problem.
             message = _("Exception getting self-test results for %s %s: %s")
-            args = (self.type, item.name, e.message)
-            logging.warn(message, *args, exc_info=e)
+            error_message = str(e)
+            args = (self.type, item.name, error_message)
+            logging.warn(message, *args, exc_info=error_message)
             self_test_results = dict(exception=message % args)
 
         return self_test_results
@@ -1931,7 +1932,7 @@ class SitewideRegistrationController(SettingsController):
         try:
             response = do_get(url)
         except Exception as e:
-            return REMOTE_INTEGRATION_FAILED.detailed(e.message)
+            return REMOTE_INTEGRATION_FAILED.detailed(str(e))
 
         if isinstance(response, ProblemDetail):
             return response
@@ -1991,7 +1992,7 @@ class SitewideRegistrationController(SettingsController):
                 headers=headers
             )
         except Exception as e:
-            return REMOTE_INTEGRATION_FAILED.detailed(e.message)
+            return REMOTE_INTEGRATION_FAILED.detailed(str(e))
         return response
 
     def get_shared_secret(self, response):

@@ -41,7 +41,7 @@ class TestHasSelfTests(DatabaseTest):
         eq_("Acquiring test patron credentials.", result.name)
         eq_(False, result.success)
         eq_("Collection is not associated with any libraries.",
-            result.exception.message)
+            str(result.exception))
         eq_(
             "Add the collection to a library that has a patron authentication service.",
             result.exception.debug_message
@@ -79,7 +79,7 @@ class TestHasSelfTests(DatabaseTest):
             "Acquiring test patron credentials for library %s" % no_default_patron.name,
             failure.name
         )
-        eq_("Library has no test patron configured.", failure.exception.message)
+        eq_("Library has no test patron configured.", str(failure.exception))
         eq_("You can specify a test patron when you configure the library's patron authentication service.", failure.exception.debug_message)
 
         # The test patron for the library that has one was looked up,
@@ -143,7 +143,7 @@ class TestRunSelfTestsScript(DatabaseTest):
         script = MockScript2(self._db, out)
         script.do_run()
         eq_(out.getvalue(),
-            "Testing %s\n  Exception while running self-test: Exception('blah',)\nTesting %s\n" % (library1.name, library2.name)
+            "Testing %s\n  Exception while running self-test: Exception('blah')\nTesting %s\n" % (library1.name, library2.name)
         )
 
     def test_test_collection(self):
@@ -211,7 +211,7 @@ class TestRunSelfTestsScript(DatabaseTest):
         script = RunSelfTestsScript(self._db, out)
         script.process_result(failure)
         eq_(out.getvalue(),
-            "  FAILURE i failed (0.0sec)\n   Exception: Exception('bah',)\n"
+            "  FAILURE i failed (0.0sec)\n   Exception: Exception('bah')\n"
         )
 
 

@@ -720,7 +720,7 @@ class TestProQuestOPDS2Importer(DatabaseTest):
         affiliation_id = "12345"
         proquest_token = "1234567890"
         proquest_credential = Credential(credential=proquest_token)
-        book = ProQuestBook(content=bytes("Book"))
+        book = ProQuestBook(content=b"Book")
 
         api_client_mock = create_autospec(spec=ProQuestAPIClient)
         api_client_mock.create_token = MagicMock(return_value=proquest_token)
@@ -765,7 +765,7 @@ class TestProQuestOPDS2Importer(DatabaseTest):
             )
             eq_(None, fulfilment_info.content_link)
             eq_(
-                self._proquest_delivery_mechanism.delivery_mechanism.media_type,
+                self._proquest_delivery_mechanism.delivery_mechanism.content_type,
                 fulfilment_info.content_type,
             )
             eq_(book.content, fulfilment_info.content)
@@ -942,7 +942,7 @@ class TestProQuestOPDS2Importer(DatabaseTest):
             credential=new_proquest_token, expires=new_proquest_token_expires_in
         )
         adobe_drm_protected_book = ProQuestBook(
-            content=bytes("ACSM file"), content_type=DeliveryMechanism.ADOBE_DRM
+            content=b"ACSM file", content_type=DeliveryMechanism.ADOBE_DRM
         )
 
         api_client_mock = create_autospec(spec=ProQuestAPIClient)

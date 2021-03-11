@@ -31,7 +31,7 @@ def load_document(url):
         doc = {
             "contextUrl": None,
             "documentUrl": url,
-            "document": data.decode('utf-8')
+            "document": data
         }
         return doc
     else:

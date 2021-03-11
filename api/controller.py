@@ -1612,7 +1612,7 @@ class LoanController(CirculationManagerController):
                 part=part, fulfill_part_url=fulfill_part_url
             )
         except DeliveryMechanismConflict as e:
-            return DELIVERY_CONFLICT.detailed(e.message)
+            return DELIVERY_CONFLICT.detailed(str(e))
         except NoActiveLoan as e:
             return NO_ACTIVE_LOAN.detailed(
                     _('Can\'t fulfill loan because you have no active loan for this book.'),
@@ -1993,7 +1993,7 @@ class WorkController(CirculationManagerController):
             )
         except ValueError as e:
             # No related books were found.
-            return NO_SUCH_LANE.detailed(e.message)
+            return NO_SUCH_LANE.detailed(str(e))
 
         facets = self.manager.load_facets_from_request(
             worklist=lane, base_class=FeaturedFacets,

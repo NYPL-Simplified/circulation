@@ -1,5 +1,5 @@
 # encoding=utf8
-import base64
+# import base64
 import calendar
 import datetime
 import email
@@ -134,7 +134,8 @@ from core.util.flask_util import Response
 from core.util.http import RemoteIntegrationException
 from core.util.opds_writer import OPDSFeed
 from core.util.problem_detail import ProblemDetail
-
+from nose.tools import set_trace
+from core.util.string_helpers import base64
 
 class ControllerTest(VendorIDTest):
     """A test that requires a functional app server."""
@@ -145,7 +146,6 @@ class ControllerTest(VendorIDTest):
         'unittestuser:unittestpassword'
     )
     invalid_auth = 'Basic ' + base64.b64encode('user1:password2')
-
     valid_credentials = dict(
         username="unittestuser", password="unittestpassword"
     )
@@ -496,7 +496,7 @@ class TestCirculationManager(CirculationControllerTest):
         # The reason why is stored here.
         ex = circulation.external_search_initialization_exception
         assert isinstance(ex, Exception)
-        eq_("doomed!", ex.message)
+        eq_("doomed!", str(ex))
 
     def test_exception_during_short_client_token_initialization_is_stored(self):
 
@@ -517,7 +517,7 @@ class TestCirculationManager(CirculationControllerTest):
         # configuration was stored here.
         ex = self.manager.short_client_token_initialization_exceptions[self.library.id]
         assert isinstance(ex, CannotLoadConfiguration)
-        assert ex.message.startswith("Short Client Token configuration is incomplete")
+        assert str(ex).startswith("Short Client Token configuration is incomplete")
 
     def test_setup_adobe_vendor_id_does_not_override_existing_configuration(self):
         # Our circulation manager is perfectly happy with its Adobe Vendor ID

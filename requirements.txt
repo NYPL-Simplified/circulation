@@ -33,7 +33,7 @@ pycryptodome==3.9.8
 # pyfakefs is used for unit tests.
 pyfakefs==3.7
 Pygments==2.5.2
-PyJWT==1.4.2
+PyJWT==2.0.1
 PyLD==1.0.5
 pypostalcode==0.3.4
 pyOpenSSL==19.1.0

@@ -277,7 +277,7 @@ class ProQuestOPDS2Importer(OPDS2Importer, BaseCirculationAPI, HasExternalIntegr
         if configuration.affiliation_attributes:
             if isinstance(configuration.affiliation_attributes, list):
                 affiliation_attributes = configuration.affiliation_attributes
-            elif isintance(configuration.affiliation_attributes, str):
+            elif isinstance(configuration.affiliation_attributes, str):
                 affiliation_attributes = tuple(
                     map(
                         str.strip,
@@ -710,7 +710,7 @@ class ProQuestOPDS2Importer(OPDS2Importer, BaseCirculationAPI, HasExternalIntegr
                         content_link=None,
                         content_type=book.content_type
                         if book.content_type
-                        else internal_format.delivery_mechanism.media_type,
+                        else internal_format.delivery_mechanism.content_type,
                         content=book.content,
                         content_expires=None,
                     )
@@ -866,7 +866,7 @@ class ProQuestOPDS2ImportMonitor(OPDS2ImportMonitor, HasExternalIntegration):
 
             try:
                 feed_page_content = json.dumps(
-                    feed, default=str, ensure_ascii=True, encoding="utf-8"
+                    feed, default=str, ensure_ascii=True,
                 )
                 feed_page_file.write(feed_page_content)
                 feed_page_file.flush()

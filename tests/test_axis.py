@@ -156,9 +156,9 @@ class TestAxis360API(Axis360Test):
         )
 
     def test__run_self_tests(self):
-        """Verify that BibliothecaAPI._run_self_tests() calls the right
-        methods.
-        """
+        # Verify that Axis360API._run_self_tests() calls the right
+        # methods.
+
         class Mock(MockAxis360API):
             "Mock every method used by Axis360API._run_self_tests."
 
@@ -211,7 +211,7 @@ class TestAxis360API(Axis360Test):
         )
         eq_(False, no_patron_credential.success)
         eq_("Library has no test patron configured.",
-            no_patron_credential.exception.message)
+            no_patron_credential.exception.args[0])
 
         eq_("Asking for circulation events for the last five minutes",
             recent_circulation_events.name)
@@ -236,9 +236,9 @@ class TestAxis360API(Axis360Test):
             pools_without_delivery.result)
 
     def test__run_self_tests_short_circuit(self):
-        """If we can't refresh the bearer token, the rest of the
-        self-tests aren't even run.
-        """
+        # If we can't refresh the bearer token, the rest of the
+        # self-tests aren't even run.
+
         class Mock(MockAxis360API):
             def refresh_bearer_token(self):
                 raise Exception("no way")
@@ -249,7 +249,7 @@ class TestAxis360API(Axis360Test):
         [failure] = api._run_self_tests(self._db)
         eq_("Refreshing bearer token", failure.name)
         eq_(False, failure.success)
-        eq_("no way", failure.exception.message)
+        eq_("no way", failure.exception.args[0])
 
     def test_create_identifier_strings(self):
         identifier = self._identifier()
@@ -275,9 +275,9 @@ class TestAxis360API(Axis360Test):
         )
 
     def test_refresh_bearer_token_after_401(self):
-        """If we get a 401, we will fetch a new bearer token and try the
-        request again.
-        """
+        # If we get a 401, we will fetch a new bearer token and try the
+        # request again.
+
         self.api.queue_response(401)
         self.api.queue_response(
             200, content=json.dumps(dict(access_token="foo"))
@@ -287,9 +287,9 @@ class TestAxis360API(Axis360Test):
         eq_("The data", response.content)
 
     def test_refresh_bearer_token_error(self):
-        """Raise an exception if we don't get a 200 status code when
-        refreshing the bearer token.
-        """
+        # Raise an exception if we don't get a 200 status code when
+        # refreshing the bearer token.
+
         api = MockAxis360API(self._db, self.collection, with_token=False)
         api.queue_response(412)
         assert_raises_regexp(
@@ -298,9 +298,9 @@ class TestAxis360API(Axis360Test):
         )
 
     def test_exception_after_401_with_fresh_token(self):
-        """If we get a 401 immediately after refreshing the token, we will
-        raise an exception.
-        """
+        # If we get a 401 immediately after refreshing the token, we will
+        # raise an exception.
+
         self.api.queue_response(401)
         self.api.queue_response(
             200, content=json.dumps(dict(access_token="foo"))
@@ -319,9 +319,8 @@ class TestAxis360API(Axis360Test):
         eq_([301], [x.status_code for x in self.api.responses])
 
     def test_update_availability(self):
-        """Test the Axis 360 implementation of the update_availability method
-        defined by the CirculationAPI interface.
-        """
+        # Test the Axis 360 implementation of the update_availability method
+        # defined by the CirculationAPI interface.
 
         # Create a LicensePool that needs updating.
         edition, pool = self._edition(
@@ -524,9 +523,9 @@ class TestAxis360API(Axis360Test):
         eq_([no_longer_in_collection], api.reaped)
 
     def test_fetch_remote_availability(self):
-        """Test the _fetch_remote_availability method, as
-        used by update_licensepools_for_identifiers.
-        """
+        # Test the _fetch_remote_availability method, as
+        # used by update_licensepools_for_identifiers.
+
         id1 = self._identifier(identifier_type=Identifier.AXIS_360_ID)
         id2 = self._identifier(identifier_type=Identifier.AXIS_360_ID)
         data = self.sample_data("availability_with_loans.xml")
@@ -548,9 +547,9 @@ class TestAxis360API(Axis360Test):
         eq_(2, circulation.licenses_owned)
 
     def test_reap(self):
-        """Test the _reap method, as used by
-        update_licensepools_for_identifiers.
-        """
+        # Test the _reap method, as used by
+        # update_licensepools_for_identifiers.
+
         id1 = self._identifier(identifier_type=Identifier.AXIS_360_ID)
         eq_([], id1.licensed_through)
 
@@ -868,9 +867,9 @@ class TestReaper(Axis360Test):
 class TestParsers(Axis360Test):
 
     def test_bibliographic_parser(self):
-        """Make sure the bibliographic information gets properly
-        collated in preparation for creating Edition objects.
-        """
+        # Make sure the bibliographic information gets properly
+        # collated in preparation for creating Edition objects.
+
         data = self.sample_data("tiny_collection.xml")
 
         [bib1, av1], [bib2, av2] = BibliographicParser(
@@ -942,7 +941,7 @@ class TestParsers(Axis360Test):
 
         # Check the subjects for #2 because it includes an audience,
         # unlike #1.
-        subjects = sorted(bib2.subjects, key = lambda x: x.identifier)
+        subjects = sorted(bib2.subjects, key = lambda x: x.identifier or "")
         eq_([Subject.BISAC, Subject.BISAC, Subject.BISAC,
              Subject.AXIS_360_AUDIENCE], [x.type for x in subjects])
         general_fiction, women_sleuths, romantic_suspense = sorted([

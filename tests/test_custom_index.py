@@ -128,7 +128,7 @@ class TestCOPPAGate(DatabaseTest):
         )
 
     def test_invocation(self):
-        """Test the ability of a COPPAGate to act as a view."""
+        # Test the ability of a COPPAGate to act as a view.
 
         class MockCOPPAGate(COPPAGate):
             def _navigation_feed(self, *args, **kwargs):
@@ -143,8 +143,9 @@ class TestCOPPAGate(DatabaseTest):
         # which has been cached as .navigation_feed.
         eq_("200 OK", response.status)
         eq_(OPDSFeed.NAVIGATION_FEED_TYPE, response.headers['Content-Type'])
-        eq_("fake feed", response.data)
-        eq_(response.data, gate.navigation_feed)
+        response_data = response.data.decode("utf-8")
+        eq_("fake feed", response_data)
+        eq_(response_data, gate.navigation_feed)
 
     def test__navigation_feed(self):
         """Test the code that builds an OPDS navigation feed."""
@@ -232,18 +233,19 @@ class TestCOPPAGate(DatabaseTest):
         assert '<updated>' in feed
 
     def test_navigation_entry(self):
-        """navigation_entry creates an OPDS entry with a subsection link."""
+        # navigation_entry creates an OPDS entry with a subsection link.
         entry = etree.tostring(
             COPPAGate.navigation_entry(
                 "some href", "some title", "some content"
-            )
+            ),
+            encoding="unicode"
         )
         assert entry.startswith('<entry ')
         for expect in (
                 '<id>some href</id>',
                 '<title>some title</title>',
                 '<content type="text">some content</content>',
-                '<link href="some href" type="application/atom+xml;profile=opds-catalog;kind=acquisition" rel="subsection"/>',
+                '<link href="some href" rel="subsection" type="application/atom+xml;profile=opds-catalog;kind=acquisition"/>',
                 '<updated',
         ):
             assert expect in entry

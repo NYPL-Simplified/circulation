@@ -147,7 +147,7 @@ class SAMLSettingsValidator(Validator):
                 "An unexpected exception occurred duing parsing SAML metadata"
             )
 
-            return SAML_GENERIC_PARSING_ERROR.detailed(exception.message)
+            return SAML_GENERIC_PARSING_ERROR.detailed(str(exception))
 
     def _get_providers(
         self, settings, content, setting_key, setting_name, provider_type

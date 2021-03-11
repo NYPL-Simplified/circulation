@@ -138,7 +138,7 @@ class TestAdminAuthServices(SettingsControllerTest):
 
         # The auth service was created and configured properly.
         auth_service = ExternalIntegration.admin_authentication(self._db)
-        eq_(auth_service.protocol, response.response[0])
+        eq_(auth_service.protocol, response.get_data(as_text=True))
         eq_("oauth", auth_service.name)
         eq_("http://url2", auth_service.url)
         eq_("username", auth_service.username)
@@ -179,7 +179,7 @@ class TestAdminAuthServices(SettingsControllerTest):
             response = self.manager.admin_auth_services_controller.process_admin_auth_services()
             eq_(response.status_code, 200)
 
-        eq_(auth_service.protocol, response.response[0])
+        eq_(auth_service.protocol, response.get_data(as_text=True))
         eq_("oauth", auth_service.name)
         eq_("http://url2", auth_service.url)
         eq_("user2", auth_service.username)

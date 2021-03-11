@@ -8,7 +8,6 @@ import json
 import datetime
 import re
 import base64
-import urllib.request, urllib.parse, urllib.error
 import urllib.parse
 
 from . import DatabaseTest
@@ -101,7 +100,7 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
         assert expires < after_expiration
 
         notification_url = urllib.parse.unquote_plus(params.get("notification_url")[0])
-        eq_("http://odl_notify?loan_id=%s&library_short_name=%s" % (loan.id, self._default_library.short_name),
+        eq_("http://odl_notify?library_short_name=%s&loan_id=%s" % (self._default_library.short_name, loan.id),
             notification_url)
 
         # With an existing loan.

@@ -664,24 +664,23 @@ class TestLibraryAuthenticator(AuthenticatorTest):
         eq_(mock_catalog, authenticator.authentication_document_annotator)
 
     def test_config_succeeds_when_no_providers_configured(self):
-        """You can call from_config even when there are no authentication
-        providers configured.
+        # You can call from_config even when there are no authentication
+        # providers configured.
 
-        This should not happen in normal usage, but there will be an
-        interim period immediately after a library is created where
-        this will be its configuration.
-        """
+        # This should not happen in normal usage, but there will be an
+        # interim period immediately after a library is created where
+        # this will be its configuration.
+
         authenticator = LibraryAuthenticator.from_config(
             self._db, self._default_library
         )
         eq_([], list(authenticator.providers))
 
     def test_configuration_exception_during_from_config_stored(self):
-        """If the initialization of an AuthenticationProvider from config
-        raises CannotLoadConfiguration or ImportError, the exception
-        is stored with the LibraryAuthenticator rather than being
-        propagated.
-        """
+        # If the initialization of an AuthenticationProvider from config
+        # raises CannotLoadConfiguration or ImportError, the exception
+        # is stored with the LibraryAuthenticator rather than being
+        # propagated.
 
         # Create an integration destined to raise CannotLoadConfiguration..
         misconfigured = self._external_integration(
@@ -704,11 +703,11 @@ class TestLibraryAuthenticator(AuthenticatorTest):
         # initialization_exceptions.
         not_configured = auth.initialization_exceptions[misconfigured.id]
         assert isinstance(not_configured, CannotLoadConfiguration)
-        eq_('First Book server not configured.', not_configured.message)
+        eq_('First Book server not configured.', str(not_configured))
 
         not_found = auth.initialization_exceptions[unknown.id]
         assert isinstance(not_found, ImportError)
-        eq_('No module named unknown protocol', not_found.message)
+        eq_('No module named unknown protocol', str(not_found))
 
     def test_register_fails_when_integration_has_wrong_goal(self):
         integration = self._external_integration(
@@ -2034,7 +2033,7 @@ class TestBasicAuthenticationProvider(AuthenticatorTest):
         [result] = list(provider._run_self_tests(_db))
         eq_(_db, provider.called_with)
         eq_(False, result.success)
-        eq_("Nope", result.exception.message)
+        eq_("Nope", result.exception.args[0])
 
         # If we can authenticate a test patron, the patron and their
         # password are passed into the next test.
@@ -2774,9 +2773,9 @@ class TestOAuthController(AuthenticatorTest):
         self.controller = OAuthController(self.auth)
 
     def test_oauth_authentication_redirect(self):
-        """Test the controller method that sends patrons off to the OAuth
-        provider, where they're supposed to log in.
-        """
+        # Test the controller method that sends patrons off to the OAuth
+        # provider, where they're supposed to log in.
+
         params = dict(provider=self.oauth1.NAME)
         response = self.controller.oauth_authentication_redirect(params, self._db)
         eq_(302, response.status_code)
