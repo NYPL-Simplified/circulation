@@ -1872,11 +1872,11 @@ class OPDSImportMonitor(CollectionMonitor, HasSelfTests):
         # turn into a Work?
         #
         # By default, this means it must contain an open-access link.
-        url, content = first_page.result
+        next_links, content = first_page.result
         yield self.run_test(
             "Checking for importable content",
             self.importer.assert_importable_content,
-            content, url
+            content, self.feed_url
         )
 
     def _get(self, url, headers):
