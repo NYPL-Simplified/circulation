@@ -45,6 +45,24 @@ def initialize_database(autoinitialize=True):
     _db.commit()
     logging.getLogger().info("Application debug mode==%r" % app.debug)
 
+    if not app.config.get('SERVER_NAME'):
+        # No SERVER_NAME is configured. Let's set one based on
+        # the database.
+        #
+        # TODO: Only do this if a new sitewide setting allows it.
+        base_url = ConfigurationSetting.sitewide(
+            _db, Configuration.BASE_URL_KEY
+        )
+        if base_url.value:
+            scheme, netloc, path, parameters, query, fragment = urlparse.urlparse(base_url.value)
+            app.config['SERVER_NAME'] = netloc
+            app.config['PREFERRED_URL_SCHEME'] = scheme
+            if '.' in netloc:
+                app.config['SESSION_COOKIE_DOMAIN'] = netloc
+    logging.getLogger().info(
+        "Application server name==%r" % app.config['SERVER_NAME']
+    )
+
 import routes
 import admin.routes
 
@@ -60,6 +78,9 @@ def run(url=None):
 
     # Required for subdomain support.
     app.config['SERVER_NAME'] = netloc
+    app.config['PREFERRED_URL_SCHEME'] = scheme
+    if '.' in netloc:
+        app.config['SESSION_COOKIE_DOMAIN'] = netloc
 
     debug = True
 
