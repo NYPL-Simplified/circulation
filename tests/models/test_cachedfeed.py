@@ -26,7 +26,7 @@ class MockFeedGenerator(object):
 
     def __call__(self):
         self.calls.append(object())
-        return b"This is feed #%d" % len(self.calls)
+        return "This is feed #%d" % len(self.calls)
 
 
 class TestCachedFeed(DatabaseTest):

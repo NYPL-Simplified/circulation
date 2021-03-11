@@ -65,7 +65,11 @@ class Response(FlaskResponse):
                 private = False
         self.private = private
 
-        body = str(response)
+        body = response
+        if isinstance(body, etree._Element):
+            body = etree.tostring(body)
+        elif not isinstance(body, (bytes, str)):
+            body = str(body)
 
         super(Response, self).__init__(
             response=body,
@@ -81,7 +85,7 @@ class Response(FlaskResponse):
 
         :return: The entity-body portion of the response.
         """
-        return self.data.decode("utf-8")
+        return self.get_data(as_text=True)
 
     def _headers(self, headers={}):
         """Build an appropriate set of HTTP response headers."""

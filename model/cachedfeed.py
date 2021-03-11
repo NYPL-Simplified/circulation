@@ -156,13 +156,7 @@ class CachedFeed(Base):
         if should_refresh:
             # This is a cache miss. Either feed_obj is None or
             # it's no good. We need to generate a new feed.
-            feed_data = refresher_method()
-            
-            if isinstance(feed_data, bytes):
-                feed_data = feed_data.decode("utf-8")
-            else:
-                feed_data = str(feed_data)
-
+            feed_data = str(refresher_method())
             generation_time = datetime.datetime.utcnow()
 
             if max_age is not cls.IGNORE_CACHE:

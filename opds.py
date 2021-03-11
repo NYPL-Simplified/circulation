@@ -1071,7 +1071,7 @@ class AcquisitionFeed(OPDSFeed):
         if raw or entry is None:
             return entry
         if isinstance(entry, OPDSMessage):
-            # entry = entry.decode("utf-8")
+            entry = str(entry)
             # This is probably an error message; don't cache it
             # even if it would otherwise be cached.
             response_kwargs['max_age'] = 0
