@@ -177,7 +177,20 @@ class DatabaseTest(object):
 
         Configuration.instance[Configuration.DATA_DIRECTORY] = cls.old_data_dir
 
-    def setup_method(self, mock_search=True):
+    @pytest.fixture(autouse=True)
+    def search_mock(self, request):
+        # Only setup the elasticsearch mock if the elasticsearch mark isn't set
+        elasticsearch_mark = request.node.get_closest_marker("elasticsearch")
+        if elasticsearch_mark is not None:
+            self.search_mock = None
+        else:
+            self.search_mock = mock.patch(external_search.__name__ + ".ExternalSearchIndex", MockExternalSearchIndex)
+            self.search_mock.start()
+        yield
+        if self.search_mock:
+            self.search_mock.stop()
+
+    def setup_method(self):
         # Create a new connection to the database.
         self._db = Session(self.connection)
         self.transaction = self.connection.begin_nested()
@@ -189,20 +202,6 @@ class DatabaseTest(object):
         self.isbns = [
             "9780674368279", "0636920028468", "9781936460236", "9780316075978"
         ]
-        if mock_search:
-            self.search_mock = mock.patch(external_search.__name__ + ".ExternalSearchIndex", MockExternalSearchIndex)
-            self.search_mock.start()
-        else:
-            self.search_mock = None
-
-        # TODO:  keeping this for now, but need to fix it bc it hits _isbn,
-        # which pops an isbn off the list and messes tests up.  so exclude
-        # _ functions from participating.
-        # also attempt to stop nosetest showing docstrings instead of function names.
-        #for name, obj in inspect.getmembers(self):
-        #    if inspect.isfunction(obj) and obj.__name__.startswith('test_'):
-        #        obj.__doc__ = None
-
 
     def teardown_method(self):
         # Close the session.
@@ -231,9 +230,6 @@ class DatabaseTest(object):
         ]:
             if key in Configuration.instance:
                 del(Configuration.instance[key])
-
-        if self.search_mock:
-            self.search_mock.stop()
 
     def time_eq(self, a, b):
         "Assert that two times are *approximately* the same -- within 2 seconds."
@@ -1067,6 +1063,7 @@ class SearchClientForTesting(ExternalSearchIndex):
             new_index, number_of_shards=1, number_of_replicas=0
         )
 
+
 @pytest.mark.elasticsearch
 class ExternalSearchTest(DatabaseTest):
     """
@@ -1082,7 +1079,7 @@ class ExternalSearchTest(DatabaseTest):
 
     def setup_method(self):
 
-        super(ExternalSearchTest, self).setup_method(mock_search=False)
+        super(ExternalSearchTest, self).setup_method()
 
         # Track the indexes created so they can be torn down at the
         # end of the test.
