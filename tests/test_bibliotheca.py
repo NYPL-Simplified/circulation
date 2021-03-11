@@ -12,10 +12,8 @@ import os
 import pkgutil
 import random
 
-from . import (
-    DatabaseTest,
-    sample_data
-)
+from core.testing import DatabaseTest
+from . import sample_data
 
 from core.metadata_layer import (
     ReplacementPolicy,
@@ -76,8 +74,8 @@ from api.web_publication_manifest import FindawayManifest
 
 class BibliothecaAPITest(DatabaseTest):
 
-    def setup(self):
-        super(BibliothecaAPITest,self).setup()
+    def setup_method(self):
+        super(BibliothecaAPITest,self).setup_method()
         self.collection = MockBibliothecaAPI.mock_collection(self._db)
         self.api = MockBibliothecaAPI(self._db, self.collection)
 
@@ -90,8 +88,8 @@ class BibliothecaAPITest(DatabaseTest):
 
 class TestBibliothecaAPI(BibliothecaAPITest):
 
-    def setup(self):
-        super(TestBibliothecaAPI, self).setup()
+    def setup_method(self):
+        super(TestBibliothecaAPI, self).setup_method()
         self.collection = MockBibliothecaAPI.mock_collection(self._db)
         self.api = MockBibliothecaAPI(self._db, self.collection)
 

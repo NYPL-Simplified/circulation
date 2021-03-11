@@ -15,7 +15,8 @@ from api.config import (
 from core.model import ConfigurationSetting
 from api.authenticator import PatronData
 from api.millenium_patron import MilleniumPatronAPI
-from . import DatabaseTest, sample_data
+from core.testing import DatabaseTest
+from . import sample_data
 
 class MockResponse(object):
     def __init__(self, content):
@@ -71,8 +72,8 @@ class TestMilleniumPatronAPI(DatabaseTest):
 
         return MockAPI(self._default_library, integration)
 
-    def setup(self):
-        super(TestMilleniumPatronAPI, self).setup()
+    def setup_method(self):
+        super(TestMilleniumPatronAPI, self).setup_method()
         self.api = self.mock_api("http://url/")
 
     def test_constructor(self):

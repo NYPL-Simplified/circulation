@@ -3,7 +3,7 @@ from nose.tools import (
     set_trace,
 )
 
-from .. import DatabaseTest
+from core.testing import DatabaseTest
 from api.admin.problem_details import *
 from api.admin.password_admin_authentication_provider import PasswordAdminAuthenticationProvider
 from core.model import (

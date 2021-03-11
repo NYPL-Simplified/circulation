@@ -7,7 +7,7 @@ from core.util.problem_detail import ProblemDetail
 from api.config import Configuration
 from api.circulation_exceptions import *
 from api.problem_details import *
-from . import DatabaseTest
+from core.testing import DatabaseTest
 
 
 class TestCirculationExceptions(object):

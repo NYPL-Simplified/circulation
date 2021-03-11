@@ -13,7 +13,7 @@ from core.config import Configuration as CoreConfiguration
 from core.model import (
     ConfigurationSetting
 )
-from . import DatabaseTest
+from core.testing import DatabaseTest
 from api.config import Configuration
 
 class TestConfiguration(DatabaseTest):

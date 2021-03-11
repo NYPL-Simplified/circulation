@@ -27,7 +27,7 @@ from core.model import (
     Subject,
     Work,
 )
-from . import DatabaseTest
+from core.testing import DatabaseTest
 from api.authenticator import BasicAuthenticationProvider
 from api.circulation import (
     FulfillmentInfo,
@@ -65,8 +65,8 @@ class BaseEnkiTest(DatabaseTest):
         path = os.path.join(cls.resource_path, filename)
         return open(path).read()
 
-    def setup(self):
-        super(BaseEnkiTest, self).setup()
+    def setup_method(self):
+        super(BaseEnkiTest, self).setup_method()
         self.api = MockEnkiAPI(self._db)
         self.collection = self.api.collection
 

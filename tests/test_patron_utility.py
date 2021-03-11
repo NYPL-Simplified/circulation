@@ -5,7 +5,7 @@ from nose.tools import (
     assert_raises,
 )
 
-from . import (
+from core.testing import (
     DatabaseTest,
 )
 

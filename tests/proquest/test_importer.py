@@ -57,8 +57,8 @@ from tests.proquest import fixtures
 
 
 class TestProQuestOPDS2Importer(DatabaseTest):
-    def setup(self, mock_search=True):
-        super(TestProQuestOPDS2Importer, self).setup()
+    def setup_method(self, mock_search=True):
+        super(TestProQuestOPDS2Importer, self).setup_method()
 
         self._proquest_data_source = DataSource.lookup(
             self._db, DataSource.PROQUEST, autocreate=True
@@ -1089,8 +1089,8 @@ class TestProQuestOPDS2Importer(DatabaseTest):
 
 
 class TestProQuestOPDS2ImportMonitor(DatabaseTest):
-    def setup(self, mock_search=True):
-        super(TestProQuestOPDS2ImportMonitor, self).setup()
+    def setup_method(self, mock_search=True):
+        super(TestProQuestOPDS2ImportMonitor, self).setup_method()
 
         self._proquest_data_source = DataSource.lookup(
             self._db, DataSource.PROQUEST, autocreate=True

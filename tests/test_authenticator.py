@@ -72,7 +72,7 @@ from api.config import (
 from api.problem_details import *
 from api.testing import VendorIDTest
 
-from . import DatabaseTest
+from core.testing import DatabaseTest
 from test_controller import ControllerTest
 
 class MockAuthenticationProvider(object):
@@ -190,8 +190,8 @@ class AuthenticatorTest(DatabaseTest):
 
 class TestPatronData(AuthenticatorTest):
 
-    def setup(self):
-        super(TestPatronData, self).setup()
+    def setup_method(self):
+        super(TestPatronData, self).setup_method()
         self.expiration_time = datetime.datetime.utcnow()
         self.data = PatronData(
             permanent_id="1",
@@ -2726,8 +2726,8 @@ class TestOAuthAuthenticationProvider(AuthenticatorTest):
 
 class TestOAuthController(AuthenticatorTest):
 
-    def setup(self):
-        super(TestOAuthController, self).setup()
+    def setup_method(self):
+        super(TestOAuthController, self).setup_method()
         class MockOAuthWithExternalAuthenticateURL(MockOAuth):
             def __init__(self, library, _db, external_authenticate_url, patron):
                 super(MockOAuthWithExternalAuthenticateURL, self).__init__(

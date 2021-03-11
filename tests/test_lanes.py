@@ -10,7 +10,7 @@ import json
 import datetime
 from mock import MagicMock
 
-from . import (
+from core.testing import (
     DatabaseTest,
 )
 
@@ -435,8 +435,8 @@ class TestWorkBasedLane(DatabaseTest):
 
 class TestRelatedBooksLane(DatabaseTest):
 
-    def setup(self):
-        super(TestRelatedBooksLane, self).setup()
+    def setup_method(self):
+        super(TestRelatedBooksLane, self).setup_method()
         self.work = self._work(
             with_license_pool=True, audience=Classifier.AUDIENCE_YOUNG_ADULT
         )
@@ -488,7 +488,7 @@ class TestRelatedBooksLane(DatabaseTest):
         response = Metadata(
             self.edition.data_source, recommendations=[self._identifier()]
         )
-        mock_api.setup(response)
+        mock_api.setup_method(response)
         result = RelatedBooksLane(self._default_library, self.work, "", novelist_api=mock_api)
         eq_(3, len(result.children))
 
@@ -584,8 +584,8 @@ class LaneTest(DatabaseTest):
 
 class TestRecommendationLane(LaneTest):
 
-    def setup(self):
-        super(TestRecommendationLane, self).setup()
+    def setup_method(self):
+        super(TestRecommendationLane, self).setup_method()
         self.work = self._work(with_license_pool=True)
 
     def generate_mock_api(self):
@@ -594,7 +594,7 @@ class TestRecommendationLane(LaneTest):
         metadata = Metadata(source)
 
         mock_api = MockNoveListAPI(self._db)
-        mock_api.setup(metadata)
+        mock_api.setup_method(metadata)
         return mock_api
 
     def test_modify_search_filter_hook(self):
@@ -740,8 +740,8 @@ class TestContributorLane(LaneTest):
         # All feeds of this type are cached as contributor feeds.
         eq_(CachedFeed.CONTRIBUTOR_TYPE, ContributorLane.CACHED_FEED_TYPE)
 
-    def setup(self):
-        super(TestContributorLane, self).setup()
+    def setup_method(self):
+        super(TestContributorLane, self).setup_method()
         self.contributor, i = self._contributor(
             'Lane, Lois', **dict(viaf='7', display_name='Lois Lane')
         )

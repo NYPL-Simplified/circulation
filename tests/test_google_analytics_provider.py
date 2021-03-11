@@ -8,7 +8,7 @@ from api.config import (
 )
 from core.analytics import Analytics
 from api.google_analytics_provider import GoogleAnalyticsProvider
-from . import DatabaseTest
+from core.testing import DatabaseTest
 from core.model import (
     get_one_or_create,
     create,

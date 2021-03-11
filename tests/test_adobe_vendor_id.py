@@ -52,8 +52,8 @@ class TestVendorIDModel(VendorIDTest):
 
     credentials = dict(username="validpatron", password="password")
 
-    def setup(self):
-        super(TestVendorIDModel, self).setup()
+    def setup_method(self):
+        super(TestVendorIDModel, self).setup_method()
 
         # This library is going to act as the Vendor ID server.
         self.vendor_id_library = self._default_library
@@ -578,8 +578,8 @@ class TestVendorIDRequestHandler(object):
 
 class TestAuthdataUtility(VendorIDTest):
 
-    def setup(self):
-        super(TestAuthdataUtility, self).setup()
+    def setup_method(self):
+        super(TestAuthdataUtility, self).setup_method()
         self.authdata = AuthdataUtility(
             vendor_id = "The Vendor ID",
             library_uri = "http://my-library.org/",

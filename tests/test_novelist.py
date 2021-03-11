@@ -6,7 +6,8 @@ from nose.tools import (
     assert_raises,
 )
 
-from . import DatabaseTest, sample_data
+from core.testing import DatabaseTest
+from . import sample_data
 
 from core.metadata_layer import Metadata
 from core.model import (
@@ -33,8 +34,8 @@ from core.testing import MockRequestsResponse
 class TestNoveListAPI(DatabaseTest):
     """Tests the NoveList API service object"""
 
-    def setup(self):
-        super(TestNoveListAPI, self).setup()
+    def setup_method(self):
+        super(TestNoveListAPI, self).setup_method()
         self.integration = self._external_integration(
             ExternalIntegration.NOVELIST,
             ExternalIntegration.METADATA_GOAL, username=u'library',
@@ -42,9 +43,9 @@ class TestNoveListAPI(DatabaseTest):
         )
         self.novelist = NoveListAPI.from_config(self._default_library)
 
-    def teardown(self):
+    def teardown_method(self):
         NoveListAPI.IS_CONFIGURED = None
-        super(TestNoveListAPI, self).teardown()
+        super(TestNoveListAPI, self).teardown_method()
 
     def sample_data(self, filename):
         return sample_data(filename, 'novelist')

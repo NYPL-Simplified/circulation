@@ -5,7 +5,7 @@ from nose.tools import (
     eq_,
 )
 
-from . import (
+from core.testing import (
     DatabaseTest,
 )
 

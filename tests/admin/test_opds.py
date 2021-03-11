@@ -18,7 +18,7 @@ from core.model.configuration import ExternalIntegrationLink
 from core.lane import Facets, Pagination
 from core.opds import Annotator
 
-from .. import DatabaseTest
+from core.testing import DatabaseTest
 
 class TestOPDS(DatabaseTest):
 

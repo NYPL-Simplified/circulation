@@ -7,10 +7,8 @@ from nose.tools import (
 )
 from StringIO import StringIO
 from zipfile import ZipFile
-from . import (
-    DatabaseTest,
-    sample_data,
-)
+from core.testing import DatabaseTest
+from . import sample_data
 from api.feedbooks import (
     FeedbooksOPDSImporter,
     FeedbooksImportMonitor,
@@ -66,8 +64,8 @@ class TestFeedbooksOPDSImporter(DatabaseTest):
             metadata_client=self.metadata,
         )
 
-    def setup(self):
-        super(TestFeedbooksOPDSImporter, self).setup()
+    def setup_method(self):
+        super(TestFeedbooksOPDSImporter, self).setup_method()
         self.http = DummyHTTPClient()
         self.metadata = DummyMetadataClient()
         self.mirrors = dict(covers_mirror=MockS3Uploader(),books_mirror=MockS3Uploader())

@@ -11,7 +11,7 @@ from api.announcements import (
     Announcements,
     Announcement
 )
-from . import DatabaseTest
+from core.testing import DatabaseTest
 
 class TestAnnouncements(AnnouncementTest, DatabaseTest):
     """Test the Announcements object."""

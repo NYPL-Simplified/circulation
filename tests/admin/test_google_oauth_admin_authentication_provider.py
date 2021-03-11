@@ -6,7 +6,7 @@ from nose.tools import (
 
 from oauth2client import client as GoogleClient
 
-from .. import DatabaseTest
+from core.testing import DatabaseTest
 from core.util.problem_detail import ProblemDetail
 
 from api.admin.google_oauth_admin_authentication_provider import (
@@ -25,7 +25,7 @@ from core.model import (
 class TestGoogleOAuthAdminAuthenticationProvider(DatabaseTest):
 
     def test_callback(self):
-        super(TestGoogleOAuthAdminAuthenticationProvider, self).setup()
+        super(TestGoogleOAuthAdminAuthenticationProvider, self).setup_method()
         auth_integration, ignore = create(
             self._db, ExternalIntegration,
             protocol=ExternalIntegration.GOOGLE_OAUTH,
@@ -75,7 +75,7 @@ class TestGoogleOAuthAdminAuthenticationProvider(DatabaseTest):
         eq_(None, redirect)
 
     def test_domains(self):
-        super(TestGoogleOAuthAdminAuthenticationProvider, self).setup()
+        super(TestGoogleOAuthAdminAuthenticationProvider, self).setup_method()
         auth_integration, ignore = create(
             self._db, ExternalIntegration,
             protocol=ExternalIntegration.GOOGLE_OAUTH,
@@ -101,7 +101,7 @@ class TestGoogleOAuthAdminAuthenticationProvider(DatabaseTest):
         eq_([l2], google.domains["l2.org"])
 
     def test_staff_email(self):
-        super(TestGoogleOAuthAdminAuthenticationProvider, self).setup()
+        super(TestGoogleOAuthAdminAuthenticationProvider, self).setup_method()
         auth_integration, ignore = create(
             self._db, ExternalIntegration,
             protocol=ExternalIntegration.GOOGLE_OAUTH,

@@ -15,7 +15,7 @@ from api.opds_for_distributors import (
     MockOPDSForDistributorsAPI,
 )
 from api.circulation_exceptions import *
-from . import DatabaseTest
+from core.testing import DatabaseTest
 from core.metadata_layer import (
     CirculationData,
     LinkData,
@@ -48,8 +48,8 @@ class BaseOPDSForDistributorsTest(object):
 
 class TestOPDSForDistributorsAPI(DatabaseTest):
 
-    def setup(self):
-        super(TestOPDSForDistributorsAPI, self).setup()
+    def setup_method(self):
+        super(TestOPDSForDistributorsAPI, self).setup_method()
         self.collection = MockOPDSForDistributorsAPI.mock_collection(self._db)
         self.api = MockOPDSForDistributorsAPI(self._db, self.collection)
 

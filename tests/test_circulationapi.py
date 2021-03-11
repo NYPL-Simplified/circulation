@@ -36,7 +36,8 @@ from core.model import (
     RightsStatus,
 )
 
-from . import DatabaseTest, sample_data
+from core.testing import DatabaseTest
+from . import sample_data
 
 
 class TestCirculationAPI(DatabaseTest):
@@ -46,8 +47,8 @@ class TestCirculationAPI(DatabaseTest):
     TOMORROW = datetime.utcnow() + timedelta(days=1)
     IN_TWO_WEEKS = datetime.utcnow() + timedelta(days=14)
 
-    def setup(self):
-        super(TestCirculationAPI, self).setup()
+    def setup_method(self):
+        super(TestCirculationAPI, self).setup_method()
         self.collection = MockBibliothecaAPI.mock_collection(self._db)
         edition, self.pool = self._edition(
             data_source_name=DataSource.BIBLIOTHECA,
@@ -1580,8 +1581,8 @@ class TestAPIAwareFulfillmentInfo(DatabaseTest):
         def do_fetch(self):
             self.fetch_happened = True
 
-    def setup(self):
-        super(TestAPIAwareFulfillmentInfo, self).setup()
+    def setup_method(self):
+        super(TestAPIAwareFulfillmentInfo, self).setup_method()
         self.collection = self._default_collection
 
         # Create a bunch of mock objects which will be used to initialize

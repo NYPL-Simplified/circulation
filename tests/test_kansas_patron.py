@@ -1,6 +1,7 @@
 from nose.tools import eq_
 from api.kansas_patron import KansasAuthenticationAPI
-from . import DatabaseTest, sample_data
+from core.testing import DatabaseTest
+from . import sample_data
 from lxml import etree
 from core.model import ExternalIntegration
 
@@ -30,8 +31,8 @@ class MockAPI(KansasAuthenticationAPI):
 
 
 class TestKansasPatronAPI(DatabaseTest):
-    def setup(self):
-        super(TestKansasPatronAPI, self).setup()
+    def setup_method(self):
+        super(TestKansasPatronAPI, self).setup_method()
         self.integration = self._external_integration(
             ExternalIntegration.PATRON_AUTH_GOAL)
         self.api = MockAPI(self._default_library, self.integration, base_url="http://test.com")

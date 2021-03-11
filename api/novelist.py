@@ -670,7 +670,7 @@ class MockNoveListAPI(NoveListAPI):
         self._db = _db
         self.responses = []
 
-    def setup(self, *args):
+    def setup_method(self, *args):
         self.responses = self.responses + list(args)
 
     def lookup(self, identifier):

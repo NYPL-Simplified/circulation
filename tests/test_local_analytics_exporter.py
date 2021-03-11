@@ -6,7 +6,7 @@ from nose.tools import (
 )
 import csv
 
-from . import DatabaseTest
+from core.testing import DatabaseTest
 from core.model import (
     get_one_or_create,
     CirculationEvent,

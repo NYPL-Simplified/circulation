@@ -11,7 +11,7 @@ import base64
 import urllib
 import urlparse
 
-from . import DatabaseTest
+from core.testing import DatabaseTest
 from core.metadata_layer import TimestampData
 from core.model import (
     Collection,
@@ -55,8 +55,8 @@ class BaseODLTest(object):
 
 class TestODLAPI(DatabaseTest, BaseODLTest):
 
-    def setup(self):
-        super(TestODLAPI, self).setup()
+    def setup_method(self):
+        super(TestODLAPI, self).setup_method()
         self.collection = MockODLAPI.mock_collection(self._db)
         self.collection.external_integration.set_setting(
             Collection.DATA_SOURCE_NAME_SETTING,
@@ -1504,8 +1504,8 @@ class TestODLHoldReaper(DatabaseTest, BaseODLTest):
 
 class TestSharedODLAPI(DatabaseTest, BaseODLTest):
 
-    def setup(self):
-        super(TestSharedODLAPI, self).setup()
+    def setup_method(self):
+        super(TestSharedODLAPI, self).setup_method()
         self.collection = MockSharedODLAPI.mock_collection(self._db)
         self.collection.external_integration.set_setting(
             Collection.DATA_SOURCE_NAME_SETTING,

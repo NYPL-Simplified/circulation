@@ -18,7 +18,7 @@ from api.custom_patron_catalog import (
     CustomRootLane,
 )
 
-from . import DatabaseTest
+from core.testing import DatabaseTest
 
 class TestCustomPatronCatalog(DatabaseTest):
 
@@ -124,8 +124,8 @@ class TestCustomPatronCatalog(DatabaseTest):
 class TestCustomRootLane(DatabaseTest):
     """Test a CustomPatronCatalog which modifies the 'start' URL."""
 
-    def setup(self):
-        super(TestCustomRootLane, self).setup()
+    def setup_method(self):
+        super(TestCustomRootLane, self).setup_method()
         # Configure a CustomRootLane for the default library.
         self.integration = self._external_integration(
             CustomRootLane.PROTOCOL, CustomPatronCatalog.GOAL,
@@ -179,8 +179,8 @@ class TestCustomRootLane(DatabaseTest):
 
 class TestCOPPAGate(DatabaseTest):
 
-    def setup(self):
-        super(TestCOPPAGate, self).setup()
+    def setup_method(self):
+        super(TestCOPPAGate, self).setup_method()
         # Configure a COPPAGate for the default library.
         self.integration = self._external_integration(
             COPPAGate.PROTOCOL, CustomPatronCatalog.GOAL,

@@ -8,7 +8,7 @@ from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_OAEP
 import base64
 import os
-from . import (
+from core.testing import (
     DatabaseTest
 )
 from core.testing import (
@@ -36,8 +36,8 @@ from api.registry import (
 
 class TestRemoteRegistry(DatabaseTest):
 
-    def setup(self):
-        super(TestRemoteRegistry, self).setup()
+    def setup_method(self):
+        super(TestRemoteRegistry, self).setup_method()
 
         # Create an ExternalIntegration that can be used as the basis for
         # a RemoteRegistry.
@@ -387,8 +387,8 @@ class TestRemoteRegistry(DatabaseTest):
 
 class TestRegistration(DatabaseTest):
 
-    def setup(self):
-        super(TestRegistration, self).setup()
+    def setup_method(self):
+        super(TestRegistration, self).setup_method()
 
         # Create a RemoteRegistry.
         self.integration = self._external_integration(
@@ -803,9 +803,9 @@ class TestRegistration(DatabaseTest):
 
 class TestLibraryRegistrationScript(DatabaseTest):
 
-    def setup(self):
+    def setup_method(self):
         """Make sure there's a base URL for url_for to use."""
-        super(TestLibraryRegistrationScript, self).setup()
+        super(TestLibraryRegistrationScript, self).setup_method()
 
     def test_do_run(self):
 

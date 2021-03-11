@@ -71,8 +71,8 @@ IDENTITY_PROVIDERS = [
 
 
 class TestSAMLConfiguration(DatabaseTest):
-    def setup(self, mock_search=True):
-        super(TestSAMLConfiguration, self).setup(mock_search)
+    def setup_method(self):
+        super(TestSAMLConfiguration, self).setup_method()
 
         self._saml_provider_integration = self._external_integration(
             "api.saml.provider", ExternalIntegration.PATRON_AUTH_GOAL

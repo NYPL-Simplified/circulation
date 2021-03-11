@@ -32,10 +32,8 @@ from api.circulation import (
 from api.circulation_exceptions import *
 from api.config import Configuration
 
-from . import (
-    DatabaseTest,
-    sample_data
-)
+from core.testing import DatabaseTest
+from . import sample_data
 
 from core.metadata_layer import TimestampData
 from core.model import (
@@ -61,8 +59,8 @@ from api.config import temp_config
 
 class OverdriveAPITest(DatabaseTest):
 
-    def setup(self):
-        super(OverdriveAPITest, self).setup()
+    def setup_method(self):
+        super(OverdriveAPITest, self).setup_method()
         library = self._default_library
         self.collection = MockOverdriveAPI.mock_collection(self._db)
         self.circulation = CirculationAPI(

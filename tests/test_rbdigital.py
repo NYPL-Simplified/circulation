@@ -86,7 +86,7 @@ from core.util.http import (
     HTTP,
 )
 
-from . import (
+from core.testing import (
     DatabaseTest,
 )
 
@@ -95,8 +95,8 @@ from .test_controller import ControllerTest
 
 class RBDigitalAPITest(DatabaseTest):
 
-    def setup(self):
-        super(RBDigitalAPITest, self).setup()
+    def setup_method(self):
+        super(RBDigitalAPITest, self).setup_method()
 
         self.base_path = os.path.split(__file__)[0]
         self.resource_path = os.path.join(self.base_path, "files", "rbdigital")
@@ -2106,8 +2106,8 @@ class TestRBDigitalRepresentationExtractor(RBDigitalAPITest):
 class TestRBDigitalBibliographicCoverageProvider(RBDigitalAPITest):
     """Test the code that looks up bibliographic information from RBDigital."""
 
-    def setup(self):
-        super(TestRBDigitalBibliographicCoverageProvider, self).setup()
+    def setup_method(self):
+        super(TestRBDigitalBibliographicCoverageProvider, self).setup_method()
 
         self.provider = RBDigitalBibliographicCoverageProvider(
             self.collection, api_class=MockRBDigitalAPI,
@@ -2175,8 +2175,8 @@ class TestRBDigitalBibliographicCoverageProvider(RBDigitalAPITest):
 class TestRBDigitalSyncMonitor(RBDigitalAPITest):
     """Test the superclass of most of the RBDigital monitors."""
 
-    def setup(self):
-        super(TestRBDigitalSyncMonitor, self).setup()
+    def setup_method(self):
+        super(TestRBDigitalSyncMonitor, self).setup_method()
         self.base_path = os.path.split(__file__)[0]
         self.collection = MockRBDigitalAPI.mock_collection(self._db)
 

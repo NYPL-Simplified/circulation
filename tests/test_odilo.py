@@ -32,10 +32,7 @@ from api.circulation import (
 
 from api.circulation_exceptions import *
 
-from . import (
-    DatabaseTest,
-    sample_data
-)
+from . import sample_data
 
 from core.metadata_layer import TimestampData
 
@@ -61,8 +58,8 @@ class OdiloAPITest(DatabaseTest):
     PIN = 'c4ca4238a0b923820dcc509a6f75849b'
     RECORD_ID = '00010982'
 
-    def setup(self):
-        super(OdiloAPITest, self).setup()
+    def setup_method(self):
+        super(OdiloAPITest, self).setup_method()
         library = self._default_library
         self.patron = self._patron()
         self.patron.authorization_identifier='0001000265'
@@ -654,8 +651,8 @@ class TestOdiloDiscoveryAPI(OdiloAPITest):
         self.api.log.info('Odilo circulation monitor without date finished ok!!')
 
 class TestOdiloBibliographicCoverageProvider(OdiloAPITest):
-    def setup(self):
-        super(TestOdiloBibliographicCoverageProvider, self).setup()
+    def setup_method(self):
+        super(TestOdiloBibliographicCoverageProvider, self).setup_method()
         self.provider = OdiloBibliographicCoverageProvider(
             self.collection, api_class=MockOdiloAPI
         )

@@ -5,7 +5,7 @@ from nose.tools import (
 from pymarc import Record
 import urllib
 
-from . import DatabaseTest
+from core.testing import DatabaseTest
 from core.config import Configuration
 from core.model import (
     ConfigurationSetting,

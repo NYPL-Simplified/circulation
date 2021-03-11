@@ -13,7 +13,7 @@ from nose.tools import (
     assert_raises,
 )
 import feedparser
-from . import DatabaseTest
+from core.testing import DatabaseTest
 
 from core.analytics import Analytics
 from core.lane import (
@@ -100,8 +100,8 @@ _strftime = AtomFeed._strftime
 
 
 class TestCirculationManagerAnnotator(DatabaseTest):
-    def setup(self):
-        super(TestCirculationManagerAnnotator, self).setup()
+    def setup_method(self):
+        super(TestCirculationManagerAnnotator, self).setup_method()
         self.work = self._work(with_open_access_download=True)
         self.lane = self._lane(display_name="Fantasy")
         self.annotator = CirculationManagerAnnotator(
@@ -300,8 +300,8 @@ class TestCirculationManagerAnnotator(DatabaseTest):
 
 
 class TestLibraryAnnotator(VendorIDTest):
-    def setup(self):
-        super(TestLibraryAnnotator, self).setup()
+    def setup_method(self):
+        super(TestLibraryAnnotator, self).setup_method()
         self.work = self._work(with_open_access_download=True)
 
         parent = self._lane(
@@ -1811,8 +1811,8 @@ class TestLibraryLoanAndHoldAnnotator(DatabaseTest):
 
 
 class TestSharedCollectionAnnotator(DatabaseTest):
-    def setup(self):
-        super(TestSharedCollectionAnnotator, self).setup()
+    def setup_method(self):
+        super(TestSharedCollectionAnnotator, self).setup_method()
         self.work = self._work(with_open_access_download=True)
         self.collection = self._collection()
         self.lane = self._lane(display_name="Fantasy")

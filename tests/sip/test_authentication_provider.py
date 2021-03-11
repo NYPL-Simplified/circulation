@@ -11,7 +11,7 @@ from api.authenticator import PatronData
 import json
 from core.config import CannotLoadConfiguration
 
-from .. import DatabaseTest
+from core.testing import DatabaseTest
 
 class TestSIP2AuthenticationProvider(DatabaseTest):
 

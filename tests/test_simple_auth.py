@@ -15,7 +15,7 @@ from api.config import (
     CannotLoadConfiguration,
 )
 
-from . import DatabaseTest
+from core.testing import DatabaseTest
 
 class TestSimpleAuth(DatabaseTest):
 

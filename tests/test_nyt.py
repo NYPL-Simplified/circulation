@@ -8,7 +8,7 @@ from nose.tools import (
 import datetime
 import json
 
-from . import (
+from core.testing import (
     DatabaseTest,
 )
 from core.testing import DummyMetadataClient
@@ -59,8 +59,8 @@ class DummyNYTBestSellerAPI(NYTBestSellerAPI):
 
 class NYTBestSellerAPITest(DatabaseTest):
 
-    def setup(self):
-        super(NYTBestSellerAPITest, self).setup()
+    def setup_method(self):
+        super(NYTBestSellerAPITest, self).setup_method()
         self.api = DummyNYTBestSellerAPI(self._db)
         self.metadata_client = DummyMetadataClient()
 

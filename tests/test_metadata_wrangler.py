@@ -45,10 +45,8 @@ from api.metadata_wrangler import (
     MWCollectionUpdateMonitor,
 )
 from api.testing import MonitorTest
-from . import (
-    sample_data,
-    DatabaseTest,
-)
+from core.testing import DatabaseTest
+from . import sample_data
 
 class InstrumentedMWCollectionUpdateMonitor(MWCollectionUpdateMonitor):
 
@@ -63,8 +61,8 @@ class InstrumentedMWCollectionUpdateMonitor(MWCollectionUpdateMonitor):
 
 class TestMWCollectionUpdateMonitor(MonitorTest):
 
-    def setup(self):
-        super(TestMWCollectionUpdateMonitor, self).setup()
+    def setup_method(self):
+        super(TestMWCollectionUpdateMonitor, self).setup_method()
         self._external_integration(
             ExternalIntegration.METADATA_WRANGLER,
             ExternalIntegration.METADATA_GOAL,
@@ -295,8 +293,8 @@ class TestMWCollectionUpdateMonitor(MonitorTest):
 
 class TestMWAuxiliaryMetadataMonitor(MonitorTest):
 
-    def setup(self):
-        super(TestMWAuxiliaryMetadataMonitor, self).setup()
+    def setup_method(self):
+        super(TestMWAuxiliaryMetadataMonitor, self).setup_method()
 
         self._external_integration(
             ExternalIntegration.METADATA_WRANGLER,
@@ -425,8 +423,8 @@ class MetadataWranglerCoverageProviderTest(DatabaseTest):
         lookup = MockMetadataWranglerOPDSLookup.from_config(self._db, self.collection)
         return self.TEST_CLASS(self.collection, lookup, **kwargs)
 
-    def setup(self):
-        super(MetadataWranglerCoverageProviderTest, self).setup()
+    def setup_method(self):
+        super(MetadataWranglerCoverageProviderTest, self).setup_method()
         self.integration = self._external_integration(
             ExternalIntegration.METADATA_WRANGLER,
             goal=ExternalIntegration.METADATA_GOAL, url=self._url,
@@ -815,8 +813,8 @@ class TestMetadataWranglerCollectionRegistrar(MetadataWranglerCoverageProviderTe
 
 class MetadataWranglerCollectionManagerTest(DatabaseTest):
 
-    def setup(self):
-        super(MetadataWranglerCollectionManagerTest, self).setup()
+    def setup_method(self):
+        super(MetadataWranglerCollectionManagerTest, self).setup_method()
         self.integration = self._external_integration(
             ExternalIntegration.METADATA_WRANGLER,
             goal=ExternalIntegration.METADATA_GOAL, url=self._url,
@@ -953,8 +951,8 @@ class TestMetadataUploadCoverageProvider(DatabaseTest):
             self.collection, upload_client, **kwargs
         )
 
-    def setup(self):
-        super(TestMetadataUploadCoverageProvider, self).setup()
+    def setup_method(self):
+        super(TestMetadataUploadCoverageProvider, self).setup_method()
         self.integration = self._external_integration(
             ExternalIntegration.METADATA_WRANGLER,
             goal=ExternalIntegration.METADATA_GOAL, url=self._url,

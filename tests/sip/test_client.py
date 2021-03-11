@@ -266,7 +266,7 @@ class TestLogin(object):
 
 class TestPatronResponse(object):
 
-    def setup(self):
+    def setup_method(self):
         self.sip = MockSIPClient()
 
     def test_incorrect_card_number(self):
@@ -407,7 +407,7 @@ class TestPatronResponse(object):
 
 class TestClientDialects(object):
 
-    def setup(self):
+    def setup_method(self):
         self.sip = MockSIPClient()
 
     def test_generic_dialect(self):

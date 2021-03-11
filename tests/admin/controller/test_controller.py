@@ -73,8 +73,8 @@ class AdminControllerTest(CirculationControllerTest):
     # don't need them.
     BOOKS = []
 
-    def setup(self):
-        super(AdminControllerTest, self).setup()
+    def setup_method(self):
+        super(AdminControllerTest, self).setup_method()
         ConfigurationSetting.sitewide(self._db, Configuration.SECRET_KEY).value = "a secret"
         setup_admin(self._db)
         setup_admin_controllers(self.manager)
@@ -304,8 +304,8 @@ class TestAdminCirculationManagerController(AdminControllerTest):
 
 class TestSignInController(AdminControllerTest):
 
-    def setup(self):
-        super(TestSignInController, self).setup()
+    def setup_method(self):
+        super(TestSignInController, self).setup_method()
         self.admin.credential = json.dumps({
             u'access_token': u'abc123',
             u'client_id': u'', u'client_secret': u'',
@@ -645,8 +645,8 @@ class TestSignInController(AdminControllerTest):
 
 
 class TestPatronController(AdminControllerTest):
-    def setup(self):
-        super(TestPatronController, self).setup()
+    def setup_method(self):
+        super(TestPatronController, self).setup_method()
         self.admin.add_role(AdminRole.LIBRARIAN, self._default_library)
 
     def test__load_patrondata(self):
@@ -787,8 +787,8 @@ class TestPatronController(AdminControllerTest):
 
 class TestTimestampsController(AdminControllerTest):
 
-    def setup(self):
-        super(TestTimestampsController, self).setup()
+    def setup_method(self):
+        super(TestTimestampsController, self).setup_method()
         for timestamp in self._db.query(Timestamp):
             self._db.delete(timestamp)
 
@@ -886,8 +886,8 @@ class TestTimestampsController(AdminControllerTest):
 
 class TestFeedController(AdminControllerTest):
 
-    def setup(self):
-        super(TestFeedController, self).setup()
+    def setup_method(self):
+        super(TestFeedController, self).setup_method()
         self.admin.add_role(AdminRole.LIBRARIAN, self._default_library)
 
     def test_complaints(self):
@@ -964,8 +964,8 @@ class TestFeedController(AdminControllerTest):
                 }))
 
 class TestCustomListsController(AdminControllerTest):
-    def setup(self):
-        super(TestCustomListsController, self).setup()
+    def setup_method(self):
+        super(TestCustomListsController, self).setup_method()
         self.admin.add_role(AdminRole.LIBRARIAN, self._default_library)
 
     def test_custom_lists_get(self):
@@ -1303,8 +1303,8 @@ class TestCustomListsController(AdminControllerTest):
 
 
 class TestLanesController(AdminControllerTest):
-    def setup(self):
-        super(TestLanesController, self).setup()
+    def setup_method(self):
+        super(TestLanesController, self).setup_method()
         self.admin.add_role(AdminRole.LIBRARY_MANAGER, self._default_library)
 
     def test_lanes_get(self):
@@ -2061,8 +2061,8 @@ class TestDashboardController(AdminControllerTest):
 class SettingsControllerTest(AdminControllerTest):
     """Test some part of the settings controller."""
 
-    def setup(self):
-        super(SettingsControllerTest, self).setup()
+    def setup_method(self):
+        super(SettingsControllerTest, self).setup_method()
         # Delete any existing patron auth services created by controller test setup.
         for auth_service in self._db.query(ExternalIntegration).filter(
             ExternalIntegration.goal==ExternalIntegration.PATRON_AUTH_GOAL

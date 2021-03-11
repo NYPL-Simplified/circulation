@@ -87,7 +87,7 @@ from core.util.flask_util import (
 
 from api.marc import LibraryAnnotator as  MARCLibraryAnnotator
 
-from . import (
+from core.testing import (
     DatabaseTest,
 )
 
@@ -154,8 +154,8 @@ class TestAdobeAccountIDResetScript(DatabaseTest):
 
 class TestLaneScript(DatabaseTest):
 
-    def setup(self):
-        super(TestLaneScript, self).setup()
+    def setup_method(self):
+        super(TestLaneScript, self).setup_method()
         base_url_setting = ConfigurationSetting.sitewide(
             self._db, Configuration.BASE_URL_KEY)
         base_url_setting.value = u'http://test-circulation-manager/'
@@ -781,8 +781,8 @@ class TestLanguageListScript(DatabaseTest):
 
 class TestShortClientTokenLibraryConfigurationScript(DatabaseTest):
 
-    def setup(self):
-        super(TestShortClientTokenLibraryConfigurationScript, self).setup()
+    def setup_method(self):
+        super(TestShortClientTokenLibraryConfigurationScript, self).setup_method()
         self._default_library.setting(
             Configuration.WEBSITE_URL
         ).value = "http://foo/"

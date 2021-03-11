@@ -26,14 +26,14 @@ from api.circulation_exceptions import (
     RemoteInitiatedServerError
 )
 
-from . import DatabaseTest
+from core.testing import DatabaseTest
 from core.model import ExternalIntegration
 
 
 class TestFirstBook(DatabaseTest):
 
-    def setup(self):
-        super(TestFirstBook, self).setup()
+    def setup_method(self):
+        super(TestFirstBook, self).setup_method()
         self.integration = self._external_integration(
             ExternalIntegration.PATRON_AUTH_GOAL)
         self.api = self.mock_api(dict(ABCD="1234"))

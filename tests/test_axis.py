@@ -69,10 +69,8 @@ from api.axis import (
     ResponseParser,
 )
 
-from . import (
-    DatabaseTest,
-    sample_data
-)
+from core.testing import DatabaseTest
+from . import sample_data
 
 from api.circulation import (
     LoanInfo,
@@ -95,8 +93,8 @@ from api.web_publication_manifest import (
 
 class Axis360Test(DatabaseTest):
 
-    def setup(self):
-        super(Axis360Test,self).setup()
+    def setup_method(self):
+        super(Axis360Test,self).setup_method()
         self.collection = MockAxis360API.mock_collection(self._db)
         self.api = MockAxis360API(self._db, self.collection)
 
@@ -1102,7 +1100,7 @@ class BaseParserTest(object):
 
 class TestResponseParser(BaseParserTest):
 
-    def setup(self):
+    def setup_method(self):
         # We don't need an actual Collection object to test most of
         # these classes, but we do need to test that whatever object
         # we _claim_ is a Collection will have its id put into the
@@ -1630,8 +1628,8 @@ class TestAxisNowManifest(object):
 class TestAxis360BibliographicCoverageProvider(Axis360Test):
     """Test the code that looks up bibliographic information from Axis 360."""
 
-    def setup(self):
-        super(TestAxis360BibliographicCoverageProvider, self).setup()
+    def setup_method(self):
+        super(TestAxis360BibliographicCoverageProvider, self).setup_method()
         self.provider = Axis360BibliographicCoverageProvider(
             self.collection, api_class=MockAxis360API
         )

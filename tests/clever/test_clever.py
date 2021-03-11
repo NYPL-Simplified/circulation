@@ -22,7 +22,7 @@ from core.model import (
     get_one_or_create,
 )
 from core.util.problem_detail import ProblemDetail
-from .. import DatabaseTest
+from core.testing import DatabaseTest
 
 class MockAPI(CleverAuthenticationAPI):
     def __init__(self, *args, **kwargs):
@@ -47,8 +47,8 @@ class MockAPI(CleverAuthenticationAPI):
 class TestCleverAuthenticationAPI(DatabaseTest):
 
 
-    def setup(self):
-        super(TestCleverAuthenticationAPI, self).setup()
+    def setup_method(self):
+        super(TestCleverAuthenticationAPI, self).setup_method()
 
         self.api = MockAPI(self._default_library, self.mock_integration)
         os.environ['AUTOINITIALIZE'] = "False"

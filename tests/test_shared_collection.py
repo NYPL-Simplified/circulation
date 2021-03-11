@@ -26,7 +26,7 @@ from core.model import (
 )
 from api.circulation import FulfillmentInfo
 
-from . import DatabaseTest
+from core.testing import DatabaseTest
 from core.testing import MockRequestsResponse
 
 class MockAPI(BaseSharedCollectionAPI):
@@ -53,8 +53,8 @@ class MockAPI(BaseSharedCollectionAPI):
 
 class TestSharedCollectionAPI(DatabaseTest):
 
-    def setup(self):
-        super(TestSharedCollectionAPI, self).setup()
+    def setup_method(self):
+        super(TestSharedCollectionAPI, self).setup_method()
         self.collection = self._collection(protocol="Mock")
         self.shared_collection = SharedCollectionAPI(
             self._db, api_map = {

@@ -17,7 +17,7 @@ from api.custom_index import (
     COPPAGate,
 )
 
-from . import DatabaseTest
+from core.testing import DatabaseTest
 
 class TestCustomIndexView(DatabaseTest):
 
@@ -78,8 +78,8 @@ class TestCustomIndexView(DatabaseTest):
 
 class TestCOPPAGate(DatabaseTest):
 
-    def setup(self):
-        super(TestCOPPAGate, self).setup()
+    def setup_method(self):
+        super(TestCOPPAGate, self).setup_method()
         # Configure a COPPAGate for the default library.
         self.integration = self._external_integration(
             COPPAGate.PROTOCOL, CustomIndexView.GOAL,

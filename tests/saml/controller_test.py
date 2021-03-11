@@ -4,11 +4,10 @@ from tests.test_controller import ControllerTest as BaseControllerTest
 
 
 class ControllerTest(BaseControllerTest):
-    def __init__(self):
-        self._integration = None
 
-    def setup(self, _db=None, set_up_circulation_manager=True):
-        super(ControllerTest, self).setup(_db, set_up_circulation_manager)
+    def setup_method(self):
+        self._integration = None
+        super(ControllerTest, self).setup_method()
 
         self._integration = self._external_integration(
             protocol=SAMLWebSSOAuthenticationProvider.NAME,

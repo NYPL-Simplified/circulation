@@ -6,7 +6,7 @@ import json
 import datetime
 from pyld import jsonld
 
-from . import DatabaseTest
+from core.testing import DatabaseTest
 from test_controller import ControllerTest
 
 from core.model import (
@@ -342,8 +342,8 @@ class TestAnnotationWriter(AnnotationTest, ControllerTest):
 
 
 class TestAnnotationParser(AnnotationTest):
-    def setup(self):
-        super(TestAnnotationParser, self).setup()
+    def setup_method(self):
+        super(TestAnnotationParser, self).setup_method()
         self.pool = self._licensepool(None)
         self.identifier = self.pool.identifier
         self.patron = self._patron()
