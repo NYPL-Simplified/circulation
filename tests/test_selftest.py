@@ -38,14 +38,13 @@ class TestHasSelfTests(DatabaseTest):
         # to test it.
         not_in_library = self._collection()
         [result] = h.default_patrons(not_in_library)
-        eq_("Acquiring test patron credentials.", result.name)
-        eq_(False, result.success)
-        eq_("Collection is not associated with any libraries.",
+        assert "Acquiring test patron credentials." == result.name
+        assert False == result.success
+        assert ("Collection is not associated with any libraries." ==
             result.exception.message)
-        eq_(
-            "Add the collection to a library that has a patron authentication service.",
-            result.exception.debug_message
-        )
+        assert (
+            "Add the collection to a library that has a patron authentication service." ==
+            result.exception.debug_message)
 
         # This collection is in two libraries.
         collection = self._default_collection
@@ -67,27 +66,26 @@ class TestHasSelfTests(DatabaseTest):
         # each Library that uses that Collection.
 
         results = list(h.default_patrons(collection))
-        eq_(2, len(results))
+        assert 2 == len(results)
         [failure] = [x for x in results if isinstance(x, SelfTestResult)]
         [success] = [x for x in results if x != failure]
 
         # A SelfTestResult indicating failure was returned for the
         # library without a test patron, since the test cannot proceed with
         # a test patron.
-        eq_(False, failure.success)
-        eq_(
-            "Acquiring test patron credentials for library %s" % no_default_patron.name,
-            failure.name
-        )
-        eq_("Library has no test patron configured.", failure.exception.message)
-        eq_("You can specify a test patron when you configure the library's patron authentication service.", failure.exception.debug_message)
+        assert False == failure.success
+        assert (
+            "Acquiring test patron credentials for library %s" % no_default_patron.name ==
+            failure.name)
+        assert "Library has no test patron configured." == failure.exception.message
+        assert "You can specify a test patron when you configure the library's patron authentication service." == failure.exception.debug_message
 
         # The test patron for the library that has one was looked up,
         # and the test can proceed using this patron.
         library, patron, password = success
-        eq_(self._default_library, library)
-        eq_("username1", patron.authorization_identifier)
-        eq_("password1", password)
+        assert self._default_library == library
+        assert "username1" == patron.authorization_identifier
+        assert "password1" == password
 
 
 class TestRunSelfTestsScript(DatabaseTest):
@@ -113,13 +111,13 @@ class TestRunSelfTestsScript(DatabaseTest):
         script = MockScript(self._db, out)
         script.do_run()
         # Both libraries were tested.
-        eq_(out.getvalue(),
+        assert (out.getvalue() ==
             "Testing %s\nTesting %s\n" % (library1.name, library2.name))
 
         # The default library is the only one with a collection;
         # test_collection() was called on that collection.
         [(collection, api_map)] = script.tested
-        eq_([collection], library1.collections)
+        assert [collection] == library1.collections
 
         # The API lookup map passed into test_collection() is based on
         # CirculationAPI's default API map.
@@ -127,12 +125,12 @@ class TestRunSelfTestsScript(DatabaseTest):
             self._db, self._default_library
         ).default_api_map
         for k, v in default_api_map.items():
-            eq_(api_map[k], v)
+            assert api_map[k] == v
 
         # But a couple things were added to the map that are not in
         # CirculationAPI.
-        eq_(api_map[ExternalIntegration.OPDS_IMPORT], OPDSImportMonitor)
-        eq_(api_map[ExternalIntegration.FEEDBOOKS], FeedbooksImportMonitor)
+        assert api_map[ExternalIntegration.OPDS_IMPORT] == OPDSImportMonitor
+        assert api_map[ExternalIntegration.FEEDBOOKS] == FeedbooksImportMonitor
 
         # If test_collection raises an exception, the exception is recorded,
         # and we move on.
@@ -142,9 +140,8 @@ class TestRunSelfTestsScript(DatabaseTest):
         out = StringIO()
         script = MockScript2(self._db, out)
         script.do_run()
-        eq_(out.getvalue(),
-            "Testing %s\n  Exception while running self-test: Exception('blah',)\nTesting %s\n" % (library1.name, library2.name)
-        )
+        assert (out.getvalue() ==
+            "Testing %s\n  Exception while running self-test: Exception('blah',)\nTesting %s\n" % (library1.name, library2.name))
 
     def test_test_collection(self):
         class MockScript(RunSelfTestsScript):
@@ -159,7 +156,7 @@ class TestRunSelfTestsScript(DatabaseTest):
         out = StringIO()
         script = MockScript(self._db, out)
         script.test_collection(collection, api_map={})
-        eq_(out.getvalue(),
+        assert (out.getvalue() ==
             ' Cannot find a self-test for %s, ignoring.\n' % collection.name)
 
         # If the api_map does map the colelction's protocol to a
@@ -183,12 +180,12 @@ class TestRunSelfTestsScript(DatabaseTest):
 
         # run_self_tests() was called with the correct arguments,
         # including the extra one.
-        eq_((self._db, None), MockHasSelfTests.run_self_tests_called_with)
-        eq_((self._db, collection, "an extra arg"),
+        assert (self._db, None) == MockHasSelfTests.run_self_tests_called_with
+        assert ((self._db, collection, "an extra arg") ==
             MockHasSelfTests.run_self_tests_constructor_args)
 
         # Each result was run through process_result().
-        eq_(["result 1", "result 2"], script.processed)
+        assert ["result 1", "result 2"] == script.processed
 
     def test_process_result(self):
 
@@ -200,8 +197,8 @@ class TestRunSelfTestsScript(DatabaseTest):
         out = StringIO()
         script = RunSelfTestsScript(self._db, out)
         script.process_result(success)
-        eq_(out.getvalue(),
-            '  SUCCESS i succeeded (1.5sec)\n   Result: a result\n',)
+        assert (out.getvalue() ==
+            '  SUCCESS i succeeded (1.5sec)\n   Result: a result\n')
 
         # Test a failed test that raised an exception.
         failure = SelfTestResult("i failed")
@@ -210,9 +207,8 @@ class TestRunSelfTestsScript(DatabaseTest):
         out = StringIO()
         script = RunSelfTestsScript(self._db, out)
         script.process_result(failure)
-        eq_(out.getvalue(),
-            "  FAILURE i failed (0.0sec)\n   Exception: Exception('bah',)\n"
-        )
+        assert (out.getvalue() ==
+            "  FAILURE i failed (0.0sec)\n   Exception: Exception('bah',)\n")
 
 
 class TestHasCollectionSelfTests(DatabaseTest):
@@ -228,8 +224,8 @@ class TestHasCollectionSelfTests(DatabaseTest):
 
         mock = Mock()
         results = [x for x in mock._run_self_tests()]
-        eq_(["1"], [x.result for x in results])
-        eq_(True, mock._no_delivery_mechanisms_called)
+        assert ["1"] == [x.result for x in results]
+        assert True == mock._no_delivery_mechanisms_called
 
     def test__no_delivery_mechanisms_test(self):
         # Verify that _no_delivery_mechanisms_test works whether all
@@ -243,7 +239,7 @@ class TestHasCollectionSelfTests(DatabaseTest):
         hastests = Mock()
         result = hastests._no_delivery_mechanisms_test()
         success = "All titles in this collection have delivery mechanisms."
-        eq_(success, result)
+        assert success == result
 
         # Destroy the delivery mechanism.
         [self._db.delete(x) for x in pool.delivery_mechanisms]
@@ -251,7 +247,7 @@ class TestHasCollectionSelfTests(DatabaseTest):
         # Now a list of strings is returned, one for each problematic
         # book.
         [result] = hastests._no_delivery_mechanisms_test()
-        eq_("[title unknown] (ID: %s)" % pool.identifier.identifier,
+        assert ("[title unknown] (ID: %s)" % pool.identifier.identifier ==
             result)
 
         # Change the LicensePool so it has no owned licenses.
@@ -259,4 +255,4 @@ class TestHasCollectionSelfTests(DatabaseTest):
         # since it's not actually in the collection.
         pool.licenses_owned = 0
         result = hastests._no_delivery_mechanisms_test()
-        eq_(success, result)
+        assert success == result

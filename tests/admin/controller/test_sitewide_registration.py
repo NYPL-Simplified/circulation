@@ -22,8 +22,8 @@ class TestSitewideRegistration(SettingsControllerTest):
 
     def test_sitewide_registration_post_errors(self):
         def assert_remote_integration_error(response, message=None):
-            eq_(REMOTE_INTEGRATION_FAILED.uri, response.uri)
-            eq_(REMOTE_INTEGRATION_FAILED.title, response.title)
+            assert REMOTE_INTEGRATION_FAILED.uri == response.uri
+            assert REMOTE_INTEGRATION_FAILED.title == response.title
             if message:
                 assert message in response.detail
 
@@ -39,7 +39,7 @@ class TestSitewideRegistration(SettingsControllerTest):
             response = controller.process_sitewide_registration(
                 None, do_get=self.do_request
             )
-            eq_(MISSING_SERVICE, response)
+            assert MISSING_SERVICE == response
 
         # If an error is raised during registration, a ProblemDetail is returned.
         def error_get(*args, **kwargs):
@@ -129,7 +129,7 @@ class TestSitewideRegistration(SettingsControllerTest):
             response = controller.process_sitewide_registration(
                 metadata_wrangler_service, do_get=self.do_request, do_post=bad_do_post
             )
-        eq_(MULTIPLE_BASIC_AUTH_SERVICES, response)
+        assert MULTIPLE_BASIC_AUTH_SERVICES == response
 
 
     def test_sitewide_registration_post_success(self):
@@ -177,7 +177,7 @@ class TestSitewideRegistration(SettingsControllerTest):
                 metadata_wrangler_service, do_get=self.do_request,
                 do_post=self.do_request
             )
-        eq_(None, response)
+        assert None == response
 
         # We made two requests: a GET to get the service document from
         # the metadata wrangler, and a POST to the registration
@@ -185,16 +185,16 @@ class TestSitewideRegistration(SettingsControllerTest):
         # a JWT.
         metadata_wrangler_service_request, registration_request = self.requests
         url, i1, i2 = metadata_wrangler_service_request
-        eq_(metadata_wrangler_service.url, url)
+        assert metadata_wrangler_service.url == url
 
         url, [document], ignore = registration_request
-        eq_(url, registration_url)
+        assert url == registration_url
         for k in 'url', 'jwt':
             assert k in document
 
         # The end result is that our ExternalIntegration for the metadata
         # wrangler has been updated with a (decrypted) shared secret.
-        eq_(shared_secret, metadata_wrangler_service.password)
+        assert shared_secret == metadata_wrangler_service.password
 
     def test_sitewide_registration_document(self):
         """Test the document sent along to sitewide registration."""
@@ -203,7 +203,7 @@ class TestSitewideRegistration(SettingsControllerTest):
             doc = controller.sitewide_registration_document()
 
             # The registrar knows where to go to get our public key.
-            eq_(doc['url'], controller.url_for('public_key_document'))
+            assert doc['url'] == controller.url_for('public_key_document')
 
             # The JWT proves that we control the public/private key pair.
             public_key, private_key = self.manager.sitewide_key_pair

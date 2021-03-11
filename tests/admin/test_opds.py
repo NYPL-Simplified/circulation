@@ -42,8 +42,8 @@ class TestOPDS(DatabaseTest):
         feed = AcquisitionFeed(self._db, "test", "url", [work], AdminAnnotator(None, self._default_library, test_mode=True))
         [entry] = feedparser.parse(unicode(feed))['entries']
         rating = entry['schema_rating']
-        eq_(3, float(rating['schema:ratingvalue']))
-        eq_(Measurement.RATING, rating['additionaltype'])
+        assert 3 == float(rating['schema:ratingvalue'])
+        assert Measurement.RATING == rating['additionaltype']
 
     def test_feed_includes_refresh_link(self):
         work = self._work(with_open_access_download=True)
@@ -54,7 +54,7 @@ class TestOPDS(DatabaseTest):
         # If the metadata wrangler isn't configured, the link is left out.
         feed = AcquisitionFeed(self._db, "test", "url", [work], AdminAnnotator(None, self._default_library, test_mode=True))
         [entry] = feedparser.parse(unicode(feed))['entries']
-        eq_([],
+        assert ([] ==
             [x for x in entry['links'] if x['rel'] == "http://librarysimplified.org/terms/rel/refresh"])
 
         # If we configure a metadata wrangler integration, the link appears.
@@ -80,7 +80,7 @@ class TestOPDS(DatabaseTest):
         [suppress_link] = [x for x in entry['links'] if x['rel'] == "http://librarysimplified.org/terms/rel/hide"]
         assert lp.identifier.identifier in suppress_link["href"]
         unsuppress_links = [x for x in entry['links'] if x['rel'] == "http://librarysimplified.org/terms/rel/restore"]
-        eq_(0, len(unsuppress_links))
+        assert 0 == len(unsuppress_links)
 
         lp.suppressed = True
         self._db.commit()
@@ -90,7 +90,7 @@ class TestOPDS(DatabaseTest):
         [unsuppress_link] = [x for x in entry['links'] if x['rel'] == "http://librarysimplified.org/terms/rel/restore"]
         assert lp.identifier.identifier in unsuppress_link["href"]
         suppress_links = [x for x in entry['links'] if x['rel'] == "http://librarysimplified.org/terms/rel/hide"]
-        eq_(0, len(suppress_links))
+        assert 0 == len(suppress_links)
 
     def test_feed_includes_edit_link(self):
         work = self._work(with_open_access_download=True)
@@ -110,7 +110,7 @@ class TestOPDS(DatabaseTest):
         [entry] = feedparser.parse(unicode(feed))['entries']
 
         # Since there's no storage integration, the change cover link isn't included.
-        eq_([], [x for x in entry['links'] if x['rel'] == "http://librarysimplified.org/terms/rel/change_cover"])
+        assert [] == [x for x in entry['links'] if x['rel'] == "http://librarysimplified.org/terms/rel/change_cover"]
 
         # There is now a covers storage integration that is linked to the external
         # integration for a collection that the work is in. It will use that
@@ -197,35 +197,35 @@ class TestOPDS(DatabaseTest):
 
         first_page = make_page(pagination)
         parsed = feedparser.parse(unicode(first_page))
-        eq_(1, len(parsed['entries']))
-        eq_(work1.title, parsed['entries'][0]['title'])
+        assert 1 == len(parsed['entries'])
+        assert work1.title == parsed['entries'][0]['title']
         # Verify that the entry has acquisition links.
         links = parsed['entries'][0]['links']
         open_access_links = [l for l in links if l['rel'] == "http://opds-spec.org/acquisition/open-access"]
-        eq_(1, len(open_access_links))
+        assert 1 == len(open_access_links)
 
         # Make sure the links are in place.
         [start] = self.links(parsed, 'start')
-        eq_(annotator.groups_url(None), start['href'])
-        eq_(annotator.top_level_title(), start['title'])
+        assert annotator.groups_url(None) == start['href']
+        assert annotator.top_level_title() == start['title']
 
         [up] = self.links(parsed, 'up')
-        eq_(annotator.groups_url(None), up['href'])
-        eq_(annotator.top_level_title(), up['title'])
+        assert annotator.groups_url(None) == up['href']
+        assert annotator.top_level_title() == up['title']
 
         [next_link] = self.links(parsed, 'next')
-        eq_(annotator.complaints_url(facets, pagination.next_page), next_link['href'])
+        assert annotator.complaints_url(facets, pagination.next_page) == next_link['href']
 
         # This was the first page, so no previous link.
-        eq_([], self.links(parsed, 'previous'))
+        assert [] == self.links(parsed, 'previous')
 
         # Now get the second page and make sure it has a 'previous' link.
         second_page = make_page(pagination.next_page)
         parsed = feedparser.parse(unicode(second_page))
         [previous] = self.links(parsed, 'previous')
-        eq_(annotator.complaints_url(facets, pagination), previous['href'])
-        eq_(1, len(parsed['entries']))
-        eq_(work2.title, parsed['entries'][0]['title'])
+        assert annotator.complaints_url(facets, pagination) == previous['href']
+        assert 1 == len(parsed['entries'])
+        assert work2.title == parsed['entries'][0]['title']
 
     def test_suppressed_feed(self):
         # Test the ability to show a paginated feed of suppressed works.
@@ -255,40 +255,40 @@ class TestOPDS(DatabaseTest):
 
         first_page = make_page(pagination)
         parsed = feedparser.parse(unicode(first_page))
-        eq_(1, len(parsed['entries']))
+        assert 1 == len(parsed['entries'])
         assert parsed['entries'][0].title in titles
         titles.remove(parsed['entries'][0].title)
         [remaining_title] = titles
 
         # Make sure the links are in place.
         [start] = self.links(parsed, 'start')
-        eq_(annotator.groups_url(None), start['href'])
-        eq_(annotator.top_level_title(), start['title'])
+        assert annotator.groups_url(None) == start['href']
+        assert annotator.top_level_title() == start['title']
 
         [up] = self.links(parsed, 'up')
-        eq_(annotator.groups_url(None), up['href'])
-        eq_(annotator.top_level_title(), up['title'])
+        assert annotator.groups_url(None) == up['href']
+        assert annotator.top_level_title() == up['title']
 
         [next_link] = self.links(parsed, 'next')
-        eq_(annotator.suppressed_url(pagination.next_page), next_link['href'])
+        assert annotator.suppressed_url(pagination.next_page) == next_link['href']
 
         # This was the first page, so no previous link.
-        eq_([], self.links(parsed, 'previous'))
+        assert [] == self.links(parsed, 'previous')
 
         # Now get the second page and make sure it has a 'previous' link.
         second_page = make_page(pagination.next_page)
         parsed = feedparser.parse(unicode(second_page))
         [previous] = self.links(parsed, 'previous')
-        eq_(annotator.suppressed_url(pagination), previous['href'])
-        eq_(1, len(parsed['entries']))
-        eq_(remaining_title, parsed['entries'][0]['title'])
+        assert annotator.suppressed_url(pagination) == previous['href']
+        assert 1 == len(parsed['entries'])
+        assert remaining_title == parsed['entries'][0]['title']
 
         # The third page is empty.
         third_page = make_page(pagination.next_page.next_page)
         parsed = feedparser.parse(unicode(third_page))
         [previous] = self.links(parsed, 'previous')
-        eq_(annotator.suppressed_url(pagination.next_page), previous['href'])
-        eq_(0, len(parsed['entries']))
+        assert annotator.suppressed_url(pagination.next_page) == previous['href']
+        assert 0 == len(parsed['entries'])
 
 
 class MockAnnotator(AdminAnnotator):

@@ -35,10 +35,10 @@ class TestPatronAuth(SettingsControllerTest):
     def test_patron_auth_services_get_with_no_services(self):
         with self.request_context_with_admin("/"):
             response = self.manager.admin_patron_auth_services_controller.process_patron_auth_services()
-            eq_(response.get("patron_auth_services"), [])
+            assert response.get("patron_auth_services") == []
             protocols = response.get("protocols")
-            eq_(8, len(protocols))
-            eq_(SimpleAuthenticationProvider.__module__, protocols[0].get("name"))
+            assert 8 == len(protocols)
+            assert SimpleAuthenticationProvider.__module__ == protocols[0].get("name")
             assert "settings" in protocols[0]
             assert "library_settings" in protocols[0]
 
@@ -63,22 +63,22 @@ class TestPatronAuth(SettingsControllerTest):
             response = self.manager.admin_patron_auth_services_controller.process_patron_auth_services()
             [service] = response.get("patron_auth_services")
 
-            eq_(auth_service.id, service.get("id"))
-            eq_(auth_service.name, service.get("name"))
-            eq_(SimpleAuthenticationProvider.__module__, service.get("protocol"))
-            eq_("user", service.get("settings").get(BasicAuthenticationProvider.TEST_IDENTIFIER))
-            eq_("pass", service.get("settings").get(BasicAuthenticationProvider.TEST_PASSWORD))
-            eq_([], service.get("libraries"))
+            assert auth_service.id == service.get("id")
+            assert auth_service.name == service.get("name")
+            assert SimpleAuthenticationProvider.__module__ == service.get("protocol")
+            assert "user" == service.get("settings").get(BasicAuthenticationProvider.TEST_IDENTIFIER)
+            assert "pass" == service.get("settings").get(BasicAuthenticationProvider.TEST_PASSWORD)
+            assert [] == service.get("libraries")
 
         auth_service.libraries += [self._default_library]
         with self.request_context_with_admin("/"):
             response = self.manager.admin_patron_auth_services_controller.process_patron_auth_services()
             [service] = response.get("patron_auth_services")
 
-            eq_("user", service.get("settings").get(BasicAuthenticationProvider.TEST_IDENTIFIER))
+            assert "user" == service.get("settings").get(BasicAuthenticationProvider.TEST_IDENTIFIER)
             [library] = service.get("libraries")
-            eq_(self._default_library.short_name, library.get("short_name"))
-            eq_(None, library.get(AuthenticationProvider.EXTERNAL_TYPE_REGULAR_EXPRESSION))
+            assert self._default_library.short_name == library.get("short_name")
+            assert None == library.get(AuthenticationProvider.EXTERNAL_TYPE_REGULAR_EXPRESSION)
 
         ConfigurationSetting.for_library_and_externalintegration(
             self._db, AuthenticationProvider.EXTERNAL_TYPE_REGULAR_EXPRESSION,
@@ -89,8 +89,8 @@ class TestPatronAuth(SettingsControllerTest):
             [service] = response.get("patron_auth_services")
 
             [library] = service.get("libraries")
-            eq_(self._default_library.short_name, library.get("short_name"))
-            eq_("^(u)", library.get(AuthenticationProvider.EXTERNAL_TYPE_REGULAR_EXPRESSION))
+            assert self._default_library.short_name == library.get("short_name")
+            assert "^(u)" == library.get(AuthenticationProvider.EXTERNAL_TYPE_REGULAR_EXPRESSION)
 
     def test_patron_auth_services_get_with_millenium_auth_service(self):
         auth_service, ignore = create(
@@ -112,15 +112,15 @@ class TestPatronAuth(SettingsControllerTest):
             response = self.manager.admin_patron_auth_services_controller.process_patron_auth_services()
             [service] = response.get("patron_auth_services")
 
-            eq_(auth_service.id, service.get("id"))
-            eq_(MilleniumPatronAPI.__module__, service.get("protocol"))
-            eq_("user", service.get("settings").get(BasicAuthenticationProvider.TEST_IDENTIFIER))
-            eq_("pass", service.get("settings").get(BasicAuthenticationProvider.TEST_PASSWORD))
-            eq_("u*", service.get("settings").get(BasicAuthenticationProvider.IDENTIFIER_REGULAR_EXPRESSION))
-            eq_("p*", service.get("settings").get(BasicAuthenticationProvider.PASSWORD_REGULAR_EXPRESSION))
+            assert auth_service.id == service.get("id")
+            assert MilleniumPatronAPI.__module__ == service.get("protocol")
+            assert "user" == service.get("settings").get(BasicAuthenticationProvider.TEST_IDENTIFIER)
+            assert "pass" == service.get("settings").get(BasicAuthenticationProvider.TEST_PASSWORD)
+            assert "u*" == service.get("settings").get(BasicAuthenticationProvider.IDENTIFIER_REGULAR_EXPRESSION)
+            assert "p*" == service.get("settings").get(BasicAuthenticationProvider.PASSWORD_REGULAR_EXPRESSION)
             [library] = service.get("libraries")
-            eq_(self._default_library.short_name, library.get("short_name"))
-            eq_("^(u)", library.get(AuthenticationProvider.EXTERNAL_TYPE_REGULAR_EXPRESSION))
+            assert self._default_library.short_name == library.get("short_name")
+            assert "^(u)" == library.get(AuthenticationProvider.EXTERNAL_TYPE_REGULAR_EXPRESSION)
 
 
     def test_patron_auth_services_get_with_sip2_auth_service(self):
@@ -146,17 +146,17 @@ class TestPatronAuth(SettingsControllerTest):
             response = self.manager.admin_patron_auth_services_controller.process_patron_auth_services()
             [service] = response.get("patron_auth_services")
 
-            eq_(auth_service.id, service.get("id"))
-            eq_(SIP2AuthenticationProvider.__module__, service.get("protocol"))
-            eq_("url", service.get("settings").get(ExternalIntegration.URL))
-            eq_("1234", service.get("settings").get(SIP2AuthenticationProvider.PORT))
-            eq_("user", service.get("settings").get(ExternalIntegration.USERNAME))
-            eq_("pass", service.get("settings").get(ExternalIntegration.PASSWORD))
-            eq_("5", service.get("settings").get(SIP2AuthenticationProvider.LOCATION_CODE))
-            eq_(",", service.get("settings").get(SIP2AuthenticationProvider.FIELD_SEPARATOR))
+            assert auth_service.id == service.get("id")
+            assert SIP2AuthenticationProvider.__module__ == service.get("protocol")
+            assert "url" == service.get("settings").get(ExternalIntegration.URL)
+            assert "1234" == service.get("settings").get(SIP2AuthenticationProvider.PORT)
+            assert "user" == service.get("settings").get(ExternalIntegration.USERNAME)
+            assert "pass" == service.get("settings").get(ExternalIntegration.PASSWORD)
+            assert "5" == service.get("settings").get(SIP2AuthenticationProvider.LOCATION_CODE)
+            assert "," == service.get("settings").get(SIP2AuthenticationProvider.FIELD_SEPARATOR)
             [library] = service.get("libraries")
-            eq_(self._default_library.short_name, library.get("short_name"))
-            eq_("^(u)", library.get(AuthenticationProvider.EXTERNAL_TYPE_REGULAR_EXPRESSION))
+            assert self._default_library.short_name == library.get("short_name")
+            assert "^(u)" == library.get(AuthenticationProvider.EXTERNAL_TYPE_REGULAR_EXPRESSION)
 
     def test_patron_auth_services_get_with_firstbook_auth_service(self):
         auth_service, ignore = create(
@@ -176,13 +176,13 @@ class TestPatronAuth(SettingsControllerTest):
             response = self.manager.admin_patron_auth_services_controller.process_patron_auth_services()
             [service] = response.get("patron_auth_services")
 
-            eq_(auth_service.id, service.get("id"))
-            eq_(FirstBookAuthenticationAPI.__module__, service.get("protocol"))
-            eq_("url", service.get("settings").get(ExternalIntegration.URL))
-            eq_("pass", service.get("settings").get(ExternalIntegration.PASSWORD))
+            assert auth_service.id == service.get("id")
+            assert FirstBookAuthenticationAPI.__module__ == service.get("protocol")
+            assert "url" == service.get("settings").get(ExternalIntegration.URL)
+            assert "pass" == service.get("settings").get(ExternalIntegration.PASSWORD)
             [library] = service.get("libraries")
-            eq_(self._default_library.short_name, library.get("short_name"))
-            eq_("^(u)", library.get(AuthenticationProvider.EXTERNAL_TYPE_REGULAR_EXPRESSION))
+            assert self._default_library.short_name == library.get("short_name")
+            assert "^(u)" == library.get(AuthenticationProvider.EXTERNAL_TYPE_REGULAR_EXPRESSION)
 
     def test_patron_auth_services_get_with_clever_auth_service(self):
         auth_service, ignore = create(
@@ -198,12 +198,12 @@ class TestPatronAuth(SettingsControllerTest):
             response = self.manager.admin_patron_auth_services_controller.process_patron_auth_services()
             [service] = response.get("patron_auth_services")
 
-            eq_(auth_service.id, service.get("id"))
-            eq_(CleverAuthenticationAPI.__module__, service.get("protocol"))
-            eq_("user", service.get("settings").get(ExternalIntegration.USERNAME))
-            eq_("pass", service.get("settings").get(ExternalIntegration.PASSWORD))
+            assert auth_service.id == service.get("id")
+            assert CleverAuthenticationAPI.__module__ == service.get("protocol")
+            assert "user" == service.get("settings").get(ExternalIntegration.USERNAME)
+            assert "pass" == service.get("settings").get(ExternalIntegration.PASSWORD)
             [library] = service.get("libraries")
-            eq_(self._default_library.short_name, library.get("short_name"))
+            assert self._default_library.short_name == library.get("short_name")
 
     def test_patron_auth_services_get_with_saml_auth_service(self):
         auth_service, ignore = create(
@@ -217,10 +217,10 @@ class TestPatronAuth(SettingsControllerTest):
             response = self.manager.admin_patron_auth_services_controller.process_patron_auth_services()
             [service] = response.get("patron_auth_services")
 
-            eq_(auth_service.id, service.get("id"))
-            eq_(SAMLWebSSOAuthenticationProvider.__module__, service.get("protocol"))
+            assert auth_service.id == service.get("id")
+            assert SAMLWebSSOAuthenticationProvider.__module__ == service.get("protocol")
             [library] = service.get("libraries")
-            eq_(self._default_library.short_name, library.get("short_name"))
+            assert self._default_library.short_name == library.get("short_name")
 
     def _common_basic_auth_arguments(self):
         """We're not really testing these arguments, but a value for them
@@ -241,19 +241,19 @@ class TestPatronAuth(SettingsControllerTest):
                 ("protocol", "Unknown"),
             ])
             response = self.manager.admin_patron_auth_services_controller.process_patron_auth_services()
-            eq_(response, UNKNOWN_PROTOCOL)
+            assert response == UNKNOWN_PROTOCOL
 
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([])
             response = self.manager.admin_patron_auth_services_controller.process_patron_auth_services()
-            eq_(response, NO_PROTOCOL_FOR_NEW_SERVICE)
+            assert response == NO_PROTOCOL_FOR_NEW_SERVICE
 
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("id", "123"),
             ])
             response = self.manager.admin_patron_auth_services_controller.process_patron_auth_services()
-            eq_(response, MISSING_SERVICE)
+            assert response == MISSING_SERVICE
 
         auth_service, ignore = create(
             self._db, ExternalIntegration,
@@ -268,7 +268,7 @@ class TestPatronAuth(SettingsControllerTest):
                 ("protocol", SIP2AuthenticationProvider.__module__),
             ])
             response = self.manager.admin_patron_auth_services_controller.process_patron_auth_services()
-            eq_(response, CANNOT_CHANGE_PROTOCOL)
+            assert response == CANNOT_CHANGE_PROTOCOL
 
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
@@ -276,7 +276,7 @@ class TestPatronAuth(SettingsControllerTest):
                 ("protocol", SIP2AuthenticationProvider.__module__),
             ])
             response = self.manager.admin_patron_auth_services_controller.process_patron_auth_services()
-            eq_(response, INTEGRATION_NAME_ALREADY_IN_USE)
+            assert response == INTEGRATION_NAME_ALREADY_IN_USE
 
         auth_service, ignore = create(
             self._db, ExternalIntegration,
@@ -296,7 +296,7 @@ class TestPatronAuth(SettingsControllerTest):
                 (M.VERIFY_CERTIFICATE, "true"),
             ] + common_args)
             response = self.manager.admin_patron_auth_services_controller.process_patron_auth_services()
-            eq_(response.uri, INVALID_CONFIGURATION_OPTION.uri)
+            assert response.uri == INVALID_CONFIGURATION_OPTION.uri
 
         auth_service, ignore = create(
             self._db, ExternalIntegration,
@@ -310,7 +310,7 @@ class TestPatronAuth(SettingsControllerTest):
                 ("protocol", SimpleAuthenticationProvider.__module__),
             ])
             response = self.manager.admin_patron_auth_services_controller.process_patron_auth_services()
-            eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
+            assert response.uri == INCOMPLETE_CONFIGURATION.uri
 
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
@@ -318,7 +318,7 @@ class TestPatronAuth(SettingsControllerTest):
                 ("libraries", json.dumps([{ "short_name": "not-a-library" }])),
             ] + common_args)
             response = self.manager.admin_patron_auth_services_controller.process_patron_auth_services()
-            eq_(response.uri, NO_SUCH_LIBRARY.uri)
+            assert response.uri == NO_SUCH_LIBRARY.uri
 
         library, ignore = create(
             self._db, Library, name="Library", short_name="L",
@@ -335,7 +335,7 @@ class TestPatronAuth(SettingsControllerTest):
                 }])),
             ] + common_args)
             response = self.manager.admin_patron_auth_services_controller.process_patron_auth_services()
-            eq_(response.uri, MULTIPLE_BASIC_AUTH_SERVICES.uri)
+            assert response.uri == MULTIPLE_BASIC_AUTH_SERVICES.uri
 
         self._db.delete(auth_service)
         with self.request_context_with_admin("/", method="POST"):
@@ -349,7 +349,7 @@ class TestPatronAuth(SettingsControllerTest):
                 }])),
             ] + common_args)
             response = self.manager.admin_patron_auth_services_controller.process_patron_auth_services()
-            eq_(response, INVALID_EXTERNAL_TYPE_REGULAR_EXPRESSION)
+            assert response == INVALID_EXTERNAL_TYPE_REGULAR_EXPRESSION
 
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
@@ -362,7 +362,7 @@ class TestPatronAuth(SettingsControllerTest):
                 }])),
             ] + common_args)
             response = self.manager.admin_patron_auth_services_controller.process_patron_auth_services()
-            eq_(response, INVALID_LIBRARY_IDENTIFIER_RESTRICTION_REGULAR_EXPRESSION)
+            assert response == INVALID_LIBRARY_IDENTIFIER_RESTRICTION_REGULAR_EXPRESSION
 
         self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
         self._db.flush()
@@ -408,18 +408,18 @@ class TestPatronAuth(SettingsControllerTest):
             ] + self._common_basic_auth_arguments())
 
             response = mock_controller.process_patron_auth_services()
-            eq_(response.status_code, 201)
-            eq_(mock_controller.validate_formats_call_count, 1)
+            assert response.status_code == 201
+            assert mock_controller.validate_formats_call_count == 1
 
         auth_service = get_one(self._db, ExternalIntegration, goal=ExternalIntegration.PATRON_AUTH_GOAL)
-        eq_(auth_service.id, int(response.response[0]))
-        eq_(SimpleAuthenticationProvider.__module__, auth_service.protocol)
-        eq_("user", auth_service.setting(BasicAuthenticationProvider.TEST_IDENTIFIER).value)
-        eq_("pass", auth_service.setting(BasicAuthenticationProvider.TEST_PASSWORD).value)
-        eq_([library], auth_service.libraries)
-        eq_("^(.)", ConfigurationSetting.for_library_and_externalintegration(
+        assert auth_service.id == int(response.response[0])
+        assert SimpleAuthenticationProvider.__module__ == auth_service.protocol
+        assert "user" == auth_service.setting(BasicAuthenticationProvider.TEST_IDENTIFIER).value
+        assert "pass" == auth_service.setting(BasicAuthenticationProvider.TEST_PASSWORD).value
+        assert [library] == auth_service.libraries
+        assert "^(.)" == ConfigurationSetting.for_library_and_externalintegration(
                 self._db, AuthenticationProvider.EXTERNAL_TYPE_REGULAR_EXPRESSION,
-                library, auth_service).value)
+                library, auth_service).value
         common_args = self._common_basic_auth_arguments()
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
@@ -429,23 +429,23 @@ class TestPatronAuth(SettingsControllerTest):
                 (MilleniumPatronAPI.AUTHENTICATION_MODE, MilleniumPatronAPI.PIN_AUTHENTICATION_MODE),
             ] + common_args)
             response = mock_controller.process_patron_auth_services()
-            eq_(response.status_code, 201)
-            eq_(mock_controller.validate_formats_call_count, 2)
+            assert response.status_code == 201
+            assert mock_controller.validate_formats_call_count == 2
 
         auth_service2 = get_one(self._db, ExternalIntegration,
                                goal=ExternalIntegration.PATRON_AUTH_GOAL,
                                protocol=MilleniumPatronAPI.__module__)
         assert auth_service2 != auth_service
-        eq_(auth_service2.id, int(response.response[0]))
-        eq_("url", auth_service2.url)
-        eq_("user", auth_service2.setting(BasicAuthenticationProvider.TEST_IDENTIFIER).value)
-        eq_("pass", auth_service2.setting(BasicAuthenticationProvider.TEST_PASSWORD).value)
-        eq_("true",
+        assert auth_service2.id == int(response.response[0])
+        assert "url" == auth_service2.url
+        assert "user" == auth_service2.setting(BasicAuthenticationProvider.TEST_IDENTIFIER).value
+        assert "pass" == auth_service2.setting(BasicAuthenticationProvider.TEST_PASSWORD).value
+        assert ("true" ==
             auth_service2.setting(MilleniumPatronAPI.VERIFY_CERTIFICATE).value)
-        eq_(MilleniumPatronAPI.PIN_AUTHENTICATION_MODE,
+        assert (MilleniumPatronAPI.PIN_AUTHENTICATION_MODE ==
             auth_service2.setting(MilleniumPatronAPI.AUTHENTICATION_MODE).value)
-        eq_(None, auth_service2.setting(MilleniumPatronAPI.BLOCK_TYPES).value)
-        eq_([], auth_service2.libraries)
+        assert None == auth_service2.setting(MilleniumPatronAPI.BLOCK_TYPES).value
+        assert [] == auth_service2.libraries
 
     def test_patron_auth_services_post_edit(self):
         mock_controller = self._get_mock()
@@ -478,17 +478,17 @@ class TestPatronAuth(SettingsControllerTest):
                 }])),
             ] + self._common_basic_auth_arguments())
             response = self.manager.admin_patron_auth_services_controller.process_patron_auth_services()
-            eq_(response.status_code, 200)
-            eq_(mock_controller.validate_formats_call_count, 1)
+            assert response.status_code == 200
+            assert mock_controller.validate_formats_call_count == 1
 
-        eq_(auth_service.id, int(response.response[0]))
-        eq_(SimpleAuthenticationProvider.__module__, auth_service.protocol)
-        eq_("user", auth_service.setting(BasicAuthenticationProvider.TEST_IDENTIFIER).value)
-        eq_("pass", auth_service.setting(BasicAuthenticationProvider.TEST_PASSWORD).value)
-        eq_([l2], auth_service.libraries)
-        eq_("^(.)", ConfigurationSetting.for_library_and_externalintegration(
+        assert auth_service.id == int(response.response[0])
+        assert SimpleAuthenticationProvider.__module__ == auth_service.protocol
+        assert "user" == auth_service.setting(BasicAuthenticationProvider.TEST_IDENTIFIER).value
+        assert "pass" == auth_service.setting(BasicAuthenticationProvider.TEST_PASSWORD).value
+        assert [l2] == auth_service.libraries
+        assert "^(.)" == ConfigurationSetting.for_library_and_externalintegration(
                 self._db, AuthenticationProvider.EXTERNAL_TYPE_REGULAR_EXPRESSION,
-                l2, auth_service).value)
+                l2, auth_service).value
 
     def test_patron_auth_service_delete(self):
         l1, ignore = create(
@@ -511,7 +511,7 @@ class TestPatronAuth(SettingsControllerTest):
 
             self.admin.add_role(AdminRole.SYSTEM_ADMIN)
             response = self.manager.admin_patron_auth_services_controller.process_delete(auth_service.id)
-            eq_(response.status_code, 200)
+            assert response.status_code == 200
 
         service = get_one(self._db, ExternalIntegration, id=auth_service.id)
-        eq_(None, service)
+        assert None == service

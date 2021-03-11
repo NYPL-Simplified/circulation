@@ -140,9 +140,9 @@ class RouteTestFixtures(object):
         """
         http_method = kwargs.pop('http_method', 'GET')
         response = self.request(url, http_method)
-        eq_(response.method, method)
-        eq_(response.method.args, args)
-        eq_(response.method.kwargs, kwargs)
+        assert response.method == method
+        assert response.method.args == args
+        assert response.method.kwargs == kwargs
 
         # Make sure the real controller has a method by the name of
         # the mock method that was called. We won't call it, because
@@ -191,11 +191,11 @@ class RouteTestFixtures(object):
         http_method = kwargs.pop('http_method', 'GET')
         response = self.request(url, http_method)
         if authentication_required:
-            eq_(401, response.status_code)
-            eq_("authenticated_patron_from_request called without authorizing",
+            assert 401 == response.status_code
+            assert ("authenticated_patron_from_request called without authorizing" ==
                 response.data)
         else:
-            eq_(200, response.status_code)
+            assert 200 == response.status_code
 
         # Set a variable so that authenticated_patron_from_request
         # will succeed, and try again.
@@ -290,7 +290,7 @@ class TestAppConfiguration(object):
 
     # Test the configuration of the real Flask app.
     def test_configuration(self):
-        eq_(False, routes.app.url_map.merge_slashes)
+        assert False == routes.app.url_map.merge_slashes
 
 
 class TestIndex(RouteTest):
@@ -763,12 +763,12 @@ class TestHealthCheck(RouteTest):
     # so we check that it returns a specific result.
     def test_health_check(self):
         response = self.request("/healthcheck.html")
-        eq_(200, response.status_code)
+        assert 200 == response.status_code
 
         # This is how we know we actually called health_check() and
         # not a mock method -- the Response returned by the mock
         # system would have an explanatory message in its .data.
-        eq_("", response.data)
+        assert "" == response.data
 
 
 class TestExceptionHandler(RouteTest):
@@ -793,11 +793,11 @@ class TestExceptionHandler(RouteTest):
             result = exception_handler(value_error)
 
             # The exception was passed into MockErrorHandler.handle.
-            eq_(value_error, routes.h.handled)
+            assert value_error == routes.h.handled
 
             # The Response is created was passed along.
-            eq_("handled it", result.data)
-            eq_(500, result.status_code)
+            assert "handled it" == result.data
+            assert 500 == result.status_code
 
         # werkzeug HTTPExceptions are _not_ run through
         # handle(). werkzeug handles the conversion to a Response
@@ -806,7 +806,7 @@ class TestExceptionHandler(RouteTest):
         with self.app.test_request_context():
             exception = MethodNotAllowed()
             response = exception_handler(exception)
-            eq_(405, response.status_code)
+            assert 405 == response.status_code
 
         # Restore the normal error handler.
         routes.h = error_handler_object

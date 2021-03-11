@@ -97,8 +97,8 @@ class TestLCPEncryptor(DatabaseTest):
                             encryptor.encrypt(self._db, file_path, identifier.identifier)
 
                         # Assert
-                        eq_(exception_metadata.exception, expected_exception)
+                        assert exception_metadata.exception == expected_exception
                     else:
                         # Assert
                         result = encryptor.encrypt(self._db, file_path, identifier.identifier)
-                        eq_(result, expected_result)
+                        assert result == expected_result

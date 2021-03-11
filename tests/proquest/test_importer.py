@@ -115,14 +115,14 @@ class TestProQuestOPDS2Importer(DatabaseTest):
         remote_loan_infos = importer.patron_activity(self._proquest_patron, None)
         [remote_loan_info] = remote_loan_infos
 
-        eq_(loan.license_pool.collection_id, remote_loan_info.collection_id)
-        eq_(loan.license_pool.data_source.name, remote_loan_info.data_source_name)
-        eq_(loan.license_pool.identifier.type, remote_loan_info.identifier_type)
-        eq_(loan.license_pool.identifier.identifier, remote_loan_info.identifier)
-        eq_(loan.start, remote_loan_info.start_date)
-        eq_(loan.end, remote_loan_info.end_date)
-        eq_(None, remote_loan_info.fulfillment_info)
-        eq_(None, remote_loan_info.external_identifier)
+        assert loan.license_pool.collection_id == remote_loan_info.collection_id
+        assert loan.license_pool.data_source.name == remote_loan_info.data_source_name
+        assert loan.license_pool.identifier.type == remote_loan_info.identifier_type
+        assert loan.license_pool.identifier.identifier == remote_loan_info.identifier
+        assert loan.start == remote_loan_info.start_date
+        assert loan.end == remote_loan_info.end_date
+        assert None == remote_loan_info.fulfillment_info
+        assert None == remote_loan_info.external_identifier
 
     @freeze_time("2020-01-01 00:00:00")
     def test_checkout_lookups_for_existing_token(self):
@@ -152,17 +152,16 @@ class TestProQuestOPDS2Importer(DatabaseTest):
             )
 
             # Assert
-            eq_(self._proquest_collection.id, loan.collection_id)
-            eq_(self._proquest_collection, loan.collection(self._db))
-            eq_(self._proquest_license_pool, loan.license_pool(self._db))
-            eq_(self._proquest_data_source.name, loan.data_source_name)
-            eq_(self._proquest_license_pool.identifier.type, loan.identifier_type)
-            eq_(
-                None,
-                loan.external_identifier,
-            )
-            eq_(self._loan_start_date, loan.start_date)
-            eq_(self._loan_end_date, loan.end_date)
+            assert self._proquest_collection.id == loan.collection_id
+            assert self._proquest_collection == loan.collection(self._db)
+            assert self._proquest_license_pool == loan.license_pool(self._db)
+            assert self._proquest_data_source.name == loan.data_source_name
+            assert self._proquest_license_pool.identifier.type == loan.identifier_type
+            assert (
+                None ==
+                loan.external_identifier)
+            assert self._loan_start_date == loan.start_date
+            assert self._loan_end_date == loan.end_date
 
             # Assert that ProQuestCredentialManager.lookup_proquest_token
             # was called when CM tried to fetch an existing token.
@@ -214,17 +213,16 @@ class TestProQuestOPDS2Importer(DatabaseTest):
             )
 
             # Assert
-            eq_(self._proquest_collection.id, loan.collection_id)
-            eq_(self._proquest_collection, loan.collection(self._db))
-            eq_(self._proquest_license_pool, loan.license_pool(self._db))
-            eq_(self._proquest_data_source.name, loan.data_source_name)
-            eq_(self._proquest_license_pool.identifier.type, loan.identifier_type)
-            eq_(
-                None,
-                loan.external_identifier,
-            )
-            eq_(self._loan_start_date, loan.start_date)
-            eq_(self._loan_end_date, loan.end_date)
+            assert self._proquest_collection.id == loan.collection_id
+            assert self._proquest_collection == loan.collection(self._db)
+            assert self._proquest_license_pool == loan.license_pool(self._db)
+            assert self._proquest_data_source.name == loan.data_source_name
+            assert self._proquest_license_pool.identifier.type == loan.identifier_type
+            assert (
+                None ==
+                loan.external_identifier)
+            assert self._loan_start_date == loan.start_date
+            assert self._loan_end_date == loan.end_date
 
             # 1. Assert that ProQuestCredentialManager.lookup_proquest_token
             # was called when CM tried to fetch a non-existent token.
@@ -370,17 +368,16 @@ class TestProQuestOPDS2Importer(DatabaseTest):
                 )
 
                 # Assert
-                eq_(self._proquest_collection.id, loan.collection_id)
-                eq_(self._proquest_collection, loan.collection(self._db))
-                eq_(self._proquest_license_pool, loan.license_pool(self._db))
-                eq_(self._proquest_data_source.name, loan.data_source_name)
-                eq_(self._proquest_license_pool.identifier.type, loan.identifier_type)
-                eq_(
-                    None,
-                    loan.external_identifier,
-                )
-                eq_(self._loan_start_date, loan.start_date)
-                eq_(self._loan_end_date, loan.end_date)
+                assert self._proquest_collection.id == loan.collection_id
+                assert self._proquest_collection == loan.collection(self._db)
+                assert self._proquest_license_pool == loan.license_pool(self._db)
+                assert self._proquest_data_source.name == loan.data_source_name
+                assert self._proquest_license_pool.identifier.type == loan.identifier_type
+                assert (
+                    None ==
+                    loan.external_identifier)
+                assert self._loan_start_date == loan.start_date
+                assert self._loan_end_date == loan.end_date
 
                 # 1. Assert that ProQuestCredentialManager.lookup_proquest_token
                 # was called when CM tried to fetch a non-existent token.
@@ -573,17 +570,16 @@ class TestProQuestOPDS2Importer(DatabaseTest):
             )
 
             # Assert
-            eq_(self._proquest_collection.id, loan.collection_id)
-            eq_(self._proquest_collection, loan.collection(self._db))
-            eq_(self._proquest_license_pool, loan.license_pool(self._db))
-            eq_(self._proquest_data_source.name, loan.data_source_name)
-            eq_(self._proquest_license_pool.identifier.type, loan.identifier_type)
-            eq_(
-                None,
-                loan.external_identifier,
-            )
-            eq_(self._loan_start_date, loan.start_date)
-            eq_(loan_end_date, loan.end_date)
+            assert self._proquest_collection.id == loan.collection_id
+            assert self._proquest_collection == loan.collection(self._db)
+            assert self._proquest_license_pool == loan.license_pool(self._db)
+            assert self._proquest_data_source.name == loan.data_source_name
+            assert self._proquest_license_pool.identifier.type == loan.identifier_type
+            assert (
+                None ==
+                loan.external_identifier)
+            assert self._loan_start_date == loan.start_date
+            assert loan_end_date == loan.end_date
 
             # 1. Assert that ProQuestCredentialManager.lookup_proquest_token
             # was called when CM tried to fetch a non-existent token.
@@ -660,36 +656,33 @@ class TestProQuestOPDS2Importer(DatabaseTest):
             )
 
             # Assert
-            eq_(self._proquest_collection.id, fulfilment_info.collection_id)
-            eq_(self._proquest_collection, fulfilment_info.collection(self._db))
-            eq_(self._proquest_license_pool, fulfilment_info.license_pool(self._db))
-            eq_(self._proquest_data_source.name, fulfilment_info.data_source_name)
-            eq_(
-                self._proquest_license_pool.identifier.type,
-                fulfilment_info.identifier_type,
-            )
+            assert self._proquest_collection.id == fulfilment_info.collection_id
+            assert self._proquest_collection == fulfilment_info.collection(self._db)
+            assert self._proquest_license_pool == fulfilment_info.license_pool(self._db)
+            assert self._proquest_data_source.name == fulfilment_info.data_source_name
+            assert (
+                self._proquest_license_pool.identifier.type ==
+                fulfilment_info.identifier_type)
 
             # Make sure that the fulfilment info doesn't contain a link but instead contains a JSON document
             # which is used to pass the book's link and the ProQuest token to the client app.
-            eq_(None, fulfilment_info.content_link)
-            eq_(DeliveryMechanism.BEARER_TOKEN, fulfilment_info.content_type)
-            eq_(True, fulfilment_info.content is not None)
+            assert None == fulfilment_info.content_link
+            assert DeliveryMechanism.BEARER_TOKEN == fulfilment_info.content_type
+            assert True == (fulfilment_info.content is not None)
 
             token_document = json.loads(fulfilment_info.content)
-            eq_("Bearer", token_document["token_type"])
-            eq_(proquest_token, token_document["access_token"])
-            eq_(
+            assert "Bearer" == token_document["token_type"]
+            assert proquest_token == token_document["access_token"]
+            assert (
                 (
                     proquest_token_expires_in - datetime.datetime.utcnow()
-                ).total_seconds(),
-                token_document["expires_in"],
-            )
-            eq_(drm_free_book.link, token_document["location"])
-            eq_(
-                DeliveryMechanism.BEARER_TOKEN,
-                fulfilment_info.content_type,
-            )
-            eq_(proquest_token_expires_in, fulfilment_info.content_expires)
+                ).total_seconds() ==
+                token_document["expires_in"])
+            assert drm_free_book.link == token_document["location"]
+            assert (
+                DeliveryMechanism.BEARER_TOKEN ==
+                fulfilment_info.content_type)
+            assert proquest_token_expires_in == fulfilment_info.content_expires
 
             # Assert than ProQuestOPDS2Importer correctly created an instance of ProQuestAPIClient.
             api_client_factory_mock.create.assert_called_once_with(importer)
@@ -755,21 +748,19 @@ class TestProQuestOPDS2Importer(DatabaseTest):
             )
 
             # Assert
-            eq_(self._proquest_collection.id, fulfilment_info.collection_id)
-            eq_(self._proquest_collection, fulfilment_info.collection(self._db))
-            eq_(self._proquest_license_pool, fulfilment_info.license_pool(self._db))
-            eq_(self._proquest_data_source.name, fulfilment_info.data_source_name)
-            eq_(
-                self._proquest_license_pool.identifier.type,
-                fulfilment_info.identifier_type,
-            )
-            eq_(None, fulfilment_info.content_link)
-            eq_(
-                self._proquest_delivery_mechanism.delivery_mechanism.media_type,
-                fulfilment_info.content_type,
-            )
-            eq_(book.content, fulfilment_info.content)
-            eq_(None, fulfilment_info.content_expires)
+            assert self._proquest_collection.id == fulfilment_info.collection_id
+            assert self._proquest_collection == fulfilment_info.collection(self._db)
+            assert self._proquest_license_pool == fulfilment_info.license_pool(self._db)
+            assert self._proquest_data_source.name == fulfilment_info.data_source_name
+            assert (
+                self._proquest_license_pool.identifier.type ==
+                fulfilment_info.identifier_type)
+            assert None == fulfilment_info.content_link
+            assert (
+                self._proquest_delivery_mechanism.delivery_mechanism.media_type ==
+                fulfilment_info.content_type)
+            assert book.content == fulfilment_info.content
+            assert None == fulfilment_info.content_expires
 
             # Assert than ProQuestOPDS2Importer correctly created an instance of ProQuestAPIClient.
             api_client_factory_mock.create.assert_called_once_with(importer)
@@ -986,23 +977,21 @@ class TestProQuestOPDS2Importer(DatabaseTest):
             )
 
             # Assert
-            eq_(self._proquest_collection.id, fulfilment_info.collection_id)
-            eq_(self._proquest_collection, fulfilment_info.collection(self._db))
-            eq_(self._proquest_license_pool, fulfilment_info.license_pool(self._db))
-            eq_(self._proquest_data_source.name, fulfilment_info.data_source_name)
-            eq_(
-                self._proquest_license_pool.identifier.type,
-                fulfilment_info.identifier_type,
-            )
+            assert self._proquest_collection.id == fulfilment_info.collection_id
+            assert self._proquest_collection == fulfilment_info.collection(self._db)
+            assert self._proquest_license_pool == fulfilment_info.license_pool(self._db)
+            assert self._proquest_data_source.name == fulfilment_info.data_source_name
+            assert (
+                self._proquest_license_pool.identifier.type ==
+                fulfilment_info.identifier_type)
 
             # Make sure that fulfilment info contains content of the ACSM file not a link.
-            eq_(None, fulfilment_info.content_link)
-            eq_(
-                adobe_drm_protected_book.content_type,
-                fulfilment_info.content_type,
-            )
-            eq_(adobe_drm_protected_book.content, fulfilment_info.content)
-            eq_(None, fulfilment_info.content_expires)
+            assert None == fulfilment_info.content_link
+            assert (
+                adobe_drm_protected_book.content_type ==
+                fulfilment_info.content_type)
+            assert adobe_drm_protected_book.content == fulfilment_info.content
+            assert None == fulfilment_info.content_expires
 
             # Assert than ProQuestOPDS2Importer correctly created an instance of ProQuestAPIClient.
             api_client_factory_mock.create.assert_called_once_with(importer)
@@ -1051,7 +1040,7 @@ class TestProQuestOPDS2Importer(DatabaseTest):
                 new_proquest_token,
                 self._proquest_license_pool.identifier.identifier,
             )
-            eq_(2, api_client_mock.get_book.call_count)
+            assert 2 == api_client_mock.get_book.call_count
 
     def test_correctly_imports_covers(self):
         # We want to make sure that ProQuestOPDS2Importer
@@ -1064,28 +1053,27 @@ class TestProQuestOPDS2Importer(DatabaseTest):
         result = importer.extract_feed_data(fixtures.PROQUEST_RAW_FEED)
 
         # Assert
-        eq_(2, len(result))
+        assert 2 == len(result)
         publication_metadata_dictionary = result[0]
 
-        eq_(
-            True,
-            fixtures.PROQUEST_RAW_PUBLICATION_1_ID in publication_metadata_dictionary,
-        )
+        assert (
+            True ==
+            (fixtures.PROQUEST_RAW_PUBLICATION_1_ID in publication_metadata_dictionary))
         publication_metadata = publication_metadata_dictionary[
             fixtures.PROQUEST_RAW_PUBLICATION_1_ID
         ]
 
-        eq_(1, len(publication_metadata.links))
+        assert 1 == len(publication_metadata.links)
 
         [full_cover_link] = publication_metadata.links
-        eq_(True, isinstance(full_cover_link, LinkData))
-        eq_(fixtures.PROQUEST_RAW_PUBLICATION_1_COVER_HREF, full_cover_link.href)
-        eq_(Hyperlink.IMAGE, full_cover_link.rel)
+        assert True == isinstance(full_cover_link, LinkData)
+        assert fixtures.PROQUEST_RAW_PUBLICATION_1_COVER_HREF == full_cover_link.href
+        assert Hyperlink.IMAGE == full_cover_link.rel
 
         thumbnail_cover_link = full_cover_link.thumbnail
-        eq_(True, isinstance(thumbnail_cover_link, LinkData))
-        eq_(fixtures.PROQUEST_RAW_PUBLICATION_1_COVER_HREF, thumbnail_cover_link.href)
-        eq_(Hyperlink.THUMBNAIL_IMAGE, thumbnail_cover_link.rel)
+        assert True == isinstance(thumbnail_cover_link, LinkData)
+        assert fixtures.PROQUEST_RAW_PUBLICATION_1_COVER_HREF == thumbnail_cover_link.href
+        assert Hyperlink.THUMBNAIL_IMAGE == thumbnail_cover_link.rel
 
 
 class TestProQuestOPDS2ImportMonitor(DatabaseTest):
@@ -1236,7 +1224,7 @@ class TestProQuestOPDS2ImportMonitor(DatabaseTest):
 
             # Ensure that the temp directory was successfully removed.
             shutil.rmtree.assert_called_once_with(results["temp_directory"])
-            eq_(False, os.path.exists(results["temp_directory"]))
+            assert False == os.path.exists(results["temp_directory"])
 
     def test_monitor_correctly_deletes_temporary_directory_in_the_case_of_any_error(
         self,
@@ -1308,7 +1296,7 @@ class TestProQuestOPDS2ImportMonitor(DatabaseTest):
 
             # Ensure that the temp directory was successfully removed.
             shutil.rmtree.assert_called_once_with(results["temp_directory"])
-            eq_(False, os.path.exists(results["temp_directory"]))
+            assert False == os.path.exists(results["temp_directory"])
 
     def test_monitor_correctly_does_not_process_already_processed_pages(self):
         """This test makes sure that the monitor has a short circuit breaker

@@ -313,7 +313,7 @@ class TestSAMLWebSSOAuthenticationProvider(ControllerTest):
                 result = provider.authentication_flow_document(self._db)
 
             # Assert
-            eq_(expected_result, result)
+            assert expected_result == result
 
     @parameterized.expand(
         [
@@ -361,9 +361,9 @@ class TestSAMLWebSSOAuthenticationProvider(ControllerTest):
 
         # Assert
         if isinstance(result, ProblemDetail):
-            eq_(result.response, expected_result.response)
+            assert result.response == expected_result.response
         else:
-            eq_(result, expected_result)
+            assert result == expected_result
 
     @parameterized.expand(
         [
@@ -597,11 +597,11 @@ class TestSAMLWebSSOAuthenticationProvider(ControllerTest):
 
         # Assert
         if isinstance(result, ProblemDetail):
-            eq_(result.response, expected_patron_data.response)
+            assert result.response == expected_patron_data.response
         else:
             credential, patron, patron_data = result
 
-            eq_(expected_credential, credential.credential)
-            eq_(expected_patron_data.permanent_id, patron.external_identifier)
-            eq_(expected_patron_data, patron_data)
-            eq_(expected_expiration_time, credential.expires)
+            assert expected_credential == credential.credential
+            assert expected_patron_data.permanent_id == patron.external_identifier
+            assert expected_patron_data == patron_data
+            assert expected_expiration_time == credential.expires

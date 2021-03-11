@@ -54,7 +54,7 @@ class TestOPDSForDistributorsAPI(DatabaseTest):
         self.api = MockOPDSForDistributorsAPI(self._db, self.collection)
 
     def test_external_integration(self):
-        eq_(self.collection.external_integration,
+        assert (self.collection.external_integration ==
             self.api.external_integration(self._db))
 
     def test__run_self_tests(self):
@@ -71,10 +71,10 @@ class TestOPDSForDistributorsAPI(DatabaseTest):
 
         api = Mock()
         [result] = api._run_self_tests(self._db)
-        eq_(self._db, api.called_with)
-        eq_("Negotiate a fulfillment token", result.name)
-        eq_(True, result.success)
-        eq_("a token", result.result)
+        assert self._db == api.called_with
+        assert "Negotiate a fulfillment token" == result.name
+        assert True == result.success
+        assert "a token" == result.result
 
     def test_supported_media_types(self):
         # If the default client supports media type X with the
@@ -102,28 +102,28 @@ class TestOPDSForDistributorsAPI(DatabaseTest):
         m = self.api.can_fulfill_without_loan
 
         # No LicensePoolDeliveryMechanism -> False
-        eq_(False, m(patron, pool, None))
+        assert False == m(patron, pool, None)
 
         # No LicensePool -> False (there can be multiple LicensePools for
         # a single LicensePoolDeliveryMechanism).
-        eq_(False, m(patron, None, lpdm))
+        assert False == m(patron, None, lpdm)
 
         # No DeliveryMechanism -> False
         old_dm = lpdm.delivery_mechanism
         lpdm.delivery_mechanism = None
-        eq_(False, m(patron, pool, lpdm))
+        assert False == m(patron, pool, lpdm)
 
         # DRM mechanism requires identifying a specific patron -> False
         lpdm.delivery_mechanism = old_dm
         lpdm.delivery_mechanism.drm_scheme = DeliveryMechanism.ADOBE_DRM
-        eq_(False, m(patron, pool, lpdm))
+        assert False == m(patron, pool, lpdm)
 
         # Otherwise -> True
         lpdm.delivery_mechanism.drm_scheme = DeliveryMechanism.NO_DRM
-        eq_(True, m(patron, pool, lpdm))
+        assert True == m(patron, pool, lpdm)
 
         lpdm.delivery_mechanism.drm_scheme = DeliveryMechanism.BEARER_TOKEN
-        eq_(True, m(patron, pool, lpdm))
+        assert True == m(patron, pool, lpdm)
 
     def test_get_token_success(self):
         # The API hasn't been used yet, so it will need to find the auth
@@ -144,19 +144,19 @@ class TestOPDSForDistributorsAPI(DatabaseTest):
         token_response = json.dumps({"access_token": token, "expires_in": 60})
         self.api.queue_response(200, content=token_response)
 
-        eq_(token, self.api._get_token(self._db).credential)
+        assert token == self.api._get_token(self._db).credential
 
         # Now that the API has the authenticate url, it only needs
         # to get the token.
         self.api.queue_response(200, content=token_response)
-        eq_(token, self.api._get_token(self._db).credential)
+        assert token == self.api._get_token(self._db).credential
 
         # A credential was created.
         [credential] = self._db.query(Credential).all()
-        eq_(token, credential.credential)
+        assert token == credential.credential
 
         # If we call _get_token again, it uses the existing credential.
-        eq_(token, self.api._get_token(self._db).credential)
+        assert token == self.api._get_token(self._db).credential
 
         self._db.delete(credential)
 
@@ -178,7 +178,7 @@ class TestOPDSForDistributorsAPI(DatabaseTest):
         token_response = json.dumps({"access_token": token, "expires_in": 60})
         self.api.queue_response(200, content=token_response)
 
-        eq_(token, self.api._get_token(self._db).credential)
+        assert token == self.api._get_token(self._db).credential
 
     def test_get_token_errors(self):
         no_auth_document = '<feed></feed>'
@@ -256,15 +256,15 @@ class TestOPDSForDistributorsAPI(DatabaseTest):
         )
         other_pool.loan_to(patron)
 
-        eq_(2, self._db.query(Loan).count())
+        assert 2 == self._db.query(Loan).count()
 
         self.api.checkin(patron, "1234", pool)
 
         # The loan from this API's collection has been deleted.
         # The loan from the other collection wasn't touched.
-        eq_(1, self._db.query(Loan).count())
+        assert 1 == self._db.query(Loan).count()
         [loan] = self._db.query(Loan).all()
-        eq_(other_pool, loan.license_pool)
+        assert other_pool == loan.license_pool
 
     def test_checkout(self):
         patron = self._patron()
@@ -278,17 +278,17 @@ class TestOPDSForDistributorsAPI(DatabaseTest):
         )
 
         loan_info = self.api.checkout(patron, "1234", pool, Representation.EPUB_MEDIA_TYPE)
-        eq_(self.collection.id, loan_info.collection_id)
-        eq_(data_source.name, loan_info.data_source_name)
-        eq_(Identifier.URI, loan_info.identifier_type)
-        eq_(pool.identifier.identifier, loan_info.identifier)
+        assert self.collection.id == loan_info.collection_id
+        assert data_source.name == loan_info.data_source_name
+        assert Identifier.URI == loan_info.identifier_type
+        assert pool.identifier.identifier == loan_info.identifier
 
         # The loan's start date has been set to the current time.
         now = datetime.datetime.utcnow()
         assert (now - loan_info.start_date).seconds < 2
 
         # The loan is of indefinite duration.
-        eq_(None, loan_info.end_date)
+        assert None == loan_info.end_date
 
     def test_fulfill(self):
         patron = self._patron()
@@ -328,19 +328,19 @@ class TestOPDSForDistributorsAPI(DatabaseTest):
 
         fulfillment_time = datetime.datetime.utcnow()
         fulfillment_info = self.api.fulfill(patron, "1234", pool, Representation.EPUB_MEDIA_TYPE)
-        eq_(self.collection.id, fulfillment_info.collection_id)
-        eq_(data_source.name, fulfillment_info.data_source_name)
-        eq_(Identifier.URI, fulfillment_info.identifier_type)
-        eq_(pool.identifier.identifier, fulfillment_info.identifier)
-        eq_(None, fulfillment_info.content_link)
+        assert self.collection.id == fulfillment_info.collection_id
+        assert data_source.name == fulfillment_info.data_source_name
+        assert Identifier.URI == fulfillment_info.identifier_type
+        assert pool.identifier.identifier == fulfillment_info.identifier
+        assert None == fulfillment_info.content_link
 
-        eq_(DeliveryMechanism.BEARER_TOKEN, fulfillment_info.content_type)
+        assert DeliveryMechanism.BEARER_TOKEN == fulfillment_info.content_type
         bearer_token_document = json.loads(fulfillment_info.content)
         expires_in = bearer_token_document['expires_in']
         assert expires_in < 60
-        eq_("Bearer", bearer_token_document['token_type'])
-        eq_("token", bearer_token_document['access_token'])
-        eq_(url, bearer_token_document['location'])
+        assert "Bearer" == bearer_token_document['token_type']
+        assert "token" == bearer_token_document['access_token']
+        assert url == bearer_token_document['location']
 
         # The FulfillmentInfo's content_expires is approximately the
         # time you get if you add the number of seconds until the
@@ -386,11 +386,11 @@ class TestOPDSForDistributorsAPI(DatabaseTest):
         p3.loan_to(patron)
 
         activity = self.api.patron_activity(patron, "1234")
-        eq_(2, len(activity))
+        assert 2 == len(activity)
         [l1, l2] = activity
-        eq_(l1.collection_id, self.collection.id)
-        eq_(l2.collection_id, self.collection.id)
-        eq_(set([l1.identifier, l2.identifier]),
+        assert l1.collection_id == self.collection.id
+        assert l2.collection_id == self.collection.id
+        assert (set([l1.identifier, l2.identifier]) ==
             set([p1.identifier.identifier, p2.identifier.identifier]))
 
 class TestOPDSForDistributorsImporter(DatabaseTest, BaseOPDSForDistributorsTest):
@@ -432,26 +432,26 @@ class TestOPDSForDistributorsImporter(DatabaseTest, BaseOPDSForDistributorsTest)
         now = datetime.datetime.utcnow()
 
         for pool in [camelot_pool, southern_pool]:
-            eq_(False, pool.open_access)
-            eq_(RightsStatus.IN_COPYRIGHT, pool.delivery_mechanisms[0].rights_status.uri)
-            eq_(Representation.EPUB_MEDIA_TYPE, pool.delivery_mechanisms[0].delivery_mechanism.content_type)
-            eq_(DeliveryMechanism.BEARER_TOKEN, pool.delivery_mechanisms[0].delivery_mechanism.drm_scheme)
-            eq_(1, pool.licenses_owned)
-            eq_(1, pool.licenses_available)
+            assert False == pool.open_access
+            assert RightsStatus.IN_COPYRIGHT == pool.delivery_mechanisms[0].rights_status.uri
+            assert Representation.EPUB_MEDIA_TYPE == pool.delivery_mechanisms[0].delivery_mechanism.content_type
+            assert DeliveryMechanism.BEARER_TOKEN == pool.delivery_mechanisms[0].delivery_mechanism.drm_scheme
+            assert 1 == pool.licenses_owned
+            assert 1 == pool.licenses_available
             assert (pool.work.last_update_time - now).total_seconds() <= 2
 
         [camelot_acquisition_link] = [l for l in camelot_pool.identifier.links
                                       if l.rel == Hyperlink.GENERIC_OPDS_ACQUISITION
                                       and l.resource.representation.media_type == Representation.EPUB_MEDIA_TYPE]
         camelot_acquisition_url = camelot_acquisition_link.resource.representation.url
-        eq_("https://library.biblioboard.com/ext/api/media/04377e87-ab69-41c8-a2a4-812d55dc0952/assets/content.epub",
+        assert ("https://library.biblioboard.com/ext/api/media/04377e87-ab69-41c8-a2a4-812d55dc0952/assets/content.epub" ==
             camelot_acquisition_url)
 
         [southern_acquisition_link] = [l for l in southern_pool.identifier.links
                                       if l.rel == Hyperlink.GENERIC_OPDS_ACQUISITION
                                       and l.resource.representation.media_type == Representation.EPUB_MEDIA_TYPE]
         southern_acquisition_url = southern_acquisition_link.resource.representation.url
-        eq_("https://library.biblioboard.com/ext/api/media/04da95cd-6cfc-4e82-810f-121d418b6963/assets/content.epub",
+        assert ("https://library.biblioboard.com/ext/api/media/04da95cd-6cfc-4e82-810f-121d418b6963/assets/content.epub" ==
             southern_acquisition_url)
 
     def test__add_format_data(self):
@@ -475,7 +475,7 @@ class TestOPDSForDistributorsImporter(DatabaseTest, BaseOPDSForDistributorsTest)
             link = LinkData(rel=rel, href=href, media_type=media)
             circulation.links.append(link)
 
-        eq_([], circulation.formats)
+        assert [] == circulation.formats
         OPDSForDistributorsImporter._add_format_data(circulation)
 
         # Only one FormatData was created.
@@ -483,14 +483,14 @@ class TestOPDSForDistributorsImporter(DatabaseTest, BaseOPDSForDistributorsTest)
 
         # It's the third link we created -- the one where both rel and
         # media_type were good.
-        eq_("http://url3/", format.link.href)
-        eq_(good_rel, format.link.rel)
+        assert "http://url3/" == format.link.href
+        assert good_rel == format.link.rel
 
         # The FormatData has the content type provided by the LinkData,
         # and the implicit Bearer Token access control scheme defined
         # by OPDS For Distrubutors.
-        eq_(good_media_type, format.content_type)
-        eq_(DeliveryMechanism.BEARER_TOKEN, format.drm_scheme)
+        assert good_media_type == format.content_type
+        assert DeliveryMechanism.BEARER_TOKEN == format.drm_scheme
 
         # Undo the mock of SUPPORTED_MEDIA_TYPES.
         api.SUPPORTED_MEDIA_TYPES = old_value
@@ -542,18 +542,18 @@ class TestOPDSForDistributorsReaperMonitor(DatabaseTest, BaseOPDSForDistributors
         progress = monitor.run_once(monitor.timestamp().to_data())
 
         # One LicensePool has been cleared out.
-        eq_(0, now_gone.licenses_owned)
-        eq_(0, now_gone.licenses_available)
+        assert 0 == now_gone.licenses_owned
+        assert 0 == now_gone.licenses_available
 
         # The other is still around.
-        eq_(1, still_there.licenses_owned)
-        eq_(1, still_there.licenses_available)
+        assert 1 == still_there.licenses_owned
+        assert 1 == still_there.licenses_available
 
         # The TimestampData returned by run_once() describes its
         # achievements.
-        eq_("License pools removed: 1.", progress.achievements)
+        assert "License pools removed: 1." == progress.achievements
 
         # The TimestampData does not include any timing information --
         # that will be applied by run().
-        eq_(None, progress.start)
-        eq_(None, progress.finish)
+        assert None == progress.start
+        assert None == progress.finish

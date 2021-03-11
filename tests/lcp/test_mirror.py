@@ -31,7 +31,7 @@ class TestLCPMirror(DatabaseTest):
         result = self._lcp_mirror.book_url(identifier, data_source=data_source)
 
         # Assert
-        eq_(result, 'http://encrypted-books.minio/12345')
+        assert result == 'http://encrypted-books.minio/12345'
 
     def test_mirror_one(self):
         # Arrange

@@ -32,13 +32,13 @@ class TestSitewideServices(SettingsControllerTest):
         with self.request_context_with_admin("/"):
             controller.process_services()
             goal, apis, key_name, problem = controller.manage_called_with
-            eq_(EI.SEARCH_GOAL, goal)
+            assert EI.SEARCH_GOAL == goal
             assert ExternalSearchIndex in apis
-            eq_('search_services', key_name)
+            assert 'search_services' == key_name
             assert 'new search service' in problem
 
         with self.request_context_with_admin("/"):
             id = object()
             controller.process_delete(id)
-            eq_((id, EI.SEARCH_GOAL),
+            assert ((id, EI.SEARCH_GOAL) ==
                 controller.delete_called_with)

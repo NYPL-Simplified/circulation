@@ -46,22 +46,22 @@ class TestIndividualAdmins(SettingsControllerTest):
             # A system admin can see all other admins' roles.
             response = self.manager.admin_individual_admin_settings_controller.process_get()
             admins = response.get("individualAdmins")
-            eq_(sorted([{"email": "admin1@nypl.org", "roles": [{ "role": AdminRole.SYSTEM_ADMIN }]},
+            assert (sorted([{"email": "admin1@nypl.org", "roles": [{ "role": AdminRole.SYSTEM_ADMIN }]},
                         {"email": "admin2@nypl.org", "roles": [{ "role": AdminRole.LIBRARY_MANAGER, "library": self._default_library.short_name }, { "role": AdminRole.SITEWIDE_LIBRARIAN }]},
                         {"email": "admin3@nypl.org", "roles": [{ "role": AdminRole.LIBRARIAN, "library": self._default_library.short_name }]},
                         {"email": "admin4@l2.org", "roles": [{ "role": AdminRole.LIBRARY_MANAGER, "library": library2.short_name }]},
-                        {"email": "admin5@l2.org", "roles": [{ "role": AdminRole.LIBRARIAN, "library": library2.short_name }]}]),
+                        {"email": "admin5@l2.org", "roles": [{ "role": AdminRole.LIBRARIAN, "library": library2.short_name }]}]) ==
                 sorted(admins))
 
         with self.request_context_with_admin("/", admin=admin2):
             # A sitewide librarian or library manager can also see all admins' roles.
             response = self.manager.admin_individual_admin_settings_controller.process_get()
             admins = response.get("individualAdmins")
-            eq_(sorted([{"email": "admin1@nypl.org", "roles": [{ "role": AdminRole.SYSTEM_ADMIN }]},
+            assert (sorted([{"email": "admin1@nypl.org", "roles": [{ "role": AdminRole.SYSTEM_ADMIN }]},
                         {"email": "admin2@nypl.org", "roles": [{ "role": AdminRole.LIBRARY_MANAGER, "library": self._default_library.short_name }, { "role": AdminRole.SITEWIDE_LIBRARIAN }]},
                         {"email": "admin3@nypl.org", "roles": [{ "role": AdminRole.LIBRARIAN, "library": self._default_library.short_name }]},
                         {"email": "admin4@l2.org", "roles": [{ "role": AdminRole.LIBRARY_MANAGER, "library": library2.short_name }]},
-                        {"email": "admin5@l2.org", "roles": [{ "role": AdminRole.LIBRARIAN, "library": library2.short_name }]}]),
+                        {"email": "admin5@l2.org", "roles": [{ "role": AdminRole.LIBRARIAN, "library": library2.short_name }]}]) ==
                 sorted(admins))
 
         with self.request_context_with_admin("/", admin=admin3):
@@ -69,38 +69,38 @@ class TestIndividualAdmins(SettingsControllerTest):
             # roles that affect their libraries.
             response = self.manager.admin_individual_admin_settings_controller.process_get()
             admins = response.get("individualAdmins")
-            eq_(sorted([{"email": "admin1@nypl.org", "roles": [{ "role": AdminRole.SYSTEM_ADMIN }]},
+            assert (sorted([{"email": "admin1@nypl.org", "roles": [{ "role": AdminRole.SYSTEM_ADMIN }]},
                         {"email": "admin2@nypl.org", "roles": [{ "role": AdminRole.LIBRARY_MANAGER, "library": self._default_library.short_name }, { "role": AdminRole.SITEWIDE_LIBRARIAN }]},
                         {"email": "admin3@nypl.org", "roles": [{ "role": AdminRole.LIBRARIAN, "library": self._default_library.short_name }]},
                         {"email": "admin4@l2.org", "roles": []},
-                        {"email": "admin5@l2.org", "roles": []}]),
+                        {"email": "admin5@l2.org", "roles": []}]) ==
                 sorted(admins))
 
         with self.request_context_with_admin("/", admin=admin4):
             response = self.manager.admin_individual_admin_settings_controller.process_get()
             admins = response.get("individualAdmins")
-            eq_(sorted([{"email": "admin1@nypl.org", "roles": [{ "role": AdminRole.SYSTEM_ADMIN }]},
+            assert (sorted([{"email": "admin1@nypl.org", "roles": [{ "role": AdminRole.SYSTEM_ADMIN }]},
                         {"email": "admin2@nypl.org", "roles": [{ "role": AdminRole.SITEWIDE_LIBRARIAN }]},
                         {"email": "admin3@nypl.org", "roles": []},
                         {"email": "admin4@l2.org", "roles": [{ "role": AdminRole.LIBRARY_MANAGER, "library": library2.short_name }]},
-                        {"email": "admin5@l2.org", "roles": [{ "role": AdminRole.LIBRARIAN, "library": library2.short_name }]}]),
+                        {"email": "admin5@l2.org", "roles": [{ "role": AdminRole.LIBRARIAN, "library": library2.short_name }]}]) ==
                 sorted(admins))
 
         with self.request_context_with_admin("/", admin=admin5):
             response = self.manager.admin_individual_admin_settings_controller.process_get()
             admins = response.get("individualAdmins")
-            eq_(sorted([{"email": "admin1@nypl.org", "roles": [{ "role": AdminRole.SYSTEM_ADMIN }]},
+            assert (sorted([{"email": "admin1@nypl.org", "roles": [{ "role": AdminRole.SYSTEM_ADMIN }]},
                         {"email": "admin2@nypl.org", "roles": [{ "role": AdminRole.SITEWIDE_LIBRARIAN }]},
                         {"email": "admin3@nypl.org", "roles": []},
                         {"email": "admin4@l2.org", "roles": [{ "role": AdminRole.LIBRARY_MANAGER, "library": library2.short_name }]},
-                        {"email": "admin5@l2.org", "roles": [{ "role": AdminRole.LIBRARIAN, "library": library2.short_name }]}]),
+                        {"email": "admin5@l2.org", "roles": [{ "role": AdminRole.LIBRARIAN, "library": library2.short_name }]}]) ==
                 sorted(admins))
 
     def test_individual_admins_post_errors(self):
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([])
             response = self.manager.admin_individual_admin_settings_controller.process_post()
-            eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
+            assert response.uri == INCOMPLETE_CONFIGURATION.uri
 
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
@@ -108,7 +108,7 @@ class TestIndividualAdmins(SettingsControllerTest):
                ("roles", json.dumps([{ "role": AdminRole.LIBRARIAN, "library": "notalibrary" }])),
             ])
             response = self.manager.admin_individual_admin_settings_controller.process_post()
-            eq_(response.uri, LIBRARY_NOT_FOUND.uri)
+            assert response.uri == LIBRARY_NOT_FOUND.uri
 
         library = self._library()
         with self.request_context_with_admin("/", method="POST"):
@@ -117,7 +117,7 @@ class TestIndividualAdmins(SettingsControllerTest):
                ("roles", json.dumps([{ "role": "notarole", "library": library.short_name }])),
             ])
             response = self.manager.admin_individual_admin_settings_controller.process_post()
-            eq_(response.uri, UNKNOWN_ROLE.uri)
+            assert response.uri == UNKNOWN_ROLE.uri
 
     def test_individual_admins_post_permissions(self):
         l1 = self._library()
@@ -277,17 +277,17 @@ class TestIndividualAdmins(SettingsControllerTest):
                 ("roles", json.dumps([{ "role": AdminRole.LIBRARY_MANAGER, "library": self._default_library.short_name }])),
             ])
             response = self.manager.admin_individual_admin_settings_controller.process_post()
-            eq_(response.status_code, 201)
+            assert response.status_code == 201
 
         # The admin was created.
         admin_match = Admin.authenticate(self._db, "admin@nypl.org", "pass")
-        eq_(admin_match.email, response.response[0])
+        assert admin_match.email == response.response[0]
         assert admin_match
         assert admin_match.has_password("pass")
 
         [role] = admin_match.roles
-        eq_(AdminRole.LIBRARY_MANAGER, role.role)
-        eq_(self._default_library, role.library)
+        assert AdminRole.LIBRARY_MANAGER == role.role
+        assert self._default_library == role.library
 
         # The new admin is a library manager, so they can create librarians.
         with self.request_context_with_admin("/", method="POST", admin=admin_match):
@@ -297,16 +297,16 @@ class TestIndividualAdmins(SettingsControllerTest):
                 ("roles", json.dumps([{ "role": AdminRole.LIBRARIAN, "library": self._default_library.short_name }])),
             ])
             response = self.manager.admin_individual_admin_settings_controller.process_post()
-            eq_(response.status_code, 201)
+            assert response.status_code == 201
 
         admin_match = Admin.authenticate(self._db, "admin2@nypl.org", "pass")
-        eq_(admin_match.email, response.response[0])
+        assert admin_match.email == response.response[0]
         assert admin_match
         assert admin_match.has_password("pass")
 
         [role] = admin_match.roles
-        eq_(AdminRole.LIBRARIAN, role.role)
-        eq_(self._default_library, role.library)
+        assert AdminRole.LIBRARIAN == role.role
+        assert self._default_library == role.library
 
     def test_individual_admins_post_edit(self):
         # An admin exists.
@@ -324,24 +324,24 @@ class TestIndividualAdmins(SettingsControllerTest):
                                       {"role": AdminRole.LIBRARY_MANAGER, "library": self._default_library.short_name}])),
             ])
             response = self.manager.admin_individual_admin_settings_controller.process_post()
-            eq_(response.status_code, 200)
+            assert response.status_code == 200
 
-        eq_(admin.email, response.response[0])
+        assert admin.email == response.response[0]
 
         # The password was changed.
         old_password_match = Admin.authenticate(self._db, "admin@nypl.org", "password")
-        eq_(None, old_password_match)
+        assert None == old_password_match
 
         new_password_match = Admin.authenticate(self._db, "admin@nypl.org", "new password")
-        eq_(admin, new_password_match)
+        assert admin == new_password_match
 
         # The roles were changed.
-        eq_(False, admin.is_system_admin())
+        assert False == admin.is_system_admin()
         [librarian_all, manager] = sorted(admin.roles, key=lambda x: x.role)
-        eq_(AdminRole.SITEWIDE_LIBRARIAN, librarian_all.role)
-        eq_(None, librarian_all.library)
-        eq_(AdminRole.LIBRARY_MANAGER, manager.role)
-        eq_(self._default_library, manager.library)
+        assert AdminRole.SITEWIDE_LIBRARIAN == librarian_all.role
+        assert None == librarian_all.library
+        assert AdminRole.LIBRARY_MANAGER == manager.role
+        assert self._default_library == manager.library
 
     def test_individual_admin_delete(self):
         librarian, ignore = create(
@@ -364,7 +364,7 @@ class TestIndividualAdmins(SettingsControllerTest):
 
         with self.request_context_with_admin("/", method="DELETE", admin=sitewide_manager):
             response = self.manager.admin_individual_admin_settings_controller.process_delete(librarian.email)
-            eq_(response.status_code, 200)
+            assert response.status_code == 200
 
             assert_raises(AdminNotAuthorized,
                           self.manager.admin_individual_admin_settings_controller.process_delete,
@@ -372,13 +372,13 @@ class TestIndividualAdmins(SettingsControllerTest):
 
         with self.request_context_with_admin("/", method="DELETE", admin=system_admin):
             response = self.manager.admin_individual_admin_settings_controller.process_delete(system_admin.email)
-            eq_(response.status_code, 200)
+            assert response.status_code == 200
 
         admin = get_one(self._db, Admin, id=librarian.id)
-        eq_(None, admin)
+        assert None == admin
 
         admin = get_one(self._db, Admin, id=system_admin.id)
-        eq_(None, admin)
+        assert None == admin
 
     def test_individual_admins_post_create_on_setup(self):
         for admin in self._db.query(Admin):
@@ -401,8 +401,8 @@ class TestIndividualAdmins(SettingsControllerTest):
                 ("roles", json.dumps([{ "role": AdminRole.SYSTEM_ADMIN }])),
             ])
             response = self.manager.admin_individual_admin_settings_controller.process_post()
-            eq_(400, response.status_code)
-            eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
+            assert 400 == response.status_code
+            assert response.uri == INCOMPLETE_CONFIGURATION.uri
 
         # Creating a system admin with a password works.
         with self.app.test_request_context("/", method="POST"):
@@ -412,13 +412,13 @@ class TestIndividualAdmins(SettingsControllerTest):
                 ("roles", json.dumps([{ "role": AdminRole.SYSTEM_ADMIN }])),
             ])
             response = self.manager.admin_individual_admin_settings_controller.process_post()
-            eq_(201, response.status_code)
+            assert 201 == response.status_code
 
         # The admin was created.
         admin_match = Admin.authenticate(self._db, "first_admin@nypl.org", "pass")
-        eq_(admin_match.email, response.response[0])
+        assert admin_match.email == response.response[0]
         assert admin_match
         assert admin_match.has_password("pass")
 
         [role] = admin_match.roles
-        eq_(AdminRole.SYSTEM_ADMIN, role.role)
+        assert AdminRole.SYSTEM_ADMIN == role.role

@@ -25,4 +25,4 @@ class TestProQuestIdentifierParser(object):
 
         result = parser.parse(identifier_string)
 
-        eq_(expected_result, result)
+        assert expected_result == result

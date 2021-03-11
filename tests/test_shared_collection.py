@@ -82,13 +82,13 @@ class TestSharedCollectionAPI(DatabaseTest):
         )
         # Although the SharedCollectionAPI was created, it has no functioning
         # APIs.
-        eq_({}, shared_collection.api_for_collection)
+        assert {} == shared_collection.api_for_collection
 
         # Instead, the CannotLoadConfiguration exception raised by the
         # constructor has been stored in initialization_exceptions.
         e = shared_collection.initialization_exceptions[self._default_collection.id]
         assert isinstance(e, CannotLoadConfiguration)
-        eq_("doomed!", e.message)
+        assert "doomed!" == e.message
 
     def test_api_for_licensepool(self):
         collection = self._collection(protocol=ODLAPI.NAME)
@@ -167,7 +167,7 @@ class TestSharedCollectionAPI(DatabaseTest):
         # An IntegrationClient has been created.
         client = get_one(self._db, IntegrationClient, url=IntegrationClient.normalize_url("http://library.org/"))
         decrypted_secret = encryptor.decrypt(base64.b64decode(response.get("metadata", {}).get("shared_secret")))
-        eq_(client.shared_secret, decrypted_secret)
+        assert client.shared_secret == decrypted_secret
 
     def test_borrow(self):
         # This client is registered, but isn't one of the allowed URLs for the collection
@@ -180,7 +180,7 @@ class TestSharedCollectionAPI(DatabaseTest):
 
         # A client that's registered with the collection can borrow.
         self.shared_collection.borrow(self.collection, self.client, self.pool)
-        eq_([(self.client, self.pool)], self.api.checkouts)
+        assert [(self.client, self.pool)] == self.api.checkouts
 
         # If the client's checking out an existing hold, the hold must be for that client.
         hold, ignore = create(self._db, Hold, integration_client=other_client, license_pool=self.pool)
@@ -189,7 +189,7 @@ class TestSharedCollectionAPI(DatabaseTest):
 
         hold.integration_client = self.client
         self.shared_collection.borrow(self.collection, self.client, self.pool, hold=hold)
-        eq_([(self.client, self.pool)], self.api.checkouts[1:])
+        assert [(self.client, self.pool)] == self.api.checkouts[1:]
 
     def test_revoke_loan(self):
         other_client, ignore = IntegrationClient.register(self._db, "http://other_library.org")
@@ -199,7 +199,7 @@ class TestSharedCollectionAPI(DatabaseTest):
 
         loan.integration_client = self.client
         self.shared_collection.revoke_loan(self.collection, self.client, loan)
-        eq_([(self.client, loan)], self.api.returns)
+        assert [(self.client, loan)] == self.api.returns
 
     def test_fulfill(self):
         other_client, ignore = IntegrationClient.register(self._db, "http://other_library.org")
@@ -212,7 +212,7 @@ class TestSharedCollectionAPI(DatabaseTest):
         # If the API does not return content or a content link, the loan can't be fulfilled.
         assert_raises(CannotFulfill, self.shared_collection.fulfill,
                       self.collection, self.client, loan, self.delivery_mechanism)
-        eq_([(self.client, loan, self.delivery_mechanism)], self.api.fulfills)
+        assert [(self.client, loan, self.delivery_mechanism)] == self.api.fulfills
 
         self.api.fulfillment = FulfillmentInfo(
             self.collection,
@@ -225,8 +225,8 @@ class TestSharedCollectionAPI(DatabaseTest):
             None,
         )
         fulfillment = self.shared_collection.fulfill(self.collection, self.client, loan, self.delivery_mechanism)
-        eq_([(self.client, loan, self.delivery_mechanism)], self.api.fulfills[1:])
-        eq_(self.delivery_mechanism, loan.fulfillment)
+        assert [(self.client, loan, self.delivery_mechanism)] == self.api.fulfills[1:]
+        assert self.delivery_mechanism == loan.fulfillment
 
     def test_revoke_hold(self):
         other_client, ignore = IntegrationClient.register(self._db, "http://other_library.org")
@@ -237,4 +237,4 @@ class TestSharedCollectionAPI(DatabaseTest):
 
         hold.integration_client = self.client
         self.shared_collection.revoke_hold(self.collection, self.client, hold)
-        eq_([(self.client, hold)], self.api.released_holds)
+        assert [(self.client, hold)] == self.api.released_holds

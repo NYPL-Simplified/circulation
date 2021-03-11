@@ -39,27 +39,27 @@ class TestGoogleOAuthAdminAuthenticationProvider(DatabaseTest):
 
         # Returns a problem detail when Google returns an error.
         error_response, redirect = self.google.callback(self._db, {'error' : 'access_denied'})
-        eq_(True, isinstance(error_response, ProblemDetail))
-        eq_(400, error_response.status_code)
-        eq_(True, error_response.detail.endswith('access_denied'))
-        eq_(None, redirect)
+        assert True == isinstance(error_response, ProblemDetail)
+        assert 400 == error_response.status_code
+        assert True == error_response.detail.endswith('access_denied')
+        assert None == redirect
 
         # Successful case creates a dict of admin details
         success, redirect = self.google.callback(self._db, {'code' : 'abc'})
-        eq_('example@nypl.org', success['email'])
+        assert 'example@nypl.org' == success['email']
         default_credentials = json.dumps({"id_token": {"email": "example@nypl.org", "hd": "nypl.org"}})
-        eq_(default_credentials, success['credentials'])
-        eq_(GoogleOAuthAdminAuthenticationProvider.NAME, success["type"])
+        assert default_credentials == success['credentials']
+        assert GoogleOAuthAdminAuthenticationProvider.NAME == success["type"]
         [role] = success.get("roles")
-        eq_(AdminRole.LIBRARIAN, role.get("role"))
-        eq_(self._default_library.short_name, role.get("library"))
+        assert AdminRole.LIBRARIAN == role.get("role")
+        assert self._default_library.short_name == role.get("library")
 
         # If domains are set, the admin's domain must match one of the domains.
         setting = ConfigurationSetting.for_library_and_externalintegration(
             self._db, "domains", self._default_library, auth_integration)
         setting.value = json.dumps(["otherlibrary.org"])
         failure, ignore = self.google.callback(self._db, {'code' : 'abc'})
-        eq_(INVALID_ADMIN_CREDENTIALS, failure)
+        assert INVALID_ADMIN_CREDENTIALS == failure
         setting.value = json.dumps(["nypl.org"])
 
         # Returns a problem detail when the oauth client library
@@ -69,10 +69,10 @@ class TestGoogleOAuthAdminAuthenticationProvider(DatabaseTest):
                 raise GoogleClient.FlowExchangeError("mock error")
         self.google.dummy_client = ExceptionRaisingClient()
         error_response, redirect = self.google.callback(self._db, {'code' : 'abc'})
-        eq_(True, isinstance(error_response, ProblemDetail))
-        eq_(400, error_response.status_code)
-        eq_(True, error_response.detail.endswith('mock error'))
-        eq_(None, redirect)
+        assert True == isinstance(error_response, ProblemDetail)
+        assert 400 == error_response.status_code
+        assert True == error_response.detail.endswith('mock error')
+        assert None == redirect
 
     def test_domains(self):
         super(TestGoogleOAuthAdminAuthenticationProvider, self).setup_method()
@@ -88,8 +88,8 @@ class TestGoogleOAuthAdminAuthenticationProvider(DatabaseTest):
 
         google = GoogleOAuthAdminAuthenticationProvider(auth_integration, "", test_mode=True)
 
-        eq_(["nypl.org"], google.domains.keys())
-        eq_([self._default_library], google.domains["nypl.org"])
+        assert ["nypl.org"] == google.domains.keys()
+        assert [self._default_library] == google.domains["nypl.org"]
 
         l2 = self._library()
         auth_integration.libraries += [l2]
@@ -97,8 +97,8 @@ class TestGoogleOAuthAdminAuthenticationProvider(DatabaseTest):
             self._db, "domains", l2, auth_integration
         ).value = json.dumps(["nypl.org", "l2.org"])
 
-        eq_(set([self._default_library, l2]), set(google.domains["nypl.org"]))
-        eq_([l2], google.domains["l2.org"])
+        assert set([self._default_library, l2]) == set(google.domains["nypl.org"])
+        assert [l2] == google.domains["l2.org"]
 
     def test_staff_email(self):
         super(TestGoogleOAuthAdminAuthenticationProvider, self).setup_method()
@@ -115,9 +115,9 @@ class TestGoogleOAuthAdminAuthenticationProvider(DatabaseTest):
         # to be considered library staff.
         google = GoogleOAuthAdminAuthenticationProvider(auth_integration, "", test_mode=True)
 
-        eq_(True, google.staff_email(self._db, "admin@nypl.org"))
-        eq_(True, google.staff_email(self._db, "admin@bklynlibrary.org"))
-        eq_(False, google.staff_email(self._db, "someone@nypl.org"))
+        assert True == google.staff_email(self._db, "admin@nypl.org")
+        assert True == google.staff_email(self._db, "admin@bklynlibrary.org")
+        assert False == google.staff_email(self._db, "someone@nypl.org")
 
         # If domains are set, the admin's domain can match one of the domains
         # if the admin doesn't exist yet.
@@ -125,14 +125,14 @@ class TestGoogleOAuthAdminAuthenticationProvider(DatabaseTest):
         setting = ConfigurationSetting.for_library_and_externalintegration(
             self._db, "domains", self._default_library, auth_integration)
         setting.value = json.dumps(["nypl.org"])
-        eq_(True, google.staff_email(self._db, "admin@nypl.org"))
-        eq_(True, google.staff_email(self._db, "admin@bklynlibrary.org"))
-        eq_(True, google.staff_email(self._db, "someone@nypl.org"))
-        eq_(False, google.staff_email(self._db, "someone@bklynlibrary.org"))
+        assert True == google.staff_email(self._db, "admin@nypl.org")
+        assert True == google.staff_email(self._db, "admin@bklynlibrary.org")
+        assert True == google.staff_email(self._db, "someone@nypl.org")
+        assert False == google.staff_email(self._db, "someone@bklynlibrary.org")
 
         setting.value = json.dumps(["nypl.org", "bklynlibrary.org"])
-        eq_(True, google.staff_email(self._db, "admin@nypl.org"))
-        eq_(True, google.staff_email(self._db, "admin@bklynlibrary.org"))
-        eq_(True, google.staff_email(self._db, "someone@nypl.org"))
-        eq_(True, google.staff_email(self._db, "someone@bklynlibrary.org"))
+        assert True == google.staff_email(self._db, "admin@nypl.org")
+        assert True == google.staff_email(self._db, "admin@bklynlibrary.org")
+        assert True == google.staff_email(self._db, "someone@nypl.org")
+        assert True == google.staff_email(self._db, "someone@bklynlibrary.org")
 

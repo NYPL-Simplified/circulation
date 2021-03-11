@@ -148,10 +148,9 @@ class Axis360Test(DatabaseTest):
 class TestAxis360API(Axis360Test):
 
     def test_external_integration(self):
-        eq_(
-            self.collection.external_integration,
-            self.api.external_integration(object())
-        )
+        assert (
+            self.collection.external_integration ==
+            self.api.external_integration(object()))
 
     def test__run_self_tests(self):
         """Verify that BibliothecaAPI._run_self_tests() calls the right
@@ -199,38 +198,37 @@ class TestAxis360API(Axis360Test):
          pools_without_delivery, refresh_bearer_token] = sorted(
             api._run_self_tests(self._db), key=lambda x: x.name
         )
-        eq_("Refreshing bearer token", refresh_bearer_token.name)
-        eq_(True, refresh_bearer_token.success)
-        eq_("the new token", refresh_bearer_token.result)
+        assert "Refreshing bearer token" == refresh_bearer_token.name
+        assert True == refresh_bearer_token.success
+        assert "the new token" == refresh_bearer_token.result
 
-        eq_(
-            "Acquiring test patron credentials for library %s" % no_default_patron.name,
-            no_patron_credential.name
-        )
-        eq_(False, no_patron_credential.success)
-        eq_("Library has no test patron configured.",
+        assert (
+            "Acquiring test patron credentials for library %s" % no_default_patron.name ==
+            no_patron_credential.name)
+        assert False == no_patron_credential.success
+        assert ("Library has no test patron configured." ==
             no_patron_credential.exception.message)
 
-        eq_("Asking for circulation events for the last five minutes",
+        assert ("Asking for circulation events for the last five minutes" ==
             recent_circulation_events.name)
-        eq_(True, recent_circulation_events.success)
-        eq_("Found 3 event(s)", recent_circulation_events.result)
+        assert True == recent_circulation_events.success
+        assert "Found 3 event(s)" == recent_circulation_events.result
         since = api.recent_activity_called_with
         five_minutes_ago = datetime.datetime.utcnow() - datetime.timedelta(minutes=5)
         assert (five_minutes_ago-since).total_seconds() < 2
 
-        eq_("Checking activity for test patron for library %s" % with_default_patron.name,
+        assert ("Checking activity for test patron for library %s" % with_default_patron.name ==
             patron_activity.name)
-        eq_(True, patron_activity.success)
-        eq_("Found 2 loans/holds", patron_activity.result)
+        assert True == patron_activity.success
+        assert "Found 2 loans/holds" == patron_activity.result
         patron, pin = api.patron_activity_called_with
-        eq_("username1", patron.authorization_identifier)
-        eq_("password1", pin)
+        assert "username1" == patron.authorization_identifier
+        assert "password1" == pin
 
-        eq_("Checking for titles that have no delivery mechanisms.",
+        assert ("Checking for titles that have no delivery mechanisms." ==
             pools_without_delivery.name)
-        eq_(True, pools_without_delivery.success)
-        eq_("All titles in this collection have delivery mechanisms.",
+        assert True == pools_without_delivery.success
+        assert ("All titles in this collection have delivery mechanisms." ==
             pools_without_delivery.result)
 
     def test__run_self_tests_short_circuit(self):
@@ -245,14 +243,14 @@ class TestAxis360API(Axis360Test):
         # test will be run.
         api = Mock(self._db, self.collection)
         [failure] = api._run_self_tests(self._db)
-        eq_("Refreshing bearer token", failure.name)
-        eq_(False, failure.success)
-        eq_("no way", failure.exception.message)
+        assert "Refreshing bearer token" == failure.name
+        assert False == failure.success
+        assert "no way" == failure.exception.message
 
     def test_create_identifier_strings(self):
         identifier = self._identifier()
         values = Axis360API.create_identifier_strings(["foo", identifier])
-        eq_(["foo", identifier.identifier], values)
+        assert ["foo", identifier.identifier] == values
 
     def test_availability_no_timeout(self):
         # The availability API request has no timeout set, because it
@@ -262,7 +260,7 @@ class TestAxis360API(Axis360Test):
         self.api.availability()
         request = self.api.requests.pop()
         kwargs = request[-1]
-        eq_(None, kwargs['timeout'])
+        assert None == kwargs['timeout']
 
     def test_availability_exception(self):
 
@@ -282,7 +280,7 @@ class TestAxis360API(Axis360Test):
         )
         self.api.queue_response(200, content="The data")
         response = self.api.request("http://url/")
-        eq_("The data", response.content)
+        assert "The data" == response.content
 
     def test_refresh_bearer_token_error(self):
         """Raise an exception if we don't get a 200 status code when
@@ -314,7 +312,7 @@ class TestAxis360API(Axis360Test):
         )
 
         # The fourth request never got made.
-        eq_([301], [x.status_code for x in self.api.responses])
+        assert [301] == [x.status_code for x in self.api.responses]
 
     def test_update_availability(self):
         """Test the Axis 360 implementation of the update_availability method
@@ -335,7 +333,7 @@ class TestAxis360API(Axis360Test):
         pool.licenses_owned = 10
         pool.licenses_available = 5
         pool.patrons_in_hold_queue = 3
-        eq_(None, pool.last_checked)
+        assert None == pool.last_checked
 
         # Prepare availability information.
         data = self.sample_data("availability_with_loans.xml")
@@ -351,9 +349,9 @@ class TestAxis360API(Axis360Test):
 
         # The availability information has been udpated, as has the
         # date the availability information was last checked.
-        eq_(2, pool.licenses_owned)
-        eq_(1, pool.licenses_available)
-        eq_(0, pool.patrons_in_hold_queue)
+        assert 2 == pool.licenses_owned
+        assert 1 == pool.licenses_available
+        assert 0 == pool.patrons_in_hold_queue
         assert pool.last_checked is not None
 
     def test_place_hold(self):
@@ -369,12 +367,12 @@ class TestAxis360API(Axis360Test):
             Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS,
             self._default_library).value = "notifications@example.com"
         response = self.api.place_hold(patron, 'pin', pool, None)
-        eq_(1, response.hold_position)
-        eq_(response.identifier_type, pool.identifier.type)
-        eq_(response.identifier, pool.identifier.identifier)
+        assert 1 == response.hold_position
+        assert response.identifier_type == pool.identifier.type
+        assert response.identifier == pool.identifier.identifier
         [request] = self.api.requests
         params = request[-1]['params']
-        eq_('notifications@example.com', params['email'])
+        assert 'notifications@example.com' == params['email']
 
     def test_fulfill(self):
         # Test our ability to fulfill an Axis 360 title.
@@ -408,9 +406,9 @@ class TestAxis360API(Axis360Test):
         fulfillment = fulfill(internal_format="ePub")
         assert isinstance(fulfillment, FulfillmentInfo)
         assert not isinstance(fulfillment, Axis360FulfillmentInfo)
-        eq_(DeliveryMechanism.ADOBE_DRM, fulfillment.content_type)
-        eq_("http://fulfillment/", fulfillment.content_link)
-        eq_(None, fulfillment.content)
+        assert DeliveryMechanism.ADOBE_DRM == fulfillment.content_type
+        assert "http://fulfillment/" == fulfillment.content_link
+        assert None == fulfillment.content
 
         # If we ask for AxisNow format, we get an Axis360FulfillmentInfo
         # containing an AxisNow manifest document.
@@ -457,7 +455,7 @@ class TestAxis360API(Axis360Test):
         # We made a request that included the authorization identifier
         # of the patron in question.
         [url, args, kwargs] = self.api.requests.pop()
-        eq_(patron.authorization_identifier, kwargs['params']['patronId'])
+        assert patron.authorization_identifier == kwargs['params']['patronId']
 
         # We got three results -- two holds and one loan.
         [hold1, loan, hold2] = sorted(
@@ -515,11 +513,11 @@ class TestAxis360API(Axis360Test):
 
         # The LicensePool for the first identifier was updated.
         [lp] = still_in_collection.licensed_through
-        eq_(7, lp.licenses_owned)
-        eq_(6, lp.licenses_available)
+        assert 7 == lp.licenses_owned
+        assert 6 == lp.licenses_available
 
         # The second was reaped.
-        eq_([no_longer_in_collection], api.reaped)
+        assert [no_longer_in_collection] == api.reaped
 
     def test_fetch_remote_availability(self):
         """Test the _fetch_remote_availability method, as
@@ -537,24 +535,24 @@ class TestAxis360API(Axis360Test):
         # We asked for information on two identifiers.
         [request] = self.api.requests
         kwargs = request[-1]
-        eq_({'titleIds': u'2001,2002'}, kwargs['params'])
+        assert {'titleIds': u'2001,2002'} == kwargs['params']
 
         # We got information on only one.
         [(metadata, circulation)] = results
-        eq_((id1, False), metadata.primary_identifier.load(self._db))
-        eq_(u'El caso de la gracia : Un periodista explora las evidencias de unas vidas transformadas', metadata.title)
-        eq_(2, circulation.licenses_owned)
+        assert (id1, False) == metadata.primary_identifier.load(self._db)
+        assert u'El caso de la gracia : Un periodista explora las evidencias de unas vidas transformadas' == metadata.title
+        assert 2 == circulation.licenses_owned
 
     def test_reap(self):
         """Test the _reap method, as used by
         update_licensepools_for_identifiers.
         """
         id1 = self._identifier(identifier_type=Identifier.AXIS_360_ID)
-        eq_([], id1.licensed_through)
+        assert [] == id1.licensed_through
 
         # If there is no LicensePool to reap, nothing happens.
         self.api._reap(id1)
-        eq_([], id1.licensed_through)
+        assert [] == id1.licensed_through
 
         # If there is a LicensePool but it has no owned licenses,
         # it's already been reaped, so nothing happens.
@@ -581,10 +579,10 @@ class TestAxis360API(Axis360Test):
         updated2 = pool2.last_checked
         self.api._reap(id1)
 
-        eq_(updated, pool.last_checked)
-        eq_(0, pool.licenses_owned)
-        eq_(updated2, pool2.last_checked)
-        eq_(10, pool2.licenses_owned)
+        assert updated == pool.last_checked
+        assert 0 == pool.licenses_owned
+        assert updated2 == pool2.last_checked
+        assert 10 == pool2.licenses_owned
 
         # If the LicensePool did have licenses, then reaping it
         # reflects the fact that the licenses are no longer owned.
@@ -593,10 +591,10 @@ class TestAxis360API(Axis360Test):
         pool.licenses_reserved = 8
         pool.patrons_in_hold_queue = 7
         self.api._reap(id1)
-        eq_(0, pool.licenses_owned)
-        eq_(0, pool.licenses_available)
-        eq_(0, pool.licenses_reserved)
-        eq_(0, pool.patrons_in_hold_queue)
+        assert 0 == pool.licenses_owned
+        assert 0 == pool.licenses_available
+        assert 0 == pool.licenses_reserved
+        assert 0 == pool.patrons_in_hold_queue
 
     def test_get_fulfillment_info(self):
         # Test the get_fulfillment_info method, which makes an API request.
@@ -606,14 +604,14 @@ class TestAxis360API(Axis360Test):
 
         # Make a request and check the response.
         response = api.get_fulfillment_info("transaction ID")
-        eq_("the response", response.content)
+        assert "the response" == response.content
 
         # Verify that the 'HTTP request' was made to the right URL
         # with the right keyword arguments and the right HTTP method.
         url, args, kwargs = api.requests.pop()
         assert url.endswith(api.fulfillment_endpoint)
-        eq_('POST', kwargs['method'])
-        eq_('transaction ID', kwargs['params']['TransactionID'])
+        assert 'POST' == kwargs['method']
+        assert 'transaction ID' == kwargs['params']['TransactionID']
 
     def test_get_audiobook_metadata(self):
         # Test the get_audiobook_metadata method, which makes an API request.
@@ -623,14 +621,14 @@ class TestAxis360API(Axis360Test):
 
         # Make a request and check the response.
         response = api.get_audiobook_metadata("Findaway content ID")
-        eq_("the response", response.content)
+        assert "the response" == response.content
 
         # Verify that the 'HTTP request' was made to the right URL
         # with the right keyword arguments and the right HTTP method.
         url, args, kwargs = api.requests.pop()
         assert url.endswith(api.audiobook_metadata_endpoint)
-        eq_('POST', kwargs['method'])
-        eq_('Findaway content ID', kwargs['params']['fndcontentid'])
+        assert 'POST' == kwargs['method']
+        assert 'Findaway content ID' == kwargs['params']['fndcontentid']
 
     def test_update_book(self):
         # Verify that the update_book method takes a Metadata and a
@@ -644,19 +642,19 @@ class TestAxis360API(Axis360Test):
             analytics=analytics
         )
         # A new LicensePool and Edition were created.
-        eq_(True, lp_new)
-        eq_(True, e_new)
+        assert True == lp_new
+        assert True == e_new
 
         # The LicensePool reflects what it said in AVAILABILITY_DATA
-        eq_(9, lp.licenses_owned)
+        assert 9 == lp.licenses_owned
 
         # There's a presentation-ready Work created for the
         # LicensePool.
-        eq_(True, lp.work.presentation_ready)
-        eq_(e, lp.work.presentation_edition)
+        assert True == lp.work.presentation_ready
+        assert e == lp.work.presentation_edition
 
         # The Edition reflects what it said in BIBLIOGRAPHIC_DATA
-        eq_(u'Faith of My Fathers : A Family Memoir', e.title)
+        assert u'Faith of My Fathers : A Family Memoir' == e.title
 
         # Three analytics events were sent out.
         #
@@ -664,7 +662,7 @@ class TestAxis360API(Axis360Test):
         # 1. The creation of the LicensePool
         # 2. The setting of licenses_owned to 9
         # 3. The setting of licenses_available to 8
-        eq_(3, analytics.count)
+        assert 3 == analytics.count
 
         # Now change a bit of the data and call the method again.
         new_circulation = CirculationData(
@@ -681,20 +679,20 @@ class TestAxis360API(Axis360Test):
 
         # The same LicensePool and Edition are returned -- no new ones
         # are created.
-        eq_(e2, e)
-        eq_(False, e_new)
-        eq_(lp2, lp)
-        eq_(False, lp_new)
+        assert e2 == e
+        assert False == e_new
+        assert lp2 == lp
+        assert False == lp_new
 
         # The LicensePool has been updated to reflect the new
         # CirculationData
-        eq_(8, lp.licenses_owned)
-        eq_(7, lp.licenses_available)
+        assert 8 == lp.licenses_owned
+        assert 7 == lp.licenses_available
 
         # Two more circulation events have been sent out -- one for
         # the licenses_owned change and one for the licenses_available
         # change.
-        eq_(5, analytics.count)
+        assert 5 == analytics.count
 
 
 class TestCirculationMonitor(Axis360Test):
@@ -710,7 +708,7 @@ class TestCirculationMonitor(Axis360Test):
         monitor.run()
         start, cutoff, progress = monitor.called_with
         now = datetime.datetime.utcnow()
-        eq_(monitor.DEFAULT_START_TIME, start)
+        assert monitor.DEFAULT_START_TIME == start
         assert (now - cutoff).total_seconds() < 2
 
         # The second time run() is called, catch_up_from() is asked
@@ -720,7 +718,7 @@ class TestCirculationMonitor(Axis360Test):
         new_start, new_cutoff, new_progress = monitor.called_with
         now = datetime.datetime.utcnow()
         before_old_cutoff = cutoff - monitor.OVERLAP
-        eq_(before_old_cutoff, new_start)
+        assert before_old_cutoff == new_start
         assert (now - new_cutoff).total_seconds() < 2
 
     def test_catch_up_from(self):
@@ -741,14 +739,14 @@ class TestCirculationMonitor(Axis360Test):
         monitor.catch_up_from("start", "cutoff", progress)
 
         # The start time was passed into recent_activity.
-        eq_("start", monitor.api.recent_activity_called_with)
+        assert "start" == monitor.api.recent_activity_called_with
 
         # process_book was called on each item returned by recent_activity.
-        eq_([(1,"a"),(2, "b")], monitor.processed)
+        assert [(1,"a"),(2, "b")] == monitor.processed
 
         # The number of books processed was stored in
         # TimestampData.achievements.
-        eq_("Modified titles: 2.", progress.achievements)
+        assert "Modified titles: 2." == progress.achievements
 
     def test_process_book(self):
         integration, ignore = create(
@@ -762,47 +760,46 @@ class TestCirculationMonitor(Axis360Test):
         )
         edition, license_pool = monitor.process_book(
             self.BIBLIOGRAPHIC_DATA, self.AVAILABILITY_DATA)
-        eq_(u'Faith of My Fathers : A Family Memoir', edition.title)
-        eq_(u'eng', edition.language)
-        eq_(u'Random House Inc', edition.publisher)
-        eq_(u'Random House Inc2', edition.imprint)
+        assert u'Faith of My Fathers : A Family Memoir' == edition.title
+        assert u'eng' == edition.language
+        assert u'Random House Inc' == edition.publisher
+        assert u'Random House Inc2' == edition.imprint
 
-        eq_(Identifier.AXIS_360_ID, edition.primary_identifier.type)
-        eq_(u'0003642860', edition.primary_identifier.identifier)
+        assert Identifier.AXIS_360_ID == edition.primary_identifier.type
+        assert u'0003642860' == edition.primary_identifier.identifier
 
         [isbn] = [x for x in edition.equivalent_identifiers()
                   if x is not edition.primary_identifier]
-        eq_(Identifier.ISBN, isbn.type)
-        eq_(u'9780375504587', isbn.identifier)
+        assert Identifier.ISBN == isbn.type
+        assert u'9780375504587' == isbn.identifier
 
-        eq_(["McCain, John", "Salter, Mark"],
-            sorted([x.sort_name for x in edition.contributors]),
-        )
+        assert (["McCain, John", "Salter, Mark"] ==
+            sorted([x.sort_name for x in edition.contributors]))
 
         subs = sorted(
             (x.subject.type, x.subject.identifier)
             for x in edition.primary_identifier.classifications
         )
-        eq_([(Subject.BISAC, u'BIOGRAPHY & AUTOBIOGRAPHY / Political'),
-             (Subject.FREEFORM_AUDIENCE, u'Adult')], subs)
+        assert [(Subject.BISAC, u'BIOGRAPHY & AUTOBIOGRAPHY / Political'),
+             (Subject.FREEFORM_AUDIENCE, u'Adult')] == subs
 
-        eq_(9, license_pool.licenses_owned)
-        eq_(8, license_pool.licenses_available)
-        eq_(0, license_pool.patrons_in_hold_queue)
-        eq_(datetime.datetime(2015, 5, 20, 2, 9, 8), license_pool.last_checked)
+        assert 9 == license_pool.licenses_owned
+        assert 8 == license_pool.licenses_available
+        assert 0 == license_pool.patrons_in_hold_queue
+        assert datetime.datetime(2015, 5, 20, 2, 9, 8) == license_pool.last_checked
 
         # Three circulation events were created, backdated to the
         # last_checked date of the license pool.
         events = license_pool.circulation_events
-        eq_([u'distributor_title_add', u'distributor_check_in', u'distributor_license_add'],
+        assert ([u'distributor_title_add', u'distributor_check_in', u'distributor_license_add'] ==
             [x.type for x in events])
         for e in events:
-            eq_(e.start, license_pool.last_checked)
+            assert e.start == license_pool.last_checked
 
         # A presentation-ready work has been created for the LicensePool.
         work = license_pool.work
-        eq_(True, work.presentation_ready)
-        eq_("Faith of My Fathers : A Family Memoir", work.title)
+        assert True == work.presentation_ready
+        assert "Faith of My Fathers : A Family Memoir" == work.title
 
         # A CoverageRecord has been provided for this book in the Axis
         # 360 bibliographic coverage provider, so that in the future
@@ -811,7 +808,7 @@ class TestCirculationMonitor(Axis360Test):
         records = [x for x in license_pool.identifier.coverage_records
                    if x.data_source.name == DataSource.AXIS_360
                    and x.operation is None]
-        eq_(1, len(records))
+        assert 1 == len(records)
 
         # Now, another collection with the same book shows up.
         collection2 = MockAxis360API.mock_collection(self._db, "coll2")
@@ -823,8 +820,8 @@ class TestCirculationMonitor(Axis360Test):
 
         # Both license pools have the same Work and the same presentation
         # edition.
-        eq_(license_pool.work, license_pool2.work)
-        eq_(license_pool.presentation_edition, license_pool2.presentation_edition)
+        assert license_pool.work == license_pool2.work
+        assert license_pool.presentation_edition == license_pool2.presentation_edition
 
     def test_process_book_updates_old_licensepool(self):
         """If the LicensePool already exists, the circulation monitor
@@ -836,7 +833,7 @@ class TestCirculationMonitor(Axis360Test):
         )
         # We start off with availability information based on the
         # default for test data.
-        eq_(1, licensepool.licenses_owned)
+        assert 1 == licensepool.licenses_owned
 
         identifier = IdentifierData(
             type=licensepool.identifier.type,
@@ -851,7 +848,7 @@ class TestCirculationMonitor(Axis360Test):
         )
 
         # Now we have information based on the CirculationData.
-        eq_(9, licensepool.licenses_owned)
+        assert 9 == licensepool.licenses_owned
 
 
 class TestReaper(Axis360Test):
@@ -875,26 +872,26 @@ class TestParsers(Axis360Test):
             False, True).process_all(data)
 
         # We didn't ask for availability information, so none was provided.
-        eq_(None, av1)
-        eq_(None, av2)
+        assert None == av1
+        assert None == av2
 
-        eq_(u'Faith of My Fathers : A Family Memoir', bib1.title)
-        eq_('eng', bib1.language)
-        eq_(datetime.datetime(2000, 3, 7, 0, 0), bib1.published)
+        assert u'Faith of My Fathers : A Family Memoir' == bib1.title
+        assert 'eng' == bib1.language
+        assert datetime.datetime(2000, 3, 7, 0, 0) == bib1.published
 
-        eq_(u'Simon & Schuster', bib2.publisher)
-        eq_(u'Pocket Books', bib2.imprint)
+        assert u'Simon & Schuster' == bib2.publisher
+        assert u'Pocket Books' == bib2.imprint
 
-        eq_(Edition.BOOK_MEDIUM, bib1.medium)
+        assert Edition.BOOK_MEDIUM == bib1.medium
 
         # TODO: Would be nicer if we could test getting a real value
         # for this.
-        eq_(None, bib2.series)
+        assert None == bib2.series
 
         # Book #1 has two links -- a description and a cover image.
         [description, cover] = bib1.links
-        eq_(Hyperlink.DESCRIPTION, description.rel)
-        eq_(Representation.TEXT_PLAIN, description.media_type)
+        assert Hyperlink.DESCRIPTION == description.rel
+        assert Representation.TEXT_PLAIN == description.media_type
         assert description.content.startswith(
             "John McCain's deeply moving memoir"
         )
@@ -903,15 +900,15 @@ class TestParsers(Axis360Test):
         # service, where we get a thumbnail-sized image URL in the
         # Axis 360 API response and we can hack the URL to get the
         # full-sized image URL.
-        eq_(LinkRelations.IMAGE, cover.rel)
-        eq_("http://contentcafecloud.baker-taylor.com/Jacket.svc/D65D0665-050A-487B-9908-16E6D8FF5C3E/9780375504587/Large/Empty",
+        assert LinkRelations.IMAGE == cover.rel
+        assert ("http://contentcafecloud.baker-taylor.com/Jacket.svc/D65D0665-050A-487B-9908-16E6D8FF5C3E/9780375504587/Large/Empty" ==
             cover.href)
-        eq_(MediaTypes.JPEG_MEDIA_TYPE, cover.media_type)
+        assert MediaTypes.JPEG_MEDIA_TYPE == cover.media_type
 
-        eq_(LinkRelations.THUMBNAIL_IMAGE, cover.thumbnail.rel)
-        eq_("http://contentcafecloud.baker-taylor.com/Jacket.svc/D65D0665-050A-487B-9908-16E6D8FF5C3E/9780375504587/Medium/Empty",
+        assert LinkRelations.THUMBNAIL_IMAGE == cover.thumbnail.rel
+        assert ("http://contentcafecloud.baker-taylor.com/Jacket.svc/D65D0665-050A-487B-9908-16E6D8FF5C3E/9780375504587/Medium/Empty" ==
             cover.thumbnail.href)
-        eq_(MediaTypes.JPEG_MEDIA_TYPE, cover.thumbnail.media_type)
+        assert MediaTypes.JPEG_MEDIA_TYPE == cover.thumbnail.media_type
 
 
         # Book #1 has a primary author, another author and a narrator.
@@ -920,38 +917,38 @@ class TestParsers(Axis360Test):
         # verified that Axis 360 sends narrator information in the
         # same format as author information.
         [cont1, cont2, narrator] = bib1.contributors
-        eq_("McCain, John", cont1.sort_name)
-        eq_([Contributor.PRIMARY_AUTHOR_ROLE], cont1.roles)
+        assert "McCain, John" == cont1.sort_name
+        assert [Contributor.PRIMARY_AUTHOR_ROLE] == cont1.roles
 
-        eq_("Salter, Mark", cont2.sort_name)
-        eq_([Contributor.AUTHOR_ROLE], cont2.roles)
+        assert "Salter, Mark" == cont2.sort_name
+        assert [Contributor.AUTHOR_ROLE] == cont2.roles
 
-        eq_("McCain, John S. III", narrator.sort_name)
-        eq_([Contributor.NARRATOR_ROLE], narrator.roles)
+        assert "McCain, John S. III" == narrator.sort_name
+        assert [Contributor.NARRATOR_ROLE] == narrator.roles
 
         # Book #2 only has a primary author.
         [cont] = bib2.contributors
-        eq_("Pollero, Rhonda", cont.sort_name)
-        eq_([Contributor.PRIMARY_AUTHOR_ROLE], cont.roles)
+        assert "Pollero, Rhonda" == cont.sort_name
+        assert [Contributor.PRIMARY_AUTHOR_ROLE] == cont.roles
 
         axis_id, isbn = sorted(bib1.identifiers, key=lambda x: x.identifier)
-        eq_(u'0003642860', axis_id.identifier)
-        eq_(u'9780375504587', isbn.identifier)
+        assert u'0003642860' == axis_id.identifier
+        assert u'9780375504587' == isbn.identifier
 
         # Check the subjects for #2 because it includes an audience,
         # unlike #1.
         subjects = sorted(bib2.subjects, key = lambda x: x.identifier)
-        eq_([Subject.BISAC, Subject.BISAC, Subject.BISAC,
-             Subject.AXIS_360_AUDIENCE], [x.type for x in subjects])
+        assert [Subject.BISAC, Subject.BISAC, Subject.BISAC,
+             Subject.AXIS_360_AUDIENCE] == [x.type for x in subjects]
         general_fiction, women_sleuths, romantic_suspense = sorted([
             x.name for x in subjects if x.type==Subject.BISAC])
-        eq_(u'FICTION / General', general_fiction)
-        eq_(u'FICTION / Mystery & Detective / Women Sleuths', women_sleuths)
-        eq_(u'FICTION / Romance / Suspense', romantic_suspense)
+        assert u'FICTION / General' == general_fiction
+        assert u'FICTION / Mystery & Detective / Women Sleuths' == women_sleuths
+        assert u'FICTION / Romance / Suspense' == romantic_suspense
 
         [adult] = [x.identifier for x in subjects
                    if x.type==Subject.AXIS_360_AUDIENCE]
-        eq_(u'General Adult', adult)
+        assert u'General Adult' == adult
 
         # The second book has a cover image simulating some possible
         # future case, where B&T change their cover service so that
@@ -959,27 +956,27 @@ class TestParsers(Axis360Test):
         # the image URL as both the full-sized image and the
         # thumbnail.
         [cover] = bib2.links
-        eq_(LinkRelations.IMAGE, cover.rel)
-        eq_("http://some-other-server/image.jpg", cover.href)
-        eq_(MediaTypes.JPEG_MEDIA_TYPE, cover.media_type)
+        assert LinkRelations.IMAGE == cover.rel
+        assert "http://some-other-server/image.jpg" == cover.href
+        assert MediaTypes.JPEG_MEDIA_TYPE == cover.media_type
 
-        eq_(LinkRelations.THUMBNAIL_IMAGE, cover.thumbnail.rel)
-        eq_("http://some-other-server/image.jpg", cover.thumbnail.href)
-        eq_(MediaTypes.JPEG_MEDIA_TYPE, cover.thumbnail.media_type)
+        assert LinkRelations.THUMBNAIL_IMAGE == cover.thumbnail.rel
+        assert "http://some-other-server/image.jpg" == cover.thumbnail.href
+        assert MediaTypes.JPEG_MEDIA_TYPE == cover.thumbnail.media_type
 
         # The first book is available in two formats -- "ePub" and "AxisNow"
         [adobe, axisnow] = bib1.circulation.formats
-        eq_(Representation.EPUB_MEDIA_TYPE, adobe.content_type)
-        eq_(DeliveryMechanism.ADOBE_DRM, adobe.drm_scheme)
+        assert Representation.EPUB_MEDIA_TYPE == adobe.content_type
+        assert DeliveryMechanism.ADOBE_DRM == adobe.drm_scheme
 
-        eq_(None, axisnow.content_type)
-        eq_(DeliveryMechanism.AXISNOW_DRM, axisnow.drm_scheme)
+        assert None == axisnow.content_type
+        assert DeliveryMechanism.AXISNOW_DRM == axisnow.drm_scheme
 
         # The second book is available in 'Blio' format, which
         # is treated as an alternate name for 'AxisNow'
         [axisnow] = bib2.circulation.formats
-        eq_(None, axisnow.content_type)
-        eq_(DeliveryMechanism.AXISNOW_DRM, axisnow.drm_scheme)
+        assert None == axisnow.content_type
+        assert DeliveryMechanism.AXISNOW_DRM == axisnow.drm_scheme
 
     def test_bibliographic_parser_audiobook(self):
         # TODO - we need a real example to test from. The example we were
@@ -988,14 +985,14 @@ class TestParsers(Axis360Test):
         data = self.sample_data("availability_with_audiobook_fulfillment.xml")
 
         [[bib, av]] = BibliographicParser(False, True).process_all(data)
-        eq_("Back Spin", bib.title)
-        eq_(Edition.AUDIO_MEDIUM, bib.medium)
+        assert "Back Spin" == bib.title
+        assert Edition.AUDIO_MEDIUM == bib.medium
 
         # The audiobook has one DeliveryMechanism, in which the Findaway licensing document
         # acts as both the content type and the DRM scheme.
         [findaway] = bib.circulation.formats
-        eq_(None, findaway.content_type)
-        eq_(DeliveryMechanism.FINDAWAY_DRM, findaway.drm_scheme)
+        assert None == findaway.content_type
+        assert DeliveryMechanism.FINDAWAY_DRM == findaway.drm_scheme
 
         # Although the audiobook is also available in the "AxisNow"
         # format, no second delivery mechanism was created for it, the
@@ -1011,10 +1008,10 @@ class TestParsers(Axis360Test):
         [[bib, av]] = BibliographicParser(False, True).process_all(data)
 
         # A book in Blio format is treated as an AxisNow ebook.
-        eq_(Edition.BOOK_MEDIUM, bib.medium)
+        assert Edition.BOOK_MEDIUM == bib.medium
         [axisnow] = bib.circulation.formats
-        eq_(None, axisnow.content_type)
-        eq_(DeliveryMechanism.AXISNOW_DRM, axisnow.drm_scheme)
+        assert None == axisnow.content_type
+        assert DeliveryMechanism.AXISNOW_DRM == axisnow.drm_scheme
 
     def test_bibliographic_parser_blio_and_axisnow_format(self):
         # This book is available as both 'Blio' and 'AxisNow'.
@@ -1024,10 +1021,10 @@ class TestParsers(Axis360Test):
         [[bib, av]] = BibliographicParser(False, True).process_all(data)
 
         # There is only one FormatData -- 'Blio' and 'AxisNow' mean the same thing.
-        eq_(Edition.BOOK_MEDIUM, bib.medium)
+        assert Edition.BOOK_MEDIUM == bib.medium
         [axisnow] = bib.circulation.formats
-        eq_(None, axisnow.content_type)
-        eq_(DeliveryMechanism.AXISNOW_DRM, axisnow.drm_scheme)
+        assert None == axisnow.content_type
+        assert DeliveryMechanism.AXISNOW_DRM == axisnow.drm_scheme
 
     def test_bibliographic_parser_unsupported_format(self):
         data = self.sample_data("availability_with_audiobook_fulfillment.xml")
@@ -1037,38 +1034,38 @@ class TestParsers(Axis360Test):
         [[bib, av]] = BibliographicParser(False, True).process_all(data)
 
         # We don't support any of the formats, so no FormatData objects were created.
-        eq_([], bib.circulation.formats)
+        assert [] == bib.circulation.formats
 
     def test_parse_author_role(self):
         """Suffixes on author names are turned into roles."""
         author = "Dyssegaard, Elisabeth Kallick (TRN)"
         parse = BibliographicParser.parse_contributor
         c = parse(author)
-        eq_("Dyssegaard, Elisabeth Kallick", c.sort_name)
-        eq_([Contributor.TRANSLATOR_ROLE], c.roles)
+        assert "Dyssegaard, Elisabeth Kallick" == c.sort_name
+        assert [Contributor.TRANSLATOR_ROLE] == c.roles
 
         # A corporate author is given a normal author role.
         author = "Bob, Inc. (COR)"
         c = parse(author, primary_author_found=False)
-        eq_("Bob, Inc.", c.sort_name)
-        eq_([Contributor.PRIMARY_AUTHOR_ROLE], c.roles)
+        assert "Bob, Inc." == c.sort_name
+        assert [Contributor.PRIMARY_AUTHOR_ROLE] == c.roles
 
         c = parse(author, primary_author_found=True)
-        eq_("Bob, Inc.", c.sort_name)
-        eq_([Contributor.AUTHOR_ROLE], c.roles)
+        assert "Bob, Inc." == c.sort_name
+        assert [Contributor.AUTHOR_ROLE] == c.roles
 
         # An unknown author type is given an unknown role
         author = "Eve, Mallory (ZZZ)"
         c = parse(author, primary_author_found=False)
-        eq_("Eve, Mallory", c.sort_name)
-        eq_([Contributor.UNKNOWN_ROLE], c.roles)
+        assert "Eve, Mallory" == c.sort_name
+        assert [Contributor.UNKNOWN_ROLE] == c.roles
 
         # force_role overwrites whatever other role might be
         # assigned.
         author = "Bob, Inc. (COR)"
         c = parse(author, primary_author_found=False,
                   force_role=Contributor.NARRATOR_ROLE)
-        eq_([Contributor.NARRATOR_ROLE], c.roles)
+        assert [Contributor.NARRATOR_ROLE] == c.roles
 
 
     def test_availability_parser(self):
@@ -1082,13 +1079,13 @@ class TestParsers(Axis360Test):
             True, False).process_all(data)
 
         # We didn't ask for bibliographic information, so none was provided.
-        eq_(None, bib1)
-        eq_(None, bib2)
+        assert None == bib1
+        assert None == bib2
 
-        eq_("0003642860", av1.primary_identifier(self._db).identifier)
-        eq_(9, av1.licenses_owned)
-        eq_(9, av1.licenses_available)
-        eq_(0, av1.patrons_in_hold_queue)
+        assert "0003642860" == av1.primary_identifier(self._db).identifier
+        assert 9 == av1.licenses_owned
+        assert 9 == av1.licenses_available
+        assert 0 == av1.patrons_in_hold_queue
 
 
 class BaseParserTest(object):
@@ -1144,16 +1141,16 @@ class TestCheckoutResponseParser(TestResponseParser):
         parser = CheckoutResponseParser(self._default_collection)
         parsed = parser.process_all(data)
         assert isinstance(parsed, LoanInfo)
-        eq_(self._default_collection.id, parsed.collection_id)
-        eq_(DataSource.AXIS_360, parsed.data_source_name)
-        eq_(Identifier.AXIS_360_ID, parsed.identifier_type)
-        eq_(datetime.datetime(2015, 8, 11, 18, 57, 42),
+        assert self._default_collection.id == parsed.collection_id
+        assert DataSource.AXIS_360 == parsed.data_source_name
+        assert Identifier.AXIS_360_ID == parsed.identifier_type
+        assert (datetime.datetime(2015, 8, 11, 18, 57, 42) ==
             parsed.end_date)
 
         # There is no FulfillmentInfo associated with the LoanInfo,
         # because we don't need it (checkout and fulfillment are
         # separate steps).
-        eq_(parsed.fulfillment_info, None)
+        assert parsed.fulfillment_info == None
 
     def test_parse_already_checked_out(self):
         data = self.sample_data("already_checked_out.xml")
@@ -1172,11 +1169,11 @@ class TestHoldResponseParser(TestResponseParser):
         parser = HoldResponseParser(self._default_collection)
         parsed = parser.process_all(data)
         assert isinstance(parsed, HoldInfo)
-        eq_(1, parsed.hold_position)
+        assert 1 == parsed.hold_position
 
         # The HoldInfo is given the Collection object we passed into
         # the HoldResponseParser.
-        eq_(self._default_collection.id, parsed.collection_id)
+        assert self._default_collection.id == parsed.collection_id
 
     def test_parse_already_on_hold(self):
         data = self.sample_data("already_on_hold.xml")
@@ -1188,7 +1185,7 @@ class TestHoldReleaseResponseParser(TestResponseParser):
     def test_success(self):
         data = self.sample_data("release_hold_success.xml")
         parser = HoldReleaseResponseParser(None)
-        eq_(True, parser.process_all(data))
+        assert True == parser.process_all(data)
 
     def test_failure(self):
         data = self.sample_data("release_hold_failure.xml")
@@ -1206,31 +1203,31 @@ class TestAvailabilityResponseParser(Axis360Test, BaseParserTest):
         parser = AvailabilityResponseParser(self.api)
         activity = list(parser.process_all(data))
         hold, loan, reserved = sorted(activity, key=lambda x: x.identifier)
-        eq_(self.api.collection.id, hold.collection_id)
-        eq_(Identifier.AXIS_360_ID, hold.identifier_type)
-        eq_("0012533119", hold.identifier)
-        eq_(1, hold.hold_position)
-        eq_(None, hold.end_date)
+        assert self.api.collection.id == hold.collection_id
+        assert Identifier.AXIS_360_ID == hold.identifier_type
+        assert "0012533119" == hold.identifier
+        assert 1 == hold.hold_position
+        assert None == hold.end_date
 
-        eq_(self.api.collection.id, loan.collection_id)
-        eq_("0015176429", loan.identifier)
-        eq_("http://fulfillment/", loan.fulfillment_info.content_link)
-        eq_(datetime.datetime(2015, 8, 12, 17, 40, 27), loan.end_date)
+        assert self.api.collection.id == loan.collection_id
+        assert "0015176429" == loan.identifier
+        assert "http://fulfillment/" == loan.fulfillment_info.content_link
+        assert datetime.datetime(2015, 8, 12, 17, 40, 27) == loan.end_date
 
-        eq_(self.api.collection.id, reserved.collection_id)
-        eq_("1111111111", reserved.identifier)
-        eq_(datetime.datetime(2015, 1, 1, 13, 11, 11), reserved.end_date)
-        eq_(0, reserved.hold_position)
+        assert self.api.collection.id == reserved.collection_id
+        assert "1111111111" == reserved.identifier
+        assert datetime.datetime(2015, 1, 1, 13, 11, 11) == reserved.end_date
+        assert 0 == reserved.hold_position
 
     def test_parse_loan_no_availability(self):
         data = self.sample_data("availability_without_fulfillment.xml")
         parser = AvailabilityResponseParser(self.api)
         [loan] = list(parser.process_all(data))
 
-        eq_(self.api.collection.id, loan.collection_id)
-        eq_("0015176429", loan.identifier)
-        eq_(None, loan.fulfillment_info)
-        eq_(datetime.datetime(2015, 8, 12, 17, 40, 27), loan.end_date)
+        assert self.api.collection.id == loan.collection_id
+        assert "0015176429" == loan.identifier
+        assert None == loan.fulfillment_info
+        assert datetime.datetime(2015, 8, 12, 17, 40, 27) == loan.end_date
 
     def test_parse_audiobook_availability(self):
         data = self.sample_data("availability_with_audiobook_fulfillment.xml")
@@ -1243,10 +1240,10 @@ class TestAvailabilityResponseParser(Axis360Test, BaseParserTest):
         # need to make a manifest for this book, the key will be used
         # in two more API requests. (See TestAudiobookFulfillmentInfo
         # for that.)
-        eq_("C3F71F8D-1883-2B34-061F-96570678AEB0", fulfillment.key)
+        assert "C3F71F8D-1883-2B34-061F-96570678AEB0" == fulfillment.key
 
         # The API object is present in the FulfillmentInfo and ready to go.
-        eq_(self.api, fulfillment.api)
+        assert self.api == fulfillment.api
 
     def test_parse_ebook_availability(self):
         # AvailabilityResponseParser will behave differently depending on whether
@@ -1263,7 +1260,7 @@ class TestAvailabilityResponseParser(Axis360Test, BaseParserTest):
         # as its content_link.
         assert isinstance(fulfillment, FulfillmentInfo)
         assert not isinstance(fulfillment, Axis360FulfillmentInfo)
-        eq_("http://adobe.acsm/", fulfillment.content_link)
+        assert "http://adobe.acsm/" == fulfillment.content_link
 
         # Next ask for AxisNow -- this will be more like
         # test_parse_audiobook_availability, since it requires an
@@ -1273,11 +1270,11 @@ class TestAvailabilityResponseParser(Axis360Test, BaseParserTest):
         [availability] = list(axisnow_parser.process_all(data))
         fulfillment = availability.fulfillment_info
         assert isinstance(fulfillment, Axis360FulfillmentInfo)
-        eq_("6670197A-D264-447A-86C7-E4CB829C0236", fulfillment.key)
+        assert "6670197A-D264-447A-86C7-E4CB829C0236" == fulfillment.key
 
         # The API object is present in the FulfillmentInfo and ready to go
         # make that extra request.
-        eq_(self.api, fulfillment.api)
+        assert self.api == fulfillment.api
 
 
 class TestJSONResponseParser(object):
@@ -1287,7 +1284,7 @@ class TestJSONResponseParser(object):
         parsed = dict(key="value")
 
         # If the value is present, _required_key acts just like get().
-        eq_("value", m("key", parsed))
+        assert "value" == m("key", parsed)
 
         # If not, it raises a RemoteInitiatedServerError.
         assert_raises_regexp(
@@ -1337,17 +1334,15 @@ class TestJSONResponseParser(object):
         # The JSON will be parsed and passed in to _parse(); all other
         # arguments to parse() will be passed through to _parse().
         result = parser.parse(json.dumps(doc), "value1", arg2="value2")
-        eq_("success", result)
-        eq_(
-            (doc, ("value1",), dict(arg2="value2")),
-            parser.called_with
-        )
+        assert "success" == result
+        assert (
+            (doc, ("value1",), dict(arg2="value2")) ==
+            parser.called_with)
 
         # It also works if the JSON was already parsed.
         result = parser.parse(doc, "new_value")
-        eq_(
-            (doc, ("new_value",), {}), parser.called_with
-        )
+        assert (
+            (doc, ("new_value",), {}) == parser.called_with)
 
         # Non-JSON input causes an error.
         assert_raises_regexp(
@@ -1393,26 +1388,25 @@ class TestAxis360FulfillmentInfoResponseParser(Axis360Test):
 
         # The manifest contains information from the LicensePool's presentation
         # edition
-        eq_(edition.title, metadata['title'])
+        assert edition.title == metadata['title']
 
         # It contains DRM licensing information from Findaway via the
         # Axis 360 API.
         encrypted = metadata['encrypted']
-        eq_(
-            '0f547af1-38c1-4b1c-8a1a-169d353065d0',
-            encrypted['findaway:sessionKey']
-        )
-        eq_('5babb89b16a4ed7d8238f498', encrypted['findaway:checkoutId'])
-        eq_('04960', encrypted['findaway:fulfillmentId'])
-        eq_('58ee81c6d3d8eb3b05597cdc', encrypted['findaway:licenseId'])
+        assert (
+            '0f547af1-38c1-4b1c-8a1a-169d353065d0' ==
+            encrypted['findaway:sessionKey'])
+        assert '5babb89b16a4ed7d8238f498' == encrypted['findaway:checkoutId']
+        assert '04960' == encrypted['findaway:fulfillmentId']
+        assert '58ee81c6d3d8eb3b05597cdc' == encrypted['findaway:licenseId']
 
         # The spine items and duration have been filled in by the call to
         # the getaudiobookmetadata endpoint.
-        eq_(8150.87, metadata['duration'])
-        eq_(5, len(manifest.readingOrder))
+        assert 8150.87 == metadata['duration']
+        assert 5 == len(manifest.readingOrder)
 
         # We also know when the licensing document expires.
-        eq_(datetime.datetime(2018, 9, 29, 18, 34), expires)
+        assert datetime.datetime(2018, 9, 29, 18, 34) == expires
 
         # Now strategically remove required information from the
         # document and verify that extraction fails.
@@ -1463,7 +1457,7 @@ class TestAxis360FulfillmentInfoResponseParser(Axis360Test):
         manifest, expires = m(data, pool)
 
         assert isinstance(manifest, AxisNowManifest)
-        eq_({"book_vault_uuid": "1c11c31f-81c2-41bb-9179-491114c3f121", "isbn": "9780547351551"},
+        assert ({"book_vault_uuid": "1c11c31f-81c2-41bb-9179-491114c3f121", "isbn": "9780547351551"} ==
             json.loads(unicode(manifest)))
 
         # Try with a bad expiration date.
@@ -1492,16 +1486,15 @@ class TestAudiobookMetadataParser(Axis360Test):
         )
         account_id, spine_items = Mock(None)._parse(metadata)
 
-        eq_("An account ID", account_id)
-        eq_(["Spine item 1 (extracted)",
-             "Spine item 2 (extracted)"],
-            spine_items
-        )
+        assert "An account ID" == account_id
+        assert (["Spine item 1 (extracted)",
+             "Spine item 2 (extracted)"] ==
+            spine_items)
 
         # No data? Nothing will be parsed.
         account_id, spine_items = Mock(None)._parse({})
-        eq_(None, account_id)
-        eq_([], spine_items)
+        assert None == account_id
+        assert [] == spine_items
 
     def test__extract_spine_item(self):
         # _extract_spine_item will turn data from Findaway into
@@ -1513,20 +1506,20 @@ class TestAudiobookMetadataParser(Axis360Test):
             )
         )
         assert isinstance(item, SpineItem)
-        eq_("The Gathering Storm", item.title)
-        eq_(2, item.part)
-        eq_(3, item.sequence)
-        eq_(100.4, item.duration)
-        eq_(Representation.MP3_MEDIA_TYPE, item.media_type)
+        assert "The Gathering Storm" == item.title
+        assert 2 == item.part
+        assert 3 == item.sequence
+        assert 100.4 == item.duration
+        assert Representation.MP3_MEDIA_TYPE == item.media_type
 
         # We get a SpineItem even if all the data about the spine item
         # is missing -- these are the default values.
         item = m({})
-        eq_(None, item.title)
-        eq_(0, item.part)
-        eq_(0, item.sequence)
-        eq_(0, item.duration)
-        eq_(Representation.MP3_MEDIA_TYPE, item.media_type)
+        assert None == item.title
+        assert 0 == item.part
+        assert 0 == item.sequence
+        assert 0 == item.duration
+        assert Representation.MP3_MEDIA_TYPE == item.media_type
 
 
 class TestAxis360FulfillmentInfo(Axis360Test):
@@ -1553,14 +1546,14 @@ class TestAxis360FulfillmentInfo(Axis360Test):
             self.api, pool.data_source.name,
             identifier.type, identifier.identifier, 'transaction_id'
         )
-        eq_(None, fulfillment._content_type)
+        assert None == fulfillment._content_type
 
         # Turn the crank.
         fulfillment.fetch()
 
         # The Axis360FulfillmentInfo now contains a Findaway manifest
         # document.
-        eq_(DeliveryMechanism.FINDAWAY_DRM, fulfillment.content_type)
+        assert DeliveryMechanism.FINDAWAY_DRM == fulfillment.content_type
         assert isinstance(fulfillment.content, unicode)
 
         # The manifest document combines information from the
@@ -1573,9 +1566,8 @@ class TestAxis360FulfillmentInfo(Axis360Test):
 
         # The content expiration date also comes from the fulfillment
         # document.
-        eq_(
-            datetime.datetime(2018, 9, 29, 18, 34), fulfillment.content_expires
-        )
+        assert (
+            datetime.datetime(2018, 9, 29, 18, 34) == fulfillment.content_expires)
 
     def test_fetch_ebook(self):
         # When no Findaway information is present in the response from
@@ -1592,24 +1584,22 @@ class TestAxis360FulfillmentInfo(Axis360Test):
             self.api, pool.data_source.name,
             identifier.type, identifier.identifier, 'transaction_id'
         )
-        eq_(None, fulfillment._content_type)
+        assert None == fulfillment._content_type
 
         # Turn the crank.
         fulfillment.fetch()
 
         # The Axis360FulfillmentInfo now contains an AxisNow manifest
         # document derived from the fulfillment document.
-        eq_(DeliveryMechanism.AXISNOW_DRM, fulfillment.content_type)
-        eq_(
-            u'{"book_vault_uuid": "1c11c31f-81c2-41bb-9179-491114c3f121", "isbn": "9780547351551"}',
-            fulfillment.content
-        )
+        assert DeliveryMechanism.AXISNOW_DRM == fulfillment.content_type
+        assert (
+            u'{"book_vault_uuid": "1c11c31f-81c2-41bb-9179-491114c3f121", "isbn": "9780547351551"}' ==
+            fulfillment.content)
 
         # The content expiration date also comes from the fulfillment
         # document.
-        eq_(
-            datetime.datetime(2018, 9, 29, 18, 34), fulfillment.content_expires
-        )
+        assert (
+            datetime.datetime(2018, 9, 29, 18, 34) == fulfillment.content_expires)
 
 
 class TestAxisNowManifest(object):
@@ -1618,11 +1608,10 @@ class TestAxisNowManifest(object):
 
     def test_unicode(self):
         manifest = AxisNowManifest("A UUID", "An ISBN")
-        eq_(
-            u'{"book_vault_uuid": "A UUID", "isbn": "An ISBN"}',
-            unicode(manifest)
-        )
-        eq_(DeliveryMechanism.AXISNOW_DRM, manifest.MEDIA_TYPE)
+        assert (
+            u'{"book_vault_uuid": "A UUID", "isbn": "An ISBN"}' ==
+            unicode(manifest))
+        assert DeliveryMechanism.AXISNOW_DRM == manifest.MEDIA_TYPE
 
 
 class TestAxis360BibliographicCoverageProvider(Axis360Test):
@@ -1659,23 +1648,23 @@ class TestAxis360BibliographicCoverageProvider(Axis360Test):
         identifier.identifier = '0003642860'
 
         # This book has no LicensePool.
-        eq_([], identifier.licensed_through)
+        assert [] == identifier.licensed_through
 
         # Run it through the Axis360BibliographicCoverageProvider
         [result] = self.provider.process_batch([identifier])
-        eq_(identifier, result)
+        assert identifier == result
 
         # A LicensePool was created. We know both how many copies of this
         # book are available, and what formats it's available in.
         [pool] = identifier.licensed_through
-        eq_(9, pool.licenses_owned)
+        assert 9 == pool.licenses_owned
         [lpdm] = pool.delivery_mechanisms
-        eq_('application/epub+zip (application/vnd.adobe.adept+xml)',
+        assert ('application/epub+zip (application/vnd.adobe.adept+xml)' ==
             lpdm.delivery_mechanism.name)
 
         # A Work was created and made presentation ready.
-        eq_('Faith of My Fathers : A Family Memoir', pool.work.title)
-        eq_(True, pool.work.presentation_ready)
+        assert 'Faith of My Fathers : A Family Memoir' == pool.work.title
+        assert True == pool.work.presentation_ready
 
     def test_transient_failure_if_requested_book_not_mentioned(self):
         """Test an unrealistic case where we ask Axis 360 about one book and
@@ -1693,8 +1682,8 @@ class TestAxis360BibliographicCoverageProvider(Axis360Test):
 
         # Coverage failed for the book we asked about.
         assert isinstance(result, CoverageFailure)
-        eq_(identifier, result.obj)
-        eq_("Book not in collection", result.exception)
+        assert identifier == result.obj
+        assert "Book not in collection" == result.exception
 
         # And nothing major was done about the book we were told
         # about. We created an Identifier record for its identifier,
@@ -1702,5 +1691,5 @@ class TestAxis360BibliographicCoverageProvider(Axis360Test):
         wrong_identifier = Identifier.for_foreign_id(
             self._db, Identifier.AXIS_360_ID, "0003642860"
         )
-        eq_([], identifier.licensed_through)
-        eq_([], identifier.primarily_identifies)
+        assert [] == identifier.licensed_through
+        assert [] == identifier.primarily_identifies

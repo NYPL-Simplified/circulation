@@ -28,8 +28,8 @@ class TestDiscoveryServices(SettingsControllerTest):
             protocols = response.get("protocols")
             assert ExternalIntegration.OPDS_REGISTRATION in [p.get("name") for p in protocols]
             assert "settings" in protocols[0]
-            eq_(ExternalIntegration.OPDS_REGISTRATION, service.get("protocol"))
-            eq_("https://libraryregistry.librarysimplified.org/", service.get("settings").get(ExternalIntegration.URL))
+            assert ExternalIntegration.OPDS_REGISTRATION == service.get("protocol")
+            assert "https://libraryregistry.librarysimplified.org/" == service.get("settings").get(ExternalIntegration.URL)
 
             # Only system admins can see the discovery services.
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
@@ -51,9 +51,9 @@ class TestDiscoveryServices(SettingsControllerTest):
             response = controller.process_discovery_services()
             [service] = response.get("discovery_services")
 
-            eq_(discovery_service.id, service.get("id"))
-            eq_(discovery_service.protocol, service.get("protocol"))
-            eq_(discovery_service.url, service.get("settings").get(ExternalIntegration.URL))
+            assert discovery_service.id == service.get("id")
+            assert discovery_service.protocol == service.get("protocol")
+            assert discovery_service.url == service.get("settings").get(ExternalIntegration.URL)
 
     def test_discovery_services_post_errors(self):
         controller = self.manager.admin_discovery_services_controller
@@ -63,14 +63,14 @@ class TestDiscoveryServices(SettingsControllerTest):
                 ("protocol", "Unknown"),
             ])
             response = controller.process_discovery_services()
-            eq_(response, UNKNOWN_PROTOCOL)
+            assert response == UNKNOWN_PROTOCOL
 
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("name", "Name"),
             ])
             response = controller.process_discovery_services()
-            eq_(response, NO_PROTOCOL_FOR_NEW_SERVICE)
+            assert response == NO_PROTOCOL_FOR_NEW_SERVICE
 
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
@@ -79,7 +79,7 @@ class TestDiscoveryServices(SettingsControllerTest):
                 ("protocol", ExternalIntegration.OPDS_REGISTRATION),
             ])
             response = controller.process_discovery_services()
-            eq_(response, MISSING_SERVICE)
+            assert response == MISSING_SERVICE
 
         service, ignore = create(
             self._db, ExternalIntegration,
@@ -94,7 +94,7 @@ class TestDiscoveryServices(SettingsControllerTest):
                 ("protocol", ExternalIntegration.OPDS_REGISTRATION),
             ])
             response = controller.process_discovery_services()
-            eq_(response, INTEGRATION_NAME_ALREADY_IN_USE)
+            assert response == INTEGRATION_NAME_ALREADY_IN_USE
 
         existing_integration = self._external_integration(
             ExternalIntegration.OPDS_REGISTRATION,
@@ -108,7 +108,7 @@ class TestDiscoveryServices(SettingsControllerTest):
                 ("url", existing_integration.url)
             ])
             response = controller.process_discovery_services()
-            eq_(response, INTEGRATION_URL_ALREADY_IN_USE)
+            assert response == INTEGRATION_URL_ALREADY_IN_USE
 
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
@@ -116,7 +116,7 @@ class TestDiscoveryServices(SettingsControllerTest):
                 ("protocol", ExternalIntegration.OPDS_REGISTRATION),
             ])
             response = controller.process_discovery_services()
-            eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
+            assert response.uri == INCOMPLETE_CONFIGURATION.uri
 
         self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
         with self.request_context_with_admin("/", method="POST"):
@@ -135,12 +135,12 @@ class TestDiscoveryServices(SettingsControllerTest):
                 (ExternalIntegration.URL, "http://registry_url"),
             ])
             response = self.manager.admin_discovery_services_controller.process_discovery_services()
-            eq_(response.status_code, 201)
+            assert response.status_code == 201
 
         service = get_one(self._db, ExternalIntegration, goal=ExternalIntegration.DISCOVERY_GOAL)
-        eq_(service.id, int(response.response[0]))
-        eq_(ExternalIntegration.OPDS_REGISTRATION, service.protocol)
-        eq_("http://registry_url", service.url)
+        assert service.id == int(response.response[0])
+        assert ExternalIntegration.OPDS_REGISTRATION == service.protocol
+        assert "http://registry_url" == service.url
 
     def test_discovery_services_post_edit(self):
         discovery_service, ignore = create(
@@ -158,11 +158,11 @@ class TestDiscoveryServices(SettingsControllerTest):
                 (ExternalIntegration.URL, "http://new_registry_url"),
             ])
             response = self.manager.admin_discovery_services_controller.process_discovery_services()
-            eq_(response.status_code, 200)
+            assert response.status_code == 200
 
-        eq_(discovery_service.id, int(response.response[0]))
-        eq_(ExternalIntegration.OPDS_REGISTRATION, discovery_service.protocol)
-        eq_("http://new_registry_url", discovery_service.url)
+        assert discovery_service.id == int(response.response[0])
+        assert ExternalIntegration.OPDS_REGISTRATION == discovery_service.protocol
+        assert "http://new_registry_url" == discovery_service.url
 
     def test_check_name_unique(self):
        kwargs = dict(protocol=ExternalIntegration.OPDS_REGISTRATION,
@@ -176,19 +176,17 @@ class TestDiscoveryServices(SettingsControllerTest):
        # Try to change new service so that it has the same name as existing service
        # -- this is not allowed.
        result = m(new_service, existing_service.name)
-       eq_(result, INTEGRATION_NAME_ALREADY_IN_USE)
+       assert result == INTEGRATION_NAME_ALREADY_IN_USE
 
        # Try to edit existing service without changing its name -- this is fine.
-       eq_(
-           None,
-           m(existing_service, existing_service.name)
-       )
+       assert (
+           None ==
+           m(existing_service, existing_service.name))
 
        # Changing the existing service's name is also fine.
-       eq_(
-            None,
-            m(existing_service, "new name")
-       )
+       assert (
+            None ==
+            m(existing_service, "new name"))
 
     def test_discovery_service_delete(self):
         discovery_service, ignore = create(
@@ -206,7 +204,7 @@ class TestDiscoveryServices(SettingsControllerTest):
 
             self.admin.add_role(AdminRole.SYSTEM_ADMIN)
             response = self.manager.admin_discovery_services_controller.process_delete(discovery_service.id)
-            eq_(response.status_code, 200)
+            assert response.status_code == 200
 
         service = get_one(self._db, ExternalIntegration, id=discovery_service.id)
-        eq_(None, service)
+        assert None == service

@@ -38,4 +38,4 @@ class TestHasherFactory(object):
 
         result = hasher.hash(value)
 
-        eq_(result, expected_value)
+        assert result == expected_value

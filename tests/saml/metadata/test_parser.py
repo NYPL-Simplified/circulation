@@ -72,15 +72,14 @@ class TestSAMLMetadataParser(object):
         )
 
         # Assert
-        eq_(1, len(parsing_results))
+        assert 1 == len(parsing_results)
 
         [parsing_result] = parsing_results
-        eq_(True, isinstance(parsing_result, SAMLMetadataParsingResult))
-        eq_(True, isinstance(parsing_result.provider, SAMLIdentityProviderMetadata))
-        eq_(
-            True, isinstance(parsing_result.xml_node, defusedxml.lxml.RestrictedElement)
-        )
-        eq_(
+        assert True == isinstance(parsing_result, SAMLMetadataParsingResult)
+        assert True == isinstance(parsing_result.provider, SAMLIdentityProviderMetadata)
+        assert (
+            True == isinstance(parsing_result.xml_node, defusedxml.lxml.RestrictedElement))
+        assert (
             SAMLIdentityProviderMetadata(
                 entity_id=fixtures.IDP_1_ENTITY_ID,
                 ui_info=SAMLUIInfo(),
@@ -96,9 +95,8 @@ class TestSAMLMetadataParser(object):
                 encryption_certificates=[
                     fixtures.strip_certificate(fixtures.ENCRYPTION_CERTIFICATE)
                 ],
-            ),
-            parsing_result.provider,
-        )
+            ) ==
+            parsing_result.provider)
 
     def test_parse_correctly_parses_one_idp_metadata(self):
         # Arrange
@@ -108,15 +106,14 @@ class TestSAMLMetadataParser(object):
         parsing_results = metadata_parser.parse(fixtures.CORRECT_XML_WITH_IDP_1)
 
         # Assert
-        eq_(1, len(parsing_results))
+        assert 1 == len(parsing_results)
 
         [parsing_result] = parsing_results
-        eq_(True, isinstance(parsing_result, SAMLMetadataParsingResult))
-        eq_(True, isinstance(parsing_result.provider, SAMLIdentityProviderMetadata))
-        eq_(
-            True, isinstance(parsing_result.xml_node, defusedxml.lxml.RestrictedElement)
-        )
-        eq_(
+        assert True == isinstance(parsing_result, SAMLMetadataParsingResult)
+        assert True == isinstance(parsing_result.provider, SAMLIdentityProviderMetadata)
+        assert (
+            True == isinstance(parsing_result.xml_node, defusedxml.lxml.RestrictedElement))
+        assert (
             SAMLIdentityProviderMetadata(
                 entity_id=fixtures.IDP_1_ENTITY_ID,
                 ui_info=SAMLUIInfo(
@@ -184,9 +181,8 @@ class TestSAMLMetadataParser(object):
                 encryption_certificates=[
                     fixtures.strip_certificate(fixtures.ENCRYPTION_CERTIFICATE)
                 ],
-            ),
-            parsing_result.provider,
-        )
+            ) ==
+            parsing_result.provider)
 
     def test_parse_correctly_parses_idp_metadata_without_name_id_format(self):
         # Arrange
@@ -196,15 +192,14 @@ class TestSAMLMetadataParser(object):
         parsing_results = metadata_parser.parse(fixtures.CORRECT_XML_WITH_IDP_1)
 
         # Assert
-        eq_(1, len(parsing_results))
+        assert 1 == len(parsing_results)
 
         [parsing_result] = parsing_results
-        eq_(True, isinstance(parsing_result, SAMLMetadataParsingResult))
-        eq_(True, isinstance(parsing_result.provider, SAMLIdentityProviderMetadata))
-        eq_(
-            True, isinstance(parsing_result.xml_node, defusedxml.lxml.RestrictedElement)
-        )
-        eq_(
+        assert True == isinstance(parsing_result, SAMLMetadataParsingResult)
+        assert True == isinstance(parsing_result.provider, SAMLIdentityProviderMetadata)
+        assert (
+            True == isinstance(parsing_result.xml_node, defusedxml.lxml.RestrictedElement))
+        assert (
             SAMLIdentityProviderMetadata(
                 entity_id=fixtures.IDP_1_ENTITY_ID,
                 ui_info=SAMLUIInfo(
@@ -272,9 +267,8 @@ class TestSAMLMetadataParser(object):
                 encryption_certificates=[
                     fixtures.strip_certificate(fixtures.ENCRYPTION_CERTIFICATE)
                 ],
-            ),
-            parsing_result.provider,
-        )
+            ) ==
+            parsing_result.provider)
 
     def test_parse_correctly_parses_idp_metadata_with_one_certificate(self):
         # Arrange
@@ -286,15 +280,14 @@ class TestSAMLMetadataParser(object):
         )
 
         # Assert
-        eq_(1, len(parsing_results))
+        assert 1 == len(parsing_results)
         [parsing_result] = parsing_results
 
-        eq_(True, isinstance(parsing_result, SAMLMetadataParsingResult))
-        eq_(True, isinstance(parsing_result.provider, SAMLIdentityProviderMetadata))
-        eq_(
-            True, isinstance(parsing_result.xml_node, defusedxml.lxml.RestrictedElement)
-        )
-        eq_(
+        assert True == isinstance(parsing_result, SAMLMetadataParsingResult)
+        assert True == isinstance(parsing_result.provider, SAMLIdentityProviderMetadata)
+        assert (
+            True == isinstance(parsing_result.xml_node, defusedxml.lxml.RestrictedElement))
+        assert (
             SAMLIdentityProviderMetadata(
                 entity_id=fixtures.IDP_1_ENTITY_ID,
                 ui_info=SAMLUIInfo(
@@ -362,9 +355,8 @@ class TestSAMLMetadataParser(object):
                 encryption_certificates=[
                     fixtures.strip_certificate(fixtures.SIGNING_CERTIFICATE)
                 ],
-            ),
-            parsing_result.provider,
-        )
+            ) ==
+            parsing_result.provider)
 
     def test_parse_correctly_parses_metadata_with_multiple_descriptors(self):
         # Arrange
@@ -374,14 +366,13 @@ class TestSAMLMetadataParser(object):
         parsing_results = metadata_parser.parse(fixtures.CORRECT_XML_WITH_MULTIPLE_IDPS)
 
         # Assert
-        eq_(2, len(parsing_results))
-        eq_(True, isinstance(parsing_results[0], SAMLMetadataParsingResult))
-        eq_(True, isinstance(parsing_results[0].provider, SAMLIdentityProviderMetadata))
-        eq_(
-            True,
-            isinstance(parsing_results[0].xml_node, defusedxml.lxml.RestrictedElement),
-        )
-        eq_(
+        assert 2 == len(parsing_results)
+        assert True == isinstance(parsing_results[0], SAMLMetadataParsingResult)
+        assert True == isinstance(parsing_results[0].provider, SAMLIdentityProviderMetadata)
+        assert (
+            True ==
+            isinstance(parsing_results[0].xml_node, defusedxml.lxml.RestrictedElement))
+        assert (
             SAMLIdentityProviderMetadata(
                 entity_id=fixtures.IDP_1_ENTITY_ID,
                 ui_info=SAMLUIInfo(
@@ -433,17 +424,15 @@ class TestSAMLMetadataParser(object):
                 encryption_certificates=[
                     fixtures.strip_certificate(fixtures.ENCRYPTION_CERTIFICATE)
                 ],
-            ),
-            parsing_results[0].provider,
-        )
+            ) ==
+            parsing_results[0].provider)
 
-        eq_(True, isinstance(parsing_results[1], SAMLMetadataParsingResult))
-        eq_(True, isinstance(parsing_results[1].provider, SAMLIdentityProviderMetadata))
-        eq_(
-            True,
-            isinstance(parsing_results[1].xml_node, defusedxml.lxml.RestrictedElement),
-        )
-        eq_(
+        assert True == isinstance(parsing_results[1], SAMLMetadataParsingResult)
+        assert True == isinstance(parsing_results[1].provider, SAMLIdentityProviderMetadata)
+        assert (
+            True ==
+            isinstance(parsing_results[1].xml_node, defusedxml.lxml.RestrictedElement))
+        assert (
             SAMLIdentityProviderMetadata(
                 entity_id=fixtures.IDP_2_ENTITY_ID,
                 ui_info=SAMLUIInfo(
@@ -495,9 +484,8 @@ class TestSAMLMetadataParser(object):
                 encryption_certificates=[
                     fixtures.strip_certificate(fixtures.ENCRYPTION_CERTIFICATE)
                 ],
-            ),
-            parsing_results[1].provider,
-        )
+            ) ==
+            parsing_results[1].provider)
 
     @raises(SAMLMetadataParsingError)
     def test_parse_raises_exception_when_sp_metadata_does_not_contain_acs_service(self):
@@ -517,16 +505,15 @@ class TestSAMLMetadataParser(object):
         parsing_results = metadata_parser.parse(fixtures.CORRECT_XML_WITH_ONE_SP)
 
         # Assert
-        eq_(1, len(parsing_results))
+        assert 1 == len(parsing_results)
 
         [parsing_result] = parsing_results
-        eq_(True, isinstance(parsing_result, SAMLMetadataParsingResult))
-        eq_(True, isinstance(parsing_result.provider, SAMLServiceProviderMetadata))
-        eq_(
-            True, isinstance(parsing_result.xml_node, defusedxml.lxml.RestrictedElement)
-        )
+        assert True == isinstance(parsing_result, SAMLMetadataParsingResult)
+        assert True == isinstance(parsing_result.provider, SAMLServiceProviderMetadata)
+        assert (
+            True == isinstance(parsing_result.xml_node, defusedxml.lxml.RestrictedElement))
 
-        eq_(
+        assert (
             SAMLServiceProviderMetadata(
                 entity_id=fixtures.SP_ENTITY_ID,
                 ui_info=SAMLUIInfo(
@@ -582,9 +569,8 @@ class TestSAMLMetadataParser(object):
                 authn_requests_signed=False,
                 want_assertions_signed=False,
                 certificate=fixtures.strip_certificate(fixtures.SIGNING_CERTIFICATE),
-            ),
-            parsing_result.provider,
-        )
+            ) ==
+            parsing_result.provider)
 
 
 class TestSAMLSubjectParser(object):
@@ -743,4 +729,4 @@ class TestSAMLSubjectParser(object):
         result = parser.parse(auth)
 
         # Arrange
-        eq_(result, expected_result)
+        assert result == expected_result

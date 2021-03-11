@@ -155,11 +155,11 @@ class TestLoanlikeReaperMonitor(DatabaseTest):
             inactive_patron, start=a_long_time_ago, end=a_long_time_ago
         )
 
-        eq_(4, len(inactive_patron.loans))
-        eq_(3, len(inactive_patron.holds))
+        assert 4 == len(inactive_patron.loans)
+        assert 3 == len(inactive_patron.holds)
 
-        eq_(2, len(current_patron.loans))
-        eq_(2, len(current_patron.holds))
+        assert 2 == len(current_patron.loans)
+        assert 2 == len(current_patron.holds)
 
         # Now we fire up the loan reaper.
         monitor = LoanReaper(self._db)
@@ -171,14 +171,14 @@ class TestLoanlikeReaperMonitor(DatabaseTest):
         # which will never be reaped.
         #
         # Holds are unaffected.
-        eq_(set([open_access_loan, sot_loan]), set(inactive_patron.loans))
-        eq_(3, len(inactive_patron.holds))
+        assert set([open_access_loan, sot_loan]) == set(inactive_patron.loans)
+        assert 3 == len(inactive_patron.holds)
 
         # The active patron's loans and holds are unaffected, either
         # because they have not expired or because they have no known
         # expiration date and were created relatively recently.
-        eq_(2, len(current_patron.loans))
-        eq_(2, len(current_patron.holds))
+        assert 2 == len(current_patron.loans)
+        assert 2 == len(current_patron.holds)
 
         # Now fire up the hold reaper.
         monitor = HoldReaper(self._db)
@@ -187,8 +187,8 @@ class TestLoanlikeReaperMonitor(DatabaseTest):
         # All of the inactive patron's holds have been reaped,
         # except for the one from the source-of-truth collection.
         # The active patron is unaffected.
-        eq_([sot_hold], inactive_patron.holds)
-        eq_(2, len(current_patron.holds))
+        assert [sot_hold] == inactive_patron.holds
+        assert 2 == len(current_patron.holds)
 
 
 class TestIdlingAnnotationReaper(DatabaseTest):
@@ -249,4 +249,4 @@ class TestIdlingAnnotationReaper(DatabaseTest):
         )
         reaper = IdlingAnnotationReaper(self._db)
         qu = self._db.query(Annotation).filter(reaper.where_clause)
-        eq_([reapable], qu.all())
+        assert [reapable] == qu.all()

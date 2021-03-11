@@ -49,8 +49,8 @@ class TestImporterSubclasses(DatabaseTest):
         """Validate the status codes that different importers
         will treat as successes.
         """
-        eq_([200, 201, 202], RegistrarImporter.SUCCESS_STATUS_CODES)
-        eq_([200, 404], ReaperImporter.SUCCESS_STATUS_CODES)
+        assert [200, 201, 202] == RegistrarImporter.SUCCESS_STATUS_CODES
+        assert [200, 404] == ReaperImporter.SUCCESS_STATUS_CODES
 
 
 class TestOPDSImportCoverageProvider(DatabaseTest):
@@ -116,10 +116,10 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
         # We wanted to process id1. We sent id2 to the server, the
         # server responded with an <entry> for id2, and it was used to
         # modify the Edition associated with id1.
-        eq_(id1, identifier)
+        assert id1 == identifier
 
         [edition] = id1.primarily_identifies
-        eq_("Here's your title!", edition.title)
+        assert "Here's your title!" == edition.title
 
     def test_process_batch(self):
         provider = self._provider()
@@ -135,7 +135,7 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
             self._db, license_source, identifier.type, identifier.identifier,
             collection=self._default_collection
         )
-        eq_(None, pool.work)
+        assert None == pool.work
 
         # Here's a second Edition/LicensePool that's going to cause a
         # problem: the LicensePool will show up in the results, but
@@ -171,33 +171,33 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
         )
 
         # The fake batch was provided to lookup_and_import_batch.
-        eq_([fake_batch], provider.batches)
+        assert [fake_batch] == provider.batches
 
         # The matched Edition/LicensePool pair was returned.
-        eq_(success_import, edition.primary_identifier)
+        assert success_import == edition.primary_identifier
 
         # The LicensePool of that pair was passed into finalize_license_pool.
         # The mismatched LicensePool was not.
-        eq_([pool], provider.finalized)
+        assert [pool] == provider.finalized
 
         # The mismatched LicensePool turned into a CoverageFailure
         # object.
         assert isinstance(failure_mismatched, CoverageFailure)
-        eq_('OPDS import operation imported LicensePool, but no Edition.',
+        assert ('OPDS import operation imported LicensePool, but no Edition.' ==
             failure_mismatched.exception)
-        eq_(pool2.identifier, failure_mismatched.obj)
-        eq_(True, failure_mismatched.transient)
+        assert pool2.identifier == failure_mismatched.obj
+        assert True == failure_mismatched.transient
 
         # The OPDSMessage with status code 500 was returned as a
         # CoverageFailure object.
         assert isinstance(failure_message, CoverageFailure)
-        eq_("500: internal error", failure_message.exception)
-        eq_(error_identifier, failure_message.obj)
-        eq_(True, failure_message.transient)
+        assert "500: internal error" == failure_message.exception
+        assert error_identifier == failure_message.obj
+        assert True == failure_message.transient
 
         # The identifier that had a treat-as-success OPDSMessage was returned
         # as-is.
-        eq_(not_an_error_identifier, success_message)
+        assert not_an_error_identifier == success_message
 
     def test_process_batch_success_even_if_no_licensepool_exists(self):
         """This shouldn't happen since CollectionCoverageProvider
@@ -213,10 +213,10 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
 
         # The Edition's primary identifier was returned to indicate
         # success.
-        eq_(edition.primary_identifier, success)
+        assert edition.primary_identifier == success
 
         # However, since there is no LicensePool, nothing was finalized.
-        eq_([], provider.finalized)
+        assert [] == provider.finalized
 
     def test_process_item(self):
         """To process a single item we process a batch containing
@@ -227,8 +227,8 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
         provider.queue_import_results([edition], [], [], {})
         item = object()
         result = provider.process_item(item)
-        eq_(edition.primary_identifier, result)
-        eq_([[item]], provider.batches)
+        assert edition.primary_identifier == result
+        assert [[item]] == provider.batches
 
     def test_import_feed_response(self):
         """Verify that import_feed_response instantiates the
@@ -259,7 +259,7 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
         id_mapping = object()
         (text, collection, mapping,
          data_source_name) = provider.import_feed_response(response, id_mapping)
-        eq_("some data", text)
-        eq_(provider.collection, collection)
-        eq_(id_mapping, mapping)
-        eq_(provider.data_source.name, data_source_name)
+        assert "some data" == text
+        assert provider.collection == collection
+        assert id_mapping == mapping
+        assert provider.data_source.name == data_source_name

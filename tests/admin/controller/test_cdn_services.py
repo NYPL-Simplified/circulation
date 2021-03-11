@@ -19,7 +19,7 @@ class TestCDNServices(SettingsControllerTest):
     def test_cdn_services_get_with_no_services(self):
         with self.request_context_with_admin("/"):
             response = self.manager.admin_cdn_services_controller.process_cdn_services()
-            eq_(response.get("cdn_services"), [])
+            assert response.get("cdn_services") == []
             protocols = response.get("protocols")
             assert ExternalIntegration.CDN in [p.get("name") for p in protocols]
             assert "settings" in protocols[0]
@@ -42,16 +42,16 @@ class TestCDNServices(SettingsControllerTest):
             response = self.manager.admin_cdn_services_controller.process_cdn_services()
             [service] = response.get("cdn_services")
 
-            eq_(cdn_service.id, service.get("id"))
-            eq_(cdn_service.protocol, service.get("protocol"))
-            eq_("cdn url", service.get("settings").get(ExternalIntegration.URL))
-            eq_("mirrored domain", service.get("settings").get(Configuration.CDN_MIRRORED_DOMAIN_KEY))
+            assert cdn_service.id == service.get("id")
+            assert cdn_service.protocol == service.get("protocol")
+            assert "cdn url" == service.get("settings").get(ExternalIntegration.URL)
+            assert "mirrored domain" == service.get("settings").get(Configuration.CDN_MIRRORED_DOMAIN_KEY)
 
     def test_cdn_services_post_errors(self):
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([])
             response = self.manager.admin_cdn_services_controller.process_cdn_services()
-            eq_(response, INCOMPLETE_CONFIGURATION)
+            assert response == INCOMPLETE_CONFIGURATION
 
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
@@ -59,14 +59,14 @@ class TestCDNServices(SettingsControllerTest):
                 ("protocol", "Unknown"),
             ])
             response = self.manager.admin_cdn_services_controller.process_cdn_services()
-            eq_(response, UNKNOWN_PROTOCOL)
+            assert response == UNKNOWN_PROTOCOL
 
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("name", "Name"),
             ])
             response = self.manager.admin_cdn_services_controller.process_cdn_services()
-            eq_(response, NO_PROTOCOL_FOR_NEW_SERVICE)
+            assert response == NO_PROTOCOL_FOR_NEW_SERVICE
 
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
@@ -74,7 +74,7 @@ class TestCDNServices(SettingsControllerTest):
                 ("id", "123"),
             ])
             response = self.manager.admin_cdn_services_controller.process_cdn_services()
-            eq_(response, MISSING_SERVICE)
+            assert response == MISSING_SERVICE
 
         service, ignore = create(
             self._db, ExternalIntegration,
@@ -89,7 +89,7 @@ class TestCDNServices(SettingsControllerTest):
                 ("protocol", ExternalIntegration.CDN),
             ])
             response = self.manager.admin_cdn_services_controller.process_cdn_services()
-            eq_(response, INTEGRATION_NAME_ALREADY_IN_USE)
+            assert response == INTEGRATION_NAME_ALREADY_IN_USE
 
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
@@ -98,7 +98,7 @@ class TestCDNServices(SettingsControllerTest):
                 ("protocol", ExternalIntegration.CDN),
             ])
             response = self.manager.admin_cdn_services_controller.process_cdn_services()
-            eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
+            assert response.uri == INCOMPLETE_CONFIGURATION.uri
 
         self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
         with self.request_context_with_admin("/", method="POST"):
@@ -120,13 +120,13 @@ class TestCDNServices(SettingsControllerTest):
                 (Configuration.CDN_MIRRORED_DOMAIN_KEY, "mirrored domain"),
             ])
             response = self.manager.admin_cdn_services_controller.process_cdn_services()
-            eq_(response.status_code, 201)
+            assert response.status_code == 201
 
         service = get_one(self._db, ExternalIntegration, goal=ExternalIntegration.CDN_GOAL)
-        eq_(service.id, int(response.response[0]))
-        eq_(ExternalIntegration.CDN, service.protocol)
-        eq_("http://cdn_url", service.url)
-        eq_("mirrored domain", service.setting(Configuration.CDN_MIRRORED_DOMAIN_KEY).value)
+        assert service.id == int(response.response[0])
+        assert ExternalIntegration.CDN == service.protocol
+        assert "http://cdn_url" == service.url
+        assert "mirrored domain" == service.setting(Configuration.CDN_MIRRORED_DOMAIN_KEY).value
 
     def test_cdn_services_post_edit(self):
         cdn_service, ignore = create(
@@ -146,12 +146,12 @@ class TestCDNServices(SettingsControllerTest):
                 (Configuration.CDN_MIRRORED_DOMAIN_KEY, "new mirrored domain")
             ])
             response = self.manager.admin_cdn_services_controller.process_cdn_services()
-            eq_(response.status_code, 200)
+            assert response.status_code == 200
 
-        eq_(cdn_service.id, int(response.response[0]))
-        eq_(ExternalIntegration.CDN, cdn_service.protocol)
-        eq_("http://new_cdn_url", cdn_service.url)
-        eq_("new mirrored domain", cdn_service.setting(Configuration.CDN_MIRRORED_DOMAIN_KEY).value)
+        assert cdn_service.id == int(response.response[0])
+        assert ExternalIntegration.CDN == cdn_service.protocol
+        assert "http://new_cdn_url" == cdn_service.url
+        assert "new mirrored domain" == cdn_service.setting(Configuration.CDN_MIRRORED_DOMAIN_KEY).value
 
     def test_check_name_unique(self):
        kwargs = dict(protocol=ExternalIntegration.CDN,
@@ -165,19 +165,17 @@ class TestCDNServices(SettingsControllerTest):
        # Try to change new service so that it has the same name as existing service
        # -- this is not allowed.
        result = m(new_service, existing_service.name)
-       eq_(result, INTEGRATION_NAME_ALREADY_IN_USE)
+       assert result == INTEGRATION_NAME_ALREADY_IN_USE
 
        # Try to edit existing service without changing its name -- this is fine.
-       eq_(
-           None,
-           m(existing_service, existing_service.name)
-       )
+       assert (
+           None ==
+           m(existing_service, existing_service.name))
 
        # Changing the existing service's name is also fine.
-       eq_(
-            None,
-            m(existing_service, "new name")
-       )
+       assert (
+            None ==
+            m(existing_service, "new name"))
 
     def test_cdn_service_delete(self):
         cdn_service, ignore = create(
@@ -196,7 +194,7 @@ class TestCDNServices(SettingsControllerTest):
 
             self.admin.add_role(AdminRole.SYSTEM_ADMIN)
             response = self.manager.admin_cdn_services_controller.process_delete(cdn_service.id)
-            eq_(response.status_code, 200)
+            assert response.status_code == 200
 
         service = get_one(self._db, ExternalIntegration, id=cdn_service.id)
-        eq_(None, service)
+        assert None == service

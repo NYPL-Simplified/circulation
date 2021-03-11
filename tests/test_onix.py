@@ -27,34 +27,34 @@ class TestONIXExtractor(object):
         file = self.sample_data("onix_example.xml")
         metadata_records = ONIXExtractor().parse(StringIO(file), "MIT Press")
 
-        eq_(2, len(metadata_records))
+        assert 2 == len(metadata_records)
 
         record = metadata_records[0]
-        eq_("Safe Spaces, Brave Spaces", record.title)
-        eq_("Diversity and Free Expression in Education", record.subtitle)
-        eq_("Palfrey, John", record.contributors[0].sort_name)
-        eq_("John Palfrey", record.contributors[0].display_name)
-        eq_("Palfrey", record.contributors[0].family_name)
+        assert "Safe Spaces, Brave Spaces" == record.title
+        assert "Diversity and Free Expression in Education" == record.subtitle
+        assert "Palfrey, John" == record.contributors[0].sort_name
+        assert "John Palfrey" == record.contributors[0].display_name
+        assert "Palfrey" == record.contributors[0].family_name
         assert "Head of School at Phillips Academy" in record.contributors[0].biography
-        eq_("The MIT Press", record.publisher)
-        eq_(None, record.imprint)
-        eq_("9780262343664", record.primary_identifier.identifier)
-        eq_(Identifier.ISBN, record.primary_identifier.type)
-        eq_("eng", record.language)
+        assert "The MIT Press" == record.publisher
+        assert None == record.imprint
+        assert "9780262343664" == record.primary_identifier.identifier
+        assert Identifier.ISBN == record.primary_identifier.type
+        assert "eng" == record.language
         subjects = record.subjects
-        eq_(7, len(subjects))
-        eq_("EDU015000", subjects[0].identifier)
-        eq_(Classifier.AUDIENCE_ADULT, subjects[-1].identifier)
-        eq_(Classifier.BISAC, subjects[0].type)
-        eq_(Classification.TRUSTED_DISTRIBUTOR_WEIGHT, subjects[0].weight)
-        eq_(Edition.BOOK_MEDIUM, record.medium)
-        eq_(2017, record.issued.year)
+        assert 7 == len(subjects)
+        assert "EDU015000" == subjects[0].identifier
+        assert Classifier.AUDIENCE_ADULT == subjects[-1].identifier
+        assert Classifier.BISAC == subjects[0].type
+        assert Classification.TRUSTED_DISTRIBUTOR_WEIGHT == subjects[0].weight
+        assert Edition.BOOK_MEDIUM == record.medium
+        assert 2017 == record.issued.year
 
-        eq_(1, len(record.links))
+        assert 1 == len(record.links)
         assert "the essential democratic values of diversity and free expression" in record.links[0].content
 
         record = metadata_records[1]
-        eq_(Edition.AUDIO_MEDIUM, record.medium)
+        assert Edition.AUDIO_MEDIUM == record.medium
 
     @parameterized.expand([
         (
@@ -81,12 +81,12 @@ class TestONIXExtractor(object):
         metadata_records = ONIXExtractor().parse(StringIO(file), 'ONIX 3 Usage Constraints Example')
 
         # Assert
-        eq_(len(metadata_records), 1)
+        assert len(metadata_records) == 1
 
         [metadata_record] = metadata_records
 
-        eq_(metadata_record.circulation is not None, True)
-        eq_(isinstance(metadata_record.circulation, CirculationData), True)
-        eq_(isinstance(metadata_record.circulation, CirculationData), True)
-        eq_(metadata_record.circulation.licenses_owned, licenses_number)
-        eq_(metadata_record.circulation.licenses_available, licenses_number)
+        assert (metadata_record.circulation is not None) == True
+        assert isinstance(metadata_record.circulation, CirculationData) == True
+        assert isinstance(metadata_record.circulation, CirculationData) == True
+        assert metadata_record.circulation.licenses_owned == licenses_number
+        assert metadata_record.circulation.licenses_available == licenses_number

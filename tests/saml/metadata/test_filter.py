@@ -120,7 +120,7 @@ class TestSAMLSubjectFilter(object):
             result = subject_filter.execute(expression, subject)
 
             # Assert
-            eq_(expected_result, result)
+            assert expected_result == result
 
     @parameterized.expand(
         [

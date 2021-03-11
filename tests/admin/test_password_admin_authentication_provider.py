@@ -27,31 +27,31 @@ class TestPasswordAdminAuthenticationProvider(DatabaseTest):
 
         # Both admins with passwords can sign in.
         admin_details, redirect = password_auth.sign_in(self._db, dict(email="admin1@nypl.org", password="pass1", redirect="foo"))
-        eq_("admin1@nypl.org", admin_details.get("email"))
-        eq_(PasswordAdminAuthenticationProvider.NAME, admin_details.get("type"))
-        eq_("foo", redirect)
+        assert "admin1@nypl.org" == admin_details.get("email")
+        assert PasswordAdminAuthenticationProvider.NAME == admin_details.get("type")
+        assert "foo" == redirect
 
         admin_details, redirect = password_auth.sign_in(self._db, dict(email="admin2@nypl.org", password="pass2", redirect="foo"))
-        eq_("admin2@nypl.org", admin_details.get("email"))
-        eq_(PasswordAdminAuthenticationProvider.NAME, admin_details.get("type"))
-        eq_("foo", redirect)
+        assert "admin2@nypl.org" == admin_details.get("email")
+        assert PasswordAdminAuthenticationProvider.NAME == admin_details.get("type")
+        assert "foo" == redirect
 
         # An admin can't sign in with an incorrect password..
         admin_details, redirect = password_auth.sign_in(self._db, dict(email="admin1@nypl.org", password="not-the-password", redirect="foo"))
-        eq_(INVALID_ADMIN_CREDENTIALS, admin_details)
-        eq_(None, redirect)
+        assert INVALID_ADMIN_CREDENTIALS == admin_details
+        assert None == redirect
 
         # An admin can't sign in with a different admin's password.
         admin_details, redirect = password_auth.sign_in(self._db, dict(email="admin1@nypl.org", password="pass2", redirect="foo"))
-        eq_(INVALID_ADMIN_CREDENTIALS, admin_details)
-        eq_(None, redirect)
+        assert INVALID_ADMIN_CREDENTIALS == admin_details
+        assert None == redirect
 
         # The admin with no password can't sign in.
         admin_details, redirect = password_auth.sign_in(self._db, dict(email="admin3@nypl.org", redirect="foo"))
-        eq_(INVALID_ADMIN_CREDENTIALS, admin_details)
-        eq_(None, redirect)
+        assert INVALID_ADMIN_CREDENTIALS == admin_details
+        assert None == redirect
 
         # An admin email that's not in the db at all can't sign in.
         admin_details, redirect = password_auth.sign_in(self._db, dict(email="admin4@nypl.org", password="pass1", redirect="foo"))
-        eq_(INVALID_ADMIN_CREDENTIALS, admin_details)
-        eq_(None, redirect)
+        assert INVALID_ADMIN_CREDENTIALS == admin_details
+        assert None == redirect

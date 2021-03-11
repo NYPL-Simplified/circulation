@@ -48,15 +48,15 @@ class TestCollectionRegistration(SettingsControllerTest):
             response = self.manager.admin_collection_library_registrations_controller.process_collection_library_registrations()
 
             serviceInfo = response.get("library_registrations")
-            eq_(1, len(serviceInfo))
-            eq_(collection.id, serviceInfo[0].get("id"))
+            assert 1 == len(serviceInfo)
+            assert collection.id == serviceInfo[0].get("id")
 
             libraryInfo = serviceInfo[0].get("libraries")
             expected = [
                 dict(short_name=succeeded.short_name, status="success"),
                 dict(short_name=failed.short_name, status="failure"),
             ]
-            eq_(expected, libraryInfo)
+            assert expected == libraryInfo
 
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
             self._db.flush()
@@ -80,7 +80,7 @@ class TestCollectionRegistration(SettingsControllerTest):
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([("collection_id", "1234")])
             response = m()
-            eq_(MISSING_COLLECTION, response)
+            assert MISSING_COLLECTION == response
 
         # Pass in a collection ID so that doesn't happen again.
         collection = self._collection()
@@ -94,7 +94,7 @@ class TestCollectionRegistration(SettingsControllerTest):
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = form
             response = m()
-            eq_(COLLECTION_DOES_NOT_SUPPORT_REGISTRATION, response)
+            assert COLLECTION_DOES_NOT_SUPPORT_REGISTRATION == response
 
         # Change the protocol to one that supports registration.
         collection.protocol = SharedODLAPI.NAME
@@ -104,7 +104,7 @@ class TestCollectionRegistration(SettingsControllerTest):
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = form
             response = m()
-            eq_(NO_SUCH_LIBRARY, response)
+            assert NO_SUCH_LIBRARY == response
 
         # The push() implementation might return a ProblemDetail for any
         # number of reasons.
@@ -120,7 +120,7 @@ class TestCollectionRegistration(SettingsControllerTest):
 
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = form
-            eq_(REMOTE_INTEGRATION_FAILED, m(registration_class=Mock))
+            assert REMOTE_INTEGRATION_FAILED == m(registration_class=Mock)
 
         # But if that doesn't happen, success!
         class Mock(Registration):
@@ -135,16 +135,16 @@ class TestCollectionRegistration(SettingsControllerTest):
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = form
             result = m(registration_class=Mock)
-            eq_(200, result.status_code)
+            assert 200 == result.status_code
 
             # push() was called with the arguments we would expect.
             args, kwargs = Mock.called_with
-            eq_((Registration.PRODUCTION_STAGE, self.manager.url_for), args)
+            assert (Registration.PRODUCTION_STAGE, self.manager.url_for) == args
 
             # We would have made real HTTP requests.
-            eq_(HTTP.debuggable_post, kwargs.pop('do_post'))
-            eq_(HTTP.debuggable_get, kwargs.pop('do_get'))
+            assert HTTP.debuggable_post == kwargs.pop('do_post')
+            assert HTTP.debuggable_get == kwargs.pop('do_get')
              # And passed the collection URL over to the shared collection.
-            eq_(collection.external_account_id, kwargs.pop('catalog_url'))
+            assert collection.external_account_id == kwargs.pop('catalog_url')
              # No other weird keyword arguments were passed in.
-            eq_({}, kwargs)
+            assert {} == kwargs

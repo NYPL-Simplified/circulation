@@ -67,15 +67,15 @@ class TestWorkController(AdminControllerTest):
             response = self.manager.admin_work_controller.details(
                 lp.identifier.type, lp.identifier.identifier
             )
-            eq_(200, response.status_code)
+            assert 200 == response.status_code
             feed = feedparser.parse(response.get_data())
             [entry] = feed['entries']
             suppress_links = [x['href'] for x in entry['links']
                               if x['rel'] == "http://librarysimplified.org/terms/rel/hide"]
             unsuppress_links = [x['href'] for x in entry['links']
                                 if x['rel'] == "http://librarysimplified.org/terms/rel/restore"]
-            eq_(0, len(unsuppress_links))
-            eq_(1, len(suppress_links))
+            assert 0 == len(unsuppress_links)
+            assert 1 == len(suppress_links)
             assert lp.identifier.identifier in suppress_links[0]
 
         lp.suppressed = True
@@ -83,15 +83,15 @@ class TestWorkController(AdminControllerTest):
             response = self.manager.admin_work_controller.details(
                 lp.identifier.type, lp.identifier.identifier
             )
-            eq_(200, response.status_code)
+            assert 200 == response.status_code
             feed = feedparser.parse(response.get_data())
             [entry] = feed['entries']
             suppress_links = [x['href'] for x in entry['links']
                               if x['rel'] == "http://librarysimplified.org/terms/rel/hide"]
             unsuppress_links = [x['href'] for x in entry['links']
                                 if x['rel'] == "http://librarysimplified.org/terms/rel/restore"]
-            eq_(0, len(suppress_links))
-            eq_(1, len(unsuppress_links))
+            assert 0 == len(suppress_links)
+            assert 1 == len(unsuppress_links)
             assert lp.identifier.identifier in unsuppress_links[0]
 
         self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
@@ -104,9 +104,9 @@ class TestWorkController(AdminControllerTest):
         roles = self.manager.admin_work_controller.roles()
         assert Contributor.ILLUSTRATOR_ROLE in roles.values()
         assert Contributor.NARRATOR_ROLE in roles.values()
-        eq_(Contributor.ILLUSTRATOR_ROLE,
+        assert (Contributor.ILLUSTRATOR_ROLE ==
             roles[Contributor.MARC_ROLE_CODES[Contributor.ILLUSTRATOR_ROLE]])
-        eq_(Contributor.NARRATOR_ROLE,
+        assert (Contributor.NARRATOR_ROLE ==
             roles[Contributor.MARC_ROLE_CODES[Contributor.NARRATOR_ROLE]])
 
     def test_languages(self):
@@ -126,24 +126,24 @@ class TestWorkController(AdminControllerTest):
         rights_status = self.manager.admin_work_controller.rights_status()
 
         public_domain = rights_status.get(RightsStatus.PUBLIC_DOMAIN_USA)
-        eq_(RightsStatus.NAMES.get(RightsStatus.PUBLIC_DOMAIN_USA), public_domain.get("name"))
-        eq_(True, public_domain.get("open_access"))
-        eq_(True, public_domain.get("allows_derivatives"))
+        assert RightsStatus.NAMES.get(RightsStatus.PUBLIC_DOMAIN_USA) == public_domain.get("name")
+        assert True == public_domain.get("open_access")
+        assert True == public_domain.get("allows_derivatives")
 
         cc_by = rights_status.get(RightsStatus.CC_BY)
-        eq_(RightsStatus.NAMES.get(RightsStatus.CC_BY), cc_by.get("name"))
-        eq_(True, cc_by.get("open_access"))
-        eq_(True, cc_by.get("allows_derivatives"))
+        assert RightsStatus.NAMES.get(RightsStatus.CC_BY) == cc_by.get("name")
+        assert True == cc_by.get("open_access")
+        assert True == cc_by.get("allows_derivatives")
 
         cc_by_nd = rights_status.get(RightsStatus.CC_BY_ND)
-        eq_(RightsStatus.NAMES.get(RightsStatus.CC_BY_ND), cc_by_nd.get("name"))
-        eq_(True, cc_by_nd.get("open_access"))
-        eq_(False, cc_by_nd.get("allows_derivatives"))
+        assert RightsStatus.NAMES.get(RightsStatus.CC_BY_ND) == cc_by_nd.get("name")
+        assert True == cc_by_nd.get("open_access")
+        assert False == cc_by_nd.get("allows_derivatives")
 
         copyright = rights_status.get(RightsStatus.IN_COPYRIGHT)
-        eq_(RightsStatus.NAMES.get(RightsStatus.IN_COPYRIGHT), copyright.get("name"))
-        eq_(False, copyright.get("open_access"))
-        eq_(False, copyright.get("allows_derivatives"))
+        assert RightsStatus.NAMES.get(RightsStatus.IN_COPYRIGHT) == copyright.get("name")
+        assert False == copyright.get("open_access")
+        assert False == copyright.get("allows_derivatives")
 
     def _make_test_edit_request(self, data):
         [lp] = self.english_1.license_pools
@@ -157,51 +157,51 @@ class TestWorkController(AdminControllerTest):
         response = self._make_test_edit_request(
             [('contributor-role', self._str),
              ('contributor-name', self._str)])
-        eq_(400, response.status_code)
-        eq_(UNKNOWN_ROLE.uri, response.uri)
+        assert 400 == response.status_code
+        assert UNKNOWN_ROLE.uri == response.uri
 
     def test_edit_invalid_series_position(self):
         response = self._make_test_edit_request(
             [('series', self._str),
              ('series_position', 'five')])
-        eq_(400, response.status_code)
-        eq_(INVALID_SERIES_POSITION.uri, response.uri)
+        assert 400 == response.status_code
+        assert INVALID_SERIES_POSITION.uri == response.uri
 
     def test_edit_unknown_medium(self):
         response = self._make_test_edit_request(
             [('medium', self._str)])
-        eq_(400, response.status_code)
-        eq_(UNKNOWN_MEDIUM.uri, response.uri)
+        assert 400 == response.status_code
+        assert UNKNOWN_MEDIUM.uri == response.uri
 
     def test_edit_unknown_language(self):
         response = self._make_test_edit_request(
             [('language', self._str)])
-        eq_(400, response.status_code)
-        eq_(UNKNOWN_LANGUAGE.uri, response.uri)
+        assert 400 == response.status_code
+        assert UNKNOWN_LANGUAGE.uri == response.uri
 
     def test_edit_invalid_date_format(self):
         response = self._make_test_edit_request(
             [('issued', self._str)])
-        eq_(400, response.status_code)
-        eq_(INVALID_DATE_FORMAT.uri, response.uri)
+        assert 400 == response.status_code
+        assert INVALID_DATE_FORMAT.uri == response.uri
 
     def test_edit_invalid_rating_not_number(self):
         response = self._make_test_edit_request(
             [('rating', 'abc')])
-        eq_(400, response.status_code)
-        eq_(INVALID_RATING.uri, response.uri)
+        assert 400 == response.status_code
+        assert INVALID_RATING.uri == response.uri
 
     def test_edit_invalid_rating_above_scale(self):
         response = self._make_test_edit_request(
             [('rating', 9999)])
-        eq_(400, response.status_code)
-        eq_(INVALID_RATING.uri, response.uri)
+        assert 400 == response.status_code
+        assert INVALID_RATING.uri == response.uri
 
     def test_edit_invalid_rating_below_scale(self):
         response = self._make_test_edit_request(
             [('rating', -3)])
-        eq_(400, response.status_code)
-        eq_(INVALID_RATING.uri, response.uri)
+        assert 400 == response.status_code
+        assert INVALID_RATING.uri == response.uri
 
     def test_edit(self):
         [lp] = self.english_1.license_pools
@@ -236,35 +236,35 @@ class TestWorkController(AdminControllerTest):
             response = self.manager.admin_work_controller.edit(
                 lp.identifier.type, lp.identifier.identifier
             )
-            eq_(200, response.status_code)
-            eq_("New title", self.english_1.title)
+            assert 200 == response.status_code
+            assert "New title" == self.english_1.title
             assert "New title" in self.english_1.simple_opds_entry
-            eq_("New subtitle", self.english_1.subtitle)
+            assert "New subtitle" == self.english_1.subtitle
             assert "New subtitle" in self.english_1.simple_opds_entry
-            eq_("New Author", self.english_1.author)
+            assert "New Author" == self.english_1.author
             assert "New Author" in self.english_1.simple_opds_entry
             [author, narrator] = sorted(
                 self.english_1.presentation_edition.contributions,
                 key=lambda x: x.contributor.display_name)
-            eq_("New Author", author.contributor.display_name)
-            eq_("Author, New", author.contributor.sort_name)
-            eq_("Primary Author", author.role)
-            eq_("New Narrator", narrator.contributor.display_name)
-            eq_("Narrator, New", narrator.contributor.sort_name)
-            eq_("Narrator", narrator.role)
-            eq_("New series", self.english_1.series)
+            assert "New Author" == author.contributor.display_name
+            assert "Author, New" == author.contributor.sort_name
+            assert "Primary Author" == author.role
+            assert "New Narrator" == narrator.contributor.display_name
+            assert "Narrator, New" == narrator.contributor.sort_name
+            assert "Narrator" == narrator.role
+            assert "New series" == self.english_1.series
             assert "New series" in self.english_1.simple_opds_entry
-            eq_(144, self.english_1.series_position)
+            assert 144 == self.english_1.series_position
             assert "144" in self.english_1.simple_opds_entry
-            eq_("Audio", self.english_1.presentation_edition.medium)
-            eq_("fre", self.english_1.presentation_edition.language)
-            eq_("New Publisher", self.english_1.publisher)
-            eq_("New Imprint", self.english_1.presentation_edition.imprint)
-            eq_(datetime(2017, 11, 5), self.english_1.presentation_edition.issued)
-            eq_(0.25, self.english_1.quality)
-            eq_("<p>New summary</p>", self.english_1.summary_text)
+            assert "Audio" == self.english_1.presentation_edition.medium
+            assert "fre" == self.english_1.presentation_edition.language
+            assert "New Publisher" == self.english_1.publisher
+            assert "New Imprint" == self.english_1.presentation_edition.imprint
+            assert datetime(2017, 11, 5) == self.english_1.presentation_edition.issued
+            assert 0.25 == self.english_1.quality
+            assert "<p>New summary</p>" == self.english_1.summary_text
             assert "&lt;p&gt;New summary&lt;/p&gt;" in self.english_1.simple_opds_entry
-            eq_(1, staff_edition_count())
+            assert 1 == staff_edition_count()
 
         with self.request_context_with_library_and_admin("/"):
             # Change the summary again and add an author.
@@ -290,21 +290,21 @@ class TestWorkController(AdminControllerTest):
             response = self.manager.admin_work_controller.edit(
                 lp.identifier.type, lp.identifier.identifier
             )
-            eq_(200, response.status_code)
-            eq_("abcd", self.english_1.summary_text)
+            assert 200 == response.status_code
+            assert "abcd" == self.english_1.summary_text
             assert 'New summary' not in self.english_1.simple_opds_entry
             [author, narrator, author2] = sorted(
                 self.english_1.presentation_edition.contributions,
                 key=lambda x: x.contributor.display_name)
-            eq_("New Author", author.contributor.display_name)
-            eq_("Author, New", author.contributor.sort_name)
-            eq_("Primary Author", author.role)
-            eq_("New Narrator", narrator.contributor.display_name)
-            eq_("Narrator, New", narrator.contributor.sort_name)
-            eq_("Narrator", narrator.role)
-            eq_("Second Author", author2.contributor.display_name)
-            eq_("Author", author2.role)
-            eq_(1, staff_edition_count())
+            assert "New Author" == author.contributor.display_name
+            assert "Author, New" == author.contributor.sort_name
+            assert "Primary Author" == author.role
+            assert "New Narrator" == narrator.contributor.display_name
+            assert "Narrator, New" == narrator.contributor.sort_name
+            assert "Narrator" == narrator.role
+            assert "Second Author" == author2.contributor.display_name
+            assert "Author" == author2.role
+            assert 1 == staff_edition_count()
 
         with self.request_context_with_library_and_admin("/"):
             # Now delete the subtitle, narrator, series, and summary entirely
@@ -326,19 +326,19 @@ class TestWorkController(AdminControllerTest):
             response = self.manager.admin_work_controller.edit(
                 lp.identifier.type, lp.identifier.identifier
             )
-            eq_(200, response.status_code)
-            eq_(None, self.english_1.subtitle)
+            assert 200 == response.status_code
+            assert None == self.english_1.subtitle
             [author] = self.english_1.presentation_edition.contributions
-            eq_("New Author", author.contributor.display_name)
-            eq_(None, self.english_1.series)
-            eq_(None, self.english_1.series_position)
-            eq_("", self.english_1.summary_text)
+            assert "New Author" == author.contributor.display_name
+            assert None == self.english_1.series
+            assert None == self.english_1.series_position
+            assert "" == self.english_1.summary_text
             assert 'New subtitle' not in self.english_1.simple_opds_entry
             assert "Narrator" not in self.english_1.simple_opds_entry
             assert 'New series' not in self.english_1.simple_opds_entry
             assert '144' not in self.english_1.simple_opds_entry
             assert 'abcd' not in self.english_1.simple_opds_entry
-            eq_(1, staff_edition_count())
+            assert 1 == staff_edition_count()
 
         with self.request_context_with_library_and_admin("/"):
             # Set the fields one more time
@@ -352,16 +352,16 @@ class TestWorkController(AdminControllerTest):
             response = self.manager.admin_work_controller.edit(
                 lp.identifier.type, lp.identifier.identifier
             )
-            eq_(200, response.status_code)
-            eq_("Final subtitle", self.english_1.subtitle)
-            eq_("Final series", self.english_1.series)
-            eq_(169, self.english_1.series_position)
-            eq_("<p>Final summary</p>", self.english_1.summary_text)
+            assert 200 == response.status_code
+            assert "Final subtitle" == self.english_1.subtitle
+            assert "Final series" == self.english_1.series
+            assert 169 == self.english_1.series_position
+            assert "<p>Final summary</p>" == self.english_1.summary_text
             assert 'Final subtitle' in self.english_1.simple_opds_entry
             assert 'Final series' in self.english_1.simple_opds_entry
             assert '169' in self.english_1.simple_opds_entry
             assert "&lt;p&gt;Final summary&lt;/p&gt;" in self.english_1.simple_opds_entry
-            eq_(1, staff_edition_count())
+            assert 1 == staff_edition_count()
 
         # Make sure a non-librarian of this library can't edit.
         self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
@@ -409,7 +409,7 @@ class TestWorkController(AdminControllerTest):
             response = self.manager.admin_work_controller.edit_classifications(
                 lp.identifier.type, lp.identifier.identifier
             )
-            eq_(response.status_code, 200)
+            assert response.status_code == 200
 
         staff_data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
         genre_classifications = self._db \
@@ -425,11 +425,11 @@ class TestWorkController(AdminControllerTest):
             for c in genre_classifications
             if c.subject.genre
         ]
-        eq_(staff_genres, [])
-        eq_("Adult", work.audience)
-        eq_(18, work.target_age.lower)
-        eq_(None, work.target_age.upper)
-        eq_(True, work.fiction)
+        assert staff_genres == []
+        assert "Adult" == work.audience
+        assert 18 == work.target_age.lower
+        assert None == work.target_age.upper
+        assert True == work.fiction
 
         # remove all genres
         with self.request_context_with_library_and_admin("/"):
@@ -440,7 +440,7 @@ class TestWorkController(AdminControllerTest):
             response = self.manager.admin_work_controller.edit_classifications(
                 lp.identifier.type, lp.identifier.identifier
             )
-            eq_(response.status_code, 200)
+            assert response.status_code == 200
 
         primary_identifier = work.presentation_edition.primary_identifier
         staff_data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
@@ -453,11 +453,11 @@ class TestWorkController(AdminControllerTest):
                 Subject.identifier == SimplifiedGenreClassifier.NONE
             ) \
             .all()
-        eq_(1, len(none_classification_count))
-        eq_("Adult", work.audience)
-        eq_(18, work.target_age.lower)
-        eq_(None, work.target_age.upper)
-        eq_(True, work.fiction)
+        assert 1 == len(none_classification_count)
+        assert "Adult" == work.audience
+        assert 18 == work.target_age.lower
+        assert None == work.target_age.upper
+        assert True == work.fiction
 
         # completely change genres
         with self.request_context_with_library_and_admin("/"):
@@ -472,15 +472,15 @@ class TestWorkController(AdminControllerTest):
             response = self.manager.admin_work_controller.edit_classifications(
                 lp.identifier.type, lp.identifier.identifier
             )
-            eq_(response.status_code, 200)
+            assert response.status_code == 200
 
         new_genre_names = [work_genre.genre.name for work_genre in work.work_genres]
 
-        eq_(sorted(new_genre_names), sorted(requested_genres))
-        eq_("Adult", work.audience)
-        eq_(18, work.target_age.lower)
-        eq_(None, work.target_age.upper)
-        eq_(True, work.fiction)
+        assert sorted(new_genre_names) == sorted(requested_genres)
+        assert "Adult" == work.audience
+        assert 18 == work.target_age.lower
+        assert None == work.target_age.upper
+        assert True == work.fiction
 
         # remove some genres and change audience and target age
         with self.request_context_with_library_and_admin("/"):
@@ -495,15 +495,15 @@ class TestWorkController(AdminControllerTest):
             response = self.manager.admin_work_controller.edit_classifications(
                 lp.identifier.type, lp.identifier.identifier
             )
-            eq_(response.status_code, 200)
+            assert response.status_code == 200
 
         # new_genre_names = self._db.query(WorkGenre).filter(WorkGenre.work_id == work.id).all()
         new_genre_names = [work_genre.genre.name for work_genre in work.work_genres]
-        eq_(sorted(new_genre_names), sorted(requested_genres))
-        eq_("Young Adult", work.audience)
-        eq_(16, work.target_age.lower)
-        eq_(19, work.target_age.upper)
-        eq_(True, work.fiction)
+        assert sorted(new_genre_names) == sorted(requested_genres)
+        assert "Young Adult" == work.audience
+        assert 16 == work.target_age.lower
+        assert 19 == work.target_age.upper
+        assert True == work.fiction
 
         previous_genres = new_genre_names
 
@@ -521,13 +521,13 @@ class TestWorkController(AdminControllerTest):
                 lp.identifier.type, lp.identifier.identifier
             )
 
-        eq_(response, INCOMPATIBLE_GENRE)
+        assert response == INCOMPATIBLE_GENRE
         new_genre_names = [work_genre.genre.name for work_genre in work.work_genres]
-        eq_(sorted(new_genre_names), sorted(previous_genres))
-        eq_("Young Adult", work.audience)
-        eq_(16, work.target_age.lower)
-        eq_(19, work.target_age.upper)
-        eq_(True, work.fiction)
+        assert sorted(new_genre_names) == sorted(previous_genres)
+        assert "Young Adult" == work.audience
+        assert 16 == work.target_age.lower
+        assert 19 == work.target_age.upper
+        assert True == work.fiction
 
         # try to add Erotica
         with self.request_context_with_library_and_admin("/"):
@@ -542,14 +542,14 @@ class TestWorkController(AdminControllerTest):
             response = self.manager.admin_work_controller.edit_classifications(
                 lp.identifier.type, lp.identifier.identifier
             )
-            eq_(response, EROTICA_FOR_ADULTS_ONLY)
+            assert response == EROTICA_FOR_ADULTS_ONLY
 
         new_genre_names = [work_genre.genre.name for work_genre in work.work_genres]
-        eq_(sorted(new_genre_names), sorted(previous_genres))
-        eq_("Young Adult", work.audience)
-        eq_(16, work.target_age.lower)
-        eq_(19, work.target_age.upper)
-        eq_(True, work.fiction)
+        assert sorted(new_genre_names) == sorted(previous_genres)
+        assert "Young Adult" == work.audience
+        assert 16 == work.target_age.lower
+        assert 19 == work.target_age.upper
+        assert True == work.fiction
 
         # try to set min target age greater than max target age
         # othe edits should not go through
@@ -564,12 +564,12 @@ class TestWorkController(AdminControllerTest):
             response = self.manager.admin_work_controller.edit_classifications(
                 lp.identifier.type, lp.identifier.identifier
             )
-            eq_(400, response.status_code)
-            eq_(INVALID_EDIT.uri, response.uri)
+            assert 400 == response.status_code
+            assert INVALID_EDIT.uri == response.uri
 
         new_genre_names = [work_genre.genre.name for work_genre in work.work_genres]
-        eq_(sorted(new_genre_names), sorted(previous_genres))
-        eq_(True, work.fiction)
+        assert sorted(new_genre_names) == sorted(previous_genres)
+        assert True == work.fiction
 
         # change to nonfiction with nonfiction genres and new target age
         with self.request_context_with_library_and_admin("/"):
@@ -586,11 +586,11 @@ class TestWorkController(AdminControllerTest):
             )
 
         new_genre_names = [work_genre.genre.name for work_genre in lp.work.work_genres]
-        eq_(sorted(new_genre_names), sorted(requested_genres))
-        eq_("Young Adult", work.audience)
-        eq_(15, work.target_age.lower)
-        eq_(18, work.target_age.upper)
-        eq_(False, work.fiction)
+        assert sorted(new_genre_names) == sorted(requested_genres)
+        assert "Young Adult" == work.audience
+        assert 15 == work.target_age.lower
+        assert 18 == work.target_age.upper
+        assert False == work.fiction
 
         # set to Adult and make sure that target ages is set automatically
         with self.request_context_with_library_and_admin("/"):
@@ -604,9 +604,9 @@ class TestWorkController(AdminControllerTest):
                 lp.identifier.type, lp.identifier.identifier
             )
 
-        eq_("Adult", work.audience)
-        eq_(18, work.target_age.lower)
-        eq_(None, work.target_age.upper)
+        assert "Adult" == work.audience
+        assert 18 == work.target_age.lower
+        assert None == work.target_age.upper
 
         # Make sure a non-librarian of this library can't edit.
         self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
@@ -627,8 +627,8 @@ class TestWorkController(AdminControllerTest):
             response = self.manager.admin_work_controller.suppress(
                 lp.identifier.type, lp.identifier.identifier
             )
-            eq_(200, response.status_code)
-            eq_(True, lp.suppressed)
+            assert 200 == response.status_code
+            assert True == lp.suppressed
 
         lp.suppressed = False
         self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
@@ -662,9 +662,9 @@ class TestWorkController(AdminControllerTest):
 
             # Both LicensePools are unsuppressed, even though one of them
             # has a LicensePool-specific complaint.
-            eq_(200, response.status_code)
-            eq_(False, lp.suppressed)
-            eq_(False, broken_lp.suppressed)
+            assert 200 == response.status_code
+            assert False == lp.suppressed
+            assert False == broken_lp.suppressed
 
         lp.suppressed = True
         self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
@@ -689,23 +689,23 @@ class TestWorkController(AdminControllerTest):
             response = self.manager.admin_work_controller.refresh_metadata(
                 lp.identifier.type, lp.identifier.identifier, provider=success_provider
             )
-            eq_(200, response.status_code)
+            assert 200 == response.status_code
             # Also, the work has a coverage record now for the wrangler.
             assert CoverageRecord.lookup(lp.identifier, wrangler)
 
             response = self.manager.admin_work_controller.refresh_metadata(
                 lp.identifier.type, lp.identifier.identifier, provider=failure_provider
             )
-            eq_(METADATA_REFRESH_FAILURE.status_code, response.status_code)
-            eq_(METADATA_REFRESH_FAILURE.detail, response.detail)
+            assert METADATA_REFRESH_FAILURE.status_code == response.status_code
+            assert METADATA_REFRESH_FAILURE.detail == response.detail
 
             # If we don't pass in a provider, it will also fail because there
             # isn't one connfigured.
             response = self.manager.admin_work_controller.refresh_metadata(
                 lp.identifier.type, lp.identifier.identifier
             )
-            eq_(METADATA_REFRESH_FAILURE.status_code, response.status_code)
-            eq_(METADATA_REFRESH_FAILURE.detail, response.detail)
+            assert METADATA_REFRESH_FAILURE.status_code == response.status_code
+            assert METADATA_REFRESH_FAILURE.detail == response.detail
 
         self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
         with self.request_context_with_library_and_admin("/"):
@@ -745,10 +745,10 @@ class TestWorkController(AdminControllerTest):
             response = self.manager.admin_work_controller.complaints(
                 lp.identifier.type, lp.identifier.identifier
             )
-            eq_(response['book']['identifier_type'], lp.identifier.type)
-            eq_(response['book']['identifier'], lp.identifier.identifier)
-            eq_(response['complaints'][type1], 2)
-            eq_(response['complaints'][type2], 1)
+            assert response['book']['identifier_type'] == lp.identifier.type
+            assert response['book']['identifier'] == lp.identifier.identifier
+            assert response['complaints'][type1] == 2
+            assert response['complaints'][type2] == 1
 
         self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
         with self.request_context_with_library_and_admin("/"):
@@ -786,8 +786,8 @@ class TestWorkController(AdminControllerTest):
                 lp.identifier.type, lp.identifier.identifier
             )
             unresolved_complaints = [complaint for complaint in lp.complaints if complaint.resolved == None]
-            eq_(response.status_code, 404)
-            eq_(len(unresolved_complaints), 2)
+            assert response.status_code == 404
+            assert len(unresolved_complaints) == 2
 
         # then attempt to resolve complaints of the correct type
         with self.request_context_with_library_and_admin("/"):
@@ -797,8 +797,8 @@ class TestWorkController(AdminControllerTest):
             )
             unresolved_complaints = [complaint for complaint in lp.complaints
                                                if complaint.resolved == None]
-            eq_(response.status_code, 200)
-            eq_(len(unresolved_complaints), 0)
+            assert response.status_code == 200
+            assert len(unresolved_complaints) == 0
 
         # then attempt to resolve the already-resolved complaints of the correct type
         with self.request_context_with_library_and_admin("/"):
@@ -806,7 +806,7 @@ class TestWorkController(AdminControllerTest):
             response = self.manager.admin_work_controller.resolve_complaints(
                 lp.identifier.type, lp.identifier.identifier
             )
-            eq_(response.status_code, 409)
+            assert response.status_code == 409
 
         self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
         with self.request_context_with_library_and_admin("/"):
@@ -842,18 +842,18 @@ class TestWorkController(AdminControllerTest):
         with self.request_context_with_library_and_admin("/"):
             response = self.manager.admin_work_controller.classifications(
                 lp.identifier.type, lp.identifier.identifier)
-            eq_(response['book']['identifier_type'], lp.identifier.type)
-            eq_(response['book']['identifier'], lp.identifier.identifier)
+            assert response['book']['identifier_type'] == lp.identifier.type
+            assert response['book']['identifier'] == lp.identifier.identifier
 
             expected_results = [classification2, classification3, classification1]
-            eq_(len(response['classifications']), len(expected_results))
+            assert len(response['classifications']) == len(expected_results)
             for i, classification in enumerate(expected_results):
                 subject = classification.subject
                 source = classification.data_source
-                eq_(response['classifications'][i]['name'], subject.identifier)
-                eq_(response['classifications'][i]['type'], subject.type)
-                eq_(response['classifications'][i]['source'], source.name)
-                eq_(response['classifications'][i]['weight'], classification.weight)
+                assert response['classifications'][i]['name'] == subject.identifier
+                assert response['classifications'][i]['type'] == subject.type
+                assert response['classifications'][i]['source'] == source.name
+                assert response['classifications'][i]['weight'] == classification.weight
 
         self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
         with self.request_context_with_library_and_admin("/"):
@@ -870,13 +870,13 @@ class TestWorkController(AdminControllerTest):
         too_small = Image.open(path)
 
         result = self.manager.admin_work_controller._validate_cover_image(too_small)
-        eq_(INVALID_IMAGE.uri, result.uri)
-        eq_("Cover image must be at least 600px in width and 900px in height.", result.detail)
+        assert INVALID_IMAGE.uri == result.uri
+        assert "Cover image must be at least 600px in width and 900px in height." == result.detail
 
         path = os.path.join(resource_path, "blue.jpg")
         valid = Image.open(path)
         result = self.manager.admin_work_controller._validate_cover_image(valid)
-        eq_(True, result)
+        assert True == result
 
     def test_process_cover_image(self):
         work = self._work(with_license_pool=True, title="Title", authors="Authpr")
@@ -919,16 +919,16 @@ class TestWorkController(AdminControllerTest):
 
         with self.request_context_with_library_and_admin("/"):
             response = self.manager.admin_work_controller.preview_book_cover(identifier.type, identifier.identifier)
-            eq_(INVALID_IMAGE.uri, response.uri)
-            eq_("Image file or image URL is required.", response.detail)
+            assert INVALID_IMAGE.uri == response.uri
+            assert "Image file or image URL is required." == response.detail
 
         with self.request_context_with_library_and_admin("/"):
             flask.request.form = MultiDict([
                 ("cover_url", "bad_url"),
             ])
             response = self.manager.admin_work_controller.preview_book_cover(identifier.type, identifier.identifier)
-            eq_(INVALID_URL.uri, response.uri)
-            eq_('"bad_url" is not a valid URL.', response.detail)
+            assert INVALID_URL.uri == response.uri
+            assert '"bad_url" is not a valid URL.' == response.detail
 
         class TestFileUpload(StringIO):
             headers = { "Content-Type": "image/png" }
@@ -949,8 +949,8 @@ class TestWorkController(AdminControllerTest):
                 ("cover_file", TestFileUpload(image_data)),
             ])
             response = self.manager.admin_work_controller.preview_book_cover(identifier.type, identifier.identifier)
-            eq_(200, response.status_code)
-            eq_("data:image/png;base64,%s" % base64.b64encode(image_data), response.data)
+            assert 200 == response.status_code
+            assert "data:image/png;base64,%s" % base64.b64encode(image_data) == response.data
 
         self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
         with self.request_context_with_library_and_admin("/"):
@@ -981,8 +981,8 @@ class TestWorkController(AdminControllerTest):
                 ("rights_explanation", "explanation"),
             ])
             response = self.manager.admin_work_controller.change_book_cover(identifier.type, identifier.identifier, mirrors)
-            eq_(INVALID_IMAGE.uri, response.uri)
-            eq_("Image file or image URL is required.", response.detail)
+            assert INVALID_IMAGE.uri == response.uri
+            assert "Image file or image URL is required." == response.detail
 
         with self.request_context_with_library_and_admin("/"):
             flask.request.form = MultiDict([
@@ -991,8 +991,8 @@ class TestWorkController(AdminControllerTest):
             ])
             flask.request.files = MultiDict([])
             response = self.manager.admin_work_controller.change_book_cover(identifier.type, identifier.identifier)
-            eq_(INVALID_IMAGE.uri, response.uri)
-            eq_("You must specify the image's license.", response.detail)
+            assert INVALID_IMAGE.uri == response.uri
+            assert "You must specify the image's license." == response.detail
 
         with self.request_context_with_library_and_admin("/"):
             flask.request.form = MultiDict([
@@ -1001,8 +1001,8 @@ class TestWorkController(AdminControllerTest):
                 ("rights_status", RightsStatus.CC_BY),
             ])
             response = self.manager.admin_work_controller.change_book_cover(identifier.type, identifier.identifier, mirrors)
-            eq_(INVALID_URL.uri, response.uri)
-            eq_('"bad_url" is not a valid URL.', response.detail)
+            assert INVALID_URL.uri == response.uri
+            assert '"bad_url" is not a valid URL.' == response.detail
 
         with self.request_context_with_library_and_admin("/"):
             flask.request.form = MultiDict([
@@ -1013,7 +1013,7 @@ class TestWorkController(AdminControllerTest):
             ])
             flask.request.files = MultiDict([])
             response = self.manager.admin_work_controller.change_book_cover(identifier.type, identifier.identifier)
-            eq_(INVALID_CONFIGURATION_OPTION.uri, response.uri)
+            assert INVALID_CONFIGURATION_OPTION.uri == response.uri
             assert "Could not find a storage integration" in response.detail
 
         class TestFileUpload(StringIO):
@@ -1040,31 +1040,31 @@ class TestWorkController(AdminControllerTest):
                 ("cover_file", TestFileUpload(image_data)),
             ])
             response = self.manager.admin_work_controller.change_book_cover(identifier.type, identifier.identifier, mirrors)
-            eq_(200, response.status_code)
+            assert 200 == response.status_code
 
             [link] = identifier.links
-            eq_(Hyperlink.IMAGE, link.rel)
-            eq_(staff_data_source, link.data_source)
+            assert Hyperlink.IMAGE == link.rel
+            assert staff_data_source == link.data_source
 
             resource = link.resource
             assert identifier.urn in resource.url
-            eq_(staff_data_source, resource.data_source)
-            eq_(RightsStatus.CC_BY, resource.rights_status.uri)
-            eq_("explanation", resource.rights_explanation)
+            assert staff_data_source == resource.data_source
+            assert RightsStatus.CC_BY == resource.rights_status.uri
+            assert "explanation" == resource.rights_explanation
 
             representation = resource.representation
             [thumbnail] = resource.representation.thumbnails
 
-            eq_(resource.url, representation.url)
-            eq_(Representation.PNG_MEDIA_TYPE, representation.media_type)
-            eq_(Representation.PNG_MEDIA_TYPE, thumbnail.media_type)
-            eq_(image_data, representation.content)
+            assert resource.url == representation.url
+            assert Representation.PNG_MEDIA_TYPE == representation.media_type
+            assert Representation.PNG_MEDIA_TYPE == thumbnail.media_type
+            assert image_data == representation.content
             assert identifier.identifier in representation.mirror_url
             assert identifier.identifier in thumbnail.mirror_url
 
-            eq_([], process_called_with)
-            eq_([representation, thumbnail], mirrors[mirror_type].uploaded)
-            eq_([representation.mirror_url, thumbnail.mirror_url], mirrors[mirror_type].destinations)
+            assert [] == process_called_with
+            assert [representation, thumbnail] == mirrors[mirror_type].uploaded
+            assert [representation.mirror_url, thumbnail.mirror_url] == mirrors[mirror_type].destinations
 
         work = self._work(with_license_pool=True)
         identifier = work.license_pools[0].identifier
@@ -1081,44 +1081,44 @@ class TestWorkController(AdminControllerTest):
                 ("cover_file", TestFileUpload(image_data)),
             ])
             response = self.manager.admin_work_controller.change_book_cover(identifier.type, identifier.identifier, mirrors)
-            eq_(200, response.status_code)
+            assert 200 == response.status_code
 
             [link] = identifier.links
-            eq_(Hyperlink.IMAGE, link.rel)
-            eq_(staff_data_source, link.data_source)
+            assert Hyperlink.IMAGE == link.rel
+            assert staff_data_source == link.data_source
 
             resource = link.resource
             assert identifier.urn in resource.url
-            eq_(staff_data_source, resource.data_source)
-            eq_(RightsStatus.CC_BY, resource.rights_status.uri)
-            eq_("The original image license allows derivatives.", resource.rights_explanation)
+            assert staff_data_source == resource.data_source
+            assert RightsStatus.CC_BY == resource.rights_status.uri
+            assert "The original image license allows derivatives." == resource.rights_explanation
 
             transformation = self._db.query(ResourceTransformation).filter(ResourceTransformation.derivative_id==resource.id).one()
             original_resource = transformation.original
             assert resource != original_resource
             assert identifier.urn in original_resource.url
-            eq_(staff_data_source, original_resource.data_source)
-            eq_(RightsStatus.CC_BY, original_resource.rights_status.uri)
-            eq_("explanation", original_resource.rights_explanation)
-            eq_(image_data, original_resource.representation.content)
-            eq_(None, original_resource.representation.mirror_url)
-            eq_("center", transformation.settings.get("title_position"))
+            assert staff_data_source == original_resource.data_source
+            assert RightsStatus.CC_BY == original_resource.rights_status.uri
+            assert "explanation" == original_resource.rights_explanation
+            assert image_data == original_resource.representation.content
+            assert None == original_resource.representation.mirror_url
+            assert "center" == transformation.settings.get("title_position")
             assert resource.representation.content != original_resource.representation.content
             assert image_data != resource.representation.content
 
-            eq_(work, process_called_with[0][0])
-            eq_("center", process_called_with[0][2])
+            assert work == process_called_with[0][0]
+            assert "center" == process_called_with[0][2]
 
-            eq_([], original_resource.representation.thumbnails)
+            assert [] == original_resource.representation.thumbnails
             [thumbnail] = resource.representation.thumbnails
-            eq_(Representation.PNG_MEDIA_TYPE, thumbnail.media_type)
+            assert Representation.PNG_MEDIA_TYPE == thumbnail.media_type
             assert image_data != thumbnail.content
             assert resource.representation.content != thumbnail.content
             assert identifier.identifier in resource.representation.mirror_url
             assert identifier.identifier in thumbnail.mirror_url
 
-            eq_([resource.representation, thumbnail], mirrors[mirror_type].uploaded[2:])
-            eq_([resource.representation.mirror_url, thumbnail.mirror_url], mirrors[mirror_type].destinations[2:])
+            assert [resource.representation, thumbnail] == mirrors[mirror_type].uploaded[2:]
+            assert [resource.representation.mirror_url, thumbnail.mirror_url] == mirrors[mirror_type].destinations[2:]
 
         self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
         with self.request_context_with_library_and_admin("/"):
@@ -1138,9 +1138,9 @@ class TestWorkController(AdminControllerTest):
         with self.request_context_with_library_and_admin("/"):
             response = self.manager.admin_work_controller.custom_lists(identifier.type, identifier.identifier)
             lists = response.get('custom_lists')
-            eq_(1, len(lists))
-            eq_(list.id, lists[0].get("id"))
-            eq_(list.name, lists[0].get("name"))
+            assert 1 == len(lists)
+            assert list.id == lists[0].get("id")
+            assert list.name == lists[0].get("name")
 
         self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
         with self.request_context_with_library_and_admin("/"):
@@ -1158,7 +1158,7 @@ class TestWorkController(AdminControllerTest):
                 ("name", "name"),
             ])
             response = self.manager.admin_custom_lists_controller.custom_lists()
-            eq_(MISSING_CUSTOM_LIST, response)
+            assert MISSING_CUSTOM_LIST == response
 
     def test_custom_lists_edit_success(self):
         staff_data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
@@ -1181,16 +1181,16 @@ class TestWorkController(AdminControllerTest):
                 ("lists", json.dumps([{ "id": str(list.id), "name": list.name }]))
             ])
             response = self.manager.admin_work_controller.custom_lists(identifier.type, identifier.identifier)
-            eq_(200, response.status_code)
-            eq_(1, len(work.custom_list_entries))
-            eq_(1, len(list.entries))
-            eq_(list, work.custom_list_entries[0].customlist)
-            eq_(True, work.custom_list_entries[0].featured)
+            assert 200 == response.status_code
+            assert 1 == len(work.custom_list_entries)
+            assert 1 == len(list.entries)
+            assert list == work.custom_list_entries[0].customlist
+            assert True == work.custom_list_entries[0].featured
 
             # Lane.size will not be updated until the work is
             # reindexed with its new list memebership and lane sizes
             # are recalculated.
-            eq_(2, lane.size)
+            assert 2 == lane.size
 
         # Now remove the work from the list.
         self.controller.search_engine.docs = dict(id1="doc1")
@@ -1199,12 +1199,12 @@ class TestWorkController(AdminControllerTest):
                 ("lists", json.dumps([])),
             ])
             response = self.manager.admin_work_controller.custom_lists(identifier.type, identifier.identifier)
-        eq_(200, response.status_code)
-        eq_(0, len(work.custom_list_entries))
-        eq_(0, len(list.entries))
+        assert 200 == response.status_code
+        assert 0 == len(work.custom_list_entries)
+        assert 0 == len(list.entries)
 
         # The lane size was recalculated once again.
-        eq_(1, lane.size)
+        assert 1 == lane.size
 
         # Add a list that didn't exist before.
         with self.request_context_with_library_and_admin("/", method="POST"):
@@ -1212,11 +1212,11 @@ class TestWorkController(AdminControllerTest):
                 ("lists", json.dumps([{ "name": "new list" }]))
             ])
             response = self.manager.admin_work_controller.custom_lists(identifier.type, identifier.identifier)
-        eq_(200, response.status_code)
-        eq_(1, len(work.custom_list_entries))
+        assert 200 == response.status_code
+        assert 1 == len(work.custom_list_entries)
         new_list = CustomList.find(self._db, "new list", staff_data_source, self._default_library)
-        eq_(new_list, work.custom_list_entries[0].customlist)
-        eq_(True, work.custom_list_entries[0].featured)
+        assert new_list == work.custom_list_entries[0].customlist
+        assert True == work.custom_list_entries[0].featured
 
         self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
         with self.request_context_with_library_and_admin("/", method="POST"):

@@ -53,20 +53,20 @@ class TestFirstBook(DatabaseTest):
         api = FirstBookAuthenticationAPI(self._default_library, integration)
 
         # Verify that the configuration details were stored properly.
-        eq_('http://example.com/', api.root)
-        eq_('the_key', api.secret)
+        assert 'http://example.com/' == api.root
+        assert 'the_key' == api.secret
 
         # Test the default server-side authentication regular expressions.
-        eq_(False, api.server_side_validation("foo' or 1=1 --;", "1234"))
-        eq_(False, api.server_side_validation("foo", "12 34"))
-        eq_(True, api.server_side_validation("foo", "1234"))
-        eq_(True, api.server_side_validation("foo@bar", "1234"))
+        assert False == api.server_side_validation("foo' or 1=1 --;", "1234")
+        assert False == api.server_side_validation("foo", "12 34")
+        assert True == api.server_side_validation("foo", "1234")
+        assert True == api.server_side_validation("foo@bar", "1234")
 
     def test_authentication_success(self):
 
         # The mock API successfully decodes the JWT and verifies that
         # the given barcode and pin authenticate a specific patron.
-        eq_(True, self.api.remote_pin_test("ABCD", "1234"))
+        assert True == self.api.remote_pin_test("ABCD", "1234")
 
         # Let's see what the mock API had to work with.
         requested = self.api.request_urls.pop()
@@ -76,27 +76,27 @@ class TestFirstBook(DatabaseTest):
         # It's a JWT, with the provided barcode and PIN in the
         # payload.
         barcode, pin = self.api._decode(token)
-        eq_("ABCD", barcode)
-        eq_("1234", pin)
+        assert "ABCD" == barcode
+        assert "1234" == pin
 
     def test_authentication_failure(self):
-        eq_(False, self.api.remote_pin_test("ABCD", "9999"))
-        eq_(False, self.api.remote_pin_test("nosuchkey", "9999"))
+        assert False == self.api.remote_pin_test("ABCD", "9999")
+        assert False == self.api.remote_pin_test("nosuchkey", "9999")
 
         # credentials are uppercased in remote_authenticate;
         # remote_pin_test just passes on whatever it's sent.
-        eq_(False, self.api.remote_pin_test("abcd", "9999"))
+        assert False == self.api.remote_pin_test("abcd", "9999")
 
     def test_remote_authenticate(self):
         patrondata = self.api.remote_authenticate("abcd", "1234")
-        eq_("ABCD", patrondata.permanent_id)
-        eq_("ABCD", patrondata.authorization_identifier)
-        eq_(None, patrondata.username)
+        assert "ABCD" == patrondata.permanent_id
+        assert "ABCD" == patrondata.authorization_identifier
+        assert None == patrondata.username
 
         patrondata = self.api.remote_authenticate("ABCD", "1234")
-        eq_("ABCD", patrondata.permanent_id)
-        eq_("ABCD", patrondata.authorization_identifier)
-        eq_(None, patrondata.username)
+        assert "ABCD" == patrondata.permanent_id
+        assert "ABCD" == patrondata.authorization_identifier
+        assert None == patrondata.username
 
     def test_broken_service_remote_pin_test(self):
         api = self.mock_api(failure_status_code=502)
@@ -123,8 +123,8 @@ class TestFirstBook(DatabaseTest):
         del os.environ['AUTOINITIALIZE']
         with self.app.test_request_context("/"):
             doc = self.api.authentication_flow_document(self._db)
-            eq_(self.api.DISPLAY_NAME, doc['description'])
-            eq_(self.api.FLOW_TYPE, doc['type'])
+            assert self.api.DISPLAY_NAME == doc['description']
+            assert self.api.FLOW_TYPE == doc['type']
 
     def test_jwt(self):
         # Test the code that generates and signs JWTs.
@@ -134,8 +134,8 @@ class TestFirstBook(DatabaseTest):
         # validates it as a side effect) and we can see the payload.
         barcode, pin = self.api._decode(token)
 
-        eq_("a barcode", barcode)
-        eq_("a pin", pin)
+        assert "a barcode" == barcode
+        assert "a pin" == pin
 
         # If the secrets don't match, decoding won't work.
         self.api.secret = "bad secret"

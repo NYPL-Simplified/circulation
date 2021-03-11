@@ -24,23 +24,20 @@ class TestAttributeStatement(object):
         attribute_statement = SAMLAttributeStatement(attributes)
 
         # Assert
-        eq_(True, SAMLAttributeType.uid.name in attribute_statement.attributes)
-        eq_(
-            attributes[0].values,
-            attribute_statement.attributes[SAMLAttributeType.uid.name].values,
-        )
+        assert True == (SAMLAttributeType.uid.name in attribute_statement.attributes)
+        assert (
+            attributes[0].values ==
+            attribute_statement.attributes[SAMLAttributeType.uid.name].values)
 
-        eq_(
-            True,
-            SAMLAttributeType.eduPersonTargetedID.name
-            in attribute_statement.attributes,
-        )
-        eq_(
-            attributes[1].values,
+        assert (
+            True ==
+            (SAMLAttributeType.eduPersonTargetedID.name
+            in attribute_statement.attributes))
+        assert (
+            attributes[1].values ==
             attribute_statement.attributes[
                 SAMLAttributeType.eduPersonTargetedID.name
-            ].values,
-        )
+            ].values)
 
 
 class TestSubjectUIDExtractor(object):
@@ -126,4 +123,4 @@ class TestSubjectUIDExtractor(object):
         unique_id = extractor.extract(subject)
 
         # Assert
-        eq_(expected_unique_id, unique_id)
+        assert expected_unique_id == unique_id

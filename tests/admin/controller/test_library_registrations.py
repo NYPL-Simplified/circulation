@@ -121,21 +121,21 @@ class TestLibraryRegistration(SettingsControllerTest):
             # dictionary with useful information on all known
             # discovery integrations -- just one, in this case.
             [service] = response["library_registrations"]
-            eq_(discovery_service.id, service["id"])
+            assert discovery_service.id == service["id"]
 
             # The two mock HTTP requests we predicted actually
             # happened.  The target of the first request is the URL to
             # the discovery service's main catalog. The second request
             # is to the "register" link found in that catalog.
-            eq_(["http://service-url/", "http://register-here/"],
+            assert (["http://service-url/", "http://register-here/"] ==
                 client.requests)
 
             # The TOS link and TOS HTML snippet were recovered from
             # the registration document served in response to the
             # second HTTP request, and included in the dictionary.
-            eq_("http://tos/", service['terms_of_service_link'])
-            eq_("<p>How about that TOS</p>", service['terms_of_service_html'])
-            eq_(None, service['access_problem'])
+            assert "http://tos/" == service['terms_of_service_link']
+            assert "<p>How about that TOS</p>" == service['terms_of_service_html']
+            assert None == service['access_problem']
 
             # The dictionary includes a 'libraries' object, a list of
             # dictionaries with information about the relationships
@@ -144,19 +144,17 @@ class TestLibraryRegistration(SettingsControllerTest):
             info1, info2 = service["libraries"]
 
             # Here's the library that successfully registered.
-            eq_(
-                info1,
+            assert (
+                info1 ==
                 dict(short_name=succeeded.short_name, status="success",
-                     stage="production")
-            )
+                     stage="production"))
 
             # And here's the library that tried to register but
             # failed.
-            eq_(
-                info2,
+            assert (
+                info2 ==
                 dict(short_name=failed.short_name, status="failure",
-                     stage="testing")
-            )
+                     stage="testing"))
 
             # Note that `unregistered`, the library that never tried
             # to register with this discover service, is not included.
@@ -174,16 +172,16 @@ class TestLibraryRegistration(SettingsControllerTest):
             # Everything looks good, except that there's no TOS data
             # available.
             [service] = response["library_registrations"]
-            eq_(discovery_service.id, service["id"])
-            eq_(2, len(service['libraries']))
-            eq_(None, service['terms_of_service_link'])
-            eq_(None, service['terms_of_service_html'])
+            assert discovery_service.id == service["id"]
+            assert 2 == len(service['libraries'])
+            assert None == service['terms_of_service_link']
+            assert None == service['terms_of_service_html']
 
             # The problem detail document that prevented the TOS data
             # from showing up has been converted to a dictionary and
             # included in the dictionary of information for this
             # discovery service.
-            eq_(REMOTE_INTEGRATION_FAILED.uri,
+            assert (REMOTE_INTEGRATION_FAILED.uri ==
                 service['access_problem']['type'])
 
             # When the user lacks the SYSTEM_ADMIN role, the
@@ -216,7 +214,7 @@ class TestLibraryRegistration(SettingsControllerTest):
                 ("integration_id", "1234"),
             ])
             response = m()
-            eq_(MISSING_SERVICE, response)
+            assert MISSING_SERVICE == response
 
         # Create an ExternalIntegration to avoid that problem in future
         # tests.
@@ -234,7 +232,7 @@ class TestLibraryRegistration(SettingsControllerTest):
                 ("library_short_name", "not-a-library"),
             ])
             response = m()
-            eq_(NO_SUCH_LIBRARY, response)
+            assert NO_SUCH_LIBRARY == response
 
         # Take care of that problem.
         library = self._default_library
@@ -257,7 +255,7 @@ class TestLibraryRegistration(SettingsControllerTest):
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = form
             response = m(registration_class=Mock)
-            eq_(REMOTE_INTEGRATION_FAILED, response)
+            assert REMOTE_INTEGRATION_FAILED == response
 
         # But if that doesn't happen, success!
         class Mock(Registration):
@@ -274,15 +272,15 @@ class TestLibraryRegistration(SettingsControllerTest):
             response = controller.process_discovery_service_library_registrations(
                 registration_class=Mock
             )
-            eq_(200, response.status_code)
+            assert 200 == response.status_code
 
             # push() was called with the arguments we would expect.
             args, kwargs = Mock.called_with
-            eq_((Registration.TESTING_STAGE, self.manager.url_for), args)
+            assert (Registration.TESTING_STAGE, self.manager.url_for) == args
 
             # We would have made real HTTP requests.
-            eq_(HTTP.debuggable_post, kwargs.pop('do_post'))
-            eq_(HTTP.debuggable_get, kwargs.pop('do_get'))
+            assert HTTP.debuggable_post == kwargs.pop('do_post')
+            assert HTTP.debuggable_get == kwargs.pop('do_get')
 
             # No other keyword arguments were passed in.
-            eq_({}, kwargs)
+            assert {} == kwargs

@@ -56,7 +56,7 @@ class TestSIPClient(object):
         # Call connect() and make sure timeout is set properly.
         try:
             sip.connect()
-            eq_(12, sip.connection.timeout)
+            assert 12 == sip.connection.timeout
         finally:
             # Un-mock the socket.socket function
             socket.socket = old_socket
@@ -83,7 +83,7 @@ class TestSIPClient(object):
             # When an insecure connection is created, wrap_socket is
             # not called.
             insecure.connect()
-            eq_(None, wrap_socket.called_with)
+            assert None == wrap_socket.called_with
 
             # When a secure connection is created with no SSL
             # certificate, wrap_socket() is called on the connection
@@ -92,7 +92,7 @@ class TestSIPClient(object):
             no_cert.connect()
             connection, kwargs = wrap_socket.called_with
             assert isinstance(connection, MockSocket)
-            eq_(dict(keyfile=None, certfile=None), kwargs)
+            assert dict(keyfile=None, certfile=None) == kwargs
 
             # When a secure connection is created with an SSL
             # certificate, the certificate and key are written to
@@ -102,7 +102,7 @@ class TestSIPClient(object):
             with_cert.connect()
             connection, kwargs = wrap_socket.called_with
             assert isinstance(connection, MockSocket)
-            eq_(set(['keyfile', 'certfile']), set(kwargs.keys()))
+            assert set(['keyfile', 'certfile']) == set(kwargs.keys())
             for tmpfile in kwargs.values():
                 tmpfile = os.path.abspath(tmpfile)
                 assert os.path.basename(tmpfile).startswith("tmp")
@@ -121,27 +121,27 @@ class TestBasicProtocol(object):
     def test_login_message(self):
         sip = MockSIPClient()
         message = sip.login_message('user_id', 'password')
-        eq_('9300CNuser_id|COpassword', message)
+        assert '9300CNuser_id|COpassword' == message
 
     def test_append_checksum(self):
         sip = MockSIPClient()
         sip.sequence_number=7
         data = "some data"
         new_data = sip.append_checksum(data)
-        eq_("some data|AY7AZFAAA", new_data)
+        assert "some data|AY7AZFAAA" == new_data
 
     def test_sequence_number_increment(self):
         sip = MockSIPClient(login_user_id='user_id', login_password='password')
         sip.sequence_number=0
         sip.queue_response('941')
         response = sip.login()
-        eq_(1, sip.sequence_number)
+        assert 1 == sip.sequence_number
 
         # Test wraparound from 9 to 0
         sip.sequence_number=9
         sip.queue_response('941')
         response = sip.login()
-        eq_(0, sip.sequence_number)
+        assert 0 == sip.sequence_number
 
     def test_resend(self):
         sip = MockSIPClient(login_user_id='user_id', login_password='password')
@@ -156,14 +156,14 @@ class TestBasicProtocol(object):
         req1, req2 = sip.requests
         # The first request includes a sequence ID field, "AY", with
         # the value "0".
-        eq_('9300CNuser_id|COpassword|AY0AZF556\r', req1)
+        assert '9300CNuser_id|COpassword|AY0AZF556\r' == req1
 
         # The second request does not include a sequence ID field. As
         # a consequence its checksum is different.
-        eq_('9300CNuser_id|COpassword|AZF620\r', req2)
+        assert '9300CNuser_id|COpassword|AZF620\r' == req2
 
         # The login request eventually succeeded.
-        eq_({'login_ok': '1', '_status': '94'}, response)
+        assert {'login_ok': '1', '_status': '94'} == response
 
     def test_maximum_resend(self):
         sip = MockSIPClient(login_user_id='user_id', login_password='password')
@@ -179,7 +179,7 @@ class TestBasicProtocol(object):
         assert_raises(IOError, sip.login)
 
         # We should send as many requests as we are allowed retries
-        eq_(sip.MAXIMUM_RETRIES, len(sip.requests))
+        assert sip.MAXIMUM_RETRIES == len(sip.requests)
 
 class TestLogin(object):
 
@@ -187,14 +187,14 @@ class TestLogin(object):
         sip = MockSIPClient('user_id', 'password')
         sip.queue_response('941')
         response = sip.login()
-        eq_({'login_ok': '1', '_status': '94'}, response)
+        assert {'login_ok': '1', '_status': '94'} == response
 
     def test_login_password_is_optional(self):
         """You can specify a login_id without specifying a login_password."""
         sip = MockSIPClient('user_id')
         sip.queue_response('941')
         response = sip.login()
-        eq_({'login_ok': '1', '_status': '94'}, response)
+        assert {'login_ok': '1', '_status': '94'} == response
 
     def test_login_failure(self):
         sip = MockSIPClient('user_id', 'password')
@@ -205,7 +205,7 @@ class TestLogin(object):
         sip = MockSIPClient('user_id', 'password')
         # We're not logged in, and we must log in before sending a real
         # message.
-        eq_(True, sip.must_log_in)
+        assert True == sip.must_log_in
 
         sip.queue_response('941')
         sip.queue_response('64Y                201610050000114734                        AOnypl |AA12345|AENo Name|BLN|AFYour library card number cannot be located.  Please see a staff member for assistance.|AY1AZC9DE')
@@ -213,31 +213,31 @@ class TestLogin(object):
         response = sip.patron_information('patron_identifier')
 
         # Two requests were made.
-        eq_(2, len(sip.requests))
-        eq_(2, sip.sequence_number)
+        assert 2 == len(sip.requests)
+        assert 2 == sip.sequence_number
 
         # We ended up with the right data.
-        eq_('12345', response['patron_identifier'])
+        assert '12345' == response['patron_identifier']
 
     def test_no_login_when_user_id_and_password_not_specified(self):
         sip = MockSIPClient()
-        eq_(False, sip.must_log_in)
+        assert False == sip.must_log_in
 
         sip.queue_response('64Y                201610050000114734                        AOnypl |AA12345|AENo Name|BLN|AFYour library card number cannot be located.  Please see a staff member for assistance.|AY1AZC9DE')
         sip.login()
 
         # Zero requests made
-        eq_(0, len(sip.requests))
-        eq_(0, sip.sequence_number)
+        assert 0 == len(sip.requests)
+        assert 0 == sip.sequence_number
 
         response = sip.patron_information('patron_identifier')
 
         # One request made.
-        eq_(1, len(sip.requests))
-        eq_(1, sip.sequence_number)
+        assert 1 == len(sip.requests)
+        assert 1 == sip.sequence_number
 
         # We ended up with the right data.
-        eq_('12345', response['patron_identifier'])
+        assert '12345' == response['patron_identifier']
 
     def test_login_failure_interrupts_other_request(self):
         sip = MockSIPClient('user_id', 'password')
@@ -251,17 +251,17 @@ class TestLogin(object):
         sip = MockSIPClient()
 
         # We're implicitly logged in.
-        eq_(False, sip.must_log_in)
+        assert False == sip.must_log_in
 
         sip.queue_response('64Y                201610050000114734                        AOnypl |AA12345|AENo Name|BLN|AFYour library card number cannot be located.  Please see a staff member for assistance.|AY1AZC9DE')
         response = sip.patron_information('patron_identifier')
 
         # One request was made.
-        eq_(1, len(sip.requests))
-        eq_(1, sip.sequence_number)
+        assert 1 == len(sip.requests)
+        assert 1 == sip.sequence_number
 
         # We ended up with the right data.
-        eq_('12345', response['patron_identifier'])
+        assert '12345' == response['patron_identifier']
 
 
 class TestPatronResponse(object):
@@ -274,26 +274,26 @@ class TestPatronResponse(object):
         response = self.sip.patron_information('identifier')
 
         # Test some of the basic fields.
-        eq_(response['institution_id'], 'nypl ')
-        eq_(response['personal_name'], 'No Name')
-        eq_(response['screen_message'], ['Your library card number cannot be located.'])
-        eq_(response['valid_patron'], 'N')
-        eq_(response['patron_status'], 'Y             ')
+        assert response['institution_id'] == 'nypl '
+        assert response['personal_name'] == 'No Name'
+        assert response['screen_message'] == ['Your library card number cannot be located.']
+        assert response['valid_patron'] == 'N'
+        assert response['patron_status'] == 'Y             '
         parsed = response['patron_status_parsed']
-        eq_(True, parsed['charge privileges denied'])
-        eq_(False, parsed['too many items charged'])
+        assert True == parsed['charge privileges denied']
+        assert False == parsed['too many items charged']
 
     def test_hold_items(self):
         "A patron has multiple items on hold."
         self.sip.queue_response("64              000201610050000114837000300020002000000000000AOnypl |AA233|AEBAR, FOO|BZ0030|CA0050|CB0050|BLY|CQY|BV0|CC15.00|AS123|AS456|AS789|BEFOO@BAR.COM|AY1AZC848")
         response = self.sip.patron_information('identifier')
-        eq_('0003', response['hold_items_count'])
-        eq_(['123', '456', '789'], response['hold_items'])
+        assert '0003' == response['hold_items_count']
+        assert ['123', '456', '789'] == response['hold_items']
 
     def test_multiple_screen_messages(self):
         self.sip.queue_response("64Y  YYYYYYYYYYY000201610050000115040000000000000000000000000AOnypl |AA233|AESHELDON, ALICE|BZ0030|CA0050|CB0050|BLY|CQN|BV0|CC15.00|AFInvalid PIN entered.  Please try again or see a staff member for assistance.|AFThere are unresolved issues with your account.  Please see a staff member for assistance.|AY2AZ9B64")
         response = self.sip.patron_information('identifier')
-        eq_(2, len(response['screen_message']))
+        assert 2 == len(response['screen_message'])
 
     def test_extension_field_captured(self):
         """This SIP2 message includes an extension field with the code XI.
@@ -303,11 +303,11 @@ class TestPatronResponse(object):
 
         # The Evergreen XI field is a known extension and is picked up
         # as sipserver_internal_id.
-        eq_("86371", response['sipserver_internal_id'])
+        assert "86371" == response['sipserver_internal_id']
 
         # The ZZ field is an unknown extension and is captured under
         # its SIP code.
-        eq_(["foo"], response['ZZ'])
+        assert ["foo"] == response['ZZ']
 
     def test_embedded_pipe(self):
         """In most cases we can handle data even if it contains embedded
@@ -315,7 +315,7 @@ class TestPatronResponse(object):
         """
         self.sip.queue_response('64              000201610050000134405000000000000000000000000AOnypl |AA12345|AERICHARDSON, LEONARD|BZ0030|CA0050|CB0050|BLY|CQY|BV0|CC15.00|BEleona|rdr@|bar.com|AY1AZD1BB\r')
         response = self.sip.patron_information('identifier')
-        eq_("leona|rdr@|bar.com", response['email_address'])
+        assert "leona|rdr@|bar.com" == response['email_address']
 
     def test_different_separator(self):
         """When you create the SIPClient you get to specify which character
@@ -324,7 +324,7 @@ class TestPatronResponse(object):
         sip = MockSIPClient(separator='^')
         sip.queue_response("64Y                201610050000114734                        AOnypl ^AA240^AENo Name^BLN^AFYour library card number cannot be located.^AY1AZC9DE")
         response = sip.patron_information('identifier')
-        eq_('240', response['patron_identifier'])
+        assert '240' == response['patron_identifier']
 
     def test_location_code_is_optional(self):
         """You can specify a location_code when logging in, or not."""
@@ -385,7 +385,7 @@ class TestPatronResponse(object):
                 'recall overdue',
                 #'too many items billed',
         ]:
-            eq_(parsed[yes], True)
+            assert parsed[yes] == True
 
         for no in [
                 #'charge privileges denied',
@@ -403,7 +403,7 @@ class TestPatronResponse(object):
                 #'recall overdue',
                 'too many items billed',
         ]:
-            eq_(parsed[no], False)
+            assert parsed[no] == False
 
 class TestClientDialects(object):
 
@@ -415,12 +415,12 @@ class TestClientDialects(object):
         self.sip.dialect = GenericILS
         self.sip.queue_response("36Y201610210000142637AO3|AA25891000331441|AF|AG")
         self.sip.end_session('username', 'password')
-        eq_(self.sip.read_count, 1)
-        eq_(self.sip.write_count, 1)
+        assert self.sip.read_count == 1
+        assert self.sip.write_count == 1
 
     def test_ag_dialect(self):
         # AG VERSO ILS shouldn't end_session message
         self.sip.dialect = AutoGraphicsVerso
         self.sip.end_session('username', 'password')
-        eq_(self.sip.read_count, 0)
-        eq_(self.sip.write_count, 0)
+        assert self.sip.read_count == 0
+        assert self.sip.write_count == 0

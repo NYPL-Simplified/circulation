@@ -153,11 +153,11 @@ class AdminRouteTest(ControllerTest, RouteTestFixtures):
         http_method = kwargs.pop('http_method', 'GET')
         response = self.request(url, http_method)
         if authentication_required:
-            eq_(401, response.status_code)
-            eq_("authenticated_admin_from_request called without authorizing",
+            assert 401 == response.status_code
+            assert ("authenticated_admin_from_request called without authorizing" ==
                 response.data)
         else:
-            eq_(200, response.status_code)
+            assert 200 == response.status_code
 
         # Set a variable so that authenticated_admin_from_request
         # will succeed, and try again.
@@ -179,7 +179,7 @@ class AdminRouteTest(ControllerTest, RouteTestFixtures):
         http_method = kwargs.pop('http_method', 'GET')
         response = self.request(url, http_method)
 
-        eq_(response.headers['Content-type'], 'text/csv')
+        assert response.headers['Content-type'] == 'text/csv'
     
     def assert_redirect_call(self, url, *args, **kwargs):
 
@@ -198,7 +198,7 @@ class AdminRouteTest(ControllerTest, RouteTestFixtures):
         self.manager.admin_sign_in_controller.csrf_token = False
         response = self.request(url, http_method)
 
-        eq_(302, response.status_code)
+        assert 302 == response.status_code
         assert "Redirecting..." in response.data
 
         # If there is a csrf token but the Admin is not authenticated,
@@ -210,7 +210,7 @@ class AdminRouteTest(ControllerTest, RouteTestFixtures):
         self.manager.admin_sign_in_controller.authenticated_problem_detail = True
         response = self.request(url, http_method)
 
-        eq_(302, response.status_code)
+        assert 302 == response.status_code
         assert "Redirecting..." in response.data
 
         # Not being authenticated and not having a csrf token fail
@@ -220,7 +220,7 @@ class AdminRouteTest(ControllerTest, RouteTestFixtures):
         response = self.request(url, http_method)
 
         # No admin or csrf token so redirect.
-        eq_(302, response.status_code)
+        assert 302 == response.status_code
         assert "Redirecting..." in response.data
 
         self.manager.admin_sign_in_controller.authenticated_problem_detail = False
@@ -263,7 +263,7 @@ class TestAdminSignIn(AdminRouteTest):
         url = '/admin'
         response = self.request(url)
 
-        eq_(302, response.status_code)
+        assert 302 == response.status_code
         assert "Redirecting..." in response.data
 
 class TestAdminWork(AdminRouteTest):

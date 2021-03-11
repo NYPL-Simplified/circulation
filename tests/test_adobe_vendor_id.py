@@ -98,8 +98,8 @@ class TestVendorIDModel(VendorIDTest):
     def test_uuid_and_label_respects_existing_id(self):
         uuid, label = self.model.uuid_and_label(self.bob_patron)
         uuid2, label2 = self.model.uuid_and_label(self.bob_patron)
-        eq_(uuid, uuid2)
-        eq_(label, label2)
+        assert uuid == uuid2
+        assert label == label2
 
     def test_uuid_and_label_creates_delegatedpatronid_from_credential(self):
 
@@ -117,8 +117,8 @@ class TestVendorIDModel(VendorIDTest):
 
         # Now uuid_and_label works.
         uuid, label = self.model.uuid_and_label(self.bob_patron)
-        eq_("A dummy value", uuid)
-        eq_("Delegated account ID A dummy value", label)
+        assert "A dummy value" == uuid
+        assert "Delegated account ID A dummy value" == label
 
         # There is now an anonymized identifier associated with Bob's
         # patron account.
@@ -137,14 +137,14 @@ class TestVendorIDModel(VendorIDTest):
                 DelegatedPatronIdentifier.patron_identifier
                 ==bob_anonymized_identifier.credential
             ).all()
-        eq_("A dummy value",
+        assert ("A dummy value" ==
             bob_delegated_patron_identifier.delegated_identifier)
 
         # If the DelegatedPatronIdentifier and the Credential
         # have different values, the DelegatedPatronIdentifier wins.
         old_style_credential.credential = "A different value."
         uuid, label = self.model.uuid_and_label(self.bob_patron)
-        eq_("A dummy value", uuid)
+        assert "A dummy value" == uuid
 
         # We can even delete the old-style Credential, and
         # uuid_and_label will still give the value that was stored in
@@ -152,7 +152,7 @@ class TestVendorIDModel(VendorIDTest):
         self._db.delete(old_style_credential)
         self._db.commit()
         uuid, label = self.model.uuid_and_label(self.bob_patron)
-        eq_("A dummy value", uuid)
+        assert "A dummy value" == uuid
 
 
     def test_create_authdata(self):
@@ -163,7 +163,7 @@ class TestVendorIDModel(VendorIDTest):
         bob_authdata = Credential.lookup(
             self._db, self.data_source, self.model.AUTHDATA_TOKEN_TYPE,
             self.bob_patron, None)
-        eq_(credential.credential, bob_authdata.credential)
+        assert credential.credential == bob_authdata.credential
 
     def test_to_delegated_patron_identifier_uuid(self):
 
@@ -171,14 +171,12 @@ class TestVendorIDModel(VendorIDTest):
         foreign_identifier = "foreign ID"
 
         # Pass in nothing and you get nothing.
-        eq_((None, None),
-            self.model.to_delegated_patron_identifier_uuid(foreign_uri, None)
-        )
-        eq_((None, None),
+        assert ((None, None) ==
+            self.model.to_delegated_patron_identifier_uuid(foreign_uri, None))
+        assert ((None, None) ==
             self.model.to_delegated_patron_identifier_uuid(
                 None, foreign_identifier
-            )
-        )
+            ))
 
         # Pass in a URI and identifier and you get a UUID and a label.
         uuid, label = self.model.to_delegated_patron_identifier_uuid(
@@ -186,7 +184,7 @@ class TestVendorIDModel(VendorIDTest):
         )
 
         # We can't test a specific value for the UUID but we can test the label.
-        eq_("Delegated account ID " + uuid, label)
+        assert "Delegated account ID " + uuid == label
 
         # And we can verify that a DelegatedPatronIdentifier was
         # created for the URI+identifier, and that it contains the
@@ -195,7 +193,7 @@ class TestVendorIDModel(VendorIDTest):
             DelegatedPatronIdentifier.library_uri==foreign_uri).filter(
             DelegatedPatronIdentifier.patron_identifier==foreign_identifier
         ).all()
-        eq_(uuid, dpi.delegated_identifier)
+        assert uuid == dpi.delegated_identifier
 
     def test_authdata_lookup_delegated_patron_identifier_success(self):
         """Test that one library can perform an authdata lookup on a JWT
@@ -214,9 +212,8 @@ class TestVendorIDModel(VendorIDTest):
         # The Vendor ID library knows the secret it shares with the
         # other library -- initialize_adobe() took care of that.
         sct_library_uri = sct_library.setting(Configuration.WEBSITE_URL).value
-        eq_("%s token secret" % sct_library.short_name,
-            vendor_id_utility.secrets_by_library_uri[sct_library_uri]
-        )
+        assert ("%s token secret" % sct_library.short_name ==
+            vendor_id_utility.secrets_by_library_uri[sct_library_uri])
 
         # Because this library shares the other library's secret,
         # it can decode a JWT issued by the other library, and
@@ -226,8 +223,8 @@ class TestVendorIDModel(VendorIDTest):
         # We get the same result if we smuggle the JWT into
         # a username/password lookup as the username.
         uuid2, label2 = self.model.standard_lookup(dict(username=jwt))
-        eq_(uuid2, uuid)
-        eq_(label2, label)
+        assert uuid2 == uuid
+        assert label2 == label
 
         # The UUID corresponds to a DelegatedPatronIdentifier,
         # associated with the foreign library and the patron
@@ -236,8 +233,8 @@ class TestVendorIDModel(VendorIDTest):
             DelegatedPatronIdentifier.library_uri==sct_library_uri).filter(
                 DelegatedPatronIdentifier.patron_identifier=="Foreign patron"
             ).all()
-        eq_(uuid, dpi.delegated_identifier)
-        eq_("Delegated account ID %s" % uuid, label)
+        assert uuid == dpi.delegated_identifier
+        assert "Delegated account ID %s" % uuid == label
 
     def test_short_client_token_lookup_delegated_patron_identifier_success(self):
         """Test that one library can perform an authdata lookup on a short
@@ -258,9 +255,8 @@ class TestVendorIDModel(VendorIDTest):
         # The Vendor ID library knows the secret it shares with the
         # other library -- initialize_adobe() took care of that.
         sct_library_url = sct_library.setting(Configuration.WEBSITE_URL).value
-        eq_("%s token secret" % sct_library.short_name,
-            vendor_id_utility.secrets_by_library_uri[sct_library_url]
-        )
+        assert ("%s token secret" % sct_library.short_name ==
+            vendor_id_utility.secrets_by_library_uri[sct_library_url])
 
         # Because the Vendor ID library shares the Short Client Token
         # library's secret, it can decode a short client token issued
@@ -277,8 +273,8 @@ class TestVendorIDModel(VendorIDTest):
             DelegatedPatronIdentifier.library_uri==sct_library_url).filter(
                 DelegatedPatronIdentifier.patron_identifier=="Foreign patron"
             ).all()
-        eq_(uuid, dpi.delegated_identifier)
-        eq_("Delegated account ID %s" % uuid, label)
+        assert uuid == dpi.delegated_identifier
+        assert "Delegated account ID %s" % uuid == label
 
         # We get the same UUID and label by passing the token and
         # signature to standard_lookup as username and password.
@@ -286,15 +282,15 @@ class TestVendorIDModel(VendorIDTest):
         # behind the scenes.)
         credentials = dict(username=token, password=signature)
         new_uuid, new_label = self.model.standard_lookup(credentials)
-        eq_(new_uuid, uuid)
-        eq_(new_label, label)
+        assert new_uuid == uuid
+        assert new_label == label
 
     def test_short_client_token_lookup_delegated_patron_identifier_failure(self):
         uuid, label = self.model.short_client_token_lookup(
             "bad token", "bad signature"
         )
-        eq_(None, uuid)
-        eq_(None, label)
+        assert None == uuid
+        assert None == label
 
     def test_username_password_lookup_success(self):
         urn, label = self.model.standard_lookup(self.credentials)
@@ -317,8 +313,8 @@ class TestVendorIDModel(VendorIDTest):
                 ==bob_anonymized_identifier.credential
             ).all()
 
-        eq_("Delegated account ID %s" % urn, label)
-        eq_(urn, bob_delegated_patron_identifier.delegated_identifier)
+        assert "Delegated account ID %s" % urn == label
+        assert urn == bob_delegated_patron_identifier.delegated_identifier
         assert urn.startswith("urn:uuid:0")
         assert urn.endswith('685b35c00f05')
 
@@ -332,7 +328,7 @@ class TestVendorIDModel(VendorIDTest):
         )
 
         # The token is persistent.
-        eq_(None, token.expires)
+        assert None == token.expires
 
         # Use that token to perform a lookup of Bob's Adobe Vendor ID
         # UUID.
@@ -357,7 +353,7 @@ class TestVendorIDModel(VendorIDTest):
             ).all()
 
         # That UUID is the one returned by authdata_lookup.
-        eq_(urn, bob_delegated_patron_identifier.delegated_identifier)
+        assert urn == bob_delegated_patron_identifier.delegated_identifier
 
     def test_smuggled_authdata_credential_success(self):
         # Bob's client has created a persistent token to authenticate him.
@@ -394,18 +390,18 @@ class TestVendorIDModel(VendorIDTest):
             ).all()
 
         # That UUID is the one returned by standard_lookup.
-        eq_(urn, bob_delegated_patron_identifier.delegated_identifier)
+        assert urn == bob_delegated_patron_identifier.delegated_identifier
 
         # A future attempt to authenticate with the token will succeed.
         urn, label = self.model.standard_lookup(
             dict(username=token.credential)
         )
-        eq_(urn, bob_delegated_patron_identifier.delegated_identifier)
+        assert urn == bob_delegated_patron_identifier.delegated_identifier
 
     def test_authdata_lookup_failure_no_token(self):
         urn, label = self.model.authdata_lookup("nosuchauthdata")
-        eq_(None, urn)
-        eq_(None, label)
+        assert None == urn
+        assert None == label
 
     def test_authdata_lookup_failure_wrong_token(self):
         # Bob has an authdata token.
@@ -416,14 +412,14 @@ class TestVendorIDModel(VendorIDTest):
 
         # But we look up a different token and get nothing.
         urn, label = self.model.authdata_lookup("nosuchauthdata")
-        eq_(None, urn)
-        eq_(None, label)
+        assert None == urn
+        assert None == label
 
     def test_urn_to_label_success(self):
         urn, label = self.model.standard_lookup(self.credentials)
         label2 = self.model.urn_to_label(urn)
-        eq_(label, label2)
-        eq_("Delegated account ID %s" % urn, label)
+        assert label == label2
+        assert "Delegated account ID %s" % urn == label
 
 
 class TestVendorIDRequestParsers(object):
@@ -444,20 +440,20 @@ class TestVendorIDRequestParsers(object):
     def test_username_sign_in_request(self):
         parser = AdobeSignInRequestParser()
         data = parser.process(self.username_sign_in_request)
-        eq_({'username': 'Vendor username',
-             'password': 'Vendor password', 'method': 'standard'}, data)
+        assert {'username': 'Vendor username',
+             'password': 'Vendor password', 'method': 'standard'} == data
 
     def test_authdata_sign_in_request(self):
         parser = AdobeSignInRequestParser()
         data = parser.process(self.authdata_sign_in_request)
-        eq_({'authData': 'this data was base64 encoded', 'method': 'authData'},
+        assert ({'authData': 'this data was base64 encoded', 'method': 'authData'} ==
             data)
 
     def test_accountinfo_request(self):
         parser = AdobeAccountInfoRequestParser()
         data = parser.process(self.accountinfo_request)
-        eq_({'method': 'standard',
-             'user': 'urn:uuid:0xxxxxxx-xxxx-1xxx-xxxx-yyyyyyyyyyyy'},
+        assert ({'method': 'standard',
+             'user': 'urn:uuid:0xxxxxxx-xxxx-1xxx-xxxx-yyyyyyyyyyyy'} ==
             data)
 
 class TestVendorIDRequestHandler(object):
@@ -510,7 +506,7 @@ class TestVendorIDRequestHandler(object):
     def test_error_document(self):
         doc = self._handler.error_document(
             "VENDORID", "Some random error")
-        eq_('<error xmlns="http://ns.adobe.com/adept" data="E_1045_VENDORID Some random error"/>', doc)
+        assert '<error xmlns="http://ns.adobe.com/adept" data="E_1045_VENDORID Some random error"/>' == doc
 
     def test_handle_username_sign_in_request_success(self):
         doc = self.username_sign_in_request % dict(
@@ -524,7 +520,7 @@ class TestVendorIDRequestHandler(object):
             username="user1", password="wrongpass")
         result = self._handler.handle_signin_request(
             doc, self._standard_login, self._authdata_login)
-        eq_('<error xmlns="http://ns.adobe.com/adept" data="E_1045_AUTH Incorrect barcode or PIN."/>', result)
+        assert '<error xmlns="http://ns.adobe.com/adept" data="E_1045_AUTH Incorrect barcode or PIN."/>' == result
 
     def test_handle_username_authdata_request_success(self):
         doc = self.authdata_sign_in_request % dict(
@@ -545,35 +541,35 @@ class TestVendorIDRequestHandler(object):
             authdata=base64.b64encode("incorrect"))
         result = self._handler.handle_signin_request(
             doc, self._standard_login, self._authdata_login)
-        eq_('<error xmlns="http://ns.adobe.com/adept" data="E_1045_AUTH Incorrect token."/>', result)
+        assert '<error xmlns="http://ns.adobe.com/adept" data="E_1045_AUTH Incorrect token."/>' == result
 
     def test_failure_send_login_request_to_accountinfo(self):
         doc = self.authdata_sign_in_request % dict(
             authdata=base64.b64encode("incorrect"))
         result = self._handler.handle_accountinfo_request(
             doc, self._userinfo)
-        eq_('<error xmlns="http://ns.adobe.com/adept" data="E_1045_ACCOUNT_INFO Request document in wrong format."/>', result)
+        assert '<error xmlns="http://ns.adobe.com/adept" data="E_1045_ACCOUNT_INFO Request document in wrong format."/>' == result
 
     def test_failure_send_accountinfo_request_to_login(self):
         doc = self.accountinfo_request % dict(
             uuid=self.user1_uuid)
         result = self._handler.handle_signin_request(
             doc, self._standard_login, self._authdata_login)
-        eq_('<error xmlns="http://ns.adobe.com/adept" data="E_1045_AUTH Request document in wrong format."/>', result)
+        assert '<error xmlns="http://ns.adobe.com/adept" data="E_1045_AUTH Request document in wrong format."/>' == result
 
     def test_handle_accountinfo_success(self):
         doc = self.accountinfo_request % dict(
             uuid=self.user1_uuid)
         result = self._handler.handle_accountinfo_request(
             doc, self._userinfo)
-        eq_('<accountInfoResponse xmlns="http://ns.adobe.com/adept">\n<label>Human-readable label for user1</label>\n</accountInfoResponse>', result)
+        assert '<accountInfoResponse xmlns="http://ns.adobe.com/adept">\n<label>Human-readable label for user1</label>\n</accountInfoResponse>' == result
 
     def test_handle_accountinfo_failure(self):
         doc = self.accountinfo_request % dict(
             uuid="not the uuid")
         result = self._handler.handle_accountinfo_request(
             doc, self._userinfo)
-        eq_('<error xmlns="http://ns.adobe.com/adept" data="E_1045_ACCOUNT_INFO Could not identify patron from \'not the uuid\'."/>', result)
+        assert '<error xmlns="http://ns.adobe.com/adept" data="E_1045_ACCOUNT_INFO Could not identify patron from \'not the uuid\'."/>' == result
 
 
 class TestAuthdataUtility(VendorIDTest):
@@ -603,26 +599,24 @@ class TestAuthdataUtility(VendorIDTest):
             self._db, ExternalIntegration.OPDS_REGISTRATION,
             ExternalIntegration.DISCOVERY_GOAL, library=library
         )
-        eq_(library.short_name + "token",
+        assert (library.short_name + "token" ==
             ConfigurationSetting.for_library_and_externalintegration(
                 self._db, ExternalIntegration.USERNAME, library, registry).value)
-        eq_(library.short_name + " token secret",
+        assert (library.short_name + " token secret" ==
             ConfigurationSetting.for_library_and_externalintegration(
                 self._db, ExternalIntegration.PASSWORD, library, registry).value)
 
-        eq_(self.TEST_VENDOR_ID, utility.vendor_id)
-        eq_(library_url, utility.library_uri)
-        eq_(
+        assert self.TEST_VENDOR_ID == utility.vendor_id
+        assert library_url == utility.library_uri
+        assert (
             {library2_url : "%s token secret" % library2.short_name,
-             library_url : "%s token secret" % library.short_name},
-            utility.secrets_by_library_uri
-        )
+             library_url : "%s token secret" % library.short_name} ==
+            utility.secrets_by_library_uri)
 
-        eq_(
+        assert (
             {"%sTOKEN" % library.short_name.upper() : library_url,
-             "%sTOKEN" % library2.short_name.upper() : library2_url },
-            utility.library_uris_by_short_name
-        )
+             "%sTOKEN" % library2.short_name.upper() : library2_url } ==
+            utility.library_uris_by_short_name)
 
         # If the Library object is disconnected from its database
         # session, as may happen in production...
@@ -638,11 +632,10 @@ class TestAuthdataUtility(VendorIDTest):
 
         # ...unless a database session is provided in the constructor.
         authdata = AuthdataUtility.from_config(library, self._db)
-        eq_(
+        assert (
             {"%sTOKEN" % library.short_name.upper() : library_url,
-             "%sTOKEN" % library2.short_name.upper() : library2_url },
-            authdata.library_uris_by_short_name
-        )
+             "%sTOKEN" % library2.short_name.upper() : library2_url } ==
+            authdata.library_uris_by_short_name)
         library = self._db.merge(library)
         self._db.commit()
 
@@ -681,9 +674,9 @@ class TestAuthdataUtility(VendorIDTest):
             AuthdataUtility.OTHER_LIBRARIES_KEY, None
         )
         authdata = AuthdataUtility.from_config(library)
-        eq_({library_url : "%s token secret" % library.short_name},
+        assert ({library_url : "%s token secret" % library.short_name} ==
             authdata.secrets_by_library_uri)
-        eq_({"%sTOKEN" % library.short_name.upper(): library_url},
+        assert ({"%sTOKEN" % library.short_name.upper(): library_url} ==
             authdata.library_uris_by_short_name)
 
         # Short library names are case-insensitive. If the
@@ -701,7 +694,7 @@ class TestAuthdataUtility(VendorIDTest):
         # If there is no Adobe Vendor ID integration set up,
         # from_config() returns None.
         self._db.delete(registry)
-        eq_(None, AuthdataUtility.from_config(library))
+        assert None == AuthdataUtility.from_config(library)
 
     def test_short_client_token_for_patron(self):
         class MockAuthdataUtility(AuthdataUtility):
@@ -718,27 +711,27 @@ class TestAuthdataUtility(VendorIDTest):
         patron = self._patron()
         authdata = MockAuthdataUtility()
         sct = authdata.short_client_token_for_patron(patron)
-        eq_(patron, authdata.patron_identifier_called_with)
-        eq_(authdata.encode_sct_called_with, "patron identifier")
-        eq_(sct, ("a", "b"))
+        assert patron == authdata.patron_identifier_called_with
+        assert authdata.encode_sct_called_with == "patron identifier"
+        assert sct == ("a", "b")
         # The identifier for Adobe ID purposes is passed in, and we use it directly.
         authdata.short_client_token_for_patron("identifier for Adobe ID purposes")
-        eq_(sct, ("a", "b"))
-        eq_(authdata.encode_sct_called_with, "identifier for Adobe ID purposes")
+        assert sct == ("a", "b")
+        assert authdata.encode_sct_called_with == "identifier for Adobe ID purposes"
 
     def test_decode_round_trip(self):
         patron_identifier = "Patron identifier"
         vendor_id, authdata = self.authdata.encode(patron_identifier)
-        eq_("The Vendor ID", vendor_id)
+        assert "The Vendor ID" == vendor_id
 
         # We can decode the authdata with our secret.
         decoded = self.authdata.decode(authdata)
-        eq_(("http://my-library.org/", "Patron identifier"), decoded)
+        assert ("http://my-library.org/", "Patron identifier") == decoded
 
     def test_decode_round_trip_with_intermediate_mischief(self):
         patron_identifier = "Patron identifier"
         vendor_id, authdata = self.authdata.encode(patron_identifier)
-        eq_("The Vendor ID", vendor_id)
+        assert "The Vendor ID" == vendor_id
 
         # A mischievious party in the middle decodes our authdata
         # without telling us.
@@ -746,7 +739,7 @@ class TestAuthdataUtility(VendorIDTest):
 
         # But it still works.
         decoded = self.authdata.decode(authdata)
-        eq_(("http://my-library.org/", "Patron identifier"), decoded)
+        assert ("http://my-library.org/", "Patron identifier") == decoded
 
     def test_encode(self):
         """Test that _encode gives a known value with known input."""
@@ -756,10 +749,9 @@ class TestAuthdataUtility(VendorIDTest):
         authdata = self.authdata._encode(
             self.authdata.library_uri, patron_identifier, now, expires
         )
-        eq_(
-            base64.encodestring('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwOi8vbXktbGlicmFyeS5vcmcvIiwiaWF0IjoxNDUxNjQ5NjAwLjAsInN1YiI6IlBhdHJvbiBpZGVudGlmaWVyIiwiZXhwIjoxNTE0ODA4MDAwLjB9.n7VRVv3gIyLmNxTzNRTEfCdjoky0T0a1Jhehcag1oQw'),
-            authdata
-        )
+        assert (
+            base64.encodestring('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwOi8vbXktbGlicmFyeS5vcmcvIiwiaWF0IjoxNDUxNjQ5NjAwLjAsInN1YiI6IlBhdHJvbiBpZGVudGlmaWVyIiwiZXhwIjoxNTE0ODA4MDAwLjB9.n7VRVv3gIyLmNxTzNRTEfCdjoky0T0a1Jhehcag1oQw') ==
+            authdata)
 
     def test_decode_from_another_library(self):
 
@@ -777,7 +769,7 @@ class TestAuthdataUtility(VendorIDTest):
         # Because we know the other library's secret, we're able to
         # decode the authdata.
         decoded = self.authdata.decode(authdata)
-        eq_(("http://your-library.org/", "Patron identifier"), decoded)
+        assert ("http://your-library.org/", "Patron identifier") == decoded
 
         # If our secret doesn't match the other library's secret,
         # we can't decode the authdata
@@ -844,11 +836,11 @@ class TestAuthdataUtility(VendorIDTest):
         result.
         """
         vendor_id, token = self.authdata.encode_short_client_token("a patron")
-        eq_(self.authdata.vendor_id, vendor_id)
+        assert self.authdata.vendor_id == vendor_id
 
         library_uri, patron = self.authdata.decode_short_client_token(token)
-        eq_(self.authdata.library_uri, library_uri)
-        eq_("a patron", patron)
+        assert self.authdata.library_uri == library_uri
+        assert "a patron" == patron
 
     def test_short_client_token_encode_known_value(self):
         """Verify that the encoding algorithm gives a known value on known
@@ -862,9 +854,8 @@ class TestAuthdataUtility(VendorIDTest):
         # what would otherwise be normal base64 text. Similarly for
         # the semicolon which replaced the slash, and the at sign which
         # replaced the equals sign.
-        eq_('a library|1234.5|a patron identifier|YoNGn7f38mF531KSWJ;o1H0Z3chbC:uTE:t7pAwqYxM@',
-            value
-        )
+        assert ('a library|1234.5|a patron identifier|YoNGn7f38mF531KSWJ;o1H0Z3chbC:uTE:t7pAwqYxM@' ==
+            value)
 
         # Dissect the known value to show how it works.
         token, signature = value.rsplit("|", 1)
@@ -875,14 +866,14 @@ class TestAuthdataUtility(VendorIDTest):
 
         # The token comes from the library name, the patron identifier,
         # and the time of creation.
-        eq_("a library|1234.5|a patron identifier", token)
+        assert "a library|1234.5|a patron identifier" == token
 
         # The signature comes from signing the token with the
         # secret associated with this library.
         expect_signature = self.authdata.short_token_signer.sign(
             token, self.authdata.short_token_signing_key
         )
-        eq_(expect_signature, signature)
+        assert expect_signature == signature
 
     def test_decode_short_client_token_from_another_library(self):
         # Here's the AuthdataUtility used by another library.
@@ -901,7 +892,7 @@ class TestAuthdataUtility(VendorIDTest):
         # Because we know the other library's secret, we're able to
         # decode the authdata.
         decoded = self.authdata.decode_short_client_token(token)
-        eq_(("http://your-library.org/", "Patron identifier"), decoded)
+        assert ("http://your-library.org/", "Patron identifier") == decoded
 
         # If our secret for a library doesn't match the other
         # library's short token signing key, we can't decode the
@@ -972,19 +963,18 @@ class TestAuthdataUtility(VendorIDTest):
         value = "!\tFN6~'Es52?X!#)Z*_S"
 
         encoded = AuthdataUtility.adobe_base64_encode(value)
-        eq_('IQlGTjZ:J0VzNTI;WCEjKVoqX1M@', encoded)
+        assert 'IQlGTjZ:J0VzNTI;WCEjKVoqX1M@' == encoded
 
         # This is like normal base64 encoding, but with a colon
         # replacing the plus character, a semicolon replacing the
         # slash, an at sign replacing the equal sign and the final
         # newline stripped.
-        eq_(
-            encoded.replace(":", "+").replace(";", "/").replace("@", "=") + "\n",
-            base64.encodestring(value)
-        )
+        assert (
+            encoded.replace(":", "+").replace(";", "/").replace("@", "=") + "\n" ==
+            base64.encodestring(value))
 
         # We can reverse the encoding to get the original value.
-        eq_(value, AuthdataUtility.adobe_base64_decode(encoded))
+        assert value == AuthdataUtility.adobe_base64_decode(encoded)
 
     def test__encode_short_client_token_uses_adobe_base64_encoding(self):
         class MockSigner(object):
@@ -998,7 +988,7 @@ class TestAuthdataUtility(VendorIDTest):
 
         # The signature part of the token has been encoded with our
         # custom encoding, not vanilla base64.
-        eq_('lib|0|1234|IQlGTjZ:J0VzNTI;WCEjKVoqX1M@', token)
+        assert 'lib|0|1234|IQlGTjZ:J0VzNTI;WCEjKVoqX1M@' == token
 
     def test_decode_two_part_short_client_token_uses_adobe_base64_encoding(self):
 
@@ -1014,7 +1004,7 @@ class TestAuthdataUtility(VendorIDTest):
         # reverses that change when decoding the 'password'.
         class MockAuthdataUtility(AuthdataUtility):
             def _decode_short_client_token(self, token, supposed_signature):
-                eq_(supposed_signature, signature)
+                assert supposed_signature == signature
                 self.test_code_ran = True
 
         utility =  MockAuthdataUtility(
@@ -1030,7 +1020,7 @@ class TestAuthdataUtility(VendorIDTest):
 
         # The code in _decode_short_client_token ran. Since there was no
         # test failure, it ran successfully.
-        eq_(True, utility.test_code_ran)
+        assert True == utility.test_code_ran
 
 
     # Tests of code that is used only in a migration script.  This can
@@ -1042,8 +1032,8 @@ class TestAuthdataUtility(VendorIDTest):
         self.authdata.migrate_adobe_id(patron)
 
         # Since the patron has no adobe ID, nothing happens.
-        eq_([], patron.credentials)
-        eq_([], self._db.query(DelegatedPatronIdentifier).all())
+        assert [] == patron.credentials
+        assert [] == self._db.query(DelegatedPatronIdentifier).all()
 
     def test_migrate_adobe_id_success(self):
         from api.opds import CirculationManagerAnnotator
@@ -1062,11 +1052,11 @@ class TestAuthdataUtility(VendorIDTest):
 
         # The patron now has _two_ Credentials -- the old one
         # containing the Adobe ID, and a new one.
-        eq_(set([new_credential, adobe_id]), set(patron.credentials))
+        assert set([new_credential, adobe_id]) == set(patron.credentials)
 
         # The new credential contains an anonymized patron identifier
         # used solely to connect the patron to their Adobe ID.
-        eq_(AuthdataUtility.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER,
+        assert (AuthdataUtility.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER ==
             new_credential.type)
 
         # We can use that identifier to look up a DelegatedPatronIdentifier
@@ -1079,9 +1069,9 @@ class TestAuthdataUtility(VendorIDTest):
             self._db, self.authdata.library_uri, new_credential.credential,
             DelegatedPatronIdentifier.ADOBE_ACCOUNT_ID, explode
         )
-        eq_(delegated_identifier, identifier)
-        eq_(False, is_new)
-        eq_("My Adobe ID", identifier.delegated_identifier)
+        assert delegated_identifier == identifier
+        assert False == is_new
+        assert "My Adobe ID" == identifier.delegated_identifier
 
         # An integration-level test:
         # AdobeVendorIDModel.to_delegated_patron_identifier_uuid works
@@ -1090,19 +1080,19 @@ class TestAuthdataUtility(VendorIDTest):
         uuid, label = model.to_delegated_patron_identifier_uuid(
             self.authdata.library_uri, new_credential.credential
         )
-        eq_("My Adobe ID", uuid)
-        eq_('Delegated account ID My Adobe ID', label)
+        assert "My Adobe ID" == uuid
+        assert 'Delegated account ID My Adobe ID' == label
 
         # If we run the migration again, nothing new happens.
         new_credential_2, delegated_identifier_2 = self.authdata.migrate_adobe_id(patron)
-        eq_(new_credential, new_credential_2)
-        eq_(delegated_identifier, delegated_identifier_2)
-        eq_(2, len(patron.credentials))
+        assert new_credential == new_credential_2
+        assert delegated_identifier == delegated_identifier_2
+        assert 2 == len(patron.credentials)
         uuid, label = model.to_delegated_patron_identifier_uuid(
             self.authdata.library_uri, new_credential.credential
         )
-        eq_("My Adobe ID", uuid)
-        eq_('Delegated account ID My Adobe ID', label)
+        assert "My Adobe ID" == uuid
+        assert 'Delegated account ID My Adobe ID' == label
 
 
 class TestDeviceManagementRequestHandler(VendorIDTest):
@@ -1111,16 +1101,15 @@ class TestDeviceManagementRequestHandler(VendorIDTest):
         credential = self._credential()
         handler = DeviceManagementRequestHandler(credential)
         handler.register_device("device1")
-        eq_(
-            ['device1'],
-            [x.device_identifier for x in credential.drm_device_identifiers]
-        )
+        assert (
+            ['device1'] ==
+            [x.device_identifier for x in credential.drm_device_identifiers])
 
     def test_register_drm_device_identifier_does_nothing_on_no_input(self):
         credential = self._credential()
         handler = DeviceManagementRequestHandler(credential)
         handler.register_device("")
-        eq_([], credential.drm_device_identifiers)
+        assert [] == credential.drm_device_identifiers
 
     def test_register_drm_device_identifier_failure(self):
         """You can only register one device in a single call."""
@@ -1128,8 +1117,8 @@ class TestDeviceManagementRequestHandler(VendorIDTest):
         handler = DeviceManagementRequestHandler(credential)
         result = handler.register_device("device1\ndevice2")
         assert isinstance(result, ProblemDetail)
-        eq_(PAYLOAD_TOO_LARGE.uri, result.uri)
-        eq_([], credential.drm_device_identifiers)
+        assert PAYLOAD_TOO_LARGE.uri == result.uri
+        assert [] == credential.drm_device_identifiers
 
     def test_deregister_drm_device_identifier(self):
         credential = self._credential()
@@ -1137,13 +1126,13 @@ class TestDeviceManagementRequestHandler(VendorIDTest):
         handler = DeviceManagementRequestHandler(credential)
 
         result = handler.deregister_device("foo")
-        eq_("Success", result)
-        eq_([], credential.drm_device_identifiers)
+        assert "Success" == result
+        assert [] == credential.drm_device_identifiers
 
         # Deregistration is idempotent.
         result = handler.deregister_device("foo")
-        eq_("Success", result)
-        eq_([], credential.drm_device_identifiers)
+        assert "Success" == result
+        assert [] == credential.drm_device_identifiers
 
     def test_device_list(self):
         credential = self._credential()
@@ -1151,7 +1140,7 @@ class TestDeviceManagementRequestHandler(VendorIDTest):
         credential.register_drm_device_identifier("bar")
         handler = DeviceManagementRequestHandler(credential)
         # Device IDs are sorted alphabetically.
-        eq_("bar\nfoo", handler.device_list())
+        assert "bar\nfoo" == handler.device_list()
 
 
 class TestAdobeVendorIDController(VendorIDTest):
@@ -1166,9 +1155,9 @@ class TestAdobeVendorIDController(VendorIDTest):
         response = controller.create_authdata_handler(patron)
 
         # An authdata was created.
-        eq_(200, response.status_code)
+        assert 200 == response.status_code
 
         # The authdata returned is the one stored as a Credential
         # for the Patron.
         [credential] = patron.credentials
-        eq_(credential.credential, response.data)
+        assert credential.credential == response.data

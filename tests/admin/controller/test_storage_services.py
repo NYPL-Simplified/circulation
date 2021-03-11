@@ -28,9 +28,9 @@ class TestStorageServices(SettingsControllerTest):
             (apis, procotol_name) = controller.manage_called_with
 
             assert S3Uploader in apis
-            eq_(procotol_name, 'NAME')
+            assert procotol_name == 'NAME'
 
         with self.request_context_with_admin("/"):
             id = object()
             controller.process_delete(id)
-            eq_((id, EI.STORAGE_GOAL), controller.delete_called_with)
+            assert (id, EI.STORAGE_GOAL) == controller.delete_called_with
