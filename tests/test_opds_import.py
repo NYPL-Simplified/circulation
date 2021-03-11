@@ -10,7 +10,7 @@ from lxml import etree
 import pkgutil
 from psycopg2.extras import NumericRange
 
-from . import (
+from ..testing import (
     DatabaseTest,
 )
 

@@ -1,4 +1,4 @@
-from .. import (
+from ...testing import (
     DatabaseTest,
 )
 

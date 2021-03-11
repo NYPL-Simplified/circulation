@@ -1,6 +1,6 @@
 """Test logic surrounding classification schemes."""
 
-from .. import DatabaseTest
+from ...testing import DatabaseTest
 from collections import Counter
 from psycopg2.extras import NumericRange
 from ...model import (

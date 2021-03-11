@@ -9,7 +9,7 @@ from StringIO import StringIO
 import pytest
 from parameterized import parameterized
 
-from . import (
+from ..testing import (
     DatabaseTest,
 )
 from ..classifier import Classifier

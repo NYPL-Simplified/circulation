@@ -8,7 +8,7 @@ from ...model import (
     Edition
 )
 
-from .. import DatabaseTest
+from ...testing import DatabaseTest
 
 from ...util import (
     Bigrams,

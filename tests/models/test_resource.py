@@ -1,7 +1,7 @@
 # encoding: utf-8
 import pytest
 import os
-from .. import (
+from ...testing import (
     DatabaseTest,
     DummyHTTPClient,
 )

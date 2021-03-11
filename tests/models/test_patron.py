@@ -6,7 +6,7 @@ from mock import (
     MagicMock,
 )
 
-from .. import DatabaseTest
+from ...testing import DatabaseTest
 from ...classifier import Classifier
 from ...model import (
     create,

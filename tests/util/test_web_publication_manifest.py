@@ -4,7 +4,7 @@ from ...util.web_publication_manifest import (
     AudiobookManifest,
 )
 
-from .. import DatabaseTest
+from ...testing import DatabaseTest
 
 class TestJSONable(object):
 

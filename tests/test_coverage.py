@@ -1,7 +1,7 @@
 import datetime
 
 import pytest
-from . import (
+from ..testing import (
     DatabaseTest
 )
 from ..testing import (

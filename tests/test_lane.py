@@ -9,7 +9,7 @@ from mock import (
 )
 import random
 
-from . import (
+from ..testing import (
     DatabaseTest,
 )
 

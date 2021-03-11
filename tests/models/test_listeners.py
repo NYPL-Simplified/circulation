@@ -3,7 +3,7 @@ import datetime
 import functools
 from parameterized import parameterized
 
-from .. import DatabaseTest
+from ...testing import DatabaseTest
 from ... import lane
 from ... import model
 from ...config import Configuration

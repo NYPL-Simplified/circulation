@@ -5,7 +5,7 @@ from psycopg2.extras import NumericRange
 from sqlalchemy import not_
 from sqlalchemy.orm.exc import MultipleResultsFound
 
-from .. import DatabaseTest
+from ...testing import DatabaseTest
 from ... import classifier
 from ...external_search import mock_search_index
 from ...config import Configuration

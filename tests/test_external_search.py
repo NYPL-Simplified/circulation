@@ -8,7 +8,7 @@ import re
 import time
 from psycopg2.extras import NumericRange
 
-from . import (
+from ..testing import (
     DatabaseTest,
 )
 

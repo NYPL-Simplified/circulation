@@ -5,7 +5,7 @@ import sys
 
 import pytest
 
-from . import DatabaseTest
+from ..testing import DatabaseTest
 from ..log import (
     StringFormatter,
     JSONFormatter,

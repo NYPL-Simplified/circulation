@@ -1,5 +1,5 @@
 # encoding: utf-8
-from . import DatabaseTest
+from ..testing import DatabaseTest
 
 from ..config import Configuration, temp_config
 from ..model import ExternalIntegration

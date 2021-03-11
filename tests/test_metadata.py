@@ -6,7 +6,7 @@ from copy import deepcopy
 import pytest
 from parameterized import parameterized
 
-from . import (
+from ..testing import (
     DatabaseTest,
     DummyHTTPClient,
     DummyMetadataClient,

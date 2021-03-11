@@ -1,6 +1,6 @@
 # encoding: utf-8
 import datetime
-from .. import DatabaseTest
+from ...testing import DatabaseTest
 from ...model.coverage import (
     BaseCoverageRecord,
     CoverageRecord,

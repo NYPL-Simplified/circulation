@@ -3,7 +3,7 @@ import datetime
 import pytest
 from parameterized import parameterized
 
-from . import DatabaseTest
+from ..testing import DatabaseTest
 from ..config import CannotLoadConfiguration
 from ..mirror import MirrorUploader
 from ..model import ExternalIntegration

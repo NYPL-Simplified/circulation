@@ -15,7 +15,7 @@ from mock import MagicMock
 import pytest
 from parameterized import parameterized
 
-from . import (
+from ..testing import (
     DatabaseTest
 )
 from ..mirror import MirrorUploader

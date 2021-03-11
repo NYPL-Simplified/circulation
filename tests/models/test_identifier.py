@@ -12,7 +12,7 @@ from ...model.datasource import DataSource
 from ...model.edition import Edition
 from ...model.identifier import Identifier
 from ...model.resource import Hyperlink, Representation
-from .. import DatabaseTest
+from ...testing import DatabaseTest
 
 
 class TestIdentifier(DatabaseTest):

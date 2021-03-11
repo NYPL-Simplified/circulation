@@ -3,7 +3,7 @@ import pytest
 from mock import create_autospec, MagicMock
 import datetime
 import json
-from .. import DatabaseTest
+from ...testing import DatabaseTest
 from ...config import Configuration
 from ...model import (
     create,

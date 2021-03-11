@@ -42,7 +42,7 @@ from ..util.http import (
     HTTP,
 )
 
-from . import DatabaseTest
+from ..testing import DatabaseTest
 
 
 class OverdriveTest(DatabaseTest):

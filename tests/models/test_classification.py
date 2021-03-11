@@ -2,7 +2,7 @@
 import pytest
 from psycopg2.extras import NumericRange
 from sqlalchemy.exc import IntegrityError
-from .. import DatabaseTest
+from ...testing import DatabaseTest
 from ...classifier import Classifier
 from ...model import (
     create,

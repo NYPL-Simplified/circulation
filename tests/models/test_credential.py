@@ -2,7 +2,7 @@
 import pytest
 import datetime
 from sqlalchemy.exc import IntegrityError
-from .. import DatabaseTest
+from ...testing import DatabaseTest
 from ...model.credential import (
     Credential,
     DelegatedPatronIdentifier,

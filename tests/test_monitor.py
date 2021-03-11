@@ -2,7 +2,7 @@ import datetime
 
 import pytest
 
-from . import DatabaseTest
+from ..testing import DatabaseTest
 from ..config import Configuration
 from ..metadata_layer import TimestampData
 from ..model import (

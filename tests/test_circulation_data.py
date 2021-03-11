@@ -28,7 +28,7 @@ from ..model import (
 )
 from ..model.configuration import ExternalIntegrationLink
 
-from . import (
+from ..testing import (
     DatabaseTest,
     DummyHTTPClient,
 )

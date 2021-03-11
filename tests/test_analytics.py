@@ -5,7 +5,7 @@ from ..config import (
 from ..analytics import Analytics
 from ..mock_analytics_provider import MockAnalyticsProvider
 from ..local_analytics_provider import LocalAnalyticsProvider
-from . import DatabaseTest
+from ..testing import DatabaseTest
 from ..model import (
     CirculationEvent,
     ExternalIntegration,

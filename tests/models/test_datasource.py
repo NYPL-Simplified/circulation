@@ -1,7 +1,7 @@
 # encoding: utf-8
 import pytest
 from sqlalchemy.orm.exc import NoResultFound
-from .. import DatabaseTest
+from ...testing import DatabaseTest
 from ...model.datasource import DataSource
 from ...model.hasfulltablecache import HasFullTableCache
 from ...model.identifier import Identifier

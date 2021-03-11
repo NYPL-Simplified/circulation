@@ -1,6 +1,6 @@
 # encoding: utf-8
 import pytest
-from .. import DatabaseTest
+from ...testing import DatabaseTest
 from ...model import create
 from ...model.admin import (
     Admin,

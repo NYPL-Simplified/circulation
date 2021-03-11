@@ -9,7 +9,7 @@ from ..model import (
     PresentationCalculationPolicy,
 )
 
-from . import (
+from ..testing import (
     DatabaseTest,
 )
 

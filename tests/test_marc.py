@@ -6,7 +6,7 @@ from StringIO import StringIO
 import urllib
 from sqlalchemy.orm.session import Session
 
-from . import DatabaseTest
+from ..testing import DatabaseTest
 
 from ..model import (
     CachedMARCFile,

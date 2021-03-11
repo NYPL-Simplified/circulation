@@ -1,5 +1,5 @@
 # encoding: utf-8
-from .. import DatabaseTest
+from ...testing import DatabaseTest
 from ...model import get_one_or_create
 from ...model.contributor import Contributor
 from ...model.datasource import DataSource

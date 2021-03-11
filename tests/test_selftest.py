@@ -7,7 +7,7 @@ configured, not that the code is correct.
 
 import datetime
 
-from . import DatabaseTest
+from ..testing import DatabaseTest
 
 from ..selftest import (
     SelfTestResult,

@@ -26,7 +26,7 @@ from ...model.licensing import (
     RightsStatus,
 )
 from ...model.resource import Hyperlink, Representation
-from .. import DatabaseTest
+from ...testing import DatabaseTest
 
 
 class TestDeliveryMechanism(DatabaseTest):

@@ -18,7 +18,7 @@ from ..model import (
     get_one_or_create,
 )
 
-from . import (
+from ..testing import (
     DatabaseTest,
     DummyHTTPClient,
 )

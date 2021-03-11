@@ -9,7 +9,7 @@ from flask_babel import lazy_gettext as _
 from lxml import etree
 from psycopg2.extras import NumericRange
 
-from . import (
+from ..testing import (
     DatabaseTest,
 )
 from ..classifier import (

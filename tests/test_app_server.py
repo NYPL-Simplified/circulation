@@ -10,7 +10,7 @@ from flask_babel import (
     lazy_gettext as _
 )
 
-from . import (
+from ..testing import (
     DatabaseTest,
 )
 

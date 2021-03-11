@@ -1,5 +1,5 @@
 import pytest
-from . import DatabaseTest
+from ..testing import DatabaseTest
 from ..local_analytics_provider import LocalAnalyticsProvider
 from ..model import (
     CirculationEvent,

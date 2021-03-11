@@ -15,7 +15,7 @@ from ...util.worker_pools import (
     Worker,
 )
 
-from .. import DatabaseTest
+from ...testing import DatabaseTest
 
 
 class TestPool(object):

@@ -1,4 +1,4 @@
-from . import DatabaseTest
+from ..testing import DatabaseTest
 
 from ..facets import (
     FacetConstants as Facets,

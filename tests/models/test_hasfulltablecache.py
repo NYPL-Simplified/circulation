@@ -1,5 +1,5 @@
 # encoding: utf-8
-from .. import DatabaseTest
+from ...testing import DatabaseTest
 from ...model.hasfulltablecache import HasFullTableCache
 
 class MockHasTableCache(HasFullTableCache):

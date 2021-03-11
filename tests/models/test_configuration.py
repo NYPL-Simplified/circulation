@@ -7,7 +7,7 @@ from mock import create_autospec, MagicMock
 from parameterized import parameterized
 from sqlalchemy.exc import IntegrityError
 
-from .. import DatabaseTest
+from ...testing import DatabaseTest
 from ...config import (
     CannotLoadConfiguration,
     Configuration,
