@@ -2093,15 +2093,8 @@ class TestMirroring(OPDSImporterTest):
             epub10557_cover_working['url']
         ]
 
-        if http.requests.index(epub10441['url']) < http.requests.index(epub10557['url']):
-            e_10441_index = 0
-            e_10557_index = 1
-        else:
-            e_10441_index = 1
-            e_10557_index = 0
-
-        e_10441 = imported_editions[e_10441_index]
-        e_10557 = imported_editions[e_10557_index]
+        e_10441 = next(e for e in imported_editions if e.primary_identifier.identifier == '10441')
+        e_10557 = next(e for e in imported_editions if e.primary_identifier.identifier == '10557')
 
         [e_10441_oa_link, e_10441_image_link, e_10441_thumbnail_link,
          e_10441_description_link] = sorted(
@@ -2143,8 +2136,8 @@ class TestMirroring(OPDSImporterTest):
         assert 2 == len(s3_for_books.uploaded)
         assert 3 == len(s3_for_covers.uploaded)
 
-        assert epub10441['content'] == s3_for_books.content[e_10441_index]
-        assert epub10557['content'] == s3_for_books.content[e_10557_index]
+        assert epub10441['content'] in s3_for_books.content
+        assert epub10557['content'] in s3_for_books.content
 
         svg_bytes = svg.encode("utf8")
         covers_content = s3_for_covers.content[:]
