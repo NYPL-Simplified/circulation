@@ -1521,3 +1521,32 @@ class MockRequestsResponse(object):
         implemented by real requests Response objects.
         """
         pass
+
+
+@pytest.fixture(autouse=True, scope="session")
+def session_fixture():
+    # This will make sure we always connect to the test database.
+    os.environ['TESTING'] = 'true'
+
+    # Ensure that the log configuration starts in a known state.
+    LogConfiguration.initialize(None, testing=True)
+
+    # Drop any existing schema. It will be recreated when
+    # SessionManager.initialize() runs.
+    engine = SessionManager.engine()
+    Base.metadata.drop_all(engine)
+
+    yield
+
+    if 'TESTING' in os.environ:
+        del os.environ['TESTING']
+
+
+def pytest_configure(config):
+    # register our custom marks with pytest
+    config.addinivalue_line(
+        "markers", "elasticsearch: mark test as requiring elasticsearch"
+    )
+    config.addinivalue_line(
+        "markers", "minio: mark test as requiring minio"
+    )
