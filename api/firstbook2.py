@@ -121,7 +121,7 @@ class FirstBookAuthenticationAPI(BasicAuthenticationProvider):
             pin=pin,
             iat=now,
         )
-        return jwt.encode(payload, self.secret, algorithm=self.ALGORITHM)
+        return jwt.encode(payload, self.secret, algorithm=self.ALGORITHM).decode("utf-8")
 
     def request(self, url):
         """Make an HTTP request.

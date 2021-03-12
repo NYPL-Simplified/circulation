@@ -85,7 +85,7 @@ class TestSitewideSettings(SettingsControllerTest):
 
         # The setting was created.
         setting = ConfigurationSetting.sitewide(self._db, Configuration.DATABASE_LOG_LEVEL)
-        eq_(setting.key, response.response[0])
+        eq_(setting.key, response.get_data(as_text=True))
         eq_("10", setting.value)
 
     def test_sitewide_settings_post_edit(self):
@@ -101,7 +101,7 @@ class TestSitewideSettings(SettingsControllerTest):
             eq_(response.status_code, 200)
 
         # The setting was changed.
-        eq_(setting.key, response.response[0])
+        eq_(setting.key, response.get_data(as_text=True))
         eq_("ERROR", setting.value)
 
     def test_sitewide_setting_delete(self):

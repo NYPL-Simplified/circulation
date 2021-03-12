@@ -208,7 +208,7 @@ class TestCatalogServicesController(SettingsControllerTest):
             self._db, ExternalIntegrationLink, external_integration_id=service.id, purpose=ExternalIntegrationLink.MARC
         )
 
-        eq_(service.id, int(response.response[0]))
+        eq_(service.id, int(response.get_data()))
         eq_(ME.NAME, service.protocol)
         eq_("exporter name", service.name)
         eq_([self._default_library], service.libraries)
@@ -254,7 +254,7 @@ class TestCatalogServicesController(SettingsControllerTest):
         integration_link = get_one(
             self._db, ExternalIntegrationLink, external_integration_id=service.id, purpose=ExternalIntegrationLink.MARC
         )
-        eq_(service.id, int(response.response[0]))
+        eq_(service.id, int(response.get_data()))
         eq_(ME.NAME, service.protocol)
         eq_("exporter name", service.name)
         eq_(s3.id, integration_link.other_integration_id)

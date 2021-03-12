@@ -535,7 +535,7 @@ class OdiloAPI(BaseCirculationAPI, HasSelfTests):
         """
         if not any(url.startswith(protocol)
                    for protocol in ('http://', 'https://')):
-            url = self.library_api_base_url + url
+            url = self.library_api_base_url.decode("utf-8") + url
         return url
 
     def get(self, url, extra_headers={}, exception_on_401=False):
@@ -544,7 +544,7 @@ class OdiloAPI(BaseCirculationAPI, HasSelfTests):
             extra_headers = {}
         headers = dict(Authorization="Bearer %s" % self.token)
         headers.update(extra_headers)
-        status_code, headers, content = self._do_get(self.library_api_base_url + url, headers)
+        status_code, headers, content = self._do_get(self.library_api_base_url.decode("utf-8") + url, headers)
         if status_code == 401:
             if exception_on_401:
                 # This is our second try. Give up.

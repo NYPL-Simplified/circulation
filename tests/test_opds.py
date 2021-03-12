@@ -262,7 +262,7 @@ class TestCirculationManagerAnnotator(DatabaseTest):
         assert '2017-01-01' in entry.get("updated")
 
     def test__single_entry_response(self):
-        """Test the helper method that makes OPDSEntryResponse objects."""
+        # Test the helper method that makes OPDSEntryResponse objects.
 
         m = CirculationManagerAnnotator._single_entry_response
 
@@ -272,7 +272,7 @@ class TestCirculationManagerAnnotator(DatabaseTest):
         annotator = TestAnnotator()
         response = m(self._db, work, annotator, url)
         assert isinstance(response, OPDSEntryResponse)
-        assert '<title>%s</title>' % work.title in response.data
+        assert '<title>%s</title>' % work.title in response.get_data(as_text=True)
 
         # By default, the representation is private but can be cached
         # by the recipient.
@@ -290,8 +290,9 @@ class TestCirculationManagerAnnotator(DatabaseTest):
 
         # Instead of an entry based on the Work, we get an empty feed.
         assert isinstance(response, OPDSFeedResponse)
-        assert '<title>Unknown work</title>' in response.data
-        assert '<entry>' not in response.data
+        response_data = response.get_data(as_text=True)
+        assert '<title>Unknown work</title>' in response_data
+        assert '<entry>' not in response_data
 
         # Since it's an error message, the representation is private
         # and not to be cached.
@@ -1038,7 +1039,7 @@ class TestLibraryAnnotator(VendorIDTest):
         eq_(expect_url, upmp_link['href'])
 
         # ... and we have DRM licensing information.
-        tree = etree.fromstring(response.data)
+        tree = etree.fromstring(response.get_data(as_text=True))
         parser = OPDSXMLParser()
         licensor = parser._xpath1(tree, "//atom:feed/drm:licensor")
 
@@ -1370,7 +1371,7 @@ class TestLibraryAnnotator(VendorIDTest):
         response = LibraryLoanAndHoldAnnotator.single_item_feed(
             None, loan, fulfillment, test_mode=True
         )
-        raw = response.data
+        raw = response.get_data(as_text=True)
 
         entries = feedparser.parse(raw)['entries']
         eq_(1, len(entries))

@@ -1922,7 +1922,7 @@ class TestOverdriveManifestFulfillmentInfo(OverdriveAPITest):
         )
         response = info.as_response
         eq_(302, response.status_code)
-        eq_("", response.data)
+        eq_("", response.get_data(as_text=True))
         headers = response.headers
         eq_("text/plain", headers['Content-Type'])
 

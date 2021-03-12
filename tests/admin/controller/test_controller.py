@@ -65,7 +65,7 @@ from core.s3 import S3UploaderConfiguration
 from core.selftest import HasSelfTests
 from core.util.http import HTTP
 from tests.test_controller import CirculationControllerTest
-
+from nose.tools import set_trace
 
 class AdminControllerTest(CirculationControllerTest):
 
@@ -119,7 +119,7 @@ class TestViewController(AdminControllerTest):
         with self.app.test_request_context('/admin'):
             response = self.manager.admin_view_controller(None, None)
             eq_(200, response.status_code)
-            html = response.response[0]
+            html = response.get_data(as_text=True)
             assert 'settingUp: true' in html
 
     def test_not_setting_up(self):
@@ -128,7 +128,7 @@ class TestViewController(AdminControllerTest):
             flask.session['auth_type'] = PasswordAdminAuthenticationProvider.NAME
             response = self.manager.admin_view_controller("collection", "book")
             eq_(200, response.status_code)
-            html = response.response[0]
+            html = response.get_data(as_text=True)
             assert 'settingUp: false' in html
 
     def test_redirect_to_sign_in(self):
@@ -149,7 +149,7 @@ class TestViewController(AdminControllerTest):
             flask.session['auth_type'] = PasswordAdminAuthenticationProvider.NAME
             response = self.manager.admin_view_controller(None, None)
             eq_(200, response.status_code)
-            assert "Your admin account doesn't have access to any libraries" in response.data
+            assert "Your admin account doesn't have access to any libraries" in response.get_data(as_text=True)
 
         # Unless there aren't any libraries yet. In that case, an admin needs to
         # get in to create one.
@@ -160,7 +160,7 @@ class TestViewController(AdminControllerTest):
             flask.session['auth_type'] = PasswordAdminAuthenticationProvider.NAME
             response = self.manager.admin_view_controller(None, None)
             eq_(200, response.status_code)
-            assert "<body>" in response.data
+            assert "<body>" in response.get_data(as_text=True)
 
         l1 = self._library(short_name="L1")
         l2 = self._library(short_name="L2")
@@ -189,7 +189,7 @@ class TestViewController(AdminControllerTest):
         with self.app.test_request_context('/admin'):
             response = self.manager.admin_view_controller(None, None)
             eq_(200, response.status_code)
-            html = response.response[0]
+            html = response.get_data(as_text=True)
 
             # The CSRF token value is random, but the cookie and the html have the same value.
             html_csrf_re = re.compile('csrfToken: \"([^\"]*)\"')
@@ -209,7 +209,7 @@ class TestViewController(AdminControllerTest):
             flask.session['auth_type'] = PasswordAdminAuthenticationProvider.NAME
             response = self.manager.admin_view_controller("collection", "book")
             eq_(200, response.status_code)
-            html = response.response[0]
+            html = response.get_data(as_text=True)
             assert 'csrfToken: "%s"' % token in html
             assert token in response.headers.get('Set-Cookie')
 
@@ -221,7 +221,7 @@ class TestViewController(AdminControllerTest):
                 flask.session['auth_type'] = PasswordAdminAuthenticationProvider.NAME
                 response = self.manager.admin_view_controller("collection", "book")
                 eq_(200, response.status_code)
-                html = response.response[0]
+                html = response.get_data(as_text=True)
 
                 assert ('tos_link_href: "%s",' % expect_href) in html
                 assert ('tos_link_text: "%s",' % expect_text) in html
@@ -252,7 +252,7 @@ class TestViewController(AdminControllerTest):
             flask.session['auth_type'] = PasswordAdminAuthenticationProvider.NAME
             response = self.manager.admin_view_controller("collection", "book")
             eq_(200, response.status_code)
-            html = response.response[0]
+            html = response.get_data(as_text=True)
             assert 'showCircEventsDownload: true' in html
 
     def test_roles(self):
@@ -263,7 +263,7 @@ class TestViewController(AdminControllerTest):
             flask.session['auth_type'] = PasswordAdminAuthenticationProvider.NAME
             response = self.manager.admin_view_controller("collection", "book")
             eq_(200, response.status_code)
-            html = response.response[0]
+            html = response.get_data(as_text=True)
             assert "\"role\": \"librarian-all\"" in html
             assert "\"role\": \"manager\", \"library\": \"%s\"" % self._default_library.short_name in html
 
@@ -499,10 +499,11 @@ class TestSignInController(AdminControllerTest):
         with self.app.test_request_context('/admin/sign_in?redirect=foo'):
             response = self.manager.admin_sign_in_controller.sign_in()
             eq_(200, response.status_code)
-            assert "GOOGLE REDIRECT" in response.data
-            assert "Sign in with Google" in response.data
-            assert "Email" not in response.data
-            assert "Password" not in response.data
+            response_data = response.get_data(as_text=True)
+            assert "GOOGLE REDIRECT" in response_data
+            assert "Sign in with Google" in response_data
+            assert "Email" not in response_data
+            assert "Password" not in response_data
 
         # If there are multiple auth providers, the login page
         # shows them all.
@@ -510,10 +511,11 @@ class TestSignInController(AdminControllerTest):
         with self.app.test_request_context('/admin/sign_in?redirect=foo'):
             response = self.manager.admin_sign_in_controller.sign_in()
             eq_(200, response.status_code)
-            assert "GOOGLE REDIRECT" in response.data
-            assert "Sign in with Google" in response.data
-            assert "Email" in response.data
-            assert "Password" in response.data
+            response_data = response.get_data(as_text=True)
+            assert "GOOGLE REDIRECT" in response_data
+            assert "Sign in with Google" in response_data
+            assert "Email" in response_data
+            assert "Password" in response_data
 
         # Redirects to the redirect parameter if an admin is signed in.
         with self.app.test_request_context('/admin/sign_in?redirect=foo'):
@@ -923,7 +925,7 @@ class TestFeedController(AdminControllerTest):
 
         with self.request_context_with_library_and_admin("/"):
             response = self.manager.admin_feed_controller.complaints()
-            feed = feedparser.parse(response.data)
+            feed = feedparser.parse(response.get_data(as_text=True))
             entries = feed['entries']
 
             eq_(len(entries), 2)
@@ -941,7 +943,7 @@ class TestFeedController(AdminControllerTest):
 
         with self.request_context_with_library_and_admin("/"):
             response = self.manager.admin_feed_controller.suppressed()
-            feed = feedparser.parse(response.data)
+            feed = feedparser.parse(response.get_data(as_text=True))
             entries = feed['entries']
             eq_(1, len(entries))
             eq_(suppressed_work.title, entries[0]['title'])
@@ -1090,7 +1092,7 @@ class TestCustomListsController(AdminControllerTest):
             eq_(201, response.status_code)
 
             [list] = self._db.query(CustomList).all()
-            eq_(list.id, int(response.response[0]))
+            eq_(list.id, int(response.get_data(as_text=True)))
             eq_(self._default_library, list.library)
             eq_("List", list.name)
             eq_(1, len(list.entries))
@@ -1189,7 +1191,7 @@ class TestCustomListsController(AdminControllerTest):
 
             response = self.manager.admin_custom_lists_controller.custom_list(list.id)
         eq_(200, response.status_code)
-        eq_(list.id, int(response.response[0]))
+        eq_(list.id, int(response.get_data(as_text=True)))
 
         eq_("new name", list.name)
         eq_(set([w2, w3]),
@@ -1487,7 +1489,7 @@ class TestLanesController(AdminControllerTest):
             eq_(201, response.status_code)
 
             [lane] = self._db.query(Lane).filter(Lane.display_name=="lane")
-            eq_(lane.id, int(response.response[0]))
+            eq_(lane.id, int(response.get_data(as_text=True)))
             eq_(self._default_library, lane.library)
             eq_("lane", lane.display_name)
             eq_(parent, lane.parent)
@@ -1529,7 +1531,7 @@ class TestLanesController(AdminControllerTest):
 
             response = self.manager.admin_lanes_controller.lanes()
             eq_(200, response.status_code)
-            eq_(lane.id, int(response.response[0]))
+            eq_(lane.id, int(response.get_data(as_text=True)))
 
             eq_("new name", lane.display_name)
             eq_([list2], lane.customlists)

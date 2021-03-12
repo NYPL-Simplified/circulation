@@ -1532,7 +1532,7 @@ class TestIndexController(CirculationControllerTest):
         eq_(200, response.status_code)
         eq_('application/opds+json', response.headers.get('Content-Type'))
 
-        data = json.loads(response.data)
+        data = json.loads(response.get_data(as_text=True))
         eq_('RSA', data.get('public_key', {}).get('type'))
         eq_('public key', data.get('public_key', {}).get('value'))
 
@@ -1550,7 +1550,7 @@ class TestIndexController(CirculationControllerTest):
         eq_(200, response.status_code)
         eq_('application/opds+json', response.headers.get('Content-Type'))
 
-        data = json.loads(response.data)
+        data = json.loads(response.get_data(as_text=True))
         eq_('http://test-circulation-manager/', data.get('id'))
         key = data.get('public_key')
         eq_('RSA', key['type'])
@@ -1759,8 +1759,7 @@ class TestLoanController(CirculationControllerTest):
                 self.pool.id, do_get=http.do_get
             )
             eq_(200, response.status_code)
-            eq_(["I am an ACSM file"],
-                response.response)
+            eq_("I am an ACSM file", response.get_data(as_text=True))
             eq_(http.requests, [fulfillable_mechanism.resource.url])
 
             # But we can't use some other mechanism -- we're stuck with
@@ -2231,7 +2230,7 @@ class TestLoanController(CirculationControllerTest):
                 self.pool.id, self.mech2.delivery_mechanism.id
             )
 
-            eq_("here's your book", response.data)
+            eq_("here's your book", response.get_data(as_text=True))
             eq_([], self._db.query(Loan).all())
 
     def test_revoke_loan(self):
@@ -2411,7 +2410,7 @@ class TestLoanController(CirculationControllerTest):
         ):
             patron = self.manager.loans.authenticated_patron_from_request()
             response = self.manager.loans.sync()
-            assert not "<entry>" in response.data
+            assert not "<entry>" in response.get_data(as_text=True)
             assert response.headers['Cache-Control'].startswith('private,')
 
             # patron.last_loan_activity_sync was set to the moment the
@@ -2467,7 +2466,7 @@ class TestLoanController(CirculationControllerTest):
                 "/", headers=dict(Authorization=self.valid_auth)):
             patron = self.manager.loans.authenticated_patron_from_request()
             response = self.manager.loans.sync()
-            assert '<entry>' not in response.data
+            assert '<entry>' not in response.get_data(as_text=True)
 
         # patron.last_loan_activity_sync was not changed as the result
         # of this request, since we didn't go to the vendor APIs.
@@ -2526,7 +2525,7 @@ class TestAnnotationController(CirculationControllerTest):
             eq_(200, response.status_code)
 
             # We've been given an annotation container with no items.
-            container = json.loads(response.data)
+            container = json.loads(response.get_data(as_text=True))
             eq_([], container['first']['items'])
             eq_(0, container['total'])
 
@@ -2558,7 +2557,7 @@ class TestAnnotationController(CirculationControllerTest):
             eq_(200, response.status_code)
 
             # We've been given an annotation container with one item.
-            container = json.loads(response.data)
+            container = json.loads(response.get_data(as_text=True))
             eq_(1, container['total'])
             item = container['first']['items'][0]
             eq_(annotation.motivation, item['motivation'])
@@ -2601,7 +2600,7 @@ class TestAnnotationController(CirculationControllerTest):
             eq_(200, response.status_code)
 
             # We've been given an annotation container with one item.
-            container = json.loads(response.data)
+            container = json.loads(response.get_data(as_text=True))
             eq_(1, container['total'])
             item = container['first']['items'][0]
             eq_(annotation.motivation, item['motivation'])
@@ -2653,7 +2652,7 @@ class TestAnnotationController(CirculationControllerTest):
             eq_(data['target']['selector'], selector)
 
             # The response contains the annotation in the db.
-            item = json.loads(response.data)
+            item = json.loads(response.get_data(as_text=True))
             assert str(annotation.id) in item['id']
             eq_(annotation.motivation, item['motivation'])
 
@@ -2675,7 +2674,7 @@ class TestAnnotationController(CirculationControllerTest):
             eq_(200, response.status_code)
 
             # We've been given a single annotation item.
-            item = json.loads(response.data)
+            item = json.loads(response.get_data(as_text=True))
             assert str(annotation.id) in item['id']
             eq_(annotation.motivation, item['motivation'])
 
@@ -2880,7 +2879,7 @@ class TestWorkController(CirculationControllerTest):
         # The Response served by Mock.page becomes the response to the
         # incoming request.
         eq_(200, response.status_code)
-        eq_("An OPDS feed", response.data)
+        eq_("An OPDS feed", response.get_data(as_text=True))
 
         # Now check all the keyword arguments that were passed into
         # page().
@@ -2993,7 +2992,7 @@ class TestWorkController(CirculationControllerTest):
             ).data
 
         eq_(200, response.status_code)
-        eq_(expect, response.data)
+        eq_(expect, response.get_data())
         eq_(OPDSFeed.ENTRY_TYPE, response.headers['Content-Type'])
 
     def test_permalink_does_not_return_fulfillment_links_for_authenticated_patrons_without_loans(self):
@@ -3038,7 +3037,7 @@ class TestWorkController(CirculationControllerTest):
             response = self.manager.work_controller.permalink(identifier_type, identifier)
 
         eq_(200, response.status_code)
-        eq_(expect, response.data)
+        eq_(expect, response.get_data())
         eq_(OPDSFeed.ENTRY_TYPE, response.headers['Content-Type'])
 
     def test_permalink_returns_fulfillment_links_for_authenticated_patrons_with_loans(self):
@@ -3086,7 +3085,7 @@ class TestWorkController(CirculationControllerTest):
             response = self.manager.work_controller.permalink(identifier_type, identifier)
 
         eq_(200, response.status_code)
-        eq_(expect, response.data)
+        eq_(expect, response.get_data())
         eq_(OPDSFeed.ENTRY_TYPE, response.headers['Content-Type'])
 
     def test_permalink_returns_fulfillment_links_for_authenticated_patrons_with_fulfillment(self):
@@ -3176,7 +3175,7 @@ class TestWorkController(CirculationControllerTest):
             response = self.manager.work_controller.permalink(identifier_type, identifier)
 
         eq_(200, response.status_code)
-        eq_(expect, response.data)
+        eq_(expect, response.get_data())
         eq_(OPDSFeed.ENTRY_TYPE, response.headers['Content-Type'])
 
     def test_recommendations(self):
@@ -3269,7 +3268,7 @@ class TestWorkController(CirculationControllerTest):
         # The return value of Mock.page was used as the response
         # to the incoming request.
         eq_(200, response.status_code)
-        eq_("A bunch of titles", response.data)
+        eq_("A bunch of titles", response.get_data(as_text=True))
 
         kwargs = Mock.called_with
         eq_(self._db, kwargs.pop('_db'))
@@ -3453,7 +3452,7 @@ class TestWorkController(CirculationControllerTest):
         # The return value of Mock.groups was used as the response
         # to the incoming request.
         eq_(200, response.status_code)
-        eq_("An OPDS feed", response.data)
+        eq_("An OPDS feed", response.get_data(as_text=True))
 
         # Verify that groups() was called with the arguments we expect.
         kwargs = Mock.called_with
@@ -3511,7 +3510,7 @@ class TestWorkController(CirculationControllerTest):
         eq_(200, response.status_code)
         eq_("text/uri-list", response.headers['Content-Type'])
         for i in Complaint.VALID_TYPES:
-            assert i in response.data
+            assert i in response.get_data(as_text=True)
 
     def test_report_problem_post_success(self):
         error_type = random.choice(list(Complaint.VALID_TYPES))
@@ -3637,7 +3636,7 @@ class TestWorkController(CirculationControllerTest):
         # The return value of Mock.page() is the response to the
         # incoming request.
         eq_(200, response.status_code)
-        eq_("An OPDS feed", response.data)
+        eq_("An OPDS feed", response.get_data(as_text=True))
 
         kwargs = self.called_with
         eq_(self._db, kwargs.pop('_db'))
@@ -3861,7 +3860,7 @@ class TestOPDSFeedController(CirculationControllerTest):
             )
 
         assert isinstance(response, Response)
-        eq_("An OPDS feed", response.data)
+        eq_("An OPDS feed", response.get_data(as_text=True))
 
         # Now check all the keyword arguments that were passed into
         # page().
@@ -3978,7 +3977,7 @@ class TestOPDSFeedController(CirculationControllerTest):
             # The Response returned by Mock.groups() has been converted
             # into a Flask response.
             eq_(200, response.status_code)
-            eq_("A grouped feed", response.data)
+            eq_("A grouped feed", response.get_data(as_text=True))
 
             # While we're in request context, generate the URL we
             # expect to be used for this feed.
@@ -4112,7 +4111,7 @@ class TestOPDSFeedController(CirculationControllerTest):
         with self.request_context_with_library("/"):
             response = self.manager.opds_feeds.search(None)
             eq_(response.headers['Content-Type'], 'application/opensearchdescription+xml')
-            assert "OpenSearchDescription" in response.data
+            assert "OpenSearchDescription" in response.get_data(as_text=True)
 
     def test_search(self):
         # Test the search() controller method.
@@ -4670,7 +4669,7 @@ class TestCrawlableFeed(CirculationControllerTest):
 
         # The result of page() was served as an OPDS feed.
         eq_(200, response.status_code)
-        eq_("An OPDS feed", response.data)
+        eq_("An OPDS feed", response.get_data(as_text=True))
 
         # Verify the arguments passed in to page().
         out_kwargs = self.page_called_with
@@ -4771,7 +4770,7 @@ class TestMARCRecordController(CirculationControllerTest):
         with self.request_context_with_library("/"):
             response = self.manager.marc_records.download_page()
             eq_(200, response.status_code)
-            html = response.data
+            html = response.get_data(as_text=True)
             assert ("Download MARC files for %s" % library.name) in html
 
             assert "<h3>All Books</h3>" in html
@@ -4795,7 +4794,7 @@ class TestMARCRecordController(CirculationControllerTest):
         with self.request_context_with_library("/"):
             response = self.manager.marc_records.download_page()
             eq_(200, response.status_code)
-            html = response.data
+            html = response.get_data(as_text=True)
             assert ("Download MARC files for %s" % library.name) in html
             assert "MARC files aren't ready" in html
 
@@ -4805,7 +4804,7 @@ class TestMARCRecordController(CirculationControllerTest):
         with self.request_context_with_library("/"):
             response = self.manager.marc_records.download_page()
             eq_(200, response.status_code)
-            html = response.data
+            html = response.get_data(as_text=True)
             assert ("Download MARC files for %s" % library.name) in html
             assert ("No MARC exporter is currently configured") in html
 
@@ -4825,7 +4824,7 @@ class TestMARCRecordController(CirculationControllerTest):
         with self.request_context_with_library("/"):
             response = self.manager.marc_records.download_page()
             eq_(200, response.status_code)
-            html = response.data
+            html = response.get_data(as_text=True)
             assert ("Download MARC files for %s" % library.name) in html
             assert "No MARC exporter is currently configured" in html
             assert '<h3>All Books</h3>' in html
@@ -4984,7 +4983,7 @@ class TestDeviceManagementProtocolController(ControllerTest):
             # We got a list of device IDs.
             eq_(self.controller.DEVICE_ID_LIST_MEDIA_TYPE,
                 response.headers['Content-Type'])
-            eq_("device1\ndevice2", response.data)
+            eq_("device1\ndevice2", response.get_data(as_text=True))
 
             # We got a URL Template (see test_link_template_header())
             # that explains how to address any particular device ID.
@@ -5009,7 +5008,7 @@ class TestDeviceManagementProtocolController(ControllerTest):
             eq_(405, response.status_code)
 
     def test_device_id_list_handler_too_many_simultaneous_registrations(self):
-        """We only allow registration of one device ID at a time."""
+        # We only allow registration of one device ID at a time.
         headers = dict(self.auth)
         headers['Content-Type'] = self.controller.DEVICE_ID_LIST_MEDIA_TYPE
         with self.request_context_with_library(
@@ -5145,7 +5144,7 @@ class TestSharedCollectionController(ControllerTest):
             response = self.manager.shared_collection_controller.info(self.collection.name)
             eq_(200, response.status_code)
             assert response.headers.get("Content-Type").startswith("application/opds+json")
-            links = json.loads(response.data).get("links")
+            links = json.loads(response.get_data(as_text=True)).get("links")
             [register_link] = [link for link in links if link.get("rel") == "register"]
             assert "/collections/%s/register" % self.collection.name in register_link.get("href")
 
@@ -5180,7 +5179,7 @@ class TestSharedCollectionController(ControllerTest):
             api.queue_register(dict(shared_secret="secret"))
             response = self.manager.shared_collection_controller.register(self.collection.name)
             eq_(200, response.status_code)
-            eq_("secret", json.loads(response.data).get("shared_secret"))
+            eq_("secret", json.loads(response.get_data(as_text=True)).get("shared_secret"))
 
     def test_loan_info(self):
         now = datetime.datetime.utcnow()
@@ -5440,7 +5439,7 @@ class TestSharedCollectionController(ControllerTest):
                 return MockRequestsResponse(200, content="Content")
             response = self.manager.shared_collection_controller.fulfill(self.collection.name, loan.id, self.delivery_mechanism.delivery_mechanism.id, do_get=do_get_success)
             eq_(200, response.status_code)
-            eq_("Content", response.data)
+            eq_("Content", response.get_data(as_text=True))
             eq_("text/html", response.headers.get("Content-Type"))
 
             fulfillment_info.content_link = None
@@ -5448,7 +5447,7 @@ class TestSharedCollectionController(ControllerTest):
             api.queue_fulfill(fulfillment_info)
             response = self.manager.shared_collection_controller.fulfill(self.collection.name, loan.id, self.delivery_mechanism.delivery_mechanism.id)
             eq_(200, response.status_code)
-            eq_("Content", response.data)
+            eq_("Content", response.get_data(as_text=True))
             eq_("text/html", response.headers.get("Content-Type"))
 
     def test_hold_info(self):
@@ -5611,7 +5610,7 @@ class TestProfileController(ControllerTest):
             patron.synchronize_annotations = True
             response = self.manager.profiles.protocol()
             eq_("200 OK", response.status)
-            data = json.loads(response.data)
+            data = json.loads(response.get_data(as_text=True))
             settings = data['settings']
             eq_(True, settings[ProfileStorage.SYNCHRONIZE_ANNOTATIONS])
 
@@ -5828,7 +5827,7 @@ class TestStaticFileController(CirculationControllerTest):
 
         directory = os.path.join(os.path.abspath(os.path.dirname(__file__)), "files", "images")
         filename = "blue.jpg"
-        with open(os.path.join(directory, filename)) as f:
+        with open(os.path.join(directory, filename), "rb") as f:
             expected_content = f.read()
 
         with self.app.test_request_context("/"):
@@ -5845,7 +5844,7 @@ class TestStaticFileController(CirculationControllerTest):
     def test_image(self):
         directory = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..", "resources", "images")
         filename = "CleverLoginButton280.png"
-        with open(os.path.join(directory, filename)) as f:
+        with open(os.path.join(directory, filename), "rb") as f:
             expected_content = f.read()
 
         with self.app.test_request_context("/"):

@@ -47,7 +47,7 @@ class TestGoogleOAuthAdminAuthenticationProvider(DatabaseTest):
         # Successful case creates a dict of admin details
         success, redirect = self.google.callback(self._db, {'code' : 'abc'})
         eq_('example@nypl.org', success['email'])
-        default_credentials = json.dumps({"id_token": {"email": "example@nypl.org", "hd": "nypl.org"}})
+        default_credentials = json.dumps({"id_token": {"hd": "nypl.org", "email": "example@nypl.org"}})
         eq_(default_credentials, success['credentials'])
         eq_(GoogleOAuthAdminAuthenticationProvider.NAME, success["type"])
         [role] = success.get("roles")

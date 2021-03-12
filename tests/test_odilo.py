@@ -130,7 +130,6 @@ class TestOdiloAPI(OdiloAPITest):
 
         # Then we retry the GET and it succeeds this time.
         self.api.queue_response(200, content="at last, the content")
-
         status_code, headers, content = self.api.get(self._url, {})
 
         eq_(200, status_code)
@@ -366,7 +365,7 @@ class TestOdiloCirculationAPI(OdiloAPITest):
         # A relative URL is made absolute using the API's base URL.
         relative = "/relative-url"
         absolute = self.api._make_absolute_url(relative)
-        eq_(absolute, self.api.library_api_base_url + relative)
+        eq_(absolute, self.api.library_api_base_url.decode("utf-8") + relative)
 
         # An absolute URL is not modified.
         for protocol in ('http', 'https'):

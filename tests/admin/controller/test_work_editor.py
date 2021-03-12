@@ -951,7 +951,7 @@ class TestWorkController(AdminControllerTest):
             ])
             response = self.manager.admin_work_controller.preview_book_cover(identifier.type, identifier.identifier)
             eq_(200, response.status_code)
-            eq_("data:image/png;base64,%s" % base64.b64encode(image_data), response.data)
+            eq_("data:image/png;base64,%s" % base64.b64encode(image_data), response.get_data(as_text=True))
 
         self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
         with self.request_context_with_library_and_admin("/"):

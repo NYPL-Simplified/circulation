@@ -70,7 +70,7 @@ class TestMetadataServiceSelfTests(SettingsControllerTest):
         with self.request_context_with_admin("/", method="POST"):
             response = m(metadata_service.id)
             eq_(response._status, "200 OK")
-            eq_("Successfully ran new self tests", response.data)
+            eq_("Successfully ran new self tests", response.get_data(as_text=True))
 
         positional, keyword = self.run_self_tests_called_with
         # run_self_tests was called with positional arguments:

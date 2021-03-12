@@ -84,7 +84,7 @@ class TestPatronAuthSelfTests(SettingsControllerTest):
         with self.request_context_with_admin("/", method="POST"):
             response = self.manager.admin_patron_auth_service_self_tests_controller.process_patron_auth_service_self_tests(auth_service.id)
             eq_(response._status, "200 OK")
-            eq_("Successfully ran new self tests", response.data)
+            eq_("Successfully ran new self tests", response.get_data(as_text=True))
 
         # run_self_tests was called with the database twice (the
         # second time to be used in the ExternalSearchIntegration

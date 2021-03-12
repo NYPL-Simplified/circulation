@@ -1,4 +1,4 @@
-import base64
+# import base64
 import copy
 import json
 import logging
@@ -88,6 +88,7 @@ from core.selftest import HasSelfTests
 from core.util.flask_util import OPDSFeedResponse
 from core.util.http import HTTP
 from core.util.problem_detail import ProblemDetail
+from core.util.string_helpers import base64
 from api.proquest.importer import ProQuestOPDS2Importer
 
 

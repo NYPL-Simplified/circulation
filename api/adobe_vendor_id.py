@@ -135,7 +135,7 @@ class DeviceManagementProtocolController(BaseCirculationManagerController):
                     _("Expected %(media_type)s document.",
                       media_type=device_ids)
                 )
-            output = handler.register_device(flask.request.data)
+            output = handler.register_device(flask.request.get_data(as_text=True))
             if isinstance(output, ProblemDetail):
                 return output
             return Response(output, 200, self.PLAIN_TEXT_HEADERS)

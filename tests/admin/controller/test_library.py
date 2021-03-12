@@ -371,7 +371,7 @@ class TestLibrarySettings(SettingsControllerTest, AnnouncementTest):
 
         library = get_one(self._db, Library, uuid=library.uuid)
 
-        eq_(library.uuid, response.response[0])
+        eq_(library.uuid, response.get_data(as_text=True))
         eq_(library.name, "The New York Public Library")
         eq_(library.short_name, "nypl")
 

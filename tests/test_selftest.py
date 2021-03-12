@@ -211,7 +211,7 @@ class TestRunSelfTestsScript(DatabaseTest):
         script = RunSelfTestsScript(self._db, out)
         script.process_result(failure)
         eq_(out.getvalue(),
-            "  FAILURE i failed (0.0sec)\n   Exception: Exception('bah')\n"
+            "  FAILURE i failed (0.0sec)\n   Exception: Exception('bah',)\n"
         )
 
 

@@ -1167,4 +1167,4 @@ class TestAdobeVendorIDController(VendorIDTest):
         # The authdata returned is the one stored as a Credential
         # for the Patron.
         [credential] = patron.credentials
-        eq_(credential.credential, response.data)
+        eq_(credential.credential, response.get_data(as_text=True))

@@ -358,11 +358,11 @@ class SIPClient(Constants):
         tmp_ssl_key_path = None
         if self.ssl_cert:
             fd, tmp_ssl_cert_path = tempfile.mkstemp()
-            os.write(fd, self.ssl_cert)
+            os.write(fd, self.ssl_cert.encode("utf-8"))
             os.close(fd)
         if self.ssl_key:
             fd, tmp_ssl_key_path = tempfile.mkstemp()
-            os.write(fd, self.ssl_key)
+            os.write(fd, self.ssl_key.encode("utf-8"))
             os.close(fd)
         connection = self.make_insecure_connection()
         connection = ssl.wrap_socket(
