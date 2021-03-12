@@ -1,7 +1,7 @@
 import datetime
 import logging
 import traceback
-from io import BytesIO, StringIO
+from io import BytesIO
 
 import dateutil
 import feedparser
@@ -1163,9 +1163,7 @@ class OPDSImporter(object):
         if isinstance(feed, bytes):
             inp = BytesIO(feed)
         else:
-            # NOTE: etree will not parse certain Unicode strings.
-            # It's generally better to feed it a bytestring.
-            inp = StringIO(feed)
+            inp = BytesIO(feed.encode("utf-8"))
         root = etree.parse(inp)
 
         # Some OPDS feeds (eg Standard Ebooks) contain relative urls,
