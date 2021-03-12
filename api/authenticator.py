@@ -844,7 +844,7 @@ class LibraryAuthenticator(object):
             # BasicAuthenticationProvider.
             return self.basic_auth_provider.authenticated_patron(_db, header)
         elif (self.oauth_providers_by_name
-              and isinstance(header, str)
+              and isinstance(header, (bytes, str))
               and 'bearer' in header.lower()):
 
             # The patron wants to use an
@@ -865,7 +865,7 @@ class LibraryAuthenticator(object):
             # into a Patron.
             return provider.authenticated_patron(_db, provider_token)
         elif (self.saml_providers_by_name
-              and isinstance(header, str)
+              and isinstance(header, (bytes, str))
               and 'bearer' in header.lower()):
 
             # The patron wants to use an
@@ -1389,7 +1389,7 @@ class AuthenticationProvider(OPDSAuthenticationFlow):
         field = ConfigurationSetting.for_library_and_externalintegration(
             _db, self.LIBRARY_IDENTIFIER_FIELD, library, integration
         ).value
-        if isinstance(field, str):
+        if isinstance(field, (bytes, str)):
             field = field.strip()
         self.library_identifier_field = field
 
@@ -1411,7 +1411,7 @@ class AuthenticationProvider(OPDSAuthenticationFlow):
         elif self.library_identifier_restriction_type == self.LIBRARY_IDENTIFIER_RESTRICTION_TYPE_NONE:
             self.library_identifier_restriction = None
         else:
-            if isinstance(restriction, str):
+            if isinstance(restriction, (bytes, str)):
                 self.library_identifier_restriction = restriction.strip()
             else:
                 self.library_identifier_restriction = restriction

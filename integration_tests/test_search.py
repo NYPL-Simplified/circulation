@@ -100,7 +100,7 @@ class Evaluator(object):
         self.original_kwargs = dict()
         for k, v in list(kwargs.items()):
             self.original_kwargs[k] = v
-            if isinstance(v, str):
+            if isinstance(v, (bytes, str)):
                 v = v.lower()
             self.kwargs[k] = v
         for k, v in list(self.kwargs.items()):
@@ -152,7 +152,7 @@ class Evaluator(object):
         """Extract a field from a search result."""
         result = result or self.first
         value = getattr(result, field, None)
-        if isinstance(value, str):
+        if isinstance(value, (bytes, str)):
             value = value.lower()
         return value
 

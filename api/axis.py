@@ -1,4 +1,3 @@
-import base64
 import json
 import logging
 import os
@@ -76,7 +75,7 @@ from core.util.http import (
     HTTP,
     RemoteIntegrationException,
 )
-
+from core.util.string_helpers import base64
 
 from .authenticator import Authenticator
 
@@ -205,8 +204,8 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasCollectionSelfTests):
 
     @property
     def authorization_headers(self):
-        authorization = ":".join([self.username, self.password, self.library_id])
-        authorization = authorization.encode("utf_16_le")
+        authorization = b":".join([self.username, self.password, self.library_id])
+        authorization = authorization.decode("utf-8").encode("utf_16_le")
         authorization = base64.standard_b64encode(authorization)
         return dict(Authorization="Basic " + authorization)
 
@@ -266,7 +265,6 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasCollectionSelfTests):
         """
         if not self.token:
             self.token = self.refresh_bearer_token()
-
         headers = dict(extra_headers)
         headers['Authorization'] = "Bearer " + self.token
         headers['Library'] = self.library_id
@@ -622,7 +620,7 @@ class Axis360CirculationMonitor(CollectionMonitor, TimelineMonitor):
 
 class MockAxis360API(Axis360API):
     @classmethod
-    def mock_collection(self, _db, name="Test Axis 360 Collection"):
+    def mock_collection(cls, _db, name="Test Axis 360 Collection"):
         """Create a mock Axis 360 collection for use in tests."""
         library = DatabaseTest.make_default_library(_db)
         collection, ignore = get_one_or_create(
@@ -808,7 +806,7 @@ class BibliographicParser(Axis360Parser):
     log = logging.getLogger("Axis 360 Bibliographic Parser")
 
     @classmethod
-    def parse_list(self, l):
+    def parse_list(cls, l):
         """Turn strings like this into lists:
 
         FICTION / Thrillers; FICTION / Suspense; FICTION / General
@@ -1646,7 +1644,7 @@ class AxisNowManifest(object):
         self.book_vault_uuid = book_vault_uuid
         self.isbn = isbn
 
-    def __unicode__(self):
+    def __str__(self):
         data = dict(isbn=self.isbn, book_vault_uuid=self.book_vault_uuid)
         return json.dumps(data, sort_keys=True)
 

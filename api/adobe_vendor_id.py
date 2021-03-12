@@ -3,6 +3,7 @@ from nose.tools import set_trace
 import json
 import logging
 import uuid
+import base64
 import os
 import datetime
 import jwt
@@ -34,7 +35,6 @@ from core.model import (
     Patron,
 )
 from core.scripts import Script
-from core.util.string_helpers import base64
 
 class AdobeVendorIDController(object):
 
@@ -346,7 +346,7 @@ class AdobeVendorIDModel(object):
         self.authenticator = authenticator
         self.temporary_token_duration = (
             temporary_token_duration or datetime.timedelta(minutes=10))
-        if isinstance(node_value, str):
+        if isinstance(node_value, (bytes, str)):
             node_value = int(node_value, 16)
         self.node_value = node_value
 

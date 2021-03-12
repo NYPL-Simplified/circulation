@@ -1,4 +1,4 @@
-# import base64
+import base64
 import json
 from nose.tools import (
     set_trace,
@@ -46,7 +46,6 @@ from api.config import (
 )
 
 from api.simple_authentication import SimpleAuthenticationProvider
-from core.util.string_helpers import base64
 
 
 class TestVendorIDModel(VendorIDTest):
@@ -750,7 +749,7 @@ class TestAuthdataUtility(VendorIDTest):
         eq_(("http://my-library.org/", "Patron identifier"), decoded)
 
     def test_encode(self):
-        """Test that _encode gives a known value with known input."""
+        # Test that _encode gives a known value with known input.
         patron_identifier = "Patron identifier"
         now = datetime.datetime(2016, 1, 1, 12, 0, 0)
         expires = datetime.datetime(2018, 1, 1, 12, 0, 0)

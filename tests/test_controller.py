@@ -1489,14 +1489,14 @@ class TestIndexController(CirculationControllerTest):
             eq_("http://cdn/default/groups/", response.headers['location'])
 
     def test_authentication_document(self):
-        """Test the ability to retrieve an Authentication For OPDS document."""
+        # Test the ability to retrieve an Authentication For OPDS document.
         library_name = self.library.short_name
         with self.request_context_with_library(
                 "/", headers=dict(Authorization=self.invalid_auth)):
             response = self.manager.index_controller.authentication_document()
             eq_(200, response.status_code)
             eq_(AuthenticationForOPDSDocument.MEDIA_TYPE, response.headers['Content-Type'])
-            data = response.data
+            data = response.get_data(as_text=True)
             eq_(self.manager.auth.create_authentication_document(), data)
 
             # Make sure we got the A4OPDS document for the right library.
@@ -1508,14 +1508,14 @@ class TestIndexController(CirculationControllerTest):
         with self.request_context_with_library(
                 "/", headers=dict(Authorization=self.invalid_auth)):
             response = self.manager.index_controller.authentication_document()
-            eq_("Cached value", response.data)
+            eq_("Cached value", response.get_data(as_text=True))
 
         # And verify what happens when the cache is disabled.
         self.manager.authentication_for_opds_documents.max_age = 0
         with self.request_context_with_library(
                 "/", headers=dict(Authorization=self.invalid_auth)):
             response = self.manager.index_controller.authentication_document()
-            assert response.data != "Cached value"
+            assert response.get_data(as_text=True) != "Cached value"
 
     def test_public_key_integration_document(self):
         base_url = ConfigurationSetting.sitewide(self._db, Configuration.BASE_URL_KEY).value
@@ -3792,7 +3792,7 @@ class TestOPDSFeedController(CirculationControllerTest):
             for i in links:
                 rel = i['rel']
                 href = i['href']
-                if isinstance(by_rel.get(rel), str):
+                if isinstance(by_rel.get(rel), (bytes, str)):
                     by_rel[rel] = [by_rel[rel]]
                 if isinstance(by_rel.get(rel), list):
                     by_rel[rel].append(href)

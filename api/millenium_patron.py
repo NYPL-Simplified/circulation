@@ -247,7 +247,7 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
         return False
 
     def _remote_patron_lookup(self, patron_or_patrondata_or_identifier):
-        if isinstance(patron_or_patrondata_or_identifier, str):
+        if isinstance(patron_or_patrondata_or_identifier, (bytes, str)):
             identifier = patron_or_patrondata_or_identifier
         else:
             identifier = patron_or_patrondata_or_identifier.authorization_identifier

@@ -716,7 +716,7 @@ class SIPClient(Constants):
 
         :return: A 14-element dictionary mapping flag names to boolean values.
         """
-        if (not isinstance(status_string, str)
+        if (not isinstance(status_string, (bytes, str))
             or len(status_string) != 14):
             raise ValueError(
                 "Patron status must be a 14-character string."

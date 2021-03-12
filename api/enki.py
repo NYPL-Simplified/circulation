@@ -564,7 +564,7 @@ class BibliographicParser(object):
     }
 
     def process_all(self, json_data):
-        if isinstance(json_data, str):
+        if isinstance(json_data, (bytes, str)):
             json_data = json.loads(json_data)
         returned_titles = json_data.get("result", {}).get("titles", [])
         for book in returned_titles:

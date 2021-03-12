@@ -134,7 +134,7 @@ class RunSelfTestsScript(LibraryInputScript):
                 success, result.name, result.duration
             )
         )
-        if isinstance(result.result, str):
+        if isinstance(result.result, (bytes, str)):
             self.out.write("   Result: %s\n" % result.result)
         if result.exception:
             self.out.write("   Exception: %r\n" % result.exception)

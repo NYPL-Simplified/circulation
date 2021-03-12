@@ -101,7 +101,7 @@ class Axis360Test(DatabaseTest):
         self.api = MockAxis360API(self._db, self.collection)
 
     @classmethod
-    def sample_data(self, filename):
+    def sample_data(cls, filename):
         return sample_data(filename, 'axis')
 
     # Sample bibliographic and availability data you can use in a test
@@ -343,7 +343,7 @@ class TestAxis360API(Axis360Test):
 
         # Modify the data so that it appears to be talking about the
         # book we just created.
-        new_identifier = pool.identifier.identifier.encode("ascii")
+        new_identifier = pool.identifier.identifier
         data = data.replace("0012533119", new_identifier)
 
         self.api.queue_response(200, content=data)
@@ -531,7 +531,7 @@ class TestAxis360API(Axis360Test):
         data = self.sample_data("availability_with_loans.xml")
         # Modify the sample data so that it appears to be talking
         # about one of the books we're going to request.
-        data = data.replace("0012533119", id1.identifier.encode("ascii"))
+        data = data.replace("0012533119", id1.identifier)
         self.api.queue_response(200, {}, data)
         results = [x for x in self.api._fetch_remote_availability([id1, id2])]
 
@@ -1095,7 +1095,7 @@ class TestParsers(Axis360Test):
 class BaseParserTest(object):
 
     @classmethod
-    def sample_data(self, filename):
+    def sample_data(cls, filename):
         return sample_data(filename, 'axis')
 
 
@@ -1484,7 +1484,7 @@ class TestAudiobookMetadataParser(Axis360Test):
         # the spine items.
         class Mock(AudiobookMetadataParser):
             @classmethod
-            def _extract_spine_item(self, part):
+            def _extract_spine_item(cls, part):
                 return part + " (extracted)"
 
         metadata = dict(

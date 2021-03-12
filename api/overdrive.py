@@ -983,7 +983,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests, Overdrive
         raise CannotReleaseHold(response.content)
 
     def circulation_lookup(self, book):
-        if isinstance(book, str):
+        if isinstance(book, (bytes, str)):
             book_id = book
             circulation_link = self.endpoint(
                 self.AVAILABILITY_ENDPOINT,
@@ -1052,7 +1052,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests, Overdrive
                 book_id, status_code
             )
             return None, None, False
-        if isinstance(content, str):
+        if isinstance(content, (bytes, str)):
             content = json.loads(content)
         book.update(content)
 

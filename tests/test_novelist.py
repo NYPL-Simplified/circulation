@@ -252,7 +252,6 @@ class TestNoveListAPI(DatabaseTest):
         # make the request.
         rep = novelist.lookup_info_to_metadata_called_with
         eq_("http://scrubbed-url/", rep.url)
-        set_trace()
         eq_("yay", rep.content)
 
     def test_lookup_info_to_metadata_ignores_empty_responses(self):

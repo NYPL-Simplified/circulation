@@ -249,7 +249,7 @@ class NoveListAPI(object):
         # function that always returns `scrubbed_url`.
         def normalized_url(original):
             return scrubbed_url
-        set_trace()
+
         representation, from_cache = Representation.post(
             _db=self._db, url=str(url), data='',
             max_age=self.MAX_REPRESENTATION_AGE,

@@ -559,7 +559,7 @@ class LibraryAnnotator(CirculationManagerAnnotator):
         except ValueError:
             hidden_types = setting.value
         hidden_types = hidden_types or []
-        if isinstance(hidden_types, str):
+        if isinstance(hidden_types, (bytes, str)):
             hidden_types = [hidden_types]
         elif not isinstance(hidden_types, list):
             hidden_types = list(hidden_types)
@@ -637,7 +637,7 @@ class LibraryAnnotator(CirculationManagerAnnotator):
             title = lane.get('label', lane_name)
             lane = lane['lane']
 
-        if isinstance(lane, str):
+        if isinstance(lane, (bytes, str)):
             return lane, lane_name
 
         if hasattr(lane, 'display_name') and not title:

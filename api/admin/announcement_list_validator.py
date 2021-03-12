@@ -28,7 +28,7 @@ class AnnouncementListValidator(Validator):
             _("Invalid announcement list format: %(announcements)r",
               announcements=announcements)
         )
-        if isinstance(announcements, str):
+        if isinstance(announcements, (bytes, str)):
             try:
                 announcements = json.loads(announcements)
             except ValueError:
@@ -135,7 +135,7 @@ class AnnouncementListValidator(Validator):
 
         :return: A ProblemDetail if validation fails; otherwise a datetime.date.
         """
-        if isinstance(value, str):
+        if isinstance(value, (bytes, str)):
             try:
                 value = datetime.datetime.strptime(value, cls.DATE_FORMAT)
             except ValueError as e:

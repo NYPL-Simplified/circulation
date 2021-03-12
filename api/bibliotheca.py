@@ -278,7 +278,7 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
         :param identifiers: A list containing either Identifier
             objects or Bibliotheca identifier strings.
         """
-        if any(isinstance(identifiers, x) for x in (Identifier, str)):
+        if any(isinstance(identifiers, x) for x in (Identifier, (bytes, str))):
             identifiers = [identifiers]
         identifier_strings = []
         for i in identifiers:
@@ -535,7 +535,7 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
             license document via Bibliotheca, or a dictionary
             representing such a document loaded into JSON form.
         """
-        if isinstance(findaway_license, str):
+        if isinstance(findaway_license, (bytes, str)):
             findaway_license = json.loads(findaway_license)
 
         kwargs = {}
@@ -1326,7 +1326,7 @@ class BibliothecaEventMonitor(CollectionMonitor, TimelineMonitor):
 
         if cli_date:
             try:
-                if isinstance(cli_date, str):
+                if isinstance(cli_date, (bytes, str)):
                     date = cli_date
                 else:
                     date = cli_date[0]

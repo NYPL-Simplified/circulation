@@ -586,7 +586,7 @@ class TestOverdriveAPI(OverdriveAPITest):
 
         def process_error_response(message):
             # Attempt to process a response that resulted in an error.
-            if isinstance(message, str):
+            if isinstance(message, (bytes, str)):
                 data = dict(errorCode=message)
             else:
                 data = message

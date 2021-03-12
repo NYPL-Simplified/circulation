@@ -354,7 +354,7 @@ class RehostingPolicy(object):
 
     @classmethod
     def rights_uri(cls, rights, source, publication_year):
-        if publication_year and isinstance(publication_year, str):
+        if publication_year and isinstance(publication_year, (bytes, str)):
             publication_year = int(publication_year)
 
         can_rehost = cls.can_rehost_us(rights, source, publication_year)
