@@ -2,6 +2,17 @@ name: Test Circulation
 on: [push, pull_request]
 
 jobs:
+  docs:
+    name: Build API Documentation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: recursive
+      - uses: ammaraskar/sphinx-action@master
+        with:
+          docs-folder: "docs/"
+
   test-core:
     name: Run Circulation Tests
     runs-on: ubuntu-latest
