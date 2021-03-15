@@ -1,5 +1,5 @@
 import datetime
-from base64 import b64encode
+from core.util.string_helpers import base64
 from copy import copy
 from xml.dom.minidom import Document
 
@@ -417,7 +417,7 @@ class TestSAMLAuthenticationManager(ControllerTest):
         authentication_manager = SAMLAuthenticationManager(
             onelogin_configuration, subject_parser, subject_filter
         )
-        saml_response = b64encode(saml_response)
+        saml_response = base64.b64encode(saml_response)
 
         # Act
         with freeze_time(current_time):

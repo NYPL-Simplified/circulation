@@ -215,7 +215,7 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
         if not path.startswith("/"):
             path = "/" + path
         if not path.startswith("/cirrus"):
-            path = "/cirrus/library/%s%s" % (self.library_id, path)
+            path = "/cirrus/library/%s%s" % (self.library_id.decode("utf-8"), path)
         return path
 
     @classmethod

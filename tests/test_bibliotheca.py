@@ -275,10 +275,10 @@ class TestBibliothecaAPI(BibliothecaAPITest):
         )
 
     def test_put_request(self):
-        """This is a basic test to make sure the method calls line up
-        right--there are more thorough tests in the circulation
-        manager, which actually uses this functionality.
-        """
+        # This is a basic test to make sure the method calls line up
+        # right--there are more thorough tests in the circulation
+        # manager, which actually uses this functionality.
+
         self.api.queue_response(200, content="ok, you put something")
         response = self.api.request('checkout', "put this!", method="PUT")
 

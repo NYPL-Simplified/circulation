@@ -192,8 +192,8 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
             )
 
         # Use utf8 instead of unicode encoding
-        self.library_id = self.library_id.encode('utf8')
-        self.token = self.token.encode('utf8')
+        # self.library_id = self.library_id.encode('utf8')
+        # self.token = self.token.encode('utf8')
 
         # Convert the nickname for a server into an actual URL.
         base_url = collection.external_integration.url or self.PRODUCTION_BASE_URL
@@ -1110,7 +1110,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
 
         :return: A random identifier based on the input identifier.
         """
-        alphabet = string.digits + string.uppercase
+        alphabet = string.digits + string.ascii_uppercase
         addendum = "".join(random.choice(alphabet) for x in range(6))
         return authorization_identifier + addendum
 

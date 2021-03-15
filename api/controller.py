@@ -2460,8 +2460,8 @@ class RBDFulfillmentProxyController(CirculationManagerController):
             response = RBDigitalFulfillmentProxy.proxy(self._db, bearer, fulfillment_url,
                                                        api_class=api_class)
         except RBDProxyException as e:
-            status = e.message.get('status', 500)
-            message = e.message.get('message', 'unspecified error')
+            status = e.args[0].get('status', 500)
+            message = e.args[0].get('message', 'unspecified error')
             self.log.error('RBDProxyException: {} {}'.format(status, message))
             response = Response(
                 response=json.dumps({"message": message}),

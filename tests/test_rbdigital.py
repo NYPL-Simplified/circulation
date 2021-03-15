@@ -892,11 +892,11 @@ class TestRBDigitalAPI(RBDigitalAPITest):
 
         # The dummy identifier is the input identifier plus
         # 6 random characters.
-        eq_(auth + "N098QO", remote_auth)
+        eq_(auth + "71HFE8", remote_auth)
 
         # It's different every time.
         remote_auth = self.api.dummy_patron_identifier(auth)
-        eq_(auth + "W3F17I", remote_auth)
+        eq_(auth + "6Y5R21", remote_auth)
 
     def test_dummy_email_address(self):
 
@@ -1662,13 +1662,12 @@ class TestRBDigitalAPI(RBDigitalAPITest):
                       patron, None, pool)
 
     def test_update_licensepool_for_identifier(self):
-        """Test the RBDigital implementation of the update_availability method
-        defined by the CirculationAPI interface.
-        """
+        # Test the RBDigital implementation of the update_availability method
+        # defined by the CirculationAPI interface.
 
         # Update a LicensePool that doesn't exist yet, and it gets created.
         identifier = self._identifier(identifier_type=Identifier.RB_DIGITAL_ID)
-        isbn = identifier.identifier.encode("ascii")
+        isbn = identifier.identifier
 
         # The BibliographicCoverageProvider gets called for a new license pool.
         self.api.queue_response(200, content=json.dumps({}))
@@ -1699,7 +1698,7 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         pool.patrons_in_hold_queue = 3
         eq_(None, pool.last_checked)
 
-        isbn = pool.identifier.identifier.encode("ascii")
+        isbn = pool.identifier.identifier
 
         pool, is_new, circulation_changed = self.api.update_licensepool_for_identifier(
             isbn, False, 'eaudio'
@@ -1782,7 +1781,7 @@ class TestCirculationMonitor(RBDigitalAPITest):
 
         # Modify the data so that it appears to be talking about the
         # book we just created.
-        new_identifier = pool_ebook.identifier.identifier.encode("ascii")
+        new_identifier = pool_ebook.identifier.identifier
         datastr = datastr.replace("9781781107041", new_identifier)
         monitor.api.queue_response(status_code=200, content=datastr)
 
@@ -1878,9 +1877,8 @@ class TestRBFulfillmentInfo(RBDigitalAPITest):
 class TestAudiobookManifest(RBDigitalAPITest):
 
     def test_constructor(self):
-        """A reasonable RBdigital manifest becomes a reasonable
-        AudiobookManifest object.
-        """
+        # A reasonable RBdigital manifest becomes a reasonable
+        # AudiobookManifest object.
 
         patron_bearer_token = 'd1544585ade0abcd7908ba0e'
 
@@ -1908,8 +1906,8 @@ class TestAudiobookManifest(RBDigitalAPITest):
         # that clients cannot directly retrieve the access document
         # from the primary downloadUrl, not providing a function to
         # generate this alternative is treated as an error.
-        assert_raises_regexp(
-            TypeError, "__init__\(\) takes exactly .* arguments .*",
+        assert_raises(
+            TypeError, "__init__() missing 1 required positional argument: 'fulfill_part_url'",
             AudiobookManifest, book
         )
 
@@ -2029,7 +2027,7 @@ class TestRBDigitalRepresentationExtractor(RBDigitalAPITest):
         eq_("Laura Flanagan Guskin", narrator.display_name)
         eq_([Contributor.NARRATOR_ROLE], narrator.roles)
 
-        subjects = sorted(metadata.subjects, key=lambda x: x.identifier)
+        subjects = sorted(metadata.subjects, key=lambda x: x.identifier or "")
 
         weight = Classification.TRUSTED_DISTRIBUTOR_WEIGHT
         eq_([(None, "FICTION / Humorous / General", Subject.BISAC, weight),

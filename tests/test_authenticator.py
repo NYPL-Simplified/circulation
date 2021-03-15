@@ -707,7 +707,7 @@ class TestLibraryAuthenticator(AuthenticatorTest):
 
         not_found = auth.initialization_exceptions[unknown.id]
         assert isinstance(not_found, ImportError)
-        eq_('No module named unknown protocol', str(not_found))
+        eq_("No module named 'unknown protocol'", str(not_found))
 
     def test_register_fails_when_integration_has_wrong_goal(self):
         integration = self._external_integration(

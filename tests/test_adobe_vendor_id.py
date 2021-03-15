@@ -450,7 +450,7 @@ class TestVendorIDRequestParsers(object):
     def test_authdata_sign_in_request(self):
         parser = AdobeSignInRequestParser()
         data = parser.process(self.authdata_sign_in_request)
-        eq_({'authData': 'this data was base64 encoded', 'method': 'authData'},
+        eq_({'authData': b'this data was base64 encoded', 'method': 'authData'},
             data)
 
     def test_accountinfo_request(self):

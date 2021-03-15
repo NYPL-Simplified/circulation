@@ -143,7 +143,7 @@ class TestRunSelfTestsScript(DatabaseTest):
         script = MockScript2(self._db, out)
         script.do_run()
         eq_(out.getvalue(),
-            "Testing %s\n  Exception while running self-test: Exception('blah')\nTesting %s\n" % (library1.name, library2.name)
+            "Testing %s\n  Exception while running self-test: Exception('blah',)\nTesting %s\n" % (library1.name, library2.name)
         )
 
     def test_test_collection(self):
