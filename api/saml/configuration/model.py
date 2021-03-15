@@ -126,6 +126,33 @@ class SAMLConfiguration(ConfigurationGrouping):
         required=False,
     )
 
+    patron_id_migrate_patrons_with_old_ids = ConfigurationMetadata(
+        key="saml_patron_id_migrate_patrons_with_old_ids",
+        label=_("Patron ID: Migrate Patrons with \"Old\" IDs"),
+        description=_(
+            "Boolean value indicating whether Circulation Manager should migrate patrons with \"old\" IDs, "
+            "i.e. IDs that were extracted using the default <b>Patron ID</b> settings from either "
+            "eduPersonUniqueId, eduPersonTargetedID, uid attributes, or NameID without using the regular expression:"
+            "<br>"
+            "- <b>0</b> (default) means that Circulation Manager won't migrate patrons with \"old\" IDs and "
+            "after changing the <b>Patron ID</b> configuration settings some patrons "
+            "MIGHT loose their holds and loans, "
+            "<br>"
+            "- <b>1</b> means that Circulation Manager will migrate patrons with \"old\" IDs by assigning them "
+            "a new ID extracted from a SAML assertion according to new <b>Patron ID</b> configuration setting values."
+            "<br>"
+            "Please consider the following scenario as an example:"
+            "<br>"
+            "1. \"Old\" patron IDs were extracted from NameID."
+            "<br>"
+            "2. The requirements changed and now IDs have to be extracted from eduPersonalPrincipalName attribute "
+            "using a regular expression."
+        ),
+        type=ConfigurationAttributeType.NUMBER,
+        required=False,
+        default=0,
+    )
+
     non_federated_identity_provider_xml_metadata = ConfigurationMetadata(
         key="idp_xml_metadata",
         label=_("Identity Provider's XML metadata"),

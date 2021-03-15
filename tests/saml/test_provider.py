@@ -733,3 +733,95 @@ class TestSAMLWebSSOAuthenticationProvider(ControllerTest):
             eq_(expected_patron_data.permanent_id, patron.external_identifier)
             eq_(expected_patron_data, patron_data)
             eq_(expected_expiration_time, credential.expires)
+
+    def test_saml_callback_migrates_patrons_with_old_ids(self):
+        """Ensure that migration logic works correctly. This test case emulates the following scenario:
+
+        1. The administrator set up the SAML authentication provider and left "Patron ID" configuration settings
+        untouched making Circulation Manager use the default ("old") patron ID extraction algorithm.
+
+        2. A patron authenticated using SAML.
+
+        3. Circulation Manager used the default ("old") patron ID extraction algorithm,
+        extracted "old" ID from the SAML NameID and created a Patron object.
+
+        4. The patron checked out some books and had some books on hold that were associated with their Patron object.
+
+        5. The administrator updated the "Patron ID" configuration settings:
+        5.1. Overrode the list of SAML attributes and added eduPersonPrincipalName attribute.
+        5.2. Set up a custom regular expression to extract a patron ID from eduPersonPrincipalName.
+
+        6. SAML session expired.
+
+        7. The same patron reauthenticated using SAML.
+
+        8. Circulation Manager:
+        8.1. Extracted "new" patron ID from eduPersonPrincipalName name and created a new Patron object.
+        8.2. Successfully transferred all the patron's holds and loans to the new Patron object.
+        8.3. Deleted the "old" Patron object.
+        """
+        # Arrange
+        old_patron_id = "old_patron_id"
+        new_patron_id = "patron_id_id"
+
+        subject = SAMLSubject(
+            SAMLNameID(SAMLNameIDFormat.UNSPECIFIED.value, "", "", old_patron_id),
+            SAMLAttributeStatement(
+                [
+                    SAMLAttribute(
+                        name=SAMLAttributeType.eduPersonPrincipalName.name,
+                        values=["{0}@university.org".format(new_patron_id)],
+                    )
+                ]
+            ),
+        )
+
+        edition, licensepool = self._edition(
+            with_license_pool=True,
+            with_open_access_download=False,
+        )
+
+        # Act
+
+        # 1. The administrator set up the SAML authentication provider
+        # using the default "Patron ID" configuration settings.
+        with self._configuration_factory.create(
+                self._configuration_storage, self._db, SAMLConfiguration
+        ) as configuration:
+            configuration.patron_id_use_name_id = "1"
+
+        provider = SAMLWebSSOAuthenticationProvider(
+            self._default_library, self._integration
+        )
+
+        # 2. A patron authenticated using SAML.
+        # 3. Circulation Manager extracted the "old" patron ID.
+        old_credential, old_patron, old_patron_data = provider.saml_callback(self._db, subject)
+
+        # 4. The patron checked out some books and had some books on hold.
+        loan, _ = licensepool.loan_to(old_patron)
+        hold, _ = licensepool.on_hold_to(old_patron)
+
+        # 5. The administrator updated the "Patron ID" configuration settings.
+        with self._configuration_factory.create(
+                self._configuration_storage, self._db, SAMLConfiguration
+        ) as configuration:
+            configuration.patron_id_migrate_patrons_with_old_ids = "1"
+            configuration.patron_id_attributes = json.dumps([SAMLAttributeType.eduPersonPrincipalName.name])
+            configuration.patron_id_regular_expression = fixtures.PATRON_ID_REGULAR_EXPRESSION_ORG
+
+        provider = SAMLWebSSOAuthenticationProvider(
+            self._default_library, self._integration
+        )
+
+        # 6. SAML session expired.
+
+        # 7. The same patron reauthenticated using SAML.
+        # 8. Circulation Manager extracted the "new" patron ID, created a new Patron object,
+        # and transferred all the holds and loans from the "old" patron ot the "new" one.
+        new_credential, new_patron, new_patron_data = provider.saml_callback(self._db, subject)
+
+        # Assert
+        # Ensure that all the holds and loans were successfully transferred.
+        eq_(new_patron, loan.patron)
+        eq_(new_patron, hold.patron)

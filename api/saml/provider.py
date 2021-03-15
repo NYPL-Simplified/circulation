@@ -21,7 +21,14 @@ from api.saml.metadata.model import (
     SAMLSubjectPatronIDExtractor,
 )
 from api.saml.metadata.parser import SAMLMetadataParser
-from core.model import Credential, DataSource, Session, get_one_or_create
+from core.model import (
+    Credential,
+    DataSource,
+    Patron,
+    Session,
+    get_one,
+    get_one_or_create,
+)
 from core.model.configuration import ConfigurationStorage, HasExternalIntegration
 from core.python_expression_dsl.evaluator import DSLEvaluationVisitor, DSLEvaluator
 from core.python_expression_dsl.parser import DSLParser
@@ -87,6 +94,9 @@ class SAMLWebSSOAuthenticationProvider(
             )
             self._patron_id_regular_expression = (
                 configuration.patron_id_regular_expression
+            )
+            self._patron_id_migrate_patrons_with_old_ids = (
+                str(configuration.patron_id_migrate_patrons_with_old_ids) == "1"
             )
 
     def _authentication_flow_document(self, db):
@@ -342,6 +352,111 @@ class SAMLWebSSOAuthenticationProvider(
 
         return result
 
+    def _try_to_migrate_patron_with_old_id(self, db, subject, new_patron):
+        """Try to migrate a patron from a patron object with an "old" ID to a patron object with the "new" ID
+        by transferring their holds and loans from the former to the latter.
+
+        - "old" ID means it was extracted using the default ("old") algorithm described in SAMLSubjectPatronIDExtractor
+        - "new" ID means it was extracted using custom Patron ID configuration settings.
+
+        :param db: Database session
+        :type db: sqlalchemy.orm.session.Session
+
+        :param subject: Subject object containing SAML Subject and AttributeStatement
+        :type subject: api.saml.metadata.model.SAMLSubject
+
+        :param new_patron: Patron with the "new" ID
+        :type new_patron: Patron
+        """
+        if not self._patron_id_migrate_patrons_with_old_ids:
+            return
+
+        # 1. First, try to extract an "old" patron ID.
+        old_patron_data = self._remote_patron_lookup(subject, None, None, None)
+
+        if not isinstance(old_patron_data, ProblemDetail):
+            # 2. If there is an "old" patron ID try to get a patron with this ID.
+            old_patron = get_one(
+                db,
+                Patron,
+                external_identifier=old_patron_data.permanent_id,
+                authorization_identifier=old_patron_data.authorization_identifier,
+            )
+
+            if old_patron:
+                self._logger.info(
+                    "Started migrating hold and loans from patron # {0} ('old' ID) to patron {1} ('new' ID)".format(
+                        old_patron.external_identifier, new_patron.external_identifier
+                    )
+                )
+
+                # 3. If there is a patron with the "old" ID, transfer their holds and loans to the "new" patron.
+                transaction = db.begin_nested()
+
+                for hold in old_patron.holds:
+                    new_patron.holds.append(hold)
+
+                for loan in old_patron.loans:
+                    new_patron.loans.append(loan)
+
+                old_patron.holds = []
+                old_patron.loans = []
+
+                # 4. Finally, delete the "old" patron.
+                db.delete(old_patron)
+
+                transaction.commit()
+
+                self._logger.info(
+                    "Finished migrating hold and loans from patron # {0} ('old' ID) to patron {1} ('new' ID)".format(
+                        old_patron.external_identifier, new_patron.external_identifier
+                    )
+                )
+
+    @staticmethod
+    def _remote_patron_lookup(
+        subject,
+        patron_id_use_name_id,
+        patron_id_attributes,
+        patron_id_regular_expression,
+    ):
+        """Create a PatronData object based on Subject object containing SAML Subject and AttributeStatement.
+
+        :param subject: Subject object containing SAML Subject and AttributeStatement
+        :type subject: api.saml.metadata.model.SAMLSubject
+
+        :return: PatronData object containing information about the authenticated SAML subject or
+            ProblemDetail object in the case of any errors
+        :rtype: Union[PatronData, ProblemDetail]
+        """
+        if not subject:
+            return SAML_INVALID_SUBJECT.detailed("Subject is empty")
+
+        if isinstance(subject, PatronData):
+            return subject
+
+        if not isinstance(subject, SAMLSubject):
+            return SAML_INVALID_SUBJECT.detailed("Incorrect subject type")
+
+        extractor = SAMLSubjectPatronIDExtractor(
+            patron_id_use_name_id,
+            patron_id_attributes,
+            patron_id_regular_expression,
+        )
+        uid = extractor.extract(subject)
+
+        if uid is None:
+            return SAML_INVALID_SUBJECT.detailed("Subject does not have a unique ID")
+
+        patron_data = PatronData(
+            permanent_id=uid,
+            authorization_identifier=uid,
+            external_type="A",
+            complete=True,
+        )
+
+        return patron_data
+
     def _run_self_tests(self, _db):
         pass
 
@@ -409,39 +524,18 @@ class SAMLWebSSOAuthenticationProvider(
         """Creates a PatronData object based on Subject object containing SAML Subject and AttributeStatement
 
         :param subject: Subject object containing SAML Subject and AttributeStatement
-        :type subject: api.saml.metadata.Subject
+        :type subject: api.saml.metadata.model.SAMLSubject
 
         :return: PatronData object containing information about the authenticated SAML subject or
             ProblemDetail object in the case of any errors
         :rtype: Union[PatronData, ProblemDetail]
         """
-        if not subject:
-            return SAML_INVALID_SUBJECT.detailed("Subject is empty")
-
-        if isinstance(subject, PatronData):
-            return subject
-
-        if not isinstance(subject, SAMLSubject):
-            return SAML_INVALID_SUBJECT.detailed("Incorrect subject type")
-
-        extractor = SAMLSubjectPatronIDExtractor(
+        return self._remote_patron_lookup(
+            subject,
             self._patron_id_use_name_id,
             self._patron_id_attributes,
             self._patron_id_regular_expression,
         )
-        uid = extractor.extract(subject)
-
-        if uid is None:
-            return SAML_INVALID_SUBJECT.detailed("Subject does not have a unique ID")
-
-        patron_data = PatronData(
-            permanent_id=uid,
-            authorization_identifier=uid,
-            external_type="A",
-            complete=True,
-        )
-
-        return patron_data
 
     def saml_callback(self, db, subject):
         """Verifies the SAML subject, generates a Bearer token in the case of successful authentication and returns it
@@ -456,26 +550,28 @@ class SAMLWebSSOAuthenticationProvider(
             3-tuple (Credential, Patron, PatronData). The Credential
             contains the access token provided by the SAML provider. The
             Patron object represents the authenticated Patron, and the
-            PatronData object includes information about the patron
-            obtained from the OAuth provider which cannot be stored in the
+            PatronData object includes information about the new_patron
+            obtained from the SAML provider which cannot be stored in the
             circulation manager's database, but which should be passed on
             to the client.
         :rtype: Union[Tuple[Credential, Patron, PatronData], ProblemDetail]
         """
-        patron_data = self.remote_patron_lookup(subject)
-        if isinstance(patron_data, ProblemDetail):
-            return patron_data
+        new_patron_data = self.remote_patron_lookup(subject)
+        if isinstance(new_patron_data, ProblemDetail):
+            return new_patron_data
 
         # Convert the PatronData into a Patron object
-        patron, is_new = patron_data.get_or_create_patron(db, self.library_id)
+        new_patron, _ = new_patron_data.get_or_create_patron(db, self.library_id)
+
+        self._try_to_migrate_patron_with_old_id(db, subject, new_patron)
 
         # Create a credential for the Patron
         with self.get_configuration(db) as configuration:
-            credential, is_new = self._create_token(
-                db, patron, subject, configuration.session_lifetime
+            credential, _ = self._create_token(
+                db, new_patron, subject, configuration.session_lifetime
             )
 
-            return credential, patron, patron_data
+            return credential, new_patron, new_patron_data
 
 
 def validator_factory():
