@@ -122,6 +122,9 @@ class Monitor(object):
             return self.default_start_time
         return datetime.datetime.utcnow()
 
+    @property
+    def message_prefix(self):
+        return '[{}] '.format(self.collection.name) if self.collection else ''
 
     def timestamp(self):
         """Find or create a Timestamp for this Monitor.
@@ -170,7 +173,7 @@ class Monitor(object):
             if new_timestamp.achievements not in ignorable:
                 # This eliminates the need to create similar-looking
                 # strings for TimestampData.achievements and for the log.
-                self.log.info(new_timestamp.achievements)
+                self.log.info("%s%s", self.message_prefix, new_timestamp.achievements)
             if new_timestamp.exception in ignorable:
                 # run_once() completed with no exceptions being raised.
                 # We can run the cleanup code and finalize the timestamp.
@@ -191,8 +194,8 @@ class Monitor(object):
         except Exception:
             this_run_finish = datetime.datetime.utcnow()
             self.log.exception(
-                "Error running %s monitor. Timestamp will not be updated.",
-                self.service_name
+                "%sError running %s monitor. Timestamp will not be updated.",
+                self.message_prefix, self.service_name
             )
             exception = traceback.format_exc()
         if exception is not None:
@@ -206,8 +209,8 @@ class Monitor(object):
 
         duration = this_run_finish - this_run_start
         self.log.info(
-            "Ran %s monitor in %.2f sec.", self.service_name,
-            duration.total_seconds(),
+            "%sRan %s monitor in %.2f sec.", self.message_prefix,
+            self.service_name, duration.total_seconds(),
         )
 
     def run_once(self, progress):
