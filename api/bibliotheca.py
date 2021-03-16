@@ -1,3 +1,4 @@
+import argparse
 import base64
 from cStringIO import StringIO
 from datetime import datetime, timedelta
@@ -1284,7 +1285,32 @@ class BibliothecaEventMonitor(CollectionMonitor, TimelineMonitor):
     LOG_DATE_FORMAT = '%Y-%m-%dT%H:%M:%S'
 
     def __init__(self, _db, collection, api_class=BibliothecaAPI,
-                 cli_date=None, analytics=None):
+                 default_start=None, analytics=None,
+                 override_timestamp=False,
+                 ):
+        """Initializer.
+
+        :param _db: Database session object.
+
+        :param collection: Collection for which this monitor operates.
+
+        :param api_class: API class or an instance thereof for this monitor.
+        :param api-class: Union[Type[BibliothecaAPI], BibliothecaAPI]
+
+        :param default_start: A default date/time at which to start
+            requesting events. It should be specified as a `datetime` or
+            an ISO 8601 string. If not provided, the monitor's calculated
+            intrinsic default will be used.
+        :type default_start: Optional[Union[datetime, basestring]]
+
+        :param analytics: An optional Analytics object.
+        :type analytics: Optional[Analytics]
+
+        :param override_timestamp: Boolean indicating whether
+            `default_start` should take precedence over the timestamp
+            for an already initialized monitor.
+        :type override_timestamp: bool
+        """
         self.analytics = analytics or Analytics(_db)
         super(BibliothecaEventMonitor, self).__init__(_db, collection)
         if isinstance(api_class, BibliothecaAPI):
@@ -1298,46 +1324,80 @@ class BibliothecaEventMonitor(CollectionMonitor, TimelineMonitor):
         self.bibliographic_coverage_provider = BibliothecaBibliographicCoverageProvider(
             collection, self.api, replacement_policy=self.replacement_policy
         )
-        if cli_date:
-            self.default_start_time = self.create_default_start_time(
-                _db,  cli_date
-            )
 
-    def create_default_start_time(self, _db, cli_date):
-        """Sets the default start time if it's passed as an argument.
+        # We should only force the use of `default_start` as the actual
+        # start time if it was passed in.
+        self.override_timestamp = override_timestamp if default_start else False
+        # A specified `default_start` takes precedence over the
+        # monitor's intrinsic default start date/time.
+        self.default_start_time = (self._optional_iso_date(default_start) or
+                                   self._intrinsic_start_time(_db))
 
-        The command line date argument should have the format YYYY-MM-DD.
+    def _optional_iso_date(self, date):
+        """Return the date in `datetime` format.
+
+        :param date: A date/time value, specified as either an ISO 8601
+            string or as a `datetime`.
+        :type date: Optional[Union[datetime, str]]
+
+        :return: Optional datetime.
+        :rtype: Optional[datetime]
         """
+        if date is None or isinstance(date, datetime):
+            return date
+        try:
+            dt_date = dateutil.parser.isoparse(date)
+        except ValueError as e:
+            self.log.warn(
+                '%r. Date argument "%s" was not in a valid format. Use an ISO 8601 string or a datetime.',
+                e, date,
+            )
+            raise
+        return dt_date
 
+    def _intrinsic_start_time(self, _db):
+        """Return the intrinsic start time for this monitor.
+
+        The intrinsic start time is the time at which this monitor would
+        start if it were uninitialized (no timestamp) and no `default_start`
+        parameter were supplied. It is a datetime `self.DEFAULT_START_TIME`
+        in the past.
+
+        :param _db: Database session object.
+
+        :return: datetime representing a default start time.
+        :rtype: datetime
+        """
         # We don't use Monitor.timestamp() because that will create
         # the timestamp if it doesn't exist -- we want to see whether
         # or not it exists.
+        default_start_time = datetime.utcnow() - self.DEFAULT_START_TIME
         initialized = get_one(
             _db, Timestamp, service=self.service_name,
             service_type=Timestamp.MONITOR_TYPE, collection=self.collection
         )
-        default_start_time = datetime.utcnow() - self.DEFAULT_START_TIME
-
-        if cli_date:
-            try:
-                if isinstance(cli_date, basestring):
-                    date = cli_date
-                else:
-                    date = cli_date[0]
-                return datetime.strptime(date, "%Y-%m-%d")
-            except ValueError as e:
-                self.log.warn(
-                    '%r. Date argument was not in a valid format. Using default date instead: %s.',
-                    e, default_start_time.strftime(self.LOG_DATE_FORMAT)
-                )
-                return default_start_time
         if not initialized:
             self.log.info(
                 "Initializing %s from date: %s.", self.service_name,
                 default_start_time.strftime(self.LOG_DATE_FORMAT)
             )
-            return default_start_time
-        return None
+        return default_start_time
+
+    def timestamp(self):
+        """Find or create a Timestamp for this Monitor.
+
+        If we are overriding the normal start time with one supplied when
+        the this class was instantiated, we do that here. The instance's
+        `default_start_time` will have been set to the specified datetime
+        and setting`timestamp.finish` to None will cause the default to
+        be used.
+        """
+        timestamp = super(BibliothecaEventMonitor, self).timestamp()
+        if self.override_timestamp:
+            self.log.info('Overriding timestamp and starting at %s.',
+                          datetime.strftime(self.default_start_time, self.LOG_DATE_FORMAT))
+            timestamp.finish = None
+        return timestamp
 
     def catch_up_from(self, start, cutoff, progress):
         added_books = 0
@@ -1444,6 +1504,40 @@ class BibliothecaEventMonitor(CollectionMonitor, TimelineMonitor):
         self.log.info("%s %s: %s", start_time.strftime(self.LOG_DATE_FORMAT),
                       title, internal_event_type)
         return start_time
+
+
+class RunBibliothecaMonitorScript(RunCollectionMonitorScript):
+
+    def __init__(self, monitor_class, _db=None, cmd_args=None, **kwargs):
+        super(RunBibliothecaMonitorScript, self).__init__(monitor_class, _db, cmd_args, **kwargs)
+
+    # TODO: Both '--default-start-date' and '--force-default' (or equivalents) should probably end up
+    #   in a more generalized script runner superclass that is focused on Monitor or TimelineMonitor.
+    @classmethod
+    def arg_parser(cls):
+        parser = super(RunBibliothecaMonitorScript, cls).arg_parser()
+        parser.add_argument('--default-start', metavar='DATETIME',
+                            default=None, type=dateutil.parser.isoparse,
+                            help='Default start date/time to be used for uninitialized (no timestamp) monitors.'
+                                 ' Use ISO 8601 format (e.g., "yyyy-mm-dd", "yyyy-mm-ddThh:mm:ss").'
+                                 ' Do not specify a time zone or offset.',
+                            )
+        parser.add_argument('--override-timestamp', action='store_true',
+                            help='Use the specified `--default-start` as the actual'
+                                 ' start date, even if a monitor is already initialized.')
+        return parser
+
+    @classmethod
+    def parse_command_line(cls, _db=None, cmd_args=None, *args, **kwargs):
+        parsed = super(RunBibliothecaMonitorScript, cls).parse_command_line(
+            _db=_db, cmd_args=cmd_args, *args, **kwargs
+        )
+        if parsed.override_timestamp and not parsed.default_start:
+            cls.arg_parser().error(
+                '"--override-timestamp" is valid only when "--default-start" is also specified.'
+            )
+        return parsed
+
 
 class BibliothecaBibliographicCoverageProvider(BibliographicCoverageProvider):
     """Fill in bibliographic metadata for Bibliotheca records.
