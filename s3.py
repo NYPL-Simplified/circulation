@@ -21,7 +21,6 @@ from .model.configuration import (
     ConfigurationMetadata,
     ConfigurationAttributeType
 )
-from nose.tools import set_trace
 
 class MultipartS3Upload():
     def __init__(self, uploader, representation, mirror_to):
