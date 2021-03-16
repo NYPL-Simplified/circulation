@@ -1320,7 +1320,7 @@ class BibliothecaEventMonitor(CollectionMonitor, TimelineMonitor):
         # or not it exists.
         initialized = get_one(
             _db, Timestamp, service=self.service_name,
-            service_type=Timestamp.MONITOR_TYPE
+            service_type=Timestamp.MONITOR_TYPE, collection=self.collection
         )
         default_start_time = datetime.utcnow() - self.DEFAULT_START_TIME
 
