@@ -980,6 +980,17 @@ class TestBibliothecaEventMonitor(BibliothecaAPITest):
         default_start_time = monitor.create_default_start_time(self._db, proper_args)
         assert datetime(2013, 4, 2) == default_start_time
 
+
+class TestBibliothecaEventMonitorWhenMultipleCollections(BibliothecaAPITest):
+
+    def test_when_multiple_collections(self):
+        # Now let's add a second collection and try the monitor on one of them.
+        b1 = self.collection
+        b2 = self._collection(protocol=ExternalIntegration.BIBLIOTHECA)
+        monitor = BibliothecaEventMonitor(
+            self._db, self.collection, api_class=MockBibliothecaAPI
+        )
+
     def test_run_once(self):
         # run_once() slices the time between its start date
         # and the current time into five-minute intervals, and asks for
@@ -1121,6 +1132,31 @@ class TestBibliothecaEventMonitor(BibliothecaAPITest):
         # which was registered with analytics but which did not
         # affect the counts.
         assert 4 == analytics.count
+
+
+class TestBibliothecaEventMonitorWhenMultipleCollections(BibliothecaAPITest):
+
+    def test_multiple_service_type_timestamps_with_start_date(self):
+        # Start with multiple collections that have timestamps
+        # because they've run before.
+        collections = [
+            MockBibliothecaAPI.mock_collection(self._db, name='Collection 1'),
+            MockBibliothecaAPI.mock_collection(self._db, name='Collection 2'),
+        ]
+        for c in collections:
+            Timestamp.stamp(
+                self._db, service=BibliothecaEventMonitor.SERVICE_NAME,
+                service_type=Timestamp.MONITOR_TYPE, collection=c
+            )
+        # Instantiate the associated monitors with a start date.
+        monitors = [
+            BibliothecaEventMonitor(self._db, c, api_class=BibliothecaAPI,
+                                    cli_date='2011-02-03')
+            for c in collections
+        ]
+        # Ensure that we get monitors and not an exception.
+        for m in monitors:
+            isinstance(m, BibliothecaEventMonitor)
 
 
 class TestItemListParser(BibliothecaAPITest):

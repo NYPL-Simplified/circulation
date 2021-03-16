@@ -593,12 +593,12 @@ class DummyBibliothecaAPIResponse(object):
 class MockBibliothecaAPI(BibliothecaAPI):
 
     @classmethod
-    def mock_collection(self, _db):
+    def mock_collection(self, _db, name="Test Bibliotheca Collection"):
         """Create a mock Bibliotheca collection for use in tests."""
         library = DatabaseTest.make_default_library(_db)
         collection, ignore = get_one_or_create(
             _db, Collection,
-            name="Test Bibliotheca Collection", create_method_kwargs=dict(
+            name=name, create_method_kwargs=dict(
                 external_account_id=u'c',
             )
         )
