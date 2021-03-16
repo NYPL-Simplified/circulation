@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 """Look up and set the delivery mechanism for all 3M books."""
-from nose.tools import set_trace
 import os
 import sys
 bin_dir = os.path.split(__file__)[0]

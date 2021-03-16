@@ -4,12 +4,11 @@ from core.testing import DatabaseTest as BaseDatabaseTest
 
 
 class DatabaseTest(BaseDatabaseTest):
-    def __init__(self):
+    def setup_method(self):
         self._integration = None
         self._authentication_provider = None
 
-    def setup(self, mock_search=True):
-        super(DatabaseTest, self).setup(mock_search)
+        super(DatabaseTest, self).setup_method()
 
         self._integration = self._external_integration(
             protocol=LCPAPI.NAME,

@@ -4,12 +4,7 @@ wrangler.
 
 import datetime
 import feedparser
-
-from nose.tools import (
-    assert_raises_regexp,
-    eq_,
-    set_trace,
-)
+import pytest
 
 from core.config import (
     CannotLoadConfiguration,
@@ -45,10 +40,8 @@ from api.metadata_wrangler import (
     MWCollectionUpdateMonitor,
 )
 from api.testing import MonitorTest
-from . import (
-    sample_data,
-    DatabaseTest,
-)
+from core.testing import DatabaseTest
+from . import sample_data
 
 class InstrumentedMWCollectionUpdateMonitor(MWCollectionUpdateMonitor):
 
@@ -63,8 +56,8 @@ class InstrumentedMWCollectionUpdateMonitor(MWCollectionUpdateMonitor):
 
 class TestMWCollectionUpdateMonitor(MonitorTest):
 
-    def setup(self):
-        super(TestMWCollectionUpdateMonitor, self).setup()
+    def setup_method(self):
+        super(TestMWCollectionUpdateMonitor, self).setup_method()
         self._external_integration(
             ExternalIntegration.METADATA_WRANGLER,
             ExternalIntegration.METADATA_GOAL,
@@ -87,10 +80,9 @@ class TestMWCollectionUpdateMonitor(MonitorTest):
         class Mock(object):
             authenticated = False
         self.monitor.lookup = Mock()
-        assert_raises_regexp(
-            Exception, "no authentication credentials",
-            self.monitor.run_once, self.ts
-        )
+        with pytest.raises(Exception) as excinfo:
+            self.monitor.run_once(self.ts)
+        assert "no authentication credentials" in str(excinfo.value)
 
     def test_import_one_feed(self):
         data = sample_data('metadata_updates_response.opds', 'opds')
@@ -103,16 +95,16 @@ class TestMWCollectionUpdateMonitor(MonitorTest):
         )
 
         # The 'next' links found in the OPDS feed are returned.
-        eq_([u'http://next-link/'], next_links)
+        assert [u'http://next-link/'] == next_links
 
         # Insofar as is possible, all <entry> tags are converted into
         # Editions.
-        eq_([u'9781594632556'], [x.primary_identifier.identifier
-                                 for x in editions])
+        assert [u'9781594632556'] == [x.primary_identifier.identifier
+                                 for x in editions]
 
         # The earliest time found in the OPDS feed is returned as a
         # candidate for the Monitor's timestamp.
-        eq_(datetime.datetime(2016, 9, 20, 19, 37, 2), timestamp)
+        assert datetime.datetime(2016, 9, 20, 19, 37, 2) == timestamp
 
     def test_empty_feed_stops_import(self):
         # We don't follow the 'next' link of an empty feed.
@@ -124,13 +116,13 @@ class TestMWCollectionUpdateMonitor(MonitorTest):
         new_timestamp = self.monitor.run()
 
         # We could have followed the 'next' link, but we chose not to.
-        eq_([(None, None)], self.monitor.imports)
-        eq_(1, len(self.lookup.requests))
+        assert [(None, None)] == self.monitor.imports
+        assert 1 == len(self.lookup.requests)
 
         # Since there were no <entry> tags, the timestamp's finish
         # date was set to the <updated> date of the feed itself, minus
         # one day (to avoid race conditions).
-        eq_(datetime.datetime(2016, 9, 19, 19, 37, 10),
+        assert (datetime.datetime(2016, 9, 19, 19, 37, 10) ==
             self.monitor.timestamp().finish)
 
     def test_run_once(self):
@@ -144,8 +136,8 @@ class TestMWCollectionUpdateMonitor(MonitorTest):
         lp.identifier.equivalent_to(
             DataSource.lookup(self._db, DataSource.BIBLIOTHECA), isbn, 1
         )
-        eq_([], lp.identifier.links)
-        eq_([], lp.identifier.measurements)
+        assert [] == lp.identifier.links
+        assert [] == lp.identifier.measurements
 
         # Queue some data to be found.
         responses = (
@@ -164,30 +156,30 @@ class TestMWCollectionUpdateMonitor(MonitorTest):
         # We have a new value to use for the Monitor's timestamp -- the
         # earliest date seen in the last OPDS feed that contained
         # any entries.
-        eq_(datetime.datetime(2016, 9, 20, 19, 37, 2), new_timestamp.finish)
-        eq_("Editions processed: 1", new_timestamp.achievements)
+        assert datetime.datetime(2016, 9, 20, 19, 37, 2) == new_timestamp.finish
+        assert "Editions processed: 1" == new_timestamp.achievements
 
         # Normally run_once() doesn't update the monitor's timestamp,
         # but this implementation does, so that work isn't redone if
         # run_once() crashes or the monitor is killed.
-        eq_(new_timestamp.finish, self.monitor.timestamp().finish)
+        assert new_timestamp.finish == self.monitor.timestamp().finish
 
         # The original Identifier has information from the
         # mock Metadata Wrangler.
         mw_source = DataSource.lookup(self._db, DataSource.METADATA_WRANGLER)
-        eq_(3, len(lp.identifier.links))
+        assert 3 == len(lp.identifier.links)
         [quality] = lp.identifier.measurements
-        eq_(mw_source, quality.data_source)
+        assert mw_source == quality.data_source
 
         # Check the URLs we processed.
         url1, url2 = [x[0] for x in self.lookup.requests]
 
         # The first URL processed was the default one for the
         # MetadataWranglerOPDSLookup.
-        eq_(self.lookup.get_collection_url(self.lookup.UPDATES_ENDPOINT), url1)
+        assert self.lookup.get_collection_url(self.lookup.UPDATES_ENDPOINT) == url1
 
         # The second URL processed was whatever we saw in the 'next' link.
-        eq_("http://next-link/", url2)
+        assert "http://next-link/" == url2
 
         # Since that URL didn't contain any new imports, we didn't process
         # its 'next' link, http://another-next-link/.
@@ -206,8 +198,8 @@ class TestMWCollectionUpdateMonitor(MonitorTest):
 
         # run_once() returned a TimestampData referencing the original
         # timestamp, and the Timestamp object was not updated.
-        eq_(before, new_timestamp.finish)
-        eq_(before, self.monitor.timestamp().finish)
+        assert before == new_timestamp.finish
+        assert before == self.monitor.timestamp().finish
 
         # If timestamp.finish is None before the update is run, and
         # there are no updates, the timestamp will be set
@@ -217,7 +209,7 @@ class TestMWCollectionUpdateMonitor(MonitorTest):
             200, {'content-type' : OPDSFeed.ACQUISITION_FEED_TYPE}, data
         )
         new_timestamp = self.monitor.run_once(self.ts)
-        eq_(Timestamp.CLEAR_VALUE, new_timestamp.finish)
+        assert Timestamp.CLEAR_VALUE == new_timestamp.finish
 
     def test_no_import_loop(self):
         """We stop processing a feed's 'next' link if it links to a URL we've
@@ -244,11 +236,11 @@ class TestMWCollectionUpdateMonitor(MonitorTest):
         # processing them until we encountered a 'next' link we had
         # seen before; then we stopped.
         first, second, third = self.monitor.imports
-        eq_((None, None), first)
-        eq_((None, u'http://next-link/'), second)
-        eq_((None, u'http://different-link/'), third)
+        assert (None, None) == first
+        assert (None, u'http://next-link/') == second
+        assert (None, u'http://different-link/') == third
 
-        eq_(datetime.datetime(2016, 9, 20, 19, 37, 2), new_timestamp.finish)
+        assert datetime.datetime(2016, 9, 20, 19, 37, 2) == new_timestamp.finish
 
     def test_get_response(self):
 
@@ -277,9 +269,9 @@ class TestMWCollectionUpdateMonitor(MonitorTest):
         )
         timestamp = object()
         response = monitor.get_response(timestamp=timestamp, url=None)
-        eq_(200, response.status_code)
-        eq_(timestamp, lookup.last_timestamp)
-        eq_([], lookup.urls)
+        assert 200 == response.status_code
+        assert timestamp == lookup.last_timestamp
+        assert [] == lookup.urls
 
         # If you pass in a URL, the timestamp is ignored and
         # the URL is passed into _get().
@@ -288,15 +280,15 @@ class TestMWCollectionUpdateMonitor(MonitorTest):
             self._db, self.collection, lookup
         )
         response = monitor.get_response(timestamp=None, url='http://now used/')
-        eq_(200, response.status_code)
-        eq_(None, lookup.last_timestamp)
-        eq_(['http://now used/'], lookup.urls)
+        assert 200 == response.status_code
+        assert None == lookup.last_timestamp
+        assert ['http://now used/'] == lookup.urls
 
 
 class TestMWAuxiliaryMetadataMonitor(MonitorTest):
 
-    def setup(self):
-        super(TestMWAuxiliaryMetadataMonitor, self).setup()
+    def setup_method(self):
+        super(TestMWAuxiliaryMetadataMonitor, self).setup_method()
 
         self._external_integration(
             ExternalIntegration.METADATA_WRANGLER,
@@ -322,10 +314,9 @@ class TestMWAuxiliaryMetadataMonitor(MonitorTest):
         class Mock(object):
             authenticated = False
         self.monitor.lookup = Mock()
-        assert_raises_regexp(
-            Exception, "no authentication credentials",
-            self.monitor.run_once, self.ts
-        )
+        with pytest.raises(Exception) as excinfo:
+            self.monitor.run_once(self.ts)
+        assert "no authentication credentials" in str(excinfo.value)
 
     def prep_feed_identifiers(self):
         ignored = self._identifier()
@@ -374,9 +365,9 @@ class TestMWAuxiliaryMetadataMonitor(MonitorTest):
 
         # The expected identifiers are returned, including the mapped axis_360
         # identifier.
-        eq_(sorted([overdrive, axis_360, isbn]), sorted(identifiers))
+        assert sorted([overdrive, axis_360, isbn]) == sorted(identifiers)
 
-        eq_(['http://next-link'], next_links)
+        assert ['http://next-link'] == next_links
 
     def test_run_once(self):
         overdrive, isbn, axis_360 = self.prep_feed_identifiers()
@@ -398,12 +389,12 @@ class TestMWAuxiliaryMetadataMonitor(MonitorTest):
         progress = self.monitor.run_once(self.ts)
 
         # Only the identifier with a work has been given coverage.
-        eq_("Identifiers processed: 1", progress.achievements)
+        assert "Identifiers processed: 1" == progress.achievements
 
         # The TimestampData returned by run_once() does not include
         # any timing information -- that will be applied by run().
-        eq_(None, progress.start)
-        eq_(None, progress.finish)
+        assert None == progress.start
+        assert None == progress.finish
 
         record = CoverageRecord.lookup(
             overdrive, self.monitor.provider.data_source,
@@ -416,7 +407,7 @@ class TestMWAuxiliaryMetadataMonitor(MonitorTest):
                 identifier, self.monitor.provider.data_source,
                 operation=self.monitor.provider.operation
             )
-            eq_(None, record)
+            assert None == record
 
 
 class MetadataWranglerCoverageProviderTest(DatabaseTest):
@@ -425,8 +416,8 @@ class MetadataWranglerCoverageProviderTest(DatabaseTest):
         lookup = MockMetadataWranglerOPDSLookup.from_config(self._db, self.collection)
         return self.TEST_CLASS(self.collection, lookup, **kwargs)
 
-    def setup(self):
-        super(MetadataWranglerCoverageProviderTest, self).setup()
+    def setup_method(self):
+        super(MetadataWranglerCoverageProviderTest, self).setup_method()
         self.integration = self._external_integration(
             ExternalIntegration.METADATA_WRANGLER,
             goal=ExternalIntegration.METADATA_GOAL, url=self._url,
@@ -478,26 +469,23 @@ class TestBaseMetadataWranglerCoverageProvider(MetadataWranglerCoverageProviderT
         class UnauthenticatedLookupClient(object):
             authenticated = False
 
-        assert_raises_regexp(
-            CannotLoadConfiguration,
-            "Authentication for the Library Simplified Metadata Wrangler ",
-            self.Mock, self.collection, UnauthenticatedLookupClient()
-        )
+        with pytest.raises(CannotLoadConfiguration) as excinfo:
+            self.Mock(self.collection, UnauthenticatedLookupClient())
+        assert "Authentication for the Library Simplified Metadata Wrangler " in str(excinfo.value)
 
     def test_input_identifier_types(self):
         """Verify all the different types of identifiers we send
         to the metadata wrangler.
         """
-        eq_(
+        assert (
             set([
                 Identifier.OVERDRIVE_ID,
                 Identifier.BIBLIOTHECA_ID,
                 Identifier.AXIS_360_ID,
                 Identifier.ONECLICK_ID,
                 Identifier.URI,
-            ]),
-            set(BaseMetadataWranglerCoverageProvider.INPUT_IDENTIFIER_TYPES)
-        )
+            ]) ==
+            set(BaseMetadataWranglerCoverageProvider.INPUT_IDENTIFIER_TYPES))
 
     def test_create_identifier_mapping(self):
         # Most identifiers map to themselves.
@@ -515,9 +503,9 @@ class TestBaseMetadataWranglerCoverageProvider(MetadataWranglerCoverageProviderT
         threem.equivalent_to(who_says, isbn_threem, 1)
 
         mapping = self.provider.create_identifier_mapping([overdrive, axis, threem])
-        eq_(overdrive, mapping[overdrive])
-        eq_(axis, mapping[isbn_axis])
-        eq_(threem, mapping[isbn_threem])
+        assert overdrive == mapping[overdrive]
+        assert axis == mapping[isbn_axis]
+        assert threem == mapping[isbn_threem]
 
     def test_coverage_records_for_unhandled_items_include_collection(self):
         """NOTE: This could be made redundant by adding test coverage to
@@ -532,10 +520,10 @@ class TestBaseMetadataWranglerCoverageProvider(MetadataWranglerCoverageProviderT
         identifier = self._identifier()
         self.provider.process_batch_and_handle_results([identifier])
         [record] = identifier.coverage_records
-        eq_(CoverageRecord.TRANSIENT_FAILURE, record.status)
-        eq_(self.provider.data_source, record.data_source)
-        eq_(self.provider.operation, record.operation)
-        eq_(self.provider.collection, record.collection)
+        assert CoverageRecord.TRANSIENT_FAILURE == record.status
+        assert self.provider.data_source == record.data_source
+        assert self.provider.operation == record.operation
+        assert self.provider.collection == record.collection
 
 
 class TestMetadataWranglerCollectionRegistrar(MetadataWranglerCoverageProviderTest):
@@ -546,8 +534,8 @@ class TestMetadataWranglerCollectionRegistrar(MetadataWranglerCoverageProviderTe
         # This CoverageProvider runs Identifiers through the 'lookup'
         # endpoint and marks success with CoverageRecords that have
         # the IMPORT_OPERATION operation.
-        eq_(self.provider.lookup_client.lookup, self.provider.api_method)
-        eq_(CoverageRecord.IMPORT_OPERATION, self.TEST_CLASS.OPERATION)
+        assert self.provider.lookup_client.lookup == self.provider.api_method
+        assert CoverageRecord.IMPORT_OPERATION == self.TEST_CLASS.OPERATION
 
     def test_process_batch(self):
         """End-to-end test of the registrar's process_batch() implementation.
@@ -571,7 +559,7 @@ class TestMetadataWranglerCollectionRegistrar(MetadataWranglerCoverageProviderTe
         #
         # The Identifier that was not requested but was sent back by
         # the server anyway was ignored.
-        eq_(sorted([valid_id, mapped_id]), sorted(results))
+        assert sorted([valid_id, mapped_id]) == sorted(results)
 
     def test_process_batch_errors(self):
         """When errors are raised during batch processing, an exception is
@@ -585,24 +573,22 @@ class TestMetadataWranglerCollectionRegistrar(MetadataWranglerCoverageProviderTe
 
         id1 = self._identifier()
         id2 = self._identifier()
-        assert_raises_regexp(
-            BadResponseException, 'Wrong media type',
-            self.provider.process_batch, [id1, id2]
-        )
-        eq_([], id1.coverage_records)
-        eq_([], id2.coverage_records)
+        with pytest.raises(BadResponseException) as excinfo:
+            self.provider.process_batch([id1, id2])
+        assert 'Wrong media type' in str(excinfo.value)
+        assert [] == id1.coverage_records
+        assert [] == id2.coverage_records
 
         # Of if the 'server' sends an error response code.
         self.lookup_client.queue_response(
             500, {'content-type': OPDSFeed.ACQUISITION_FEED_TYPE},
             'Internal Server Error'
         )
-        assert_raises_regexp(
-            BadResponseException, "Got status code 500",
-            self.provider.process_batch, [id1, id2]
-        )
-        eq_([], id1.coverage_records)
-        eq_([], id2.coverage_records)
+        with pytest.raises(BadResponseException) as excinfo:
+            self.provider.process_batch([id1, id2])
+        assert "Got status code 500" in str(excinfo.value)
+        assert [] == id1.coverage_records
+        assert [] == id2.coverage_records
 
         # If a message comes back with an unexpected status, a
         # CoverageFailure is created.
@@ -612,14 +598,14 @@ class TestMetadataWranglerCollectionRegistrar(MetadataWranglerCoverageProviderTe
             200, {'content-type': OPDSFeed.ACQUISITION_FEED_TYPE}, data
         )
         [result] = self.provider.process_batch([valid_id])
-        eq_(True, isinstance(result, CoverageFailure))
-        eq_(valid_id, result.obj)
-        eq_('418: Mad Hatter', result.exception)
+        assert True == isinstance(result, CoverageFailure)
+        assert valid_id == result.obj
+        assert '418: Mad Hatter' == result.exception
 
         # The OPDS importer didn't know which Collection to associate
         # with this CoverageFailure, but the CoverageProvider does,
         # and it set .collection appropriately.
-        eq_(self.provider.collection, result.collection)
+        assert self.provider.collection == result.collection
 
     def test_items_that_need_coverage_excludes_unavailable_items(self):
         """A LicensePool that's not actually available doesn't need coverage.
@@ -629,11 +615,11 @@ class TestMetadataWranglerCollectionRegistrar(MetadataWranglerCoverageProviderTe
             identifier_type=Identifier.BIBLIOTHECA_ID
         )
         pool.licenses_owned = 0
-        eq_(0, self.provider.items_that_need_coverage().count())
+        assert 0 == self.provider.items_that_need_coverage().count()
 
         # Open-access titles _do_ need coverage.
         pool.open_access = True
-        eq_([pool.identifier], self.provider.items_that_need_coverage().all())
+        assert [pool.identifier] == self.provider.items_that_need_coverage().all()
 
     def test_items_that_need_coverage_removes_reap_records_for_relicensed_items(self):
         """A LicensePool that's not actually available doesn't need coverage.
@@ -652,18 +638,17 @@ class TestMetadataWranglerCollectionRegistrar(MetadataWranglerCoverageProviderTe
             operation=CoverageRecord.REAP_OPERATION,
             collection=self.collection
         )
-        eq_(
-            set(original_coverage_records + [cr]),
-            set(identifier.coverage_records)
-        )
+        assert (
+            set(original_coverage_records + [cr]) ==
+            set(identifier.coverage_records))
 
         # ... but then it was relicensed.
         pool.licenses_owned = 10
 
-        eq_([identifier], self.provider.items_that_need_coverage().all())
+        assert [identifier] == self.provider.items_that_need_coverage().all()
 
         # The now-inaccurate REAP record has been removed.
-        eq_(original_coverage_records, identifier.coverage_records)
+        assert original_coverage_records == identifier.coverage_records
 
     def test_identifier_covered_in_one_collection_not_covered_in_another(self):
         edition, pool = self._edition(
@@ -676,7 +661,7 @@ class TestMetadataWranglerCollectionRegistrar(MetadataWranglerCoverageProviderTe
 
         # This Identifier needs coverage.
         qu = self.provider.items_that_need_coverage()
-        eq_([identifier], qu.all())
+        assert [identifier] == qu.all()
 
         # Adding coverage for an irrelevant collection won't fix that.
         cr = self._coverage_record(
@@ -684,7 +669,7 @@ class TestMetadataWranglerCollectionRegistrar(MetadataWranglerCoverageProviderTe
             operation=self.provider.OPERATION,
             collection=other_collection
         )
-        eq_([identifier], qu.all())
+        assert [identifier] == qu.all()
 
         # Adding coverage for the relevant collection will.
         cr = self._coverage_record(
@@ -692,7 +677,7 @@ class TestMetadataWranglerCollectionRegistrar(MetadataWranglerCoverageProviderTe
             operation=self.provider.OPERATION,
             collection=self.provider.collection
         )
-        eq_([], qu.all())
+        assert [] == qu.all()
 
     def test_identifier_reaped_from_one_collection_covered_in_another(self):
         """An Identifier can be reaped from one collection but still
@@ -715,7 +700,7 @@ class TestMetadataWranglerCollectionRegistrar(MetadataWranglerCoverageProviderTe
         )
 
         # It still needs to be covered in self.provider.collection.
-        eq_([identifier], self.provider.items_that_need_coverage().all())
+        assert [identifier] == self.provider.items_that_need_coverage().all()
 
     def test_items_that_need_coverage_respects_cutoff(self):
         """Verify that this coverage provider respects the cutoff_time
@@ -734,7 +719,7 @@ class TestMetadataWranglerCollectionRegistrar(MetadataWranglerCoverageProviderTe
         # We have a coverage record already, so this book doesn't show
         # up in items_that_need_coverage
         items = self.provider.items_that_need_coverage().all()
-        eq_([], items)
+        assert [] == items
 
         # But if we send a cutoff_time that's later than the time
         # associated with the coverage record...
@@ -746,7 +731,7 @@ class TestMetadataWranglerCollectionRegistrar(MetadataWranglerCoverageProviderTe
         )
 
         # The book starts showing up in items_that_need_coverage.
-        eq_([pool.identifier],
+        assert ([pool.identifier] ==
             provider_with_cutoff.items_that_need_coverage().all())
 
     def test_items_that_need_coverage_respects_count_as_covered(self):
@@ -764,15 +749,14 @@ class TestMetadataWranglerCollectionRegistrar(MetadataWranglerCoverageProviderTe
 
         # Ordinarily, a transient failure does not count as coverage.
         [needs_coverage] = self.provider.items_that_need_coverage().all()
-        eq_(needs_coverage, pool.identifier)
+        assert needs_coverage == pool.identifier
 
         # But if we say that transient failure counts as coverage, it
         # does count.
-        eq_([],
+        assert ([] ==
             self.provider.items_that_need_coverage(
                 count_as_covered=CoverageRecord.TRANSIENT_FAILURE
-            ).all()
-        )
+            ).all())
 
     def test_isbn_covers_are_imported_from_mapped_identifiers(self):
         # Now that we pass ISBN equivalents instead of Bibliotheca identifiers
@@ -799,7 +783,7 @@ class TestMetadataWranglerCollectionRegistrar(MetadataWranglerCoverageProviderTe
 
         result = self.provider.process_item(identifier)
         # The lookup is successful
-        eq_(result, identifier)
+        assert result == identifier
         # The appropriate cover links are transferred.
         identifier_uris = [l.resource.url for l in identifier.links
                            if l.rel in [Hyperlink.IMAGE, Hyperlink.THUMBNAIL_IMAGE]]
@@ -808,15 +792,15 @@ class TestMetadataWranglerCollectionRegistrar(MetadataWranglerCoverageProviderTe
             'http://book-covers.nypl.org/scaled/300/Content%20Cafe/ISBN/9781594632556/cover.jpg'
         ]
 
-        eq_(sorted(identifier_uris), sorted(expected))
+        assert sorted(identifier_uris) == sorted(expected)
 
         # The ISBN doesn't get any information.
-        eq_(isbn.links, [])
+        assert isbn.links == []
 
 class MetadataWranglerCollectionManagerTest(DatabaseTest):
 
-    def setup(self):
-        super(MetadataWranglerCollectionManagerTest, self).setup()
+    def setup_method(self):
+        super(MetadataWranglerCollectionManagerTest, self).setup_method()
         self.integration = self._external_integration(
             ExternalIntegration.METADATA_WRANGLER,
             goal=ExternalIntegration.METADATA_GOAL, url=self._url,
@@ -839,8 +823,8 @@ class TestMetadataWranglerCollectionReaper(MetadataWranglerCoverageProviderTest)
         # This CoverageProvider runs Identifiers through the 'remove'
         # endpoint and marks success with CoverageRecords that have
         # the REAP_OPERATION operation.
-        eq_(CoverageRecord.REAP_OPERATION, self.TEST_CLASS.OPERATION)
-        eq_(self.provider.lookup_client.remove, self.provider.api_method)
+        assert CoverageRecord.REAP_OPERATION == self.TEST_CLASS.OPERATION
+        assert self.provider.lookup_client.remove == self.provider.api_method
 
     def test_items_that_need_coverage(self):
         """The reaper only returns identifiers with no-longer-licensed
@@ -871,7 +855,7 @@ class TestMetadataWranglerCollectionReaper(MetadataWranglerCoverageProviderTest)
         open_access_lp = self._licensepool(None)
 
         items = self.provider.items_that_need_coverage().all()
-        eq_(1, len(items))
+        assert 1 == len(items)
 
         # Items that are licensed are ignored.
         assert licensed_lp.identifier not in items
@@ -884,11 +868,11 @@ class TestMetadataWranglerCollectionReaper(MetadataWranglerCoverageProviderTest)
         assert uncovered_unlicensed_lp.identifier not in items
 
         # Only synced items without owned licenses are returned.
-        eq_([covered_unlicensed_lp.identifier], items)
+        assert [covered_unlicensed_lp.identifier] == items
 
         # Items that had unsuccessful syncs are not returned.
         cr.status = CoverageRecord.TRANSIENT_FAILURE
-        eq_([], self.provider.items_that_need_coverage().all())
+        assert [] == self.provider.items_that_need_coverage().all()
 
     def test_process_batch(self):
         data = sample_data('metadata_reaper_response.opds', 'opds')
@@ -903,7 +887,7 @@ class TestMetadataWranglerCollectionReaper(MetadataWranglerCoverageProviderTest)
         # The server ignored lost_id, so nothing happened to it,
         # and the server sent a fourth ID we didn't ask for,
         # which we ignored.
-        eq_(sorted(results), sorted([valid_id, mapped_id]))
+        assert sorted(results) == sorted([valid_id, mapped_id])
 
     def test_finalize_batch(self):
         """Metadata Wrangler sync coverage records are deleted from the db
@@ -942,7 +926,7 @@ class TestMetadataWranglerCollectionReaper(MetadataWranglerCoverageProviderTest)
 
         # The syncing record has been deleted from the database
         assert doubly_sync_record not in remaining_records
-        eq_(sorted([sync_cr, reaped_cr, doubly_reap_record]), sorted(remaining_records))
+        assert sorted([sync_cr, reaped_cr, doubly_reap_record]) == sorted(remaining_records)
 
 
 class TestMetadataUploadCoverageProvider(DatabaseTest):
@@ -953,8 +937,8 @@ class TestMetadataUploadCoverageProvider(DatabaseTest):
             self.collection, upload_client, **kwargs
         )
 
-    def setup(self):
-        super(TestMetadataUploadCoverageProvider, self).setup()
+    def setup_method(self):
+        super(TestMetadataUploadCoverageProvider, self).setup_method()
         self.integration = self._external_integration(
             ExternalIntegration.METADATA_WRANGLER,
             goal=ExternalIntegration.METADATA_GOAL, url=self._url,
@@ -977,7 +961,7 @@ class TestMetadataUploadCoverageProvider(DatabaseTest):
         )
         # We don't have a CoverageRecord yet, so the book doesn't show up.
         items = self.provider.items_that_need_coverage().all()
-        eq_([], items)
+        assert [] == items
 
         cr = self._coverage_record(
             pool.identifier, self.provider.data_source,
@@ -987,16 +971,16 @@ class TestMetadataUploadCoverageProvider(DatabaseTest):
         # With a successful or persistent failure CoverageRecord, it still doesn't show up.
         cr.status = CoverageRecord.SUCCESS
         items = self.provider.items_that_need_coverage().all()
-        eq_([], items)
+        assert [] == items
 
         cr.status = CoverageRecord.PERSISTENT_FAILURE
         items = self.provider.items_that_need_coverage().all()
-        eq_([], items)
+        assert [] == items
 
         # But with a transient failure record it does.
         cr.status = CoverageRecord.TRANSIENT_FAILURE
         items = self.provider.items_that_need_coverage().all()
-        eq_([edition.primary_identifier], items)
+        assert [edition.primary_identifier] == items
 
     def test_process_batch_uploads_metadata(self):
         class MockMetadataClient(object):
@@ -1030,10 +1014,10 @@ class TestMetadataUploadCoverageProvider(DatabaseTest):
         feed = feedparser.parse(unicode(metadata_client.metadata_feed))
         urns = [entry.get("id") for entry in feed.get("entries", [])]
         # Only the identifier work a work ends up in the feed.
-        eq_([pool.identifier.urn], urns)
+        assert [pool.identifier.urn] == urns
 
         # There are two results: the identifier with a work and a CoverageFailure.
-        eq_(2, len(results))
+        assert 2 == len(results)
         assert pool.identifier in results
         [failure] = [r for r in results if isinstance(r, CoverageFailure)]
-        eq_(no_work, failure.obj)
+        assert no_work == failure.obj

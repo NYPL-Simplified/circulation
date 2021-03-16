@@ -10,7 +10,6 @@ from core.util.http import HTTP
 from core.util.problem_detail import ProblemDetail
 from flask_babel import lazy_gettext as _
 import json
-from nose.tools import set_trace
 from pypostalcode import PostalCodeDatabase
 import re
 import urllib

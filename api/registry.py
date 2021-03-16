@@ -1,4 +1,3 @@
-from nose.tools import set_trace
 import base64
 import feedparser
 from flask_babel import lazy_gettext as _

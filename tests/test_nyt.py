@@ -1,14 +1,11 @@
 # encoding: utf-8
 import os
-from nose.tools import (
-    set_trace, eq_,
-    assert_raises,
-    assert_raises_regexp,
-)
+
+import pytest
 import datetime
 import json
 
-from . import (
+from core.testing import (
     DatabaseTest,
 )
 from core.testing import DummyMetadataClient
@@ -59,8 +56,8 @@ class DummyNYTBestSellerAPI(NYTBestSellerAPI):
 
 class NYTBestSellerAPITest(DatabaseTest):
 
-    def setup(self):
-        super(NYTBestSellerAPITest, self).setup()
+    def setup_method(self):
+        super(NYTBestSellerAPITest, self).setup_method()
         self.api = DummyNYTBestSellerAPI(self._db)
         self.metadata_client = DummyMetadataClient()
 
@@ -70,30 +67,26 @@ class TestNYTBestSellerAPI(NYTBestSellerAPITest):
 
     def test_from_config(self):
         # You have to have an ExternalIntegration for the NYT.
-        assert_raises_regexp(
-            CannotLoadConfiguration,
-            "No ExternalIntegration found for the NYT.",
-            NYTBestSellerAPI.from_config, self._db
-        )
+        with pytest.raises(CannotLoadConfiguration) as excinfo:
+            NYTBestSellerAPI.from_config(self._db)
+        assert "No ExternalIntegration found for the NYT." in str(excinfo.value)
         integration = self._external_integration(
             protocol=ExternalIntegration.NYT,
             goal=ExternalIntegration.METADATA_GOAL
         )
 
         # It has to have the api key in its 'password' setting.
-        assert_raises_regexp(
-            CannotLoadConfiguration,
-            "No NYT API key is specified",
-            NYTBestSellerAPI.from_config, self._db
-        )
+        with pytest.raises(CannotLoadConfiguration) as excinfo:
+            NYTBestSellerAPI.from_config(self._db)
+        assert "No NYT API key is specified" in str(excinfo.value)
 
         integration.password = "api key"
 
         # It's okay if you don't have a Metadata Wrangler configuration
         # configured.
         api = NYTBestSellerAPI.from_config(self._db)
-        eq_("api key", api.api_key)
-        eq_(None, api.metadata_client)
+        assert "api key" == api.api_key
+        assert None == api.metadata_client
 
         # But if you do, it's picked up.
         mw = self._external_integration(
@@ -108,7 +101,7 @@ class TestNYTBestSellerAPI(NYTBestSellerAPITest):
 
         # external_integration() finds the integration used to create
         # the API object.
-        eq_(integration, api.external_integration(self._db))
+        assert integration == api.external_integration(self._db)
 
     def test_run_self_tests(self):
         class Mock(NYTBestSellerAPI):
@@ -118,19 +111,19 @@ class TestNYTBestSellerAPI(NYTBestSellerAPITest):
                 return "some lists"
 
         [list_test] = Mock()._run_self_tests(object())
-        eq_("Getting list of best-seller lists", list_test.name)
-        eq_(True, list_test.success)
-        eq_("some lists", list_test.result)
+        assert "Getting list of best-seller lists" == list_test.name
+        assert True == list_test.success
+        assert "some lists" == list_test.result
 
     def test_list_of_lists(self):
         all_lists = self.api.list_of_lists()
-        eq_([u'copyright', u'num_results', u'results', u'status'],
+        assert ([u'copyright', u'num_results', u'results', u'status'] ==
             sorted(all_lists.keys()))
-        eq_(47, len(all_lists['results']))
+        assert 47 == len(all_lists['results'])
 
     def test_list_info(self):
         list_info = self.api.list_info("combined-print-and-e-book-fiction")
-        eq_("Combined Print & E-Book Fiction", list_info['display_name'])
+        assert "Combined Print & E-Book Fiction" == list_info['display_name']
 
     def test_request_failure(self):
         """Verify that certain unexpected HTTP results are turned into
@@ -140,10 +133,9 @@ class TestNYTBestSellerAPI(NYTBestSellerAPITest):
         def result_403(*args, **kwargs):
             return 403, None, None
         self.api.do_get = result_403
-        assert_raises_regexp(
-            IntegrationException, "API authentication failed",
-            self.api.request, "some path"
-        )
+        with pytest.raises(IntegrationException) as excinfo:
+            self.api.request("some path")
+        assert "API authentication failed" in str(excinfo.value)
 
         def result_500(*args, **kwargs):
             return 500, {}, "bad value"
@@ -152,7 +144,7 @@ class TestNYTBestSellerAPI(NYTBestSellerAPITest):
             self.api.request("some path")
             raise Exception("Expected an IntegrationException!")
         except IntegrationException, e:
-            eq_("Unknown API error (status 500)", e.message)
+            assert "Unknown API error (status 500)" == e.message
             assert e.debug_message.startswith("Response from")
             assert e.debug_message.endswith("was: 'bad value'")
 
@@ -166,17 +158,17 @@ class TestNYTBestSellerList(NYTBestSellerAPITest):
         """Just creating a list doesn't add any items to it."""
         list_name = "combined-print-and-e-book-fiction"
         l = self.api.best_seller_list(list_name)
-        eq_(True, isinstance(l, NYTBestSellerList))
-        eq_(0, len(l))
+        assert True == isinstance(l, NYTBestSellerList)
+        assert 0 == len(l)
 
     def test_medium(self):
         list_name = "combined-print-and-e-book-fiction"
         l = self.api.best_seller_list(list_name)
-        eq_("Combined Print & E-Book Fiction", l.name)
-        eq_(Edition.BOOK_MEDIUM, l.medium)
+        assert "Combined Print & E-Book Fiction" == l.name
+        assert Edition.BOOK_MEDIUM == l.medium
 
         l.name = "Audio Nonfiction"
-        eq_(Edition.AUDIO_MEDIUM, l.medium)
+        assert Edition.AUDIO_MEDIUM == l.medium
 
     def test_update(self):
         list_name = "combined-print-and-e-book-fiction"
@@ -184,28 +176,28 @@ class TestNYTBestSellerList(NYTBestSellerAPITest):
         l = self.api.best_seller_list(list_name)
         self.api.update(l)
 
-        eq_(20, len(l))
-        eq_(True, all([isinstance(x, NYTBestSellerListTitle) for x in l]))
-        eq_(datetime.datetime(2011, 2, 13), l.created)
-        eq_(datetime.datetime(2015, 2, 1), l.updated)
-        eq_(list_name, l.foreign_identifier)
+        assert 20 == len(l)
+        assert True == all([isinstance(x, NYTBestSellerListTitle) for x in l])
+        assert datetime.datetime(2011, 2, 13) == l.created
+        assert datetime.datetime(2015, 2, 1) == l.updated
+        assert list_name == l.foreign_identifier
 
         # Let's do a spot check on the list items.
         title = [x for x in l if x.metadata.title=='THE GIRL ON THE TRAIN'][0]
         [isbn] = title.metadata.identifiers
-        eq_("ISBN", isbn.type)
-        eq_("9780698185395", isbn.identifier)
+        assert "ISBN" == isbn.type
+        assert "9780698185395" == isbn.identifier
 
         # The list's medium is propagated to its Editions.
-        eq_(l.medium, title.metadata.medium)
+        assert l.medium == title.metadata.medium
 
         [contributor] = title.metadata.contributors
-        eq_("Paula Hawkins", contributor.display_name)
-        eq_("Riverhead", title.metadata.publisher)
-        eq_("A psychological thriller set in London is full of complications and betrayals.",
+        assert "Paula Hawkins" == contributor.display_name
+        assert "Riverhead" == title.metadata.publisher
+        assert ("A psychological thriller set in London is full of complications and betrayals." ==
             title.annotation)
-        eq_(datetime.datetime(2015, 1, 17), title.first_appearance)
-        eq_(datetime.datetime(2015, 2, 1), title.most_recent_appearance)
+        assert datetime.datetime(2015, 1, 17) == title.first_appearance
+        assert datetime.datetime(2015, 2, 1) == title.most_recent_appearance
 
     def test_historical_dates(self):
         """This list was published 208 times since the start of the API,
@@ -214,9 +206,9 @@ class TestNYTBestSellerList(NYTBestSellerAPITest):
         list_name = "combined-print-and-e-book-fiction"
         l = self.api.best_seller_list(list_name)
         dates = list(l.all_dates)
-        eq_(208, len(dates))
-        eq_(l.updated, dates[0])
-        eq_(l.created, dates[-1])
+        assert 208 == len(dates)
+        assert l.updated == dates[0]
+        assert l.created == dates[-1]
 
     def test_to_customlist(self):
         list_name = "combined-print-and-e-book-fiction"
@@ -224,20 +216,20 @@ class TestNYTBestSellerList(NYTBestSellerAPITest):
         l = self.api.best_seller_list(list_name)
         self.api.update(l)
         custom = l.to_customlist(self._db)
-        eq_(custom.created, l.created)
-        eq_(custom.updated, l.updated)
-        eq_(custom.name, l.name)
-        eq_(len(l), len(custom.entries))
-        eq_(True, all([isinstance(x, CustomListEntry)
-                       for x in custom.entries]))
+        assert custom.created == l.created
+        assert custom.updated == l.updated
+        assert custom.name == l.name
+        assert len(l) == len(custom.entries)
+        assert True == all([isinstance(x, CustomListEntry)
+                       for x in custom.entries])
 
-        eq_(20, len(custom.entries))
+        assert 20 == len(custom.entries)
         january_17 = datetime.datetime(2015, 1, 17)
-        eq_(True,
+        assert (True ==
             all([x.first_appearance == january_17 for x in custom.entries]))
 
         feb_1 = datetime.datetime(2015, 2, 1)
-        eq_(True,
+        assert (True ==
             all([x.most_recent_appearance == feb_1 for x in custom.entries]))
 
         # Now replace this list's entries with the entries from a
@@ -248,7 +240,7 @@ class TestNYTBestSellerList(NYTBestSellerAPITest):
         other_nyt_list.update_custom_list(custom)
 
         # The CustomList now contains elements from both NYT lists.
-        eq_(40, len(custom.entries))
+        assert 40 == len(custom.entries)
 
     def test_fill_in_history(self):
         list_name = "espionage"
@@ -258,7 +250,7 @@ class TestNYTBestSellerList(NYTBestSellerAPITest):
         # Each 'espionage' best-seller list contains 15 items. Since
         # we picked two, from consecutive months, there's quite a bit
         # of overlap, and we end up with 20.
-        eq_(20, len(l))
+        assert 20 == len(l)
 
 
 class TestNYTBestSellerListTitle(NYTBestSellerAPITest):
@@ -269,24 +261,24 @@ class TestNYTBestSellerListTitle(NYTBestSellerAPITest):
         title = NYTBestSellerListTitle(self.one_list_title, Edition.BOOK_MEDIUM)
 
         edition = title.to_edition(self._db, self.metadata_client)
-        eq_("9780698185395", edition.primary_identifier.identifier)
+        assert "9780698185395" == edition.primary_identifier.identifier
 
         # The alternate ISBN is marked as equivalent to the primary identifier,
         # but at a greatly reduced strength.
         [equivalency] = [x for x in edition.primary_identifier.equivalencies]
-        eq_("9781594633669", equivalency.output.identifier)
-        eq_(0.5, equivalency.strength)
+        assert "9781594633669" == equivalency.output.identifier
+        assert 0.5 == equivalency.strength
         # That strength is not enough to make the alternate ISBN an equivalent
         # identifier for the edition.
         equivalent_identifiers = [
             (x.type, x.identifier) for x in edition.equivalent_identifiers()
         ]
-        eq_([("ISBN", "9780698185395")], sorted(equivalent_identifiers))
+        assert [("ISBN", "9780698185395")] == sorted(equivalent_identifiers)
 
-        eq_(datetime.datetime(2015, 2, 1, 0, 0), edition.published)
-        eq_("Paula Hawkins", edition.author)
-        eq_("Hawkins, Paula", edition.sort_author)
-        eq_("Riverhead", edition.publisher)
+        assert datetime.datetime(2015, 2, 1, 0, 0) == edition.published
+        assert "Paula Hawkins" == edition.author
+        assert "Hawkins, Paula" == edition.sort_author
+        assert "Riverhead" == edition.publisher
 
     def test_to_edition_sets_sort_author_name_if_obvious(self):
         [contributor], ignore = Contributor.lookup(
@@ -295,8 +287,8 @@ class TestNYTBestSellerListTitle(NYTBestSellerAPITest):
 
         title = NYTBestSellerListTitle(self.one_list_title, Edition.BOOK_MEDIUM)
         edition = title.to_edition(self._db, self.metadata_client)
-        eq_(contributor.sort_name, edition.sort_author)
-        eq_(contributor.display_name, edition.author)
+        assert contributor.sort_name == edition.sort_author
+        assert contributor.display_name == edition.author
         assert edition.permanent_work_id is not None
 
     def test_to_edition_sets_sort_author_name_if_metadata_client_provides_it(self):
@@ -306,5 +298,5 @@ class TestNYTBestSellerListTitle(NYTBestSellerAPITest):
 
         title = NYTBestSellerListTitle(self.one_list_title, Edition.BOOK_MEDIUM)
         edition = title.to_edition(self._db, self.metadata_client)
-        eq_("Hawkins, Paula Z.", edition.sort_author)
+        assert "Hawkins, Paula Z." == edition.sort_author
         assert edition.permanent_work_id is not None

@@ -1,10 +1,7 @@
 import json
 
 import flask
-from nose.tools import (
-    eq_,
-    assert_raises,
-)
+import pytest
 from werkzeug.datastructures import MultiDict
 
 from api.admin.exceptions import *
@@ -26,16 +23,16 @@ class TestCatalogServicesController(SettingsControllerTest):
     def test_catalog_services_get_with_no_services(self):
         with self.request_context_with_admin("/"):
             response = self.manager.admin_catalog_services_controller.process_catalog_services()
-            eq_(response.get("catalog_services"), [])
+            assert response.get("catalog_services") == []
             protocols = response.get("protocols")
-            eq_(1, len(protocols))
-            eq_(MARCExporter.NAME, protocols[0].get("name"))
+            assert 1 == len(protocols)
+            assert MARCExporter.NAME == protocols[0].get("name")
             assert "settings" in protocols[0]
             assert "library_settings" in protocols[0]
 
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
             self._db.flush()
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_catalog_services_controller.process_catalog_services)
 
         def test_catalog_services_get_with_marc_exporter(self):
@@ -59,14 +56,14 @@ class TestCatalogServicesController(SettingsControllerTest):
             with self.request_context_with_admin("/"):
                 response = self.manager.admin_catalog_services_controller.process_catalog_services()
                 [service] = response.get("catalog_services")
-                eq_(integration.id, service.get("id"))
-                eq_(integration.name, service.get("name"))
-                eq_(integration.protocol, service.get("protocol"))
+                assert integration.id == service.get("id")
+                assert integration.name == service.get("name")
+                assert integration.protocol == service.get("protocol")
                 [library] = service.get("libraries")
-                eq_(self._default_library.short_name, library.get("short_name"))
-                eq_("US-MaBoDPL", library.get(MARCExporter.MARC_ORGANIZATION_CODE))
-                eq_("false", library.get(MARCExporter.INCLUDE_SUMMARY))
-                eq_("true", library.get(MARCExporter.INCLUDE_SIMPLIFIED_GENRES))
+                assert self._default_library.short_name == library.get("short_name")
+                assert "US-MaBoDPL" == library.get(MARCExporter.MARC_ORGANIZATION_CODE)
+                assert "false" == library.get(MARCExporter.INCLUDE_SUMMARY)
+                assert "true" == library.get(MARCExporter.INCLUDE_SIMPLIFIED_GENRES)
 
 
     def test_catalog_services_post_errors(self):
@@ -75,14 +72,14 @@ class TestCatalogServicesController(SettingsControllerTest):
                 ("protocol", "Unknown"),
             ])
             response = self.manager.admin_catalog_services_controller.process_catalog_services()
-            eq_(response, UNKNOWN_PROTOCOL)
+            assert response == UNKNOWN_PROTOCOL
 
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("id", "123"),
             ])
             response = self.manager.admin_catalog_services_controller.process_catalog_services()
-            eq_(response, MISSING_SERVICE)
+            assert response == MISSING_SERVICE
 
         service, ignore = create(
             self._db, ExternalIntegration,
@@ -97,7 +94,7 @@ class TestCatalogServicesController(SettingsControllerTest):
                 ("protocol", ExternalIntegration.MARC_EXPORT),
             ])
             response = self.manager.admin_catalog_services_controller.process_catalog_services()
-            eq_(response, CANNOT_CHANGE_PROTOCOL)
+            assert response == CANNOT_CHANGE_PROTOCOL
 
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
@@ -105,9 +102,9 @@ class TestCatalogServicesController(SettingsControllerTest):
                 ("protocol", ExternalIntegration.MARC_EXPORT),
             ])
             response = self.manager.admin_catalog_services_controller.process_catalog_services()
-            eq_(response, INTEGRATION_NAME_ALREADY_IN_USE)
+            assert response == INTEGRATION_NAME_ALREADY_IN_USE
 
-    
+
         service, ignore = create(
             self._db, ExternalIntegration,
             protocol=ExternalIntegration.MARC_EXPORT,
@@ -124,7 +121,7 @@ class TestCatalogServicesController(SettingsControllerTest):
                 ("mirror_integration_id", "1234")
             ])
             response = self.manager.admin_catalog_services_controller.process_catalog_services()
-            eq_(response.uri, MISSING_INTEGRATION.uri)
+            assert response.uri == MISSING_INTEGRATION.uri
 
         s3, ignore = create(
             self._db, ExternalIntegration,
@@ -142,7 +139,7 @@ class TestCatalogServicesController(SettingsControllerTest):
                 ("mirror_integration_id", s3.id)
             ])
             response = self.manager.admin_catalog_services_controller.process_catalog_services()
-            eq_(response.uri, MISSING_INTEGRATION.uri)
+            assert response.uri == MISSING_INTEGRATION.uri
 
         self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
         self._db.flush()
@@ -152,7 +149,7 @@ class TestCatalogServicesController(SettingsControllerTest):
                 ("protocol", ME.NAME),
                 ("mirror_integration_id", s3.id),
             ])
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_catalog_services_controller.process_catalog_services)
 
         # This should be the last test to check since rolling back database
@@ -174,7 +171,7 @@ class TestCatalogServicesController(SettingsControllerTest):
                 }])),
             ])
             response = self.manager.admin_catalog_services_controller.process_catalog_services()
-            eq_(response.uri, MULTIPLE_SERVICES_FOR_LIBRARY.uri)
+            assert response.uri == MULTIPLE_SERVICES_FOR_LIBRARY.uri
 
     def test_catalog_services_post_create(self):
         ME = MARCExporter
@@ -198,27 +195,27 @@ class TestCatalogServicesController(SettingsControllerTest):
                 }])),
             ])
             response = self.manager.admin_catalog_services_controller.process_catalog_services()
-            eq_(response.status_code, 201)
+            assert response.status_code == 201
 
         service = get_one(self._db, ExternalIntegration, goal=ExternalIntegration.CATALOG_GOAL)
-        # There was one S3 integration and it was selected. The service has an 
+        # There was one S3 integration and it was selected. The service has an
         # External Integration Link to the storage integration that is created
         # in a POST with purpose of ExternalIntegrationLink.MARC.
         integration_link = get_one(
             self._db, ExternalIntegrationLink, external_integration_id=service.id, purpose=ExternalIntegrationLink.MARC
         )
 
-        eq_(service.id, int(response.response[0]))
-        eq_(ME.NAME, service.protocol)
-        eq_("exporter name", service.name)
-        eq_([self._default_library], service.libraries)
+        assert service.id == int(response.response[0])
+        assert ME.NAME == service.protocol
+        assert "exporter name" == service.name
+        assert [self._default_library] == service.libraries
         # We expect the Catalog external integration to have a link to the
         # S3 storage external integration
-        eq_(s3.id, integration_link.other_integration_id)
-        eq_("false", ConfigurationSetting.for_library_and_externalintegration(
-                self._db, ME.INCLUDE_SUMMARY, self._default_library, service).value)
-        eq_("true", ConfigurationSetting.for_library_and_externalintegration(
-                self._db, ME.INCLUDE_SIMPLIFIED_GENRES, self._default_library, service).value)
+        assert s3.id == integration_link.other_integration_id
+        assert "false" == ConfigurationSetting.for_library_and_externalintegration(
+                self._db, ME.INCLUDE_SUMMARY, self._default_library, service).value
+        assert "true" == ConfigurationSetting.for_library_and_externalintegration(
+                self._db, ME.INCLUDE_SIMPLIFIED_GENRES, self._default_library, service).value
 
     def test_catalog_services_post_edit(self):
         ME = MARCExporter
@@ -249,20 +246,20 @@ class TestCatalogServicesController(SettingsControllerTest):
                 }])),
             ])
             response = self.manager.admin_catalog_services_controller.process_catalog_services()
-            eq_(response.status_code, 200)
+            assert response.status_code == 200
 
         integration_link = get_one(
             self._db, ExternalIntegrationLink, external_integration_id=service.id, purpose=ExternalIntegrationLink.MARC
         )
-        eq_(service.id, int(response.response[0]))
-        eq_(ME.NAME, service.protocol)
-        eq_("exporter name", service.name)
-        eq_(s3.id, integration_link.other_integration_id)
-        eq_([self._default_library], service.libraries)
-        eq_("false", ConfigurationSetting.for_library_and_externalintegration(
-                self._db, ME.INCLUDE_SUMMARY, self._default_library, service).value)
-        eq_("true", ConfigurationSetting.for_library_and_externalintegration(
-                self._db, ME.INCLUDE_SIMPLIFIED_GENRES, self._default_library, service).value)
+        assert service.id == int(response.response[0])
+        assert ME.NAME == service.protocol
+        assert "exporter name" == service.name
+        assert s3.id == integration_link.other_integration_id
+        assert [self._default_library] == service.libraries
+        assert "false" == ConfigurationSetting.for_library_and_externalintegration(
+                self._db, ME.INCLUDE_SUMMARY, self._default_library, service).value
+        assert "true" == ConfigurationSetting.for_library_and_externalintegration(
+                self._db, ME.INCLUDE_SIMPLIFIED_GENRES, self._default_library, service).value
 
     def test_catalog_services_delete(self):
         ME = MARCExporter
@@ -274,13 +271,13 @@ class TestCatalogServicesController(SettingsControllerTest):
 
         with self.request_context_with_admin("/", method="DELETE"):
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_catalog_services_controller.process_delete,
                           service.id)
 
             self.admin.add_role(AdminRole.SYSTEM_ADMIN)
             response = self.manager.admin_catalog_services_controller.process_delete(service.id)
-            eq_(response.status_code, 200)
+            assert response.status_code == 200
 
         service = get_one(self._db, ExternalIntegration, id=service.id)
-        eq_(None, service)
+        assert None == service

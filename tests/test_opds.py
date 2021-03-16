@@ -5,15 +5,12 @@ import datetime
 import os
 import re
 import json
+
+import pytest
 from lxml import etree
 from mock import create_autospec
-from nose.tools import (
-    set_trace,
-    eq_,
-    assert_raises,
-)
 import feedparser
-from . import DatabaseTest
+from core.testing import DatabaseTest
 
 from core.analytics import Analytics
 from core.lane import (
@@ -100,8 +97,8 @@ _strftime = AtomFeed._strftime
 
 
 class TestCirculationManagerAnnotator(DatabaseTest):
-    def setup(self):
-        super(TestCirculationManagerAnnotator, self).setup()
+    def setup_method(self):
+        super(TestCirculationManagerAnnotator, self).setup_method()
         self.work = self._work(with_open_access_download=True)
         self.lane = self._lane(display_name="Fantasy")
         self.annotator = CirculationManagerAnnotator(
@@ -121,12 +118,12 @@ class TestCirculationManagerAnnotator(DatabaseTest):
         lpdm.resource.representation = None
         lpdm.resource.url = "http://foo.com/thefile.epub"
         link_tag = self.annotator.open_access_link(pool, lpdm)
-        eq_(lpdm.resource.url, link_tag.get('href'))
+        assert lpdm.resource.url == link_tag.get('href')
 
         # The dcterms:rights attribute may provide a more detailed
         # explanation of the book's copyright status.
         rights = link_tag.attrib['{http://purl.org/dc/terms/}rights']
-        eq_(lpdm.rights_status.uri, rights)
+        assert lpdm.rights_status.uri == rights
 
         # If we have a CDN set up for open-access links, the CDN hostname
         # replaces the original hostname.
@@ -137,18 +134,18 @@ class TestCirculationManagerAnnotator(DatabaseTest):
             link_tag = self.annotator.open_access_link(pool, lpdm)
 
         link_url = link_tag.get('href')
-        eq_("https://cdn.com/thefile.epub", link_url)
+        assert "https://cdn.com/thefile.epub" == link_url
 
         # If the Resource has a Representation, the public URL is used
         # instead of the original Resource URL.
         lpdm.resource.representation = representation
         link_tag = self.annotator.open_access_link(pool, lpdm)
-        eq_(representation.public_url, link_tag.get('href'))
+        assert representation.public_url == link_tag.get('href')
 
         # If there is no Representation, the Resource's original URL is used.
         lpdm.resource.representation = None
         link_tag = self.annotator.open_access_link(pool, lpdm)
-        eq_(lpdm.resource.url, link_tag.get('href'))
+        assert lpdm.resource.url == link_tag.get('href')
 
     def test_default_lane_url(self):
         default_lane_url = self.annotator.default_lane_url()
@@ -171,7 +168,7 @@ class TestCirculationManagerAnnotator(DatabaseTest):
         # By default, all delivery mechanisms are visible
         [pool] = self.work.license_pools
         [epub] = list(self.annotator.visible_delivery_mechanisms(pool))
-        eq_("application/epub+zip", epub.delivery_mechanism.content_type)
+        assert "application/epub+zip" == epub.delivery_mechanism.content_type
 
         # Create an annotator that hides PDFs.
         no_pdf = CirculationManagerAnnotator(
@@ -181,7 +178,7 @@ class TestCirculationManagerAnnotator(DatabaseTest):
 
         # This has no effect on the EPUB.
         [epub2] = list(no_pdf.visible_delivery_mechanisms(pool))
-        eq_(epub, epub2)
+        assert epub == epub2
 
         # Create an annotator that hides EPUBs.
         no_epub = CirculationManagerAnnotator(
@@ -191,7 +188,7 @@ class TestCirculationManagerAnnotator(DatabaseTest):
 
         # The EPUB is hidden, and this license pool has no delivery
         # mechanisms.
-        eq_([], list(no_epub.visible_delivery_mechanisms(pool)))
+        assert [] == list(no_epub.visible_delivery_mechanisms(pool))
 
     def test_rights_attributes(self):
         m = self.annotator.rights_attributes
@@ -201,20 +198,20 @@ class TestCirculationManagerAnnotator(DatabaseTest):
         # attribute to the URI associated with the RightsStatus.
         lp = self._licensepool(None)
         [lpdm] = lp.delivery_mechanisms
-        eq_({"{http://purl.org/dc/terms/}rights":lpdm.rights_status.uri},
+        assert ({"{http://purl.org/dc/terms/}rights":lpdm.rights_status.uri} ==
             m(lpdm))
 
         # If any link in the chain is broken, rights_attributes returns
         # an empty dictionary.
         old_uri = lpdm.rights_status.uri
         lpdm.rights_status.uri = None
-        eq_({}, m(lpdm))
+        assert {} == m(lpdm)
         lpdm.rights_status.uri = old_uri
 
         lpdm.rights_status = None
-        eq_({}, m(lpdm))
+        assert {} == m(lpdm)
 
-        eq_({}, m(None))
+        assert {} == m(None)
 
     def test_work_entry_includes_updated(self):
 
@@ -276,13 +273,13 @@ class TestCirculationManagerAnnotator(DatabaseTest):
 
         # By default, the representation is private but can be cached
         # by the recipient.
-        eq_(True, response.private)
-        eq_(30*60, response.max_age)
+        assert True == response.private
+        assert 30*60 == response.max_age
 
         # Test the case where we override the defaults.
         response = m(self._db, work, annotator, url, max_age=12, private=False)
-        eq_(False, response.private)
-        eq_(12, response.max_age)
+        assert False == response.private
+        assert 12 == response.max_age
 
         # Test the case where the Work we thought we were providing is missing.
         work = None
@@ -295,13 +292,13 @@ class TestCirculationManagerAnnotator(DatabaseTest):
 
         # Since it's an error message, the representation is private
         # and not to be cached.
-        eq_(0, response.max_age)
-        eq_(True, response.private)
+        assert 0 == response.max_age
+        assert True == response.private
 
 
 class TestLibraryAnnotator(VendorIDTest):
-    def setup(self):
-        super(TestLibraryAnnotator, self).setup()
+    def setup_method(self):
+        super(TestLibraryAnnotator, self).setup_method()
         self.work = self._work(with_open_access_download=True)
 
         parent = self._lane(
@@ -337,22 +334,20 @@ class TestLibraryAnnotator(VendorIDTest):
             return LibraryAnnotator._hidden_content_types(library)
 
         # When the value is not set at all, no content types are hidden.
-        eq_(
-            [],
-            list(LibraryAnnotator._hidden_content_types(self._default_library))
-        )
+        assert (
+            [] ==
+            list(LibraryAnnotator._hidden_content_types(self._default_library)))
 
         # Now set various values and see what happens.
-        eq_([], f(None))
-        eq_([], f(""))
-        eq_([], f(json.dumps([])))
-        eq_(["text/html"], f("text/html"))
-        eq_(["text/html"], f(json.dumps("text/html")))
-        eq_(["text/html"], f(json.dumps({"text/html" : "some value"})))
-        eq_(
-            ["text/html", "text/plain"],
-            f(json.dumps(["text/html", "text/plain"]))
-        )
+        assert [] == f(None)
+        assert [] == f("")
+        assert [] == f(json.dumps([]))
+        assert ["text/html"] == f("text/html")
+        assert ["text/html"] == f(json.dumps("text/html"))
+        assert ["text/html"] == f(json.dumps({"text/html" : "some value"}))
+        assert (
+            ["text/html", "text/plain"] ==
+            f(json.dumps(["text/html", "text/plain"])))
 
     def test_add_configuration_links(self):
         mock_feed = []
@@ -382,7 +377,7 @@ class TestLibraryAnnotator(VendorIDTest):
         self.annotator.add_configuration_links(mock_feed)
 
         # Ten links were added to the "feed"
-        eq_(10, len(mock_feed))
+        assert 10 == len(mock_feed)
 
         # They are the links we'd expect.
         links = {}
@@ -392,24 +387,24 @@ class TestLibraryAnnotator(VendorIDTest):
             if rel == 'help' or rel == 'related':
                 continue # Tested below
             # Check that the configuration value made it into the link.
-            eq_(href, link_config[rel])
-            eq_("text/html", link.attrib['type'])
+            assert href == link_config[rel]
+            assert "text/html" == link.attrib['type']
 
         # There are three help links using different protocols.
         help_links = [x.attrib['href'] for x in mock_feed
                       if x.attrib['rel'] == 'help']
-        eq_(set(["mailto:help@me", "http://help/", "uri:help"]),
+        assert (set(["mailto:help@me", "http://help/", "uri:help"]) ==
             set(help_links))
 
         # There are two navigation links.
         navigation_links = [x for x in mock_feed if x.attrib['rel'] == 'related']
-        eq_(set(["navigation"]), set([x.attrib["role"] for x in navigation_links]))
-        eq_(set(["http://example.com/1", "http://example.com/2"]),
+        assert set(["navigation"]) == set([x.attrib["role"] for x in navigation_links])
+        assert (set(["http://example.com/1", "http://example.com/2"]) ==
             set([x.attrib["href"] for x in navigation_links]))
-        eq_(set(["one", "two"]), set([x.attrib["title"] for x in navigation_links]))
+        assert set(["one", "two"]) == set([x.attrib["title"] for x in navigation_links])
 
     def test_top_level_title(self):
-        eq_("Test Top Level Title", self.annotator.top_level_title())
+        assert "Test Top Level Title" == self.annotator.top_level_title()
 
     def test_group_uri_with_flattened_lane(self):
         spanish_lane = self._lane(display_name="Spanish", languages=["spa"])
@@ -428,7 +423,7 @@ class TestLibraryAnnotator(VendorIDTest):
 
         feed_url = self.annotator.feed_url(spanish_lane)
         group_uri = self.annotator.group_uri(spanish_work, lp, lp.identifier)
-        eq_((feed_url, "All Spanish"), group_uri)
+        assert (feed_url, "All Spanish") == group_uri
 
     def test_lane_url(self):
         fantasy_lane_with_sublanes = self._lane(
@@ -446,23 +441,23 @@ class TestLibraryAnnotator(VendorIDTest):
         fantasy_lane_without_sublanes.add_genre(Fantasy.name)
 
         default_lane_url = self.annotator.lane_url(None)
-        eq_(default_lane_url, self.annotator.default_lane_url())
+        assert default_lane_url == self.annotator.default_lane_url()
 
         facets = dict(entrypoint="Book")
         default_lane_url = self.annotator.lane_url(None, facets=facets)
-        eq_(default_lane_url, self.annotator.default_lane_url(facets=facets))
+        assert default_lane_url == self.annotator.default_lane_url(facets=facets)
 
         groups_url = self.annotator.lane_url(fantasy_lane_with_sublanes)
-        eq_(groups_url, self.annotator.groups_url(fantasy_lane_with_sublanes))
+        assert groups_url == self.annotator.groups_url(fantasy_lane_with_sublanes)
 
         groups_url = self.annotator.lane_url(fantasy_lane_with_sublanes, facets=facets)
-        eq_(groups_url, self.annotator.groups_url(fantasy_lane_with_sublanes, facets=facets))
+        assert groups_url == self.annotator.groups_url(fantasy_lane_with_sublanes, facets=facets)
 
         feed_url = self.annotator.lane_url(fantasy_lane_without_sublanes)
-        eq_(feed_url, self.annotator.feed_url(fantasy_lane_without_sublanes))
+        assert feed_url == self.annotator.feed_url(fantasy_lane_without_sublanes)
 
         feed_url = self.annotator.lane_url(fantasy_lane_without_sublanes, facets=facets)
-        eq_(feed_url, self.annotator.feed_url(fantasy_lane_without_sublanes, facets=facets))
+        assert feed_url == self.annotator.feed_url(fantasy_lane_without_sublanes, facets=facets)
 
     def test_fulfill_link_issues_only_open_access_links_when_library_does_not_identify_patrons(self):
 
@@ -472,16 +467,15 @@ class TestLibraryAnnotator(VendorIDTest):
         # Because of this, normal fulfillment links are not generated.
         [pool] = self.work.license_pools
         [lpdm] = pool.delivery_mechanisms
-        eq_(None,
-            self.annotator.fulfill_link(pool, None, lpdm)
-        )
+        assert (None ==
+            self.annotator.fulfill_link(pool, None, lpdm))
 
         # However, fulfillment links _can_ be generated with the
         # 'open-access' link relation.
         link = self.annotator.fulfill_link(
             pool, None, lpdm, OPDSFeed.OPEN_ACCESS_REL
         )
-        eq_(OPDSFeed.OPEN_ACCESS_REL, link.attrib['rel'])
+        assert OPDSFeed.OPEN_ACCESS_REL == link.attrib['rel']
 
     def test_fulfill_link_includes_device_registration_tags(self):
         """Verify that when Adobe Vendor ID delegation is included, the
@@ -511,7 +505,7 @@ class TestLibraryAnnotator(VendorIDTest):
             assert child.tag != "{http://librarysimplified.org/terms/drm}licensor"
 
         # No new Credential has been associated with the patron.
-        eq_(old_credentials, patron.credentials)
+        assert old_credentials == patron.credentials
 
         # The fulfill link for Adobe DRM includes information
         # on how to get an Adobe ID in the drm:licensor tag.
@@ -519,28 +513,28 @@ class TestLibraryAnnotator(VendorIDTest):
             pool, loan, adobe_delivery_mechanism
         )
         licensor = link.getchildren()[-1]
-        eq_("{http://librarysimplified.org/terms/drm}licensor",
+        assert ("{http://librarysimplified.org/terms/drm}licensor" ==
             licensor.tag)
 
         # An Adobe ID-specific identifier has been created for the patron.
         [adobe_id_identifier] = [x for x in patron.credentials
                                  if x not in old_credentials]
-        eq_(AuthdataUtility.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER,
+        assert (AuthdataUtility.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER ==
             adobe_id_identifier.type)
-        eq_(DataSource.INTERNAL_PROCESSING,
+        assert (DataSource.INTERNAL_PROCESSING ==
             adobe_id_identifier.data_source.name)
-        eq_(None, adobe_id_identifier.expires)
+        assert None == adobe_id_identifier.expires
 
         # The drm:licensor tag is the one we get by calling
         # adobe_id_tags() on that identifier.
         [expect] = self.annotator.adobe_id_tags(adobe_id_identifier.credential)
-        eq_(etree.tostring(expect), etree.tostring(licensor))
+        assert etree.tostring(expect) == etree.tostring(licensor)
 
     def test_no_adobe_id_tags_when_vendor_id_not_configured(self):
         """When vendor ID delegation is not configured, adobe_id_tags()
         returns an empty list.
         """
-        eq_([], self.annotator.adobe_id_tags("patron identifier"))
+        assert [] == self.annotator.adobe_id_tags("patron identifier")
 
     def test_adobe_id_tags_when_vendor_id_configured(self):
         """When vendor ID delegation is configured, adobe_id_tags()
@@ -552,14 +546,14 @@ class TestLibraryAnnotator(VendorIDTest):
         self.initialize_adobe(library)
         patron_identifier = "patron identifier"
         [element] = self.annotator.adobe_id_tags(patron_identifier)
-        eq_('{http://librarysimplified.org/terms/drm}licensor', element.tag)
+        assert '{http://librarysimplified.org/terms/drm}licensor' == element.tag
 
         key = '{http://librarysimplified.org/terms/drm}vendor'
-        eq_(self.adobe_vendor_id.username, element.attrib[key])
+        assert self.adobe_vendor_id.username == element.attrib[key]
 
         [token, device_management_link] = element.getchildren()
 
-        eq_('{http://librarysimplified.org/terms/drm}clientToken', token.tag)
+        assert '{http://librarysimplified.org/terms/drm}clientToken' == token.tag
         # token.text is a token which we can decode, since we know
         # the secret.
         token = token.text
@@ -568,22 +562,22 @@ class TestLibraryAnnotator(VendorIDTest):
         expected_url = ConfigurationSetting.for_library(
             Configuration.WEBSITE_URL, library
         ).value
-        eq_((expected_url, patron_identifier), decoded)
+        assert (expected_url, patron_identifier) == decoded
 
-        eq_("link", device_management_link.tag)
-        eq_("http://librarysimplified.org/terms/drm/rel/devices",
+        assert "link" == device_management_link.tag
+        assert ("http://librarysimplified.org/terms/drm/rel/devices" ==
             device_management_link.attrib['rel'])
         expect_url = self.annotator.url_for(
             'adobe_drm_devices', library_short_name=library.short_name,
             _external=True
         )
-        eq_(expect_url, device_management_link.attrib['href'])
+        assert expect_url == device_management_link.attrib['href']
 
         # If we call adobe_id_tags again we'll get a distinct tag
         # object that renders to the same XML.
         [same_tag] = self.annotator.adobe_id_tags(patron_identifier)
         assert same_tag is not element
-        eq_(etree.tostring(element), etree.tostring(same_tag))
+        assert etree.tostring(element) == etree.tostring(same_tag)
 
         # If the Adobe Vendor ID configuration is present but
         # incomplete, adobe_id_tags does nothing.
@@ -595,7 +589,7 @@ class TestLibraryAnnotator(VendorIDTest):
             self.registry
         )
         self._db.delete(setting)
-        eq_([], self.annotator.adobe_id_tags("new identifier"))
+        assert [] == self.annotator.adobe_id_tags("new identifier")
 
     def test_default_lane_url(self):
         default_lane_url = self.annotator.default_lane_url()
@@ -668,15 +662,15 @@ class TestLibraryAnnotator(VendorIDTest):
 
         feed = self.get_parsed_feed([work])
         [entry] = feed['entries']
-        eq_(entry['id'], pool.identifier.urn)
+        assert entry['id'] == pool.identifier.urn
 
         [(alternate, type)] = [(x['href'], x['type']) for x in entry['links'] if x['rel'] == 'alternate']
         permalink, permalink_type = self.annotator.permalink_for(
             work, pool, pool.identifier
         )
-        eq_(alternate, permalink)
-        eq_(OPDSFeed.ENTRY_TYPE, type)
-        eq_(permalink_type, type)
+        assert alternate == permalink
+        assert OPDSFeed.ENTRY_TYPE == type
+        assert permalink_type == type
 
         # Make sure we are using the 'permalink' controller -- we were using
         # 'work' and that was wrong.
@@ -776,7 +770,7 @@ class TestLibraryAnnotator(VendorIDTest):
             library_short_name=self._default_library.short_name,
             _external=True
         )
-        eq_(expect, analytics_link)
+        assert expect == analytics_link
 
     def test_annotate_feed(self):
         lane = self._lane()
@@ -834,7 +828,7 @@ class TestLibraryAnnotator(VendorIDTest):
             except ValueError as e:
                 raise AssertionError
             if link_type:
-                eq_(link_type, link.type)
+                assert link_type == link.type
             return link
 
         if rels:
@@ -869,27 +863,27 @@ class TestLibraryAnnotator(VendorIDTest):
     def test_language_and_audience_key_from_work(self):
         work = self._work(language='eng', audience=Classifier.AUDIENCE_CHILDREN)
         result = self.annotator.language_and_audience_key_from_work(work)
-        eq_(('eng', 'Children'), result)
+        assert ('eng', 'Children') == result
 
         work = self._work(language='fre', audience=Classifier.AUDIENCE_YOUNG_ADULT)
         result = self.annotator.language_and_audience_key_from_work(work)
-        eq_(('fre', 'All+Ages,Children,Young+Adult'), result)
+        assert ('fre', 'All+Ages,Children,Young+Adult') == result
 
         work = self._work(language='spa', audience=Classifier.AUDIENCE_ADULT)
         result = self.annotator.language_and_audience_key_from_work(work)
-        eq_(('spa', 'Adult,Adults+Only,All+Ages,Children,Young+Adult'), result)
+        assert ('spa', 'Adult,Adults+Only,All+Ages,Children,Young+Adult') == result
 
         work = self._work(audience=Classifier.AUDIENCE_ADULTS_ONLY)
         result = self.annotator.language_and_audience_key_from_work(work)
-        eq_(('eng', 'Adult,Adults+Only,All+Ages,Children,Young+Adult'), result)
+        assert ('eng', 'Adult,Adults+Only,All+Ages,Children,Young+Adult') == result
 
         work = self._work(audience=Classifier.AUDIENCE_RESEARCH)
         result = self.annotator.language_and_audience_key_from_work(work)
-        eq_(('eng', 'Adult,Adults+Only,All+Ages,Children,Research,Young+Adult'), result)
+        assert ('eng', 'Adult,Adults+Only,All+Ages,Children,Research,Young+Adult') == result
 
         work = self._work(audience=Classifier.AUDIENCE_ALL_AGES)
         result = self.annotator.language_and_audience_key_from_work(work)
-        eq_(('eng', 'All+Ages,Children'), result)
+        assert ('eng', 'All+Ages,Children') == result
 
 
     def test_work_entry_includes_contributor_links(self):
@@ -913,7 +907,7 @@ class TestLibraryAnnotator(VendorIDTest):
         )
         [entry] = self.get_parsed_feed([work]).entries
         contributor_links = [l for l in entry.links if l.rel == 'contributor']
-        eq_(2, len(contributor_links))
+        assert 2 == len(contributor_links)
         contributor_links.sort(key=lambda l: l.href)
         for l in contributor_links:
             assert l.type == OPDSFeed.ACQUISITION_FEED_TYPE
@@ -931,7 +925,7 @@ class TestLibraryAnnotator(VendorIDTest):
         )
         feed = self.get_parsed_feed([work])
         [entry] = feed.entries
-        eq_([], filter(lambda l: l.rel=='contributor', entry.links))
+        assert [] == filter(lambda l: l.rel=='contributor', entry.links)
 
     def test_work_entry_includes_series_link(self):
         """A series lane link is added to the work entry when its in a series
@@ -951,7 +945,7 @@ class TestLibraryAnnotator(VendorIDTest):
         work = self._work(with_open_access_download=True)
         feed = self.get_parsed_feed([work])
         [entry] = feed.entries
-        eq_([], filter(lambda l: l.rel=='series', entry.links))
+        assert [] == filter(lambda l: l.rel=='series', entry.links)
 
     def test_work_entry_includes_recommendations_link(self):
         work = self._work(with_open_access_download=True)
@@ -959,7 +953,7 @@ class TestLibraryAnnotator(VendorIDTest):
         # If NoveList Select isn't configured, there's no recommendations link.
         feed = self.get_parsed_feed([work])
         [entry] = feed.entries
-        eq_([], filter(lambda l: l.rel=='recommendations', entry.links))
+        assert [] == filter(lambda l: l.rel=='recommendations', entry.links)
 
         # There's a recommendation link when configuration is found, though!
         NoveListAPI.IS_CONFIGURED = None
@@ -1005,8 +999,8 @@ class TestLibraryAnnotator(VendorIDTest):
 
         # The feed is private and should not be cached.
         assert isinstance(response, OPDSFeedResponse)
-        eq_(0, response.max_age)
-        eq_(True, response.private)
+        assert 0 == response.max_age
+        assert True == response.private
 
         # Instead, the Last-Modified header is set to the last time
         # we successfully brought the patron's bookshelf in sync with
@@ -1022,7 +1016,7 @@ class TestLibraryAnnotator(VendorIDTest):
         # No entries in the feed...
         raw = unicode(response)
         feed = feedparser.parse(raw)
-        eq_(0, len(feed['entries']))
+        assert 0 == len(feed['entries'])
 
         # ... but we have a link to the User Profile Management
         # Protocol endpoint...
@@ -1035,7 +1029,7 @@ class TestLibraryAnnotator(VendorIDTest):
         expect_url = annotator.url_for(
             'patron_profile', library_short_name=patron.library.short_name, _external=True
         )
-        eq_(expect_url, upmp_link['href'])
+        assert expect_url == upmp_link['href']
 
         # ... and we have DRM licensing information.
         tree = etree.fromstring(response.data)
@@ -1046,7 +1040,7 @@ class TestLibraryAnnotator(VendorIDTest):
 
         # The DRM licensing information includes the Adobe vendor ID
         # and the patron's patron identifier for Adobe purposes.
-        eq_(self.adobe_vendor_id.username,
+        assert (self.adobe_vendor_id.username ==
             licensor.attrib['{http://librarysimplified.org/terms/drm}vendor'])
         [client_token, device_management_link] = licensor.getchildren()
         expected = ConfigurationSetting.for_library_and_externalintegration(
@@ -1054,9 +1048,9 @@ class TestLibraryAnnotator(VendorIDTest):
         ).value.upper()
         assert client_token.text.startswith(expected)
         assert adobe_patron_identifier in client_token.text
-        eq_("{http://www.w3.org/2005/Atom}link",
+        assert ("{http://www.w3.org/2005/Atom}link" ==
             device_management_link.tag)
-        eq_("http://librarysimplified.org/terms/drm/rel/devices",
+        assert ("http://librarysimplified.org/terms/drm/rel/devices" ==
             device_management_link.attrib['rel'])
 
         # Unlike other places this tag shows up, we use the
@@ -1064,7 +1058,7 @@ class TestLibraryAnnotator(VendorIDTest):
         # <drm:licensor> tag is talking about an ACS licensing
         # scheme. Since we're in a <feed> and not a <link> to a
         # specific book, that context would otherwise be lost.
-        eq_('http://librarysimplified.org/terms/drm/scheme/ACS',
+        assert ('http://librarysimplified.org/terms/drm/scheme/ACS' ==
             licensor.attrib['{http://librarysimplified.org/terms/drm}scheme'])
 
         now = datetime.datetime.utcnow()
@@ -1087,10 +1081,10 @@ class TestLibraryAnnotator(VendorIDTest):
 
         # The only entries in the feed is the work currently out on loan
         # to this patron.
-        eq_(2, len(feed['entries']))
+        assert 2 == len(feed['entries'])
         e1, e2 = sorted(feed['entries'], key=lambda x: x['title'])
-        eq_(work1.title, e1['title'])
-        eq_(work2.title, e2['title'])
+        assert work1.title == e1['title']
+        assert work2.title == e2['title']
 
         # Make sure that the start and end dates from the loan are present
         # in an <opds:availability> child of the acquisition link.
@@ -1099,7 +1093,7 @@ class TestLibraryAnnotator(VendorIDTest):
         acquisitions = parser._xpath(
             tree, "//atom:entry/atom:link[@rel='http://opds-spec.org/acquisition']"
         )
-        eq_(2, len(acquisitions))
+        assert 2 == len(acquisitions)
 
         now_s = _strftime(now)
         tomorrow_s = _strftime(tomorrow)
@@ -1110,11 +1104,11 @@ class TestLibraryAnnotator(VendorIDTest):
         # One of these availability tags has 'since' but not 'until'.
         # The other one has both.
         [no_until] = [x for x in availabilities if 'until' not in x.attrib]
-        eq_(now_s, no_until.attrib['since'])
+        assert now_s == no_until.attrib['since']
 
         [has_until] = [x for x in availabilities if 'until' in x.attrib]
-        eq_(now_s, has_until.attrib['since'])
-        eq_(tomorrow_s, has_until.attrib['until'])
+        assert now_s == has_until.attrib['since']
+        assert tomorrow_s == has_until.attrib['until']
 
     def test_loan_feed_includes_patron(self):
         patron = self._patron()
@@ -1128,8 +1122,8 @@ class TestLibraryAnnotator(VendorIDTest):
 
         assert "simplified:authorizationIdentifier" in raw
         assert "simplified:username" in raw
-        eq_(patron.username, feed_details['simplified_patron']['simplified:username'])
-        eq_(u'987654321', feed_details['simplified_patron']['simplified:authorizationidentifier'])
+        assert patron.username == feed_details['simplified_patron']['simplified:username']
+        assert u'987654321' == feed_details['simplified_patron']['simplified:authorizationidentifier']
 
     def test_loans_feed_includes_annotations_link(self):
         patron = self._patron()
@@ -1211,16 +1205,16 @@ class TestLibraryAnnotator(VendorIDTest):
         raw = unicode(feed_obj)
 
         entries = feedparser.parse(raw)['entries']
-        eq_(1, len(entries))
+        assert 1 == len(entries)
 
         links = entries[0]['links']
 
         # Before we fulfill the loan, there are fulfill links for all three mechanisms.
         fulfill_links = [link for link in links if link['rel'] == "http://opds-spec.org/acquisition"]
-        eq_(3, len(fulfill_links))
+        assert 3 == len(fulfill_links)
 
-        eq_(set([mech1.delivery_mechanism.drm_scheme_media_type, mech2.delivery_mechanism.drm_scheme_media_type,
-                 OPDSFeed.ENTRY_TYPE]),
+        assert (set([mech1.delivery_mechanism.drm_scheme_media_type, mech2.delivery_mechanism.drm_scheme_media_type,
+                 OPDSFeed.ENTRY_TYPE]) ==
             set([link['type'] for link in fulfill_links]))
 
         # If one of the content types is hidden, the corresponding
@@ -1232,8 +1226,8 @@ class TestLibraryAnnotator(VendorIDTest):
         feed_obj = LibraryLoanAndHoldAnnotator.active_loans_for(
             None, patron, test_mode=True
         )
-        eq_(set([mech2.delivery_mechanism.drm_scheme_media_type,
-                 OPDSFeed.ENTRY_TYPE]),
+        assert (set([mech2.delivery_mechanism.drm_scheme_media_type,
+                 OPDSFeed.ENTRY_TYPE]) ==
             set([link['type'] for link in fulfill_links]))
         setting.value = None
 
@@ -1246,15 +1240,15 @@ class TestLibraryAnnotator(VendorIDTest):
         raw = unicode(feed_obj)
 
         entries = feedparser.parse(raw)['entries']
-        eq_(1, len(entries))
+        assert 1 == len(entries)
 
         links = entries[0]['links']
 
         fulfill_links = [link for link in links if link['rel'] == "http://opds-spec.org/acquisition"]
-        eq_(2, len(fulfill_links))
+        assert 2 == len(fulfill_links)
 
-        eq_(set([mech1.delivery_mechanism.drm_scheme_media_type,
-                 OPDSFeed.ENTRY_TYPE]),
+        assert (set([mech1.delivery_mechanism.drm_scheme_media_type,
+                 OPDSFeed.ENTRY_TYPE]) ==
             set([link['type'] for link in fulfill_links]))
 
     def test_incomplete_catalog_entry_contains_an_alternate_link_to_the_complete_entry(self):
@@ -1269,13 +1263,13 @@ class TestLibraryAnnotator(VendorIDTest):
         raw = unicode(feed_obj)
 
         entries = feedparser.parse(raw)['entries']
-        eq_(1, len(entries))
+        assert 1 == len(entries)
 
         links = entries[0]['links']
 
         # We want to make sure that an incomplete catalog entry contains an alternate link to the complete entry.
         alternate_links = [link for link in links if link['type'] == OPDSFeed.ENTRY_TYPE and link['rel'] == 'alternate']
-        eq_(1, len(alternate_links))
+        assert 1 == len(alternate_links)
 
     def test_complete_catalog_entry_with_fulfillment_link_contains_self_link(self):
         patron = self._patron()
@@ -1291,21 +1285,21 @@ class TestLibraryAnnotator(VendorIDTest):
         raw = unicode(feed_obj)
 
         entries = feedparser.parse(raw)['entries']
-        eq_(1, len(entries))
+        assert 1 == len(entries)
 
         links = entries[0]['links']
 
         # We want to make sure that a complete catalog entry contains an alternate link
         # because it's required by some clients (for example, an Android version of SimplyE).
         alternate_links = [link for link in links if link['type'] == OPDSFeed.ENTRY_TYPE and link['rel'] == 'alternate']
-        eq_(1, len(alternate_links))
+        assert 1 == len(alternate_links)
 
         # We want to make sure that the complete catalog entry contains a self link.
         self_links = [link for link in links if link['type'] == OPDSFeed.ENTRY_TYPE and link['rel'] == 'self']
-        eq_(1, len(self_links))
+        assert 1 == len(self_links)
 
         # We want to make sure that alternate and self links are the same.
-        eq_(alternate_links[0]['href'], self_links[0]['href'])
+        assert alternate_links[0]['href'] == self_links[0]['href']
 
     def test_complete_catalog_entry_with_fulfillment_info_contains_self_link(self):
         patron = self._patron()
@@ -1331,21 +1325,21 @@ class TestLibraryAnnotator(VendorIDTest):
         raw = unicode(feed_obj)
 
         entries = feedparser.parse(raw)['entries']
-        eq_(1, len(entries))
+        assert 1 == len(entries)
 
         links = entries[0]['links']
 
         # We want to make sure that a complete catalog entry contains an alternate link
         # because it's required by some clients (for example, an Android version of SimplyE).
         alternate_links = [link for link in links if link['type'] == OPDSFeed.ENTRY_TYPE and link['rel'] == 'alternate']
-        eq_(1, len(alternate_links))
+        assert 1 == len(alternate_links)
 
         # We want to make sure that the complete catalog entry contains a self link.
         self_links = [link for link in links if link['type'] == OPDSFeed.ENTRY_TYPE and link['rel'] == 'self']
-        eq_(1, len(self_links))
+        assert 1 == len(self_links)
 
         # We want to make sure that alternate and self links are the same.
-        eq_(alternate_links[0]['href'], self_links[0]['href'])
+        assert alternate_links[0]['href'] == self_links[0]['href']
 
     def test_fulfill_feed(self):
         patron = self._patron()
@@ -1373,17 +1367,17 @@ class TestLibraryAnnotator(VendorIDTest):
         raw = response.data
 
         entries = feedparser.parse(raw)['entries']
-        eq_(1, len(entries))
+        assert 1 == len(entries)
 
         links = entries[0]['links']
 
         # The feed for a single fulfillment only includes one fulfill link.
         fulfill_links = [link for link in links if link['rel'] == "http://opds-spec.org/acquisition"]
-        eq_(1, len(fulfill_links))
+        assert 1 == len(fulfill_links)
 
-        eq_(Representation.TEXT_HTML_MEDIA_TYPE + DeliveryMechanism.STREAMING_PROFILE,
+        assert (Representation.TEXT_HTML_MEDIA_TYPE + DeliveryMechanism.STREAMING_PROFILE ==
             fulfill_links[0]['type'])
-        eq_("http://streaming_link", fulfill_links[0]['href'])
+        assert "http://streaming_link" == fulfill_links[0]['href']
 
     def test_drm_device_registration_feed_tags(self):
         """Check that drm_device_registration_feed_tags returns
@@ -1398,13 +1392,13 @@ class TestLibraryAnnotator(VendorIDTest):
 
         # The feed-level tag has the drm:scheme attribute set.
         key = '{http://librarysimplified.org/terms/drm}scheme'
-        eq_("http://librarysimplified.org/terms/drm/scheme/ACS",
+        assert ("http://librarysimplified.org/terms/drm/scheme/ACS" ==
             feed_tag.attrib[key])
 
         # If we remove that attribute, the feed-level tag is the same as the
         # generic tag.
         del feed_tag.attrib[key]
-        eq_(etree.tostring(feed_tag), etree.tostring(generic_tag))
+        assert etree.tostring(feed_tag) == etree.tostring(generic_tag)
 
     def test_borrow_link_raises_unfulfillable_work(self):
         edition, pool = self._edition(with_license_pool=True)
@@ -1421,12 +1415,12 @@ class TestLibraryAnnotator(VendorIDTest):
 
         # If there's no way to fulfill the book, borrow_link raises
         # UnfulfillableWork.
-        assert_raises(
+        pytest.raises(
             UnfulfillableWork,
             annotator.borrow_link,
             pool, None, [])
 
-        assert_raises(
+        pytest.raises(
             UnfulfillableWork,
             annotator.borrow_link,
             pool, None, [kindle_mechanism])
@@ -1476,14 +1470,14 @@ class TestLibraryAnnotator(VendorIDTest):
         assert 'entrypoint=%s' % EverythingEntryPoint.INTERNAL_NAME in url
 
         # This lane isn't based on a custom list, so there's no crawlable link.
-        eq_([], links["http://opds-spec.org/crawlable"])
+        assert [] == links["http://opds-spec.org/crawlable"]
 
         # It's also not crawlable if it's based on multiple lists.
         list1, ignore = self._customlist()
         list2, ignore = self._customlist()
         lane.customlists = [list1, list2]
         links = annotated_links(lane, annotator)
-        eq_([], links["http://opds-spec.org/crawlable"])
+        assert [] == links["http://opds-spec.org/crawlable"]
 
         # A lane based on a single list gets a crawlable link.
         lane.customlists = [list1]
@@ -1523,11 +1517,11 @@ class TestLibraryAnnotator(VendorIDTest):
         # Fulfill, open access, and revoke.
         [revoke, fulfill, open_access] = sorted(loan1_links, key=lambda x: x.attrib.get("rel"))
         assert 'revoke_loan_or_hold' in revoke.attrib.get("href")
-        eq_('http://librarysimplified.org/terms/rel/revoke', revoke.attrib.get("rel"))
+        assert 'http://librarysimplified.org/terms/rel/revoke' == revoke.attrib.get("rel")
         assert "fulfill" in fulfill.attrib.get("href")
-        eq_('http://opds-spec.org/acquisition', fulfill.attrib.get("rel"))
+        assert 'http://opds-spec.org/acquisition' == fulfill.attrib.get("rel")
         assert 'fulfill' in open_access.attrib.get("href")
-        eq_('http://opds-spec.org/acquisition/open-access', open_access.attrib.get("rel"))
+        assert 'http://opds-spec.org/acquisition/open-access' == open_access.attrib.get("rel")
 
         loan2_links = annotator.acquisition_links(
             loan2.license_pool, loan2, None, None, feed,
@@ -1536,9 +1530,9 @@ class TestLibraryAnnotator(VendorIDTest):
         # Fulfill and revoke.
         [revoke, fulfill] = sorted(loan2_links, key=lambda x: x.attrib.get("rel"))
         assert 'revoke_loan_or_hold' in revoke.attrib.get("href")
-        eq_('http://librarysimplified.org/terms/rel/revoke', revoke.attrib.get("rel"))
+        assert 'http://librarysimplified.org/terms/rel/revoke' == revoke.attrib.get("rel")
         assert "fulfill" in fulfill.attrib.get("href")
-        eq_('http://opds-spec.org/acquisition', fulfill.attrib.get("rel"))
+        assert 'http://opds-spec.org/acquisition' == fulfill.attrib.get("rel")
 
         # If a book is ready to be fulfilled, but the library has
         # hidden all of its available content types, the fulfill link does
@@ -1562,7 +1556,7 @@ class TestLibraryAnnotator(VendorIDTest):
             loan2.license_pool.identifier
         )
         [revoke] = loan2_links
-        eq_('http://librarysimplified.org/terms/rel/revoke',
+        assert ('http://librarysimplified.org/terms/rel/revoke' ==
             revoke.attrib.get("rel"))
         # Un-hide the content types so the test can continue.
         hidden.value = None
@@ -1572,16 +1566,16 @@ class TestLibraryAnnotator(VendorIDTest):
         # Borrow and revoke.
         [revoke, borrow] = sorted(hold_links, key=lambda x: x.attrib.get("rel"))
         assert 'revoke_loan_or_hold' in revoke.attrib.get("href")
-        eq_('http://librarysimplified.org/terms/rel/revoke', revoke.attrib.get("rel"))
+        assert 'http://librarysimplified.org/terms/rel/revoke' == revoke.attrib.get("rel")
         assert "borrow" in borrow.attrib.get("href")
-        eq_('http://opds-spec.org/acquisition/borrow', borrow.attrib.get("rel"))
+        assert 'http://opds-spec.org/acquisition/borrow' == borrow.attrib.get("rel")
 
         work4_links = annotator.acquisition_links(
             work4.license_pools[0], None, None, None, feed, work4.license_pools[0].identifier)
         # Borrow only.
         [borrow] = work4_links
         assert "borrow" in borrow.attrib.get("href")
-        eq_('http://opds-spec.org/acquisition/borrow', borrow.attrib.get("rel"))
+        assert 'http://opds-spec.org/acquisition/borrow' == borrow.attrib.get("rel")
 
         # If patron authentication is turned off for the library, then
         # only open-access links are displayed.
@@ -1589,7 +1583,7 @@ class TestLibraryAnnotator(VendorIDTest):
 
         [open_access] = annotator.acquisition_links(
             loan1.license_pool, loan1, None, None, feed, loan1.license_pool.identifier)
-        eq_('http://opds-spec.org/acquisition/open-access', open_access.attrib.get("rel"))
+        assert 'http://opds-spec.org/acquisition/open-access' == open_access.attrib.get("rel")
 
         # This may include links with the open-access relation for
         # non-open-access works that are available without
@@ -1606,20 +1600,20 @@ class TestLibraryAnnotator(VendorIDTest):
 
         # The link relation is OPDS 'open-access', which just means the
         # book can be downloaded with no hassle.
-        eq_('http://opds-spec.org/acquisition/open-access', not_open_access.attrib.get("rel"))
+        assert 'http://opds-spec.org/acquisition/open-access' == not_open_access.attrib.get("rel")
 
         # The dcterms:rights attribute provides a more detailed
         # explanation of the book's copyright status -- note that it's
         # not "open access" in the typical sense.
         rights = not_open_access.attrib['{http://purl.org/dc/terms/}rights']
-        eq_(RightsStatus.IN_COPYRIGHT, rights)
+        assert RightsStatus.IN_COPYRIGHT == rights
 
         # Hold links are absent even when there are active holds in the
         # database -- there is no way to distinguish one patron from
         # another so the concept of a 'hold' is meaningless.
         hold_links = annotator.acquisition_links(
             hold.license_pool, None, hold, None, feed, hold.license_pool.identifier)
-        eq_([], hold_links)
+        assert [] == hold_links
 
     def test_acquisition_links_multiple_links(self):
         annotator = LibraryLoanAndHoldAnnotator(None, None, self._default_library, test_mode=True)
@@ -1647,7 +1641,7 @@ class TestLibraryAnnotator(VendorIDTest):
             pool, None, None, None, feed, pool.identifier,
             mock_api=MockAPI()
         )
-        eq_(2, len(links))
+        assert 2 == len(links)
         indirects = []
 
         # This sorts the links so that the first link corresponds
@@ -1675,11 +1669,11 @@ class TestLibraryAnnotator(VendorIDTest):
         # The first delivery mechanism (created when the Work was created)
         # uses Adobe DRM, so that shows up as the first indirect acquisition
         # type.
-        eq_(mech1.delivery_mechanism.drm_scheme, i1.attrib['type'])
+        assert mech1.delivery_mechanism.drm_scheme == i1.attrib['type']
 
         # The second delivery mechanism doesn't use DRM, so the content
         # type shows up as the first (and only) indirect acquisition type.
-        eq_(mech2.delivery_mechanism.content_type, i2.attrib['type'])
+        assert mech2.delivery_mechanism.content_type == i2.attrib['type']
 
         # If we configure the library to hide one of the content types,
         # we end up with only one link -- the one for the delivery
@@ -1697,7 +1691,7 @@ class TestLibraryAnnotator(VendorIDTest):
         [availability, copies, holds, indirect] = sorted(
             link, key=lambda x: x.tag
         )
-        eq_(mech2.delivery_mechanism.content_type, indirect.attrib['type'])
+        assert mech2.delivery_mechanism.content_type == indirect.attrib['type']
 
 
 class TestLibraryLoanAndHoldAnnotator(DatabaseTest):
@@ -1734,9 +1728,9 @@ class TestLibraryLoanAndHoldAnnotator(DatabaseTest):
             assert isinstance(result, MockAnnotator)
 
             # Let's examine the MockAnnotator itself.
-            eq_(circulation, result.circulation)
-            eq_(self._default_library, result.library)
-            eq_(test_mode, result.test_mode)
+            assert circulation == result.circulation
+            assert self._default_library == result.library
+            assert test_mode == result.test_mode
 
             # Now let's see what we did with it after calling its
             # constructor.
@@ -1745,13 +1739,13 @@ class TestLibraryLoanAndHoldAnnotator(DatabaseTest):
             # controller for the license pool's identifier.
             url_call = result.url_for_called_with
             controller_name, kwargs = url_call
-            eq_("loan_or_hold_detail", controller_name)
-            eq_(self._default_library.short_name,
+            assert "loan_or_hold_detail" == controller_name
+            assert (self._default_library.short_name ==
                 kwargs.pop('library_short_name'))
-            eq_(pool.identifier.type, kwargs.pop('identifier_type'))
-            eq_(pool.identifier.identifier, kwargs.pop('identifier'))
-            eq_(True, kwargs.pop('_external'))
-            eq_({}, kwargs)
+            assert pool.identifier.type == kwargs.pop('identifier_type')
+            assert pool.identifier.identifier == kwargs.pop('identifier')
+            assert True == kwargs.pop('_external')
+            assert {} == kwargs
 
             # The return value of that was the string "a URL". We then
             # passed that into _single_entry_response, along with
@@ -1760,15 +1754,15 @@ class TestLibraryLoanAndHoldAnnotator(DatabaseTest):
             (_db, _work, annotator, url, _feed_class), kwargs = (
                 response_call
             )
-            eq_(self._db, _db)
-            eq_(work, _work)
-            eq_(result, annotator)
-            eq_("a URL", url)
-            eq_(feed_class, _feed_class)
+            assert self._db == _db
+            assert work == _work
+            assert result == annotator
+            assert "a URL" == url
+            assert feed_class == _feed_class
 
             # The only keyword argument is an extra argument propagated from
             # the single_item_feed call.
-            eq_('value', kwargs.pop('extra_arg'))
+            assert 'value' == kwargs.pop('extra_arg')
 
             # Return the MockAnnotator for further examination.
             return result
@@ -1786,33 +1780,33 @@ class TestLibraryLoanAndHoldAnnotator(DatabaseTest):
         # Everything tested by test_annotator happened, but _also_,
         # when the annotator was created, the Loan was stored in
         # active_loans_by_work.
-        eq_({work : loan}, annotator.active_loans_by_work)
+        assert {work : loan} == annotator.active_loans_by_work
 
         # Since we passed in a loan rather than a hold,
         # active_holds_by_work is empty.
-        eq_({}, annotator.active_holds_by_work)
+        assert {} == annotator.active_holds_by_work
 
         # Since we didn't pass in a fulfillment for the loan,
         # active_fulfillments_by_work is empty.
-        eq_({}, annotator.active_fulfillments_by_work)
+        assert {} == annotator.active_fulfillments_by_work
 
         # Now try it again, but give the loan a fulfillment.
         fulfillment = object()
         annotator = test_annotator(loan, fulfillment)
-        eq_({work : loan}, annotator.active_loans_by_work)
-        eq_({work : fulfillment}, annotator.active_fulfillments_by_work)
+        assert {work : loan} == annotator.active_loans_by_work
+        assert {work : fulfillment} == annotator.active_fulfillments_by_work
 
         # Finally, try it with a hold.
         hold, ignore = pool.on_hold_to(patron)
         annotator = test_annotator(hold)
-        eq_({work : hold}, annotator.active_holds_by_work)
-        eq_({}, annotator.active_loans_by_work)
-        eq_({}, annotator.active_fulfillments_by_work)
+        assert {work : hold} == annotator.active_holds_by_work
+        assert {} == annotator.active_loans_by_work
+        assert {} == annotator.active_fulfillments_by_work
 
 
 class TestSharedCollectionAnnotator(DatabaseTest):
-    def setup(self):
-        super(TestSharedCollectionAnnotator, self).setup()
+    def setup_method(self):
+        super(TestSharedCollectionAnnotator, self).setup_method()
         self.work = self._work(with_open_access_download=True)
         self.collection = self._collection()
         self.lane = self._lane(display_name="Fantasy")
@@ -1821,7 +1815,7 @@ class TestSharedCollectionAnnotator(DatabaseTest):
         )
 
     def test_top_level_title(self):
-        eq_(self.collection.name, self.annotator.top_level_title())
+        assert self.collection.name == self.annotator.top_level_title()
 
     def test_feed_url(self):
         feed_url_fantasy = self.annotator.feed_url(self.lane, dict(), dict())
@@ -1854,7 +1848,7 @@ class TestSharedCollectionAnnotator(DatabaseTest):
             except ValueError as e:
                 raise AssertionError
             if link_type:
-                eq_(link_type, link.type)
+                assert link_type == link.type
             return link
 
         if rels:
@@ -1891,9 +1885,9 @@ class TestSharedCollectionAnnotator(DatabaseTest):
         # The open access entry shouldn't have a borrow link, and the licensed entry
         # shouldn't have an open access link.
         links = [x for x in open_access_entry['links'] if x['rel']==OPDSFeed.BORROW_REL]
-        eq_(0, len(links))
+        assert 0 == len(links)
         links = [x for x in licensed_entry['links'] if x['rel']==Hyperlink.OPEN_ACCESS_DOWNLOAD]
-        eq_(0, len(links))
+        assert 0 == len(links)
 
     def test_borrow_link_raises_unfulfillable_work(self):
         edition, pool = self._edition(with_license_pool=True)
@@ -1910,12 +1904,12 @@ class TestSharedCollectionAnnotator(DatabaseTest):
 
         # If there's no way to fulfill the book, borrow_link raises
         # UnfulfillableWork.
-        assert_raises(
+        pytest.raises(
             UnfulfillableWork,
             annotator.borrow_link,
             pool, None, [])
 
-        assert_raises(
+        pytest.raises(
             UnfulfillableWork,
             annotator.borrow_link,
             pool, None, [kindle_mechanism])
@@ -1960,42 +1954,42 @@ class TestSharedCollectionAnnotator(DatabaseTest):
         # Fulfill, open access, revoke, and loan info.
         [revoke, fulfill, open_access, info] = sorted(loan1_links, key=lambda x: x.attrib.get("rel"))
         assert 'shared_collection_revoke_loan' in revoke.attrib.get("href")
-        eq_('http://librarysimplified.org/terms/rel/revoke', revoke.attrib.get("rel"))
+        assert 'http://librarysimplified.org/terms/rel/revoke' == revoke.attrib.get("rel")
         assert "shared_collection_fulfill" in fulfill.attrib.get("href")
-        eq_('http://opds-spec.org/acquisition', fulfill.attrib.get("rel"))
-        eq_(work1.license_pools[0].delivery_mechanisms[0].resource.representation.mirror_url, open_access.attrib.get("href"))
-        eq_('http://opds-spec.org/acquisition/open-access', open_access.attrib.get("rel"))
+        assert 'http://opds-spec.org/acquisition' == fulfill.attrib.get("rel")
+        assert work1.license_pools[0].delivery_mechanisms[0].resource.representation.mirror_url == open_access.attrib.get("href")
+        assert 'http://opds-spec.org/acquisition/open-access' == open_access.attrib.get("rel")
         assert 'shared_collection_loan_info' in info.attrib.get("href")
-        eq_("self", info.attrib.get("rel"))
+        assert "self" == info.attrib.get("rel")
 
         loan2_links = annotator.acquisition_links(
             loan2.license_pool, loan2, None, None, feed, loan2.license_pool.identifier)
         # Fulfill, revoke, and loan info.
         [revoke, fulfill, info] = sorted(loan2_links, key=lambda x: x.attrib.get("rel"))
         assert 'shared_collection_revoke_loan' in revoke.attrib.get("href")
-        eq_('http://librarysimplified.org/terms/rel/revoke', revoke.attrib.get("rel"))
+        assert 'http://librarysimplified.org/terms/rel/revoke' == revoke.attrib.get("rel")
         assert "shared_collection_fulfill" in fulfill.attrib.get("href")
-        eq_('http://opds-spec.org/acquisition', fulfill.attrib.get("rel"))
+        assert 'http://opds-spec.org/acquisition' == fulfill.attrib.get("rel")
         assert 'shared_collection_loan_info' in info.attrib.get("href")
-        eq_("self", info.attrib.get("rel"))
+        assert "self" == info.attrib.get("rel")
 
         hold_links = annotator.acquisition_links(
             hold.license_pool, None, hold, None, feed, hold.license_pool.identifier)
         # Borrow, revoke, and hold info.
         [revoke, borrow, info] = sorted(hold_links, key=lambda x: x.attrib.get("rel"))
         assert 'shared_collection_revoke_hold' in revoke.attrib.get("href")
-        eq_('http://librarysimplified.org/terms/rel/revoke', revoke.attrib.get("rel"))
+        assert 'http://librarysimplified.org/terms/rel/revoke' == revoke.attrib.get("rel")
         assert "shared_collection_borrow" in borrow.attrib.get("href")
-        eq_('http://opds-spec.org/acquisition/borrow', borrow.attrib.get("rel"))
+        assert 'http://opds-spec.org/acquisition/borrow' == borrow.attrib.get("rel")
         assert 'shared_collection_hold_info' in info.attrib.get("href")
-        eq_("self", info.attrib.get("rel"))
+        assert "self" == info.attrib.get("rel")
 
         work4_links = annotator.acquisition_links(
             work4.license_pools[0], None, None, None, feed, work4.license_pools[0].identifier)
         # Borrow only.
         [borrow] = work4_links
         assert "shared_collection_borrow" in borrow.attrib.get("href")
-        eq_('http://opds-spec.org/acquisition/borrow', borrow.attrib.get("rel"))
+        assert 'http://opds-spec.org/acquisition/borrow' == borrow.attrib.get("rel")
 
     def test_single_item_feed(self):
         # Test the generation of single-item OPDS feeds for loans (with and
@@ -2029,8 +2023,8 @@ class TestSharedCollectionAnnotator(DatabaseTest):
             assert isinstance(result, MockAnnotator)
 
             # Let's examine the MockAnnotator itself.
-            eq_(self.collection, result.collection)
-            eq_(test_mode, result.test_mode)
+            assert self.collection == result.collection
+            assert test_mode == result.test_mode
 
             # Now let's see what we did with it after calling its
             # constructor.
@@ -2042,13 +2036,13 @@ class TestSharedCollectionAnnotator(DatabaseTest):
             route, route_kwargs = url_call
 
             # The route is the one we expect.
-            eq_(expect_route, route)
+            assert expect_route == route
 
             # Apart from a few keyword arguments that are always the same,
             # the keyword arguments are the ones we expect.
-            eq_(self.collection.name, route_kwargs.pop('collection_name'))
-            eq_(True, route_kwargs.pop('_external'))
-            eq_(expect_route_kwargs, route_kwargs)
+            assert self.collection.name == route_kwargs.pop('collection_name')
+            assert True == route_kwargs.pop('_external')
+            assert expect_route_kwargs == route_kwargs
 
             # The return value of that was the string "a URL". We then
             # passed that into _single_entry_response, along with
@@ -2057,15 +2051,15 @@ class TestSharedCollectionAnnotator(DatabaseTest):
             (_db, _work, annotator, url, _feed_class), kwargs = (
                 response_call
             )
-            eq_(self._db, _db)
-            eq_(work, _work)
-            eq_(result, annotator)
-            eq_("a URL", url)
-            eq_(feed_class, _feed_class)
+            assert self._db == _db
+            assert work == _work
+            assert result == annotator
+            assert "a URL" == url
+            assert feed_class == _feed_class
 
             # The only keyword argument is an extra argument propagated from
             # the single_item_feed call.
-            eq_('value', kwargs.pop('extra_arg'))
+            assert 'value' == kwargs.pop('extra_arg')
 
             # Return the MockAnnotator for further examination.
             return result
@@ -2086,15 +2080,15 @@ class TestSharedCollectionAnnotator(DatabaseTest):
         # Everything tested by test_annotator happened, but _also_,
         # when the annotator was created, the Loan was stored in
         # active_loans_by_work.
-        eq_({work : loan}, annotator.active_loans_by_work)
+        assert {work : loan} == annotator.active_loans_by_work
 
         # Since we passed in a loan rather than a hold,
         # active_holds_by_work is empty.
-        eq_({}, annotator.active_holds_by_work)
+        assert {} == annotator.active_holds_by_work
 
         # Since we didn't pass in a fulfillment for the loan,
         # active_fulfillments_by_work is empty.
-        eq_({}, annotator.active_fulfillments_by_work)
+        assert {} == annotator.active_fulfillments_by_work
 
         # Now try it again, but give the loan a fulfillment.
         fulfillment = object()
@@ -2102,8 +2096,8 @@ class TestSharedCollectionAnnotator(DatabaseTest):
             loan, fulfillment, expect_route="shared_collection_loan_info",
             expect_route_kwargs=dict(loan_id=loan.id)
         )
-        eq_({work : loan}, annotator.active_loans_by_work)
-        eq_({work : fulfillment}, annotator.active_fulfillments_by_work)
+        assert {work : loan} == annotator.active_loans_by_work
+        assert {work : fulfillment} == annotator.active_fulfillments_by_work
 
         # Finally, try it with a hold.
         hold, ignore = pool.on_hold_to(patron)
@@ -2111,6 +2105,6 @@ class TestSharedCollectionAnnotator(DatabaseTest):
             hold, None, expect_route="shared_collection_hold_info",
             expect_route_kwargs=dict(hold_id=hold.id)
         )
-        eq_({work : hold}, annotator.active_holds_by_work)
-        eq_({}, annotator.active_loans_by_work)
-        eq_({}, annotator.active_fulfillments_by_work)
+        assert {work : hold} == annotator.active_holds_by_work
+        assert {} == annotator.active_loans_by_work
+        assert {} == annotator.active_fulfillments_by_work

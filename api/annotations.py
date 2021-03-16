@@ -1,4 +1,3 @@
-from nose.tools import set_trace
 from pyld import jsonld
 import json
 from datetime import datetime

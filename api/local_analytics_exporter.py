@@ -1,4 +1,3 @@
-from nose.tools import set_trace
 import logging
 import unicodecsv as csv
 from io import BytesIO
@@ -76,7 +75,7 @@ class LocalAnalyticsExporter(object):
                 CirculationEvent.type.in_(event_types),
                 CirculationEvent.location.in_(locations),
             ]
-        
+
         if library:
             clauses += [
                 CirculationEvent.library == library

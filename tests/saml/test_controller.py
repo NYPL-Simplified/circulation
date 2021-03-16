@@ -3,7 +3,6 @@ import urllib
 
 from flask import request
 from mock import MagicMock, PropertyMock, create_autospec
-from nose.tools import eq_
 from parameterized import parameterized
 from six.moves.urllib.parse import parse_qs, urlsplit
 
@@ -223,12 +222,11 @@ class TestSAMLController(ControllerTest):
             # Assert
             if expected_problem:
                 assert isinstance(result, ProblemDetail)
-                eq_(result.response, expected_problem.response)
+                assert result.response == expected_problem.response
             else:
-                eq_(302, result.status_code)
-                eq_(
-                    expected_authentication_redirect_uri, result.headers.get("Location")
-                )
+                assert 302 == result.status_code
+                assert (
+                    expected_authentication_redirect_uri == result.headers.get("Location"))
 
                 authentication_manager.start_authentication.assert_called_once_with(
                     self._db, idp_entity_id, expected_relay_state
@@ -406,7 +404,7 @@ class TestSAMLController(ControllerTest):
             if isinstance(finish_authentication_result, ProblemDetail) or isinstance(
                 saml_callback_result, ProblemDetail
             ):
-                eq_(result.status_code, 302)
+                assert result.status_code == 302
 
                 query_items = parse_qs(urlsplit(result.location).query)
 
@@ -420,18 +418,17 @@ class TestSAMLController(ControllerTest):
                     if finish_authentication_result
                     else saml_callback_result
                 )
-                eq_(error["type"], problem.uri),
-                eq_(error["status"], problem.status_code)
-                eq_(error["title"], problem.title)
-                eq_(error["detail"], problem.detail)
+                assert error["type"] == problem.uri
+                assert error["status"] == problem.status_code
+                assert error["title"] == problem.title
+                assert error["detail"] == problem.detail
             elif expected_problem:
                 assert isinstance(result, ProblemDetail)
-                eq_(result.response, expected_problem.response)
+                assert result.response == expected_problem.response
             else:
-                eq_(result.status_code, 302)
-                eq_(
-                    result.headers.get("Location"), expected_authentication_redirect_uri
-                )
+                assert result.status_code == 302
+                assert (
+                    result.headers.get("Location") == expected_authentication_redirect_uri)
 
                 authentication_manager.finish_authentication.assert_called_once_with(
                     self._db, IDENTITY_PROVIDERS[0].entity_id

@@ -1,8 +1,4 @@
-from nose.tools import (
-    eq_,
-    assert_raises_regexp,
-    set_trace,
-)
+import pytest
 import json
 
 from api.authenticator import PatronData
@@ -15,7 +11,7 @@ from api.config import (
     CannotLoadConfiguration,
 )
 
-from . import DatabaseTest
+from core.testing import DatabaseTest
 
 class TestSimpleAuth(DatabaseTest):
 
@@ -23,25 +19,23 @@ class TestSimpleAuth(DatabaseTest):
         p = SimpleAuthenticationProvider
         integration = self._external_integration(self._str)
 
-        assert_raises_regexp(
-            CannotLoadConfiguration,
-            "Test identifier and password not set.",
-            p, self._default_library, integration
-        )
+        with pytest.raises(CannotLoadConfiguration) as excinfo:
+            p(self._default_library, integration)
+        assert "Test identifier and password not set." in str(excinfo.value)
 
         integration.setting(p.TEST_IDENTIFIER).value = "barcode"
         integration.setting(p.TEST_PASSWORD).value = "pass"
         provider = p(self._default_library, integration)
 
-        eq_(None, provider.remote_authenticate("user", "wrongpass"))
-        eq_(None, provider.remote_authenticate("user", None))
-        eq_(None, provider.remote_authenticate(None, "pass"))
+        assert None == provider.remote_authenticate("user", "wrongpass")
+        assert None == provider.remote_authenticate("user", None)
+        assert None == provider.remote_authenticate(None, "pass")
         user = provider.remote_authenticate("barcode", "pass")
         assert isinstance(user, PatronData)
-        eq_("barcode", user.authorization_identifier)
-        eq_("barcode_id", user.permanent_id)
-        eq_("barcode_username", user.username)
-        eq_(None, user.neighborhood)
+        assert "barcode" == user.authorization_identifier
+        assert "barcode_id" == user.permanent_id
+        assert "barcode_username" == user.username
+        assert None == user.neighborhood
 
         # For the next test, set the test neighborhood.
         integration.setting(p.TEST_NEIGHBORHOOD).value = "neighborhood"
@@ -49,8 +43,8 @@ class TestSimpleAuth(DatabaseTest):
 
         # User can also authenticate by their 'username'
         user2 = provider.remote_authenticate("barcode_username", "pass")
-        eq_("barcode", user2.authorization_identifier)
-        eq_("neighborhood", user2.neighborhood)
+        assert "barcode" == user2.authorization_identifier
+        assert "neighborhood" == user2.neighborhood
 
     def test_no_password_authentication(self):
         """The SimpleAuthenticationProvider can be made even
@@ -68,51 +62,49 @@ class TestSimpleAuth(DatabaseTest):
         assert isinstance(user, PatronData)
 
         user2 =  provider.remote_authenticate("barcode", '')
-        eq_(user2.authorization_identifier, user.authorization_identifier)
+        assert user2.authorization_identifier == user.authorization_identifier
 
         # If you provide any password, you're out.
-        eq_(None, provider.remote_authenticate("barcode", "pass"))
+        assert None == provider.remote_authenticate("barcode", "pass")
 
     def test_additional_identifiers(self):
         p = SimpleAuthenticationProvider
         integration = self._external_integration(self._str)
 
-        assert_raises_regexp(
-            CannotLoadConfiguration,
-            "Test identifier and password not set.",
-            p, self._default_library, integration
-        )
+        with pytest.raises(CannotLoadConfiguration) as excinfo:
+            p(self._default_library, integration)
+        assert "Test identifier and password not set." in str(excinfo.value)
 
         integration.setting(p.TEST_IDENTIFIER).value = "barcode"
         integration.setting(p.TEST_PASSWORD).value = "pass"
         integration.setting(p.ADDITIONAL_TEST_IDENTIFIERS).value = json.dumps(["a", "b", "c"])
         provider = p(self._default_library, integration)
 
-        eq_(None, provider.remote_authenticate("a", None))
-        eq_(None, provider.remote_authenticate(None, "pass"))
+        assert None == provider.remote_authenticate("a", None)
+        assert None == provider.remote_authenticate(None, "pass")
 
         user = provider.remote_authenticate("a", "pass")
         assert isinstance(user, PatronData)
-        eq_("a", user.authorization_identifier)
-        eq_("a_id", user.permanent_id)
-        eq_("a_username", user.username)
+        assert "a" == user.authorization_identifier
+        assert "a_id" == user.permanent_id
+        assert "a_username" == user.username
 
         user2 = provider.remote_authenticate("b", "pass")
         assert isinstance(user, PatronData)
-        eq_("b", user2.authorization_identifier)
-        eq_("b_id", user2.permanent_id)
-        eq_("b_username", user2.username)
+        assert "b" == user2.authorization_identifier
+        assert "b_id" == user2.permanent_id
+        assert "b_username" == user2.username
 
         # Users can also authenticate by their 'username'
         user3 = provider.remote_authenticate("a_username", "pass")
-        eq_("a", user3.authorization_identifier)
+        assert "a" == user3.authorization_identifier
 
         user4 = provider.remote_authenticate("b_username", "pass")
-        eq_("b", user4.authorization_identifier)
+        assert "b" == user4.authorization_identifier
 
         # The main user can still authenticate too.
         user5 = provider.remote_authenticate("barcode", "pass")
-        eq_("barcode", user5.authorization_identifier)
+        assert "barcode" == user5.authorization_identifier
 
     def test_generate_patrondata(self):
 
@@ -120,23 +112,23 @@ class TestSimpleAuth(DatabaseTest):
 
         #Pass in numeric barcode as identifier
         result = m("1234")
-        eq_(result.permanent_id, "1234_id")
-        eq_(result.authorization_identifier, '1234')
-        eq_(result.personal_name, "PersonalName1234")
-        eq_(result.username, '1234_username')
-        eq_(result.neighborhood, None)
+        assert result.permanent_id == "1234_id"
+        assert result.authorization_identifier == '1234'
+        assert result.personal_name == "PersonalName1234"
+        assert result.username == '1234_username'
+        assert result.neighborhood == None
 
         #Pass in username as identifier
         result = m("1234_username")
-        eq_(result.permanent_id, "1234_id")
-        eq_(result.authorization_identifier, '1234')
-        eq_(result.personal_name, "PersonalName1234")
-        eq_(result.username, '1234_username')
-        eq_(result.neighborhood, None)
+        assert result.permanent_id == "1234_id"
+        assert result.authorization_identifier == '1234'
+        assert result.personal_name == "PersonalName1234"
+        assert result.username == '1234_username'
+        assert result.neighborhood == None
 
         # Pass in a neighborhood.
         result = m("1234", "Echo Park")
-        eq_(result.neighborhood, "Echo Park")
+        assert result.neighborhood == "Echo Park"
 
     def test__remote_patron_lookup(self):
         p = SimpleAuthenticationProvider
@@ -150,17 +142,17 @@ class TestSimpleAuth(DatabaseTest):
         patron.authorization_identifier = "barcode"
 
         #Returns None if nothing is passed in
-        eq_(provider._remote_patron_lookup(None), None)
+        assert provider._remote_patron_lookup(None) == None
 
         #Returns a patron if a patron is passed in and something is found
         result = provider._remote_patron_lookup(patron)
-        eq_(result.permanent_id, "barcode_id")
+        assert result.permanent_id == "barcode_id"
 
         #Returns None if no patron is found
         patron.authorization_identifier = "wrong barcode"
         result = provider._remote_patron_lookup(patron)
-        eq_(result, None)
+        assert result == None
 
         #Returns a patron if a PatronData object is passed in and something is found
         result = provider._remote_patron_lookup(patron_data)
-        eq_(result.permanent_id, "barcode_id")
+        assert result.permanent_id == "barcode_id"

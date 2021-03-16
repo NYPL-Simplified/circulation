@@ -1,13 +1,8 @@
 # encoding: utf-8
 import json
 
-from nose.tools import (
-    assert_raises_regexp,
-    eq_,
-    ok_,
-    assert_raises,
-    set_trace
-)
+import pytest
+
 
 import datetime
 import os
@@ -32,10 +27,7 @@ from api.circulation import (
 
 from api.circulation_exceptions import *
 
-from . import (
-    DatabaseTest,
-    sample_data
-)
+from . import sample_data
 
 from core.metadata_layer import TimestampData
 
@@ -61,8 +53,8 @@ class OdiloAPITest(DatabaseTest):
     PIN = 'c4ca4238a0b923820dcc509a6f75849b'
     RECORD_ID = '00010982'
 
-    def setup(self):
-        super(OdiloAPITest, self).setup()
+    def setup_method(self):
+        super(OdiloAPITest, self).setup_method()
         library = self._default_library
         self.patron = self._patron()
         self.patron.authorization_identifier='0001000265'
@@ -104,19 +96,19 @@ class TestOdiloAPI(OdiloAPITest):
     def test_token_post_success(self):
         self.api.queue_response(200, content="some content")
         response = self.api.token_post(self._url, "the payload")
-        eq_(200, response.status_code, msg="Status code != 200 --> %i" % response.status_code)
-        eq_(self.api.access_token_response.content, response.content)
+        assert 200 == response.status_code, "Status code != 200 --> %i" % response.status_code
+        assert self.api.access_token_response.content == response.content
         self.api.log.info('Test token post success ok!')
 
     def test_get_success(self):
         self.api.queue_response(200, content="some content")
         status_code, headers, content = self.api.get(self._url, {})
-        eq_(200, status_code)
-        eq_("some content", content)
+        assert 200 == status_code
+        assert "some content" == content
         self.api.log.info('Test get success ok!')
 
     def test_401_on_get_refreshes_bearer_token(self):
-        eq_("bearer token", self.api.token)
+        assert "bearer token" == self.api.token
 
         # We try to GET and receive a 401.
         self.api.queue_response(401)
@@ -133,11 +125,11 @@ class TestOdiloAPI(OdiloAPITest):
 
         status_code, headers, content = self.api.get(self._url, {})
 
-        eq_(200, status_code)
-        eq_("at last, the content", content)
+        assert 200 == status_code
+        assert "at last, the content" == content
 
         # The bearer token has been updated.
-        eq_("new bearer token", self.api.token)
+        assert "new bearer token" == self.api.token
 
         self.api.log.info('Test 401 on get refreshes bearer token ok!')
 
@@ -145,21 +137,21 @@ class TestOdiloAPI(OdiloAPITest):
         """Verify the process of refreshing the Odilo bearer token.
         """
         credential = self.api.credential_object(lambda x: x)
-        eq_("bearer token", credential.credential)
-        eq_(self.api.token, credential.credential)
+        assert "bearer token" == credential.credential
+        assert self.api.token == credential.credential
 
         self.api.access_token_response = self.api.mock_access_token_response(
             "new bearer token"
         )
         self.api.refresh_creds(credential)
-        eq_("new bearer token", credential.credential)
-        eq_(self.api.token, credential.credential)
+        assert "new bearer token" == credential.credential
+        assert self.api.token == credential.credential
 
         # By default, the access token's 'expiresIn' value is -1,
         # indicating that the token will never expire.
         #
         # To reflect this fact, credential.expires is set to None.
-        eq_(None, credential.expires)
+        assert None == credential.expires
 
         # But a token may specify a specific expiration time,
         # which is used to set a future value for credential.expires.
@@ -167,8 +159,8 @@ class TestOdiloAPI(OdiloAPITest):
             "new bearer token 2", 1000
         )
         self.api.refresh_creds(credential)
-        eq_("new bearer token 2", credential.credential)
-        eq_(self.api.token, credential.credential)
+        assert "new bearer token 2" == credential.credential
+        assert self.api.token == credential.credential
         assert credential.expires > datetime.datetime.utcnow()
 
     def test_credential_refresh_failure(self):
@@ -181,12 +173,10 @@ class TestOdiloAPI(OdiloAPITest):
             "Hi, this is the website, not the API."
         )
         credential = self.api.credential_object(lambda x: x)
-        assert_raises_regexp(
-            BadResponseException,
-            "Bad response from .*: .* may not be the right base URL. Response document was: 'Hi, this is the website, not the API.'",
-            self.api.refresh_creds,
-            credential
-        )
+        with pytest.raises(BadResponseException) as excinfo:
+            self.api.refresh_creds(credential)
+        assert "Bad response from " in str(excinfo.value)
+        assert "may not be the right base URL. Response document was: 'Hi, this is the website, not the API.'" in str(excinfo.value)
 
         # Also test a 400 response code.
         self.api.access_token_response = MockRequestsResponse(
@@ -194,11 +184,10 @@ class TestOdiloAPI(OdiloAPITest):
 
             json.dumps(dict(errors=[dict(description="Oops")]))
         )
-        assert_raises_regexp(
-            BadResponseException, "Bad response from .*: Oops",
-            self.api.refresh_creds,
-            credential
-        )
+        with pytest.raises(BadResponseException) as excinfo:
+            self.api.refresh_creds(credential)
+        assert "Bad response from" in str(excinfo.value)
+        assert "Oops" in str(excinfo.value)
 
         # If there's a 400 response but no error information,
         # the generic error message is used.
@@ -207,14 +196,13 @@ class TestOdiloAPI(OdiloAPITest):
 
             json.dumps(dict())
         )
-        assert_raises_regexp(
-            BadResponseException, "Bad response from .*: .* may not be the right base URL.",
-            self.api.refresh_creds,
-            credential
-        )
+        with pytest.raises(BadResponseException) as excinfo:
+            self.api.refresh_creds(credential)
+        assert "Bad response from" in str(excinfo.value)
+        assert "may not be the right base URL." in str(excinfo.value)
 
     def test_401_after_token_refresh_raises_error(self):
-        eq_("bearer token", self.api.token)
+        assert "bearer token" == self.api.token
 
         # We try to GET and receive a 401.
         self.api.queue_response(401)
@@ -228,14 +216,15 @@ class TestOdiloAPI(OdiloAPITest):
         self.api.queue_response(401)
 
         # That raises a BadResponseException
-        assert_raises_regexp(
-            BadResponseException, "Bad response from .*:Something's wrong with the Odilo OAuth Bearer Token!",
-        )
+        with pytest.raises(BadResponseException) as excinfo:
+            self.api.get(self._url, {})
+        assert "Something's wrong with the Odilo OAuth Bearer Token!" in str(excinfo.value)
 
-        self.api.log.info('Test 401 after token refresh raises error ok!')
+        # The bearer token has been updated.
+        assert "new bearer token" == self.api.token
 
     def test_external_integration(self):
-        eq_(self.collection.external_integration,
+        assert (self.collection.external_integration ==
             self.api.external_integration(self._db))
 
     def test__run_self_tests(self):
@@ -294,31 +283,29 @@ class TestOdiloAPI(OdiloAPITest):
         #
 
         # We got a sitewide access token.
-        eq_('Obtaining a sitewide access token', sitewide.name)
-        eq_(True, sitewide.success)
-        eq_(api.mock_credential, sitewide.result)
-        eq_(True, api.check_creds_called_with)
+        assert 'Obtaining a sitewide access token' == sitewide.name
+        assert True == sitewide.success
+        assert api.mock_credential == sitewide.result
+        assert True == api.check_creds_called_with
 
         # We got the default patron's checkouts for the library that had
         # a default patron configured.
-        eq_(
-            'Viewing the active loans for the test patron for library %s' % with_default_patron.name,
-            loans_success.name
-        )
-        eq_(True, loans_success.success)
+        assert (
+            'Viewing the active loans for the test patron for library %s' % with_default_patron.name ==
+            loans_success.name)
+        assert True == loans_success.success
         # get_patron_checkouts was only called once.
         [(patron, pin)] = api.get_patron_checkouts_called_with
-        eq_("username1", patron.authorization_identifier)
-        eq_("password1", pin)
-        eq_(api.mock_patron_checkouts, loans_success.result)
+        assert "username1" == patron.authorization_identifier
+        assert "password1" == pin
+        assert api.mock_patron_checkouts == loans_success.result
 
         # We couldn't get a patron access token for the other library.
-        eq_(
-            'Acquiring test patron credentials for library %s' % no_default_patron.name,
-            loans_failure.name
-        )
-        eq_(False, loans_failure.success)
-        eq_("Library has no test patron configured.",
+        assert (
+            'Acquiring test patron credentials for library %s' % no_default_patron.name ==
+            loans_failure.name)
+        assert False == loans_failure.success
+        assert ("Library has no test patron configured." ==
             loans_failure.exception.message)
 
     def test_run_self_tests_short_circuit(self):
@@ -334,7 +321,7 @@ class TestOdiloAPI(OdiloAPITest):
 
         # Only one test will be run.
         [check_creds] = self.api._run_self_tests(self._db)
-        eq_("Failure!", check_creds.exception.message)
+        assert "Failure!" == check_creds.exception.message
 
 
 class TestOdiloCirculationAPI(OdiloAPITest):
@@ -349,7 +336,7 @@ class TestOdiloCirculationAPI(OdiloAPITest):
 
         patron = self._patron()
         patron.authorization_identifier = "no such patron"
-        assert_raises(PatronNotFoundOnRemote, self.api.checkout, patron, self.PIN, self.licensepool, 'ACSM_EPUB')
+        pytest.raises(PatronNotFoundOnRemote, self.api.checkout, patron, self.PIN, self.licensepool, 'ACSM_EPUB')
         self.api.log.info('Test patron not found ok!')
 
     # Test 404 Not Found --> record not found --> 'ERROR_DATA_NOT_FOUND'
@@ -358,7 +345,7 @@ class TestOdiloCirculationAPI(OdiloAPITest):
         self.api.queue_response(404, content=data_not_found_json)
 
         self.licensepool.identifier.identifier = '12345678'
-        assert_raises(NotFoundOnRemote, self.api.checkout, self.patron, self.PIN, self.licensepool, 'ACSM_EPUB')
+        pytest.raises(NotFoundOnRemote, self.api.checkout, self.patron, self.PIN, self.licensepool, 'ACSM_EPUB')
         self.api.log.info('Test resource not found on remote ok!')
 
     def test_make_absolute_url(self):
@@ -366,12 +353,12 @@ class TestOdiloCirculationAPI(OdiloAPITest):
         # A relative URL is made absolute using the API's base URL.
         relative = "/relative-url"
         absolute = self.api._make_absolute_url(relative)
-        eq_(absolute, self.api.library_api_base_url + relative)
+        assert absolute == self.api.library_api_base_url + relative
 
         # An absolute URL is not modified.
         for protocol in ('http', 'https'):
             already_absolute = "%s://example.com/" % protocol
-            eq_(already_absolute, self.api._make_absolute_url(already_absolute))
+            assert already_absolute == self.api._make_absolute_url(already_absolute)
 
 
     #################
@@ -381,7 +368,7 @@ class TestOdiloCirculationAPI(OdiloAPITest):
     # Test 400 Bad Request --> Invalid format for that resource
     def test_11_checkout_fake_format(self):
         self.api.queue_response(400, content="")
-        assert_raises(NoAcceptableFormat, self.api.checkout, self.patron, self.PIN, self.licensepool, 'FAKE_FORMAT')
+        pytest.raises(NoAcceptableFormat, self.api.checkout, self.patron, self.PIN, self.licensepool, 'FAKE_FORMAT')
         self.api.log.info('Test invalid format for resource ok!')
 
     def test_12_checkout_acsm_epub(self):
@@ -401,11 +388,11 @@ class TestOdiloCirculationAPI(OdiloAPITest):
 
     def test_mechanism_set_on_borrow(self):
         """The delivery mechanism for an Odilo title is set on checkout."""
-        eq_(OdiloAPI.SET_DELIVERY_MECHANISM_AT, OdiloAPI.BORROW_STEP)
+        assert OdiloAPI.SET_DELIVERY_MECHANISM_AT == OdiloAPI.BORROW_STEP
 
     def perform_and_validate_checkout(self, internal_format):
         loan_info = self.api.checkout(self.patron, self.PIN, self.licensepool, internal_format)
-        ok_(loan_info, msg="LoanInfo null --> checkout failed!")
+        assert loan_info, "LoanInfo null --> checkout failed!"
         self.api.log.info('Loan ok: %s' % loan_info.identifier)
 
     #################
@@ -420,8 +407,8 @@ class TestOdiloCirculationAPI(OdiloAPITest):
         self.api.queue_response(200, content=acsm_data)
 
         fulfillment_info = self.fulfill('ACSM_EPUB')
-        eq_(fulfillment_info.content_type[0], Representation.EPUB_MEDIA_TYPE)
-        eq_(fulfillment_info.content_type[1], DeliveryMechanism.ADOBE_DRM)
+        assert fulfillment_info.content_type[0] == Representation.EPUB_MEDIA_TYPE
+        assert fulfillment_info.content_type[1] == DeliveryMechanism.ADOBE_DRM
 
     def test_22_fulfill_acsm_pdf(self):
         checkout_data, checkout_json = self.sample_json("patron_checkouts.json")
@@ -431,8 +418,8 @@ class TestOdiloCirculationAPI(OdiloAPITest):
         self.api.queue_response(200, content=acsm_data)
 
         fulfillment_info = self.fulfill('ACSM_PDF')
-        eq_(fulfillment_info.content_type[0], Representation.PDF_MEDIA_TYPE)
-        eq_(fulfillment_info.content_type[1], DeliveryMechanism.ADOBE_DRM)
+        assert fulfillment_info.content_type[0] == Representation.PDF_MEDIA_TYPE
+        assert fulfillment_info.content_type[1] == DeliveryMechanism.ADOBE_DRM
 
     def test_23_fulfill_ebook_streaming(self):
         checkout_data, checkout_json = self.sample_json("patron_checkouts.json")
@@ -440,12 +427,12 @@ class TestOdiloCirculationAPI(OdiloAPITest):
 
         self.licensepool.identifier.identifier = '00011055'
         fulfillment_info = self.fulfill('EBOOK_STREAMING')
-        eq_(fulfillment_info.content_type[0], Representation.TEXT_HTML_MEDIA_TYPE)
-        eq_(fulfillment_info.content_type[1], DeliveryMechanism.STREAMING_TEXT_CONTENT_TYPE)
+        assert fulfillment_info.content_type[0] == Representation.TEXT_HTML_MEDIA_TYPE
+        assert fulfillment_info.content_type[1] == DeliveryMechanism.STREAMING_TEXT_CONTENT_TYPE
 
     def fulfill(self, internal_format):
         fulfillment_info = self.api.fulfill(self.patron, self.PIN, self.licensepool, internal_format)
-        ok_(fulfillment_info, msg='Cannot Fulfill !!')
+        assert fulfillment_info, 'Cannot Fulfill !!'
 
         if fulfillment_info.content_link:
             self.api.log.info('Fulfill link: %s' % fulfillment_info.content_link)
@@ -462,7 +449,7 @@ class TestOdiloCirculationAPI(OdiloAPITest):
         already_on_hold_data, already_on_hold_json = self.sample_json("error_hold_already_in_hold.json")
         self.api.queue_response(403, content=already_on_hold_json)
 
-        assert_raises(AlreadyOnHold, self.api.place_hold, self.patron, self.PIN, self.licensepool,
+        pytest.raises(AlreadyOnHold, self.api.place_hold, self.patron, self.PIN, self.licensepool,
                       'ejcepas@odilotid.es')
 
         self.api.log.info('Test hold already on hold ok!')
@@ -472,7 +459,7 @@ class TestOdiloCirculationAPI(OdiloAPITest):
         self.api.queue_response(200, content=hold_ok_json)
 
         hold_info = self.api.place_hold(self.patron, self.PIN, self.licensepool, 'ejcepas@odilotid.es')
-        ok_(hold_info, msg="HoldInfo null --> place hold failed!")
+        assert hold_info, "HoldInfo null --> place hold failed!"
         self.api.log.info('Hold ok: %s' % hold_info.identifier)
 
     #################
@@ -483,7 +470,7 @@ class TestOdiloCirculationAPI(OdiloAPITest):
         patron_not_found_data, patron_not_found_json = self.sample_json("error_patron_not_found.json")
         self.api.queue_response(404, content=patron_not_found_json)
 
-        assert_raises(PatronNotFoundOnRemote, self.api.patron_activity, self.patron, self.PIN)
+        pytest.raises(PatronNotFoundOnRemote, self.api.patron_activity, self.patron, self.PIN)
 
         self.api.log.info('Test patron activity --> invalid patron ok!')
 
@@ -494,8 +481,8 @@ class TestOdiloCirculationAPI(OdiloAPITest):
         self.api.queue_response(200, content=patron_holds_json)
 
         loans_and_holds = self.api.patron_activity(self.patron, self.PIN)
-        ok_(loans_and_holds)
-        eq_(12, len(loans_and_holds))
+        assert loans_and_holds
+        assert 12 == len(loans_and_holds)
         self.api.log.info('Test patron activity ok !!')
 
     #################
@@ -506,7 +493,7 @@ class TestOdiloCirculationAPI(OdiloAPITest):
         patron_not_found_data, patron_not_found_json = self.sample_json("error_patron_not_found.json")
         self.api.queue_response(404, content=patron_not_found_json)
 
-        assert_raises(PatronNotFoundOnRemote, self.api.checkin, self.patron, self.PIN, self.licensepool)
+        pytest.raises(PatronNotFoundOnRemote, self.api.checkin, self.patron, self.PIN, self.licensepool)
 
         self.api.log.info('Test checkin --> invalid patron ok!')
 
@@ -514,7 +501,7 @@ class TestOdiloCirculationAPI(OdiloAPITest):
         checkout_not_found_data, checkout_not_found_json = self.sample_json("error_checkout_not_found.json")
         self.api.queue_response(404, content=checkout_not_found_json)
 
-        assert_raises(NotCheckedOut, self.api.checkin, self.patron, self.PIN, self.licensepool)
+        pytest.raises(NotCheckedOut, self.api.checkin, self.patron, self.PIN, self.licensepool)
 
         self.api.log.info('Test checkin --> invalid checkout ok!')
 
@@ -526,14 +513,14 @@ class TestOdiloCirculationAPI(OdiloAPITest):
         self.api.queue_response(200, content=checkin_json)
 
         response = self.api.checkin(self.patron, self.PIN, self.licensepool)
-        eq_(response.status_code, 200,
-            msg="Response code != 200, cannot perform checkin for record: " + self.licensepool.identifier.identifier
-                + " patron: " + self.patron.authorization_identifier)
+        assert response.status_code == 200, \
+            "Response code != 200, cannot perform checkin for record: " \
+            + self.licensepool.identifier.identifier + " patron: " + self.patron.authorization_identifier
 
         checkout_returned = response.json()
 
-        ok_(checkout_returned)
-        eq_('4318', checkout_returned['id'])
+        assert checkout_returned
+        assert '4318' == checkout_returned['id']
         self.api.log.info('Checkout returned: %s' % checkout_returned['id'])
 
     #################
@@ -544,7 +531,7 @@ class TestOdiloCirculationAPI(OdiloAPITest):
         patron_not_found_data, patron_not_found_json = self.sample_json("error_patron_not_found.json")
         self.api.queue_response(404, content=patron_not_found_json)
 
-        assert_raises(PatronNotFoundOnRemote, self.api.release_hold, self.patron, self.PIN, self.licensepool)
+        pytest.raises(PatronNotFoundOnRemote, self.api.release_hold, self.patron, self.PIN, self.licensepool)
 
         self.api.log.info('Test release hold --> invalid patron ok!')
 
@@ -556,9 +543,9 @@ class TestOdiloCirculationAPI(OdiloAPITest):
         self.api.queue_response(404, content=checkin_json)
 
         response = self.api.release_hold(self.patron, self.PIN, self.licensepool)
-        eq_(response, True,
-            msg="Cannot release hold, response false " + self.licensepool.identifier.identifier + " patron: "
-                + self.patron.authorization_identifier)
+        assert response == True, \
+            "Cannot release hold, response false " \
+            + self.licensepool.identifier.identifier + " patron: " + self.patron.authorization_identifier
 
         self.api.log.info('Hold returned: %s' % self.licensepool.identifier.identifier)
 
@@ -570,9 +557,9 @@ class TestOdiloCirculationAPI(OdiloAPITest):
         self.api.queue_response(200, content=release_hold_ok_json)
 
         response = self.api.release_hold(self.patron, self.PIN, self.licensepool)
-        eq_(response, True,
-            msg="Cannot release hold, response false " + self.licensepool.identifier.identifier + " patron: "
-                + self.patron.authorization_identifier)
+        assert response == True, \
+            "Cannot release hold, response false " \
+            + self.licensepool.identifier.identifier + " patron: " + self.patron.authorization_identifier
 
         self.api.log.info('Hold returned: %s' % self.licensepool.identifier.identifier)
 
@@ -590,13 +577,13 @@ class TestOdiloDiscoveryAPI(OdiloAPITest):
         # a modification_date of None.
         monitor = Mock(self._db, self.collection, api_class=MockOdiloAPI)
         monitor.run()
-        eq_(None, monitor.called_with)
+        assert None == monitor.called_with
         progress = monitor.timestamp()
         completed = progress.finish
 
         # The return value of all_ids() is used to populate the
         # achievements field.
-        eq_("Updated records: 30. New records: 15.", progress.achievements)
+        assert "Updated records: 30. New records: 15." == progress.achievements
 
         # The second time run() is called, all_ids() is called with a
         # modification date five minutes earlier than the completion
@@ -610,8 +597,8 @@ class TestOdiloDiscoveryAPI(OdiloAPITest):
         # a date. It doesn't test anything about all_ids except the
         # return value.
         monitor = OdiloCirculationMonitor(self._db, self.collection, api_class=MockOdiloAPI)
-        ok_(monitor, 'Monitor null !!')
-        eq_(ExternalIntegration.ODILO, monitor.protocol, 'Wat??')
+        assert monitor, 'Monitor null !!'
+        assert ExternalIntegration.ODILO == monitor.protocol, 'Wat??'
 
         records_metadata_data, records_metadata_json = self.sample_json("records_metadata.json")
         monitor.api.queue_response(200, content=records_metadata_data)
@@ -624,8 +611,8 @@ class TestOdiloDiscoveryAPI(OdiloAPITest):
 
         timestamp = TimestampData(start=datetime.datetime(2017, 9, 1))
         updated, new = monitor.all_ids(None)
-        eq_(10, updated)
-        eq_(10, new)
+        assert 10 == updated
+        assert 10 == new
 
         self.api.log.info('Odilo circulation monitor with date finished ok!!')
 
@@ -635,8 +622,8 @@ class TestOdiloDiscoveryAPI(OdiloAPITest):
         # return value.
 
         monitor = OdiloCirculationMonitor(self._db, self.collection, api_class=MockOdiloAPI)
-        ok_(monitor, 'Monitor null !!')
-        eq_(ExternalIntegration.ODILO, monitor.protocol, 'Wat??')
+        assert monitor, 'Monitor null !!'
+        assert ExternalIntegration.ODILO == monitor.protocol, 'Wat??'
 
         records_metadata_data, records_metadata_json = self.sample_json("records_metadata.json")
         monitor.api.queue_response(200, content=records_metadata_data)
@@ -648,14 +635,14 @@ class TestOdiloDiscoveryAPI(OdiloAPITest):
         monitor.api.queue_response(200, content='[]')  # No more resources retrieved
 
         updated, new = monitor.all_ids(datetime.datetime(2017, 9, 1))
-        eq_(10, updated)
-        eq_(10, new)
+        assert 10 == updated
+        assert 10 == new
 
         self.api.log.info('Odilo circulation monitor without date finished ok!!')
 
 class TestOdiloBibliographicCoverageProvider(OdiloAPITest):
-    def setup(self):
-        super(TestOdiloBibliographicCoverageProvider, self).setup()
+    def setup_method(self):
+        super(TestOdiloBibliographicCoverageProvider, self).setup_method()
         self.provider = OdiloBibliographicCoverageProvider(
             self.collection, api_class=MockOdiloAPI
         )
@@ -670,26 +657,26 @@ class TestOdiloBibliographicCoverageProvider(OdiloAPITest):
         identifier, made_new = self.provider.process_item('00010982')
 
         # Check that the Identifier returned has the right .type and .identifier.
-        ok_(identifier, msg="Problem while testing process item !!!")
-        eq_(identifier.type, Identifier.ODILO_ID)
-        eq_(identifier.identifier, '00010982')
+        assert identifier, "Problem while testing process item !!!"
+        assert identifier.type == Identifier.ODILO_ID
+        assert identifier.identifier == '00010982'
 
         # Check that metadata and availability information were imported properly
         [pool] = identifier.licensed_through
-        eq_("Busy Brownies", pool.work.title)
+        assert "Busy Brownies" == pool.work.title
 
-        eq_(2, pool.licenses_owned)
-        eq_(1, pool.licenses_available)
-        eq_(2, pool.patrons_in_hold_queue)
-        eq_(1, pool.licenses_reserved)
+        assert 2 == pool.licenses_owned
+        assert 1 == pool.licenses_available
+        assert 2 == pool.patrons_in_hold_queue
+        assert 1 == pool.licenses_reserved
 
         names = [x.delivery_mechanism.name for x in pool.delivery_mechanisms]
-        eq_(sorted([Representation.EPUB_MEDIA_TYPE + ' (' + DeliveryMechanism.ADOBE_DRM + ')',
-                    Representation.TEXT_HTML_MEDIA_TYPE + ' (' + DeliveryMechanism.STREAMING_TEXT_CONTENT_TYPE + ')']),
+        assert (sorted([Representation.EPUB_MEDIA_TYPE + ' (' + DeliveryMechanism.ADOBE_DRM + ')',
+                    Representation.TEXT_HTML_MEDIA_TYPE + ' (' + DeliveryMechanism.STREAMING_TEXT_CONTENT_TYPE + ')']) ==
             sorted(names))
 
         # Check that handle_success was called --> A Work was created and made presentation ready.
-        eq_(True, pool.work.presentation_ready)
+        assert True == pool.work.presentation_ready
 
         self.api.log.info('Testing process item finished ok !!')
 
@@ -702,18 +689,18 @@ class TestOdiloBibliographicCoverageProvider(OdiloAPITest):
         identifier, made_new = self.provider.process_item('00011135')
 
         # Check that the Identifier returned has the right .type and .identifier.
-        ok_(identifier, msg="Problem while testing process inactive item !!!")
-        eq_(identifier.type, Identifier.ODILO_ID)
-        eq_(identifier.identifier, '00011135')
+        assert identifier, "Problem while testing process inactive item !!!"
+        assert identifier.type == Identifier.ODILO_ID
+        assert identifier.identifier == '00011135'
 
         [pool] = identifier.licensed_through
-        eq_("!Tention A Story of Boy-Life during the Peninsular War", pool.work.title)
+        assert "!Tention A Story of Boy-Life during the Peninsular War" == pool.work.title
 
         # Check work not available
-        eq_(0, pool.licenses_owned)
-        eq_(0, pool.licenses_available)
+        assert 0 == pool.licenses_owned
+        assert 0 == pool.licenses_available
 
-        eq_(True, pool.work.presentation_ready)
+        assert True == pool.work.presentation_ready
 
         self.api.log.info('Testing process item inactive finished ok !!')
 
@@ -725,78 +712,76 @@ class TestOdiloRepresentationExtractor(OdiloAPITest):
         raw, availability = self.sample_json("odilo_availability.json")
         metadata, active = OdiloRepresentationExtractor.record_info_to_metadata(book_json, availability)
 
-        eq_("Busy Brownies", metadata.title)
-        eq_(" (The Classic Fantasy Literature of Elves for Children)", metadata.subtitle)
-        eq_("eng", metadata.language)
-        eq_(Edition.BOOK_MEDIUM, metadata.medium)
-        eq_("The Classic Fantasy Literature for Children written in 1896 retold for Elves adventure.", metadata.series)
-        eq_("1", metadata.series_position)
-        eq_("ANBOCO", metadata.publisher)
-        eq_(2013, metadata.published.year)
-        eq_(02, metadata.published.month)
-        eq_(02, metadata.published.day)
-        eq_(2017, metadata.data_source_last_updated.year)
-        eq_(03, metadata.data_source_last_updated.month)
-        eq_(10, metadata.data_source_last_updated.day)
+        assert "Busy Brownies" == metadata.title
+        assert " (The Classic Fantasy Literature of Elves for Children)" == metadata.subtitle
+        assert "eng" == metadata.language
+        assert Edition.BOOK_MEDIUM == metadata.medium
+        assert "The Classic Fantasy Literature for Children written in 1896 retold for Elves adventure." == metadata.series
+        assert "1" == metadata.series_position
+        assert "ANBOCO" == metadata.publisher
+        assert 2013 == metadata.published.year
+        assert 02 == metadata.published.month
+        assert 02 == metadata.published.day
+        assert 2017 == metadata.data_source_last_updated.year
+        assert 03 == metadata.data_source_last_updated.month
+        assert 10 == metadata.data_source_last_updated.day
         # Related IDs.
-        eq_((Identifier.ODILO_ID, '00010982'),
+        assert ((Identifier.ODILO_ID, '00010982') ==
             (metadata.primary_identifier.type, metadata.primary_identifier.identifier))
         ids = [(x.type, x.identifier) for x in metadata.identifiers]
-        eq_(
+        assert (
             [
                 (Identifier.ISBN, '9783736418837'),
                 (Identifier.ODILO_ID, '00010982')
-            ],
-            sorted(ids)
-        )
+            ] ==
+            sorted(ids))
 
         subjects = sorted(metadata.subjects, key=lambda x: x.identifier)
         weight = Classification.TRUSTED_DISTRIBUTOR_WEIGHT
-        eq_([(u'Children', 'tag', weight),
+        assert ([(u'Children', 'tag', weight),
              (u'Classics', 'tag', weight),
              (u'FIC004000', 'BISAC', weight),
              (u'Fantasy', 'tag', weight),
              (u'K-12', 'Grade level', weight),
              (u'LIT009000', 'BISAC', weight),
-             (u'YAF019020', 'BISAC', weight)],
-            [(x.identifier, x.type, x.weight) for x in subjects]
-            )
+             (u'YAF019020', 'BISAC', weight)] ==
+            [(x.identifier, x.type, x.weight) for x in subjects])
 
         [author] = metadata.contributors
-        eq_("Veale, E.", author.sort_name)
-        eq_("E. Veale", author.display_name)
-        eq_([Contributor.AUTHOR_ROLE], author.roles)
+        assert "Veale, E." == author.sort_name
+        assert "E. Veale" == author.display_name
+        assert [Contributor.AUTHOR_ROLE] == author.roles
 
         # Available formats.
         [acsm_epub, ebook_streaming] = sorted(metadata.circulation.formats, key=lambda x: x.content_type)
-        eq_(Representation.EPUB_MEDIA_TYPE, acsm_epub.content_type)
-        eq_(DeliveryMechanism.ADOBE_DRM, acsm_epub.drm_scheme)
+        assert Representation.EPUB_MEDIA_TYPE == acsm_epub.content_type
+        assert DeliveryMechanism.ADOBE_DRM == acsm_epub.drm_scheme
 
-        eq_(Representation.TEXT_HTML_MEDIA_TYPE, ebook_streaming.content_type)
-        eq_(DeliveryMechanism.STREAMING_TEXT_CONTENT_TYPE, ebook_streaming.drm_scheme)
+        assert Representation.TEXT_HTML_MEDIA_TYPE == ebook_streaming.content_type
+        assert DeliveryMechanism.STREAMING_TEXT_CONTENT_TYPE == ebook_streaming.drm_scheme
 
         # Links to various resources.
         image, thumbnail, description = sorted(metadata.links, key=lambda x: x.rel)
 
-        eq_(Hyperlink.IMAGE, image.rel)
-        eq_(
-            'http://pruebasotk.odilotk.es/public/OdiloPlace_eduDistUS/pg54159.jpg',
+        assert Hyperlink.IMAGE == image.rel
+        assert (
+            'http://pruebasotk.odilotk.es/public/OdiloPlace_eduDistUS/pg54159.jpg' ==
             image.href)
 
-        eq_(Hyperlink.THUMBNAIL_IMAGE, thumbnail.rel)
-        eq_(
-            'http://pruebasotk.odilotk.es/public/OdiloPlace_eduDistUS/pg54159_225x318.jpg',
+        assert Hyperlink.THUMBNAIL_IMAGE == thumbnail.rel
+        assert (
+            'http://pruebasotk.odilotk.es/public/OdiloPlace_eduDistUS/pg54159_225x318.jpg' ==
             thumbnail.href)
 
-        eq_(Hyperlink.DESCRIPTION, description.rel)
+        assert Hyperlink.DESCRIPTION == description.rel
         assert description.content.startswith(
             "All the <b>Brownies</b> had promised to help, and when a Brownie undertakes a thing he works as busily")
 
         circulation = metadata.circulation
-        eq_(2, circulation.licenses_owned)
-        eq_(1, circulation.licenses_available)
-        eq_(2, circulation.patrons_in_hold_queue)
-        eq_(1, circulation.licenses_reserved)
+        assert 2 == circulation.licenses_owned
+        assert 1 == circulation.licenses_available
+        assert 2 == circulation.patrons_in_hold_queue
+        assert 1 == circulation.licenses_reserved
 
         self.api.log.info('Testing book info with metadata finished ok !!')
 
@@ -811,8 +796,8 @@ class TestOdiloRepresentationExtractor(OdiloAPITest):
         metadata, active = OdiloRepresentationExtractor.record_info_to_metadata(
             book_json, {}
         )
-        eq_(None, metadata.series)
-        eq_(None, metadata.series_position)
+        assert None == metadata.series
+        assert None == metadata.series_position
 
     def test_default_language_spanish(self):
         """Since Odilo primarily distributes Spanish-language titles, if a
@@ -823,4 +808,4 @@ class TestOdiloRepresentationExtractor(OdiloAPITest):
         raw, availability = self.sample_json("odilo_availability.json")
         del book_json['language']
         metadata, active = OdiloRepresentationExtractor.record_info_to_metadata(book_json, availability)
-        eq_('spa', metadata.language)
+        assert 'spa' == metadata.language

@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 import os
 import sys
-from nose.tools import set_trace
 from sqlalchemy.sql import select
 from sqlalchemy.sql.expression import (
     join,

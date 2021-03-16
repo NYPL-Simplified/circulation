@@ -1,10 +1,7 @@
 import contextlib
 import logging
-from nose.tools import (
-    assert_raises,
-    eq_,
-    set_trace,
-)
+
+import pytest
 import flask
 from flask import Response
 from werkzeug.exceptions import MethodNotAllowed
@@ -118,60 +115,7 @@ class MockController(MockControllerMethod):
         return "<MockControllerMethod %s>" % self.name
 
 
-class RouteTest(ControllerTest):
-    """Test what happens when an HTTP request is run through the
-    routes we've registered with Flask.
-    """
-
-    # The first time setup() is called, it will instantiate a real
-    # CirculationManager object and store it here. We only do this
-    # once because it takes about a second to instantiate this object.
-    # Calling any of this object's methods could be problematic, since
-    # it's probably left over from a previous test, but we won't be
-    # calling any methods -- we just want to verify the _existence_,
-    # in a real CirculationManager, of the methods called in
-    # routes.py.
-    REAL_CIRCULATION_MANAGER = None
-
-    def setup(self, _db=None):
-        super(RouteTest, self).setup(_db=_db, set_up_circulation_manager=False)
-        if not RouteTest.REAL_CIRCULATION_MANAGER:
-            library = self._default_library
-            # Set up the necessary configuration so that when we
-            # instantiate the CirculationManager it gets an
-            # adobe_vendor_id controller -- this wouldn't normally
-            # happen because most circulation managers don't need such a
-            # controller.
-            self.initialize_adobe(library, [library])
-            self.adobe_vendor_id.password = self.TEST_NODE_VALUE
-            manager = CirculationManager(self._db, testing=True)
-            RouteTest.REAL_CIRCULATION_MANAGER = manager
-        app = MockApp()
-        self.routes = routes
-        self.manager = app.manager
-        self.original_app = self.routes.app
-        self.resolver = self.original_app.url_map.bind('', '/')
-
-        # For convenience, set self.controller to a specific controller
-        # whose routes are being tested.
-        controller_name = getattr(self, 'CONTROLLER_NAME', None)
-        if controller_name:
-            self.controller = getattr(self.manager, controller_name)
-
-            # Make sure there's a controller by this name in the real
-            # CirculationManager.
-            self.real_controller = getattr(
-                self.REAL_CIRCULATION_MANAGER, controller_name
-            )
-        else:
-            self.real_controller = None
-
-        self.routes.app = app
-
-    def teardown(self):
-        super(RouteTest, self).teardown()
-        self.routes.app = self.original_app
-
+class RouteTestFixtures(object):
     def request(self, url, method='GET'):
         """Simulate a request to a URL without triggering any code outside
         routes.py.
@@ -193,9 +137,9 @@ class RouteTest(ControllerTest):
         """
         http_method = kwargs.pop('http_method', 'GET')
         response = self.request(url, http_method)
-        eq_(response.method, method)
-        eq_(response.method.args, args)
-        eq_(response.method.kwargs, kwargs)
+        assert response.method == method
+        assert response.method.args == args
+        assert response.method.kwargs == kwargs
 
         # Make sure the real controller has a method by the name of
         # the mock method that was called. We won't call it, because
@@ -244,11 +188,11 @@ class RouteTest(ControllerTest):
         http_method = kwargs.pop('http_method', 'GET')
         response = self.request(url, http_method)
         if authentication_required:
-            eq_(401, response.status_code)
-            eq_("authenticated_patron_from_request called without authorizing",
+            assert 401 == response.status_code
+            assert ("authenticated_patron_from_request called without authorizing" ==
                 response.data)
         else:
-            eq_(200, response.status_code)
+            assert 200 == response.status_code
 
         # Set a variable so that authenticated_patron_from_request
         # will succeed, and try again.
@@ -276,15 +220,74 @@ class RouteTest(ControllerTest):
             check.add('HEAD')
         for method in check:
             logging.debug("MethodNotAllowed should be raised on %s", method)
-            assert_raises(MethodNotAllowed, self.request, url, method)
+            pytest.raises(MethodNotAllowed, self.request, url, method)
             logging.debug("And it was.")
+
+
+class RouteTest(ControllerTest, RouteTestFixtures):
+    """Test what happens when an HTTP request is run through the
+    routes we've registered with Flask.
+    """
+
+    # The first time setup_method() is called, it will instantiate a real
+    # CirculationManager object and store it in REAL_CIRCULATION_MANAGER.
+    # We only do this once because it takes about a second to instantiate
+    # this object. Calling any of this object's methods could be problematic,
+    # since it's probably left over from a previous test, but we won't be
+    # calling any methods -- we just want to verify the _existence_,
+    # in a real CirculationManager, of the methods called in
+    # routes.py.
+    @classmethod
+    def setup_class(cls):
+        super(RouteTest, cls).setup_class()
+        cls.REAL_CIRCULATION_MANAGER = None
+
+    def setup_method(self):
+        self.setup_circulation_manager = False
+        super(RouteTest, self).setup_method()
+        if not self.REAL_CIRCULATION_MANAGER:
+            library = self._default_library
+            # Set up the necessary configuration so that when we
+            # instantiate the CirculationManager it gets an
+            # adobe_vendor_id controller -- this wouldn't normally
+            # happen because most circulation managers don't need such a
+            # controller.
+            self.initialize_adobe(library, [library])
+            self.adobe_vendor_id.password = self.TEST_NODE_VALUE
+            manager = CirculationManager(self._db, testing=True)
+            self.REAL_CIRCULATION_MANAGER = manager
+        app = MockApp()
+        self.routes = routes
+        self.manager = app.manager
+        self.original_app = self.routes.app
+        self.resolver = self.original_app.url_map.bind('', '/')
+
+        # For convenience, set self.controller to a specific controller
+        # whose routes are being tested.
+        controller_name = getattr(self, 'CONTROLLER_NAME', None)
+        if controller_name:
+            self.controller = getattr(self.manager, controller_name)
+
+            # Make sure there's a controller by this name in the real
+            # CirculationManager.
+            self.real_controller = getattr(
+                self.REAL_CIRCULATION_MANAGER, controller_name
+            )
+        else:
+            self.real_controller = None
+
+        self.routes.app = app
+
+    def teardown_method(self):
+        super(RouteTest, self).teardown_method()
+        self.routes.app = self.original_app
 
 
 class TestAppConfiguration(object):
 
     # Test the configuration of the real Flask app.
     def test_configuration(self):
-        eq_(False, routes.app.url_map.merge_slashes)
+        assert False == routes.app.url_map.merge_slashes
 
 
 class TestIndex(RouteTest):
@@ -484,7 +487,7 @@ class TestLoansController(RouteTest):
             authenticated=True
         )
         self.assert_supported_methods(url, 'GET', 'PUT')
-        
+
         url = '/works/<identifier_type>/<identifier>/borrow/<mechanism_id>'
         self.assert_request_calls_method_using_identifier(
             url, self.controller.borrow,
@@ -757,12 +760,12 @@ class TestHealthCheck(RouteTest):
     # so we check that it returns a specific result.
     def test_health_check(self):
         response = self.request("/healthcheck.html")
-        eq_(200, response.status_code)
+        assert 200 == response.status_code
 
         # This is how we know we actually called health_check() and
         # not a mock method -- the Response returned by the mock
         # system would have an explanatory message in its .data.
-        eq_("", response.data)
+        assert "" == response.data
 
 
 class TestExceptionHandler(RouteTest):
@@ -787,11 +790,11 @@ class TestExceptionHandler(RouteTest):
             result = exception_handler(value_error)
 
             # The exception was passed into MockErrorHandler.handle.
-            eq_(value_error, routes.h.handled)
+            assert value_error == routes.h.handled
 
             # The Response is created was passed along.
-            eq_("handled it", result.data)
-            eq_(500, result.status_code)
+            assert "handled it" == result.data
+            assert 500 == result.status_code
 
         # werkzeug HTTPExceptions are _not_ run through
         # handle(). werkzeug handles the conversion to a Response
@@ -800,7 +803,7 @@ class TestExceptionHandler(RouteTest):
         with self.app.test_request_context():
             exception = MethodNotAllowed()
             response = exception_handler(exception)
-            eq_(405, response.status_code)
+            assert 405 == response.status_code
 
         # Restore the normal error handler.
         routes.h = error_handler_object

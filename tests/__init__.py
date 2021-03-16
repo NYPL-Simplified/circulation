@@ -1,12 +1,5 @@
-import sys, os
-from nose.tools import set_trace
+import os
 
-from core.testing import (
-    DatabaseTest,
-    package_setup,
-)
-
-package_setup()
 
 def sample_data(filename, sample_data_dir):
     base_path = os.path.split(__file__)[0]

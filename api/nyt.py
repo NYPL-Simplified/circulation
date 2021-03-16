@@ -1,6 +1,5 @@
 """Interface to the New York Times APIs."""
 import isbnlib
-from nose.tools import set_trace
 from datetime import datetime, timedelta
 from collections import Counter
 import os

@@ -3,7 +3,6 @@ import json
 
 from freezegun import freeze_time
 from mock import create_autospec, MagicMock, patch
-from nose.tools import eq_
 
 from api.lcp.collection import LCPAPI, LCPFulfilmentInfo
 from api.lcp.encrypt import LCPEncryptionConfiguration
@@ -16,8 +15,8 @@ from tests.lcp.database_test import DatabaseTest
 
 
 class TestLCPAPI(DatabaseTest):
-    def setup(self, mock_search=True):
-        super(TestLCPAPI, self).setup()
+    def setup_method(self, mock_search=True):
+        super(TestLCPAPI, self).setup_method()
 
         self._lcp_collection = self._collection(protocol=ExternalIntegration.LCP)
         self._integration = self._lcp_collection.external_integration
@@ -28,367 +27,283 @@ class TestLCPAPI(DatabaseTest):
 
     def test_settings(self):
         # Assert
-        eq_(len(LCPAPI.SETTINGS), 12)
+        assert len(LCPAPI.SETTINGS) == 12
 
         # lcpserver_url
-        eq_(
-            LCPAPI.SETTINGS[0][ConfigurationAttribute.KEY.value],
-            LCPServerConfiguration.lcpserver_url.key
-        )
-        eq_(
-            LCPAPI.SETTINGS[0][ConfigurationAttribute.LABEL.value],
-            LCPServerConfiguration.lcpserver_url.label
-        )
-        eq_(
-            LCPAPI.SETTINGS[0][ConfigurationAttribute.DESCRIPTION.value],
-            LCPServerConfiguration.lcpserver_url.description
-        )
-        eq_(
-            LCPAPI.SETTINGS[0][ConfigurationAttribute.TYPE.value],
-            None
-        )
-        eq_(
-            LCPAPI.SETTINGS[0][ConfigurationAttribute.REQUIRED.value],
-            LCPServerConfiguration.lcpserver_url.required
-        )
-        eq_(
-            LCPAPI.SETTINGS[0][ConfigurationAttribute.DEFAULT.value],
-            LCPServerConfiguration.lcpserver_url.default
-        )
-        eq_(
-            LCPAPI.SETTINGS[0][ConfigurationAttribute.CATEGORY.value],
-            LCPServerConfiguration.lcpserver_url.category
-        )
+        assert (
+            LCPAPI.SETTINGS[0][ConfigurationAttribute.KEY.value] ==
+            LCPServerConfiguration.lcpserver_url.key)
+        assert (
+            LCPAPI.SETTINGS[0][ConfigurationAttribute.LABEL.value] ==
+            LCPServerConfiguration.lcpserver_url.label)
+        assert (
+            LCPAPI.SETTINGS[0][ConfigurationAttribute.DESCRIPTION.value] ==
+            LCPServerConfiguration.lcpserver_url.description)
+        assert (
+            LCPAPI.SETTINGS[0][ConfigurationAttribute.TYPE.value] ==
+            None)
+        assert (
+            LCPAPI.SETTINGS[0][ConfigurationAttribute.REQUIRED.value] ==
+            LCPServerConfiguration.lcpserver_url.required)
+        assert (
+            LCPAPI.SETTINGS[0][ConfigurationAttribute.DEFAULT.value] ==
+            LCPServerConfiguration.lcpserver_url.default)
+        assert (
+            LCPAPI.SETTINGS[0][ConfigurationAttribute.CATEGORY.value] ==
+            LCPServerConfiguration.lcpserver_url.category)
 
         # lcpserver_user
-        eq_(
-            LCPAPI.SETTINGS[1][ConfigurationAttribute.KEY.value],
-            LCPServerConfiguration.lcpserver_user.key
-        )
-        eq_(
-            LCPAPI.SETTINGS[1][ConfigurationAttribute.LABEL.value],
-            LCPServerConfiguration.lcpserver_user.label
-        )
-        eq_(
-            LCPAPI.SETTINGS[1][ConfigurationAttribute.DESCRIPTION.value],
-            LCPServerConfiguration.lcpserver_user.description
-        )
-        eq_(
-            LCPAPI.SETTINGS[1][ConfigurationAttribute.TYPE.value],
-            None
-        )
-        eq_(
-            LCPAPI.SETTINGS[1][ConfigurationAttribute.REQUIRED.value],
-            LCPServerConfiguration.lcpserver_user.required
-        )
-        eq_(
-            LCPAPI.SETTINGS[1][ConfigurationAttribute.DEFAULT.value],
-            LCPServerConfiguration.lcpserver_user.default
-        )
-        eq_(
-            LCPAPI.SETTINGS[1][ConfigurationAttribute.CATEGORY.value],
-            LCPServerConfiguration.lcpserver_user.category
-        )
+        assert (
+            LCPAPI.SETTINGS[1][ConfigurationAttribute.KEY.value] ==
+            LCPServerConfiguration.lcpserver_user.key)
+        assert (
+            LCPAPI.SETTINGS[1][ConfigurationAttribute.LABEL.value] ==
+            LCPServerConfiguration.lcpserver_user.label)
+        assert (
+            LCPAPI.SETTINGS[1][ConfigurationAttribute.DESCRIPTION.value] ==
+            LCPServerConfiguration.lcpserver_user.description)
+        assert (
+            LCPAPI.SETTINGS[1][ConfigurationAttribute.TYPE.value] ==
+            None)
+        assert (
+            LCPAPI.SETTINGS[1][ConfigurationAttribute.REQUIRED.value] ==
+            LCPServerConfiguration.lcpserver_user.required)
+        assert (
+            LCPAPI.SETTINGS[1][ConfigurationAttribute.DEFAULT.value] ==
+            LCPServerConfiguration.lcpserver_user.default)
+        assert (
+            LCPAPI.SETTINGS[1][ConfigurationAttribute.CATEGORY.value] ==
+            LCPServerConfiguration.lcpserver_user.category)
 
         # lcpserver_password
-        eq_(
-            LCPAPI.SETTINGS[2][ConfigurationAttribute.KEY.value],
-            LCPServerConfiguration.lcpserver_password.key
-        )
-        eq_(
-            LCPAPI.SETTINGS[2][ConfigurationAttribute.LABEL.value],
-            LCPServerConfiguration.lcpserver_password.label
-        )
-        eq_(
-            LCPAPI.SETTINGS[2][ConfigurationAttribute.DESCRIPTION.value],
-            LCPServerConfiguration.lcpserver_password.description
-        )
-        eq_(
-            LCPAPI.SETTINGS[2][ConfigurationAttribute.TYPE.value],
-            None
-        )
-        eq_(
-            LCPAPI.SETTINGS[2][ConfigurationAttribute.REQUIRED.value],
-            LCPServerConfiguration.lcpserver_password.required
-        )
-        eq_(
-            LCPAPI.SETTINGS[2][ConfigurationAttribute.DEFAULT.value],
-            LCPServerConfiguration.lcpserver_password.default
-        )
-        eq_(
-            LCPAPI.SETTINGS[2][ConfigurationAttribute.CATEGORY.value],
-            LCPServerConfiguration.lcpserver_password.category
-        )
+        assert (
+            LCPAPI.SETTINGS[2][ConfigurationAttribute.KEY.value] ==
+            LCPServerConfiguration.lcpserver_password.key)
+        assert (
+            LCPAPI.SETTINGS[2][ConfigurationAttribute.LABEL.value] ==
+            LCPServerConfiguration.lcpserver_password.label)
+        assert (
+            LCPAPI.SETTINGS[2][ConfigurationAttribute.DESCRIPTION.value] ==
+            LCPServerConfiguration.lcpserver_password.description)
+        assert (
+            LCPAPI.SETTINGS[2][ConfigurationAttribute.TYPE.value] ==
+            None)
+        assert (
+            LCPAPI.SETTINGS[2][ConfigurationAttribute.REQUIRED.value] ==
+            LCPServerConfiguration.lcpserver_password.required)
+        assert (
+            LCPAPI.SETTINGS[2][ConfigurationAttribute.DEFAULT.value] ==
+            LCPServerConfiguration.lcpserver_password.default)
+        assert (
+            LCPAPI.SETTINGS[2][ConfigurationAttribute.CATEGORY.value] ==
+            LCPServerConfiguration.lcpserver_password.category)
 
         # lcpserver_input_directory
-        eq_(
-            LCPAPI.SETTINGS[3][ConfigurationAttribute.KEY.value],
-            LCPServerConfiguration.lcpserver_input_directory.key
-        )
-        eq_(
-            LCPAPI.SETTINGS[3][ConfigurationAttribute.LABEL.value],
-            LCPServerConfiguration.lcpserver_input_directory.label
-        )
-        eq_(
-            LCPAPI.SETTINGS[3][ConfigurationAttribute.DESCRIPTION.value],
-            LCPServerConfiguration.lcpserver_input_directory.description
-        )
-        eq_(
-            LCPAPI.SETTINGS[3][ConfigurationAttribute.TYPE.value],
-            None
-        )
-        eq_(
-            LCPAPI.SETTINGS[3][ConfigurationAttribute.REQUIRED.value],
-            LCPServerConfiguration.lcpserver_input_directory.required
-        )
-        eq_(
-            LCPAPI.SETTINGS[3][ConfigurationAttribute.DEFAULT.value],
-            LCPServerConfiguration.lcpserver_input_directory.default
-        )
-        eq_(
-            LCPAPI.SETTINGS[3][ConfigurationAttribute.CATEGORY.value],
-            LCPServerConfiguration.lcpserver_input_directory.category
-        )
+        assert (
+            LCPAPI.SETTINGS[3][ConfigurationAttribute.KEY.value] ==
+            LCPServerConfiguration.lcpserver_input_directory.key)
+        assert (
+            LCPAPI.SETTINGS[3][ConfigurationAttribute.LABEL.value] ==
+            LCPServerConfiguration.lcpserver_input_directory.label)
+        assert (
+            LCPAPI.SETTINGS[3][ConfigurationAttribute.DESCRIPTION.value] ==
+            LCPServerConfiguration.lcpserver_input_directory.description)
+        assert (
+            LCPAPI.SETTINGS[3][ConfigurationAttribute.TYPE.value] ==
+            None)
+        assert (
+            LCPAPI.SETTINGS[3][ConfigurationAttribute.REQUIRED.value] ==
+            LCPServerConfiguration.lcpserver_input_directory.required)
+        assert (
+            LCPAPI.SETTINGS[3][ConfigurationAttribute.DEFAULT.value] ==
+            LCPServerConfiguration.lcpserver_input_directory.default)
+        assert (
+            LCPAPI.SETTINGS[3][ConfigurationAttribute.CATEGORY.value] ==
+            LCPServerConfiguration.lcpserver_input_directory.category)
 
         # lcpserver_page_size
-        eq_(
-            LCPAPI.SETTINGS[4][ConfigurationAttribute.KEY.value],
-            LCPServerConfiguration.lcpserver_page_size.key
-        )
-        eq_(
-            LCPAPI.SETTINGS[4][ConfigurationAttribute.LABEL.value],
-            LCPServerConfiguration.lcpserver_page_size.label
-        )
-        eq_(
-            LCPAPI.SETTINGS[4][ConfigurationAttribute.DESCRIPTION.value],
-            LCPServerConfiguration.lcpserver_page_size.description
-        )
-        eq_(
-            LCPAPI.SETTINGS[4][ConfigurationAttribute.TYPE.value],
-            'number'
-        )
-        eq_(
-            LCPAPI.SETTINGS[4][ConfigurationAttribute.REQUIRED.value],
-            LCPServerConfiguration.lcpserver_page_size.required
-        )
-        eq_(
-            LCPAPI.SETTINGS[4][ConfigurationAttribute.DEFAULT.value],
-            LCPServerConfiguration.lcpserver_page_size.default
-        )
-        eq_(
-            LCPAPI.SETTINGS[4][ConfigurationAttribute.CATEGORY.value],
-            LCPServerConfiguration.lcpserver_page_size.category
-        )
+        assert (
+            LCPAPI.SETTINGS[4][ConfigurationAttribute.KEY.value] ==
+            LCPServerConfiguration.lcpserver_page_size.key)
+        assert (
+            LCPAPI.SETTINGS[4][ConfigurationAttribute.LABEL.value] ==
+            LCPServerConfiguration.lcpserver_page_size.label)
+        assert (
+            LCPAPI.SETTINGS[4][ConfigurationAttribute.DESCRIPTION.value] ==
+            LCPServerConfiguration.lcpserver_page_size.description)
+        assert (
+            LCPAPI.SETTINGS[4][ConfigurationAttribute.TYPE.value] ==
+            'number')
+        assert (
+            LCPAPI.SETTINGS[4][ConfigurationAttribute.REQUIRED.value] ==
+            LCPServerConfiguration.lcpserver_page_size.required)
+        assert (
+            LCPAPI.SETTINGS[4][ConfigurationAttribute.DEFAULT.value] ==
+            LCPServerConfiguration.lcpserver_page_size.default)
+        assert (
+            LCPAPI.SETTINGS[4][ConfigurationAttribute.CATEGORY.value] ==
+            LCPServerConfiguration.lcpserver_page_size.category)
 
         # provider_name
-        eq_(
-            LCPAPI.SETTINGS[5][ConfigurationAttribute.KEY.value],
-            LCPServerConfiguration.provider_name.key
-        )
-        eq_(
-            LCPAPI.SETTINGS[5][ConfigurationAttribute.LABEL.value],
-            LCPServerConfiguration.provider_name.label
-        )
-        eq_(
-            LCPAPI.SETTINGS[5][ConfigurationAttribute.DESCRIPTION.value],
-            LCPServerConfiguration.provider_name.description
-        )
-        eq_(
-            LCPAPI.SETTINGS[5][ConfigurationAttribute.TYPE.value],
-            None
-        )
-        eq_(
-            LCPAPI.SETTINGS[5][ConfigurationAttribute.REQUIRED.value],
-            LCPServerConfiguration.provider_name.required
-        )
-        eq_(
-            LCPAPI.SETTINGS[5][ConfigurationAttribute.DEFAULT.value],
-            LCPServerConfiguration.provider_name.default
-        )
-        eq_(
-            LCPAPI.SETTINGS[5][ConfigurationAttribute.CATEGORY.value],
-            LCPServerConfiguration.provider_name.category
-        )
+        assert (
+            LCPAPI.SETTINGS[5][ConfigurationAttribute.KEY.value] ==
+            LCPServerConfiguration.provider_name.key)
+        assert (
+            LCPAPI.SETTINGS[5][ConfigurationAttribute.LABEL.value] ==
+            LCPServerConfiguration.provider_name.label)
+        assert (
+            LCPAPI.SETTINGS[5][ConfigurationAttribute.DESCRIPTION.value] ==
+            LCPServerConfiguration.provider_name.description)
+        assert (
+            LCPAPI.SETTINGS[5][ConfigurationAttribute.TYPE.value] ==
+            None)
+        assert (
+            LCPAPI.SETTINGS[5][ConfigurationAttribute.REQUIRED.value] ==
+            LCPServerConfiguration.provider_name.required)
+        assert (
+            LCPAPI.SETTINGS[5][ConfigurationAttribute.DEFAULT.value] ==
+            LCPServerConfiguration.provider_name.default)
+        assert (
+            LCPAPI.SETTINGS[5][ConfigurationAttribute.CATEGORY.value] ==
+            LCPServerConfiguration.provider_name.category)
 
         # passphrase_hint
-        eq_(
-            LCPAPI.SETTINGS[6][ConfigurationAttribute.KEY.value],
-            LCPServerConfiguration.passphrase_hint.key
-        )
-        eq_(
-            LCPAPI.SETTINGS[6][ConfigurationAttribute.LABEL.value],
-            LCPServerConfiguration.passphrase_hint.label
-        )
-        eq_(
-            LCPAPI.SETTINGS[6][ConfigurationAttribute.DESCRIPTION.value],
-            LCPServerConfiguration.passphrase_hint.description
-        )
-        eq_(
-            LCPAPI.SETTINGS[6][ConfigurationAttribute.TYPE.value],
-            None
-        )
-        eq_(
-            LCPAPI.SETTINGS[6][ConfigurationAttribute.REQUIRED.value],
-            LCPServerConfiguration.passphrase_hint.required
-        )
-        eq_(
-            LCPAPI.SETTINGS[6][ConfigurationAttribute.DEFAULT.value],
-            LCPServerConfiguration.passphrase_hint.default
-        )
-        eq_(
-            LCPAPI.SETTINGS[6][ConfigurationAttribute.CATEGORY.value],
-            LCPServerConfiguration.passphrase_hint.category
-        )
+        assert (
+            LCPAPI.SETTINGS[6][ConfigurationAttribute.KEY.value] ==
+            LCPServerConfiguration.passphrase_hint.key)
+        assert (
+            LCPAPI.SETTINGS[6][ConfigurationAttribute.LABEL.value] ==
+            LCPServerConfiguration.passphrase_hint.label)
+        assert (
+            LCPAPI.SETTINGS[6][ConfigurationAttribute.DESCRIPTION.value] ==
+            LCPServerConfiguration.passphrase_hint.description)
+        assert (
+            LCPAPI.SETTINGS[6][ConfigurationAttribute.TYPE.value] ==
+            None)
+        assert (
+            LCPAPI.SETTINGS[6][ConfigurationAttribute.REQUIRED.value] ==
+            LCPServerConfiguration.passphrase_hint.required)
+        assert (
+            LCPAPI.SETTINGS[6][ConfigurationAttribute.DEFAULT.value] ==
+            LCPServerConfiguration.passphrase_hint.default)
+        assert (
+            LCPAPI.SETTINGS[6][ConfigurationAttribute.CATEGORY.value] ==
+            LCPServerConfiguration.passphrase_hint.category)
 
         # encryption_algorithm
-        eq_(
-            LCPAPI.SETTINGS[7][ConfigurationAttribute.KEY.value],
-            LCPServerConfiguration.encryption_algorithm.key
-        )
-        eq_(
-            LCPAPI.SETTINGS[7][ConfigurationAttribute.LABEL.value],
-            LCPServerConfiguration.encryption_algorithm.label
-        )
-        eq_(
-            LCPAPI.SETTINGS[7][ConfigurationAttribute.DESCRIPTION.value],
-            LCPServerConfiguration.encryption_algorithm.description
-        )
-        eq_(
-            LCPAPI.SETTINGS[7][ConfigurationAttribute.TYPE.value],
-            LCPServerConfiguration.encryption_algorithm.type.value
-        )
-        eq_(
-            LCPAPI.SETTINGS[7][ConfigurationAttribute.REQUIRED.value],
-            LCPServerConfiguration.encryption_algorithm.required
-        )
-        eq_(
-            LCPAPI.SETTINGS[7][ConfigurationAttribute.DEFAULT.value],
-            LCPServerConfiguration.encryption_algorithm.default
-        )
-        eq_(
-            LCPAPI.SETTINGS[7][ConfigurationAttribute.CATEGORY.value],
-            LCPServerConfiguration.encryption_algorithm.category
-        )
+        assert (
+            LCPAPI.SETTINGS[7][ConfigurationAttribute.KEY.value] ==
+            LCPServerConfiguration.encryption_algorithm.key)
+        assert (
+            LCPAPI.SETTINGS[7][ConfigurationAttribute.LABEL.value] ==
+            LCPServerConfiguration.encryption_algorithm.label)
+        assert (
+            LCPAPI.SETTINGS[7][ConfigurationAttribute.DESCRIPTION.value] ==
+            LCPServerConfiguration.encryption_algorithm.description)
+        assert (
+            LCPAPI.SETTINGS[7][ConfigurationAttribute.TYPE.value] ==
+            LCPServerConfiguration.encryption_algorithm.type.value)
+        assert (
+            LCPAPI.SETTINGS[7][ConfigurationAttribute.REQUIRED.value] ==
+            LCPServerConfiguration.encryption_algorithm.required)
+        assert (
+            LCPAPI.SETTINGS[7][ConfigurationAttribute.DEFAULT.value] ==
+            LCPServerConfiguration.encryption_algorithm.default)
+        assert (
+            LCPAPI.SETTINGS[7][ConfigurationAttribute.CATEGORY.value] ==
+            LCPServerConfiguration.encryption_algorithm.category)
 
         # max_printable_pages
-        eq_(
-            LCPAPI.SETTINGS[8][ConfigurationAttribute.KEY.value],
-            LCPServerConfiguration.max_printable_pages.key
-        )
-        eq_(
-            LCPAPI.SETTINGS[8][ConfigurationAttribute.LABEL.value],
-            LCPServerConfiguration.max_printable_pages.label
-        )
-        eq_(
-            LCPAPI.SETTINGS[8][ConfigurationAttribute.DESCRIPTION.value],
-            LCPServerConfiguration.max_printable_pages.description
-        )
-        eq_(
-            LCPAPI.SETTINGS[8][ConfigurationAttribute.TYPE.value],
-            'number'
-        )
-        eq_(
-            LCPAPI.SETTINGS[8][ConfigurationAttribute.REQUIRED.value],
-            LCPServerConfiguration.max_printable_pages.required
-        )
-        eq_(
-            LCPAPI.SETTINGS[8][ConfigurationAttribute.DEFAULT.value],
-            LCPServerConfiguration.max_printable_pages.default
-        )
-        eq_(
-            LCPAPI.SETTINGS[8][ConfigurationAttribute.CATEGORY.value],
-            LCPServerConfiguration.max_printable_pages.category
-        )
+        assert (
+            LCPAPI.SETTINGS[8][ConfigurationAttribute.KEY.value] ==
+            LCPServerConfiguration.max_printable_pages.key)
+        assert (
+            LCPAPI.SETTINGS[8][ConfigurationAttribute.LABEL.value] ==
+            LCPServerConfiguration.max_printable_pages.label)
+        assert (
+            LCPAPI.SETTINGS[8][ConfigurationAttribute.DESCRIPTION.value] ==
+            LCPServerConfiguration.max_printable_pages.description)
+        assert (
+            LCPAPI.SETTINGS[8][ConfigurationAttribute.TYPE.value] ==
+            'number')
+        assert (
+            LCPAPI.SETTINGS[8][ConfigurationAttribute.REQUIRED.value] ==
+            LCPServerConfiguration.max_printable_pages.required)
+        assert (
+            LCPAPI.SETTINGS[8][ConfigurationAttribute.DEFAULT.value] ==
+            LCPServerConfiguration.max_printable_pages.default)
+        assert (
+            LCPAPI.SETTINGS[8][ConfigurationAttribute.CATEGORY.value] ==
+            LCPServerConfiguration.max_printable_pages.category)
 
         # max_copiable_pages
-        eq_(
-            LCPAPI.SETTINGS[9][ConfigurationAttribute.KEY.value],
-            LCPServerConfiguration.max_copiable_pages.key
-        )
-        eq_(
-            LCPAPI.SETTINGS[9][ConfigurationAttribute.LABEL.value],
-            LCPServerConfiguration.max_copiable_pages.label
-        )
-        eq_(
-            LCPAPI.SETTINGS[9][ConfigurationAttribute.DESCRIPTION.value],
-            LCPServerConfiguration.max_copiable_pages.description
-        )
-        eq_(
-            LCPAPI.SETTINGS[9][ConfigurationAttribute.TYPE.value],
-            'number'
-        )
-        eq_(
-            LCPAPI.SETTINGS[9][ConfigurationAttribute.REQUIRED.value],
-            LCPServerConfiguration.max_copiable_pages.required
-        )
-        eq_(
-            LCPAPI.SETTINGS[9][ConfigurationAttribute.DEFAULT.value],
-            LCPServerConfiguration.max_copiable_pages.default
-        )
-        eq_(
-            LCPAPI.SETTINGS[9][ConfigurationAttribute.CATEGORY.value],
-            LCPServerConfiguration.max_copiable_pages.category
-        )
+        assert (
+            LCPAPI.SETTINGS[9][ConfigurationAttribute.KEY.value] ==
+            LCPServerConfiguration.max_copiable_pages.key)
+        assert (
+            LCPAPI.SETTINGS[9][ConfigurationAttribute.LABEL.value] ==
+            LCPServerConfiguration.max_copiable_pages.label)
+        assert (
+            LCPAPI.SETTINGS[9][ConfigurationAttribute.DESCRIPTION.value] ==
+            LCPServerConfiguration.max_copiable_pages.description)
+        assert (
+            LCPAPI.SETTINGS[9][ConfigurationAttribute.TYPE.value] ==
+            'number')
+        assert (
+            LCPAPI.SETTINGS[9][ConfigurationAttribute.REQUIRED.value] ==
+            LCPServerConfiguration.max_copiable_pages.required)
+        assert (
+            LCPAPI.SETTINGS[9][ConfigurationAttribute.DEFAULT.value] ==
+            LCPServerConfiguration.max_copiable_pages.default)
+        assert (
+            LCPAPI.SETTINGS[9][ConfigurationAttribute.CATEGORY.value] ==
+            LCPServerConfiguration.max_copiable_pages.category)
 
         # lcpencrypt_location
-        eq_(
-            LCPAPI.SETTINGS[10][ConfigurationAttribute.KEY.value],
-            LCPEncryptionConfiguration.lcpencrypt_location.key
-        )
-        eq_(
-            LCPAPI.SETTINGS[10][ConfigurationAttribute.LABEL.value],
-            LCPEncryptionConfiguration.lcpencrypt_location.label
-        )
-        eq_(
-            LCPAPI.SETTINGS[10][ConfigurationAttribute.DESCRIPTION.value],
-            LCPEncryptionConfiguration.lcpencrypt_location.description
-        )
-        eq_(
-            LCPAPI.SETTINGS[10][ConfigurationAttribute.TYPE.value],
-            None
-        )
-        eq_(
-            LCPAPI.SETTINGS[10][ConfigurationAttribute.REQUIRED.value],
-            LCPEncryptionConfiguration.lcpencrypt_location.required
-        )
-        eq_(
-            LCPAPI.SETTINGS[10][ConfigurationAttribute.DEFAULT.value],
-            LCPEncryptionConfiguration.lcpencrypt_location.default
-        )
-        eq_(
-            LCPAPI.SETTINGS[10][ConfigurationAttribute.CATEGORY.value],
-            LCPEncryptionConfiguration.lcpencrypt_location.category
-        )
+        assert (
+            LCPAPI.SETTINGS[10][ConfigurationAttribute.KEY.value] ==
+            LCPEncryptionConfiguration.lcpencrypt_location.key)
+        assert (
+            LCPAPI.SETTINGS[10][ConfigurationAttribute.LABEL.value] ==
+            LCPEncryptionConfiguration.lcpencrypt_location.label)
+        assert (
+            LCPAPI.SETTINGS[10][ConfigurationAttribute.DESCRIPTION.value] ==
+            LCPEncryptionConfiguration.lcpencrypt_location.description)
+        assert (
+            LCPAPI.SETTINGS[10][ConfigurationAttribute.TYPE.value] ==
+            None)
+        assert (
+            LCPAPI.SETTINGS[10][ConfigurationAttribute.REQUIRED.value] ==
+            LCPEncryptionConfiguration.lcpencrypt_location.required)
+        assert (
+            LCPAPI.SETTINGS[10][ConfigurationAttribute.DEFAULT.value] ==
+            LCPEncryptionConfiguration.lcpencrypt_location.default)
+        assert (
+            LCPAPI.SETTINGS[10][ConfigurationAttribute.CATEGORY.value] ==
+            LCPEncryptionConfiguration.lcpencrypt_location.category)
 
         # lcpencrypt_output_directory
-        eq_(
-            LCPAPI.SETTINGS[11][ConfigurationAttribute.KEY.value],
-            LCPEncryptionConfiguration.lcpencrypt_output_directory.key
-        )
-        eq_(
-            LCPAPI.SETTINGS[11][ConfigurationAttribute.LABEL.value],
-            LCPEncryptionConfiguration.lcpencrypt_output_directory.label
-        )
-        eq_(
-            LCPAPI.SETTINGS[11][ConfigurationAttribute.DESCRIPTION.value],
-            LCPEncryptionConfiguration.lcpencrypt_output_directory.description
-        )
-        eq_(
-            LCPAPI.SETTINGS[11][ConfigurationAttribute.TYPE.value],
-            None
-        )
-        eq_(
-            LCPAPI.SETTINGS[11][ConfigurationAttribute.REQUIRED.value],
-            LCPEncryptionConfiguration.lcpencrypt_output_directory.required
-        )
-        eq_(
-            LCPAPI.SETTINGS[11][ConfigurationAttribute.DEFAULT.value],
-            LCPEncryptionConfiguration.lcpencrypt_output_directory.default
-        )
-        eq_(
-            LCPAPI.SETTINGS[11][ConfigurationAttribute.CATEGORY.value],
-            LCPEncryptionConfiguration.lcpencrypt_output_directory.category
-        )
+        assert (
+            LCPAPI.SETTINGS[11][ConfigurationAttribute.KEY.value] ==
+            LCPEncryptionConfiguration.lcpencrypt_output_directory.key)
+        assert (
+            LCPAPI.SETTINGS[11][ConfigurationAttribute.LABEL.value] ==
+            LCPEncryptionConfiguration.lcpencrypt_output_directory.label)
+        assert (
+            LCPAPI.SETTINGS[11][ConfigurationAttribute.DESCRIPTION.value] ==
+            LCPEncryptionConfiguration.lcpencrypt_output_directory.description)
+        assert (
+            LCPAPI.SETTINGS[11][ConfigurationAttribute.TYPE.value] ==
+            None)
+        assert (
+            LCPAPI.SETTINGS[11][ConfigurationAttribute.REQUIRED.value] ==
+            LCPEncryptionConfiguration.lcpencrypt_output_directory.required)
+        assert (
+            LCPAPI.SETTINGS[11][ConfigurationAttribute.DEFAULT.value] ==
+            LCPEncryptionConfiguration.lcpencrypt_output_directory.default)
+        assert (
+            LCPAPI.SETTINGS[11][ConfigurationAttribute.CATEGORY.value] ==
+            LCPEncryptionConfiguration.lcpencrypt_output_directory.category)
 
     @freeze_time("2020-01-01 00:00:00")
     def test_checkout_without_existing_loan(self):
@@ -425,14 +340,14 @@ class TestLCPAPI(DatabaseTest):
                 loan = lcp_api.checkout(patron, 'pin', license_pool, 'internal format')
 
                 # Assert
-                eq_(loan.collection_id, self._lcp_collection.id)
-                eq_(loan.collection(self._db), self._lcp_collection)
-                eq_(loan.license_pool(self._db), license_pool)
-                eq_(loan.data_source_name, data_source_name)
-                eq_(loan.identifier_type, license_pool.identifier.type)
-                eq_(loan.external_identifier, lcp_license['id'])
-                eq_(loan.start_date, start_date)
-                eq_(loan.end_date, end_date)
+                assert loan.collection_id == self._lcp_collection.id
+                assert loan.collection(self._db) == self._lcp_collection
+                assert loan.license_pool(self._db) == license_pool
+                assert loan.data_source_name == data_source_name
+                assert loan.identifier_type == license_pool.identifier.type
+                assert loan.external_identifier == lcp_license['id']
+                assert loan.start_date == start_date
+                assert loan.end_date == end_date
 
                 lcp_server_mock.generate_license.assert_called_once_with(
                     self._db, fixtures.CONTENT_ID, patron, start_date, end_date)
@@ -474,14 +389,14 @@ class TestLCPAPI(DatabaseTest):
                 loan = lcp_api.checkout(patron, 'pin', license_pool, 'internal format')
 
                 # Assert
-                eq_(loan.collection_id, self._lcp_collection.id)
-                eq_(loan.collection(self._db), self._lcp_collection)
-                eq_(loan.license_pool(self._db), license_pool)
-                eq_(loan.data_source_name, data_source_name)
-                eq_(loan.identifier_type, license_pool.identifier.type)
-                eq_(loan.external_identifier, loan_identifier)
-                eq_(loan.start_date, start_date)
-                eq_(loan.end_date, end_date)
+                assert loan.collection_id == self._lcp_collection.id
+                assert loan.collection(self._db) == self._lcp_collection
+                assert loan.license_pool(self._db) == license_pool
+                assert loan.data_source_name == data_source_name
+                assert loan.identifier_type == license_pool.identifier.type
+                assert loan.external_identifier == loan_identifier
+                assert loan.start_date == start_date
+                assert loan.end_date == end_date
 
                 lcp_server_mock.get_license.assert_called_once_with(
                     self._db, loan_identifier, patron)
@@ -521,12 +436,12 @@ class TestLCPAPI(DatabaseTest):
                 fulfilment_info = lcp_api.fulfill(patron, 'pin', license_pool, 'internal format')
 
                 # Assert
-                eq_(isinstance(fulfilment_info, LCPFulfilmentInfo), True)
-                eq_(fulfilment_info.collection_id, self._lcp_collection.id)
-                eq_(fulfilment_info.collection(self._db), self._lcp_collection)
-                eq_(fulfilment_info.license_pool(self._db), license_pool)
-                eq_(fulfilment_info.data_source_name, data_source_name)
-                eq_(fulfilment_info.identifier_type, license_pool.identifier.type)
+                assert isinstance(fulfilment_info, LCPFulfilmentInfo) == True
+                assert fulfilment_info.collection_id == self._lcp_collection.id
+                assert fulfilment_info.collection(self._db) == self._lcp_collection
+                assert fulfilment_info.license_pool(self._db) == license_pool
+                assert fulfilment_info.data_source_name == data_source_name
+                assert fulfilment_info.identifier_type == license_pool.identifier.type
 
                 lcp_server_mock.get_license.assert_called_once_with(
                     self._db, lcp_license['id'], patron)
@@ -575,14 +490,14 @@ class TestLCPAPI(DatabaseTest):
         loans = lcp_api.patron_activity(patron, 'pin')
 
         # Assert
-        eq_(len(loans), 1)
+        assert len(loans) == 1
 
         loan = loans[0]
-        eq_(loan.collection_id, self._lcp_collection.id)
-        eq_(loan.collection(self._db), self._lcp_collection)
-        eq_(loan.license_pool(self._db), license_pool)
-        eq_(loan.data_source_name, data_source_name)
-        eq_(loan.identifier_type, license_pool.identifier.type)
-        eq_(loan.external_identifier, external_identifier)
-        eq_(loan.start_date, today)
-        eq_(loan.end_date, expires)
+        assert loan.collection_id == self._lcp_collection.id
+        assert loan.collection(self._db) == self._lcp_collection
+        assert loan.license_pool(self._db) == license_pool
+        assert loan.data_source_name == data_source_name
+        assert loan.identifier_type == license_pool.identifier.type
+        assert loan.external_identifier == external_identifier
+        assert loan.start_date == today
+        assert loan.end_date == expires

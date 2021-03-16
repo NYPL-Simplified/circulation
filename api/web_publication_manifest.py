@@ -1,7 +1,6 @@
 """Vendor-specific variants of the standard Web Publication Manifest classes.
 """
 
-from nose.tools import set_trace
 from core.model import (
     DeliveryMechanism,
     Representation,
