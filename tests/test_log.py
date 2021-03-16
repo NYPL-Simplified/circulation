@@ -2,14 +2,10 @@
 import json
 import logging
 import sys
-from nose.tools import (
-    assert_raises,
-    assert_raises_regexp,
-    eq_,
-    set_trace
-)
 
-from . import DatabaseTest
+import pytest
+
+from ..testing import DatabaseTest
 from ..log import (
     StringFormatter,
     JSONFormatter,
@@ -32,7 +28,7 @@ class TestJSONFormatter(object):
 
     def test_format(self):
         formatter = JSONFormatter("some app")
-        eq_("some app", formatter.app_name)
+        assert "some app" == formatter.app_name
 
         exc_info = None
         # Cause an exception so we can capture its exc_info()
@@ -46,11 +42,11 @@ class TestJSONFormatter(object):
             104, "A message", {}, exc_info, None
         )
         data = json.loads(formatter.format(record))
-        eq_("some logger", data['name'])
-        eq_("some app", data['app'])
-        eq_("DEBUG", data['level'])
-        eq_("A message", data['message'])
-        eq_("pathname", data['filename'])
+        assert "some logger" == data['name']
+        assert "some app" == data['app']
+        assert "DEBUG" == data['level']
+        assert "A message" == data['message']
+        assert "pathname" == data['filename']
         assert 'ValueError: fake exception' in data['traceback']
 
     def test_format_with_different_types_of_strings(self):
@@ -78,7 +74,7 @@ class TestJSONFormatter(object):
             )
             data = json.loads(formatter.format(record))
             # The resulting data is always a Unicode string.
-            eq_(u"An important snowman: ☃", data['message'])
+            assert u"An important snowman: ☃" == data['message']
 
 
 class TestLogConfiguration(DatabaseTest):
@@ -88,7 +84,7 @@ class TestLogConfiguration(DatabaseTest):
         Enforcing this with code would create an import loop,
         but we can enforce it with a test.
         """
-        eq_(Loggly.NAME, ExternalIntegration.LOGGLY)
+        assert Loggly.NAME == ExternalIntegration.LOGGLY
 
     def loggly_integration(self):
         """Create an ExternalIntegration for a Loggly account."""
@@ -120,9 +116,9 @@ class TestLogConfiguration(DatabaseTest):
         internal_log_level, database_log_level, [handler], errors = m(
             None, testing=False
         )
-        eq_(cls.INFO, internal_log_level)
-        eq_(cls.WARN, database_log_level)
-        eq_([], errors)
+        assert cls.INFO == internal_log_level
+        assert cls.WARN == database_log_level
+        assert [] == errors
         assert isinstance(handler.formatter, JSONFormatter)
 
         # The same defaults hold when there is a database connection
@@ -130,9 +126,9 @@ class TestLogConfiguration(DatabaseTest):
         internal_log_level, database_log_level, [handler], errors = m(
             self._db, testing=False
         )
-        eq_(cls.INFO, internal_log_level)
-        eq_(cls.WARN, database_log_level)
-        eq_([], errors)
+        assert cls.INFO == internal_log_level
+        assert cls.WARN == database_log_level
+        assert [] == errors
         assert isinstance(handler.formatter, JSONFormatter)
 
         # Let's set up a integrations and change the defaults.
@@ -151,21 +147,21 @@ class TestLogConfiguration(DatabaseTest):
         internal_log_level, database_log_level, handlers, errors = m(
             self._db, testing=False
         )
-        eq_(cls.ERROR, internal_log_level)
-        eq_(cls.DEBUG, database_log_level)
+        assert cls.ERROR == internal_log_level
+        assert cls.DEBUG == database_log_level
         [loggly_handler] = [x for x in handlers if isinstance(x, LogglyHandler)]
-        eq_("http://example.com/a_token/", loggly_handler.url)
-        eq_("test app", loggly_handler.formatter.app_name)
+        assert "http://example.com/a_token/" == loggly_handler.url
+        assert "test app" == loggly_handler.formatter.app_name
 
         [cloudwatch_handler] = [x for x in handlers if isinstance(x, CloudWatchLogHandler)]
-        eq_("simplified", cloudwatch_handler.stream_name)
-        eq_("simplified", cloudwatch_handler.log_group)
-        eq_(60, cloudwatch_handler.send_interval)
+        assert "simplified" == cloudwatch_handler.stream_name
+        assert "simplified" == cloudwatch_handler.log_group
+        assert 60 == cloudwatch_handler.send_interval
 
         [stream_handler] = [x for x in handlers
                             if isinstance(x, logging.StreamHandler)]
         assert isinstance(stream_handler.formatter, StringFormatter)
-        eq_(template, stream_handler.formatter._fmt)
+        assert template == stream_handler.formatter._fmt
 
         # If testing=True, then the database configuration is ignored,
         # and the log setup is one that's appropriate for display
@@ -173,24 +169,22 @@ class TestLogConfiguration(DatabaseTest):
         internal_log_level, database_log_level, [handler], errors = m(
             self._db, testing=True
         )
-        eq_(cls.INFO, internal_log_level)
-        eq_(cls.WARN, database_log_level)
-        eq_(SysLogger.DEFAULT_MESSAGE_TEMPLATE, handler.formatter._fmt)
+        assert cls.INFO == internal_log_level
+        assert cls.WARN == database_log_level
+        assert SysLogger.DEFAULT_MESSAGE_TEMPLATE == handler.formatter._fmt
 
     def test_syslog_defaults(self):
         cls = SysLogger
 
         # Normally log messages are emitted in JSON format.
-        eq_(
-            (SysLogger.JSON_LOG_FORMAT, SysLogger.DEFAULT_MESSAGE_TEMPLATE),
-            cls._defaults(testing=False)
-        )
+        assert (
+            (SysLogger.JSON_LOG_FORMAT, SysLogger.DEFAULT_MESSAGE_TEMPLATE) ==
+            cls._defaults(testing=False))
 
         # When we're running unit tests, log messages are emitted in text format.
-        eq_(
-            (SysLogger.TEXT_LOG_FORMAT, SysLogger.DEFAULT_MESSAGE_TEMPLATE),
-            cls._defaults(testing=True)
-        )
+        assert (
+            (SysLogger.TEXT_LOG_FORMAT, SysLogger.DEFAULT_MESSAGE_TEMPLATE) ==
+            cls._defaults(testing=True))
 
     def test_set_formatter(self):
         # Create a generic handler.
@@ -206,7 +200,7 @@ class TestLogConfiguration(DatabaseTest):
         )
         formatter = handler.formatter
         assert isinstance(formatter, StringFormatter)
-        eq_(template, formatter._fmt)
+        assert template == formatter._fmt
 
         # Configure a similar handler for JSON output.
         handler = logging.StreamHandler()
@@ -215,12 +209,12 @@ class TestLogConfiguration(DatabaseTest):
         )
         formatter = handler.formatter
         assert isinstance(formatter, JSONFormatter)
-        eq_(LogConfiguration.DEFAULT_APP_NAME, formatter.app_name)
+        assert LogConfiguration.DEFAULT_APP_NAME == formatter.app_name
 
         # In this case the template is irrelevant. The JSONFormatter
         # uses the default format template, but it doesn't matter,
         # because JSONFormatter overrides the format() method.
-        eq_('%(message)s', formatter._fmt)
+        assert '%(message)s' == formatter._fmt
 
         # Configure a handler for output to Loggly. In this case
         # the format and template are irrelevant.
@@ -228,7 +222,7 @@ class TestLogConfiguration(DatabaseTest):
         Loggly.set_formatter(handler, "some app")
         formatter = handler.formatter
         assert isinstance(formatter, JSONFormatter)
-        eq_("some app", formatter.app_name)
+        assert "some app" == formatter.app_name
 
     def test_loggly_handler(self):
         """Turn an appropriate ExternalIntegration into a LogglyHandler."""
@@ -236,13 +230,13 @@ class TestLogConfiguration(DatabaseTest):
         integration = self.loggly_integration()
         handler = Loggly.loggly_handler(integration)
         assert isinstance(handler, LogglyHandler)
-        eq_("http://example.com/a_token/", handler.url)
+        assert "http://example.com/a_token/" == handler.url
 
         # Remove the loggly handler's .url, and the default URL will
         # be used.
         integration.url = None
         handler = Loggly.loggly_handler(integration)
-        eq_(Loggly.DEFAULT_LOGGLY_URL % dict(token="a_token"),
+        assert (Loggly.DEFAULT_LOGGLY_URL % dict(token="a_token") ==
             handler.url)
 
     def test_cloudwatch_handler(self):
@@ -255,32 +249,32 @@ class TestLogConfiguration(DatabaseTest):
         integration.set_setting(CloudwatchLogs.REGION, 'us-east-2')
         handler = CloudwatchLogs.get_handler(integration, testing=True)
         assert isinstance(handler, CloudWatchLogHandler)
-        eq_("test_stream", handler.stream_name)
-        eq_("test_group", handler.log_group)
-        eq_(120, handler.send_interval)
+        assert "test_stream" == handler.stream_name
+        assert "test_group" == handler.log_group
+        assert 120 == handler.send_interval
 
         integration.setting(CloudwatchLogs.INTERVAL).value = -10
-        assert_raises(CannotLoadConfiguration, CloudwatchLogs.get_handler, integration, True)
+        pytest.raises(CannotLoadConfiguration, CloudwatchLogs.get_handler, integration, True)
         integration.setting(CloudwatchLogs.INTERVAL).value = "a string"
-        assert_raises(CannotLoadConfiguration, CloudwatchLogs.get_handler, integration, True)
+        pytest.raises(CannotLoadConfiguration, CloudwatchLogs.get_handler, integration, True)
 
     def test_interpolate_loggly_url(self):
         m = Loggly._interpolate_loggly_url
 
         # We support two string interpolation techniques for combining
         # a token with a URL.
-        eq_("http://foo/token/bar/", m("http://foo/%s/bar/", "token"))
-        eq_("http://foo/token/bar/", m("http://foo/%(token)s/bar/", "token"))
+        assert "http://foo/token/bar/" == m("http://foo/%s/bar/", "token")
+        assert "http://foo/token/bar/" == m("http://foo/%(token)s/bar/", "token")
 
         # If the URL contains no string interpolation, we assume the token's
         # already in there.
-        eq_("http://foo/othertoken/bar/",
+        assert ("http://foo/othertoken/bar/" ==
             m("http://foo/othertoken/bar/", "token"))
 
         # Anything that doesn't fall under one of these cases will raise an
         # exception.
-        assert_raises(TypeError, m, "http://%s/%s", "token")
-        assert_raises(KeyError, m, "http://%(atoken)s/", "token")
+        pytest.raises(TypeError, m, "http://%s/%s", "token")
+        pytest.raises(KeyError, m, "http://%(atoken)s/", "token")
 
     def test_cloudwatch_initialization_exception(self):
         """Make sure if an exception is thrown during initalization its caught."""
@@ -291,4 +285,4 @@ class TestLogConfiguration(DatabaseTest):
             self._db, testing=False
         )
         assert isinstance(handler, logging.StreamHandler)
-        eq_('Error creating logger AWS Cloudwatch Logs Unable to locate credentials', error)
+        assert 'Error creating logger AWS Cloudwatch Logs Unable to locate credentials' == error

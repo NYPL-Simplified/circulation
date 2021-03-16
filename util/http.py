@@ -1,5 +1,5 @@
 import logging
-from nose.tools import set_trace
+
 import requests
 import urlparse
 from flask_babel import lazy_gettext as _

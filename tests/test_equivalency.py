@@ -1,9 +1,3 @@
-from nose.tools import (
-    assert_raises_regexp,
-    eq_,
-    set_trace,
-)
-
 from ..model import (
     CirculationEvent,
     DataSource,
@@ -15,7 +9,7 @@ from ..model import (
     PresentationCalculationPolicy,
 )
 
-from . import (
+from ..testing import (
     DatabaseTest,
 )
 
@@ -37,13 +31,13 @@ class TestEquivalency(DatabaseTest):
         eq = record.primary_identifier.equivalent_to(
             data_source_2, record2.primary_identifier, 1)
 
-        eq_(eq.input, record.primary_identifier)
-        eq_(eq.output, record2.primary_identifier)
-        eq_(eq.data_source, data_source_2)
+        assert eq.input == record.primary_identifier
+        assert eq.output == record2.primary_identifier
+        assert eq.data_source == data_source_2
 
-        eq_([eq], record.primary_identifier.equivalencies)
+        assert [eq] == record.primary_identifier.equivalencies
 
-        eq_(set([record, record2]), set(record.equivalent_editions().all()))
+        assert set([record, record2]) == set(record.equivalent_editions().all())
 
     def test_recursively_equivalent_identifiers(self):
 
@@ -102,19 +96,19 @@ class TestEquivalency(DatabaseTest):
         ]
 
         # At level 0, the only identifier found is the Gutenberg ID.
-        eq_(set([gutenberg_id]), set(levels[0]))
+        assert set([gutenberg_id]) == set(levels[0])
 
         # At level 1, we pick up the title/author lookup.
-        eq_(set([gutenberg_id, search_id]), set(levels[1]))
+        assert set([gutenberg_id, search_id]) == set(levels[1])
 
         # At level 2, we pick up the title/author lookup and the two
         # OCLC Numbers.
-        eq_(set([gutenberg_id, search_id, oclc_id, oclc_id_2]), set(levels[2]))
+        assert set([gutenberg_id, search_id, oclc_id, oclc_id_2]) == set(levels[2])
 
         # At level 3, we also pick up the ISBN.
-        eq_(set([gutenberg_id, search_id, oclc_id, oclc_id_2, isbn_id]), set(levels[3]))
+        assert set([gutenberg_id, search_id, oclc_id, oclc_id_2, isbn_id]) == set(levels[3])
 
         # At level 4, the recursion starts to go in the other
         # direction: we pick up the Overdrive ID that's equivalent to
         # the same ISBN as the OCLC Number.
-        eq_(set([gutenberg_id, search_id, oclc_id, oclc_id_2, isbn_id, overdrive_id]), set(levels[4]))
+        assert set([gutenberg_id, search_id, oclc_id, oclc_id_2, isbn_id, overdrive_id]) == set(levels[4])

@@ -1,11 +1,6 @@
 # encoding: utf-8
-from nose.tools import (
-    assert_not_equal,
-    eq_,
-    set_trace,
-)
 import datetime
-from .. import DatabaseTest
+from ...testing import DatabaseTest
 from ...model import (
     get_one_or_create,
     PresentationCalculationPolicy,
@@ -30,14 +25,14 @@ class TestEdition(DatabaseTest):
 
         m = Edition.medium_from_media_type
         for audio_type in MediaTypes.AUDIOBOOK_MEDIA_TYPES:
-            eq_(Edition.AUDIO_MEDIUM, m(audio_type))
-            eq_(Edition.AUDIO_MEDIUM, m(audio_type + ";param=value"))
+            assert Edition.AUDIO_MEDIUM == m(audio_type)
+            assert Edition.AUDIO_MEDIUM == m(audio_type + ";param=value")
 
         for book_type in MediaTypes.BOOK_MEDIA_TYPES:
-            eq_(Edition.BOOK_MEDIUM, m(book_type))
-            eq_(Edition.BOOK_MEDIUM, m(book_type + ";param=value"))
+            assert Edition.BOOK_MEDIUM == m(book_type)
+            assert Edition.BOOK_MEDIUM == m(book_type + ";param=value")
 
-        eq_(Edition.BOOK_MEDIUM, m(DeliveryMechanism.ADOBE_DRM))
+        assert Edition.BOOK_MEDIUM == m(DeliveryMechanism.ADOBE_DRM)
 
     def test_license_pools(self):
         # Here are two collections that provide access to the same book.
@@ -48,10 +43,10 @@ class TestEdition(DatabaseTest):
         lp2 = self._licensepool(edition=edition, collection=c2)
 
         # Two LicensePools for the same work.
-        eq_(lp1.identifier, lp2.identifier)
+        assert lp1.identifier == lp2.identifier
 
         # Edition.license_pools contains both.
-        eq_(set([lp1, lp2]), set(edition.license_pools))
+        assert set([lp1, lp2]) == set(edition.license_pools)
 
     def test_author_contributors(self):
         data_source = DataSource.lookup(self._db, DataSource.GUTENBERG)
@@ -73,11 +68,11 @@ class TestEdition(DatabaseTest):
         edition.add_contributor(bob, [Contributor.ILLUSTRATOR_ROLE])
 
         # Both contributors show up in .contributors.
-        eq_(set([alice, bob]), edition.contributors)
+        assert set([alice, bob]) == edition.contributors
 
         # Only the author shows up in .author_contributors, and she
         # only shows up once.
-        eq_([alice], edition.author_contributors)
+        assert [alice] == edition.author_contributors
 
     def test_for_foreign_id(self):
         """Verify we can get a data source's view of a foreign id."""
@@ -87,20 +82,20 @@ class TestEdition(DatabaseTest):
 
         record, was_new = Edition.for_foreign_id(
             self._db, data_source, type, id)
-        eq_(data_source, record.data_source)
+        assert data_source == record.data_source
         identifier = record.primary_identifier
-        eq_(id, identifier.identifier)
-        eq_(type, identifier.type)
-        eq_(True, was_new)
-        eq_([identifier], record.equivalent_identifiers())
+        assert id == identifier.identifier
+        assert type == identifier.type
+        assert True == was_new
+        assert [identifier] == record.equivalent_identifiers()
 
         # We can get the same work record by providing only the name
         # of the data source.
         record, was_new = Edition.for_foreign_id(
             self._db, DataSource.GUTENBERG, type, id)
-        eq_(data_source, record.data_source)
-        eq_(identifier, record.primary_identifier)
-        eq_(False, was_new)
+        assert data_source == record.data_source
+        assert identifier == record.primary_identifier
+        assert False == was_new
 
     def test_missing_coverage_from(self):
         gutenberg = DataSource.lookup(self._db, DataSource.GUTENBERG)
@@ -130,25 +125,25 @@ class TestEdition(DatabaseTest):
         [in_gutenberg_but_not_in_oclc] = Edition.missing_coverage_from(
             self._db, gutenberg, oclc).all()
 
-        eq_(g2, in_gutenberg_but_not_in_oclc)
+        assert g2 == in_gutenberg_but_not_in_oclc
 
         # If we ask about a specific operation, we get the Gutenberg
         # record that has coverage for that operation, but not the one
         # that has generic OCLC coverage.
         [has_generic_coverage_only] = Edition.missing_coverage_from(
             self._db, gutenberg, oclc, "some operation").all()
-        eq_(g1, has_generic_coverage_only)
+        assert g1 == has_generic_coverage_only
 
         # We don't put web sites into OCLC, so this will pick up the
         # web record (but not the Gutenberg record).
         [in_web_but_not_in_oclc] = Edition.missing_coverage_from(
             self._db, web, oclc).all()
-        eq_(w, in_web_but_not_in_oclc)
+        assert w == in_web_but_not_in_oclc
 
         # We don't use the web as a source of coverage, so this will
         # return both Gutenberg records (but not the web record).
-        eq_([g1.id, g2.id], sorted([x.id for x in Edition.missing_coverage_from(
-            self._db, gutenberg, web)]))
+        assert [g1.id, g2.id] == sorted([x.id for x in Edition.missing_coverage_from(
+            self._db, gutenberg, web)])
 
     def test_sort_by_priority(self):
 
@@ -171,14 +166,14 @@ class TestEdition(DatabaseTest):
         # other data sources.
         expect = [no_data_source, od, mw, admin]
         actual = Edition.sort_by_priority(expect)
-        eq_(ids(expect), ids(actual))
+        assert ids(expect) == ids(actual)
 
         # If you specify which data source is associated with the
         # license for the book, you will boost its priority above that
         # of the metadata wrangler.
         expect = [no_data_source, mw, od, admin]
         actual = Edition.sort_by_priority(expect, od.data_source)
-        eq_(ids(expect), ids(actual))
+        assert ids(expect) == ids(actual)
 
     def test_equivalent_identifiers(self):
 
@@ -191,11 +186,11 @@ class TestEdition(DatabaseTest):
         policy = PresentationCalculationPolicy(
             equivalent_identifier_threshold=0.5
         )
-        eq_(set([identifier, edition.primary_identifier]),
+        assert (set([identifier, edition.primary_identifier]) ==
             set(edition.equivalent_identifiers(policy=policy)))
 
         policy.equivalent_identifier_threshold = 0.7
-        eq_(set([edition.primary_identifier]),
+        assert (set([edition.primary_identifier]) ==
             set(edition.equivalent_identifiers(policy=policy)))
 
     def test_recursive_edition_equivalence(self):
@@ -262,7 +257,7 @@ class TestEdition(DatabaseTest):
         # Recovering the Classics record because it's associated
         # directly with the Gutenberg record.
         results = list(gutenberg.equivalent_editions())
-        eq_(3, len(results))
+        assert 3 == len(results)
         assert gutenberg in results
         assert open_library in results
         assert recovering in results
@@ -272,48 +267,48 @@ class TestEdition(DatabaseTest):
         work.license_pools.extend([gutenberg2_pool])
 
         # Its set-of-all-editions contains only one record.
-        eq_(1, work.all_editions().count())
+        assert 1 == work.all_editions().count()
 
         # If we add the other Gutenberg record to it, then its
         # set-of-all-editions is extended by that record, *plus*
         # all the Editions equivalent to that record.
         work.license_pools.extend([gutenberg_pool])
-        eq_(4, work.all_editions().count())
+        assert 4 == work.all_editions().count()
 
     def test_calculate_presentation_title(self):
         wr = self._edition(title="The Foo")
         wr.calculate_presentation()
-        eq_("Foo, The", wr.sort_title)
+        assert "Foo, The" == wr.sort_title
 
         wr = self._edition(title="A Foo")
         wr.calculate_presentation()
-        eq_("Foo, A", wr.sort_title)
+        assert "Foo, A" == wr.sort_title
 
     def test_calculate_presentation_missing_author(self):
         wr = self._edition()
         self._db.delete(wr.contributions[0])
         self._db.commit()
         wr.calculate_presentation()
-        eq_(u"[Unknown]", wr.sort_author)
-        eq_(u"[Unknown]", wr.author)
+        assert u"[Unknown]" == wr.sort_author
+        assert u"[Unknown]" == wr.author
 
     def test_calculate_presentation_author(self):
         bob, ignore = self._contributor(sort_name="Bitshifter, Bob")
         wr = self._edition(authors=bob.sort_name)
         wr.calculate_presentation()
-        eq_("Bob Bitshifter", wr.author)
-        eq_("Bitshifter, Bob", wr.sort_author)
+        assert "Bob Bitshifter" == wr.author
+        assert "Bitshifter, Bob" == wr.sort_author
 
         bob.display_name="Bob A. Bitshifter"
         wr.calculate_presentation()
-        eq_("Bob A. Bitshifter", wr.author)
-        eq_("Bitshifter, Bob", wr.sort_author)
+        assert "Bob A. Bitshifter" == wr.author
+        assert "Bitshifter, Bob" == wr.sort_author
 
         kelly, ignore = self._contributor(sort_name="Accumulator, Kelly")
         wr.add_contributor(kelly, Contributor.AUTHOR_ROLE)
         wr.calculate_presentation()
-        eq_("Kelly Accumulator, Bob A. Bitshifter", wr.author)
-        eq_("Accumulator, Kelly ; Bitshifter, Bob", wr.sort_author)
+        assert "Kelly Accumulator, Bob A. Bitshifter" == wr.author
+        assert "Accumulator, Kelly ; Bitshifter, Bob" == wr.sort_author
 
     def test_set_summary(self):
         e, pool = self._edition(with_license_pool=True)
@@ -325,14 +320,14 @@ class TestEdition(DatabaseTest):
                       "F")
         work.set_summary(l1.resource)
 
-        eq_(l1.resource, work.summary)
-        eq_("F", work.summary_text)
+        assert l1.resource == work.summary
+        assert "F" == work.summary_text
 
         # Remove the summary.
         work.set_summary(None)
 
-        eq_(None, work.summary)
-        eq_("", work.summary_text)
+        assert None == work.summary
+        assert "" == work.summary_text
 
     def test_calculate_evaluate_summary_quality_with_privileged_data_sources(self):
         e, pool = self._edition(with_license_pool=True)
@@ -354,15 +349,15 @@ class TestEdition(DatabaseTest):
         ids = [e.primary_identifier.id]
         champ1, resources = Identifier.evaluate_summary_quality(self._db, ids)
 
-        eq_(set([overdrive_resource, oclc_resource]), set(resources))
-        eq_(oclc_resource, champ1)
+        assert set([overdrive_resource, oclc_resource]) == set(resources)
+        assert oclc_resource == champ1
 
         # But if we say that Overdrive is the privileged data source, it wins
         # automatically. The other resource isn't even considered.
         champ2, resources2 = Identifier.evaluate_summary_quality(
             self._db, ids, [overdrive])
-        eq_(overdrive_resource, champ2)
-        eq_([overdrive_resource], resources2)
+        assert overdrive_resource == champ2
+        assert [overdrive_resource] == resources2
 
         # If we say that some other data source is privileged, and
         # there are no descriptions from that data source, a
@@ -371,15 +366,15 @@ class TestEdition(DatabaseTest):
         threem = DataSource.lookup(self._db, DataSource.THREEM)
         champ3, resources3 = Identifier.evaluate_summary_quality(
             self._db, ids, [threem])
-        eq_(set([overdrive_resource, oclc_resource]), set(resources3))
-        eq_(oclc_resource, champ3)
+        assert set([overdrive_resource, oclc_resource]) == set(resources3)
+        assert oclc_resource == champ3
 
         # If there are two privileged data sources and there's no
         # description from the first, the second is used.
         champ4, resources4 = Identifier.evaluate_summary_quality(
             self._db, ids, [threem, overdrive])
-        eq_([overdrive_resource], resources4)
-        eq_(overdrive_resource, champ4)
+        assert [overdrive_resource] == resources4
+        assert overdrive_resource == champ4
 
         # Even an empty string wins if it's from the most privileged data source.
         # This is not a silly example.  The librarian may choose to set the description
@@ -390,8 +385,8 @@ class TestEdition(DatabaseTest):
 
         champ5, resources5 = Identifier.evaluate_summary_quality(
             self._db, ids, [staff, overdrive])
-        eq_([staff_resource], resources5)
-        eq_(staff_resource, champ5)
+        assert [staff_resource] == resources5
+        assert staff_resource == champ5
 
     def test_calculate_presentation_cover(self):
         # Here's a cover image with a thumbnail.
@@ -410,8 +405,8 @@ class TestEdition(DatabaseTest):
         link, ignore = e.primary_identifier.add_link(Hyperlink.IMAGE, "http://cover", e.data_source)
         link.resource.representation = representation
         e.calculate_presentation()
-        eq_("http://mirror/cover", e.cover_full_url)
-        eq_("http://mirror/thumb", e.cover_thumbnail_url)
+        assert "http://mirror/cover" == e.cover_full_url
+        assert "http://mirror/thumb" == e.cover_thumbnail_url
 
         # Verify that a cover will be used even if it's some
         # distance away along the identifier-equivalence line.
@@ -424,8 +419,8 @@ class TestEdition(DatabaseTest):
         link, ignore = oclc_number.add_link(Hyperlink.IMAGE, "http://cover", oclc_classify)
         link.resource.representation = representation
         e.calculate_presentation()
-        eq_("http://mirror/cover", e.cover_full_url)
-        eq_("http://mirror/thumb", e.cover_thumbnail_url)
+        assert "http://mirror/cover" == e.cover_full_url
+        assert "http://mirror/thumb" == e.cover_thumbnail_url
 
         # Verify that a nearby cover takes precedence over a
         # faraway cover.
@@ -441,8 +436,8 @@ class TestEdition(DatabaseTest):
         nearby_thumb.mirror_url = "http://mirror/nearby-thumb"
         nearby_thumb.thumbnail_of_id = nearby.id
         e.calculate_presentation()
-        eq_("http://mirror/nearby-cover", e.cover_full_url)
-        eq_("http://mirror/nearby-thumb", e.cover_thumbnail_url)
+        assert "http://mirror/nearby-cover" == e.cover_full_url
+        assert "http://mirror/nearby-thumb" == e.cover_thumbnail_url
 
         # Verify that a thumbnail is used even if there's
         # no full-sized cover.
@@ -450,8 +445,8 @@ class TestEdition(DatabaseTest):
         link, ignore = e.primary_identifier.add_link(Hyperlink.THUMBNAIL_IMAGE, "http://thumb", e.data_source)
         link.resource.representation = thumb
         e.calculate_presentation()
-        eq_(None, e.cover_full_url)
-        eq_("http://mirror/thumb", e.cover_thumbnail_url)
+        assert None == e.cover_full_url
+        assert "http://mirror/thumb" == e.cover_thumbnail_url
 
 
     def test_calculate_presentation_registers_coverage_records(self):
@@ -459,7 +454,7 @@ class TestEdition(DatabaseTest):
         identifier = edition.primary_identifier
 
         # This Identifier has no CoverageRecords.
-        eq_([], identifier.coverage_records)
+        assert [] == identifier.coverage_records
 
         # But once we calculate the Edition's presentation...
         edition.calculate_presentation()
@@ -473,34 +468,33 @@ class TestEdition(DatabaseTest):
             CoverageRecord.SET_EDITION_METADATA_OPERATION,
             CoverageRecord.CHOOSE_COVER_OPERATION]
         )
-        eq_(expect, set([x.operation for x in records]))
+        assert expect == set([x.operation for x in records])
 
         # We know the records are associated with this specific
         # Edition, not just the Identifier, because each
         # CoverageRecord's DataSource is set to this Edition's
         # DataSource.
-        eq_(
-            [edition.data_source, edition.data_source],
-            [x.data_source for x in records]
-        )
+        assert (
+            [edition.data_source, edition.data_source] ==
+            [x.data_source for x in records])
 
     def test_no_permanent_work_id_for_edition_without_title_or_medium(self):
         # An edition with no title or medium is not assigned a permanent work
         # ID.
         edition = self._edition()
-        eq_(None, edition.permanent_work_id)
+        assert None == edition.permanent_work_id
 
         edition.title = ''
         edition.calculate_permanent_work_id()
-        eq_(None, edition.permanent_work_id)
+        assert None == edition.permanent_work_id
 
         edition.title = u'something'
         edition.calculate_permanent_work_id()
-        assert_not_equal(None, edition.permanent_work_id)
+        assert None != edition.permanent_work_id
 
         edition.medium = None
         edition.calculate_permanent_work_id()
-        eq_(None, edition.permanent_work_id)
+        assert None == edition.permanent_work_id
 
     def test_choose_cover_can_choose_full_image_and_thumbnail_separately(self):
         edition = self._edition()
@@ -520,8 +514,8 @@ class TestEdition(DatabaseTest):
         # potentially unrelated images to the Edition, because there
         # is no better option.
         edition.choose_cover()
-        eq_(main_image.resource.url, edition.cover_full_url)
-        eq_(thumbnail_image.resource.url, edition.cover_thumbnail_url)
+        assert main_image.resource.url == edition.cover_full_url
+        assert thumbnail_image.resource.url == edition.cover_thumbnail_url
 
         # If there is a clear indication that one of the thumbnails
         # associated with the identifier is a thumbnail _of_ the
@@ -535,5 +529,5 @@ class TestEdition(DatabaseTest):
 
         # ...That thumbnail will be chosen in preference to the
         # possibly unrelated thumbnail.
-        eq_(main_image.resource.url, edition.cover_full_url)
-        eq_(thumbnail_2.resource.url, edition.cover_thumbnail_url)
+        assert main_image.resource.url == edition.cover_full_url
+        assert thumbnail_2.resource.url == edition.cover_thumbnail_url

@@ -1,8 +1,4 @@
 import re
-from nose.tools import (
-    eq_,
-    set_trace
-)
 from lxml import etree
 from ...util.opds_writer import (
     AtomFeed,
@@ -15,11 +11,11 @@ class TestOPDSMessage(object):
     def test_equality(self):
 
         a = OPDSMessage("urn", 200, "message")
-        eq_(a,a)
+        assert a ==a
         assert a != None
         assert a != "message"
 
-        eq_(a, OPDSMessage("urn", 200, "message"))
+        assert a == OPDSMessage("urn", 200, "message")
         assert a != OPDSMessage("urn2", 200, "message")
         assert a != OPDSMessage("urn", 201, "message")
         assert a != OPDSMessage("urn", 200, "message2")
@@ -28,7 +24,7 @@ class TestOPDSMessage(object):
         """Verify that an OPDSMessage becomes a reasonable XML tag."""
         a = OPDSMessage("urn", 200, "message")
         text = etree.tounicode(a.tag)
-        eq_(text, str(a))
+        assert text == str(a)
 
         # Verify that we start with a simplified:message tag.
         assert text.startswith('<simplified:message')
@@ -51,10 +47,12 @@ class TestAtomFeed(object):
         entry = AtomFeed.E.entry()
         link_child = AtomFeed.E.link_child()
         AtomFeed.add_link_to_entry(entry, [link_child], **kwargs)
-        # TODO PYTHON3 the attributes come out in a different order.
         assert (
-            u'<link extra="extra info" href="url" title="1"><link_child/>'
-            in etree.tounicode(entry)
+            etree.tostring(
+                etree.fromstring(u'<link extra="extra info" href="url" title="1"><link_child/></link>'),
+                method='c14n2'
+            )
+            in etree.tostring(entry, method='c14n2')
         )
 
     def test_contributor(self):

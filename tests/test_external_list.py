@@ -1,13 +1,7 @@
 # encoding: utf-8
 import datetime
-from nose.tools import (
-    assert_raises,
-    assert_raises_regexp,
-    eq_,
-    set_trace,
-)
 
-from . import (
+from ..testing import (
     DatabaseTest,
     DummyMetadataClient,
 )
@@ -26,8 +20,8 @@ from ..external_list import (
 
 class TestCustomListFromCSV(DatabaseTest):
 
-    def setup(self):
-        super(TestCustomListFromCSV, self).setup()
+    def setup_method(self):
+        super(TestCustomListFromCSV, self).setup_method()
         self.data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
         self.metadata = DummyMetadataClient()
         self.metadata.lookups['Octavia Butler'] = 'Butler, Octavia'
@@ -71,26 +65,26 @@ class TestCustomListFromCSV(DatabaseTest):
     def test_annotation_citation(self):
         m = self.l.annotation_citation
         row = dict()
-        eq_(None, m(row))
+        assert None == m(row)
         row[self.l.annotation_author_name_field] = "Alice"
-        eq_(u" —Alice", m(row))
+        assert u" —Alice" == m(row)
         row[self.l.annotation_author_affiliation_field] = "2nd Street Branch"
-        eq_(u" —Alice, 2nd Street Branch", m(row))
+        assert u" —Alice, 2nd Street Branch" == m(row)
         del row[self.l.annotation_author_name_field]
-        eq_(None, m(row))
+        assert None == m(row)
 
     def test_row_to_metadata_complete_success(self):
 
         row = self.create_row()
         metadata = self.l.row_to_metadata(row)
-        eq_(row[self.l.title_field], metadata.title)
-        eq_(row['author'], metadata.contributors[0].display_name)
-        eq_(row['isbn'], metadata.identifiers[0].identifier)
+        assert row[self.l.title_field] == metadata.title
+        assert row['author'] == metadata.contributors[0].display_name
+        assert row['isbn'] == metadata.identifiers[0].identifier
 
         expect_pub = datetime.datetime.strptime(
             row['published'], self.DATE_FORMAT)
-        eq_(expect_pub, metadata.published)
-        eq_(self.l.default_language, metadata.language)
+        assert expect_pub == metadata.published
+        assert self.l.default_language == metadata.language
 
 
     def test_metadata_to_list_entry_complete_success(self):
@@ -100,39 +94,39 @@ class TestCustomListFromCSV(DatabaseTest):
             self.custom_list, self.data_source, self.now, metadata)
         e = list_entry.edition
 
-        eq_(row[self.l.title_field], e.title)
-        eq_("Octavia Butler", e.author)
-        eq_("Butler, Octavia", e.sort_author)
+        assert row[self.l.title_field] == e.title
+        assert "Octavia Butler" == e.author
+        assert "Butler, Octavia" == e.sort_author
 
         i = e.primary_identifier
-        eq_(Identifier.ISBN, i.type)
-        eq_(row['isbn'], i.identifier)
+        assert Identifier.ISBN == i.type
+        assert row['isbn'] == i.identifier
 
         # There should be one description.
         expect = row[self.l.annotation_field] + self.l.annotation_citation(row)
-        eq_(expect, list_entry.annotation)
+        assert expect == list_entry.annotation
 
         classifications = i.classifications
         # There should be six classifications, two of type 'tag', two
         # of type 'schema:audience', and two of type
         # 'schema:typicalAgeRange'
-        eq_(6, len(classifications))
+        assert 6 == len(classifications)
 
         tags = [x for x in classifications if x.subject.type==Subject.TAG]
-        eq_(2, len(tags))
+        assert 2 == len(tags)
 
         audiences = [x for x in classifications
                      if x.subject.type==Subject.FREEFORM_AUDIENCE]
-        eq_(2, len(audiences))
+        assert 2 == len(audiences)
 
         age_ranges = [x for x in classifications
                      if x.subject.type==Subject.AGE_RANGE]
-        eq_(2, len(age_ranges))
+        assert 2 == len(age_ranges)
 
         expect_first = datetime.datetime.strptime(
             row[self.l.first_appearance_field], self.DATE_FORMAT)
-        eq_(expect_first, list_entry.first_appearance)
-        eq_(self.now, list_entry.most_recent_appearance)
+        assert expect_first == list_entry.first_appearance
+        assert self.now == list_entry.most_recent_appearance
 
 
     def test_row_to_item_matching_work_found(self):
@@ -145,9 +139,9 @@ class TestCustomListFromCSV(DatabaseTest):
             self.custom_list, self.data_source, self.now, metadata)
 
         e = list_entry.edition
-        eq_(row[self.l.title_field], e.title)
-        eq_("Octavia Butler", e.author)
-        eq_("Butler, Octavia", e.sort_author)
+        assert row[self.l.title_field] == e.title
+        assert "Octavia Butler" == e.author
+        assert "Butler, Octavia" == e.sort_author
 
     def test_non_default_language(self):
         row = self.create_row()
@@ -155,7 +149,7 @@ class TestCustomListFromCSV(DatabaseTest):
         metadata = self.l.row_to_metadata(row)
         list_entry = self.l.metadata_to_list_entry(
             self.custom_list, self.data_source, self.now, metadata)
-        eq_('spa', list_entry.edition.language)
+        assert 'spa' == list_entry.edition.language
 
     def test_non_default_language(self):
         row = self.create_row()
@@ -163,7 +157,7 @@ class TestCustomListFromCSV(DatabaseTest):
         metadata = self.l.row_to_metadata(row)
         list_entry = self.l.metadata_to_list_entry(
             self.custom_list, self.data_source, self.now, metadata)
-        eq_('spa', list_entry.edition.language)
+        assert 'spa' == list_entry.edition.language
 
     def test_overwrite_old_data(self):
         self.l.overwrite_old_data = True
@@ -185,13 +179,13 @@ class TestCustomListFromCSV(DatabaseTest):
         list_entry_2 = self.l.metadata_to_list_entry(
             self.custom_list, self.data_source, self.now, metadata2)
 
-        eq_(list_entry_1, list_entry_2)
+        assert list_entry_1 == list_entry_2
 
-        eq_(list_entry_1.annotation, list_entry_2.annotation)
+        assert list_entry_1.annotation == list_entry_2.annotation
 
         # There are still six classifications.
         i = list_entry_1.edition.primary_identifier
-        eq_(6, len(i.classifications))
+        assert 6 == len(i.classifications)
 
         # Now import from the third row, but with
         # overwrite_old_data set to False.
@@ -200,10 +194,10 @@ class TestCustomListFromCSV(DatabaseTest):
         metadata3 = self.l.row_to_metadata(row3)
         list_entry_3 = self.l.metadata_to_list_entry(
             self.custom_list, self.data_source, self.now, metadata3)
-        eq_(list_entry_3, list_entry_1)
+        assert list_entry_3 == list_entry_1
 
         # Now there are 12 classifications.
-        eq_(12, len(i.classifications))
+        assert 12 == len(i.classifications)
 
 
 class BooksInSeries(MembershipManager):
@@ -229,7 +223,7 @@ class TestMembershipManager(DatabaseTest):
         series2.series = "Series Two"
 
         no_series = self._edition()
-        eq_(None, no_series.series)
+        assert None == no_series.series
 
         update_time = datetime.datetime(2015, 1, 1)
 
@@ -245,8 +239,8 @@ class TestMembershipManager(DatabaseTest):
         [entry1] = [x for x in custom_list.entries if x.edition.series == "Series 1"]
         [entry2] = [x for x in custom_list.entries if x.edition.series == "Series Two"]
 
-        eq_(update_time, entry1.first_appearance)
-        eq_(update_time, entry1.most_recent_appearance)
+        assert update_time == entry1.first_appearance
+        assert update_time == entry1.most_recent_appearance
 
         # In a shocking twist, one of the entries turns out not to
         # have a series, while the entry previously thought not to
@@ -262,10 +256,10 @@ class TestMembershipManager(DatabaseTest):
         # Entry #2 has been removed from the list, and a new entry added.
         [old_entry] = [x for x in custom_list.entries if x.edition.series == "Series 1"]
         [new_entry] = [x for x in custom_list.entries if x.edition.series == "Actually I do have a series."]
-        eq_(update_time, old_entry.first_appearance)
-        eq_(new_update_time, old_entry.most_recent_appearance)
-        eq_(new_update_time, new_entry.first_appearance)
-        eq_(new_update_time, new_entry.most_recent_appearance)
+        assert update_time == old_entry.first_appearance
+        assert new_update_time == old_entry.most_recent_appearance
+        assert new_update_time == new_entry.first_appearance
+        assert new_update_time == new_entry.most_recent_appearance
 
     def test_classification_based_membership_manager(self):
         e1 = self._edition()
@@ -280,7 +274,7 @@ class TestMembershipManager(DatabaseTest):
         fragments = ["foo", "bar"]
         manager = ClassificationBasedMembershipManager(custom_list, fragments)
         members = list(manager.new_membership)
-        eq_(2, len(members))
+        assert 2 == len(members)
 
         # e1 is a member of the list because its primary identifier is
         # classified under a subject that matches %foo%.

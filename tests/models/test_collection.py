@@ -1,14 +1,9 @@
 # encoding: utf-8
+import pytest
 from mock import create_autospec, MagicMock
-from nose.tools import (
-    assert_raises,
-    assert_raises_regexp,
-    eq_,
-    set_trace,
-)
 import datetime
 import json
-from .. import DatabaseTest
+from ...testing import DatabaseTest
 from ...config import Configuration
 from ...model import (
     create,
@@ -42,8 +37,8 @@ from ...util.string_helpers import base64
 
 class TestCollection(DatabaseTest):
 
-    def setup(self):
-        super(TestCollection, self).setup()
+    def setup_method(self):
+        super(TestCollection, self).setup_method()
         self.collection = self._collection(
             name="test collection", protocol=ExternalIntegration.OVERDRIVE
         )
@@ -54,34 +49,31 @@ class TestCollection(DatabaseTest):
         key = (name, protocol)
 
         # Cache is empty.
-        eq_(HasFullTableCache.RESET, Collection._cache)
+        assert HasFullTableCache.RESET == Collection._cache
 
         collection1, is_new = Collection.by_name_and_protocol(
             self._db, name, ExternalIntegration.OVERDRIVE
         )
-        eq_(True, is_new)
+        assert True == is_new
 
         # Cache was populated and then reset because we created a new
         # Collection.
-        eq_(HasFullTableCache.RESET, Collection._cache)
+        assert HasFullTableCache.RESET == Collection._cache
 
         collection2, is_new = Collection.by_name_and_protocol(
             self._db, name, ExternalIntegration.OVERDRIVE
         )
-        eq_(collection1, collection2)
-        eq_(False, is_new)
+        assert collection1 == collection2
+        assert False == is_new
 
         # This time the cache was not reset after being populated.
-        eq_(collection1, Collection._cache[key])
+        assert collection1 == Collection._cache[key]
 
         # You'll get an exception if you look up an existing name
         # but the protocol doesn't match.
-        assert_raises_regexp(
-            ValueError,
-            'Collection "A name" does not use protocol "Bibliotheca".',
-            Collection.by_name_and_protocol,
-            self._db, name, ExternalIntegration.BIBLIOTHECA
-        )
+        with pytest.raises(ValueError) as excinfo:
+            Collection.by_name_and_protocol(self._db, name, ExternalIntegration.BIBLIOTHECA)
+        assert 'Collection "A name" does not use protocol "Bibliotheca".' in str(excinfo.value)
 
     def test_by_protocol(self):
         """Verify the ability to find all collections that implement
@@ -92,16 +84,16 @@ class TestCollection(DatabaseTest):
         c1 = self._collection(self._str, protocol=overdrive)
         c1.parent = self.collection
         c2 = self._collection(self._str, protocol=bibliotheca)
-        eq_(set([self.collection, c1]),
+        assert (set([self.collection, c1]) ==
             set(Collection.by_protocol(self._db, overdrive).all()))
-        eq_(([c2]),
+        assert (([c2]) ==
             Collection.by_protocol(self._db, bibliotheca).all())
-        eq_(set([self.collection, c1, c2]),
+        assert (set([self.collection, c1, c2]) ==
             set(Collection.by_protocol(self._db, None).all()))
 
         # A collection marked for deletion is filtered out.
         c1.marked_for_deletion = True
-        eq_([self.collection],
+        assert ([self.collection] ==
             Collection.by_protocol(self._db, overdrive).all())
 
     def test_by_datasource(self):
@@ -110,63 +102,58 @@ class TestCollection(DatabaseTest):
         c2 = self._collection(data_source_name=DataSource.OVERDRIVE)
 
         # Using the DataSource name
-        eq_(set([c1]),
+        assert (set([c1]) ==
             set(Collection.by_datasource(self._db, DataSource.GUTENBERG).all()))
 
         # Using the DataSource itself
         overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
-        eq_(set([c2]),
+        assert (set([c2]) ==
             set(Collection.by_datasource(self._db, overdrive).all()))
 
         # A collection marked for deletion is filtered out.
         c2.marked_for_deletion = True
-        eq_(0, Collection.by_datasource(self._db, overdrive).count())
+        assert 0 == Collection.by_datasource(self._db, overdrive).count()
 
     def test_parents(self):
         # Collections can return all their parents recursively.
         c1 = self._collection()
-        eq_([], list(c1.parents))
+        assert [] == list(c1.parents)
 
         c2 = self._collection()
         c2.parent_id = c1.id
-        eq_([c1], list(c2.parents))
+        assert [c1] == list(c2.parents)
 
         c3 = self._collection()
         c3.parent_id = c2.id
-        eq_([c2, c1], list(c3.parents))
+        assert [c2, c1] == list(c3.parents)
 
     def test_create_external_integration(self):
         # A newly created Collection has no associated ExternalIntegration.
         collection, ignore = get_one_or_create(
             self._db, Collection, name=self._str
         )
-        eq_(None, collection.external_integration_id)
-        assert_raises_regexp(
-            ValueError,
-            "No known external integration for collection",
-            getattr, collection, 'external_integration'
-        )
+        assert None == collection.external_integration_id
+        with pytest.raises(ValueError) as excinfo:
+            getattr(collection, 'external_integration')
+        assert "No known external integration for collection" in str(excinfo.value)
 
         # We can create one with create_external_integration().
         overdrive = ExternalIntegration.OVERDRIVE
         integration = collection.create_external_integration(protocol=overdrive)
-        eq_(integration.id, collection.external_integration_id)
-        eq_(overdrive, integration.protocol)
+        assert integration.id == collection.external_integration_id
+        assert overdrive == integration.protocol
 
         # If we call create_external_integration() again we get the same
         # ExternalIntegration as before.
         integration2 = collection.create_external_integration(protocol=overdrive)
-        eq_(integration, integration2)
-
+        assert integration == integration2
 
         # If we try to initialize an ExternalIntegration with a different
         # protocol, we get an error.
-        assert_raises_regexp(
-            ValueError,
-            "Located ExternalIntegration, but its protocol \(Overdrive\) does not match desired protocol \(blah\).",
-            collection.create_external_integration,
-            protocol="blah"
-        )
+        with pytest.raises(ValueError) as excinfo:
+            collection.create_external_integration(protocol = "blah")
+        assert "Located ExternalIntegration, but its protocol (Overdrive) does not match desired protocol (blah)." \
+            in str(excinfo.value)
 
     def test_unique_account_id(self):
 
@@ -181,11 +168,11 @@ class TestCollection(DatabaseTest):
 
         # The unique account ID of a primary collection is the
         # external account ID.
-        eq_("od1", overdrive.unique_account_id)
+        assert "od1" == overdrive.unique_account_id
 
         # For children of those collections, the unique account ID is scoped
         # to the parent collection.
-        eq_("od1+odchild", od_child.unique_account_id)
+        assert "od1+odchild" == od_child.unique_account_id
 
         # Enki works a little differently. Enki collections don't have
         # an external account ID, because all Enki collections are
@@ -193,7 +180,7 @@ class TestCollection(DatabaseTest):
         enki = self._collection(data_source_name=DataSource.ENKI)
 
         # So the unique account ID is the name of the data source.
-        eq_(DataSource.ENKI, enki.unique_account_id)
+        assert DataSource.ENKI == enki.unique_account_id
 
         # A (currently hypothetical) library-specific subcollection of
         # the global Enki collection must have an external_account_id,
@@ -202,7 +189,7 @@ class TestCollection(DatabaseTest):
             external_account_id="enkichild", data_source_name=DataSource.ENKI
         )
         enki_child.parent = enki
-        eq_(DataSource.ENKI + "+enkichild", enki_child.unique_account_id)
+        assert DataSource.ENKI + "+enkichild" == enki_child.unique_account_id
 
     def test_change_protocol(self):
         overdrive = ExternalIntegration.OVERDRIVE
@@ -218,42 +205,40 @@ class TestCollection(DatabaseTest):
         child.protocol = overdrive
         def set_child_protocol():
             child.protocol = bibliotheca
-        assert_raises_regexp(
-            ValueError,
-            "Proposed new protocol \(Bibliotheca\) contradicts parent collection's protocol \(Overdrive\).",
-            set_child_protocol
-        )
+        with pytest.raises(ValueError) as excinfo:
+            set_child_protocol()
+        assert "Proposed new protocol (Bibliotheca) contradicts parent collection's protocol (Overdrive)." in str(excinfo.value)
 
         # If we change the parent's protocol, the children are
         # automatically updated.
         self.collection.protocol = bibliotheca
-        eq_(bibliotheca, child.protocol)
+        assert bibliotheca == child.protocol
 
     def test_data_source(self):
         opds = self._collection()
         bibliotheca = self._collection(protocol=ExternalIntegration.BIBLIOTHECA)
 
         # The rote data_source is returned for the obvious collection.
-        eq_(DataSource.BIBLIOTHECA, bibliotheca.data_source.name)
+        assert DataSource.BIBLIOTHECA == bibliotheca.data_source.name
 
         # The less obvious OPDS collection doesn't have a DataSource.
-        eq_(None, opds.data_source)
+        assert None == opds.data_source
 
         # Trying to change the Bibliotheca collection's data_source does nothing.
         bibliotheca.data_source = DataSource.AXIS_360
-        eq_(DataSource.BIBLIOTHECA, bibliotheca.data_source.name)
+        assert DataSource.BIBLIOTHECA == bibliotheca.data_source.name
 
         # Trying to change the opds collection's data_source is fine.
         opds.data_source = DataSource.PLYMPTON
-        eq_(DataSource.PLYMPTON, opds.data_source.name)
+        assert DataSource.PLYMPTON == opds.data_source.name
 
         # Resetting it to something else is fine.
         opds.data_source = DataSource.OA_CONTENT_SERVER
-        eq_(DataSource.OA_CONTENT_SERVER, opds.data_source.name)
+        assert DataSource.OA_CONTENT_SERVER == opds.data_source.name
 
         # Resetting it to None is fine.
         opds.data_source = None
-        eq_(None, opds.data_source)
+        assert None == opds.data_source
 
     def test_default_loan_period(self):
         library = self._default_library
@@ -263,26 +248,23 @@ class TestCollection(DatabaseTest):
         audio = Edition.AUDIO_MEDIUM
 
         # The default when no value is set.
-        eq_(
-            Collection.STANDARD_DEFAULT_LOAN_PERIOD,
-            self.collection.default_loan_period(library, ebook)
-        )
+        assert (
+            Collection.STANDARD_DEFAULT_LOAN_PERIOD ==
+            self.collection.default_loan_period(library, ebook))
 
-        eq_(
-            Collection.STANDARD_DEFAULT_LOAN_PERIOD,
-            self.collection.default_loan_period(library, audio)
-        )
+        assert (
+            Collection.STANDARD_DEFAULT_LOAN_PERIOD ==
+            self.collection.default_loan_period(library, audio))
 
         # Set a value, and it's used.
         self.collection.default_loan_period_setting(library, ebook).value = 604
-        eq_(604, self.collection.default_loan_period(library))
-        eq_(
-            Collection.STANDARD_DEFAULT_LOAN_PERIOD,
-            self.collection.default_loan_period(library, audio)
-        )
+        assert 604 == self.collection.default_loan_period(library)
+        assert (
+            Collection.STANDARD_DEFAULT_LOAN_PERIOD ==
+            self.collection.default_loan_period(library, audio))
 
         self.collection.default_loan_period_setting(library, audio).value = 606
-        eq_(606, self.collection.default_loan_period(library, audio))
+        assert 606 == self.collection.default_loan_period(library, audio)
 
         # Given an integration client rather than a library, use
         # a sitewide integration setting rather than a library-specific
@@ -290,49 +272,45 @@ class TestCollection(DatabaseTest):
         client = self._integration_client()
 
         # The default when no value is set.
-        eq_(
-            Collection.STANDARD_DEFAULT_LOAN_PERIOD,
-            self.collection.default_loan_period(client, ebook)
-        )
+        assert (
+            Collection.STANDARD_DEFAULT_LOAN_PERIOD ==
+            self.collection.default_loan_period(client, ebook))
 
-        eq_(
-            Collection.STANDARD_DEFAULT_LOAN_PERIOD,
-            self.collection.default_loan_period(client, audio)
-        )
+        assert (
+            Collection.STANDARD_DEFAULT_LOAN_PERIOD ==
+            self.collection.default_loan_period(client, audio))
 
         # Set a value, and it's used.
         self.collection.default_loan_period_setting(client, ebook).value = 347
-        eq_(347, self.collection.default_loan_period(client))
-        eq_(
-            Collection.STANDARD_DEFAULT_LOAN_PERIOD,
-            self.collection.default_loan_period(client, audio)
-        )
+        assert 347 == self.collection.default_loan_period(client)
+        assert (
+            Collection.STANDARD_DEFAULT_LOAN_PERIOD ==
+            self.collection.default_loan_period(client, audio))
 
         self.collection.default_loan_period_setting(client, audio).value = 349
-        eq_(349, self.collection.default_loan_period(client, audio))
+        assert 349 == self.collection.default_loan_period(client, audio)
 
         # The same value is used for other clients.
         client2 = self._integration_client()
-        eq_(347, self.collection.default_loan_period(client))
-        eq_(349, self.collection.default_loan_period(client, audio))
+        assert 347 == self.collection.default_loan_period(client)
+        assert 349 == self.collection.default_loan_period(client, audio)
 
     def test_default_reservation_period(self):
         library = self._default_library
         # The default when no value is set.
-        eq_(
-            Collection.STANDARD_DEFAULT_RESERVATION_PERIOD,
-            self.collection.default_reservation_period
-        )
+        assert (
+            Collection.STANDARD_DEFAULT_RESERVATION_PERIOD ==
+            self.collection.default_reservation_period)
 
         # Set a value, and it's used.
         self.collection.default_reservation_period = 601
-        eq_(601, self.collection.default_reservation_period)
+        assert 601 == self.collection.default_reservation_period
 
         # The underlying value is controlled by a ConfigurationSetting.
         self.collection.external_integration.setting(
             Collection.DEFAULT_RESERVATION_PERIOD_KEY
         ).value = 954
-        eq_(954, self.collection.default_reservation_period)
+        assert 954 == self.collection.default_reservation_period
 
     def test_pools_with_no_delivery_mechanisms(self):
         # Collection.pools_with_no_delivery_mechanisms returns a query
@@ -346,7 +324,7 @@ class TestCollection(DatabaseTest):
         # At first, the query matches nothing, because
         # all LicensePools have delivery mechanisms.
         qu = collection1.pools_with_no_delivery_mechanisms
-        eq_([], qu.all())
+        assert [] == qu.all()
 
         # Let's delete all the delivery mechanisms.
         for pool in (pool1, pool2):
@@ -354,8 +332,8 @@ class TestCollection(DatabaseTest):
 
         # Now the query matches LicensePools if they are in the
         # appropriate collection.
-        eq_([pool1], qu.all())
-        eq_([pool2], collection2.pools_with_no_delivery_mechanisms.all())
+        assert [pool1] == qu.all()
+        assert [pool2] == collection2.pools_with_no_delivery_mechanisms.all()
 
     def test_explain(self):
         """Test that Collection.explain gives all relevant information
@@ -373,16 +351,15 @@ class TestCollection(DatabaseTest):
         setting = self.collection.external_integration.set_setting("setting", "value")
 
         data = self.collection.explain()
-        eq_(['Name: "test collection"',
+        assert (['Name: "test collection"',
              'Protocol: "Overdrive"',
              'Used by library: "only one"',
              'External account ID: "id"',
              'Setting "setting": "value"',
              'Setting "url": "url"',
              'Setting "username": "username"',
-        ],
-            data
-        )
+        ] ==
+            data)
 
         with_password = self.collection.explain(include_secrets=True)
         assert 'Setting "password": "password"' in with_password
@@ -396,17 +373,16 @@ class TestCollection(DatabaseTest):
             protocol=ExternalIntegration.OVERDRIVE
         )
         data = child.explain()
-        eq_(['Name: "Child"',
+        assert (['Name: "Child"',
              'Parent: test collection',
              'Protocol: "Overdrive"',
-             'External account ID: "id2"'],
-            data
-        )
+             'External account ID: "id2"'] ==
+            data)
 
     def test_metadata_identifier(self):
         # If the collection doesn't have its unique identifier, an error
         # is raised.
-        assert_raises(ValueError, getattr, self.collection, 'metadata_identifier')
+        pytest.raises(ValueError, getattr, self.collection, 'metadata_identifier')
 
         def build_expected(protocol, unique_id):
             encode = base64.urlsafe_b64encode
@@ -420,7 +396,7 @@ class TestCollection(DatabaseTest):
         # With a unique identifier, we get back the expected identifier.
         self.collection.external_account_id = 'id'
         expected = build_expected(ExternalIntegration.OVERDRIVE, 'id')
-        eq_(expected, self.collection.metadata_identifier)
+        assert expected == self.collection.metadata_identifier
 
         # If there's a parent, its unique id is incorporated into the result.
         child = self._collection(
@@ -429,7 +405,7 @@ class TestCollection(DatabaseTest):
         )
         child.parent = self.collection
         expected = build_expected(ExternalIntegration.OPDS_IMPORT, 'id+%s' % child.external_account_id)
-        eq_(expected, child.metadata_identifier)
+        assert expected == child.metadata_identifier
 
         # If it's an OPDS_IMPORT collection with a url external_account_id,
         # closing '/' marks are removed.
@@ -438,7 +414,7 @@ class TestCollection(DatabaseTest):
             external_account_id=(self._url+'/')
         )
         expected = build_expected(ExternalIntegration.OPDS_IMPORT, opds.external_account_id[:-1])
-        eq_(expected, opds.metadata_identifier)
+        assert expected == opds.metadata_identifier
 
     def test_from_metadata_identifier(self):
 
@@ -446,25 +422,19 @@ class TestCollection(DatabaseTest):
 
         # A ValueError results if we try to look up using an invalid
         # identifier.
-        assert_raises_regexp(
-            ValueError,
-            "Metadata identifier 'not a real identifier' is invalid: Incorrect padding",
-            Collection.from_metadata_identifier,
-            self._db, "not a real identifier", data_source=data_source
-        )
+        with pytest.raises(ValueError) as excinfo:
+            Collection.from_metadata_identifier(self._db, "not a real identifier", data_source = data_source)
+        assert "Metadata identifier 'not a real identifier' is invalid: Incorrect padding" in str(excinfo.value)
 
         # Of if we pass in the empty string.
-        assert_raises_regexp(
-            ValueError,
-            "No metadata identifier provided",
-            Collection.from_metadata_identifier,
-            self._db, "", data_source=data_source
-        )
+        with pytest.raises(ValueError) as excinfo:
+            Collection.from_metadata_identifier(self._db, "", data_source = data_source)
+        assert "No metadata identifier provided" in str(excinfo.value)
 
         # No new data source was created.
         def new_data_source():
             return DataSource.lookup(self._db, data_source)
-        eq_(None, new_data_source())
+        assert None == new_data_source()
 
         # If a mirrored collection doesn't exist, it is created.
         self.collection.external_account_id = 'id'
@@ -472,16 +442,16 @@ class TestCollection(DatabaseTest):
             self._db, self.collection.metadata_identifier,
             data_source=data_source
         )
-        eq_(True, is_new)
-        eq_(self.collection.metadata_identifier, mirror_collection.name)
-        eq_(self.collection.protocol, mirror_collection.protocol)
+        assert True == is_new
+        assert self.collection.metadata_identifier == mirror_collection.name
+        assert self.collection.protocol == mirror_collection.protocol
 
         # Because this isn't an OPDS collection, the external account
         # ID is not stored, the data source is the default source for
         # the protocol, and no new data source was created.
-        eq_(None, mirror_collection.external_account_id)
-        eq_(DataSource.OVERDRIVE, mirror_collection.data_source.name)
-        eq_(None, new_data_source())
+        assert None == mirror_collection.external_account_id
+        assert DataSource.OVERDRIVE == mirror_collection.data_source.name
+        assert None == new_data_source()
 
         # If the mirrored collection already exists, it is returned.
         collection = self._collection(external_account_id=self._url)
@@ -494,31 +464,31 @@ class TestCollection(DatabaseTest):
         # Confirm that there's no external_account_id and no DataSource.
         # TODO I don't understand why we don't store this information,
         # even if only to keep it in an easy-to-read form.
-        eq_(None, mirror_collection.external_account_id)
-        eq_(None, mirror_collection.data_source)
-        eq_(None, new_data_source())
+        assert None == mirror_collection.external_account_id
+        assert None == mirror_collection.data_source
+        assert None == new_data_source()
 
         # Now try a lookup of an OPDS Import-type collection.
         result, is_new = Collection.from_metadata_identifier(
             self._db, collection.metadata_identifier, data_source=data_source
         )
-        eq_(False, is_new)
-        eq_(mirror_collection, result)
+        assert False == is_new
+        assert mirror_collection == result
         # The external_account_id and data_source have been set now.
-        eq_(collection.external_account_id, mirror_collection.external_account_id)
+        assert collection.external_account_id == mirror_collection.external_account_id
 
         # A new DataSource object has been created.
         source = new_data_source()
-        eq_("New data source", source.name)
-        eq_(source, mirror_collection.data_source)
+        assert "New data source" == source.name
+        assert source == mirror_collection.data_source
 
     def test_catalog_identifier(self):
         """#catalog_identifier associates an identifier with the catalog"""
         identifier = self._identifier()
         self.collection.catalog_identifier(identifier)
 
-        eq_(1, len(self.collection.catalog))
-        eq_(identifier, self.collection.catalog[0])
+        assert 1 == len(self.collection.catalog)
+        assert identifier == self.collection.catalog[0]
 
     def test_catalog_identifiers(self):
         """#catalog_identifier associates multiple identifiers with a catalog"""
@@ -569,7 +539,7 @@ class TestCollection(DatabaseTest):
         )
 
         # Only the failing identifier is in the query.
-        eq_([unresolved_id], result.all())
+        assert [unresolved_id] == result.all()
 
     def test_disassociate_library(self):
         # Here's a Collection.
@@ -623,10 +593,9 @@ class TestCollection(DatabaseTest):
         # If you somehow manage to call disassociate_library on a Collection
         # that has no associated ExternalIntegration, an exception is raised.
         collection.external_integration_id = None
-        assert_raises_regexp(
-            ValueError, "No known external integration for collection",
-            collection.disassociate_library, other_library
-        )
+        with pytest.raises(ValueError) as excinfo:
+            collection.disassociate_library(other_library)
+        assert "No known external integration for collection" in str(excinfo.value)
 
     def test_licensepools_with_works_updated_since(self):
         m = self.collection.licensepools_with_works_updated_since
@@ -639,7 +608,7 @@ class TestCollection(DatabaseTest):
 
         # An empty catalog returns nothing.
         timestamp = datetime.datetime.utcnow()
-        eq_([], m(self._db, timestamp).all())
+        assert [] == m(self._db, timestamp).all()
 
         self.collection.catalog_identifier(w1.license_pools[0].identifier)
         self.collection.catalog_identifier(w2.license_pools[0].identifier)
@@ -657,8 +626,8 @@ class TestCollection(DatabaseTest):
         # are returned, in order of the WorkCoverageRecord
         # timestamp on the associated Work.
         lp1, lp2 = m(self._db, None).all()
-        eq_(w1, lp1.work)
-        eq_(w2, lp2.work)
+        assert w1 == lp1.work
+        assert w2 == lp2.work
 
         # When a timestamp is passed, only LicensePools whose works
         # have been updated since then will be returned.
@@ -667,9 +636,8 @@ class TestCollection(DatabaseTest):
             if c.operation == WorkCoverageRecord.GENERATE_OPDS_OPERATION
         ]
         w1_coverage_record.timestamp = datetime.datetime.utcnow()
-        eq_(
-            [w1], [x.work for x in m(self._db, timestamp)]
-        )
+        assert (
+            [w1] == [x.work for x in m(self._db, timestamp)])
 
     def test_isbns_updated_since(self):
         i1 = self._identifier(identifier_type=Identifier.ISBN, foreign_id=self._isbn)
@@ -680,7 +648,7 @@ class TestCollection(DatabaseTest):
         timestamp = datetime.datetime.utcnow()
 
         # An empty catalog returns nothing..
-        eq_([], self.collection.isbns_updated_since(self._db, None).all())
+        assert [] == self.collection.isbns_updated_since(self._db, None).all()
 
         # Give the ISBNs some coverage.
         content_cafe = DataSource.lookup(self._db, DataSource.CONTENT_CAFE)
@@ -693,7 +661,7 @@ class TestCollection(DatabaseTest):
 
         def assert_isbns(expected, result_query):
             results = [r[0] for r in result_query]
-            eq_(expected, results)
+            assert expected == results
 
         # When no timestamp is given, all ISBNs in the catalog are returned,
         # in order of their CoverageRecord timestamp.
@@ -704,7 +672,7 @@ class TestCollection(DatabaseTest):
         # That CoverageRecord timestamp is also returned.
         i1_timestamp = updated_isbns[1][1]
         assert isinstance(i1_timestamp, datetime.datetime)
-        eq_(i1_oclc_record.timestamp, i1_timestamp)
+        assert i1_oclc_record.timestamp == i1_timestamp
 
         # When a timestamp is passed, only works that have been updated since
         # then will be returned.
@@ -727,23 +695,23 @@ class TestCollection(DatabaseTest):
         list1, ignore = get_one_or_create(self._db, CustomList, name=self._str)
         list2, ignore = get_one_or_create(self._db, CustomList, name=self._str)
         self.collection.customlists = [list1, list2]
-        eq_(0, len(list1.entries))
-        eq_(0, len(list2.entries))
+        assert 0 == len(list1.entries)
+        assert 0 == len(list2.entries)
 
         # When a new pool is added to the collection and its presentation edition is
         # calculated for the first time, it's automatically added to the lists.
         work = self._work(collection=self.collection, with_license_pool=True)
-        eq_(1, len(list1.entries))
-        eq_(1, len(list2.entries))
-        eq_(work, list1.entries[0].work)
-        eq_(work, list2.entries[0].work)
+        assert 1 == len(list1.entries)
+        assert 1 == len(list2.entries)
+        assert work == list1.entries[0].work
+        assert work == list2.entries[0].work
 
         # Now remove it from one of the lists. If its presentation edition changes
         # again or its pool changes works, it's not added back.
         self._db.delete(list1.entries[0])
         self._db.commit()
-        eq_(0, len(list1.entries))
-        eq_(1, len(list2.entries))
+        assert 0 == len(list1.entries)
+        assert 1 == len(list2.entries)
 
         pool = work.license_pools[0]
         identifier = pool.identifier
@@ -754,13 +722,13 @@ class TestCollection(DatabaseTest):
 
         staff_edition.title = self._str
         work.calculate_presentation()
-        eq_(0, len(list1.entries))
-        eq_(1, len(list2.entries))
+        assert 0 == len(list1.entries)
+        assert 1 == len(list2.entries)
 
         new_work = self._work(collection=self.collection)
         pool.work = new_work
-        eq_(0, len(list1.entries))
-        eq_(1, len(list2.entries))
+        assert 0 == len(list1.entries)
+        assert 1 == len(list2.entries)
 
     def test_restrict_to_ready_deliverable_works(self):
         """A partial test of restrict_to_ready_deliverable_works.
@@ -811,7 +779,7 @@ class TestCollection(DatabaseTest):
             )
             expect_ids = [x.id for x in works]
             actual_ids = [x.id for x in restricted_query]
-            eq_(set(expect_ids), set(actual_ids))
+            assert set(expect_ids) == set(actual_ids)
         # Here's the setting which controls which data sources should
         # have their audiobooks excluded.
         setting = ConfigurationSetting.sitewide(
@@ -902,11 +870,9 @@ class TestCollection(DatabaseTest):
 
         # delete() will not work on a collection that's not marked for
         # deletion.
-        assert_raises_regexp(
-            Exception,
-            "Cannot delete %s: it is not marked for deletion." % collection.name,
-            collection.delete
-        )
+        with pytest.raises(Exception) as excinfo:
+            collection.delete()
+        assert "Cannot delete %s: it is not marked for deletion." % collection.name in str(excinfo.value)
 
         # Delete the collection.
         collection.marked_for_deletion = True
@@ -916,15 +882,15 @@ class TestCollection(DatabaseTest):
         assert collection not in self._db.query(Collection).all()
 
         # The default library now has no collections.
-        eq_([], self._default_library.collections)
+        assert [] == self._default_library.collections
 
         # The deletion of the Collection's sole LicensePool has
         # cascaded to Loan, Hold, Complaint, License, and
         # CirculationEvent.
-        eq_([], patron.loans)
-        eq_([], patron2.holds)
+        assert [] == patron.loans
+        assert [] == patron2.holds
         for cls in (Loan, Hold, Complaint, License, CirculationEvent):
-            eq_([], self._db.query(cls).all())
+            assert [] == self._db.query(cls).all()
 
         # n.b. Annotations are associated with Identifier, not
         # LicensePool, so they can and should survive the deletion of
@@ -932,15 +898,15 @@ class TestCollection(DatabaseTest):
 
         # The first Work has been deleted, since it lost all of its
         # LicensePools.
-        eq_([work2], self._db.query(Work).all())
+        assert [work2] == self._db.query(Work).all()
 
         # The second Work is still around, and it still has the other
         # LicensePool.
-        eq_([pool2], work2.license_pools)
+        assert [pool2] == work2.license_pools
 
         # Our search index was told to remove the first work (which no longer
         # has any LicensePools), but not the second.
-        eq_([work], index.removed)
+        assert [work] == index.removed
 
         # The ExternalIntegration and its settings have been deleted.
         assert integration not in self._db.query(ExternalIntegration).all()
@@ -957,8 +923,8 @@ class TestCollection(DatabaseTest):
         collection2.delete()
 
         # We've now deleted every LicensePool created for this test.
-        eq_(0, self._db.query(LicensePool).count())
-        eq_([], work2.license_pools)
+        assert 0 == self._db.query(LicensePool).count()
+        assert [] == work2.license_pools
 
 
 class TestCollectionForMetadataWrangler(DatabaseTest):
@@ -977,7 +943,7 @@ class TestCollectionForMetadataWrangler(DatabaseTest):
         collection = create(
             self._db, Collection, name='banana'
         )[0]
-        eq_(True, isinstance(collection, Collection))
+        assert True == isinstance(collection, Collection)
 
 
 class TestCollectionConfigurationStorage(DatabaseTest):
@@ -995,4 +961,4 @@ class TestCollectionConfigurationStorage(DatabaseTest):
         storage.save(self._db, setting_name, expected_result)
         result = storage.load(self._db, setting_name)
 
-        eq_(result, expected_result)
+        assert result == expected_result

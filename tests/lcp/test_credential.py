@@ -1,5 +1,5 @@
+import pytest
 from mock import patch
-from nose.tools import eq_, assert_raises
 from parameterized import parameterized
 
 from ...testing import DatabaseTest
@@ -9,8 +9,8 @@ from ...model import Credential, DataSource
 
 
 class TestCredentialFactory(DatabaseTest):
-    def setup(self, mock_search=True):
-        super(TestCredentialFactory, self).setup(mock_search)
+    def setup_method(self):
+        super(TestCredentialFactory, self).setup_method()
 
         self._factory = LCPCredentialFactory()
         self._patron = self._patron()
@@ -43,13 +43,13 @@ class TestCredentialFactory(DatabaseTest):
             result = method(self._db, self._patron)
 
             # Assert
-            eq_(result, expected_result)
+            assert result == expected_result
             persistent_token_create_mock.assert_called_once_with(
                 self._db, self._data_source, credential_type, self._patron, None)
 
     def test_get_hashed_passphrase_raises_exception_when_there_is_no_passphrase(self):
         # Act, assert
-        with assert_raises(LCPError):
+        with pytest.raises(LCPError):
             self._factory.get_hashed_passphrase(self._db, self._patron)
 
     def test_get_hashed_passphrase_returns_existing_hashed_passphrase(self):
@@ -61,4 +61,4 @@ class TestCredentialFactory(DatabaseTest):
         result = self._factory.get_hashed_passphrase(self._db, self._patron)
 
         # Assert
-        eq_(result, expected_result)
+        assert result == expected_result

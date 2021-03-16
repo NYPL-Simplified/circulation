@@ -1,0 +1,68 @@
+# Requirements for the 'core' submodule
+#
+# These requirements are missing the psycopg2 package whose installation
+# is complicated by having two versions (psycopg2-binary and psycopg2)
+# See https://github.com/psycopg/psycopg2/issues/674
+# and https://www.psycopg.org/articles/2018/02/08/psycopg-274-released/
+# 
+# This file lists all the requirements except for the psycopg2 requirement
+# which is specified separately in requirements.txt and requirements-dev.txt
+# 
+Babel==2.8.0
+boto3==1.15.1
+botocore==1.18.1
+certifi==2020.6.20
+chardet==3.0.4
+click==7.1.2
+elasticsearch==6.8.1
+elasticsearch-dsl==6.4.0
+enum34==1.1.10
+expiringdict==1.2.1
+feedparser==5.2.1
+Flask==1.1.2
+Flask-Babel==1.0.0
+flask-sqlalchemy-session==1.1
+funcsigs==1.0.2
+future
+futures
+# fuzzywuzzy is for author name manipulations
+fuzzywuzzy==0.18.0
+idna==2.10
+ipaddress==1.0.23
+isbnlib==3.10.3
+isodate==0.6.0
+itsdangerous==1.1.0
+Jinja2==2.11.2
+jmespath==0.10.0
+loggly-python-handler==1.0.1
+lxml==4.6.2
+MarkupSafe==1.1.1
+money==1.3.0
+# nameparser is for author name manipulations
+nameparser==1.0.6
+# nltk is a textblob dependency.
+nltk==3.4.5
+Pillow==6.2.2
+py-bcrypt==0.4
+pymarc==3.2.0
+pyparsing==2.4.7
+pyspellchecker==0.5.5
+python-dateutil==2.8.1
+pytz==2020.1
+rdflib==5.0.0
+requests==2.24.0
+requests-futures==1.0.0
+s3transfer==0.3.3
+singledispatch==3.4.0.3
+six==1.15.0
+SQLAlchemy==1.3.19
+textblob==0.15.3
+# urllib3 is pinned to a pre-1.25 version to work around https://jira.nypl.org/browse/SIMPLY-3477
+urllib3==1.24.3
+uWSGI==2.0.19.1
+# watchtower is for Cloudwatch logging integration
+watchtower==0.8.0
+Werkzeug==1.0.1
+
+multipledispatch==0.6.0
+webpub-manifest-parser

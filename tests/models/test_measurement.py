@@ -1,25 +1,19 @@
 import datetime
 
-from nose.tools import (
-    assert_raises_regexp,
-    eq_,
-    set_trace,
-)
-
 from ...model import (
     DataSource,
     Measurement,
     get_one_or_create
 )
 
-from .. import (
+from ...testing import (
     DatabaseTest,
 )
 
 class TestMeasurement(DatabaseTest):
 
-    def setup(self):
-        super(TestMeasurement, self).setup()
+    def setup_method(self):
+        super(TestMeasurement, self).setup_method()
         self.SOURCE_NAME = "Test Data Source"
 
         # Create a test DataSource
@@ -54,15 +48,15 @@ class TestMeasurement(DatabaseTest):
     def test_newer_measurement_displaces_earlier_measurement(self):
         wi = self._identifier()
         m1 = wi.add_measurement(self.source, Measurement.DOWNLOADS, 10)
-        eq_(True, m1.is_most_recent)
+        assert True == m1.is_most_recent
 
         m2 = wi.add_measurement(self.source, Measurement.DOWNLOADS, 11)
-        eq_(False, m1.is_most_recent)
-        eq_(True, m2.is_most_recent)
+        assert False == m1.is_most_recent
+        assert True == m2.is_most_recent
 
         m3 = wi.add_measurement(self.source, Measurement.POPULARITY, 11)
-        eq_(True, m2.is_most_recent)
-        eq_(True, m3.is_most_recent)
+        assert True == m2.is_most_recent
+        assert True == m3.is_most_recent
 
 
     def test_can_insert_measurement_after_the_fact(self):
@@ -73,29 +67,29 @@ class TestMeasurement(DatabaseTest):
         wi = self._identifier()
         m1 = wi.add_measurement(self.source, Measurement.DOWNLOADS, 10,
                                 taken_at=new)
-        eq_(True, m1.is_most_recent)
+        assert True == m1.is_most_recent
 
         m2 = wi.add_measurement(self.source, Measurement.DOWNLOADS, 5,
                                 taken_at=old)
-        eq_(True, m1.is_most_recent)
+        assert True == m1.is_most_recent
 
     def test_normalized_popularity(self):
         # Here's a very popular book on the scale defined in
         # PERCENTILE_SCALES[POPULARITY].
         p = self._popularity(6000)
-        eq_(1.0, p.normalized_value)
+        assert 1.0 == p.normalized_value
 
         # Here's a slightly less popular book.
         p = self._popularity(5804)
-        eq_(0.99, p.normalized_value)
+        assert 0.99 == p.normalized_value
 
         # Here's a very unpopular book
         p = self._popularity(1)
-        eq_(0, p.normalized_value)
+        assert 0 == p.normalized_value
 
         # Here's a book in the middle.
         p = self._popularity(59)
-        eq_(0.5, p.normalized_value)
+        assert 0.5 == p.normalized_value
 
         # So long as the data source and the quantity measured can be
         # found in PERCENTILE_SCALES, the data can be normalized.
@@ -103,13 +97,13 @@ class TestMeasurement(DatabaseTest):
         # This book is extremely unpopular.
         overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
         m = self._measurement(Measurement.POPULARITY, 0, overdrive, 10)
-        eq_(0, m.normalized_value)
+        assert 0 == m.normalized_value
 
         # For some other data source, we don't know whether popularity=0
         # means 'very popular' or 'very unpopular'.
         gutenberg = DataSource.lookup(self._db, DataSource.GUTENBERG)
         m = self._measurement(Measurement.POPULARITY, 0, gutenberg, 10)
-        eq_(None, m.normalized_value)
+        assert None == m.normalized_value
 
         # We also don't know what it means if Overdrive were to say
         # that a book got 200 downloads. Is that a lot? Compared to
@@ -117,21 +111,21 @@ class TestMeasurement(DatabaseTest):
         # find out -- at that point we would put the percentile list
         # in PERCENTILE_SCALES and this would start working.
         m = self._measurement(Measurement.DOWNLOADS, 0, overdrive, 10)
-        eq_(None, m.normalized_value)
+        assert None == m.normalized_value
 
     def test_normalized_rating(self):
         # Here's a very good book on the scale defined in
         # RATING_SCALES.
         p = self._rating(10)
-        eq_(1.0, p.normalized_value)
+        assert 1.0 == p.normalized_value
 
         # Here's a slightly less good book.
         p = self._rating(9)
-        eq_(8.0/9, p.normalized_value)
+        assert 8.0/9 == p.normalized_value
 
         # Here's a very bad book
         p = self._rating(1)
-        eq_(0, p.normalized_value)
+        assert 0 == p.normalized_value
 
     def test_neglected_source_cannot_be_normalized(self):
         obj, new = get_one_or_create(
@@ -140,10 +134,10 @@ class TestMeasurement(DatabaseTest):
         )
         neglected_source = obj
         p = self._popularity(100, neglected_source)
-        eq_(None, p.normalized_value)
+        assert None == p.normalized_value
 
         r = self._rating(100, neglected_source)
-        eq_(None, r.normalized_value)
+        assert None == r.normalized_value
 
     def test_overall_quality(self):
         popularity = self._popularity(59)
@@ -151,14 +145,14 @@ class TestMeasurement(DatabaseTest):
         irrelevant = self._measurement("Some other quantity", 42, self.source, 1)
         pop = popularity.normalized_value
         rat = rating.normalized_value
-        eq_(0.5, pop)
-        eq_(1.0/3, rat)
+        assert 0.5 == pop
+        assert 1.0/3 == rat
         l = [popularity, rating, irrelevant]
         quality = Measurement.overall_quality(l)
-        eq_((0.7*rat)+(0.3*pop), quality)
+        assert (0.7*rat)+(0.3*pop) == quality
 
         # Mess with the weights.
-        eq_((0.5*rat)+(0.5*pop), Measurement.overall_quality(l, 0.5, 0.5))
+        assert (0.5*rat)+(0.5*pop) == Measurement.overall_quality(l, 0.5, 0.5)
 
         # Adding a non-popularity measurement that is _equated_ to
         # popularity via a percentile scale modifies the
@@ -173,7 +167,7 @@ class TestMeasurement(DatabaseTest):
 
     def test_overall_quality_based_solely_on_popularity_if_no_rating(self):
         pop = self._popularity(59)
-        eq_(0.5, Measurement.overall_quality([pop]))
+        assert 0.5 == Measurement.overall_quality([pop])
 
     def test_overall_quality_with_rating_and_quality_but_not_popularity(self):
         rat = self._rating(4)
@@ -183,7 +177,7 @@ class TestMeasurement(DatabaseTest):
         # score we got from the metadata wrangler, and 1/2 of the normalized
         # value of the 4-star rating.
         expect = (rat.normalized_value / 2) + 0.25
-        eq_(expect, Measurement.overall_quality([rat, qual], 0.5, 0.5))
+        assert expect == Measurement.overall_quality([rat, qual], 0.5, 0.5)
 
     def test_overall_quality_with_popularity_and_quality_but_not_rating(self):
         pop = self._popularity(4)
@@ -193,7 +187,7 @@ class TestMeasurement(DatabaseTest):
         # score we got from the metadata wrangler, and 1/2 of the normalized
         # value of the 4-star rating.
         expect = (pop.normalized_value / 2) + (0.5/2)
-        eq_(expect, Measurement.overall_quality([pop, qual], 0.5, 0.5))
+        assert expect == Measurement.overall_quality([pop, qual], 0.5, 0.5)
 
     def test_overall_quality_with_popularity_quality_and_rating(self):
         pop = self._popularity(4)
@@ -208,16 +202,16 @@ class TestMeasurement(DatabaseTest):
         # Then the whole thing is divided in half and added to half of the
         # quality score
         expect_total = (expect_1/2 + (quality_score/2))
-        eq_(expect_total, Measurement.overall_quality([pop, rat, qual], 0.75, 0.25))
+        assert expect_total == Measurement.overall_quality([pop, rat, qual], 0.75, 0.25)
 
     def test_overall_quality_takes_weights_into_account(self):
         rating1 = self._rating(10, weight=10)
         rating2 = self._rating(1, weight=1)
-        eq_(0.91, round(Measurement.overall_quality([rating1, rating2]),2))
+        assert 0.91 == round(Measurement.overall_quality([rating1, rating2]),2)
 
     def test_overall_quality_is_zero_if_no_relevant_measurements(self):
         irrelevant = self._measurement("Some other quantity", 42, self.source, 1)
-        eq_(0, Measurement.overall_quality([irrelevant]))
+        assert 0 == Measurement.overall_quality([irrelevant])
 
     def test_calculate_quality(self):
         w = self._work(with_open_access_download=True)
@@ -242,7 +236,7 @@ class TestMeasurement(DatabaseTest):
         # and the book ends up in the middle of the road in terms of
         # quality.
         w.calculate_quality([identifier.id])
-        eq_(0.5, w.quality)
+        assert 0.5 == w.quality
 
         old_quality = w.quality
 
@@ -267,6 +261,6 @@ class TestMeasurement(DatabaseTest):
         # Its quality is dependent entirely on the default value we
         # pass into calculate_quality
         w.calculate_quality([])
-        eq_(0, w.quality)
+        assert 0 == w.quality
         w.calculate_quality([], 0.4)
-        eq_(0.4, w.quality)
+        assert 0.4 == w.quality

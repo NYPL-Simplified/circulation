@@ -1,16 +1,12 @@
 # encoding: utf-8
-from nose.tools import (
-    assert_raises_regexp,
-    eq_,
-    set_trace,
-)
+import pytest
 import datetime
 from ...external_search import MockExternalSearchIndex
 from mock import MagicMock
 import os
 from psycopg2.extras import NumericRange
 import random
-from .. import DatabaseTest
+from ...testing import DatabaseTest
 from ...classifier import (
     Classifier,
     Fantasy,
@@ -69,7 +65,7 @@ class TestWork(DatabaseTest):
         )
 
         # Only the first two complaints show up in work.complaints.
-        eq_(sorted([complaint1.id, complaint2.id]),
+        assert (sorted([complaint1.id, complaint2.id]) ==
             sorted([x.id for x in work.complaints]))
 
     def test_all_identifier_ids(self):
@@ -86,12 +82,12 @@ class TestWork(DatabaseTest):
         identifier.equivalent_to(data_source, lp2.identifier, 1)
 
         all_identifier_ids = work.all_identifier_ids()
-        eq_(3, len(all_identifier_ids))
+        assert 3 == len(all_identifier_ids)
         expect_all_ids = set(
             [lp.identifier.id, lp2.identifier.id, identifier.id]
         )
 
-        eq_(expect_all_ids, all_identifier_ids)
+        assert expect_all_ids == all_identifier_ids
 
     def test_from_identifiers(self):
         # Prep a work to be identified and a work to be ignored.
@@ -101,13 +97,13 @@ class TestWork(DatabaseTest):
 
         # No identifiers returns None.
         result = Work.from_identifiers(self._db, [])
-        eq_(None, result)
+        assert None == result
 
         # A work can be found according to its identifier.
         identifiers = [lp.identifier]
         result = Work.from_identifiers(self._db, identifiers).all()
-        eq_(1, len(result))
-        eq_([work], result)
+        assert 1 == len(result)
+        assert [work] == result
 
         # When the work has an equivalent identifier.
         isbn = self._identifier(Identifier.ISBN)
@@ -117,21 +113,21 @@ class TestWork(DatabaseTest):
         # It can be found according to that equivalency.
         identifiers = [isbn]
         result = Work.from_identifiers(self._db, identifiers).all()
-        eq_(1, len(result))
-        eq_([work], result)
+        assert 1 == len(result)
+        assert [work] == result
 
         # Unless the strength is too low.
         lp.identifier.equivalencies[0].strength = 0.8
         identifiers = [isbn]
 
         result = Work.from_identifiers(self._db, identifiers).all()
-        eq_([], result)
+        assert [] == result
 
         # Two+ of the same or equivalent identifiers lead to one result.
         identifiers = [lp.identifier, isbn, lp.identifier]
         result = Work.from_identifiers(self._db, identifiers).all()
-        eq_(1, len(result))
-        eq_([work], result)
+        assert 1 == len(result)
+        assert [work] == result
 
         # It accepts a base query.
         qu = self._db.query(Work).join(LicensePool).join(Identifier).\
@@ -139,7 +135,7 @@ class TestWork(DatabaseTest):
         identifiers = [lp.identifier]
         result = Work.from_identifiers(self._db, identifiers, base_query=qu).all()
         # Because the work's license_pool isn't suppressed, it isn't returned.
-        eq_([], result)
+        assert [] == result
 
     def test_calculate_presentation(self):
         # Test that:
@@ -222,7 +218,7 @@ class TestWork(DatabaseTest):
         # presentation was calculated, because a description can only
         # come from an Identifier associated with a LicensePool, and
         # this Work has no LicensePools.
-        eq_(None, work.summary)
+        assert None == work.summary
 
         # add in 3, 2, 1 order to make sure the selection of edition1 as presentation
         # in the second half of the test is based on business logic, not list order.
@@ -230,7 +226,7 @@ class TestWork(DatabaseTest):
             work.license_pools.append(p)
 
         # The author of the Work is the author of its primary work record.
-        eq_("Alice Adder, Bob Bitshifter", work.author)
+        assert "Alice Adder, Bob Bitshifter" == work.author
 
         # This Work starts out with a single CoverageRecord reflecting
         # the work done to generate its initial OPDS entry, and then
@@ -242,9 +238,9 @@ class TestWork(DatabaseTest):
         assert (choose_edition.operation == WorkCoverageRecord.CHOOSE_EDITION_OPERATION)
 
         # pools aren't yet aware of each other
-        eq_(pool1.superceded, False)
-        eq_(pool2.superceded, False)
-        eq_(pool3.superceded, False)
+        assert pool1.superceded == False
+        assert pool2.superceded == False
+        assert pool3.superceded == False
 
         work.last_update_time = None
         work.presentation_ready = True
@@ -253,39 +249,39 @@ class TestWork(DatabaseTest):
         work.calculate_presentation(search_index_client=index)
 
         # The author of the Work has not changed.
-        eq_("Alice Adder, Bob Bitshifter", work.author)
+        assert "Alice Adder, Bob Bitshifter" == work.author
 
         # one and only one license pool should be un-superceded
-        eq_(pool1.superceded, True)
-        eq_(pool2.superceded, False)
-        eq_(pool3.superceded, True)
+        assert pool1.superceded == True
+        assert pool2.superceded == False
+        assert pool3.superceded == True
 
         # sanity check
-        eq_(work.presentation_edition, pool2.presentation_edition)
-        eq_(work.presentation_edition, edition2)
+        assert work.presentation_edition == pool2.presentation_edition
+        assert work.presentation_edition == edition2
 
         # editions that aren't the presentation edition have no work
-        eq_(edition1.work, None)
-        eq_(edition2.work, work)
-        eq_(edition3.work, None)
+        assert edition1.work == None
+        assert edition2.work == work
+        assert edition3.work == None
 
         # The title of the Work is the title of its primary work record.
-        eq_("The 2nd Title", work.title)
-        eq_("The 2nd Subtitle", work.subtitle)
+        assert "The 2nd Title" == work.title
+        assert "The 2nd Subtitle" == work.subtitle
 
         # The author of the Work is the author of its primary work record.
-        eq_("Alice Adder, Bob Bitshifter", work.author)
-        eq_("Adder, Alice ; Bitshifter, Bob", work.sort_author)
+        assert "Alice Adder, Bob Bitshifter" == work.author
+        assert "Adder, Alice ; Bitshifter, Bob" == work.sort_author
 
         # The summary has now been chosen.
-        eq_(chosen_summary, work.summary.representation.content)
+        assert chosen_summary == work.summary.representation.content
 
         # The last update time has been set.
         # Updating availability also modified work.last_update_time.
         assert (datetime.datetime.utcnow() - work.last_update_time) < datetime.timedelta(seconds=2)
 
         # The index has not been updated.
-        eq_([], index.docs.items())
+        assert [] == index.docs.items()
 
         # The Work now has a complete set of WorkCoverageRecords
         # associated with it, reflecting all the operations that
@@ -307,7 +303,7 @@ class TestWork(DatabaseTest):
             (wcr.GENERATE_MARC_OPERATION, success),
             (wcr.UPDATE_SEARCH_INDEX_OPERATION, wcr.REGISTERED),
         ])
-        eq_(expect, set([(x.operation, x.status) for x in records]))
+        assert expect == set([(x.operation, x.status) for x in records])
 
         # Now mark the pool with the presentation edition as suppressed.
         # work.calculate_presentation() will call work.mark_licensepools_as_superceded(),
@@ -320,21 +316,21 @@ class TestWork(DatabaseTest):
         work.calculate_presentation(search_index_client=index)
 
         # The title of the Work is the title of its new primary work record.
-        eq_("The 1st Title", work.title)
-        eq_("The 1st Subtitle", work.subtitle)
+        assert "The 1st Title" == work.title
+        assert "The 1st Subtitle" == work.subtitle
 
         # author of composite edition is now just Bob
-        eq_("Bob Bitshifter", work.author)
-        eq_("Bitshifter, Bob", work.sort_author)
+        assert "Bob Bitshifter" == work.author
+        assert "Bitshifter, Bob" == work.sort_author
 
         # sanity check
-        eq_(work.presentation_edition, pool1.presentation_edition)
-        eq_(work.presentation_edition, edition1)
+        assert work.presentation_edition == pool1.presentation_edition
+        assert work.presentation_edition == edition1
 
         # editions that aren't the presentation edition have no work
-        eq_(edition1.work, work)
-        eq_(edition2.work, None)
-        eq_(edition3.work, None)
+        assert edition1.work == work
+        assert edition2.work == None
+        assert edition3.work == None
 
         # The last update time has been set.
         # Updating availability also modified work.last_update_time.
@@ -357,11 +353,11 @@ class TestWork(DatabaseTest):
         work.calculate_presentation(search_index_client=index)
 
         # The title of the Work got superceded.
-        eq_("The Staff Title", work.title)
+        assert "The Staff Title" == work.title
 
         # The author of the Work is still the author of edition2 and was not clobbered.
-        eq_("Alice Adder, Bob Bitshifter", work.author)
-        eq_("Adder, Alice ; Bitshifter, Bob", work.sort_author)
+        assert "Alice Adder, Bob Bitshifter" == work.author
+        assert "Adder, Alice ; Bitshifter, Bob" == work.sort_author
 
     def test_calculate_presentation_with_no_presentation_edition(self):
         # Calling calculate_presentation() on a work with no
@@ -374,12 +370,12 @@ class TestWork(DatabaseTest):
         work.calculate_presentation()
 
         # The work is not presentation-ready.
-        eq_(False, work.presentation_ready)
+        assert False == work.presentation_ready
 
         # Work was done to choose the presentation edition, but since no
         # presentation edition was found, no other work was done.
         [choose_edition] = work.coverage_records
-        eq_(WorkCoverageRecord.CHOOSE_EDITION_OPERATION,
+        assert (WorkCoverageRecord.CHOOSE_EDITION_OPERATION ==
             choose_edition.operation)
 
     def test_calculate_presentation_sets_presentation_ready_based_on_content(self):
@@ -390,14 +386,14 @@ class TestWork(DatabaseTest):
         edition = work.presentation_edition
         edition.language = None
 
-        eq_(True, work.presentation_ready)
+        assert True == work.presentation_ready
         work.calculate_presentation()
-        eq_(False, work.presentation_ready)
+        assert False == work.presentation_ready
 
         # Give it a language, and it becomes presentation-ready again.
         edition.language = "eng"
         work.calculate_presentation()
-        eq_(True, work.presentation_ready)
+        assert True == work.presentation_ready
 
     def test_calculate_presentation_uses_default_audience_set_as_collection_setting(self):
         default_audience = Classifier.AUDIENCE_ADULT
@@ -416,7 +412,7 @@ class TestWork(DatabaseTest):
 
         work.calculate_presentation()
 
-        eq_(default_audience, work.audience)
+        assert default_audience == work.audience
 
     def test__choose_summary(self):
         # Test the _choose_summary helper method, called by
@@ -436,7 +432,7 @@ class TestWork(DatabaseTest):
 
         # If no summaries are available, any old summary is cleared out.
         m([], [], [])
-        eq_(None, w.summary_text)
+        assert None == w.summary_text
 
         # Create three summaries on two identifiers.
         source1 = DataSource.lookup(self._db, DataSource.OVERDRIVE)
@@ -464,27 +460,27 @@ class TestWork(DatabaseTest):
         # In a choice between all three summaries, good_summary is
         # chosen based on textual characteristics.
         m([], [i1.id, i2.id], [])
-        eq_(good_summary, w.summary_text)
+        assert good_summary == w.summary_text
 
         m([i1.id, i2.id], [], [])
-        eq_(good_summary, w.summary_text)
+        assert good_summary == w.summary_text
 
         # If an identifier is associated directly with the work, its
         # summaries are considered first, and the other identifiers
         # are not considered at all.
         m([i2.id], [object(), i1.id], [])
-        eq_("not too bad", w.summary_text)
+        assert "not too bad" == w.summary_text
 
         # A summary that comes from a preferred data source will be
         # chosen over some other summary.
         m([i1.id, i2.id], [], [source1])
-        eq_("ok summary", w.summary_text)
+        assert "ok summary" == w.summary_text
 
         # But if there is no summary from a preferred data source, the
         # normal rules apply.
         source3 = DataSource.lookup(self._db, DataSource.AXIS_360)
         m([i1.id], [], [source3])
-        eq_(good_summary, w.summary_text)
+        assert good_summary == w.summary_text
 
         # LIBRARY_STAFF is always considered a good source of
         # descriptions.
@@ -492,7 +488,7 @@ class TestWork(DatabaseTest):
             self._db, DataSource.LIBRARY_STAFF
         )
         m([i1.id, i2.id], [], [])
-        eq_(l1.resource.representation.content, w.summary_text)
+        assert l1.resource.representation.content == w.summary_text
 
     def test_set_presentation_ready_based_on_content(self):
 
@@ -507,10 +503,10 @@ class TestWork(DatabaseTest):
 
         presentation = work.presentation_edition
         work.set_presentation_ready_based_on_content(search_index_client=search)
-        eq_(True, work.presentation_ready)
+        assert True == work.presentation_ready
 
         # The work has not been added to the search index.
-        eq_([], search.docs.keys())
+        assert [] == search.docs.keys()
 
         # But the work of adding it to the search engine has been
         # registered.
@@ -521,7 +517,7 @@ class TestWork(DatabaseTest):
                 x for x in work.coverage_records
                 if x.operation==WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION
             ]
-            eq_(WorkCoverageRecord.REGISTERED, record.status)
+            assert WorkCoverageRecord.REGISTERED == record.status
         assert_record()
 
         # This work is presentation ready because it has a title.
@@ -529,7 +525,7 @@ class TestWork(DatabaseTest):
         # ready.
         presentation.title = None
         work.set_presentation_ready_based_on_content(search_index_client=search)
-        eq_(False, work.presentation_ready)
+        assert False == work.presentation_ready
 
         # The search engine WorkCoverageRecord is still in the
         # REGISTERED state, but its meaning has changed -- the work
@@ -540,32 +536,32 @@ class TestWork(DatabaseTest):
         # Restore the title, and everything is fixed.
         presentation.title = u"foo"
         work.set_presentation_ready_based_on_content(search_index_client=search)
-        eq_(True, work.presentation_ready)
+        assert True == work.presentation_ready
 
         # Remove the medium, and the work stops being presentation ready.
         presentation.medium = None
         work.set_presentation_ready_based_on_content(search_index_client=search)
-        eq_(False, work.presentation_ready)
+        assert False == work.presentation_ready
 
         presentation.medium = Edition.BOOK_MEDIUM
         work.set_presentation_ready_based_on_content(search_index_client=search)
-        eq_(True, work.presentation_ready)
+        assert True == work.presentation_ready
 
         # Remove the language, and it stops being presentation ready.
         presentation.language = None
         work.set_presentation_ready_based_on_content(search_index_client=search)
-        eq_(False, work.presentation_ready)
+        assert False == work.presentation_ready
 
         presentation.language = 'eng'
         work.set_presentation_ready_based_on_content(search_index_client=search)
-        eq_(True, work.presentation_ready)
+        assert True == work.presentation_ready
 
         # Remove the fiction status, and the work is still
         # presentation ready. Fiction status used to make a difference, but
         # it no longer does.
         work.fiction = None
         work.set_presentation_ready_based_on_content(search_index_client=search)
-        eq_(True, work.presentation_ready)
+        assert True == work.presentation_ready
 
     def test_assign_genres_from_weights(self):
         work = self._work()
@@ -574,13 +570,13 @@ class TestWork(DatabaseTest):
         work.assign_genres_from_weights({Romance : 1000, Fantasy : 1000})
         self._db.commit()
         before = sorted((x.genre.name, x.affinity) for x in work.work_genres)
-        eq_([(u'Fantasy', 0.5), (u'Romance', 0.5)], before)
+        assert [(u'Fantasy', 0.5), (u'Romance', 0.5)] == before
 
         # But now it's classified under Science Fiction and Romance.
         work.assign_genres_from_weights({Romance : 100, Science_Fiction : 300})
         self._db.commit()
         after = sorted((x.genre.name, x.affinity) for x in work.work_genres)
-        eq_([(u'Romance', 0.25), (u'Science Fiction', 0.75)], after)
+        assert [(u'Romance', 0.25), (u'Science Fiction', 0.75)] == after
 
     def test_classifications_with_genre(self):
         work = self._work(with_open_access_download=True)
@@ -605,7 +601,7 @@ class TestWork(DatabaseTest):
 
         results = work.classifications_with_genre().all()
 
-        eq_([classification2, classification1], results)
+        assert [classification2, classification1] == results
 
     def test_mark_licensepools_as_superceded(self):
         # A commercial LP that somehow got superceded will be
@@ -616,7 +612,7 @@ class TestWork(DatabaseTest):
         work, is_new = commercial.calculate_work()
         commercial.superceded = True
         work.mark_licensepools_as_superceded()
-        eq_(False, commercial.superceded)
+        assert False == commercial.superceded
 
         # An open-access LP that was superceded will be un-superceded if
         # chosen.
@@ -627,7 +623,7 @@ class TestWork(DatabaseTest):
         work, is_new = gutenberg.calculate_work()
         gutenberg.superceded = True
         work.mark_licensepools_as_superceded()
-        eq_(False, gutenberg.superceded)
+        assert False == gutenberg.superceded
 
         # Of two open-access LPs, the one from the higher-quality data
         # source will be un-superceded, and the one from the
@@ -640,8 +636,8 @@ class TestWork(DatabaseTest):
         gutenberg.superceded = False
         standard_ebooks.superceded = True
         work.mark_licensepools_as_superceded()
-        eq_(True, gutenberg.superceded)
-        eq_(False, standard_ebooks.superceded)
+        assert True == gutenberg.superceded
+        assert False == standard_ebooks.superceded
 
         # Of three open-access pools, 1 and only 1 will be chosen as non-superceded.
         gitenberg1 = self._licensepool(edition=None, open_access=True,
@@ -662,30 +658,30 @@ class TestWork(DatabaseTest):
         work_multipool.license_pools.append(gitenberg1)
 
         # pools aren't yet aware of each other
-        eq_(gutenberg1.superceded, False)
-        eq_(gitenberg1.superceded, False)
-        eq_(gitenberg2.superceded, False)
+        assert gutenberg1.superceded == False
+        assert gitenberg1.superceded == False
+        assert gitenberg2.superceded == False
 
         # make pools figure out who's best
         work_multipool.mark_licensepools_as_superceded()
 
-        eq_(gutenberg1.superceded, True)
+        assert gutenberg1.superceded == True
         # There's no way to choose between the two gitenberg pools,
         # so making sure only one has been chosen is enough.
         chosen_count = 0
         for chosen_pool in gutenberg1, gitenberg1, gitenberg2:
             if chosen_pool.superceded is False:
                 chosen_count += 1;
-        eq_(chosen_count, 1)
+        assert chosen_count == 1
 
         # throw wrench in
         gitenberg1.suppressed = True
 
         # recalculate bests
         work_multipool.mark_licensepools_as_superceded()
-        eq_(gutenberg1.superceded, True)
-        eq_(gitenberg1.superceded, True)
-        eq_(gitenberg2.superceded, False)
+        assert gutenberg1.superceded == True
+        assert gitenberg1.superceded == True
+        assert gitenberg2.superceded == False
 
         # A suppressed pool won't be superceded if it's the only pool for a work.
         only_pool = self._licensepool(
@@ -694,7 +690,7 @@ class TestWork(DatabaseTest):
         work, ignore = only_pool.calculate_work()
         only_pool.suppressed = True
         work.mark_licensepools_as_superceded()
-        eq_(False, only_pool.superceded)
+        assert False == only_pool.superceded
 
     def test_work_remains_viable_on_pools_suppressed(self):
         """ If a work has all of its pools suppressed, the work's author, title,
@@ -704,26 +700,26 @@ class TestWork(DatabaseTest):
             edition_std_ebooks, edition_git, edition_gut, alice, bob) = self._sample_ecosystem()
 
         # make sure the setup is what we expect
-        eq_(pool_std_ebooks.suppressed, False)
-        eq_(pool_git.suppressed, False)
-        eq_(pool_gut.suppressed, False)
+        assert pool_std_ebooks.suppressed == False
+        assert pool_git.suppressed == False
+        assert pool_gut.suppressed == False
 
         # sanity check - we like standard ebooks and it got determined to be the best
-        eq_(work.presentation_edition, pool_std_ebooks.presentation_edition)
-        eq_(work.presentation_edition, edition_std_ebooks)
+        assert work.presentation_edition == pool_std_ebooks.presentation_edition
+        assert work.presentation_edition == edition_std_ebooks
 
         # editions know who's the presentation edition
-        eq_(edition_std_ebooks.work, work)
-        eq_(edition_git.work, None)
-        eq_(edition_gut.work, None)
+        assert edition_std_ebooks.work == work
+        assert edition_git.work == None
+        assert edition_gut.work == None
 
         # The title of the Work is the title of its presentation edition.
-        eq_("The Standard Ebooks Title", work.title)
-        eq_("The Standard Ebooks Subtitle", work.subtitle)
+        assert "The Standard Ebooks Title" == work.title
+        assert "The Standard Ebooks Subtitle" == work.subtitle
 
         # The author of the Work is the author of its presentation edition.
-        eq_("Alice Adder", work.author)
-        eq_("Adder, Alice", work.sort_author)
+        assert "Alice Adder" == work.author
+        assert "Adder, Alice" == work.sort_author
 
         # now suppress all of the license pools
         pool_std_ebooks.suppressed = True
@@ -734,21 +730,21 @@ class TestWork(DatabaseTest):
         work.calculate_presentation()
 
         # standard ebooks was last viable pool, and it stayed as work's choice
-        eq_(work.presentation_edition, pool_std_ebooks.presentation_edition)
-        eq_(work.presentation_edition, edition_std_ebooks)
+        assert work.presentation_edition == pool_std_ebooks.presentation_edition
+        assert work.presentation_edition == edition_std_ebooks
 
         # editions know who's the presentation edition
-        eq_(edition_std_ebooks.work, work)
-        eq_(edition_git.work, None)
-        eq_(edition_gut.work, None)
+        assert edition_std_ebooks.work == work
+        assert edition_git.work == None
+        assert edition_gut.work == None
 
         # The title of the Work is still the title of its last viable presentation edition.
-        eq_("The Standard Ebooks Title", work.title)
-        eq_("The Standard Ebooks Subtitle", work.subtitle)
+        assert "The Standard Ebooks Title" == work.title
+        assert "The Standard Ebooks Subtitle" == work.subtitle
 
         # The author of the Work is still the author of its last viable presentation edition.
-        eq_("Alice Adder", work.author)
-        eq_("Adder, Alice", work.sort_author)
+        assert "Alice Adder" == work.author
+        assert "Adder, Alice" == work.sort_author
 
     def test_work_updates_info_on_pool_suppressed(self):
         """ If the provider of the work's presentation edition gets suppressed,
@@ -759,26 +755,26 @@ class TestWork(DatabaseTest):
             edition_std_ebooks, edition_git, edition_gut, alice, bob) = self._sample_ecosystem()
 
         # make sure the setup is what we expect
-        eq_(pool_std_ebooks.suppressed, False)
-        eq_(pool_git.suppressed, False)
-        eq_(pool_gut.suppressed, False)
+        assert pool_std_ebooks.suppressed == False
+        assert pool_git.suppressed == False
+        assert pool_gut.suppressed == False
 
         # sanity check - we like standard ebooks and it got determined to be the best
-        eq_(work.presentation_edition, pool_std_ebooks.presentation_edition)
-        eq_(work.presentation_edition, edition_std_ebooks)
+        assert work.presentation_edition == pool_std_ebooks.presentation_edition
+        assert work.presentation_edition == edition_std_ebooks
 
         # editions know who's the presentation edition
-        eq_(edition_std_ebooks.work, work)
-        eq_(edition_git.work, None)
-        eq_(edition_gut.work, None)
+        assert edition_std_ebooks.work == work
+        assert edition_git.work == None
+        assert edition_gut.work == None
 
         # The title of the Work is the title of its presentation edition.
-        eq_("The Standard Ebooks Title", work.title)
-        eq_("The Standard Ebooks Subtitle", work.subtitle)
+        assert "The Standard Ebooks Title" == work.title
+        assert "The Standard Ebooks Subtitle" == work.subtitle
 
         # The author of the Work is the author of its presentation edition.
-        eq_("Alice Adder", work.author)
-        eq_("Adder, Alice", work.sort_author)
+        assert "Alice Adder" == work.author
+        assert "Adder, Alice" == work.sort_author
 
         # now suppress the primary license pool
         pool_std_ebooks.suppressed = True
@@ -787,21 +783,21 @@ class TestWork(DatabaseTest):
         work.calculate_presentation()
 
         # gitenberg is next best and it got determined to be the best
-        eq_(work.presentation_edition, pool_git.presentation_edition)
-        eq_(work.presentation_edition, edition_git)
+        assert work.presentation_edition == pool_git.presentation_edition
+        assert work.presentation_edition == edition_git
 
         # editions know who's the presentation edition
-        eq_(edition_std_ebooks.work, None)
-        eq_(edition_git.work, work)
-        eq_(edition_gut.work, None)
+        assert edition_std_ebooks.work == None
+        assert edition_git.work == work
+        assert edition_gut.work == None
 
         # The title of the Work is still the title of its last viable presentation edition.
-        eq_("The GItenberg Title", work.title)
-        eq_("The GItenberg Subtitle", work.subtitle)
+        assert "The GItenberg Title" == work.title
+        assert "The GItenberg Subtitle" == work.subtitle
 
         # The author of the Work is still the author of its last viable presentation edition.
-        eq_("Alice Adder, Bob Bitshifter", work.author)
-        eq_("Adder, Alice ; Bitshifter, Bob", work.sort_author)
+        assert "Alice Adder, Bob Bitshifter" == work.author
+        assert "Adder, Alice ; Bitshifter, Bob" == work.sort_author
 
     def test_different_language_means_different_work(self):
         """There are two open-access LicensePools for the same book in
@@ -822,7 +818,7 @@ class TestWork(DatabaseTest):
         )
         w2 = lp2.calculate_work()
         for l in (lp1, lp2):
-            eq_(False, l.superceded)
+            assert False == l.superceded
         assert w1 != w2
 
     def test_reject_covers(self):
@@ -863,10 +859,10 @@ class TestWork(DatabaseTest):
         # A couple helper methods to make these tests more readable.
         def has_no_cover(work_or_edition):
             """Determines whether a Work or an Edition has a cover."""
-            eq_(None, work_or_edition.cover_full_url)
-            eq_(None, work_or_edition.cover_thumbnail_url)
-            eq_(True, cover_link.resource.voted_quality < 0)
-            eq_(True, cover_link.resource.votes_for_quality > 0)
+            assert None == work_or_edition.cover_full_url
+            assert None == work_or_edition.cover_thumbnail_url
+            assert True == (cover_link.resource.voted_quality < 0)
+            assert True == (cover_link.resource.votes_for_quality > 0)
 
             if isinstance(work_or_edition, Work):
                 # It also removes the link from the cached OPDS entries.
@@ -884,8 +880,8 @@ class TestWork(DatabaseTest):
             r.votes_for_quality = r.voted_quality = 0
             r.update_quality()
             work.calculate_presentation(search_index_client=index)
-            eq_(full_url, work.cover_full_url)
-            eq_(thumbnail_url, work.cover_thumbnail_url)
+            assert full_url == work.cover_full_url
+            assert thumbnail_url == work.cover_thumbnail_url
             for url in [full_url, thumbnail_url]:
                 assert url in work.simple_opds_entry
                 assert url in work.verbose_opds_entry
@@ -921,23 +917,22 @@ class TestWork(DatabaseTest):
         work = self._work(with_license_pool=True)
 
         # It needs coverage.
-        eq_([work], Work.missing_coverage_from(self._db, operation).all())
+        assert [work] == Work.missing_coverage_from(self._db, operation).all()
 
         # Let's give it coverage.
         record = self._work_coverage_record(work, operation)
 
         # It no longer needs coverage!
-        eq_([], Work.missing_coverage_from(self._db, operation).all())
+        assert [] == Work.missing_coverage_from(self._db, operation).all()
 
         # But if we disqualify coverage records created before a
         # certain time, it might need coverage again.
         cutoff = record.timestamp + datetime.timedelta(seconds=1)
 
-        eq_(
-            [work], Work.missing_coverage_from(
+        assert (
+            [work] == Work.missing_coverage_from(
                 self._db, operation, count_as_missing_before=cutoff
-            ).all()
-        )
+            ).all())
 
     def test_top_genre(self):
         work = self._work()
@@ -946,20 +941,20 @@ class TestWork(DatabaseTest):
         source = DataSource.lookup(self._db, DataSource.AXIS_360)
 
         # returns None when work has no genres
-        eq_(None, work.top_genre())
+        assert None == work.top_genre()
 
         # returns only genre
         wg1, is_new = get_one_or_create(
             self._db, WorkGenre, work=work, genre=genres[0], affinity=1
         )
-        eq_(genres[0].name, work.top_genre())
+        assert genres[0].name == work.top_genre()
 
         # returns top genre
         wg1.affinity = 0.2
         wg2, is_new = get_one_or_create(
             self._db, WorkGenre, work=work, genre=genres[1], affinity=0.8
         )
-        eq_(genres[1].name, work.top_genre())
+        assert genres[1].name == work.top_genre()
 
     def test_to_search_document(self):
         # Set up an edition and work.
@@ -1075,58 +1070,58 @@ class TestWork(DatabaseTest):
             expect = (
                 python - datetime.datetime.utcfromtimestamp(0)
             ).total_seconds()
-            eq_(int(expect), int(postgres))
+            assert int(expect) == int(postgres)
 
         search_doc = work.to_search_document()
-        eq_(work.id, search_doc['_id'])
-        eq_(work.id, search_doc['work_id'])
-        eq_(work.title, search_doc['title'])
-        eq_(edition.subtitle, search_doc['subtitle'])
-        eq_(edition.series, search_doc['series'])
-        eq_(edition.series_position, search_doc['series_position'])
-        eq_(edition.language, search_doc['language'])
-        eq_(work.sort_title, search_doc['sort_title'])
-        eq_(work.author, search_doc['author'])
-        eq_(work.sort_author, search_doc['sort_author'])
-        eq_(edition.publisher, search_doc['publisher'])
-        eq_(edition.imprint, search_doc['imprint'])
-        eq_(edition.permanent_work_id, search_doc['permanent_work_id'])
-        eq_("Nonfiction", search_doc['fiction'])
-        eq_("YoungAdult", search_doc['audience'])
-        eq_(work.summary_text, search_doc['summary'])
-        eq_(work.quality, search_doc['quality'])
-        eq_(work.rating, search_doc['rating'])
-        eq_(work.popularity, search_doc['popularity'])
-        eq_(work.presentation_ready, search_doc['presentation_ready'])
+        assert work.id == search_doc['_id']
+        assert work.id == search_doc['work_id']
+        assert work.title == search_doc['title']
+        assert edition.subtitle == search_doc['subtitle']
+        assert edition.series == search_doc['series']
+        assert edition.series_position == search_doc['series_position']
+        assert edition.language == search_doc['language']
+        assert work.sort_title == search_doc['sort_title']
+        assert work.author == search_doc['author']
+        assert work.sort_author == search_doc['sort_author']
+        assert edition.publisher == search_doc['publisher']
+        assert edition.imprint == search_doc['imprint']
+        assert edition.permanent_work_id == search_doc['permanent_work_id']
+        assert "Nonfiction" == search_doc['fiction']
+        assert "YoungAdult" == search_doc['audience']
+        assert work.summary_text == search_doc['summary']
+        assert work.quality == search_doc['quality']
+        assert work.rating == search_doc['rating']
+        assert work.popularity == search_doc['popularity']
+        assert work.presentation_ready == search_doc['presentation_ready']
         assert_time_match(work.last_update_time, search_doc['last_update_time'])
-        eq_(dict(lower=7, upper=8), search_doc['target_age'])
+        assert dict(lower=7, upper=8) == search_doc['target_age']
 
         # Each LicensePool for the Work is listed in
         # the 'licensepools' section.
         licensepools = search_doc['licensepools']
-        eq_(2, len(licensepools))
-        eq_(set([x.id for x in work.license_pools]),
+        assert 2 == len(licensepools)
+        assert (set([x.id for x in work.license_pools]) ==
             set([x['licensepool_id'] for x in licensepools]))
 
         # Each item in the 'licensepools' section has a variety of useful information
         # about the corresponding LicensePool.
         for pool in work.license_pools:
             [match] = [x for x in licensepools if x['licensepool_id'] == pool.id]
-            eq_(pool.open_access, match['open_access'])
-            eq_(pool.collection_id, match['collection_id'])
-            eq_(pool.suppressed, match['suppressed'])
-            eq_(pool.data_source_id, match['data_source_id'])
+            assert pool.open_access == match['open_access']
+            assert pool.collection_id == match['collection_id']
+            assert pool.suppressed == match['suppressed']
+            assert pool.data_source_id == match['data_source_id']
 
             assert isinstance(match['available'], bool)
-            eq_(pool.licenses_available > 0, match['available'])
+            assert (pool.licenses_available > 0) == match['available']
             assert isinstance(match['licensed'], bool)
-            eq_(pool.licenses_owned > 0, match['licensed'])
+            assert (pool.licenses_owned > 0) == match['licensed']
 
             # The work quality is stored in the main document, but
             # it's also stored in the license pool subdocument so that
             # we can apply a nested filter that includes quality +
             # information from the subdocument.
-            eq_(work.quality, match['quality'])
+            assert work.quality == match['quality']
 
             assert_time_match(
                 pool.availability_time, match['availability_time']
@@ -1137,8 +1132,8 @@ class TestWork(DatabaseTest):
             # license poolsubdocument, so that we can filter out
             # license pools that represent audiobooks from unsupported
             # sources.
-            eq_(edition.medium, search_doc['medium'])
-            eq_(edition.medium, match['medium'])
+            assert edition.medium == search_doc['medium']
+            assert edition.medium == match['medium']
 
         # Each identifier that could, with high confidence, be
         # associated with the work, is in the 'identifiers' section.
@@ -1156,7 +1151,7 @@ class TestWork(DatabaseTest):
         def s(x):
             # Sort an identifier dictionary by its identifier value.
             return sorted(x, key = lambda b: b['identifier'])
-        eq_(s(expect), s(search_doc['identifiers']))
+        assert s(expect) == s(search_doc['identifiers'])
 
         # Each custom list entry for the work is in the 'customlists'
         # section.
@@ -1164,57 +1159,57 @@ class TestWork(DatabaseTest):
             search_doc['customlists'], key = lambda x: x['featured']
         )
         assert_time_match(appeared_1, not_featured.pop('first_appearance'))
-        eq_(dict(featured=False, list_id=l1.id), not_featured)
+        assert dict(featured=False, list_id=l1.id) == not_featured
         assert_time_match(appeared_2, featured.pop('first_appearance'))
-        eq_(dict(featured=True, list_id=l2.id), featured)
+        assert dict(featured=True, list_id=l2.id) == featured
 
         contributors = search_doc['contributors']
-        eq_(2, len(contributors))
+        assert 2 == len(contributors)
 
         [contributor1_doc] = [c for c in contributors if c['sort_name'] == contributor1.sort_name]
         [contributor2_doc] = [c for c in contributors if c['sort_name'] == contributor2.sort_name]
 
-        eq_(contributor1.display_name, contributor1_doc['display_name'])
-        eq_(None, contributor2_doc['display_name'])
+        assert contributor1.display_name == contributor1_doc['display_name']
+        assert None == contributor2_doc['display_name']
 
-        eq_(contributor1.family_name, contributor1_doc['family_name'])
-        eq_(None, contributor2_doc['family_name'])
+        assert contributor1.family_name == contributor1_doc['family_name']
+        assert None == contributor2_doc['family_name']
 
-        eq_(contributor1.viaf, contributor1_doc['viaf'])
-        eq_(None, contributor2_doc['viaf'])
+        assert contributor1.viaf == contributor1_doc['viaf']
+        assert None == contributor2_doc['viaf']
 
-        eq_(contributor1.lc, contributor1_doc['lc'])
-        eq_(None, contributor2_doc['lc'])
+        assert contributor1.lc == contributor1_doc['lc']
+        assert None == contributor2_doc['lc']
 
-        eq_(Contributor.PRIMARY_AUTHOR_ROLE, contributor1_doc['role'])
-        eq_(Contributor.AUTHOR_ROLE, contributor2_doc['role'])
+        assert Contributor.PRIMARY_AUTHOR_ROLE == contributor1_doc['role']
+        assert Contributor.AUTHOR_ROLE == contributor2_doc['role']
 
         classifications = search_doc['classifications']
-        eq_(3, len(classifications))
+        assert 3 == len(classifications)
         [classification1_doc] = [c for c in classifications if c['scheme'] == Subject.uri_lookup[Subject.BISAC]]
         [classification2_doc] = [c for c in classifications if c['scheme'] == Subject.uri_lookup[Subject.OVERDRIVE]]
         [classification3_doc] = [c for c in classifications if c['scheme'] == Subject.uri_lookup[Subject.FAST]]
-        eq_("FICTION Science Fiction Time Travel", classification1_doc['term'])
-        eq_(float(6 + 1)/(6 + 1 + 2 + 7), classification1_doc['weight'])
-        eq_("Romance", classification2_doc['term'])
-        eq_(float(2)/(6 + 1 + 2 + 7), classification2_doc['weight'])
-        eq_("Sea Stories", classification3_doc['term'])
-        eq_(float(7)/(6 + 1 + 2 + 7), classification3_doc['weight'])
+        assert "FICTION Science Fiction Time Travel" == classification1_doc['term']
+        assert float(6 + 1)/(6 + 1 + 2 + 7) == classification1_doc['weight']
+        assert "Romance" == classification2_doc['term']
+        assert float(2)/(6 + 1 + 2 + 7) == classification2_doc['weight']
+        assert "Sea Stories" == classification3_doc['term']
+        assert float(7)/(6 + 1 + 2 + 7) == classification3_doc['weight']
 
         genres = search_doc['genres']
-        eq_(2, len(genres))
+        assert 2 == len(genres)
         [genre1_doc] = [g for g in genres if g['name'] == genre1.name]
         [genre2_doc] = [g for g in genres if g['name'] == genre2.name]
-        eq_(Subject.SIMPLIFIED_GENRE, genre1_doc['scheme'])
-        eq_(genre1.id, genre1_doc['term'])
-        eq_(1, genre1_doc['weight'])
-        eq_(Subject.SIMPLIFIED_GENRE, genre2_doc['scheme'])
-        eq_(genre2.id, genre2_doc['term'])
-        eq_(0, genre2_doc['weight'])
+        assert Subject.SIMPLIFIED_GENRE == genre1_doc['scheme']
+        assert genre1.id == genre1_doc['term']
+        assert 1 == genre1_doc['weight']
+        assert Subject.SIMPLIFIED_GENRE == genre2_doc['scheme']
+        assert genre2.id == genre2_doc['term']
+        assert 0 == genre2_doc['weight']
 
         target_age_doc = search_doc['target_age']
-        eq_(work.target_age.lower, target_age_doc['lower'])
-        eq_(work.target_age.upper, target_age_doc['upper'])
+        assert work.target_age.lower == target_age_doc['lower']
+        assert work.target_age.upper == target_age_doc['upper']
 
         # If a book stops being available through a collection
         # (because its LicensePool loses all its licenses or stops
@@ -1224,7 +1219,7 @@ class TestWork(DatabaseTest):
         pool.licenses_owned = 0
         self._db.commit()
         search_doc = work.to_search_document()
-        eq_([collection2.id],
+        assert ([collection2.id] ==
             [x['collection_id'] for x in search_doc['licensepools']])
 
         # If the book becomes available again, the collection will
@@ -1232,7 +1227,7 @@ class TestWork(DatabaseTest):
         pool.open_access = True
         self._db.commit()
         search_doc = work.to_search_document()
-        eq_(set([collection1.id, collection2.id]),
+        assert (set([collection1.id, collection2.id]) ==
             set([x['collection_id'] for x in search_doc['licensepools']]))
 
     def test_age_appropriate_for_patron(self):
@@ -1242,13 +1237,13 @@ class TestWork(DatabaseTest):
         patron = self._patron()
 
         # If no Patron is specified, the method always returns True.
-        eq_(True, work.age_appropriate_for_patron(None))
+        assert True == work.age_appropriate_for_patron(None)
 
         # Otherwise, this method is a simple passthrough for
         # Patron.work_is_age_appropriate.
         patron.work_is_age_appropriate = MagicMock(return_value="value")
 
-        eq_("value", work.age_appropriate_for_patron(patron))
+        assert "value" == work.age_appropriate_for_patron(patron)
         patron.work_is_age_appropriate.assert_called_with(
             work.audience, work.target_age
         )
@@ -1283,21 +1278,21 @@ class TestWork(DatabaseTest):
         work = self._work()
         work.audience = Classifier.AUDIENCE_YOUNG_ADULT
         work.target_age = tuple_to_numericrange((12, 15))
-        eq_(True, work.age_appropriate_for_patron(patron))
+        assert True == work.age_appropriate_for_patron(patron)
 
         # Bump up the target age of the work, and it stops being
         # age-appropriate.
         work.target_age = tuple_to_numericrange((16, 17))
-        eq_(False, work.age_appropriate_for_patron(patron))
+        assert False == work.age_appropriate_for_patron(patron)
 
         # Bump up the lane to match, and it's age-appropriate again.
         lane.target_age = (9,16)
-        eq_(True, work.age_appropriate_for_patron(patron))
+        assert True == work.age_appropriate_for_patron(patron)
 
         # Change the audience to AUDIENCE_ADULT, and the work stops being
         # age-appropriate.
         work.audience = Classifier.AUDIENCE_ADULT
-        eq_(False, work.age_appropriate_for_patron(patron))
+        assert False == work.age_appropriate_for_patron(patron)
 
     def test_unlimited_access_books_are_available_by_default(self):
         # Set up an edition and work.
@@ -1316,9 +1311,9 @@ class TestWork(DatabaseTest):
         # Each LicensePool for the Work is listed in
         # the 'licensepools' section.
         licensepools = search_doc['licensepools']
-        eq_(1, len(licensepools))
-        eq_(licensepools[0]['open_access'], False)
-        eq_(licensepools[0]['available'], True)
+        assert 1 == len(licensepools)
+        assert licensepools[0]['open_access'] == False
+        assert licensepools[0]['available'] == True
 
     def test_self_hosted_books_are_available_by_default(self):
         # Set up an edition and work.
@@ -1337,47 +1332,47 @@ class TestWork(DatabaseTest):
         # Each LicensePool for the Work is listed in
         # the 'licensepools' section.
         licensepools = search_doc['licensepools']
-        eq_(1, len(licensepools))
-        eq_(licensepools[0]['open_access'], False)
-        eq_(licensepools[0]['available'], True)
+        assert 1 == len(licensepools)
+        assert licensepools[0]['open_access'] == False
+        assert licensepools[0]['available'] == True
 
     def test_target_age_string(self):
         work = self._work()
         work.target_age = NumericRange(7, 8, '[]')
-        eq_("7-8", work.target_age_string)
+        assert "7-8" == work.target_age_string
 
         work.target_age = NumericRange(0, 8, '[]')
-        eq_("0-8", work.target_age_string)
+        assert "0-8" == work.target_age_string
 
         work.target_age = NumericRange(8, None, '[]')
-        eq_("8", work.target_age_string)
+        assert "8" == work.target_age_string
 
         work.target_age = NumericRange(None, 8, '[]')
-        eq_("8", work.target_age_string)
+        assert "8" == work.target_age_string
 
         work.target_age = NumericRange(7, 8, '[)')
-        eq_("7", work.target_age_string)
+        assert "7" == work.target_age_string
 
         work.target_age = NumericRange(0, 8, '[)')
-        eq_("0-7", work.target_age_string)
+        assert "0-7" == work.target_age_string
 
         work.target_age = NumericRange(7, 8, '(]')
-        eq_("8", work.target_age_string)
+        assert "8" == work.target_age_string
 
         work.target_age = NumericRange(0, 8, '(]')
-        eq_("1-8", work.target_age_string)
+        assert "1-8" == work.target_age_string
 
         work.target_age = NumericRange(7, 9, '()')
-        eq_("8", work.target_age_string)
+        assert "8" == work.target_age_string
 
         work.target_age = NumericRange(0, 8, '()')
-        eq_("1-7", work.target_age_string)
+        assert "1-7" == work.target_age_string
 
         work.target_age = NumericRange(None, None, '()')
-        eq_("", work.target_age_string)
+        assert "" == work.target_age_string
 
         work.target_age = None
-        eq_("", work.target_age_string)
+        assert "" == work.target_age_string
 
     def test_reindex_on_availability_change(self):
         # A change in a LicensePool's availability creates a
@@ -1403,26 +1398,26 @@ class TestWork(DatabaseTest):
         # indexing. (It will be indexed anyway, but it's not registered
         # as needing it.)
         no_licensepool = self._work()
-        eq_(None, find_record(no_licensepool))
+        assert None == find_record(no_licensepool)
 
         # A Work with a LicensePool starts off in a state where it
         # needs to be indexed.
         work = self._work(with_open_access_download=True)
         [pool] = work.license_pools
         record = find_record(work)
-        eq_(registered, record.status)
+        assert registered == record.status
 
         # If it stops being open-access, it needs to be reindexed.
         record.status = success
         pool.open_access = False
         record = find_record(work)
-        eq_(registered, record.status)
+        assert registered == record.status
 
         # If it becomes open-access again, it needs to be reindexed.
         record.status = success
         pool.open_access = True
         record = find_record(work)
-        eq_(registered, record.status)
+        assert registered == record.status
 
         # If its last_update_time is changed, it needs to be
         # reindexed. (This happens whenever
@@ -1430,14 +1425,14 @@ class TestWork(DatabaseTest):
         # patron transactions always trigger a reindex).
         record.status = success
         work.last_update_time = datetime.datetime.utcnow()
-        eq_(registered, record.status)
+        assert registered == record.status
 
         # If its collection changes (which shouldn't happen), it needs
         # to be reindexed.
         record.status = success
         collection2 = self._collection()
         pool.collection_id = collection2.id
-        eq_(registered, record.status)
+        assert registered == record.status
 
         # If a LicensePool is deleted (which also shouldn't happen),
         # its former Work needs to be reindexed.
@@ -1445,7 +1440,7 @@ class TestWork(DatabaseTest):
         self._db.delete(pool)
         work = self._db.query(Work).filter(Work.id==work.id).one()
         record = find_record(work)
-        eq_(registered, record.status)
+        assert registered == record.status
 
         # If a LicensePool is moved in from another Work, _both_ Works
         # need to be reindexed.
@@ -1453,11 +1448,11 @@ class TestWork(DatabaseTest):
         another_work = self._work(with_license_pool=True)
         [another_pool] = another_work.license_pools
         work.license_pools.append(another_pool)
-        eq_([], another_work.license_pools)
+        assert [] == another_work.license_pools
 
         for work in (work, another_work):
             record = find_record(work)
-            eq_(registered, record.status)
+            assert registered == record.status
 
     def test_reset_coverage(self):
         # Test the methods that reset coverage for works, indicating
@@ -1471,13 +1466,13 @@ class TestWork(DatabaseTest):
         # a new WorkCoverageRecord in the REGISTERED state
         operation = "an operation"
         record = work._reset_coverage(operation)
-        eq_(WCR.REGISTERED, record.status)
+        assert WCR.REGISTERED == record.status
 
         # Calling _reset_coverage when the WorkCoverageRecord already
         # exists sets the state back to REGISTERED.
         record.state = WCR.SUCCESS
         work._reset_coverage(operation)
-        eq_(WCR.REGISTERED, record.status)
+        assert WCR.REGISTERED == record.status
 
         # A number of methods with helpful names all call _reset_coverage
         # for some specific operation.
@@ -1494,12 +1489,12 @@ class TestWork(DatabaseTest):
              WCR.UPDATE_SEARCH_INDEX_OPERATION)
         ):
             method()
-            eq_(operation, work.coverage_reset_for)
+            assert operation == work.coverage_reset_for
 
         # The work was not added to the search index when we called
         # external_index_needs_updating. That happens later, when the
         # WorkCoverageRecord is processed.
-        eq_([], index.docs.values())
+        assert [] == index.docs.values()
 
     def test_for_unchecked_subjects(self):
 
@@ -1510,22 +1505,22 @@ class TestWork(DatabaseTest):
         # Neither of these works is associated with any subjects, so
         # they're not associated with any unchecked subjects.
         qu = Work.for_unchecked_subjects(self._db)
-        eq_([], qu.all())
+        assert [] == qu.all()
 
         # These Subjects haven't been checked, so the Work associated with
         # them shows up.
         ds = DataSource.lookup(self._db, DataSource.OVERDRIVE)
         classification = identifier.classify(ds, Subject.TAG, "some tag")
         classification2 = identifier.classify(ds, Subject.TAG, "another tag")
-        eq_([w1], qu.all())
+        assert [w1] == qu.all()
 
         # If one of them is checked, the Work still shows up.
         classification.subject.checked = True
-        eq_([w1], qu.all())
+        assert [w1] == qu.all()
 
         # Only when all Subjects are checked does the work stop showing up.
         classification2.subject.checked = True
-        eq_([], qu.all())
+        assert [] == qu.all()
 
     def test_calculate_opds_entries(self):
         """Verify that calculate_opds_entries sets both simple and verbose
@@ -1538,13 +1533,13 @@ class TestWork(DatabaseTest):
         work.calculate_opds_entries(verbose=False)
         simple_entry = work.simple_opds_entry
         assert simple_entry.startswith('<entry')
-        eq_(None, work.verbose_opds_entry)
+        assert None == work.verbose_opds_entry
 
         work.calculate_opds_entries(verbose=True)
         # The simple OPDS entry is the same length as before.
         # It's not necessarily _exactly_ the same because the
         # <updated> timestamp may be different.
-        eq_(len(simple_entry), len(work.simple_opds_entry))
+        assert len(simple_entry) == len(work.simple_opds_entry)
 
         # The verbose OPDS entry is longer than the simple one.
         assert work.verbose_opds_entry.startswith('<entry')
@@ -1582,45 +1577,45 @@ class TestWork(DatabaseTest):
         # Neither license pool is open-access, and pool1 is superceded.
         # The active license pool is pool2.
         pool1.superceded = True
-        eq_(pool2, work.active_license_pool())
+        assert pool2 == work.active_license_pool()
 
         # pool2 is superceded and pool1 is not. The active licensepool
         # is pool1.
         pool1.superceded = False
         pool2.superceded = True
-        eq_(pool1, work.active_license_pool())
+        assert pool1 == work.active_license_pool()
 
         # If both license pools are superceded, there is no active license
         # pool for the book.
         pool1.superceded = True
-        eq_(None, work.active_license_pool())
+        assert None == work.active_license_pool()
         pool1.superceded = False
         pool2.superceded = False
 
         # If one license pool is open-access and the other is not, the
         # open-access pool wins.
         pool1.open_access = True
-        eq_(pool1, work.active_license_pool())
+        assert pool1 == work.active_license_pool()
         pool1.open_access = False
 
         # pool2 is open-access but has no usable download. The other
         # pool wins.
         pool2.open_access = True
-        eq_(pool1, work.active_license_pool())
+        assert pool1 == work.active_license_pool()
         pool2.open_access = False
 
         # If one license pool has no owned licenses and the other has
         # owned licenses, the one with licenses wins.
         pool1.licenses_owned = 0
         pool2.licenses_owned = 1
-        eq_(pool2, work.active_license_pool())
+        assert pool2 == work.active_license_pool()
         pool1.licenses_owned = 1
 
         # If one license pool has a presentation edition that's missing
         # a title, and the other pool has a presentation edition with a title,
         # the one with a title wins.
         pool2.presentation_edition.title = None
-        eq_(pool1, work.active_license_pool())
+        assert pool1 == work.active_license_pool()
 
     def test_delete_work(self):
         # Search mock
@@ -1633,9 +1628,9 @@ class TestWork(DatabaseTest):
         work = self._work(with_license_pool=True)
         work.delete(search_index=s)
 
-        eq_([], self._db.query(Work).filter(Work.id==work.id).all())
-        eq_(1, len(s.removed))
-        eq_(s.removed, [work])
+        assert [] == self._db.query(Work).filter(Work.id==work.id).all()
+        assert 1 == len(s.removed)
+        assert s.removed == [work]
 
 
 class TestWorkConsolidation(DatabaseTest):
@@ -1643,29 +1638,29 @@ class TestWorkConsolidation(DatabaseTest):
     def test_calculate_work_success(self):
         e, p = self._edition(with_license_pool=True)
         work, new = p.calculate_work()
-        eq_(p.presentation_edition, work.presentation_edition)
-        eq_(True, new)
+        assert p.presentation_edition == work.presentation_edition
+        assert True == new
 
     def test_calculate_work_bails_out_if_no_title(self):
         e, p = self._edition(with_license_pool=True)
         e.title=None
         work, new = p.calculate_work()
-        eq_(None, work)
-        eq_(False, new)
+        assert None == work
+        assert False == new
 
         # even_if_no_title means we don't need a title.
         work, new = p.calculate_work(even_if_no_title=True)
         assert isinstance(work, Work)
-        eq_(True, new)
-        eq_(None, work.title)
-        eq_(None, work.presentation_edition.permanent_work_id)
+        assert True == new
+        assert None == work.title
+        assert None == work.presentation_edition.permanent_work_id
 
     def test_calculate_work_even_if_no_author(self):
         title = "Book"
         e, p = self._edition(with_license_pool=True, authors=[], title=title)
         work, new = p.calculate_work()
-        eq_(title, work.title)
-        eq_(True, new)
+        assert title == work.title
+        assert True == new
 
     def test_calculate_work_matches_based_on_permanent_work_id(self):
         # Here are two Editions with the same permanent work ID,
@@ -1684,17 +1679,17 @@ class TestWorkConsolidation(DatabaseTest):
 
         # Calling calculate_work() on the first edition creates a Work.
         work1, created = edition1.license_pools[0].calculate_work()
-        eq_(created, True)
+        assert created == True
 
         # Calling calculate_work() on the second edition associated
         # the second edition's pool with the first work.
         work2, created = edition2.license_pools[0].calculate_work()
-        eq_(created, False)
+        assert created == False
 
-        eq_(work1, work2)
+        assert work1 == work2
 
         expect = edition1.license_pools + edition2.license_pools
-        eq_(set(expect), set(work1.license_pools))
+        assert set(expect) == set(work1.license_pools)
 
 
     def test_calculate_work_for_licensepool_creates_new_work(self):
@@ -1711,7 +1706,7 @@ class TestWorkConsolidation(DatabaseTest):
 
         # Call calculate_work(), and a new Work is created.
         work, created = pool.calculate_work()
-        eq_(True, created)
+        assert True == created
         assert work != preexisting_work
 
     def test_calculate_work_does_nothing_unless_edition_has_title(self):
@@ -1724,18 +1719,18 @@ class TestWorkConsolidation(DatabaseTest):
             collection=collection
         )
         work, created = pool.calculate_work()
-        eq_(None, work)
+        assert None == work
 
         edition.title = u"foo"
         work, created = pool.calculate_work()
         edition.calculate_presentation()
-        eq_(True, created)
+        assert True == created
         #
         # # The edition is the work's presentation edition.
-        eq_(work, edition.work)
-        eq_(edition, work.presentation_edition)
-        eq_(u"foo", work.title)
-        eq_(u"[Unknown]", work.author)
+        assert work == edition.work
+        assert edition == work.presentation_edition
+        assert u"foo" == work.title
+        assert u"[Unknown]" == work.author
 
     def test_calculate_work_fails_when_presentation_edition_identifier_does_not_match_license_pool(self):
 
@@ -1763,12 +1758,10 @@ class TestWorkConsolidation(DatabaseTest):
         # But we can't pass in an Edition that's the presentation
         # edition for a LicensePool with a totally different Identifier.
         for edition in (edition2, edition3):
-            assert_raises_regexp(
-                ValueError,
-                "Alleged presentation edition is not the presentation edition for the license pool for which work is being calculated!",
-                pool.calculate_work,
-                known_edition=edition
-            )
+            with pytest.raises(ValueError) as excinfo:
+                pool.calculate_work(known_edition = edition)
+            assert "Alleged presentation edition is not the presentation edition for the license pool for which work is being calculated!" \
+                in str(excinfo.value)
 
     def test_open_access_pools_grouped_together(self):
 
@@ -1810,7 +1803,7 @@ class TestWorkConsolidation(DatabaseTest):
         assert restricted4.work != None
 
         # The two open-access pools are grouped together.
-        eq_(open1.work, open2.work)
+        assert open1.work == open2.work
 
         # Each restricted-access pool is completely isolated.
         assert restricted3.work != restricted4.work
@@ -1831,24 +1824,24 @@ class TestWorkConsolidation(DatabaseTest):
             collection=collection2
         )
 
-        eq_(pool1.identifier, pool2.identifier)
-        eq_(pool1.data_source, pool2.data_source)
-        eq_(self._default_collection, pool1.collection)
-        eq_(collection2, pool2.collection)
+        assert pool1.identifier == pool2.identifier
+        assert pool1.data_source == pool2.data_source
+        assert self._default_collection == pool1.collection
+        assert collection2 == pool2.collection
 
         # The two LicensePools have the same Edition (since a given
         # DataSource has only one opinion about an Identifier's
         # bibliographic information).
-        eq_(edition1, edition2)
+        assert edition1 == edition2
 
         # Because the two LicensePools have the same Identifier, they
         # have the same Work.
         work1, is_new_1 = pool1.calculate_work()
         work2, is_new_2 = pool2.calculate_work()
-        eq_(work1, work2)
-        eq_(True, is_new_1)
-        eq_(False, is_new_2)
-        eq_(edition1, work1.presentation_edition)
+        assert work1 == work2
+        assert True == is_new_1
+        assert False == is_new_2
+        assert edition1 == work1.presentation_edition
 
     def test_calculate_work_fixes_work_in_invalid_state(self):
         # Here's a Work with a commercial edition of "abcd".
@@ -1886,8 +1879,8 @@ class TestWorkConsolidation(DatabaseTest):
         # Anyway, we can fix the whole problem by calling
         # calculate_work() on one of the LicensePools.
         work_after, is_new = abcd_commercial.calculate_work()
-        eq_(work_after, work)
-        eq_(False, is_new)
+        assert work_after == work
+        assert False == is_new
 
         # The LicensePool we called calculate_work() on gets to stay
         # in the Work, but the other two have been kicked out and
@@ -1896,7 +1889,7 @@ class TestWorkConsolidation(DatabaseTest):
         assert abcd_open_access.work != work
 
         # The commercial LicensePool has been given a Work of its own.
-        eq_([abcd_commercial_2], abcd_commercial_2.work.license_pools)
+        assert [abcd_commercial_2] == abcd_commercial_2.work.license_pools
 
         # The open-access work has been given the Work that will be
         # used for all open-access LicensePools for that book going
@@ -1907,7 +1900,7 @@ class TestWorkConsolidation(DatabaseTest):
                 self._db, "abcd", Edition.BOOK_MEDIUM, 'eng'
             )
         )
-        eq_(expect_open_access_work, abcd_open_access.work)
+        assert expect_open_access_work == abcd_open_access.work
 
         # Now we're going to restore the bad configuration, where all
         # three books have the same Work. This time we're going to
@@ -1921,8 +1914,8 @@ class TestWorkConsolidation(DatabaseTest):
         # Since we called calculate_work() on the open-access work, it
         # maintained control of the Work, and both commercial books
         # got assigned new Works.
-        eq_(work, work_after)
-        eq_(False, is_new)
+        assert work == work_after
+        assert False == is_new
 
         assert abcd_commercial.work != work
         assert abcd_commercial.work != None
@@ -1933,10 +1926,10 @@ class TestWorkConsolidation(DatabaseTest):
         # Finally, let's test that nothing happens if you call
         # calculate_work() on a self-consistent situation.
         open_access_work = abcd_open_access.work
-        eq_((open_access_work, False), abcd_open_access.calculate_work())
+        assert (open_access_work, False) == abcd_open_access.calculate_work()
 
         commercial_work = abcd_commercial.work
-        eq_((commercial_work, False), abcd_commercial.calculate_work())
+        assert (commercial_work, False) == abcd_commercial.calculate_work()
 
     def test_calculate_work_fixes_incorrectly_grouped_books(self):
         # Here's a Work with an open-access edition of "abcd".
@@ -1969,17 +1962,17 @@ class TestWorkConsolidation(DatabaseTest):
         # We can fix this by calling calculate_work() on one of the
         # LicensePools.
         work_after, is_new = book.calculate_work()
-        eq_(work_after, work)
-        eq_(False, is_new)
+        assert work_after == work
+        assert False == is_new
 
         # The LicensePool we called calculate_work() on gets to stay
         # in the Work, but the other one has been kicked out and
         # given its own work.
-        eq_(book.work, work)
+        assert book.work == work
         assert audiobook.work != work
 
         # The audiobook LicensePool has been given a Work of its own.
-        eq_([audiobook], audiobook.work.license_pools)
+        assert [audiobook] == audiobook.work.license_pools
 
         # The book has been given the Work that will be used for all
         # book-type LicensePools for that title going forward.
@@ -1988,7 +1981,7 @@ class TestWorkConsolidation(DatabaseTest):
                 self._db, "abcd", Edition.BOOK_MEDIUM, 'eng'
             )
         )
-        eq_(expect_book_work, book.work)
+        assert expect_book_work == book.work
 
         # The audiobook has been given the Work that will be used for
         # all audiobook-type LicensePools for that title going
@@ -1998,7 +1991,7 @@ class TestWorkConsolidation(DatabaseTest):
                 self._db, "abcd", Edition.AUDIO_MEDIUM, 'eng'
             )
         )
-        eq_(expect_audiobook_work, audiobook.work)
+        assert expect_audiobook_work == audiobook.work
 
         # The Spanish book has been given the Work that will be used
         # for all Spanish LicensePools for that title going forward.
@@ -2007,8 +2000,8 @@ class TestWorkConsolidation(DatabaseTest):
                 self._db, "abcd", Edition.BOOK_MEDIUM, 'spa'
             )
         )
-        eq_(expect_spanish_work, spanish.work)
-        eq_('spa', expect_spanish_work.language)
+        assert expect_spanish_work == spanish.work
+        assert 'spa' == expect_spanish_work.language
 
 
     def test_calculate_work_detaches_licensepool_with_no_title(self):
@@ -2025,8 +2018,8 @@ class TestWorkConsolidation(DatabaseTest):
         # book from its work, since a book with no title cannot have
         # an associated Work.
         work_after, is_new = book.calculate_work()
-        eq_(None, work_after)
-        eq_([], work.license_pools)
+        assert None == work_after
+        assert [] == work.license_pools
 
     def test_calculate_work_detaches_licensepool_with_no_pwid(self):
         # Here's a Work with an open-access edition of "abcd".
@@ -2046,27 +2039,27 @@ class TestWorkConsolidation(DatabaseTest):
         # Calling calculate_work() on the functional LicensePool will
         # split off the bad one.
         work_after, is_new = book.calculate_work()
-        eq_([book], work.license_pools)
-        eq_(None, no_title.work)
-        eq_(None, no_title.presentation_edition.work)
+        assert [book] == work.license_pools
+        assert None == no_title.work
+        assert None == no_title.presentation_edition.work
 
         # calculate_work() on the bad LicensePool will split it off from
         # the good one.
         work.license_pools.append(no_title)
         work_after_2, is_new = no_title.calculate_work()
-        eq_(None, work_after_2)
-        eq_([book], work.license_pools)
+        assert None == work_after_2
+        assert [book] == work.license_pools
 
         # The same thing happens if the bad LicensePool has no
         # presentation edition at all.
         work.license_pools.append(no_title)
         no_title.presentation_edition = None
         work_after, is_new = book.calculate_work()
-        eq_([book], work.license_pools)
+        assert [book] == work.license_pools
 
         work.license_pools.append(no_title)
         work_after, is_new = no_title.calculate_work()
-        eq_([book], work.license_pools)
+        assert [book] == work.license_pools
 
 
     def test_pwids(self):
@@ -2077,25 +2070,24 @@ class TestWorkConsolidation(DatabaseTest):
         # with two different PWIDs are associated with the same work.
         work = self._work(with_license_pool=True)
         [lp1] = work.license_pools
-        eq_(set([lp1.presentation_edition.permanent_work_id]),
+        assert (set([lp1.presentation_edition.permanent_work_id]) ==
             work.pwids)
         edition, lp2 = self._edition(with_license_pool=True)
         work.license_pools.append(lp2)
 
         # Work.pwids finds both PWIDs.
-        eq_(set([lp1.presentation_edition.permanent_work_id,
-                 lp2.presentation_edition.permanent_work_id]),
+        assert (set([lp1.presentation_edition.permanent_work_id,
+                 lp2.presentation_edition.permanent_work_id]) ==
             work.pwids)
 
     def test_open_access_for_permanent_work_id_no_licensepools(self):
         # There are no LicensePools, which short-circuilts
         # open_access_for_permanent_work_id.
-        eq_(
-            (None, False), Work.open_access_for_permanent_work_id(
+        assert (
+            (None, False) == Work.open_access_for_permanent_work_id(
                 self._db, "No such permanent work ID", Edition.BOOK_MEDIUM,
                 "eng"
-            )
-        )
+            ))
 
         # Now it works.
         w = self._work(
@@ -2103,34 +2095,30 @@ class TestWorkConsolidation(DatabaseTest):
             with_open_access_download=True
         )
         w.presentation_edition.permanent_work_id = "permid"
-        eq_(
-            (w, False), Work.open_access_for_permanent_work_id(
+        assert (
+            (w, False) == Work.open_access_for_permanent_work_id(
                 self._db, "permid", Edition.BOOK_MEDIUM,
                 "eng"
-            )
-        )
+            ))
 
         # But the language, medium, and permanent ID must all match.
-        eq_(
-            (None, False), Work.open_access_for_permanent_work_id(
+        assert (
+            (None, False) == Work.open_access_for_permanent_work_id(
                 self._db, "permid", Edition.BOOK_MEDIUM,
                 "spa"
-            )
-        )
+            ))
 
-        eq_(
-            (None, False), Work.open_access_for_permanent_work_id(
+        assert (
+            (None, False) == Work.open_access_for_permanent_work_id(
                 self._db, "differentid", Edition.BOOK_MEDIUM,
                 "eng"
-            )
-        )
+            ))
 
-        eq_(
-            (None, False), Work.open_access_for_permanent_work_id(
+        assert (
+            (None, False) == Work.open_access_for_permanent_work_id(
                 self._db, "differentid", Edition.AUDIO_MEDIUM,
                 "eng"
-            )
-        )
+            ))
 
     def test_open_access_for_permanent_work_id(self):
         # Two different works full of open-access license pools.
@@ -2169,30 +2157,30 @@ class TestWorkConsolidation(DatabaseTest):
         )
 
         # Work #3 still exists and its license pool was not affected.
-        eq_([w3], self._db.query(Work).filter(Work.id==w3.id).all())
-        eq_(w3, w3_pool.work)
+        assert [w3] == self._db.query(Work).filter(Work.id==w3.id).all()
+        assert w3 == w3_pool.work
 
         # But the other three license pools now have the same work.
-        eq_(work, lp1.work)
-        eq_(work, lp2.work)
-        eq_(work, lp3.work)
+        assert work == lp1.work
+        assert work == lp2.work
+        assert work == lp3.work
 
         # Because work #2 had two license pools, and work #1 only had
         # one, work #1 was merged into work #2, rather than the other
         # way around.
-        eq_(w2, work)
-        eq_(False, is_new)
+        assert w2 == work
+        assert False == is_new
 
         # Work #1 no longer exists.
-        eq_([], self._db.query(Work).filter(Work.id==w1.id).all())
+        assert [] == self._db.query(Work).filter(Work.id==w1.id).all()
 
         # Calling Work.open_access_for_permanent_work_id again returns the same
         # result.
         _db = self._db
         Work.open_access_for_permanent_work_id(_db, "abcd", Edition.BOOK_MEDIUM, "eng")
-        eq_((w2, False), Work.open_access_for_permanent_work_id(
+        assert (w2, False) == Work.open_access_for_permanent_work_id(
             self._db, "abcd", Edition.BOOK_MEDIUM, "eng"
-        ))
+        )
 
     def test_open_access_for_permanent_work_id_can_create_work(self):
 
@@ -2205,8 +2193,8 @@ class TestWorkConsolidation(DatabaseTest):
         work, is_new = Work.open_access_for_permanent_work_id(
             self._db, "abcd", Edition.BOOK_MEDIUM, edition.language
         )
-        eq_([lp], work.license_pools)
-        eq_(True, is_new)
+        assert [lp] == work.license_pools
+        assert True == is_new
 
     def test_potential_open_access_works_for_permanent_work_id(self):
         # Test of the _potential_open_access_works_for_permanent_work_id
@@ -2243,16 +2231,16 @@ class TestWorkConsolidation(DatabaseTest):
         # should be grouped together, and both LicensePools are
         # associated with the same Work.
         poolset = set([lp1, lp2])
-        eq_(poolset, pools)
-        eq_({w1 : 2}, counts)
+        assert poolset == pools
+        assert {w1 : 2} == counts
 
         # Since the work was just created, it has no presentation
         # edition and thus no language. If the presentation edition
         # were set, the result would be the same.
         w1.presentation_edition = e1
         pools, counts = m()
-        eq_(poolset, pools)
-        eq_({w1 : 2}, counts)
+        assert poolset == pools
+        assert {w1 : 2} == counts
 
         # If the Work's presentation edition has information that
         # _conflicts_ with the information passed in to
@@ -2265,20 +2253,20 @@ class TestWorkConsolidation(DatabaseTest):
 
         bad_pe.language = 'fin'
         pools, counts = m()
-        eq_(poolset, pools)
-        eq_({}, counts)
+        assert poolset == pools
+        assert {} == counts
         bad_pe.language = 'eng'
 
         bad_pe.medium = Edition.AUDIO_MEDIUM
         pools, counts = m()
-        eq_(poolset, pools)
-        eq_({}, counts)
+        assert poolset == pools
+        assert {} == counts
         bad_pe.medium = Edition.BOOK_MEDIUM
 
         bad_pe.permanent_work_id = "Some other ID"
         pools, counts = m()
-        eq_(poolset, pools)
-        eq_({}, counts)
+        assert poolset == pools
+        assert {} == counts
         bad_pe.permanent_work_id = "pwid"
 
         w1.presentation_edition = None
@@ -2290,8 +2278,8 @@ class TestWorkConsolidation(DatabaseTest):
             # the set and will not be counted towards the total of eligible
             # LicensePools for its Work.
             pools, counts = m()
-            eq_(set([lp2]), pools)
-            eq_({w1 : 1}, counts)
+            assert set([lp2]) == pools
+            assert {w1 : 1} == counts
 
         # It has to be open-access.
         lp1.open_access = False
@@ -2329,8 +2317,8 @@ class TestWorkConsolidation(DatabaseTest):
         # equal claim to being 'the' Work for this work
         # ID/language/medium. The calling code will have to sort it
         # out.
-        eq_(poolset, pools)
-        eq_({w1: 1, w2: 1}, counts)
+        assert poolset == pools
+        assert {w1: 1, w2: 1} == counts
 
     def test_make_exclusive_open_access_for_permanent_work_id(self):
         # Here's a work containing an open-access LicensePool for
@@ -2372,10 +2360,10 @@ class TestWorkConsolidation(DatabaseTest):
 
         # The open-access "abcd" book is now the only LicensePool
         # associated with work1.
-        eq_([abcd_oa], work1.license_pools)
+        assert [abcd_oa] == work1.license_pools
 
         # Both open-access "efgh" books are now associated with work2.
-        eq_(set([efgh_1, efgh_2]), set(work2.license_pools))
+        assert set([efgh_1, efgh_2]) == set(work2.license_pools)
 
         # A third work has been created for the commercial edition of "abcd".
         assert abcd_commercial.work not in (work1, work2)
@@ -2408,10 +2396,10 @@ class TestWorkConsolidation(DatabaseTest):
 
         # Since a LicensePool with no PWID cannot have an associated Work,
         # this Work now have no LicensePools at all.
-        eq_([], work.license_pools)
+        assert [] == work.license_pools
 
-        eq_(None, null1.work)
-        eq_(None, null2.work)
+        assert None == null1.work
+        assert None == null2.work
 
     def test_merge_into_success(self):
         # Here's a work with an open-access LicensePool.
@@ -2439,11 +2427,10 @@ class TestWorkConsolidation(DatabaseTest):
 
         # The first work has been deleted, as have its WorkGenre and
         # WorkCoverageRecord.
-        eq_([], self._db.query(Work).filter(Work.id==work1.id).all())
-        eq_([], self._db.query(WorkGenre).all())
-        eq_([], self._db.query(WorkCoverageRecord).filter(
+        assert [] == self._db.query(Work).filter(Work.id==work1.id).all()
+        assert [] == self._db.query(WorkGenre).all()
+        assert [] == self._db.query(WorkCoverageRecord).filter(
             WorkCoverageRecord.work_id==work1.id).all()
-        )
 
     def test_open_access_for_permanent_work_id_fixes_mismatched_works_incidentally(self):
 
@@ -2516,7 +2503,7 @@ class TestWorkConsolidation(DatabaseTest):
         # We've got three different works here. The 'abcd' work is the
         # old 'abcd' work that had three LicensePools--the other work
         # was merged into it.
-        eq_(abcd_1.work, abcd_work)
+        assert abcd_1.work == abcd_work
         assert efgh_work != abcd_work
         assert ijkl_work != abcd_work
         assert ijkl_work != efgh_work
@@ -2526,12 +2513,12 @@ class TestWorkConsolidation(DatabaseTest):
         # Work.open_access_for_permanent_work_id, when those
         # LicensePools were split out of Works where they didn't
         # belong.
-        eq_(False, efgh_new)
-        eq_(False, ijkl_new)
+        assert False == efgh_new
+        assert False == ijkl_new
 
-        eq_([ijkl], ijkl_work.license_pools)
-        eq_([efgh], efgh_work.license_pools)
-        eq_(3, len(abcd_work.license_pools))
+        assert [ijkl] == ijkl_work.license_pools
+        assert [efgh] == efgh_work.license_pools
+        assert 3 == len(abcd_work.license_pools)
 
     def test_open_access_for_permanent_work_untangles_tangled_works(self):
 
@@ -2584,12 +2571,12 @@ class TestWorkConsolidation(DatabaseTest):
         abcd_new, is_new = Work.open_access_for_permanent_work_id(
             self._db, "abcd", Edition.BOOK_MEDIUM, "eng"
         )
-        eq_(True, is_new)
-        eq_(set([abcd_1, abcd_2]), set(abcd_new.license_pools))
+        assert True == is_new
+        assert set([abcd_1, abcd_2]) == set(abcd_new.license_pools)
 
         # The old abcd_work now contains only the 'efgh' LicensePool
         # that didn't fit.
-        eq_([efgh_2], abcd_work.license_pools)
+        assert [efgh_2] == abcd_work.license_pools
 
         # We now have two works with 'efgh' LicensePools: abcd_work
         # and efgh_work. Calling
@@ -2599,8 +2586,8 @@ class TestWorkConsolidation(DatabaseTest):
         efgh_new, is_new = Work.open_access_for_permanent_work_id(
             self._db, "efgh", Edition.BOOK_MEDIUM, "eng"
         )
-        eq_(False, is_new)
-        eq_(set([efgh_1, efgh_2]), set(efgh_new.license_pools))
+        assert False == is_new
+        assert set([efgh_1, efgh_2]) == set(efgh_new.license_pools)
         assert efgh_new in (abcd_work, efgh_work)
 
         # The Work that was not chosen for consolidation now has no
@@ -2609,7 +2596,7 @@ class TestWorkConsolidation(DatabaseTest):
             other = efgh_work
         else:
             other = abcd_work
-        eq_([], other.license_pools)
+        assert [] == other.license_pools
 
     def test_merge_into_raises_exception_if_grouping_rules_violated(self):
         # Here's a work with an open-access LicensePool.
@@ -2627,11 +2614,11 @@ class TestWorkConsolidation(DatabaseTest):
         lp2.presentation_edition.permanent_work_id="abcd"
 
         # The works cannot be merged.
-        assert_raises_regexp(
-            ValueError,
-            "Refusing to merge .* into .* because it would put an open-access LicensePool into the same work as a non-open-access LicensePool.",
-            work1.merge_into, work2,
-        )
+        with pytest.raises(ValueError) as excinfo:
+            work1.merge_into(work2)
+        assert "Refusing to merge {} into {} because it would put an open-access LicensePool into the same work as a non-open-access LicensePool.".format(work1, work2) \
+               in str(excinfo.value)
+
 
     def test_merge_into_raises_exception_if_pwids_differ(self):
         work1 = self._work(with_license_pool=True,
@@ -2644,12 +2631,10 @@ class TestWorkConsolidation(DatabaseTest):
         [efgh_oa] = work2.license_pools
         efgh_oa.presentation_edition.permanent_work_id="efgh"
 
-        assert_raises_regexp(
-            ValueError,
-            "Refusing to merge .* into .* because permanent work IDs don't match: abcd vs. efgh",
-            work1.merge_into,
-            work2
-        )
+        with pytest.raises(ValueError) as excinfo:
+            work1.merge_into(work2)
+        assert "Refusing to merge {} into {} because permanent work IDs don't match: abcd vs. efgh".format(work1, work2) \
+               in str(excinfo.value)
 
     def test_licensepool_without_identifier_gets_no_work(self):
         work = self._work(with_license_pool=True)
@@ -2657,8 +2642,8 @@ class TestWorkConsolidation(DatabaseTest):
         lp.identifier = None
 
         # Even if the LicensePool had a work before, it gets removed.
-        eq_((None, False), lp.calculate_work())
-        eq_(None, lp.work)
+        assert (None, False) == lp.calculate_work()
+        assert None == lp.work
 
     def test_licensepool_without_presentation_edition_gets_no_work(self):
         work = self._work(with_license_pool=True)
@@ -2670,5 +2655,5 @@ class TestWorkConsolidation(DatabaseTest):
         lp.identifier.primarily_identifies = []
 
         # Even if the LicensePool had a work before, it gets removed.
-        eq_((None, False), lp.calculate_work())
-        eq_(None, lp.work)
+        assert (None, False) == lp.calculate_work()
+        assert None == lp.work
