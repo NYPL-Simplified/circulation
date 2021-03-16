@@ -980,17 +980,6 @@ class TestBibliothecaEventMonitor(BibliothecaAPITest):
         default_start_time = monitor.create_default_start_time(self._db, proper_args)
         assert datetime(2013, 4, 2) == default_start_time
 
-
-class TestBibliothecaEventMonitorWhenMultipleCollections(BibliothecaAPITest):
-
-    def test_when_multiple_collections(self):
-        # Now let's add a second collection and try the monitor on one of them.
-        b1 = self.collection
-        b2 = self._collection(protocol=ExternalIntegration.BIBLIOTHECA)
-        monitor = BibliothecaEventMonitor(
-            self._db, self.collection, api_class=MockBibliothecaAPI
-        )
-
     def test_run_once(self):
         # run_once() slices the time between its start date
         # and the current time into five-minute intervals, and asks for
@@ -1154,9 +1143,10 @@ class TestBibliothecaEventMonitorWhenMultipleCollections(BibliothecaAPITest):
                                     cli_date='2011-02-03')
             for c in collections
         ]
+        assert len(monitors) == len(collections)
         # Ensure that we get monitors and not an exception.
         for m in monitors:
-            isinstance(m, BibliothecaEventMonitor)
+            assert isinstance(m, BibliothecaEventMonitor)
 
 
 class TestItemListParser(BibliothecaAPITest):
