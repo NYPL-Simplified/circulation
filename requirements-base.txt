@@ -66,3 +66,10 @@ Werkzeug==1.0.1
 
 multipledispatch==0.6.0
 webpub-manifest-parser
+
+# Theses dependencies are only used in our tests. Ideally they would get moved out to
+# the dev requirements file, but the mock classes for our tests are included alongside
+# the production classes, so these have to be installed all the time for now.
+mock==3.0.5
+parameterized==0.7.4
+pytest<7.0
