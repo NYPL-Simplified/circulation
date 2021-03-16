@@ -2551,11 +2551,11 @@ class TestQuery(DatabaseTest):
         boosts = sorted(boosts, key=lambda x: x[1])
         assert (boosts ==
             [
-                ('match title', 1),
-                ('match subtitle', 1),
-                ('match series', 1),
-                ('match publisher', 1),
                 ('match imprint', 1),
+                ('match publisher', 1),
+                ('match series', 1),
+                ('match subtitle', 1),
+                ('match title', 1),
                 # The only non-mocked value here is this one. The
                 # substring hypotheses have their own weights, which
                 # we don't see in this test. This is saying that if a

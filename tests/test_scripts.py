@@ -102,6 +102,7 @@ from ..testing import (
 from ..util.worker_pools import (
     DatabasePool,
 )
+from pdb import set_trace
 
 
 class TestScript(DatabaseTest):
@@ -916,7 +917,7 @@ class DatabaseMigrationScriptTest(DatabaseTest):
             fd, migration_file = tempfile.mkstemp(
                 prefix=prefix, suffix=suffix, dir=directory, text=True
             )
-            os.write(fd, content)
+            os.write(fd, content.encode("utf-8"))
 
             # If it's a python migration, make it executable.
             if migration_file.endswith('py'):

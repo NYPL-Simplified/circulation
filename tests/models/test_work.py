@@ -274,7 +274,7 @@ class TestWork(DatabaseTest):
         assert "Adder, Alice ; Bitshifter, Bob" == work.sort_author
 
         # The summary has now been chosen.
-        assert chosen_summary == work.summary.representation.content
+        assert chosen_summary == work.summary.representation.content.decode("utf-8")
 
         # The last update time has been set.
         # Updating availability also modified work.last_update_time.
@@ -488,7 +488,7 @@ class TestWork(DatabaseTest):
             self._db, DataSource.LIBRARY_STAFF
         )
         m([i1.id, i2.id], [], [])
-        assert l1.resource.representation.content == w.summary_text
+        assert l1.resource.representation.content.decode("utf-8") == w.summary_text
 
     def test_set_presentation_ready_based_on_content(self):
 

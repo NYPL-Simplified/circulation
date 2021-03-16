@@ -502,7 +502,7 @@ class Work(Base):
             elif not pool.presentation_edition:
                 # A LicensePool with no presentation edition
                 # cannot have an associated Work.
-                logging.warn(
+                logging.warning(
                     "LicensePool %r has no presentation edition, setting .work to None.",
                     pool
                 )
@@ -513,7 +513,7 @@ class Work(Base):
                 if not this_pwid:
                     # A LicensePool with no permanent work ID
                     # cannot have an associated Work.
-                    logging.warn(
+                    logging.warning(
                         "Presentation edition for LicensePool %r has no PWID, setting .work to None.",
                         pool
                     )
@@ -1291,7 +1291,7 @@ class Work(Base):
             # processed, this work will be removed from the search
             # index.
             self.external_index_needs_updating()
-            logging.warn("Work is not presentation ready: %r", self)
+            logging.warning("Work is not presentation ready: %r", self)
         else:
             self.set_presentation_ready(search_index_client=search_index_client)
 

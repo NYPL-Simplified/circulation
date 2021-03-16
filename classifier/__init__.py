@@ -32,12 +32,7 @@ resource_dir = os.path.join(base_dir, "..", "resources")
 NO_VALUE = "NONE"
 NO_NUMBER = -1
 
-class Classifier(object):
-
-    """Turn an external classification into an internal genre, an
-    audience, an age level, and a fiction status.
-    """
-
+class ClassifierConstants(object):
     DDC = "DDC"
     LCC = "LCC"
     LCSH = "LCSH"
@@ -91,12 +86,18 @@ class Classifier(object):
     AUDIENCES_ADULT = [AUDIENCE_ADULT, AUDIENCE_ADULTS_ONLY, AUDIENCE_ALL_AGES]
     AUDIENCES = set([AUDIENCE_ADULT, AUDIENCE_ADULTS_ONLY, AUDIENCE_YOUNG_ADULT,
                      AUDIENCE_CHILDREN, AUDIENCE_ALL_AGES, AUDIENCE_RESEARCH])
-    AUDIENCES_NO_RESEARCH = [
-        x for x in AUDIENCES if x != "Research"
-    ]
 
     SIMPLIFIED_GENRE = "http://librarysimplified.org/terms/genres/Simplified/"
     SIMPLIFIED_FICTION_STATUS = "http://librarysimplified.org/terms/fiction/"
+
+class Classifier(ClassifierConstants):
+    """Turn an external classification into an internal genre, an
+    audience, an age level, and a fiction status.
+    """
+
+    AUDIENCES_NO_RESEARCH = [
+        x for x in ClassifierConstants.AUDIENCES if x != ClassifierConstants.AUDIENCE_RESEARCH
+    ]
 
     classifiers = dict()
 

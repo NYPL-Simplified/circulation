@@ -1942,7 +1942,7 @@ class TestMirroring(OPDSImporterTest):
 
     @pytest.fixture()
     def png(self):
-        with open(self.sample_cover_path("test-book-cover.png")) as png_file:
+        with open(self.sample_cover_path("test-book-cover.png"), "rb") as png_file:
             png = png_file.read()
         return png
 
