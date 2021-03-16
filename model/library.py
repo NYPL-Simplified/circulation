@@ -1,7 +1,7 @@
 # encoding: utf-8
 # Library
 from expiringdict import ExpiringDict
-from nose.tools import set_trace
+
 
 from . import (
     Base,

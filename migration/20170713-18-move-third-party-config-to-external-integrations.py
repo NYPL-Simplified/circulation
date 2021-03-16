@@ -5,7 +5,7 @@ database as ExternalIntegrations
 import os
 import sys
 import logging
-from nose.tools import set_trace
+
 
 bin_dir = os.path.split(__file__)[0]
 package_dir = os.path.join(bin_dir, "..")

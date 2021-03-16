@@ -1,7 +1,7 @@
 # encoding: utf-8
 """Data and functions for dealing with language names and codes."""
 
-from nose.tools import set_trace
+
 from collections import defaultdict
 import re
 

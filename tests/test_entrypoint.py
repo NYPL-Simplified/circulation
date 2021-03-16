@@ -1,10 +1,7 @@
+import pytest
+
 from ..testing import DatabaseTest
 import json
-from nose.tools import (
-    assert_raises_regexp,
-    eq_,
-    set_trace,
-)
 from ..model import (
     Edition,
     Work,
@@ -23,29 +20,29 @@ class TestEntryPoint(DatabaseTest):
 
     def test_defaults(self):
         everything, ebooks, audiobooks = EntryPoint.ENTRY_POINTS
-        eq_(EverythingEntryPoint, everything)
-        eq_(EbooksEntryPoint, ebooks)
-        eq_(AudiobooksEntryPoint, audiobooks)
+        assert EverythingEntryPoint == everything
+        assert EbooksEntryPoint == ebooks
+        assert AudiobooksEntryPoint == audiobooks
 
         display = EntryPoint.DISPLAY_TITLES
-        eq_("eBooks", display[ebooks])
-        eq_("Audiobooks", display[audiobooks])
+        assert "eBooks" == display[ebooks]
+        assert "Audiobooks" == display[audiobooks]
 
-        eq_(Edition.BOOK_MEDIUM, EbooksEntryPoint.INTERNAL_NAME)
-        eq_(Edition.AUDIO_MEDIUM, AudiobooksEntryPoint.INTERNAL_NAME)
+        assert Edition.BOOK_MEDIUM == EbooksEntryPoint.INTERNAL_NAME
+        assert Edition.AUDIO_MEDIUM == AudiobooksEntryPoint.INTERNAL_NAME
 
-        eq_("http://schema.org/CreativeWork", everything.URI)
+        assert "http://schema.org/CreativeWork" == everything.URI
         for ep in (EbooksEntryPoint, AudiobooksEntryPoint):
-            eq_(ep.URI, Edition.medium_to_additional_type[ep.INTERNAL_NAME])
+            assert ep.URI == Edition.medium_to_additional_type[ep.INTERNAL_NAME]
 
     def test_no_changes(self):
         # EntryPoint doesn't modify queries or search filters.
         qu = self._db.query(Edition)
-        eq_(qu, EntryPoint.modify_database_query(self._db, qu))
+        assert qu == EntryPoint.modify_database_query(self._db, qu)
         args = dict(arg="value")
 
         filter = object()
-        eq_(filter, EverythingEntryPoint.modify_search_filter(filter))
+        assert filter == EverythingEntryPoint.modify_search_filter(filter)
 
     def test_register(self):
 
@@ -54,22 +51,21 @@ class TestEntryPoint(DatabaseTest):
 
         args = [Mock, "Mock!"]
 
-        assert_raises_regexp(
-            ValueError, "must define INTERNAL_NAME", EntryPoint.register, *args
-        )
+        with pytest.raises(ValueError) as excinfo:
+            EntryPoint.register(*args)
+        assert "must define INTERNAL_NAME" in str(excinfo.value)
 
         # Test successful registration.
         Mock.INTERNAL_NAME = "a name"
         EntryPoint.register(*args)
         assert Mock in EntryPoint.ENTRY_POINTS
-        eq_("Mock!", EntryPoint.DISPLAY_TITLES[Mock])
+        assert "Mock!" == EntryPoint.DISPLAY_TITLES[Mock]
         assert Mock not in EntryPoint.DEFAULT_ENABLED
 
         # Can't register twice.
-        assert_raises_regexp(
-            ValueError, "Duplicate entry point internal name: a name",
-            EntryPoint.register, *args
-        )
+        with pytest.raises(ValueError) as excinfo:
+            EntryPoint.register(*args)
+        assert "Duplicate entry point internal name: a name" in str(excinfo.value)
 
         EntryPoint.unregister(Mock)
 
@@ -82,10 +78,9 @@ class TestEntryPoint(DatabaseTest):
         class Mock2(object):
             INTERNAL_NAME = "mock2"
 
-        assert_raises_regexp(
-            ValueError, "Duplicate entry point display name: Mock!",
-            EntryPoint.register, Mock2, "Mock!"
-        )
+        with pytest.raises(ValueError) as excinfo:
+            EntryPoint.register(Mock2, "Mock!")
+        assert "Duplicate entry point display name: Mock!" in str(excinfo.value)
 
         EntryPoint.unregister(Mock)
         assert Mock not in EntryPoint.DEFAULT_ENABLED
@@ -96,14 +91,14 @@ class TestEverythingEntryPoint(DatabaseTest):
     def test_no_changes(self):
         # EverythingEntryPoint doesn't modify queries or searches
         # beyond the default behavior for any entry point.
-        eq_("All", EverythingEntryPoint.INTERNAL_NAME)
+        assert "All" == EverythingEntryPoint.INTERNAL_NAME
 
         qu = self._db.query(Edition)
-        eq_(qu, EntryPoint.modify_database_query(self._db, qu))
+        assert qu == EntryPoint.modify_database_query(self._db, qu)
         args = dict(arg="value")
 
         filter = object()
-        eq_(filter, EverythingEntryPoint.modify_search_filter(filter))
+        assert filter == EverythingEntryPoint.modify_search_filter(filter)
 
 
 class TestMediumEntryPoint(DatabaseTest):
@@ -121,11 +116,11 @@ class TestMediumEntryPoint(DatabaseTest):
         # The default entry points filter out the video.
         for entrypoint in EbooksEntryPoint, AudiobooksEntryPoint:
             modified = entrypoint.modify_database_query(self._db, qu)
-            eq_([], modified.all())
+            assert [] == modified.all()
 
         # But the video entry point includes it.
         videos = Videos.modify_database_query(self._db, qu)
-        eq_([work.id], [x.id for x in videos])
+        assert [work.id] == [x.id for x in videos]
 
 
     def test_modify_search_filter(self):
@@ -135,7 +130,7 @@ class TestMediumEntryPoint(DatabaseTest):
 
         filter = Filter(media=object())
         Mock.modify_search_filter(filter)
-        eq_([Mock.INTERNAL_NAME], filter.media)
+        assert [Mock.INTERNAL_NAME] == filter.media
 
 
 class TestLibrary(DatabaseTest):
@@ -147,17 +142,17 @@ class TestLibrary(DatabaseTest):
         setting = l.setting(EntryPoint.ENABLED_SETTING)
 
         # When the value is not set, the default is used.
-        eq_(EntryPoint.DEFAULT_ENABLED, list(l.entrypoints))
+        assert EntryPoint.DEFAULT_ENABLED == list(l.entrypoints)
         setting.value = None
-        eq_(EntryPoint.DEFAULT_ENABLED, list(l.entrypoints))
+        assert EntryPoint.DEFAULT_ENABLED == list(l.entrypoints)
 
         # Names that don't correspond to registered entry points are
         # ignored. Names that do are looked up.
         setting.value = json.dumps(
             ["no such entry point", AudiobooksEntryPoint.INTERNAL_NAME]
         )
-        eq_([AudiobooksEntryPoint], list(l.entrypoints))
+        assert [AudiobooksEntryPoint] == list(l.entrypoints)
 
         # An empty list is a valid value.
         setting.value = json.dumps([])
-        eq_([], list(l.entrypoints))
+        assert [] == list(l.entrypoints)

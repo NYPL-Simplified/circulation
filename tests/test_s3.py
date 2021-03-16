@@ -6,19 +6,16 @@ from urllib.parse import urlsplit
 
 import boto3
 import botocore
+import pytest
 from botocore.exceptions import (
     BotoCoreError,
     ClientError,
 )
 from mock import MagicMock
-from nose.plugins.attrib import attr
-from nose.tools import (
-    assert_raises,
-    eq_,
-)
+import pytest
 from parameterized import parameterized
 
-from . import (
+from ..testing import (
     DatabaseTest
 )
 from ..mirror import MirrorUploader
@@ -138,9 +135,9 @@ class S3UploaderIntegrationTest(S3UploaderTest):
             endpoint_url=TestS3UploaderIntegration.SIMPLIFIED_TEST_MINIO_ENDPOINT_URL
         )
 
-    def teardown(self):
+    def teardown_method(self):
         """Deinitializes the test suite by removing all the buckets from MinIO"""
-        super(S3UploaderTest, self).teardown()
+        super(S3UploaderTest, self).teardown_method()
 
         response = self.minio_s3_client.list_buckets()
 
@@ -205,8 +202,8 @@ class TestS3Uploader(S3UploaderTest):
         # key in the MirrorUploader implementation registry, and it's
         # better if it's the same as the name of the external
         # integration.
-        eq_(S3Uploader.NAME, ExternalIntegration.S3)
-        eq_(S3Uploader,
+        assert S3Uploader.NAME == ExternalIntegration.S3
+        assert (S3Uploader ==
             MirrorUploader.IMPLEMENTATION_REGISTRY[ExternalIntegration.S3])
 
     def test_instantiation(self):
@@ -217,11 +214,11 @@ class TestS3Uploader(S3UploaderTest):
         integration.password = 'your-secret-key'
         integration.setting(S3UploaderConfiguration.URL_TEMPLATE_KEY).value = 'a transform'
         uploader = MirrorUploader.implementation(integration)
-        eq_(True, isinstance(uploader, S3Uploader))
+        assert True == isinstance(uploader, S3Uploader)
 
         # The URL_TEMPLATE_KEY setting becomes the .url_transform
         # attribute on the S3Uploader object.
-        eq_('a transform', uploader.url_transform)
+        assert 'a transform' == uploader.url_transform
 
     @parameterized.expand([
         (
@@ -252,28 +249,28 @@ class TestS3Uploader(S3UploaderTest):
         S3Uploader(integration, client_class=client_class)
 
         # Assert
-        eq_(client_class.call_count, 2)
+        assert client_class.call_count == 2
 
         service_name = client_class.call_args_list[0].args[0]
         region_name = client_class.call_args_list[0].kwargs['region_name']
         aws_access_key_id = client_class.call_args_list[0].kwargs['aws_access_key_id']
         aws_secret_access_key = client_class.call_args_list[0].kwargs['aws_secret_access_key']
         config = client_class.call_args_list[0].kwargs['config']
-        eq_(service_name, 's3')
-        eq_(region_name, S3UploaderConfiguration.S3_DEFAULT_REGION)
-        eq_(aws_access_key_id, None)
-        eq_(aws_secret_access_key, None)
-        eq_(config.signature_version, botocore.UNSIGNED)
-        eq_(config.s3['addressing_style'], S3UploaderConfiguration.S3_DEFAULT_ADDRESSING_STYLE)
+        assert service_name == 's3'
+        assert region_name == S3UploaderConfiguration.S3_DEFAULT_REGION
+        assert aws_access_key_id == None
+        assert aws_secret_access_key == None
+        assert config.signature_version == botocore.UNSIGNED
+        assert config.s3['addressing_style'] == S3UploaderConfiguration.S3_DEFAULT_ADDRESSING_STYLE
 
         service_name = client_class.call_args_list[1].args[0]
         region_name = client_class.call_args_list[1].kwargs['region_name']
         aws_access_key_id = client_class.call_args_list[1].kwargs['aws_access_key_id']
         aws_secret_access_key = client_class.call_args_list[1].kwargs['aws_secret_access_key']
-        eq_(service_name, 's3')
-        eq_(region_name, S3UploaderConfiguration.S3_DEFAULT_REGION)
-        eq_(aws_access_key_id, username if username != '' else None)
-        eq_(aws_secret_access_key, password if password != '' else None)
+        assert service_name == 's3'
+        assert region_name == S3UploaderConfiguration.S3_DEFAULT_REGION
+        assert aws_access_key_id == (username if username != '' else None)
+        assert aws_secret_access_key == (password if password != '' else None)
         assert 'config' not in client_class.call_args_list[1].kwargs
 
     def test_custom_client_class(self):
@@ -294,12 +291,12 @@ class TestS3Uploader(S3UploaderTest):
         # This S3Uploader knows about the configured buckets.  It
         # wasn't informed of the irrelevant 'not-a-bucket-at-all'
         # setting.
-        eq_(buckets, uploader.buckets)
+        assert buckets == uploader.buckets
 
         # get_bucket just does a lookup in .buckets
         uploader.buckets['foo'] = object()
         result = uploader.get_bucket('foo')
-        eq_(uploader.buckets['foo'], result)
+        assert uploader.buckets['foo'] == result
 
     @parameterized.expand([
         (
@@ -414,7 +411,7 @@ class TestS3Uploader(S3UploaderTest):
         result = uploader.url(bucket, path)
 
         # Assert
-        eq_(result, expected_result)
+        assert result == expected_result
 
     @parameterized.expand([
         (
@@ -473,14 +470,14 @@ class TestS3Uploader(S3UploaderTest):
 
         # Assert
         if not url_transform:
-            eq_(S3UploaderConfiguration.URL_TEMPLATE_DEFAULT, uploader.url_transform)
+            assert S3UploaderConfiguration.URL_TEMPLATE_DEFAULT == uploader.url_transform
 
-        eq_(result, expected_result)
+        assert result == expected_result
 
     def test_key_join(self):
         """Test the code used to build S3 keys from parts."""
         parts = ["Gutenberg", b"Gutenberg ID", 1234, "Die Flügelmaus+.epub"]
-        eq_('Gutenberg/Gutenberg%20ID/1234/Die%20Fl%C3%BCgelmaus%2B.epub',
+        assert ('Gutenberg/Gutenberg%20ID/1234/Die%20Fl%C3%BCgelmaus%2B.epub' ==
             S3Uploader.key_join(parts))
 
     @parameterized.expand([
@@ -537,7 +534,7 @@ class TestS3Uploader(S3UploaderTest):
         result = uploader.cover_image_root(bucket, data_source, scaled_size=scaled_size)
 
         # Assert
-        eq_(result, expected_result)
+        assert result == expected_result
 
     @parameterized.expand([
         (
@@ -560,7 +557,7 @@ class TestS3Uploader(S3UploaderTest):
         result = uploader.content_root(bucket)
 
         # Assert
-        eq_(result, expected_result)
+        assert result == expected_result
 
     @parameterized.expand([
         (
@@ -598,7 +595,7 @@ class TestS3Uploader(S3UploaderTest):
         result = uploader.marc_file_root(bucket, library)
 
         # Assert
-        eq_(result, expected_result)
+        assert result == expected_result
 
     @parameterized.expand([
         (
@@ -699,7 +696,7 @@ class TestS3Uploader(S3UploaderTest):
         result = uploader.book_url(**parameters)
 
         # Assert
-        eq_(result, expected_result)
+        assert result == expected_result
 
     @parameterized.expand([
         (
@@ -769,7 +766,7 @@ class TestS3Uploader(S3UploaderTest):
         result = uploader.cover_image_url(data_source, identifier, filename, scaled_size=scaled_size)
 
         # Assert
-        eq_(result, expected_result)
+        assert result == expected_result
 
     @parameterized.expand([
         (
@@ -838,7 +835,7 @@ class TestS3Uploader(S3UploaderTest):
         result = uploader.marc_file_url(library, lane, end_time, start_time)
 
         # Assert
-        eq_(result, expected_result)
+        assert result == expected_result
 
     @parameterized.expand([
         (
@@ -896,7 +893,7 @@ class TestS3Uploader(S3UploaderTest):
         result = s3_uploader.split_url(url, unquote)
 
         # Assert
-        eq_(result, expected_result)
+        assert result == expected_result
 
     def test_mirror_one(self):
         edition, pool = self._edition(with_license_pool=True)
@@ -910,7 +907,7 @@ class TestS3Uploader(S3UploaderTest):
             content=content
         )
         cover_rep = cover.resource.representation
-        eq_(None, cover_rep.mirrored_at)
+        assert None == cover_rep.mirrored_at
 
         original_epub_location = "https://books.com/a-book.epub"
         epub, ignore = pool.add_link(
@@ -919,7 +916,7 @@ class TestS3Uploader(S3UploaderTest):
             content="i'm an epub"
         )
         epub_rep = epub.resource.representation
-        eq_(None, epub_rep.mirrored_at)
+        assert None == epub_rep.mirrored_at
 
         s3 = self._create_s3_uploader(client_class=MockS3Client)
 
@@ -942,25 +939,23 @@ class TestS3Uploader(S3UploaderTest):
         # Both representations have had .mirror_url set and been
         # mirrored to those URLs.
         assert data1.startswith(b'\x89')
-        eq_("covers-go", bucket1)
-        eq_("here.png", key1)
-        eq_(Representation.PNG_MEDIA_TYPE, args1['ContentType'])
+        assert "covers-go" == bucket1
+        assert "here.png" == key1
+        assert Representation.PNG_MEDIA_TYPE == args1['ContentType']
         assert (datetime.datetime.utcnow() - cover_rep.mirrored_at).seconds < 10
 
-        eq_(b"i'm an epub", data2)
-        eq_("books-go", bucket2)
-        eq_("here.epub", key2)
-        eq_(Representation.EPUB_MEDIA_TYPE, args2['ContentType'])
+        assert b"i'm an epub" == data2
+        assert "books-go" == bucket2
+        assert "here.epub" == key2
+        assert Representation.EPUB_MEDIA_TYPE == args2['ContentType']
 
         # In both cases, mirror_url was set to the result of final_mirror_url.
-        eq_(
-            'final_mirror_url was called with bucket books-go, key here.epub',
-            epub_rep.mirror_url
-        )
-        eq_(
-            'final_mirror_url was called with bucket covers-go, key here.png',
-            cover_rep.mirror_url
-        )
+        assert (
+            'final_mirror_url was called with bucket books-go, key here.epub' ==
+            epub_rep.mirror_url)
+        assert (
+            'final_mirror_url was called with bucket covers-go, key here.png' ==
+            cover_rep.mirror_url)
 
         # mirrored-at was set when the representation was 'mirrored'
         for rep in epub_rep, cover_rep:
@@ -981,8 +976,8 @@ class TestS3Uploader(S3UploaderTest):
         # A network failure is treated as a transient error.
         uploader.client.fail_with = BotoCoreError()
         uploader.mirror_one(epub_rep, self._url)
-        eq_(None, epub_rep.mirrored_at)
-        eq_(None, epub_rep.mirror_exception)
+        assert None == epub_rep.mirrored_at
+        assert None == epub_rep.mirror_exception
 
         # An S3 credential failure is treated as a transient error.
         response = dict(
@@ -993,18 +988,18 @@ class TestS3Uploader(S3UploaderTest):
         )
         uploader.client.fail_with = ClientError(response, "SomeOperation")
         uploader.mirror_one(epub_rep, self._url)
-        eq_(None, epub_rep.mirrored_at)
-        eq_(None, epub_rep.mirror_exception)
+        assert None == epub_rep.mirrored_at
+        assert None == epub_rep.mirror_exception
 
         # Because the file was not successfully uploaded,
         # final_mirror_url was never called and mirror_url is
         # was not set.
-        eq_(None, epub_rep.mirror_url)
+        assert None == epub_rep.mirror_url
 
         # A bug in the code is not treated as a transient error --
         # the exception propagates through.
         uploader.client.fail_with = Exception("crash!")
-        assert_raises(Exception, uploader.mirror_one, epub_rep, self._url)
+        pytest.raises(Exception, uploader.mirror_one, epub_rep, self._url)
 
     def test_svg_mirroring(self):
         edition, pool = self._edition(with_license_pool=True)
@@ -1027,7 +1022,7 @@ class TestS3Uploader(S3UploaderTest):
         s3.mirror_one(hyperlink.resource.representation, self._url)
         [[data, bucket, key, args, ignore]] = s3.client.uploads
 
-        eq_(Representation.SVG_MEDIA_TYPE, args['ContentType'])
+        assert Representation.SVG_MEDIA_TYPE == args['ContentType']
         assert b'svg' in data
         assert b'PNG' not in data
 
@@ -1058,18 +1053,18 @@ class TestS3Uploader(S3UploaderTest):
 
         # Successful upload
         with s3.multipart_upload(rep, rep.url, upload_class=MockMultipartS3Upload) as upload:
-            eq_([], upload.parts)
-            eq_(False, upload.completed)
-            eq_(False, upload.aborted)
+            assert [] == upload.parts
+            assert False == upload.completed
+            assert False == upload.aborted
 
             upload.upload_part("Part 1")
             upload.upload_part("Part 2")
 
-            eq_(["Part 1", "Part 2"], upload.parts)
+            assert ["Part 1", "Part 2"] == upload.parts
 
-        eq_(True, MockMultipartS3Upload.completed)
-        eq_(False, MockMultipartS3Upload.aborted)
-        eq_(None, rep.mirror_exception)
+        assert True == MockMultipartS3Upload.completed
+        assert False == MockMultipartS3Upload.aborted
+        assert None == rep.mirror_exception
 
         class FailingMultipartS3Upload(MockMultipartS3Upload):
             def upload_part(self, content):
@@ -1079,9 +1074,9 @@ class TestS3Uploader(S3UploaderTest):
         with s3.multipart_upload(rep, rep.url, upload_class=FailingMultipartS3Upload) as upload:
             upload.upload_part("Part 1")
 
-        eq_(False, MockMultipartS3Upload.completed)
-        eq_(True, MockMultipartS3Upload.aborted)
-        eq_("Error!", rep.mirror_exception)
+        assert False == MockMultipartS3Upload.completed
+        assert True == MockMultipartS3Upload.aborted
+        assert "Error!" == rep.mirror_exception
 
         class AnotherFailingMultipartS3Upload(MockMultipartS3Upload):
             def complete(self):
@@ -1092,9 +1087,9 @@ class TestS3Uploader(S3UploaderTest):
         with s3.multipart_upload(rep, rep.url, upload_class=AnotherFailingMultipartS3Upload) as upload:
             upload.upload_part("Part 1")
 
-        eq_(False, MockMultipartS3Upload.completed)
-        eq_(True, MockMultipartS3Upload.aborted)
-        eq_("Error!", rep.mirror_exception)
+        assert False == MockMultipartS3Upload.completed
+        assert True == MockMultipartS3Upload.aborted
+        assert "Error!" == rep.mirror_exception
 
     @parameterized.expand([
         ('default_expiration_parameter', None, int(S3UploaderConfiguration.S3_DEFAULT_PRESIGNED_URL_EXPIRATION)),
@@ -1116,7 +1111,7 @@ class TestS3Uploader(S3UploaderTest):
         result = s3_uploader.sign_url(url)
 
         # Assert
-        eq_(result, expected_url)
+        assert result == expected_url
         s3_uploader.split_url.assert_called_once_with(url)
         s3_uploader.client.generate_presigned_url.assert_called_once_with(
             'get_object',
@@ -1138,16 +1133,16 @@ class TestMultiPartS3Upload(S3UploaderTest):
         uploader = self._create_s3_uploader(MockS3Client)
         rep = self._representation()
         upload = MultipartS3Upload(uploader, rep, rep.url)
-        eq_(uploader, upload.uploader)
-        eq_(rep, upload.representation)
-        eq_("bucket", upload.bucket)
-        eq_("books.mrc", upload.filename)
-        eq_(1, upload.part_number)
-        eq_([], upload.parts)
-        eq_(1, upload.upload.get("UploadId"))
+        assert uploader == upload.uploader
+        assert rep == upload.representation
+        assert "bucket" == upload.bucket
+        assert "books.mrc" == upload.filename
+        assert 1 == upload.part_number
+        assert [] == upload.parts
+        assert 1 == upload.upload.get("UploadId")
 
         uploader.client.fail_with = Exception("Error!")
-        assert_raises(Exception, MultipartS3Upload, uploader, rep, rep.url)
+        pytest.raises(Exception, MultipartS3Upload, uploader, rep, rep.url)
 
     def test_upload_part(self):
         uploader = self._create_s3_uploader(MockS3Client)
@@ -1155,15 +1150,15 @@ class TestMultiPartS3Upload(S3UploaderTest):
         upload = MultipartS3Upload(uploader, rep, rep.url)
         upload.upload_part("Part 1")
         upload.upload_part("Part 2")
-        eq_([{'Body': 'Part 1', 'UploadId': 1, 'PartNumber': 1, 'Bucket': 'bucket', 'Key': 'books.mrc'},
-             {'Body': 'Part 2', 'UploadId': 1, 'PartNumber': 2, 'Bucket': 'bucket', 'Key': 'books.mrc'}],
+        assert ([{'Body': 'Part 1', 'UploadId': 1, 'PartNumber': 1, 'Bucket': 'bucket', 'Key': 'books.mrc'},
+             {'Body': 'Part 2', 'UploadId': 1, 'PartNumber': 2, 'Bucket': 'bucket', 'Key': 'books.mrc'}] ==
             uploader.client.parts)
-        eq_(3, upload.part_number)
-        eq_([{'ETag': 'etag', 'PartNumber': 1}, {'ETag': 'etag', 'PartNumber': 2}],
+        assert 3 == upload.part_number
+        assert ([{'ETag': 'etag', 'PartNumber': 1}, {'ETag': 'etag', 'PartNumber': 2}] ==
             upload.parts)
 
         uploader.client.fail_with = Exception("Error!")
-        assert_raises(Exception, upload.upload_part, "Part 3")
+        pytest.raises(Exception, upload.upload_part, "Part 3")
 
     def test_complete(self):
         uploader = self._create_s3_uploader(MockS3Client)
@@ -1172,9 +1167,9 @@ class TestMultiPartS3Upload(S3UploaderTest):
         upload.upload_part("Part 1")
         upload.upload_part("Part 2")
         upload.complete()
-        eq_([{'Bucket': 'bucket', 'Key': 'books.mrc', 'UploadId': 1, 'MultipartUpload': {
+        assert [{'Bucket': 'bucket', 'Key': 'books.mrc', 'UploadId': 1, 'MultipartUpload': {
             'Parts': [{'ETag': 'etag', 'PartNumber': 1}, {'ETag': 'etag', 'PartNumber': 2}],
-        }}], uploader.client.uploads)
+        }}] == uploader.client.uploads
 
     def test_abort(self):
         uploader = self._create_s3_uploader(MockS3Client)
@@ -1183,10 +1178,10 @@ class TestMultiPartS3Upload(S3UploaderTest):
         upload.upload_part("Part 1")
         upload.upload_part("Part 2")
         upload.abort()
-        eq_([], uploader.client.parts)
+        assert [] == uploader.client.parts
 
 
-@attr(integration='minio')
+@pytest.mark.minio
 class TestS3UploaderIntegration(S3UploaderIntegrationTest):
     @parameterized.expand([
         (
@@ -1250,8 +1245,8 @@ class TestS3UploaderIntegration(S3UploaderIntegrationTest):
         # Assert
         response = self.minio_s3_client.list_objects(Bucket=bucket_name)
         assert 'Contents' in response
-        eq_(len(response['Contents']), 1)
+        assert len(response['Contents']) == 1
 
         [object] = response['Contents']
 
-        eq_(object['Key'], 'ISBN/{0}.epub'.format(book_title))
+        assert object['Key'] == 'ISBN/{0}.epub'.format(book_title)

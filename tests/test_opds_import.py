@@ -3,21 +3,14 @@ import datetime
 import random
 from urllib.parse import quote
 from io import StringIO
-from nose.tools import (
-    set_trace,
-    eq_,
-    ok_,
-    assert_not_equal,
-    assert_raises,
-    assert_raises_regexp
-)
 import feedparser
+import pytest
 
 from lxml import etree
 import pkgutil
 from psycopg2.extras import NumericRange
 
-from . import (
+from ..testing import (
     DatabaseTest,
 )
 
@@ -109,8 +102,8 @@ class OPDSTest(DatabaseTest):
 
 class TestMetadataWranglerOPDSLookup(OPDSTest):
 
-    def setup(self):
-        super(TestMetadataWranglerOPDSLookup, self).setup()
+    def setup_method(self):
+        super(TestMetadataWranglerOPDSLookup, self).setup_method()
         self.integration = self._external_integration(
             ExternalIntegration.METADATA_WRANGLER,
             goal=ExternalIntegration.METADATA_GOAL,
@@ -126,14 +119,14 @@ class TestMetadataWranglerOPDSLookup(OPDSTest):
         """
 
         lookup = MetadataWranglerOPDSLookup.from_config(self._db)
-        eq_("secret", lookup.shared_secret)
-        eq_(True, lookup.authenticated)
+        assert "secret" == lookup.shared_secret
+        assert True == lookup.authenticated
 
         # The details are None if client configuration isn't set at all.
         self.integration.password = None
         lookup = MetadataWranglerOPDSLookup.from_config(self._db)
-        eq_(None, lookup.shared_secret)
-        eq_(False, lookup.authenticated)
+        assert None == lookup.shared_secret
+        assert False == lookup.authenticated
 
     def test_add_args(self):
         lookup = MetadataWranglerOPDSLookup.from_config(self._db)
@@ -141,25 +134,25 @@ class TestMetadataWranglerOPDSLookup(OPDSTest):
 
         # If the base url doesn't have any arguments, args are created.
         base_url = self._url
-        eq_(base_url + '?' + args, lookup.add_args(base_url, args))
+        assert base_url + '?' + args == lookup.add_args(base_url, args)
 
         # If the base url has an argument already, additional args are appended.
         base_url = self._url + '?data_source=banana'
-        eq_(base_url + '&' + args, lookup.add_args(base_url, args))
+        assert base_url + '&' + args == lookup.add_args(base_url, args)
 
     def test_get_collection_url(self):
         lookup = MetadataWranglerOPDSLookup.from_config(self._db)
 
         # If the lookup client doesn't have a Collection, an error is
         # raised.
-        assert_raises(
+        pytest.raises(
             ValueError, lookup.get_collection_url, 'banana'
         )
 
         # If the lookup client isn't authenticated, an error is raised.
         lookup.collection = self.collection
         lookup.shared_secret = None
-        assert_raises(
+        pytest.raises(
             AccessNotAuthenticated, lookup.get_collection_url, 'banana'
         )
 
@@ -167,7 +160,7 @@ class TestMetadataWranglerOPDSLookup(OPDSTest):
         # a URL is returned.
         lookup.shared_secret = 'secret'
         expected = '%s%s/banana' % (lookup.base_url, self.collection.metadata_identifier)
-        eq_(expected, lookup.get_collection_url('banana'))
+        assert expected == lookup.get_collection_url('banana')
 
         # With an OPDS_IMPORT collection, a data source is included
         opds = self._collection(
@@ -185,21 +178,21 @@ class TestMetadataWranglerOPDSLookup(OPDSTest):
         lookup = MetadataWranglerOPDSLookup.from_config(self._db, collection=self.collection)
 
         expected = self.collection.metadata_identifier + '/lookup'
-        eq_(expected, lookup.lookup_endpoint)
+        assert expected == lookup.lookup_endpoint
 
         # Without a collection, an unspecific endpoint is returned.
         lookup.collection = None
-        eq_('lookup', lookup.lookup_endpoint)
+        assert 'lookup' == lookup.lookup_endpoint
 
         # Without authentication, an unspecific endpoint is returned.
         lookup.shared_secret = None
         lookup.collection = self.collection
-        eq_('lookup', lookup.lookup_endpoint)
+        assert 'lookup' == lookup.lookup_endpoint
 
         # With authentication and a collection, a specific endpoint is returned.
         lookup.shared_secret = 'secret'
         expected = '%s/lookup' % self.collection.metadata_identifier
-        eq_(expected, lookup.lookup_endpoint)
+        assert expected == lookup.lookup_endpoint
 
     # Tests of the self-test framework.
 
@@ -244,14 +237,14 @@ class TestMetadataWranglerOPDSLookup(OPDSTest):
 
         # That Collection is keyed to a list containing a single test
         # result, obtained by calling Mock._run_collection_self_tests().
-        eq_("Some self-test results for %s" % with_unique_id.name, result)
+        assert "Some self-test results for %s" % with_unique_id.name == result
 
         # Here's the Mock object whose _run_collection_self_tests()
         # was called. Let's make sure it was instantiated properly.
         [mock_lookup] = Mock.instances
-        eq_(self._db, mock_lookup._db)
-        eq_(with_unique_id, mock_lookup.collection)
-        eq_(True, mock_lookup.called)
+        assert self._db == mock_lookup._db
+        assert with_unique_id == mock_lookup.collection
+        assert True == mock_lookup.called
 
     def test__run_collection_self_tests(self):
         # Verify that calling _run_collection_self_tests calls
@@ -270,28 +263,26 @@ class TestMetadataWranglerOPDSLookup(OPDSTest):
         # If there is no associated collection, _run_collection_self_tests()
         # does nothing.
         no_collection = Mock("http://url/")
-        eq_([], list(no_collection._run_collection_self_tests()))
+        assert [] == list(no_collection._run_collection_self_tests())
 
         # Same if there is an associated collection but it has no
         # metadata identifier.
         with_collection = Mock(
             "http://url/", collection=self._default_collection
         )
-        eq_([], list(with_collection._run_collection_self_tests()))
+        assert [] == list(with_collection._run_collection_self_tests())
 
         # If there is a metadata identifier, our mocked
         # _feed_self_test is called twice. Here are the results.
         self._default_collection.external_account_id = "unique-id"
         [r1, r2] = with_collection._run_collection_self_tests()
 
-        eq_(
-            'A feed self-test for unique-id: Metadata updates in last 24 hours',
-            r1
-        )
-        eq_(
-            "A feed self-test for unique-id: Titles where we could (but haven't) provide information to the metadata wrangler",
-            r2
-        )
+        assert (
+            'A feed self-test for unique-id: Metadata updates in last 24 hours' ==
+            r1)
+        assert (
+            "A feed self-test for unique-id: Titles where we could (but haven't) provide information to the metadata wrangler" ==
+            r2)
 
         # Let's make sure _feed_self_test() was called with the right
         # arguments.
@@ -300,8 +291,8 @@ class TestMetadataWranglerOPDSLookup(OPDSTest):
         # The first self-test wants to count updates for the last 24
         # hours.
         title1, method1, args1 = call1
-        eq_('Metadata updates in last 24 hours', title1)
-        eq_(with_collection.updates, method1)
+        assert 'Metadata updates in last 24 hours' == title1
+        assert with_collection.updates == method1
         [timestamp] = args1
         one_day_ago = datetime.datetime.utcnow() - datetime.timedelta(hours=24)
         assert (one_day_ago - timestamp).total_seconds() < 1
@@ -309,12 +300,11 @@ class TestMetadataWranglerOPDSLookup(OPDSTest):
         # The second self-test wants to count work that the metadata
         # wrangler needs done but hasn't been done yet.
         title2, method2, args2 = call2
-        eq_(
-            "Titles where we could (but haven't) provide information to the metadata wrangler",
-            title2
-        )
-        eq_(with_collection.metadata_needed, method2)
-        eq_((), args2)
+        assert (
+            "Titles where we could (but haven't) provide information to the metadata wrangler" ==
+            title2)
+        assert with_collection.metadata_needed == method2
+        assert () == args2
 
     def test__feed_self_test(self):
         # Test the _feed_self_test helper method. It grabs a
@@ -341,14 +331,14 @@ class TestMetadataWranglerOPDSLookup(OPDSTest):
         # We got back a SelfTestResult associated with the Mock
         # object's collection.
         assert isinstance(result, SelfTestResult)
-        eq_(self._default_collection, result.collection)
+        assert self._default_collection == result.collection
 
         # It indicates some request was made, and the response
         # annotated using our mock _annotate_feed_response.
-        eq_("Some test", result.name)
+        assert "Some test" == result.name
         assert result.duration < 1
-        eq_(True, result.success)
-        eq_(["I summarized", "the response"], result.result)
+        assert True == result.success
+        assert ["I summarized", "the response"] == result.result
 
         # But what request was made, exactly?
 
@@ -357,19 +347,18 @@ class TestMetadataWranglerOPDSLookup(OPDSTest):
         # and a keyword argument indicating that 5xx responses should
         # be processed normally and not used as a reason to raise an
         # exception.
-        eq_(
+        assert (
             [((1, 2),
               {'allowed_response_codes': ['1xx', '2xx', '3xx', '4xx', '5xx']})
-            ],
-            lookup.requests
-        )
+            ] ==
+            lookup.requests)
 
         # That method returned "A fake response", which was passed
         # into _annotate_feed_response, along with the
         # SelfTestResult in progress.
         [(used_result, response)] = lookup.annotated_responses
-        eq_(result, used_result)
-        eq_("A fake response", response)
+        assert result == used_result
+        assert "A fake response" == response
 
     def test__annotate_feed_response(self):
         # Test the _annotate_feed_response class helper method.
@@ -392,15 +381,15 @@ class TestMetadataWranglerOPDSLookup(OPDSTest):
             self.sample_opds("metadata_wrangler_overdrive.opds")
         )
         results = m(test_result, response)
-        eq_([
+        assert [
             'Request URL: %s' % url,
             'Request authorization: %s' % auth,
             'Status code: 200',
             'Total identifiers registered with this collection: 201',
             'Entries on this page: 1',
             ' The Green Mouse'
-        ], test_result.result)
-        eq_(True, test_result.success)
+        ] == test_result.result
+        assert True == test_result.success
 
         # Next, test failure.
         response = mock_response(
@@ -408,23 +397,23 @@ class TestMetadataWranglerOPDSLookup(OPDSTest):
             "An error message."
         )
         test_result = SelfTestResult("failure")
-        eq_(False, test_result.success)
+        assert False == test_result.success
         m(test_result, response)
-        eq_([
+        assert [
             'Request URL: %s' % url,
             'Request authorization: %s' % auth,
             'Status code: 401',
-        ], test_result.result)
+        ] == test_result.result
 
     def test_external_integration(self):
         result = MetadataWranglerOPDSLookup.external_integration(self._db)
-        eq_(result.protocol, ExternalIntegration.METADATA_WRANGLER)
-        eq_(result.goal, ExternalIntegration.METADATA_GOAL)
+        assert result.protocol == ExternalIntegration.METADATA_WRANGLER
+        assert result.goal == ExternalIntegration.METADATA_GOAL
 
 class OPDSImporterTest(OPDSTest):
 
-    def setup(self):
-        super(OPDSImporterTest, self).setup()
+    def setup_method(self):
+        super(OPDSImporterTest, self).setup_method()
         self.content_server_feed = self.sample_opds("content_server.opds")
         self.content_server_mini_feed = self.sample_opds("content_server_mini.opds")
         self.audiobooks_opds = self.sample_opds("audiobooks.opds")
@@ -448,12 +437,12 @@ class TestOPDSImporter(OPDSImporterTest):
         # The default way of making HTTP requests is with
         # Representation.cautious_http_get.
         importer = OPDSImporter(self._db, collection=None)
-        eq_(Representation.cautious_http_get, importer.http_get)
+        assert Representation.cautious_http_get == importer.http_get
 
         # But you can pass in anything you want.
         do_get = object()
         importer = OPDSImporter(self._db, collection=None, http_get=do_get)
-        eq_(do_get, importer.http_get)
+        assert do_get == importer.http_get
 
     def test_data_source_autocreated(self):
         name = "New data source " + self._str
@@ -461,7 +450,7 @@ class TestOPDSImporter(OPDSImporterTest):
             self._db, collection=None, data_source_name=name
         )
         source1 = importer.data_source
-        eq_(name, source1.name)
+        assert name == source1.name
 
     def test_extract_next_links(self):
         importer = OPDSImporter(
@@ -471,8 +460,8 @@ class TestOPDSImporter(OPDSImporterTest):
             self.content_server_mini_feed
         )
 
-        eq_(1, len(next_links))
-        eq_("http://localhost:5000/?after=327&size=100", next_links[0])
+        assert 1 == len(next_links)
+        assert "http://localhost:5000/?after=327&size=100" == next_links[0]
 
     def test_extract_last_update_dates(self):
         importer = OPDSImporter(
@@ -486,16 +475,16 @@ class TestOPDSImporter(OPDSImporterTest):
             self.content_server_mini_feed
         )
 
-        eq_(2, len(last_update_dates))
+        assert 2 == len(last_update_dates)
 
         identifier1, updated1 = last_update_dates[0]
         identifier2, updated2 = last_update_dates[1]
 
-        eq_("urn:librarysimplified.org/terms/id/Gutenberg%20ID/10441", identifier1)
-        eq_(datetime.datetime(2015, 1, 2, 16, 56, 40), updated1)
+        assert "urn:librarysimplified.org/terms/id/Gutenberg%20ID/10441" == identifier1
+        assert datetime.datetime(2015, 1, 2, 16, 56, 40) == updated1
 
-        eq_("urn:librarysimplified.org/terms/id/Gutenberg%20ID/10557", identifier2)
-        eq_(datetime.datetime(2015, 1, 2, 16, 56, 40), updated2)
+        assert "urn:librarysimplified.org/terms/id/Gutenberg%20ID/10557" == identifier2
+        assert datetime.datetime(2015, 1, 2, 16, 56, 40) == updated2
 
     def test_extract_last_update_dates_ignores_entries_with_no_update(self):
         importer = OPDSImporter(
@@ -509,7 +498,7 @@ class TestOPDSImporter(OPDSImporterTest):
         last_update_dates = importer.extract_last_update_dates(content)
 
         # No updated dates!
-        eq_([], last_update_dates)
+        assert [] == last_update_dates
 
     def test_extract_metadata(self):
         data_source_name = "Data source name " + self._str
@@ -525,16 +514,16 @@ class TestOPDSImporter(OPDSImporterTest):
         c1 = metadata['http://www.gutenberg.org/ebooks/10441']
         c2 = metadata['http://www.gutenberg.org/ebooks/10557']
 
-        eq_("The Green Mouse", m1.title)
-        eq_("A Tale of Mousy Terror", m1.subtitle)
+        assert "The Green Mouse" == m1.title
+        assert "A Tale of Mousy Terror" == m1.subtitle
 
-        eq_(data_source_name, m1._data_source)
-        eq_(data_source_name, m2._data_source)
-        eq_(data_source_name, c1._data_source)
-        eq_(data_source_name, c2._data_source)
+        assert data_source_name == m1._data_source
+        assert data_source_name == m2._data_source
+        assert data_source_name == c1._data_source
+        assert data_source_name == c2._data_source
 
         [failure] = list(failures.values())
-        eq_("202: I'm working to locate a source for this identifier.", failure.exception)
+        assert "202: I'm working to locate a source for this identifier." == failure.exception
 
     def test_use_dcterm_identifier_as_id_with_id_and_dcterms_identifier(self):
         data_source_name = "Data source name " + self._str
@@ -550,10 +539,10 @@ class TestOPDSImporter(OPDSImporterTest):
 
         # First book doesn't have <dcterms:identifier>, so <id> must be used as identifier
         book_1 = metadata.get('https://root.uri/1')
-        assert_not_equal(book_1, None)
+        assert book_1 != None
         # Second book have <id> and <dcterms:identifier>, so <dcters:identifier> must be used as id
         book_2 = metadata.get('urn:isbn:9781468316438')
-        assert_not_equal(book_2, None)
+        assert book_2 != None
         # Verify if id was add in the end of identifier
         book_2_identifiers = book_2.identifiers
         found = False
@@ -561,10 +550,10 @@ class TestOPDSImporter(OPDSImporterTest):
             if entry.identifier == 'https://root.uri/2':
                 found = True
                 break
-        eq_(found, True)
+        assert found == True
         # Third book has more than one dcterms:identifers, all of then must be present as metadata identifier
         book_3 = metadata.get('urn:isbn:9781683351993')
-        assert_not_equal(book_2, None)
+        assert book_2 != None
         # Verify if id was add in the end of identifier
         book_3_identifiers = book_3.identifiers
         expected_identifier = [
@@ -574,7 +563,7 @@ class TestOPDSImporter(OPDSImporterTest):
             '9780312939458',
         ]
         result_identifier = [entry.identifier for entry in book_3.identifiers]
-        eq_(set(expected_identifier), set(result_identifier))
+        assert set(expected_identifier) == set(result_identifier)
 
     def test_use_id_with_existing_dcterms_identifier(self):
         data_source_name = "Data source name " + self._str
@@ -589,27 +578,27 @@ class TestOPDSImporter(OPDSImporterTest):
         )
 
         book_1 = metadata.get('https://root.uri/1')
-        assert_not_equal(book_1, None)
+        assert book_1 != None
         book_2 = metadata.get('https://root.uri/2')
-        assert_not_equal(book_2, None)
+        assert book_2 != None
         book_3 = metadata.get('https://root.uri/3')
-        assert_not_equal(book_3, None)
+        assert book_3 != None
 
     def test_extract_link(self):
         no_rel = AtomFeed.E.link(href="http://foo/")
-        eq_(None, OPDSImporter.extract_link(no_rel))
+        assert None == OPDSImporter.extract_link(no_rel)
 
         no_href = AtomFeed.E.link(href="", rel="foo")
-        eq_(None, OPDSImporter.extract_link(no_href))
+        assert None == OPDSImporter.extract_link(no_href)
 
         good = AtomFeed.E.link(href="http://foo", rel="bar")
         link = OPDSImporter.extract_link(good)
-        eq_("http://foo", link.href)
-        eq_("bar", link.rel)
+        assert "http://foo" == link.href
+        assert "bar" == link.rel
 
         relative = AtomFeed.E.link(href="/foo/bar", rel="self")
         link = OPDSImporter.extract_link(relative, "http://server")
-        eq_("http://server/foo/bar", link.href)
+        assert "http://server/foo/bar" == link.href
 
     def test_get_medium_from_links(self):
         audio_links = [
@@ -630,8 +619,8 @@ class TestOPDSImporter(OPDSImporterTest):
 
         m = OPDSImporter.get_medium_from_links
 
-        eq_(m(audio_links), "Audio")
-        eq_(m(book_links), "Book")
+        assert m(audio_links) == "Audio"
+        assert m(book_links) == "Book"
 
     def test_extract_link_rights_uri(self):
 
@@ -642,7 +631,7 @@ class TestOPDSImporter(OPDSImporterTest):
         link = OPDSImporter.extract_link(
             link_tag, entry_rights_uri=entry_rights
         )
-        eq_(RightsStatus.PUBLIC_DOMAIN_USA, link.rights_uri)
+        assert RightsStatus.PUBLIC_DOMAIN_USA == link.rights_uri
 
         # But a dcterms:rights tag beneath the link can override this.
         rights_attr = "{%s}rights" % AtomFeed.DCTERMS_NS
@@ -650,7 +639,7 @@ class TestOPDSImporter(OPDSImporterTest):
         link = OPDSImporter.extract_link(
             link_tag, entry_rights_uri=entry_rights
         )
-        eq_(RightsStatus.IN_COPYRIGHT, link.rights_uri)
+        assert RightsStatus.IN_COPYRIGHT == link.rights_uri
 
     def test_extract_data_from_feedparser(self):
         data_source = DataSource.lookup(self._db, DataSource.OA_CONTENT_SERVER)
@@ -661,18 +650,18 @@ class TestOPDSImporter(OPDSImporterTest):
 
         # The <entry> tag became a Metadata object.
         metadata = values['urn:librarysimplified.org/terms/id/Gutenberg%20ID/10441']
-        eq_("The Green Mouse", metadata['title'])
-        eq_("A Tale of Mousy Terror", metadata['subtitle'])
-        eq_('en', metadata['language'])
-        eq_('Project Gutenberg', metadata['publisher'])
+        assert "The Green Mouse" == metadata['title']
+        assert "A Tale of Mousy Terror" == metadata['subtitle']
+        assert 'en' == metadata['language']
+        assert 'Project Gutenberg' == metadata['publisher']
 
         circulation = metadata['circulation']
-        eq_(DataSource.GUTENBERG, circulation['data_source'])
+        assert DataSource.GUTENBERG == circulation['data_source']
 
         # The <simplified:message> tag did not become a
         # CoverageFailure -- that's handled by
         # extract_metadata_from_elementtree.
-        eq_({}, failures)
+        assert {} == failures
 
     def test_extract_data_from_feedparser_handles_exception(self):
         class DoomedFeedparserOPDSImporter(OPDSImporter):
@@ -688,23 +677,23 @@ class TestOPDSImporter(OPDSImporterTest):
         )
 
         # No metadata was extracted.
-        eq_(0, len(list(values.keys())))
+        assert 0 == len(list(values.keys()))
 
         # There are 2 failures, both from exceptions. The 202 message
         # found in content_server_mini.opds is not extracted
         # here--it's extracted by extract_metadata_from_elementtree.
-        eq_(2, len(failures))
+        assert 2 == len(failures)
 
         # The first error message became a CoverageFailure.
         failure = failures['urn:librarysimplified.org/terms/id/Gutenberg%20ID/10441']
         assert isinstance(failure, CoverageFailure)
-        eq_(True, failure.transient)
+        assert True == failure.transient
         assert "Utter failure!" in failure.exception
 
         # The second error message became a CoverageFailure.
         failure = failures['urn:librarysimplified.org/terms/id/Gutenberg%20ID/10557']
         assert isinstance(failure, CoverageFailure)
-        eq_(True, failure.transient)
+        assert True == failure.transient
         assert "Utter failure!" in failure.exception
 
     def test_extract_metadata_from_elementtree(self):
@@ -717,78 +706,73 @@ class TestOPDSImporter(OPDSImporterTest):
 
         # There are 76 entries in the feed, and we got metadata for
         # every one of them.
-        eq_(76, len(data))
-        eq_(0, len(failures))
+        assert 76 == len(data)
+        assert 0 == len(failures)
 
         # We're going to do spot checks on a book and a periodical.
 
         # First, the book.
         book_id = 'urn:librarysimplified.org/terms/id/Gutenberg%20ID/1022'
         book = data[book_id]
-        eq_(Edition.BOOK_MEDIUM, book['medium'])
+        assert Edition.BOOK_MEDIUM == book['medium']
 
         [contributor] = book['contributors']
-        eq_("Thoreau, Henry David", contributor.sort_name)
-        eq_([Contributor.AUTHOR_ROLE], contributor.roles)
+        assert "Thoreau, Henry David" == contributor.sort_name
+        assert [Contributor.AUTHOR_ROLE] == contributor.roles
 
         subjects = book['subjects']
-        eq_(['LCSH', 'LCSH', 'LCSH', 'LCC'], [x.type for x in subjects])
-        eq_(
-            ['Essays', 'Nature', 'Walking', 'PS'],
-            [x.identifier for x in subjects]
-        )
-        eq_(
-            [None, None, None, 'American Literature'],
-            [x.name for x in book['subjects']]
-        )
-        eq_(
-            [1, 1, 1, 10],
-            [x.weight for x in book['subjects']]
-        )
+        assert ['LCSH', 'LCSH', 'LCSH', 'LCC'] == [x.type for x in subjects]
+        assert (
+            ['Essays', 'Nature', 'Walking', 'PS'] ==
+            [x.identifier for x in subjects])
+        assert (
+            [None, None, None, 'American Literature'] ==
+            [x.name for x in book['subjects']])
+        assert (
+            [1, 1, 1, 10] ==
+            [x.weight for x in book['subjects']])
 
-        eq_([], book['measurements'])
+        assert [] == book['measurements']
 
-        eq_(datetime.datetime(1862, 6, 1), book["published"])
+        assert datetime.datetime(1862, 6, 1) == book["published"]
 
         [link] = book['links']
-        eq_(Hyperlink.OPEN_ACCESS_DOWNLOAD, link.rel)
-        eq_("http://www.gutenberg.org/ebooks/1022.epub.noimages", link.href)
-        eq_(Representation.EPUB_MEDIA_TYPE, link.media_type)
+        assert Hyperlink.OPEN_ACCESS_DOWNLOAD == link.rel
+        assert "http://www.gutenberg.org/ebooks/1022.epub.noimages" == link.href
+        assert Representation.EPUB_MEDIA_TYPE == link.media_type
 
         # And now, the periodical.
         periodical_id = 'urn:librarysimplified.org/terms/id/Gutenberg%20ID/10441'
         periodical = data[periodical_id]
-        eq_(Edition.PERIODICAL_MEDIUM, periodical['medium'])
+        assert Edition.PERIODICAL_MEDIUM == periodical['medium']
 
         subjects = periodical['subjects']
-        eq_(
-            ['LCSH', 'LCSH', 'LCSH', 'LCSH', 'LCC', 'schema:audience', 'schema:typicalAgeRange'],
-            [x.type for x in subjects]
-        )
-        eq_(
-            ['Courtship -- Fiction', 'New York (N.Y.) -- Fiction', 'Fantasy fiction', 'Magic -- Fiction', 'PZ', 'Children', '7'],
-            [x.identifier for x in subjects]
-        )
-        eq_([1, 1, 1, 1, 1, 1, 1], [x.weight for x in subjects])
+        assert (
+            ['LCSH', 'LCSH', 'LCSH', 'LCSH', 'LCC', 'schema:audience', 'schema:typicalAgeRange'] ==
+            [x.type for x in subjects])
+        assert (
+            ['Courtship -- Fiction', 'New York (N.Y.) -- Fiction', 'Fantasy fiction', 'Magic -- Fiction', 'PZ', 'Children', '7'] ==
+            [x.identifier for x in subjects])
+        assert [1, 1, 1, 1, 1, 1, 1] == [x.weight for x in subjects]
 
         r1, r2, r3 = periodical['measurements']
 
-        eq_(Measurement.QUALITY, r1.quantity_measured)
-        eq_(0.3333, r1.value)
-        eq_(1, r1.weight)
+        assert Measurement.QUALITY == r1.quantity_measured
+        assert 0.3333 == r1.value
+        assert 1 == r1.weight
 
-        eq_(Measurement.RATING, r2.quantity_measured)
-        eq_(0.6, r2.value)
-        eq_(1, r2.weight)
+        assert Measurement.RATING == r2.quantity_measured
+        assert 0.6 == r2.value
+        assert 1 == r2.weight
 
-        eq_(Measurement.POPULARITY, r3.quantity_measured)
-        eq_(0.25, r3.value)
-        eq_(1, r3.weight)
+        assert Measurement.POPULARITY == r3.quantity_measured
+        assert 0.25 == r3.value
+        assert 1 == r3.weight
 
-        eq_('Animal Colors', periodical['series'])
-        eq_('1', periodical['series_position'])
+        assert 'Animal Colors' == periodical['series']
+        assert '1' == periodical['series_position']
 
-        eq_(datetime.datetime(1910, 1, 1), periodical["published"])
+        assert datetime.datetime(1910, 1, 1) == periodical["published"]
 
     def test_extract_metadata_from_elementtree_treats_message_as_failure(self):
         data_source = DataSource.lookup(self._db, DataSource.OA_CONTENT_SERVER)
@@ -799,30 +783,30 @@ class TestOPDSImporter(OPDSImporterTest):
         )
 
         # We have no Metadata objects and one CoverageFailure.
-        eq_({}, values)
+        assert {} == values
 
         # The CoverageFailure contains the information that was in a
         # <simplified:message> tag in unrecognized_identifier.opds.
         key = 'http://www.gutenberg.org/ebooks/100'
-        eq_([key], list(failures.keys()))
+        assert [key] == list(failures.keys())
         failure = failures[key]
-        eq_("404: I've never heard of this work.", failure.exception)
-        eq_(key, failure.obj.urn)
+        assert "404: I've never heard of this work." == failure.exception
+        assert key == failure.obj.urn
 
     def test_extract_messages(self):
         parser = OPDSXMLParser()
         feed = self.sample_opds("unrecognized_identifier.opds")
         root = etree.parse(StringIO(feed))
         [message] = OPDSImporter.extract_messages(parser, root)
-        eq_('urn:librarysimplified.org/terms/id/Gutenberg ID/100', message.urn)
-        eq_(404, message.status_code)
-        eq_("I've never heard of this work.", message.message)
+        assert 'urn:librarysimplified.org/terms/id/Gutenberg ID/100' == message.urn
+        assert 404 == message.status_code
+        assert "I've never heard of this work." == message.message
 
     def test_extract_medium(self):
         m = OPDSImporter.extract_medium
 
         # No tag -- the default is used.
-        eq_("Default", m(None, "Default"))
+        assert "Default" == m(None, "Default")
 
         def medium(additional_type, format, default="Default"):
             # Make an <atom:entry> tag with the given tags.
@@ -843,25 +827,23 @@ class TestOPDSImporter(OPDSImporterTest):
         # schema:additionalType is checked first. If present, any
         # potentially contradictory information in dcterms:format is
         # ignored.
-        eq_(
-            Edition.AUDIO_MEDIUM,
-            medium("http://bib.schema.org/Audiobook", ebook_type)
-        )
-        eq_(
-            Edition.BOOK_MEDIUM,
-            medium("http://schema.org/EBook", audio_type)
-        )
+        assert (
+            Edition.AUDIO_MEDIUM ==
+            medium("http://bib.schema.org/Audiobook", ebook_type))
+        assert (
+            Edition.BOOK_MEDIUM ==
+            medium("http://schema.org/EBook", audio_type))
 
         # When schema:additionalType is missing or not useful, the
         # value of dcterms:format is mapped to a medium using
         # Edition.medium_from_media_type.
-        eq_(Edition.AUDIO_MEDIUM, medium("something-else", audio_type))
-        eq_(Edition.BOOK_MEDIUM, medium(None, ebook_type))
+        assert Edition.AUDIO_MEDIUM == medium("something-else", audio_type)
+        assert Edition.BOOK_MEDIUM == medium(None, ebook_type)
 
         # If both pieces of information are missing or useless, the
         # default is used.
-        eq_("Default", medium(None, None))
-        eq_("Default", medium("something-else", "image/jpeg"))
+        assert "Default" == medium(None, None)
+        assert "Default" == medium("something-else", "image/jpeg")
 
     def test_handle_failure(self):
         axis_id = self._identifier(identifier_type=Identifier.AXIS_360_ID)
@@ -883,8 +865,8 @@ class TestOPDSImporter(OPDSImporterTest):
         identifier, output_failure = importer.handle_failure(
             urn, input_failure
         )
-        eq_(expect_identifier, identifier)
-        eq_(input_failure, output_failure)
+        assert expect_identifier == identifier
+        assert input_failure == output_failure
 
         # A normal OPDSImporter would consider this a failure, but
         # because the 'failure' is an Identifier, not a
@@ -892,8 +874,8 @@ class TestOPDSImporter(OPDSImporterTest):
         identifier, not_a_failure = importer.handle_failure(
             "urn:isbn:9781449358068", self._identifier()
         )
-        eq_(expect_identifier, identifier)
-        eq_(identifier, not_a_failure)
+        assert expect_identifier == identifier
+        assert identifier == not_a_failure
         # Note that the 'failure' object retuned is the Identifier that
         # was passed in, not the Identifier that substituted as the 'failure'.
         # (In real usage, though, they should be the same.)
@@ -903,8 +885,8 @@ class TestOPDSImporter(OPDSImporterTest):
         identifier, output_failure = importer.handle_failure(
             axis_isbn.urn, input_failure
         )
-        eq_(axis_id, identifier)
-        eq_(input_failure, output_failure)
+        assert axis_id == identifier
+        assert input_failure == output_failure
 
         # An identifier that maps to some other identifier,
         # in a scenario where what OPDSImporter considers failure
@@ -912,8 +894,8 @@ class TestOPDSImporter(OPDSImporterTest):
         identifier, not_a_failure = importer.handle_failure(
             axis_isbn.urn, self._identifier()
         )
-        eq_(axis_id, identifier)
-        eq_(axis_id, not_a_failure)
+        assert axis_id == identifier
+        assert axis_id == not_a_failure
 
 
     def test_coveragefailure_from_message(self):
@@ -929,29 +911,29 @@ class TestOPDSImporter(OPDSImporterTest):
 
         # If the URN is invalid we can't create a CoverageFailure.
         invalid_urn = f("urnblah", "500", "description")
-        eq_(invalid_urn, None)
+        assert invalid_urn == None
 
         identifier = self._identifier()
 
         # If the 'message' is that everything is fine, no CoverageFailure
         # is created.
         this_is_fine = f(identifier.urn, "200", "description")
-        eq_(None, this_is_fine)
+        assert None == this_is_fine
 
         # Test the various ways the status code and message might be
         # transformed into CoverageFailure.exception.
         description_and_status_code = f(identifier.urn, "404", "description")
-        eq_("404: description", description_and_status_code.exception)
-        eq_(identifier, description_and_status_code.obj)
+        assert "404: description" == description_and_status_code.exception
+        assert identifier == description_and_status_code.obj
 
         description_only = f(identifier.urn, None, "description")
-        eq_("description", description_only.exception)
+        assert "description" == description_only.exception
 
         status_code_only = f(identifier.urn, "404", None)
-        eq_("404", status_code_only.exception)
+        assert "404" == status_code_only.exception
 
         no_information = f(identifier.urn, None, None)
-        eq_("No detail provided.", no_information.exception)
+        assert "No detail provided." == no_information.exception
 
     def test_coveragefailure_from_message_with_success_status_codes(self):
         """When an OPDSImporter defines SUCCESS_STATUS_CODES, messages with
@@ -972,18 +954,18 @@ class TestOPDSImporter(OPDSImporterTest):
         # instead of a CoverageFailure -- we know that 999 means
         # coverage was in fact provided.
         failure = f(identifier.urn, "999", "hooray!")
-        eq_(identifier, failure)
+        assert identifier == failure
 
         # If the status code is 200, then the identifier is returned
         # instead of None.
         failure = f(identifier.urn, "200", "ok!")
-        eq_(identifier, failure)
+        assert identifier == failure
 
         # If the status code is anything else, a CoverageFailure
         # is returned.
         failure = f(identifier.urn, 500, "hooray???")
         assert isinstance(failure, CoverageFailure)
-        eq_("500: hooray???", failure.exception)
+        assert "500: hooray???" == failure.exception
 
     def test_extract_metadata_from_elementtree_handles_messages_that_become_identifiers(self):
         not_a_failure = self._identifier()
@@ -1002,7 +984,7 @@ class TestOPDSImporter(OPDSImporterTest):
         values, failures = MockOPDSImporter.extract_metadata_from_elementtree(
             self.content_server_mini_feed, data_source
         )
-        eq_({not_a_failure.urn: not_a_failure}, failures)
+        assert {not_a_failure.urn: not_a_failure} == failures
 
 
     def test_extract_metadata_from_elementtree_handles_exception(self):
@@ -1019,18 +1001,18 @@ class TestOPDSImporter(OPDSImporterTest):
         )
 
         # No metadata was extracted.
-        eq_(0, len(list(values.keys())))
+        assert 0 == len(list(values.keys()))
 
         # There are 3 CoverageFailures - every <entry> threw an
         # exception and the <simplified:message> indicated failure.
-        eq_(3, len(failures))
+        assert 3 == len(failures)
 
         # The entry with the 202 message became an appropriate
         # CoverageFailure because its data was not extracted through
         # extract_metadata_from_elementtree.
         failure = failures['http://www.gutenberg.org/ebooks/1984']
         assert isinstance(failure, CoverageFailure)
-        eq_(True, failure.transient)
+        assert True == failure.transient
         assert failure.exception.startswith('202')
         assert 'Utter failure!' not in failure.exception
 
@@ -1038,19 +1020,19 @@ class TestOPDSImporter(OPDSImporterTest):
         # of extract_metadata_from_elementtree.
         failure = failures['urn:librarysimplified.org/terms/id/Gutenberg%20ID/10441']
         assert isinstance(failure, CoverageFailure)
-        eq_(True, failure.transient)
+        assert True == failure.transient
         assert "Utter failure!" in failure.exception
 
         failure = failures['urn:librarysimplified.org/terms/id/Gutenberg%20ID/10557']
         assert isinstance(failure, CoverageFailure)
-        eq_(True, failure.transient)
+        assert True == failure.transient
         assert "Utter failure!" in failure.exception
 
     def test_import_exception_if_unable_to_parse_feed(self):
         feed = "I am not a feed."
         importer = OPDSImporter(self._db, collection=None)
 
-        assert_raises(etree.XMLSyntaxError, importer.import_from_feed, feed)
+        pytest.raises(etree.XMLSyntaxError, importer.import_from_feed, feed)
 
 
     def test_import(self):
@@ -1064,14 +1046,14 @@ class TestOPDSImporter(OPDSImporterTest):
 
         # By default, this feed is treated as though it came from the
         # metadata wrangler. No Work has been created.
-        eq_(DataSource.METADATA_WRANGLER, crow.data_source.name)
-        eq_(None, crow.work)
-        eq_([], crow.license_pools)
-        eq_(Edition.BOOK_MEDIUM, crow.medium)
+        assert DataSource.METADATA_WRANGLER == crow.data_source.name
+        assert None == crow.work
+        assert [] == crow.license_pools
+        assert Edition.BOOK_MEDIUM == crow.medium
 
         # not even the 'mouse'
-        eq_(None, mouse.work)
-        eq_(Edition.PERIODICAL_MEDIUM, mouse.medium)
+        assert None == mouse.work
+        assert Edition.PERIODICAL_MEDIUM == mouse.medium
 
         # Three links have been added to the identifier of the 'mouse'
         # edition.
@@ -1082,20 +1064,20 @@ class TestOPDSImporter(OPDSImporterTest):
         # A Representation was imported for the summary with known
         # content.
         description_rep = description.resource.representation
-        eq_(b"This is a summary!", description_rep.content)
-        eq_(Representation.TEXT_PLAIN, description_rep.media_type)
+        assert b"This is a summary!" == description_rep.content
+        assert Representation.TEXT_PLAIN == description_rep.media_type
 
         # A Representation was imported for the image with a media type
         # inferred from its URL.
         image_rep = image.resource.representation
         assert image_rep.url.endswith('_9.png')
-        eq_(Representation.PNG_MEDIA_TYPE, image_rep.media_type)
+        assert Representation.PNG_MEDIA_TYPE == image_rep.media_type
 
         # The thumbnail was imported similarly, and its representation
         # was marked as a thumbnail of the full-sized image.
         thumbnail_rep = thumbnail.resource.representation
-        eq_(Representation.PNG_MEDIA_TYPE, thumbnail_rep.media_type)
-        eq_(image_rep, thumbnail_rep.thumbnail_of)
+        assert Representation.PNG_MEDIA_TYPE == thumbnail_rep.media_type
+        assert image_rep == thumbnail_rep.thumbnail_of
 
         # Two links were added to the identifier of the 'crow' edition.
         [broken_image, working_image] = sorted(
@@ -1108,8 +1090,8 @@ class TestOPDSImporter(OPDSImporterTest):
         # so they have no associated Representation.
         assert broken_image.resource.url.endswith('/broken-cover-image')
         assert working_image.resource.url.endswith('/working-cover-image')
-        eq_(None, broken_image.resource.representation)
-        eq_(None, working_image.resource.representation)
+        assert None == broken_image.resource.representation
+        assert None == working_image.resource.representation
 
         # Three measurements have been added to the 'mouse' edition.
         popularity, quality, rating = sorted(
@@ -1118,33 +1100,33 @@ class TestOPDSImporter(OPDSImporterTest):
             key=lambda x: x.quantity_measured
         )
 
-        eq_(DataSource.METADATA_WRANGLER, popularity.data_source.name)
-        eq_(Measurement.POPULARITY, popularity.quantity_measured)
-        eq_(0.25, popularity.value)
+        assert DataSource.METADATA_WRANGLER == popularity.data_source.name
+        assert Measurement.POPULARITY == popularity.quantity_measured
+        assert 0.25 == popularity.value
 
-        eq_(DataSource.METADATA_WRANGLER, quality.data_source.name)
-        eq_(Measurement.QUALITY, quality.quantity_measured)
-        eq_(0.3333, quality.value)
+        assert DataSource.METADATA_WRANGLER == quality.data_source.name
+        assert Measurement.QUALITY == quality.quantity_measured
+        assert 0.3333 == quality.value
 
-        eq_(DataSource.METADATA_WRANGLER, rating.data_source.name)
-        eq_(Measurement.RATING, rating.quantity_measured)
-        eq_(0.6, rating.value)
+        assert DataSource.METADATA_WRANGLER == rating.data_source.name
+        assert Measurement.RATING == rating.quantity_measured
+        assert 0.6 == rating.value
 
         seven, children, courtship, fantasy, pz, magic, new_york = sorted(
             mouse.primary_identifier.classifications,
             key=lambda x: x.subject.name)
 
         pz_s = pz.subject
-        eq_("Juvenile Fiction", pz_s.name)
-        eq_("PZ", pz_s.identifier)
+        assert "Juvenile Fiction" == pz_s.name
+        assert "PZ" == pz_s.identifier
 
         new_york_s = new_york.subject
-        eq_("New York (N.Y.) -- Fiction", new_york_s.name)
-        eq_("sh2008108377", new_york_s.identifier)
+        assert "New York (N.Y.) -- Fiction" == new_york_s.name
+        assert "sh2008108377" == new_york_s.identifier
 
-        eq_('7', seven.subject.identifier)
-        eq_(100, seven.weight)
-        eq_(Subject.AGE_RANGE, seven.subject.type)
+        assert '7' == seven.subject.identifier
+        assert 100 == seven.weight
+        assert Subject.AGE_RANGE == seven.subject.type
         from ..classifier import Classifier
         classifier = Classifier.classifiers.get(seven.subject.type, None)
         classifier.classify(seven.subject)
@@ -1153,7 +1135,7 @@ class TestOPDSImporter(OPDSImporterTest):
         imported_editions_2, pools_2, works_2, failures_2 = (
             OPDSImporter(self._db, collection=None).import_from_feed(feed)
         )
-        eq_(imported_editions_2, imported_editions)
+        assert imported_editions_2 == imported_editions
 
         # importing with a collection and a lendable data source makes
         # license pools and works.
@@ -1168,27 +1150,27 @@ class TestOPDSImporter(OPDSImporterTest):
         [crow_pool, mouse_pool] = sorted(
             pools, key=lambda x: x.presentation_edition.title
         )
-        eq_(self._default_collection, crow_pool.collection)
-        eq_(self._default_collection, mouse_pool.collection)
+        assert self._default_collection == crow_pool.collection
+        assert self._default_collection == mouse_pool.collection
 
         # Work was created for both books.
         assert crow_pool.work is not None
-        eq_(Edition.BOOK_MEDIUM, crow_pool.presentation_edition.medium)
+        assert Edition.BOOK_MEDIUM == crow_pool.presentation_edition.medium
 
         assert mouse_pool.work is not None
-        eq_(Edition.PERIODICAL_MEDIUM, mouse_pool.presentation_edition.medium)
+        assert Edition.PERIODICAL_MEDIUM == mouse_pool.presentation_edition.medium
 
         work = mouse_pool.work
         work.calculate_presentation()
-        eq_(0.4142, round(work.quality, 4))
-        eq_(Classifier.AUDIENCE_CHILDREN, work.audience)
-        eq_(NumericRange(7,7, '[]'), work.target_age)
+        assert 0.4142 == round(work.quality, 4)
+        assert Classifier.AUDIENCE_CHILDREN == work.audience
+        assert NumericRange(7,7, '[]') == work.target_age
 
         # Bonus: make sure that delivery mechanisms are set appropriately.
         [mech] = mouse_pool.delivery_mechanisms
-        eq_(Representation.EPUB_MEDIA_TYPE, mech.delivery_mechanism.content_type)
-        eq_(DeliveryMechanism.NO_DRM, mech.delivery_mechanism.drm_scheme)
-        eq_('http://www.gutenberg.org/ebooks/10441.epub.images',
+        assert Representation.EPUB_MEDIA_TYPE == mech.delivery_mechanism.content_type
+        assert DeliveryMechanism.NO_DRM == mech.delivery_mechanism.drm_scheme
+        assert ('http://www.gutenberg.org/ebooks/10441.epub.images' ==
             mech.resource.url)
 
     def test_import_with_lendability(self):
@@ -1212,15 +1194,15 @@ class TestOPDSImporter(OPDSImporterTest):
         )
 
         # Both editions were imported, because they were new.
-        eq_(2, len(imported_editions_mw))
+        assert 2 == len(imported_editions_mw)
 
         # But pools and works weren't created, because there is no Collection.
-        eq_(0, len(pools_mw))
-        eq_(0, len(works_mw))
+        assert 0 == len(pools_mw)
+        assert 0 == len(works_mw)
 
         # 1 error message, corresponding to the <simplified:message> tag
         # at the end of content_server_mini.opds.
-        eq_(1, len(failures_mw))
+        assert 1 == len(failures_mw)
 
         # Try again, with a Collection to contain the LicensePools.
         importer_g = OPDSImporter(
@@ -1231,12 +1213,12 @@ class TestOPDSImporter(OPDSImporterTest):
         )
 
         # now pools and works are in, too
-        eq_(1, len(failures_g))
-        eq_(2, len(pools_g))
-        eq_(2, len(works_g))
+        assert 1 == len(failures_g)
+        assert 2 == len(pools_g)
+        assert 2 == len(works_g)
 
         # The pools have presentation editions.
-        eq_(set(["The Green Mouse", "Johnny Crow's Party"]),
+        assert (set(["The Green Mouse", "Johnny Crow's Party"]) ==
             set([x.presentation_edition.title for x in pools_g]))
 
         # The information used to create the first LicensePool said
@@ -1245,8 +1227,8 @@ class TestOPDSImporter(OPDSImporterTest):
         # to create the second LicensePool didn't include a data source,
         # so the source of the OPDS feed (the open-access content server)
         # was used.
-        sources = [pool.data_source.name for pool in pools_g]
-        eq_([DataSource.GUTENBERG, DataSource.OA_CONTENT_SERVER], sources)
+        assert set([DataSource.GUTENBERG, DataSource.OA_CONTENT_SERVER]) == \
+            set([pool.data_source.name for pool in pools_g])
 
     def test_import_with_unrecognized_distributor_creates_distributor(self):
         """We get a book from a previously unknown data source, with a license
@@ -1264,21 +1246,21 @@ class TestOPDSImporter(OPDSImporterTest):
         imported_editions, pools, works, failures = (
             importer.import_from_feed(feed)
         )
-        eq_({}, failures)
+        assert {} == failures
 
         # We imported an Edition because there was metadata.
         [edition] = imported_editions
         new_data_source = edition.data_source
-        eq_("some new source", new_data_source.name)
+        assert "some new source" == new_data_source.name
 
         # We imported a LicensePool because there was an open-access
         # link, even though the ultimate source of the link was one
         # we'd never seen before.
         [pool] = pools
-        eq_("Unknown Source", pool.data_source.name)
+        assert "Unknown Source" == pool.data_source.name
 
         # From an Edition and a LicensePool we created a Work.
-        eq_(1, len(works))
+        assert 1 == len(works)
 
     def test_import_updates_metadata(self):
 
@@ -1306,13 +1288,13 @@ class TestOPDSImporter(OPDSImporterTest):
 
         # The edition we created has had its metadata updated.
         [new_edition] = imported_editions
-        eq_(new_edition, edition)
-        eq_("The Green Mouse", new_edition.title)
-        eq_(DataSource.OVERDRIVE, new_edition.data_source.name)
+        assert new_edition == edition
+        assert "The Green Mouse" == new_edition.title
+        assert DataSource.OVERDRIVE == new_edition.data_source.name
 
         # But the license pools have not changed.
-        eq_(edition.license_pools, [old_license_pool])
-        eq_(work.license_pools, [old_license_pool])
+        assert edition.license_pools == [old_license_pool]
+        assert work.license_pools == [old_license_pool]
 
     def test_import_from_license_source(self):
         # Instead of importing this data as though it came from the
@@ -1339,30 +1321,29 @@ class TestOPDSImporter(OPDSImporterTest):
         # The OPDS importer sets the data source of the license pool
         # to Project Gutenberg, since that's the authority that grants
         # access to the book.
-        eq_(DataSource.GUTENBERG, mouse_pool.data_source.name)
+        assert DataSource.GUTENBERG == mouse_pool.data_source.name
 
         # But the license pool's presentation edition has a data
         # source associated with the Library Simplified open-access
         # content server, since that's where the metadata comes from.
-        eq_(DataSource.OA_CONTENT_SERVER,
-            mouse_pool.presentation_edition.data_source.name
-        )
+        assert (DataSource.OA_CONTENT_SERVER ==
+            mouse_pool.presentation_edition.data_source.name)
 
         # Since the 'mouse' book came with an open-access link, the license
         # pool delivery mechanism has been marked as open access.
-        eq_(True, mouse_pool.open_access)
-        eq_(RightsStatus.GENERIC_OPEN_ACCESS,
+        assert True == mouse_pool.open_access
+        assert (RightsStatus.GENERIC_OPEN_ACCESS ==
             mouse_pool.delivery_mechanisms[0].rights_status.uri)
 
         # The 'mouse' work was marked presentation-ready immediately.
-        eq_(True, mouse_pool.work.presentation_ready)
+        assert True == mouse_pool.work.presentation_ready
 
         # The OPDS feed didn't actually say where the 'crow' book
         # comes from, but we did tell the importer to use the open access
         # content server as the data source, so both a Work and a LicensePool
         # were created, and their data source is the open access content server,
         # not Project Gutenberg.
-        eq_(DataSource.OA_CONTENT_SERVER, crow_pool.data_source.name)
+        assert DataSource.OA_CONTENT_SERVER == crow_pool.data_source.name
 
     def test_import_from_feed_treats_message_as_failure(self):
         feed = self.sample_opds("unrecognized_identifier.opds")
@@ -1374,8 +1355,8 @@ class TestOPDSImporter(OPDSImporterTest):
 
         [failure] = list(failures.values())
         assert isinstance(failure, CoverageFailure)
-        eq_(True, failure.transient)
-        eq_("404: I've never heard of this work.", failure.exception)
+        assert True == failure.transient
+        assert "404: I've never heard of this work." == failure.exception
 
 
     def test_import_edition_failure_becomes_coverage_failure(self):
@@ -1391,12 +1372,12 @@ class TestOPDSImporter(OPDSImporterTest):
         )
 
         # Only one book was imported, the other failed.
-        eq_(1, len(imported_editions))
+        assert 1 == len(imported_editions)
 
         # The other failed to import, and became a CoverageFailure
         failure = failures['http://www.gutenberg.org/ebooks/10441']
         assert isinstance(failure, CoverageFailure)
-        eq_(False, failure.transient)
+        assert False == failure.transient
         assert "Utter failure!" in failure.exception
 
     def test_import_work_failure_becomes_coverage_failure(self):
@@ -1417,12 +1398,12 @@ class TestOPDSImporter(OPDSImporterTest):
         )
 
         # One work was created, the other failed.
-        eq_(1, len(works))
+        assert 1 == len(works)
 
         # There's an error message for the work that failed.
         failure = failures['http://www.gutenberg.org/ebooks/10441']
         assert isinstance(failure, CoverageFailure)
-        eq_(False, failure.transient)
+        assert False == failure.transient
         assert "Utter work failure!" in failure.exception
 
     def test_consolidate_links(self):
@@ -1430,7 +1411,7 @@ class TestOPDSImporter(OPDSImporterTest):
         # If a link turns out to be a dud, consolidate_links()
         # gets rid of it.
         links = [None, None]
-        eq_([], OPDSImporter.consolidate_links(links))
+        assert [] == OPDSImporter.consolidate_links(links)
 
         links = [LinkData(href=self._url, rel=rel, media_type="image/jpeg")
                  for rel in [Hyperlink.OPEN_ACCESS_DOWNLOAD,
@@ -1440,11 +1421,11 @@ class TestOPDSImporter(OPDSImporterTest):
         ]
         old_link = links[2]
         links = OPDSImporter.consolidate_links(links)
-        eq_([Hyperlink.OPEN_ACCESS_DOWNLOAD,
+        assert [Hyperlink.OPEN_ACCESS_DOWNLOAD,
              Hyperlink.IMAGE,
-             Hyperlink.OPEN_ACCESS_DOWNLOAD], [x.rel for x in links])
+             Hyperlink.OPEN_ACCESS_DOWNLOAD] == [x.rel for x in links]
         link = links[1]
-        eq_(old_link, link.thumbnail)
+        assert old_link == link.thumbnail
 
         links = [LinkData(href=self._url, rel=rel, media_type="image/jpeg")
                  for rel in [Hyperlink.THUMBNAIL_IMAGE,
@@ -1454,10 +1435,10 @@ class TestOPDSImporter(OPDSImporterTest):
         ]
         t1, i1, t2, i2 = links
         links = OPDSImporter.consolidate_links(links)
-        eq_([Hyperlink.IMAGE,
-             Hyperlink.IMAGE], [x.rel for x in links])
-        eq_(t1, i1.thumbnail)
-        eq_(t2, i2.thumbnail)
+        assert [Hyperlink.IMAGE,
+             Hyperlink.IMAGE] == [x.rel for x in links]
+        assert t1 == i1.thumbnail
+        assert t2 == i2.thumbnail
 
         links = [LinkData(href=self._url, rel=rel, media_type="image/jpeg")
                  for rel in [Hyperlink.THUMBNAIL_IMAGE,
@@ -1466,10 +1447,10 @@ class TestOPDSImporter(OPDSImporterTest):
         ]
         t1, i1, i2 = links
         links = OPDSImporter.consolidate_links(links)
-        eq_([Hyperlink.IMAGE,
-             Hyperlink.IMAGE], [x.rel for x in links])
-        eq_(t1, i1.thumbnail)
-        eq_(None, i2.thumbnail)
+        assert [Hyperlink.IMAGE,
+             Hyperlink.IMAGE] == [x.rel for x in links]
+        assert t1 == i1.thumbnail
+        assert None == i2.thumbnail
 
     def test_import_book_that_offers_no_license(self):
         feed = self.sample_opds("book_without_license.opds")
@@ -1480,13 +1461,13 @@ class TestOPDSImporter(OPDSImporterTest):
 
         # We got an Edition for this book, but no LicensePool and no Work.
         [edition] = imported_editions
-        eq_("Howards End", edition.title)
-        eq_([], imported_pools)
-        eq_([], imported_works)
+        assert "Howards End" == edition.title
+        assert [] == imported_pools
+        assert [] == imported_works
 
         # We were able to figure out the medium of the Edition
         # based on its <dcterms:format> tag.
-        eq_(Edition.AUDIO_MEDIUM, edition.medium)
+        assert Edition.AUDIO_MEDIUM == edition.medium
 
     def test_build_identifier_mapping(self):
         """Reverse engineers an identifier_mapping based on a list of URNs"""
@@ -1509,40 +1490,40 @@ class TestOPDSImporter(OPDSImporterTest):
 
         # The importer is initialized without an identifier mapping.
         importer = OPDSImporter(self._db, collection)
-        eq_(None, importer.identifier_mapping)
+        assert None == importer.identifier_mapping
 
         # We can build one.
         importer.build_identifier_mapping([isbn1.urn])
         expected = { isbn1 : lp.identifier }
-        eq_(expected, importer.identifier_mapping)
+        assert expected == importer.identifier_mapping
 
         # If we already have one, it's overwritten.
         importer.build_identifier_mapping([isbn2.urn])
         overwrite = { isbn2 : lp.identifier }
-        eq_(importer.identifier_mapping, overwrite)
+        assert importer.identifier_mapping == overwrite
 
         # If the importer doesn't have a collection, we can't build
         # its mapping.
         importer = OPDSImporter(self._db, None)
         importer.build_identifier_mapping([isbn1])
-        eq_(None, importer.identifier_mapping)
+        assert None == importer.identifier_mapping
 
     def test_update_work_for_edition_having_no_work(self):
         # We have an Edition and a LicensePool but no Work.
         edition, lp = self._edition(with_license_pool=True)
-        eq_(None, lp.work)
+        assert None == lp.work
 
         importer = OPDSImporter(self._db, None)
         returned_pool, returned_work = importer.update_work_for_edition(edition)
 
         # We now have a presentation-ready work.
         work = lp.work
-        eq_(True, work.presentation_ready)
+        assert True == work.presentation_ready
 
         # The return value of update_work_for_edition is the affected
         # LicensePool and Work.
-        eq_(returned_pool, lp)
-        eq_(returned_work, work)
+        assert returned_pool == lp
+        assert returned_work == work
 
         # That happened because LicensePool.calculate_work() was
         # called. But now that there's a presentation-ready work,
@@ -1575,12 +1556,12 @@ class TestOPDSImporter(OPDSImporterTest):
         returned_pool, returned_work = importer.update_work_for_edition(
             edition
         )
-        eq_(returned_pool, pool)
-        eq_(returned_work, work)
+        assert returned_pool == pool
+        assert returned_work == work
 
         # We now have a presentation-ready work.
-        eq_("A working title", work.title)
-        eq_(True, work.presentation_ready)
+        assert "A working title" == work.title
+        assert True == work.presentation_ready
 
     def test_update_work_for_edition_having_presentation_ready_work(self):
         # We have a presentation-ready work.
@@ -1606,11 +1587,11 @@ class TestOPDSImporter(OPDSImporterTest):
         )
 
         # The existing LicensePool and Work were returned.
-        eq_(returned_pool, pool)
-        eq_(returned_work, work)
+        assert returned_pool == pool
+        assert returned_work == work
 
         # The work is still presentation-ready.
-        eq_(True, work.presentation_ready)
+        assert True == work.presentation_ready
 
     def test_update_work_for_edition_having_multiple_license_pools(self):
         # There are two collections with a LicensePool associated with
@@ -1622,14 +1603,14 @@ class TestOPDSImporter(OPDSImporterTest):
 
         # Calling update_work_for_edition creates a Work and associates
         # it with the edition.
-        eq_(None, edition.work)
+        assert None == edition.work
         importer.update_work_for_edition(edition)
         work = edition.work
         assert isinstance(work, Work)
 
         # Both LicensePools are associated with that work.
-        eq_(lp.work, work)
-        eq_(lp2.work, work)
+        assert lp.work == work
+        assert lp2.work == work
 
     def test_assert_importable_content(self):
 
@@ -1668,18 +1649,16 @@ class TestOPDSImporter(OPDSImporterTest):
 
         # Here, there are no links at all.
         importer = NoLinks(self._db, None, do_get)
-        assert_raises_regexp(
-            IntegrationException,
-            "No open-access links were found in the OPDS feed.",
-            importer.assert_importable_content, "feed", "url"
-        )
+        with pytest.raises(IntegrationException) as excinfo:
+            importer.assert_importable_content("feed", "url")
+        assert "No open-access links were found in the OPDS feed." in str(excinfo.value)
 
         # We extracted 'metadata' from the feed and URL.
-        eq_(("feed", "url"), importer.extract_feed_data_called_with)
+        assert ("feed", "url") == importer.extract_feed_data_called_with
 
         # But there were no open-access links in the 'metadata',
         # so we had nothing to check.
-        eq_([], importer._is_open_access_link_called_with)
+        assert [] == importer._is_open_access_link_called_with
 
         oa = Hyperlink.OPEN_ACCESS_DOWNLOAD
         class BadLinks(Mock):
@@ -1694,12 +1673,9 @@ class TestOPDSImporter(OPDSImporterTest):
             ]
 
         importer = BadLinks(self._db, None, do_get)
-        assert_raises_regexp(
-            IntegrationException,
-            "Was unable to GET supposedly open-access content such as url2 \(tried 2 times\)",
-            importer.assert_importable_content, "feed", "url",
-            max_get_attempts=2
-        )
+        with pytest.raises(IntegrationException) as excinfo:
+            importer.assert_importable_content("feed", "url", max_get_attempts=2)
+        assert "Was unable to GET supposedly open-access content such as url2 (tried 2 times)" in str(excinfo.value)
 
         # We called _is_open_access_link on the first and second links
         # found in the 'metadata', but failed both times.
@@ -1707,8 +1683,8 @@ class TestOPDSImporter(OPDSImporterTest):
         # We didn't bother with the third link because max_get_attempts was
         # set to 2.
         try1, try2 = importer._is_open_access_link_called_with
-        eq_(("url1", "text/html"), try1)
-        eq_(("url2", "application/json"), try2)
+        assert ("url1", "text/html") == try1
+        assert ("url2", "application/json") == try2
 
         class GoodLink(Mock):
             """Simulate an OPDS feed that contains two bad open-access links
@@ -1729,20 +1705,20 @@ class TestOPDSImporter(OPDSImporterTest):
         result = importer.assert_importable_content(
             "feed", "url", max_get_attempts=5
         )
-        eq_("this is a book", result)
+        assert "this is a book" == result
 
         # The first link didn't work, but the second one did,
         # so we didn't try the third one.
         try1, try2 = importer._is_open_access_link_called_with
-        eq_(("bad", "text/html"), try1)
-        eq_(("good", "application/json"), try2)
+        assert ("bad", "text/html") == try1
+        assert ("good", "application/json") == try2
 
     def test__open_access_links(self):
         """Test our ability to find open-access links in Metadata objects."""
         m = OPDSImporter._open_access_links
 
         # No Metadata objects, no links.
-        eq_([], list(m([])))
+        assert [] == list(m([]))
 
         # This Metadata has no associated CirculationData and will be
         # ignored.
@@ -1768,8 +1744,8 @@ class TestOPDSImporter(OPDSImporterTest):
         )
 
         oa_only = [x for x in circulation.links if x.rel==oa]
-        eq_(oa_only, list(m([no_circulation, two_open_access_links,
-                             no_open_access_links])))
+        assert oa_only == list(m([no_circulation, two_open_access_links,
+                             no_open_access_links]))
 
     def test__is_open_access_link(self):
         http = DummyHTTPClient()
@@ -1785,22 +1761,22 @@ class TestOPDSImporter(OPDSImporterTest):
 
         url = self._url
         type = "text/html"
-        eq_("Found a book-like thing at %s" % url,
+        assert ("Found a book-like thing at %s" % url ==
             monitor._is_open_access_link(url, type))
 
         # We made a GET request to the appropriate URL.
-        eq_(url, http.requests.pop())
+        assert url == http.requests.pop()
 
         # This HTTP response looks OK but it's not big enough to be
         # any kind of book.
         http.queue_response(200, content="not enough content")
         monitor = OPDSImporter(self._db, None, http_get=http.do_get)
-        eq_(False, monitor._is_open_access_link(url, None))
+        assert False == monitor._is_open_access_link(url, None)
 
         # This HTTP response is clearly an error page.
         http.queue_response(404, content=enough_content)
         monitor = OPDSImporter(self._db, None, http_get=http.do_get)
-        eq_(False, monitor._is_open_access_link(url, None))
+        assert False == monitor._is_open_access_link(url, None)
 
     def test_import_open_access_audiobook(self):
         feed = self.audiobooks_opds
@@ -1815,18 +1791,18 @@ class TestOPDSImporter(OPDSImporterTest):
             importer.import_from_feed(feed)
         )
 
-        eq_(1, len(imported_editions))
+        assert 1 == len(imported_editions)
 
         [august] = imported_editions
-        eq_("Zhitiia Sviatykh, v. 12 - August", august.title)
+        assert "Zhitiia Sviatykh, v. 12 - August" == august.title
 
         [august_pool] = imported_pools
-        eq_(True, august_pool.open_access)
-        eq_(download_manifest_url, august_pool._open_access_download_url)
+        assert True == august_pool.open_access
+        assert download_manifest_url == august_pool._open_access_download_url
 
         [lpdm] = august_pool.delivery_mechanisms
-        eq_(Representation.AUDIOBOOK_MANIFEST_MEDIA_TYPE, lpdm.delivery_mechanism.content_type)
-        eq_(DeliveryMechanism.NO_DRM, lpdm.delivery_mechanism.drm_scheme)
+        assert Representation.AUDIOBOOK_MANIFEST_MEDIA_TYPE == lpdm.delivery_mechanism.content_type
+        assert DeliveryMechanism.NO_DRM == lpdm.delivery_mechanism.drm_scheme
 
 
 class TestCombine(object):
@@ -1856,37 +1832,37 @@ class TestCombine(object):
         d = combined['a_dict']
 
         # Normal scalar values can be overridden once set.
-        eq_("new value", combined['a_scalar'])
+        assert "new value" == combined['a_scalar']
 
         # Missing values are filled in.
-        eq_('finally a value', d["key1"])
-        eq_('value3', d['key3'])
-        eq_('value4', d['key4'])
+        assert 'finally a value' == d["key1"]
+        assert 'value3' == d['key3']
+        assert 'value4' == d['key4']
 
         # Lists get extended.
-        eq_([1, 2], combined['a_list'])
-        eq_([2, 200], d['key2'])
+        assert [1, 2] == combined['a_list']
+        assert [2, 200] == d['key2']
 
     def test_combine_null_cases(self):
         """Test combine()'s ability to handle empty and null dictionaries."""
         c = OPDSImporter.combine
         empty = dict()
         nonempty = dict(a=1)
-        eq_(nonempty, c(empty, nonempty))
-        eq_(empty, c(None, None))
-        eq_(nonempty, c(nonempty, None))
-        eq_(nonempty, c(None, nonempty))
+        assert nonempty == c(empty, nonempty)
+        assert empty == c(None, None)
+        assert nonempty == c(nonempty, None)
+        assert nonempty == c(None, nonempty)
 
     def test_combine_missing_value_is_replaced(self):
         c = OPDSImporter.combine
         a_is_missing = dict(b=None)
         a_is_present = dict(a=None, b=None)
         expect = dict(a=None, b=None)
-        eq_(expect, c(a_is_missing, a_is_present))
+        assert expect == c(a_is_missing, a_is_present)
 
         a_is_present['a'] = True
         expect = dict(a=True, b=None)
-        eq_(expect, c(a_is_missing, a_is_present))
+        assert expect == c(a_is_missing, a_is_present)
 
     def test_combine_present_value_replaced(self):
         """When both dictionaries define a scalar value, the second
@@ -1895,12 +1871,12 @@ class TestCombine(object):
         c = OPDSImporter.combine
         a_is_true = dict(a=True)
         a_is_false = dict(a=False)
-        eq_(a_is_false, c(a_is_true, a_is_false))
-        eq_(a_is_true, c(a_is_false, a_is_true))
+        assert a_is_false == c(a_is_true, a_is_false)
+        assert a_is_true == c(a_is_false, a_is_true)
 
         a_is_old = dict(a="old value")
         a_is_new = dict(a="new value")
-        eq_("new value", c(a_is_old, a_is_new)['a'])
+        assert "new value" == c(a_is_old, a_is_new)['a']
 
     def test_combine_present_value_not_replaced_with_none(self):
 
@@ -1911,7 +1887,7 @@ class TestCombine(object):
         a_is_present = dict(a=True)
         a_is_none = dict(a=None, b=True)
         expect = dict(a=True, b=True)
-        eq_(expect, OPDSImporter.combine(a_is_present, a_is_none))
+        assert expect == OPDSImporter.combine(a_is_present, a_is_none)
 
     def test_combine_present_value_extends_list(self):
         """When both dictionaries define a list, the combined value
@@ -1919,7 +1895,7 @@ class TestCombine(object):
         """
         a_is_true = dict(a=[True])
         a_is_false = dict(a=[False])
-        eq_(dict(a=[True, False]), OPDSImporter.combine(a_is_true, a_is_false))
+        assert dict(a=[True, False]) == OPDSImporter.combine(a_is_true, a_is_false)
 
     def test_combine_present_value_extends_dictionary(self):
         """When both dictionaries define a dictionary, the combined value is
@@ -1928,19 +1904,99 @@ class TestCombine(object):
         """
         a_is_true = dict(a=dict(b=[True]))
         a_is_false = dict(a=dict(b=[False]))
-        eq_(dict(a=dict(b=[True, False])),
+        assert (dict(a=dict(b=[True, False])) ==
             OPDSImporter.combine(a_is_true, a_is_false))
 
 class TestMirroring(OPDSImporterTest):
 
-    def test_importer_gets_appropriate_mirror_for_collection(self):
+    @pytest.fixture()
+    def http(self):
+        class DummyHashedHttpClient(object):
+            def __init__(self):
+                self.responses = {}
+                self.requests = []
 
+            def queue_response(self, url, response_code, media_type='text_html', other_headers=None, content=''):
+                headers = {}
+                if media_type:
+                    headers["content-type"] = media_type
+                if other_headers:
+                    for k, v in other_headers.items():
+                        headers[k.lower()] = v
+                self.responses[url] = (response_code, headers, content)
+
+            def do_get(self, url, *args, **kwargs):
+                self.requests.append(url)
+                return self.responses.pop(url)
+        return DummyHashedHttpClient()
+
+    @pytest.fixture()
+    def svg(self):
+        svg = u"""<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
+          "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+
+        <svg xmlns="http://www.w3.org/2000/svg" width="1000" height="500">
+            <ellipse cx="50" cy="25" rx="50" ry="25" style="fill:blue;"/>
+        </svg>"""
+        return svg
+
+    @pytest.fixture()
+    def png(self):
+        with open(self.sample_cover_path("test-book-cover.png")) as png_file:
+            png = png_file.read()
+        return png
+
+    @pytest.fixture()
+    def epub10441(self):
+        return {
+            'url': 'http://www.gutenberg.org/ebooks/10441.epub.images',
+            'response_code': 200,
+            'content': b'I am 10441.epub.images',
+            'media_type': Representation.EPUB_MEDIA_TYPE
+        }
+
+    @pytest.fixture()
+    def epub10441_cover(self, svg):
+        return {
+            'url': 'https://s3.amazonaws.com/book-covers.nypl.org/Gutenberg-Illustrated/10441/cover_10441_9.png',
+            'response_code': 200,
+            'content': svg,
+            'media_type': Representation.SVG_MEDIA_TYPE
+        }
+
+    @pytest.fixture()
+    def epub10557(self):
+        return {
+            'url': 'http://www.gutenberg.org/ebooks/10557.epub.images',
+            'response_code': 200,
+            'content': b'I am 10557.epub.images',
+            'media_type': Representation.EPUB_MEDIA_TYPE
+        }
+
+    @pytest.fixture()
+    def epub10557_cover_broken(self):
+        return {
+            'url':  'http://root/broken-cover-image',
+            'response_code': 404,
+            'media_type': "text/plain"
+        }
+
+    @pytest.fixture()
+    def epub10557_cover_working(self, png):
+        return {
+            'url': 'http://root/working-cover-image',
+            'response_code': 200,
+            'content': png,
+            'media_type': Representation.PNG_MEDIA_TYPE
+        }
+
+    def test_importer_gets_appropriate_mirror_for_collection(self):
         # The default collection is not configured to mirror the
         # resources it finds for either its books or covers.
         collection = self._default_collection
         importer = OPDSImporter(self._db, collection=collection)
-        eq_(None, importer.mirrors[ExternalIntegrationLink.OPEN_ACCESS_BOOKS])
-        eq_(None, importer.mirrors[ExternalIntegrationLink.COVERS])
+        assert None == importer.mirrors[ExternalIntegrationLink.OPEN_ACCESS_BOOKS]
+        assert None == importer.mirrors[ExternalIntegrationLink.COVERS]
 
         # Let's configure mirrors integration for it.
 
@@ -1965,9 +2021,9 @@ class TestMirroring(OPDSImporterTest):
         mirrors = importer.mirrors
 
         assert isinstance(mirrors[ExternalIntegrationLink.COVERS], S3Uploader)
-        eq_("some-covers", mirrors[ExternalIntegrationLink.COVERS].get_bucket(
-            S3UploaderConfiguration.BOOK_COVERS_BUCKET_KEY))
-        eq_(mirrors[ExternalIntegrationLink.OPEN_ACCESS_BOOKS], None)
+        assert "some-covers" == mirrors[ExternalIntegrationLink.COVERS].get_bucket(
+            S3UploaderConfiguration.BOOK_COVERS_BUCKET_KEY)
+        assert mirrors[ExternalIntegrationLink.OPEN_ACCESS_BOOKS] == None
 
 
         # An OPDSImporter can have two types of mirrors.
@@ -1988,41 +2044,20 @@ class TestMirroring(OPDSImporterTest):
         mirrors = importer.mirrors
 
         assert isinstance(mirrors[ExternalIntegrationLink.OPEN_ACCESS_BOOKS], S3Uploader)
-        eq_("some-books", mirrors[ExternalIntegrationLink.OPEN_ACCESS_BOOKS].get_bucket(
-            S3UploaderConfiguration.OA_CONTENT_BUCKET_KEY))
-        eq_("some-covers", mirrors[ExternalIntegrationLink.COVERS].get_bucket(
-            S3UploaderConfiguration.BOOK_COVERS_BUCKET_KEY))
+        assert "some-books" == mirrors[ExternalIntegrationLink.OPEN_ACCESS_BOOKS].get_bucket(
+            S3UploaderConfiguration.OA_CONTENT_BUCKET_KEY)
+        assert "some-covers" == mirrors[ExternalIntegrationLink.COVERS].get_bucket(
+            S3UploaderConfiguration.BOOK_COVERS_BUCKET_KEY)
 
-    def test_resources_are_mirrored_on_import(self):
-
-        svg = """<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
-  "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
-
-<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="500">
-    <ellipse cx="50" cy="25" rx="50" ry="25" style="fill:blue;"/>
-</svg>"""
-
-        open_png = open(self.sample_cover_path("test-book-cover.png"), "rb").read()
-
-        http = DummyHTTPClient()
-        http.queue_response(
-        200, content='I am 10441.epub.images',
-        media_type=Representation.EPUB_MEDIA_TYPE
-        )
-        http.queue_response(
-        200, content=svg, media_type=Representation.SVG_MEDIA_TYPE
-        )
-        http.queue_response(
-        200, content='I am 10557.epub.images',
-        media_type=Representation.EPUB_MEDIA_TYPE,
-        )
+    def test_resources_are_mirrored_on_import(self, http, png, svg, epub10441, epub10557, epub10441_cover,
+                                              epub10557_cover_broken, epub10557_cover_working):
+        http.queue_response(**epub10441)
+        http.queue_response(**epub10441_cover)
+        http.queue_response(**epub10557)
         # The request to http://root/broken-cover-image
         # will result in a 404 error, and the image will not be mirrored.
-        http.queue_response(404, media_type="text/plain")
-        http.queue_response(
-        200, content=open_png,
-        media_type=Representation.PNG_MEDIA_TYPE
-        )
+        http.queue_response(**epub10557_cover_broken)
+        http.queue_response(**epub10557_cover_working)
 
         s3_for_books = MockS3Uploader()
         s3_for_covers = MockS3Uploader()
@@ -2037,73 +2072,82 @@ class TestMirroring(OPDSImporterTest):
             importer.import_from_feed(self.content_server_mini_feed,
                                       feed_url='http://root')
         )
-        e1 = imported_editions[0]
-        e2 = imported_editions[1]
 
-        eq_(2, len(pools))
+        assert 2 == len(pools)
 
-        # The import process requested each remote resource in the
-        # order they appeared in the OPDS feed. The thumbnail
-        # image was not requested, since we never trust foreign thumbnails.
-        eq_(http.requests, [
-            'http://www.gutenberg.org/ebooks/10441.epub.images',
-            'https://s3.amazonaws.com/book-covers.nypl.org/Gutenberg-Illustrated/10441/cover_10441_9.png',
-            'http://www.gutenberg.org/ebooks/10557.epub.images',
-            'http://root/broken-cover-image',
-            'http://root/working-cover-image'
-        ])
+        # Both items were requested
+        assert epub10441['url'] in http.requests
+        assert epub10557['url'] in http.requests
 
-        [e1_oa_link, e1_image_link, e1_thumbnail_link,
-         e1_description_link ] = sorted(
-            e1.primary_identifier.links, key=lambda x: x.rel
+        # The import process requested each remote resource in the feed. The thumbnail
+        # image was not requested, since we never trust foreign thumbnails. The order they
+        # are requested in is not deterministic, but after requesting the epub the images
+        # should be requested.
+        index = http.requests.index(epub10441['url'])
+        assert http.requests[index+1] == epub10441_cover['url']
+
+        index = http.requests.index(epub10557['url'])
+        assert http.requests[index:index+3] == [
+            epub10557['url'],
+            epub10557_cover_broken['url'],
+            epub10557_cover_working['url']
+        ]
+
+        e_10441 = next(e for e in imported_editions if e.primary_identifier.identifier == '10441')
+        e_10557 = next(e for e in imported_editions if e.primary_identifier.identifier == '10557')
+
+        [e_10441_oa_link, e_10441_image_link, e_10441_thumbnail_link,
+         e_10441_description_link] = sorted(
+            e_10441.primary_identifier.links, key=lambda x: x.rel
         )
-        [e2_broken_image_link, e2_working_image_link, e2_oa_link] = sorted(
-           e2.primary_identifier.links, key=lambda x: x.resource.url
+        [e_10557_broken_image_link, e_10557_working_image_link, e_10557_oa_link] = sorted(
+           e_10557.primary_identifier.links, key=lambda x: x.resource.url
         )
 
         # The thumbnail image is associated with the Identifier, but
         # it's not used because it's associated with a representation
         # (cover_10441_9.png with media type "image/png") that no
         # longer has a resource associated with it.
-        eq_(Hyperlink.THUMBNAIL_IMAGE, e1_thumbnail_link.rel)
-        hypothetical_full_representation = e1_thumbnail_link.resource.representation.thumbnail_of
-        eq_(None, hypothetical_full_representation.resource)
-        eq_(Representation.PNG_MEDIA_TYPE,
+        assert Hyperlink.THUMBNAIL_IMAGE == e_10441_thumbnail_link.rel
+        hypothetical_full_representation = e_10441_thumbnail_link.resource.representation.thumbnail_of
+        assert None == hypothetical_full_representation.resource
+        assert (Representation.PNG_MEDIA_TYPE ==
             hypothetical_full_representation.media_type)
 
         # That's because when we actually got cover_10441_9.png,
         # it turned out to be an SVG file, not a PNG, so we created a new
         # Representation. TODO: Obviously we could do better here.
-        eq_(Representation.SVG_MEDIA_TYPE,
-            e1_image_link.resource.representation.media_type)
+        assert (Representation.SVG_MEDIA_TYPE ==
+            e_10441_image_link.resource.representation.media_type)
 
         # The two open-access links were mirrored to S3, as were the
         # original SVG image, the working PNG image, and its thumbnail, which we generated. The
         # The broken PNG image was not mirrored because our attempt to download
         # it resulted in a 404 error.
-        imported_book_representations = [
-            e1_oa_link.resource.representation,
-            e2_oa_link.resource.representation
-        ]
-        imported_cover_representations = [
-            e1_image_link.resource.representation,
-            e2_working_image_link.resource.representation,
-            e2_working_image_link.resource.representation.thumbnails[0]
-        ]
-        eq_(imported_book_representations, s3_for_books.uploaded)
-        eq_(imported_cover_representations, s3_for_covers.uploaded)
+        imported_book_representations = {e_10441_oa_link.resource.representation,
+                                         e_10557_oa_link.resource.representation}
+        imported_cover_representations = {e_10441_image_link.resource.representation,
+                                          e_10557_working_image_link.resource.representation,
+                                          e_10557_working_image_link.resource.representation.thumbnails[0]}
 
-        eq_(2, len(s3_for_books.uploaded))
-        eq_(3, len(s3_for_covers.uploaded))
+        assert imported_book_representations == set(s3_for_books.uploaded)
+        assert imported_cover_representations == set(s3_for_covers.uploaded)
+
+        assert 2 == len(s3_for_books.uploaded)
+        assert 3 == len(s3_for_covers.uploaded)
+
+        assert epub10441['content'] in s3_for_books.content
+        assert epub10557['content'] in s3_for_books.content
 
         svg_bytes = svg.encode("utf8")
-        eq_(b"I am 10441.epub.images", s3_for_books.content[0])
-        eq_(b"I am 10557.epub.images", s3_for_books.content[1])
-        eq_(svg_bytes, s3_for_covers.content[0])
-        eq_(open_png, s3_for_covers.content[1])
-        #We don't know what the thumbnail is, but we know it's smaller than the
-        #original cover image.
-        assert(len(s3_for_covers.content[1]) > len(s3_for_covers.content[2]))
+        covers_content = s3_for_covers.content[:]
+        assert svg_bytes in covers_content
+        covers_content.remove(svg_bytes)
+        assert png in covers_content
+        covers_content.remove(png)
+
+        # We don't know what the thumbnail is, but we know it's smaller than the original cover image.
+        assert(len(png) > len(covers_content[0]))
 
         # Each resource was 'mirrored' to an Amazon S3 bucket.
         #
@@ -2122,10 +2166,10 @@ class TestMirroring(OPDSImporterTest):
         book2_url = 'https://test-content-bucket.s3.amazonaws.com/Library%20Simplified%20Open%20Access%20Content%20Server/Gutenberg%20ID/10557/Johnny%20Crow%27s%20Party.epub.images'
         book2_png_cover = 'https://test-cover-bucket.s3.amazonaws.com/Library%20Simplified%20Open%20Access%20Content%20Server/Gutenberg%20ID/10557/working-cover-image.png'
         book2_png_thumbnail = 'https://test-cover-bucket.s3.amazonaws.com/scaled/300/Library%20Simplified%20Open%20Access%20Content%20Server/Gutenberg%20ID/10557/working-cover-image.png'
-        uploaded_urls = [x.mirror_url for x in s3_for_covers.uploaded]
-        uploaded_book_urls = [x.mirror_url for x in s3_for_books.uploaded]
-        eq_([book1_svg_cover, book2_png_cover, book2_png_thumbnail], uploaded_urls)
-        eq_([book1_url, book2_url], uploaded_book_urls)
+        uploaded_urls = {x.mirror_url for x in s3_for_covers.uploaded}
+        uploaded_book_urls = {x.mirror_url for x in s3_for_books.uploaded}
+        assert {book1_svg_cover, book2_png_cover, book2_png_thumbnail} == uploaded_urls
+        assert {book1_url, book2_url} == uploaded_book_urls
 
 
         # If we fetch the feed again, and the entries have been updated since the
@@ -2134,14 +2178,17 @@ class TestMirroring(OPDSImporterTest):
         cutoff = datetime.datetime(2013, 1, 2, 16, 56, 40)
 
         http.queue_response(
+            epub10441['url'],
             304, media_type=Representation.EPUB_MEDIA_TYPE
         )
 
         http.queue_response(
+            epub10441_cover['url'],
             304, media_type=Representation.SVG_MEDIA_TYPE
         )
 
         http.queue_response(
+            epub10557['url'],
             304, media_type=Representation.EPUB_MEDIA_TYPE
         )
 
@@ -2149,58 +2196,44 @@ class TestMirroring(OPDSImporterTest):
             importer.import_from_feed(self.content_server_mini_feed)
         )
 
-        eq_([e1, e2], imported_editions)
+        assert {e_10441, e_10557} == set(imported_editions)
 
         # Nothing new has been uploaded
-        eq_(2, len(s3_for_books.uploaded))
+        assert 2 == len(s3_for_books.uploaded)
 
         # If the content has changed, it will be mirrored again.
-        http.queue_response(
-            200, content="I am a new version of 10441.epub.images",
-            media_type=Representation.EPUB_MEDIA_TYPE
-        )
-
-        http.queue_response(
-            200, content=svg,
-            media_type=Representation.SVG_MEDIA_TYPE
-        )
-
-        http.queue_response(
-            200, content="I am a new version of 10557.epub.images",
-            media_type=Representation.EPUB_MEDIA_TYPE
-        )
+        epub10441_updated = epub10441.copy()
+        epub10441_updated['content'] = b"I am a new version of 10441.epub.images"
+        http.queue_response(**epub10441_updated)
+        http.queue_response(**epub10441_cover)
+        epub10557_updated = epub10557.copy()
+        epub10557_updated['content'] = b"I am a new version of 10557.epub.images"
+        http.queue_response(**epub10557_updated)
 
         imported_editions, pools, works, failures = (
             importer.import_from_feed(self.content_server_mini_feed)
         )
 
-        eq_([e1, e2], imported_editions)
-        eq_(4, len(s3_for_books.uploaded))
-        eq_(b"I am a new version of 10441.epub.images", s3_for_books.content[2])
-        eq_(svg_bytes, s3_for_covers.content[3])
-        eq_(b"I am a new version of 10557.epub.images", s3_for_books.content[3])
+        assert {e_10441, e_10557} == set(imported_editions)
+        assert 4 == len(s3_for_books.uploaded)
+        assert epub10441_updated['content'] in s3_for_books.content[-2:]
+        assert svg_bytes == s3_for_covers.content.pop()
+        assert epub10557_updated['content'] in s3_for_books.content[-2:]
 
 
-    def test_content_resources_not_mirrored_on_import_if_no_collection(self):
+    def test_content_resources_not_mirrored_on_import_if_no_collection(self, http, svg, epub10557_cover_broken,
+                                                                       epub10557_cover_working, epub10441_cover):
         # If you don't provide a Collection to the OPDSImporter, no
         # LicensePools are created for the book and content resources
         # (like EPUB editions of the book) are not mirrored. Only
         # metadata resources (like the book cover) are mirrored.
 
-        svg = """<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
-  "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
 
-<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="500">
-    <ellipse cx="50" cy="25" rx="50" ry="25" style="fill:blue;"/>
-</svg>"""
-
-        http = DummyHTTPClient()
         # The request to http://root/broken-cover-image
         # will result in a 404 error, and the image will not be mirrored.
-        http.queue_response(404, media_type="text/plain")
-        http.queue_response(
-            200, content=svg, media_type=Representation.SVG_MEDIA_TYPE
-        )
+        http.queue_response(**epub10557_cover_broken)
+        http.queue_response(**epub10557_cover_working)
+        http.queue_response(**epub10441_cover)
 
         s3 = MockS3Uploader()
         mirrors = dict(covers_mirror=s3)
@@ -2217,59 +2250,45 @@ class TestMirroring(OPDSImporterTest):
 
         # No LicensePools were created, since no Collection was
         # provided.
-        eq_([], pools)
+        assert [] == pools
 
         # The import process requested each remote resource in the
         # order they appeared in the OPDS feed. The EPUB resources
         # were not requested because no Collection was provided to the
         # importer. The thumbnail image was not requested, since we
         # were going to make our own thumbnail anyway.
-        eq_(http.requests, [
-            'https://s3.amazonaws.com/book-covers.nypl.org/Gutenberg-Illustrated/10441/cover_10441_9.png',
-            'http://root/broken-cover-image',
-            'http://root/working-cover-image'
-        ])
+        assert len(http.requests) == 3
+        assert set(http.requests) == {
+            epub10441_cover['url'],
+            epub10557_cover_broken['url'],
+            epub10557_cover_working['url']
+        }
 
 
 class TestOPDSImportMonitor(OPDSImporterTest):
 
     def test_constructor(self):
-        assert_raises_regexp(
-            ValueError,
-            "OPDSImportMonitor can only be run in the context of a Collection.",
-            OPDSImportMonitor,
-            self._db,
-            None,
-            OPDSImporter,
-        )
+        with pytest.raises(ValueError) as excinfo:
+            OPDSImportMonitor(self._db, None, OPDSImporter)
+        assert "OPDSImportMonitor can only be run in the context of a Collection." in str(excinfo.value)
 
         self._default_collection.external_integration.protocol = ExternalIntegration.OVERDRIVE
-        assert_raises_regexp(
-            ValueError,
-            "Collection .* is configured for protocol Overdrive, not OPDS Import.",
-            OPDSImportMonitor,
-            self._db,
-            self._default_collection,
-            OPDSImporter,
-        )
+        with pytest.raises(ValueError) as excinfo:
+            OPDSImportMonitor(self._db, self._default_collection, OPDSImporter)
+        assert "Collection Default Collection is configured for protocol Overdrive, not OPDS Import." in str(excinfo.value)
 
         self._default_collection.external_integration.protocol = ExternalIntegration.OPDS_IMPORT
         self._default_collection.external_integration.setting('data_source').value = None
-        assert_raises_regexp(
-            ValueError,
-            "Collection .* has no associated data source.",
-            OPDSImportMonitor,
-            self._db,
-            self._default_collection,
-            OPDSImporter,
-        )
+        with pytest.raises(ValueError) as excinfo:
+            OPDSImportMonitor(self._db, self._default_collection, OPDSImporter)
+        assert "Collection Default Collection has no associated data source." in str(excinfo.value)
 
     def test_external_integration(self):
         monitor = OPDSImportMonitor(
             self._db, self._default_collection,
             import_class=OPDSImporter,
         )
-        eq_(self._default_collection.external_integration,
+        assert (self._default_collection.external_integration ==
             monitor.external_integration(self._db))
 
     def test__run_self_tests(self):
@@ -2286,7 +2305,7 @@ class TestOPDSImportMonitor(OPDSImporterTest):
             # First we will get the first page of the OPDS feed.
             def follow_one_link(self, url):
                 self.follow_one_link_called_with.append(url)
-                return (url, "some content")
+                return ([], "some content")
 
         feed_url = self._url
         self._default_collection.external_account_id = feed_url
@@ -2294,20 +2313,20 @@ class TestOPDSImportMonitor(OPDSImporterTest):
                        import_class=MockImporter)
         [first_page, found_content] = monitor._run_self_tests(self._db)
         expect = "Retrieve the first page of the OPDS feed (%s)" % feed_url
-        eq_(expect, first_page.name)
-        eq_(True, first_page.success)
-        eq_((feed_url, "some content"), first_page.result)
+        assert expect == first_page.name
+        assert True == first_page.success
+        assert ([], "some content") == first_page.result
 
         # follow_one_link was called once.
         [link] = monitor.follow_one_link_called_with
-        eq_(monitor.feed_url, link)
+        assert monitor.feed_url == link
 
         # Then, assert_importable_content was called on the importer.
-        eq_("Checking for importable content", found_content.name)
-        eq_(True, found_content.success)
-        eq_(("some content", feed_url),
+        assert "Checking for importable content" == found_content.name
+        assert True == found_content.success
+        assert (("some content", feed_url) ==
             monitor.importer.assert_importable_content_called_with)
-        eq_("looks good", found_content.result)
+        assert "looks good" == found_content.result
 
     def test_hook_methods(self):
         """By default, the OPDS URL and data source used by the importer
@@ -2317,10 +2336,10 @@ class TestOPDSImportMonitor(OPDSImporterTest):
             self._db, self._default_collection,
             import_class=OPDSImporter,
         )
-        eq_(self._default_collection.external_account_id,
+        assert (self._default_collection.external_account_id ==
             monitor.opds_url(self._default_collection))
 
-        eq_(self._default_collection.data_source,
+        assert (self._default_collection.data_source ==
             monitor.data_source(self._default_collection))
 
     def test_feed_contains_new_data(self):
@@ -2337,8 +2356,8 @@ class TestOPDSImportMonitor(OPDSImporterTest):
         timestamp = monitor.timestamp()
 
         # Nothing has been imported yet, so all data is new.
-        eq_(True, monitor.feed_contains_new_data(feed))
-        eq_(None, timestamp.start)
+        assert True == monitor.feed_contains_new_data(feed)
+        assert None == timestamp.start
 
         # Now import the editions.
         monitor = MockOPDSImportMonitor(
@@ -2349,7 +2368,7 @@ class TestOPDSImportMonitor(OPDSImporterTest):
         monitor.run()
 
         # Editions have been imported.
-        eq_(2, self._db.query(Edition).count())
+        assert 2 == self._db.query(Edition).count()
 
         # The timestamp has been updated, although unlike most
         # Monitors the timestamp is purely informational.
@@ -2370,18 +2389,18 @@ class TestOPDSImportMonitor(OPDSImporterTest):
         )
         record2.timestamp = datetime.datetime(2016, 1, 1, 1, 1, 1)
 
-        eq_(False, monitor.feed_contains_new_data(feed))
+        assert False == monitor.feed_contains_new_data(feed)
 
         # If the monitor is set up to force reimport, it doesn't
         # matter that there's nothing new--we act as though there is.
         monitor.force_reimport = True
-        eq_(True, monitor.feed_contains_new_data(feed))
+        assert True == monitor.feed_contains_new_data(feed)
         monitor.force_reimport = False
 
         # If an entry was updated after the date given in that entry's
         # CoverageRecord, there's new data.
         record2.timestamp = datetime.datetime(1970, 1, 1, 1, 1, 1)
-        eq_(True, monitor.feed_contains_new_data(feed))
+        assert True == monitor.feed_contains_new_data(feed)
 
         # If a CoverageRecord is a transient failure, we try again
         # regardless of whether it's been updated.
@@ -2389,16 +2408,16 @@ class TestOPDSImportMonitor(OPDSImporterTest):
             r.timestamp = datetime.datetime(2016, 1, 1, 1, 1, 1)
             r.exception = "Failure!"
             r.status = CoverageRecord.TRANSIENT_FAILURE
-        eq_(True, monitor.feed_contains_new_data(feed))
+        assert True == monitor.feed_contains_new_data(feed)
 
         # If a CoverageRecord is a persistent failure, we don't try again...
         for r in [record, record2]:
             r.status = CoverageRecord.PERSISTENT_FAILURE
-        eq_(False, monitor.feed_contains_new_data(feed))
+        assert False == monitor.feed_contains_new_data(feed)
 
         # ...unless the feed updates.
         record.timestamp = datetime.datetime(1970, 1, 1, 1, 1, 1)
-        eq_(True, monitor.feed_contains_new_data(feed))
+        assert True == monitor.feed_contains_new_data(feed)
 
     def http_with_feed(self, feed, content_type=OPDSFeed.ACQUISITION_FEED_TYPE):
         """Helper method to make a DummyHTTPClient with a
@@ -2419,14 +2438,14 @@ class TestOPDSImportMonitor(OPDSImporterTest):
             return monitor.follow_one_link("http://url", do_get=http.do_get)
         http.queue_response(200, OPDSFeed.ACQUISITION_FEED_TYPE, content=feed)
         next_links, content = follow()
-        eq_(1, len(next_links))
-        eq_("http://localhost:5000/?after=327&size=100", next_links[0])
+        assert 1 == len(next_links)
+        assert "http://localhost:5000/?after=327&size=100" == next_links[0]
 
-        eq_(feed, content)
+        assert feed == content
 
         # Now import the editions and add coverage records.
         monitor.importer.import_from_feed(feed)
-        eq_(2, self._db.query(Edition).count())
+        assert 2 == self._db.query(Edition).count()
 
         editions = self._db.query(Edition).all()
         data_source = DataSource.lookup(self._db, DataSource.OA_CONTENT_SERVER)
@@ -2446,25 +2465,25 @@ class TestOPDSImportMonitor(OPDSImporterTest):
         for imprecise_media_type in OPDSFeed.ATOM_LIKE_TYPES:
             http.queue_response(200, imprecise_media_type, content=feed)
             next_links, content = follow()
-            eq_(0, len(next_links))
-            eq_(None, content)
+            assert 0 == len(next_links)
+            assert None == content
 
         http.queue_response(200, AtomFeed.ATOM_TYPE, content=feed)
         next_links, content = follow()
-        eq_(0, len(next_links))
-        eq_(None, content)
+        assert 0 == len(next_links)
+        assert None == content
 
         # If the media type is missing or is not an Atom feed,
         # an exception is raised.
         http.queue_response(200, None, content=feed)
-        assert_raises_regexp(
-            BadResponseException, ".*Expected Atom feed, got None.*", follow
-        )
+        with pytest.raises(BadResponseException) as excinfo:
+            follow()
+        assert "Expected Atom feed, got None" in str(excinfo.value)
 
         http.queue_response(200, "not/atom", content=feed)
-        assert_raises_regexp(
-            BadResponseException, ".*Expected Atom feed, got not/atom.*", follow
-        )
+        with pytest.raises(BadResponseException) as excinfo:
+            follow()
+        assert "Expected Atom feed, got not/atom" in str(excinfo.value)
 
     def test_import_one_feed(self):
         # Check coverage records are created.
@@ -2483,30 +2502,29 @@ class TestOPDSImportMonitor(OPDSImporterTest):
         editions = self._db.query(Edition).all()
 
         # One edition has been imported
-        eq_(1, len(editions))
+        assert 1 == len(editions)
         [edition] = editions
 
         # The return value of import_one_feed includes the imported
         # editions.
-        eq_([edition], imported)
+        assert [edition] == imported
 
         # That edition has a CoverageRecord.
         record = CoverageRecord.lookup(
             editions[0].primary_identifier, data_source,
             operation=CoverageRecord.IMPORT_OPERATION
         )
-        eq_(CoverageRecord.SUCCESS, record.status)
-        eq_(None, record.exception)
+        assert CoverageRecord.SUCCESS == record.status
+        assert None == record.exception
 
         # The edition's primary identifier has some cover links whose
         # relative URL have been resolved relative to the Collection's
         # external_account_id.
         covers  = set([x.resource.url for x in editions[0].primary_identifier.links
                     if x.rel==Hyperlink.IMAGE])
-        eq_(covers, set(["http://root-url/broken-cover-image",
+        assert covers == set(["http://root-url/broken-cover-image",
                         "http://root-url/working-cover-image"]
                     )
-        )
 
         # The 202 status message in the feed caused a transient failure.
         # The exception caused a persistent failure.
@@ -2515,11 +2533,10 @@ class TestOPDSImportMonitor(OPDSImporterTest):
             CoverageRecord.operation==CoverageRecord.IMPORT_OPERATION,
             CoverageRecord.status != CoverageRecord.SUCCESS
         )
-        eq_(
+        assert (
             sorted([CoverageRecord.TRANSIENT_FAILURE,
-                    CoverageRecord.PERSISTENT_FAILURE]),
-            sorted([x.status for x in coverage_records])
-        )
+                    CoverageRecord.PERSISTENT_FAILURE]) ==
+            sorted([x.status for x in coverage_records]))
 
         identifier, ignore = Identifier.parse_urn(self._db, "urn:librarysimplified.org/terms/id/Gutenberg%20ID/10441")
         failure = CoverageRecord.lookup(
@@ -2530,7 +2547,7 @@ class TestOPDSImportMonitor(OPDSImporterTest):
 
         # Both failures were reported in the return value from
         # import_one_feed
-        eq_(2, len(failures))
+        assert 2 == len(failures)
 
     def test_run_once(self):
         class MockOPDSImportMonitor(OPDSImportMonitor):
@@ -2562,15 +2579,15 @@ class TestOPDSImportMonitor(OPDSImporterTest):
         progress = monitor.run_once(object())
 
         # Feeds are imported in reverse order
-        eq_(["last page", "second page", "first page"], monitor.imports)
+        assert ["last page", "second page", "first page"] == monitor.imports
 
         # Every page of the import had two successes and one failure.
-        eq_("Items imported: 6. Failures: 3.", progress.achievements)
+        assert "Items imported: 6. Failures: 3." == progress.achievements
 
         # The TimestampData returned by run_once does not include any
         # timing information; that's provided by run().
-        eq_(None, progress.start)
-        eq_(None, progress.finish)
+        assert None == progress.start
+        assert None == progress.finish
 
     def test_update_headers(self):
         # Test the _update_headers helper method.
@@ -2584,8 +2601,8 @@ class TestOPDSImportMonitor(OPDSImporterTest):
         # default value will be used.
         headers = {'Some other': 'header'}
         new_headers = monitor._update_headers(headers)
-        eq_(['Some other'], list(headers.keys()))
-        eq_(['Some other', 'Accept'], list(new_headers.keys()))
+        assert ['Some other'] == list(headers.keys())
+        assert ['Accept', 'Some other'] == sorted(list(new_headers.keys()))
 
         # If a custom_accept_header exist, will be used instead a default value
         new_headers = monitor._update_headers(headers)
@@ -2593,8 +2610,8 @@ class TestOPDSImportMonitor(OPDSImporterTest):
         target_value = old_value + "more characters"
         monitor.custom_accept_header = target_value
         new_headers = monitor._update_headers(headers)
-        eq_(new_headers['Accept'], target_value)
-        assert_not_equal(old_value, target_value)
+        assert new_headers['Accept'] == target_value
+        assert old_value != target_value
 
         # If the monitor has a username and password, an Authorization
         # header using HTTP Basic Authentication is also added.
@@ -2610,5 +2627,5 @@ class TestOPDSImportMonitor(OPDSImporterTest):
         expect = dict(Accept="text/html", Authorization="Bearer abc")
         headers = dict(expect)
         new_headers = monitor._update_headers(headers)
-        eq_(headers, expect)
+        assert headers == expect
 

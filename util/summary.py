@@ -2,7 +2,7 @@ import logging
 from textblob import TextBlob
 from textblob.exceptions import MissingCorpusError
 from collections import Counter
-from nose.tools import set_trace
+
 from . import (
     Bigrams,
     english_bigrams,

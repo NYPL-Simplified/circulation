@@ -1,9 +1,4 @@
-from nose.tools import (
-    eq_,
-    set_trace,
-)
-
-from . import DatabaseTest
+from ..testing import DatabaseTest
 
 from ..facets import (
     FacetConstants as Facets,
@@ -23,15 +18,15 @@ class TestFacetConfig(DatabaseTest):
         config = FacetConfig.from_library(library)
         assert Facets.ORDER_RANDOM not in config.enabled_facets(order_by)
         for group in list(Facets.DEFAULT_FACET.keys()):
-            eq_(config.enabled_facets(group),
+            assert (config.enabled_facets(group) ==
                 library.enabled_facets(group))
-            eq_(config.default_facet(group),
+            assert (config.default_facet(group) ==
                 library.default_facet(group))
 
         # If you then modify the FacetConfig, it deviates from what
         # the Library would do.
         config.set_default_facet(order_by, Facets.ORDER_RANDOM)
-        eq_(Facets.ORDER_RANDOM, config.default_facet(order_by))
+        assert Facets.ORDER_RANDOM == config.default_facet(order_by)
         assert library.default_facet(order_by) != Facets.ORDER_RANDOM
         assert Facets.ORDER_RANDOM in config.enabled_facets(order_by)
 

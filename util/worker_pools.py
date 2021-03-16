@@ -1,6 +1,6 @@
 import logging
 from contextlib import contextmanager
-from nose.tools import set_trace
+
 from threading import (
     RLock,
     Thread,

@@ -1,4 +1,4 @@
-from nose.tools import assert_raises, eq_
+import pytest
 from parameterized import parameterized
 
 from ...python_expression_dsl.evaluator import (
@@ -185,10 +185,10 @@ class TestDSLEvaluator(object):
 
         # Act
         if expected_exception:
-            with assert_raises(expected_exception):
+            with pytest.raises(expected_exception):
                 evaluator.evaluate(expression, context, safe_classes)
         else:
             result = evaluator.evaluate(expression, context, safe_classes)
 
             # Assert
-            eq_(expected_result, result)
+            assert expected_result == result

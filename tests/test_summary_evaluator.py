@@ -3,7 +3,6 @@
 from textblob import TextBlob
 from textblob.exceptions import MissingCorpusError
 from ..util.summary import SummaryEvaluator
-from nose.tools import eq_, set_trace
 
 class TestSummaryEvaluator(object):
 
@@ -17,17 +16,17 @@ class TestSummaryEvaluator(object):
     def test_four_sentences_is_better_than_three(self):
         s1 = "Hey, this is Sentence one. And now, here is Sentence two."
         s2 = "Sentence one. Sentence two. Sentence three. Sentence four."
-        eq_(s2, self._best(s1, s2))
+        assert s2 == self._best(s1, s2)
 
     def test_four_sentences_is_better_than_five(self):
         s1 = "Sentence 1. Sentence 2. Sentence 3. Sentence 4. Sentence 5."
         s2 = "Sentence one. Sentence two. Sentence three.  Sentence four."
-        eq_(s2, self._best(s1, s2))
+        assert s2 == self._best(s1, s2)
 
     def test_shorter_is_better(self):
         s1 = "A very long sentence."
         s2 = "Tiny sentence."
-        eq_(s2, self._best(s1, s2))
+        assert s2 == self._best(s1, s2)
 
     def test_noun_phrase_coverage_is_important(self):
 
@@ -36,7 +35,7 @@ class TestSummaryEvaluator(object):
         s3 = "Alice meets the Mock Turtle and the White Rabbit."
         # s3 is longer, and they're all one sentence, but s3 mentions
         # three noun phrases instead of two.
-        eq_(s3, self._best(s1, s2, s3))
+        assert s3 == self._best(s1, s2, s3)
 
     def test_non_english_is_penalized(self):
         """If description text appears not to be in English, it is rated down
@@ -70,7 +69,7 @@ class TestSummaryEvaluator(object):
 
         english_language_penalty = evaluator.score(
             english, apply_language_penalty=True)
-        eq_(english_language_penalty, english_no_language_penalty)
+        assert english_language_penalty == english_no_language_penalty
 
     def test_missing_corpus_error_ignored(self):
         class AlwaysErrorBlob(TextBlob):
@@ -79,10 +78,10 @@ class TestSummaryEvaluator(object):
                 raise MissingCorpusError()
 
         evaluator = SummaryEvaluator()
-        eq_(evaluator._nltk_installed, True)
+        assert evaluator._nltk_installed == True
 
         summary = "Yes, this is a summary."
         evaluator.add(summary, parser=AlwaysErrorBlob)
         evaluator.add("And another", parser=AlwaysErrorBlob)
-        eq_(evaluator._nltk_installed, False)
-        eq_(1, evaluator.score(summary))
+        assert evaluator._nltk_installed == False
+        assert 1 == evaluator.score(summary)

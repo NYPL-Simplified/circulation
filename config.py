@@ -1,6 +1,6 @@
 import contextlib
 import datetime
-from nose.tools import set_trace
+
 import os
 import json
 import logging

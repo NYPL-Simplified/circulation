@@ -4,7 +4,7 @@ import datetime
 import uuid
 
 import sqlalchemy
-from nose.tools import set_trace
+
 from sqlalchemy import (
     Column,
     DateTime,

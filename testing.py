@@ -9,11 +9,8 @@ import shutil
 import time
 import tempfile
 import uuid
-from nose.tools import (
-    set_trace,
-    eq_,
-)
 from psycopg2.errors import UndefinedTable
+import pytest
 from sqlalchemy.orm.session import Session
 from sqlalchemy.exc import ProgrammingError
 from .config import Configuration
@@ -80,51 +77,6 @@ from .log import LogConfiguration
 from . import external_search
 import mock
 import inspect
-
-from nose.plugins.attrib import attr
-
-def package_setup():
-    """Make sure the application starts in a pristine state.
-    """
-    # This will make sure we always connect to the test database.
-    os.environ['TESTING'] = 'true'
-
-    # This will make sure we always connect to the test database.
-    os.environ['TESTING'] = 'true'
-
-    # Ensure that the log configuration starts in a known state.
-    LogConfiguration.initialize(None, testing=True)
-
-    # Drop any existing schema. It will be recreated when
-    # SessionManager.initialize() runs.
-    #
-    # Base.metadata.drop_all(connection) doesn't work here, so we
-    # approximate by dropping every item individually.
-    engine = SessionManager.engine()
-    for table in reversed(Base.metadata.sorted_tables):
-        if table.name.startswith('mv_'):
-            # TODO: This can be removed soon. We don't create
-            # materialized views anymore, but they'll still hang
-            # around for a while in test databases and need to be
-            # deleted.
-            statement = "drop materialized view %s" % table.name
-        else:
-            statement = table.delete()
-        try:
-            engine.execute(statement)
-        except ProgrammingError as e:
-            if isinstance(e.orig, UndefinedTable):
-                # This is the first time running these tests
-                # on this server, and the tables don't exist yet.
-                pass
-            else:
-                raise
-
-
-def package_teardown():
-    if 'TESTING' in os.environ:
-        del os.environ['TESTING']
-
 
 class LogCaptureHandler(logging.Handler):
     """A `logging.Handler` context manager that captures the messages
@@ -221,7 +173,20 @@ class DatabaseTest(object):
 
         Configuration.instance[Configuration.DATA_DIRECTORY] = cls.old_data_dir
 
-    def setup(self, mock_search=True):
+    @pytest.fixture(autouse=True)
+    def search_mock(self, request):
+        # Only setup the elasticsearch mock if the elasticsearch mark isn't set
+        elasticsearch_mark = request.node.get_closest_marker("elasticsearch")
+        if elasticsearch_mark is not None:
+            self.search_mock = None
+        else:
+            self.search_mock = mock.patch(external_search.__name__ + ".ExternalSearchIndex", MockExternalSearchIndex)
+            self.search_mock.start()
+        yield
+        if self.search_mock:
+            self.search_mock.stop()
+
+    def setup_method(self):
         # Create a new connection to the database.
         self._db = Session(self.connection)
         self.transaction = self.connection.begin_nested()
@@ -233,22 +198,8 @@ class DatabaseTest(object):
         self.isbns = [
             "9780674368279", "0636920028468", "9781936460236", "9780316075978"
         ]
-        if mock_search:
-            self.search_mock = mock.patch(external_search.__name__ + ".ExternalSearchIndex", MockExternalSearchIndex)
-            self.search_mock.start()
-        else:
-            self.search_mock = None
 
-        # TODO:  keeping this for now, but need to fix it bc it hits _isbn,
-        # which pops an isbn off the list and messes tests up.  so exclude
-        # _ functions from participating.
-        # also attempt to stop nosetest showing docstrings instead of function names.
-        #for name, obj in inspect.getmembers(self):
-        #    if inspect.isfunction(obj) and obj.__name__.startswith('test_'):
-        #        obj.__doc__ = None
-
-
-    def teardown(self):
+    def teardown_method(self):
         # Close the session.
         self._db.close()
 
@@ -275,9 +226,6 @@ class DatabaseTest(object):
         ]:
             if key in Configuration.instance:
                 del(Configuration.instance[key])
-
-        if self.search_mock:
-            self.search_mock.stop()
 
     def time_eq(self, a, b):
         "Assert that two times are *approximately* the same -- within 2 seconds."
@@ -1111,7 +1059,8 @@ class SearchClientForTesting(ExternalSearchIndex):
             new_index, number_of_shards=1, number_of_replicas=0
         )
 
-@attr(integration='elasticsearch')
+
+@pytest.mark.elasticsearch
 class ExternalSearchTest(DatabaseTest):
     """
     These tests require elasticsearch to be running locally. If it's not, or there's
@@ -1124,9 +1073,9 @@ class ExternalSearchTest(DatabaseTest):
 
     SIMPLIFIED_TEST_ELASTICSEARCH = os.environ.get('SIMPLIFIED_TEST_ELASTICSEARCH', 'http://localhost:9200')
 
-    def setup(self):
+    def setup_method(self):
 
-        super(ExternalSearchTest, self).setup(mock_search=False)
+        super(ExternalSearchTest, self).setup_method()
 
         # Track the indexes created so they can be torn down at the
         # end of the test.
@@ -1156,7 +1105,7 @@ class ExternalSearchTest(DatabaseTest):
         self.search.setup_index(new_index=new_index)
         self.indexes.append(new_index)
 
-    def teardown(self):
+    def teardown_method(self):
         if self.search:
             # Delete the works_index, which is almost always created.
             if self.search.works_index:
@@ -1167,7 +1116,7 @@ class ExternalSearchTest(DatabaseTest):
             for index in self.indexes:
                 self.search.indices.delete(index, ignore=[404])
             ExternalSearchIndex.reset()
-        super(ExternalSearchTest, self).teardown()
+        super(ExternalSearchTest, self).teardown_method()
 
     def default_work(self, *args, **kwargs):
         """Convenience method to create a work with a license pool
@@ -1186,8 +1135,8 @@ class EndToEndSearchTest(ExternalSearchTest):
     search index and run searches against it.
     """
 
-    def setup(self):
-        super(EndToEndSearchTest, self).setup()
+    def setup_method(self):
+        super(EndToEndSearchTest, self).setup_method()
 
         # Create some works.
         if not self.search:
@@ -1232,8 +1181,7 @@ class EndToEndSearchTest(ExternalSearchTest):
             expect_compare = set(expect_compare)
             actual_compare = set(actual_compare)
 
-        eq_(
-            expect_compare, actual_compare,
+        assert expect_compare == actual_compare, \
             "%r did not find %d works\n (%s/%s).\nInstead found %d\n (%s/%s)" % (
                 description,
                 len(expect), ", ".join(map(str, expect_ids)),
@@ -1241,7 +1189,6 @@ class EndToEndSearchTest(ExternalSearchTest):
                 len(actual), ", ".join(map(str, actual_ids)),
                     ", ".join(actual_titles)
             )
-        )
 
     def _expect_results(self, expect, query_string=None, filter=None, pagination=None, **kwargs):
         """Helper function to call query_works() and verify that it
@@ -1318,7 +1265,7 @@ class EndToEndSearchTest(ExternalSearchTest):
             # got from query_works(). Take the opportunity to verify
             # that count_works() gives the right answer.
             count = self.search.count_works(filter)
-            eq_(count, len(expect))
+            assert count == len(expect)
 
 
 class MockCoverageProvider(object):
@@ -1570,3 +1517,32 @@ class MockRequestsResponse(object):
         implemented by real requests Response objects.
         """
         pass
+
+
+@pytest.fixture(autouse=True, scope="session")
+def session_fixture():
+    # This will make sure we always connect to the test database.
+    os.environ['TESTING'] = 'true'
+
+    # Ensure that the log configuration starts in a known state.
+    LogConfiguration.initialize(None, testing=True)
+
+    # Drop any existing schema. It will be recreated when
+    # SessionManager.initialize() runs.
+    engine = SessionManager.engine()
+    Base.metadata.drop_all(engine)
+
+    yield
+
+    if 'TESTING' in os.environ:
+        del os.environ['TESTING']
+
+
+def pytest_configure(config):
+    # register our custom marks with pytest
+    config.addinivalue_line(
+        "markers", "elasticsearch: mark test as requiring elasticsearch"
+    )
+    config.addinivalue_line(
+        "markers", "minio: mark test as requiring minio"
+    )

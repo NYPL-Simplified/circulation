@@ -1,14 +1,10 @@
-from nose.tools import (
-    eq_,
-    set_trace,
-)
 from ...util.web_publication_manifest import (
     JSONable,
     Manifest,
     AudiobookManifest,
 )
 
-from .. import DatabaseTest
+from ...testing import DatabaseTest
 
 class TestJSONable(object):
 
@@ -18,61 +14,57 @@ class TestJSONable(object):
             return dict(value=1)
 
     def test_as_dict(self):
-        eq_('{"value": 1}', str(self.Mock()))
+        assert '{"value": 1}' == str(self.Mock())
 
     def test_json_ready(self):
         m = JSONable.json_ready
-        eq_(1, m(1))
+        assert 1 == m(1)
         mock = self.Mock()
-        eq_(dict(value=1), m(mock))
-        eq_([dict(value=1), dict(value=1)], m([mock, mock]))
+        assert dict(value=1) == m(mock)
+        assert [dict(value=1), dict(value=1)] == m([mock, mock])
 
 class TestManifest(object):
 
     def test_defaults(self):
-        eq_("http://schema.org/Book", Manifest.DEFAULT_TYPE)
-        eq_("http://readium.org/webpub/default.jsonld",
+        assert "http://schema.org/Book" == Manifest.DEFAULT_TYPE
+        assert ("http://readium.org/webpub/default.jsonld" ==
             Manifest.DEFAULT_CONTEXT)
 
         manifest = Manifest()
-        eq_(Manifest.DEFAULT_CONTEXT, manifest.context)
-        eq_(Manifest.DEFAULT_TYPE, manifest.type)
-        eq_(
+        assert Manifest.DEFAULT_CONTEXT == manifest.context
+        assert Manifest.DEFAULT_TYPE == manifest.type
+        assert (
             {
                 '@context' : manifest.context,
                 'metadata' : {'@type': manifest.type}
-            },
-            manifest.as_dict
-        )
+            } ==
+            manifest.as_dict)
 
     def test_add_link(self):
         manifest = Manifest()
         manifest.add_link("http://foo/", "self", extra="value")
         dict = manifest.as_dict
-        eq_(
-            [{'href': 'http://foo/', 'rel': 'self', 'extra': 'value'}],
-            dict['links']
-        )
+        assert (
+            [{'href': 'http://foo/', 'rel': 'self', 'extra': 'value'}] ==
+            dict['links'])
 
     def test_add_reading_order(self):
         manifest = Manifest()
         manifest.add_reading_order("http://foo/", "text/html", "Chapter 1",
                            extra="value")
         dict = manifest.as_dict
-        eq_(
+        assert (
             [{'href': 'http://foo/', 'type': 'text/html', 'title': 'Chapter 1',
-              'extra': 'value'}],
-            dict['readingOrder']
-        )
+              'extra': 'value'}] ==
+            dict['readingOrder'])
 
     def test_add_resource(self):
         manifest = Manifest()
         manifest.add_resource("http://foo/", "text/html", extra="value")
         dict = manifest.as_dict
-        eq_(
-            [{'href': 'http://foo/', 'type': 'text/html', 'extra': 'value'}],
-            dict['resources']
-        )
+        assert (
+            [{'href': 'http://foo/', 'type': 'text/html', 'extra': 'value'}] ==
+            dict['resources'])
 
     def test_null_properties_not_propagated(self):
         manifest = Manifest()
@@ -87,7 +79,7 @@ class TestManifest(object):
         for prop in top_level_properties:
             [entry] = manifest_dict["links"]
             assert "extra" in entry
-            eq_("value", entry["extra"])
+            assert "value" == entry["extra"]
             assert "missing" not in entry
 
 
@@ -101,53 +93,52 @@ class TestUpdateBibliographicMetadata(DatabaseTest):
         manifest.update_bibliographic_metadata(pool)
 
         metadata = manifest.metadata
-        eq_(edition.title, metadata['title'])
-        eq_(pool.identifier.urn, metadata['identifier'])
+        assert edition.title == metadata['title']
+        assert pool.identifier.urn == metadata['identifier']
 
         # The author's sort name is used because they have no display
         # name.
-        eq_([author.sort_name], metadata['author'])
+        assert [author.sort_name] == metadata['author']
 
         # The language has been converted from ISO-3166-1-alpha-3 to
         # ISO-3166-1-alpha-2.
-        eq_("en", metadata['language'])
+        assert "en" == metadata['language']
 
         [cover_link] = manifest.links
-        eq_('cover', cover_link['rel'])
-        eq_(edition.cover_thumbnail_url, cover_link['href'])
+        assert 'cover' == cover_link['rel']
+        assert edition.cover_thumbnail_url == cover_link['href']
 
         # Add an author's display name, and it is used in preference
         # to the sort name.
         author.display_name = "a display name"
         manifest = Manifest()
         manifest.update_bibliographic_metadata(pool)
-        eq_(["a display name"], manifest.metadata['author'])
+        assert ["a display name"] == manifest.metadata['author']
 
         # If the pool has no presentation edition, the only information
         # we get is the identifier.
         pool.presentation_edition = None
         manifest = Manifest()
         manifest.update_bibliographic_metadata(pool)
-        eq_(pool.identifier.urn, metadata['identifier'])
+        assert pool.identifier.urn == metadata['identifier']
         for missing in ['title', 'language', 'author']:
             assert missing not in manifest.metadata
-        eq_([], manifest.links)
+        assert [] == manifest.links
 
 
 class TestAudiobookManifest(object):
 
     def test_defaults(self):
-        eq_("http://bib.schema.org/Audiobook", AudiobookManifest.DEFAULT_TYPE)
-        eq_("http://readium.org/webpub/default.jsonld",
+        assert "http://bib.schema.org/Audiobook" == AudiobookManifest.DEFAULT_TYPE
+        assert ("http://readium.org/webpub/default.jsonld" ==
             AudiobookManifest.DEFAULT_CONTEXT)
 
         manifest = AudiobookManifest()
-        eq_(AudiobookManifest.DEFAULT_CONTEXT, manifest.context)
-        eq_(AudiobookManifest.DEFAULT_TYPE, manifest.type)
-        eq_(
+        assert AudiobookManifest.DEFAULT_CONTEXT == manifest.context
+        assert AudiobookManifest.DEFAULT_TYPE == manifest.type
+        assert (
             {
                 '@context' : manifest.context,
                 'metadata' : {'@type': manifest.type}
-            },
-            manifest.as_dict
-        )
+            } ==
+            manifest.as_dict)

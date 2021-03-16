@@ -2,17 +2,13 @@
 """Test functionality of util/ that doesn't have its own module."""
 from collections import defaultdict
 from money import Money
-from nose.tools import (
-    eq_,
-    set_trace,
-)
 
 from ...model import (
     Identifier,
     Edition
 )
 
-from .. import DatabaseTest
+from ...testing import DatabaseTest
 
 from ...util import (
     Bigrams,
@@ -38,9 +34,9 @@ class TestMetadataSimilarity(object):
         """Verify that we ignore the order of words in titles,
         as well as non-alphanumeric characters."""
 
-        eq_(1, MetadataSimilarity.title_similarity("foo bar", "foo bar"))
-        eq_(1, MetadataSimilarity.title_similarity("foo bar", "bar, foo"))
-        eq_(1, MetadataSimilarity.title_similarity("foo bar.", "FOO BAR"))
+        assert 1 == MetadataSimilarity.title_similarity("foo bar", "foo bar")
+        assert 1 == MetadataSimilarity.title_similarity("foo bar", "bar, foo")
+        assert 1 == MetadataSimilarity.title_similarity("foo bar.", "FOO BAR")
 
     def test_histogram_distance(self):
 
@@ -48,13 +44,13 @@ class TestMetadataSimilarity(object):
         # Their distance is 0.
         a1 = ["The First Title", "The Second Title"]
         a2 = ["title the second", "FIRST, THE TITLE"]
-        eq_(0, MetadataSimilarity.histogram_distance(a1, a2))
+        assert 0 == MetadataSimilarity.histogram_distance(a1, a2)
 
         # These two sets of titles are as far apart as it's
         # possible to be. Their distance is 1.
         a1 = ["These Words Have Absolutely"]
         a2 = ["Nothing In Common, Really"]
-        eq_(1, MetadataSimilarity.histogram_distance(a1, a2))
+        assert 1 == MetadataSimilarity.histogram_distance(a1, a2)
 
         # Now we test a difficult real-world case.
 
@@ -160,7 +156,7 @@ class TestMetadataSimilarity(object):
 
     def test_identical_titles_are_identical(self):
         t = "a !@#$@#%& the #FDUSG($E% N%SDAMF_) and #$MI# asdff \N{SNOWMAN}"
-        eq_(1, MetadataSimilarity.title_similarity(t, t))
+        assert 1 == MetadataSimilarity.title_similarity(t, t)
 
     def test_title_similarity(self):
         """Demonstrate how the title similarity algorithm works in common
@@ -190,15 +186,15 @@ class TestMetadataSimilarity(object):
 
         # These are all the titles that are even remotely similar to
         # "Moby Dick" according to the histogram distance algorithm.
-        eq_(["Moby Dick", "Moby-Dick"], sorted(moby[1]))
-        eq_([], sorted(moby[0.8]))
-        eq_(['Moby Dick Selections',
+        assert ["Moby Dick", "Moby-Dick"] == sorted(moby[1])
+        assert [] == sorted(moby[0.8])
+        assert (['Moby Dick Selections',
              'Moby Dick, or, The whale',
              'Moby Dick; notes',
              'Moby Dick; or, The whale',
-             ],
+             ] ==
             sorted(moby[0.5]))
-        eq_(['Moby-Dick : an authoritative text, reviews and letters'],
+        assert (['Moby-Dick : an authoritative text, reviews and letters'] ==
             sorted(moby[0.25]))
 
         # Similarly for an edition of Huckleberry Finn with an
@@ -217,18 +213,18 @@ class TestMetadataSimilarity(object):
         # of Tom Sawyer" is just as likely as "The adventures of
         # Huckleberry Finn". This is the sort of mistake that has to
         # be cleaned up later.
-        eq_([], huck[1])
-        eq_([], huck[0.8])
-        eq_([
+        assert [] == huck[1]
+        assert [] == huck[0.8]
+        assert ([
             'Adventures of Huckleberry Finn',
             'Adventures of Huckleberry Finn : "Tom Sawyer\'s comrade", scene: the Mississippi Valley, time: early nineteenth century',
             'The Adventures of Huckleberry Finn',
             'The adventures of Tom Sawyer'
-        ],
+        ] ==
             sorted(huck[0.5]))
-        eq_([
+        assert ([
             "The adventures of Huckleberry Finn : (Tom Sawyer's Comrade) : Scene: The Mississippi Valley, Time: Firty to Fifty Years Ago : In 2 Volumes : Vol. 1-2."
-        ],
+        ] ==
             huck[0.25])
 
         # An edition of Huckleberry Finn with a different title.
@@ -249,27 +245,27 @@ class TestMetadataSimilarity(object):
             "Tom Sawyer. Huckleberry Finn.",
         )
 
-        eq_(['The adventures of Huckleberry Finn'], huck2[1])
+        assert ['The adventures of Huckleberry Finn'] == huck2[1]
 
-        eq_([], huck2[0.8])
+        assert [] == huck2[0.8]
 
-        eq_([
+        assert ([
             'Huckleberry Finn',
             'The adventures of Tom Sawyer',
             'The adventures of Tom Sawyer and the adventures of Huckleberry Finn',
             'The annotated Huckleberry Finn : Adventures of Huckleberry Finn',
             "The annotated Huckleberry Finn : Adventures of Huckleberry Finn (Tom Sawyer's comrade)",
             'Tom Sawyer. Huckleberry Finn.',
-        ],
+        ] ==
             sorted(huck2[0.5]))
 
-        eq_([
+        assert ([
             'Adventures of Huckleberry Finn : a case study in critical controversy',
             'Adventures of Huckleberry Finn : an authoritative text, contexts and sources, criticism', 'Tom Sawyer and Huckleberry Finn'
-        ],
+        ] ==
             sorted(huck2[0.25]))
 
-        eq_(['Mark Twain : four complete novels.', 'Mississippi writings'],
+        assert (['Mark Twain : four complete novels.', 'Mississippi writings'] ==
             sorted(huck2[0]))
 
 
@@ -286,54 +282,54 @@ class TestMetadataSimilarity(object):
             "Alice in Wonderland : comprising the two books, Alice's adventures in Wonderland and Through the looking-glass",
         )
 
-        eq_([], alice[0.8])
-        eq_(['Alice in Wonderland',
+        assert [] == alice[0.8]
+        assert (['Alice in Wonderland',
              "Alice in Wonderland : comprising the two books, Alice's adventures in Wonderland and Through the looking-glass",
              "Alice's adventures under ground",
-             "Michael Foreman's Alice's adventures in Wonderland"],
+             "Michael Foreman's Alice's adventures in Wonderland"] ==
             sorted(alice[0.5]))
 
-        eq_(['Alice in Wonderland &amp; Through the looking glass',
-             "Alice in Zombieland"],
+        assert (['Alice in Wonderland &amp; Through the looking glass',
+             "Alice in Zombieland"] ==
             sorted(alice[0.25]))
 
-        eq_(['The nursery "Alice"',
-             'Through the looking-glass and what Alice found there'],
+        assert (['The nursery "Alice"',
+             'Through the looking-glass and what Alice found there'] ==
             sorted(alice[0]))
 
     def test_author_similarity(self):
-        eq_(1, MetadataSimilarity.author_similarity([], []))
+        assert 1 == MetadataSimilarity.author_similarity([], [])
 
 
 class TestTitleProcessor(object):
 
     def test_title_processor(self):
         p = TitleProcessor.sort_title_for
-        eq_(None, p(None))
-        eq_("", p(""))
-        eq_("Little Prince, The", p("The Little Prince"))
-        eq_("Princess of Mars, A", p("A Princess of Mars"))
-        eq_("Unexpected Journey, An", p("An Unexpected Journey"))
-        eq_("Then This Happened", p("Then This Happened"))
+        assert None == p(None)
+        assert "" == p("")
+        assert "Little Prince, The" == p("The Little Prince")
+        assert "Princess of Mars, A" == p("A Princess of Mars")
+        assert "Unexpected Journey, An" == p("An Unexpected Journey")
+        assert "Then This Happened" == p("Then This Happened")
 
     def test_extract_subtitle(self):
         p = TitleProcessor.extract_subtitle
 
         core_title = 'Vampire kisses'
         full_title = 'Vampire kisses: blood relatives. Volume 1'
-        eq_('blood relatives. Volume 1', p(core_title, full_title))
+        assert 'blood relatives. Volume 1' == p(core_title, full_title)
 
         core_title = 'Manufacturing Consent'
         full_title = 'Manufacturing Consent. The Political Economy of the Mass Media'
-        eq_('The Political Economy of the Mass Media', p(core_title, full_title))
+        assert 'The Political Economy of the Mass Media' == p(core_title, full_title)
 
         core_title = 'Harry Potter and the Chamber of Secrets'
         full_title = 'Harry Potter and the Chamber of Secrets'
-        eq_(None, p(core_title, full_title))
+        assert None == p(core_title, full_title)
 
         core_title = 'Pluto: A Wonder Story'
         full_title = 'Pluto: A Wonder Story: '
-        eq_(None, p(core_title, full_title))
+        assert None == p(core_title, full_title)
 
 
 class TestEnglishDetector(object):
@@ -361,7 +357,7 @@ class TestEnglishDetector(object):
         # arithmetic.
         diff = (dutch.difference_from(english_bigrams) -
             english_bigrams.difference_from(dutch))
-        eq_(round(diff, 7), 0)
+        assert round(diff, 7) == 0
 
 
 class TestMedian(object):
@@ -369,13 +365,13 @@ class TestMedian(object):
     def test_median(self):
         test_set = [228.56, 205.50, 202.64, 190.15, 188.86, 187.97, 182.49,
                     181.44, 172.46, 171.91]
-        eq_(188.41500000000002, median(test_set))
+        assert 188.41500000000002 == median(test_set)
 
         test_set = [90, 94, 53, 68, 79, 84, 87, 72, 70, 69, 65, 89, 85, 83]
-        eq_(81.0, median(test_set))
+        assert 81.0 == median(test_set)
 
         test_set = [8, 82, 781233, 857, 290, 7, 8467]
-        eq_(290, median(test_set))
+        assert 290 == median(test_set)
 
 
 class TestFastQueryCount(DatabaseTest):
@@ -383,7 +379,7 @@ class TestFastQueryCount(DatabaseTest):
     def test_no_distinct(self):
         identifier = self._identifier()
         qu = self._db.query(Identifier)
-        eq_(1, fast_query_count(qu))
+        assert 1 == fast_query_count(qu)
 
     def test_distinct(self):
         e1 = self._edition(title="The title", authors="Author 1")
@@ -394,30 +390,30 @@ class TestFastQueryCount(DatabaseTest):
         # Without the distinct clause, a query against Edition will
         # return four editions.
         qu = self._db.query(Edition)
-        eq_(qu.count(), fast_query_count(qu))
+        assert qu.count() == fast_query_count(qu)
 
         # If made distinct on Edition.author, the query will return only
         # two editions.
         qu2 = qu.distinct(Edition.author)
-        eq_(qu2.count(), fast_query_count(qu2))
+        assert qu2.count() == fast_query_count(qu2)
 
         # If made distinct on Edition.title _and_ Edition.author,
         # the query will return three editions.
         qu3 = qu.distinct(Edition.title, Edition.author)
-        eq_(qu3.count(), fast_query_count(qu3))
+        assert qu3.count() == fast_query_count(qu3)
 
     def test_limit(self):
         for x in range(4):
             self._identifier()
 
         qu = self._db.query(Identifier)
-        eq_(qu.count(), fast_query_count(qu))
+        assert qu.count() == fast_query_count(qu)
 
         qu2 = qu.limit(2)
-        eq_(qu2.count(), fast_query_count(qu2))
+        assert qu2.count() == fast_query_count(qu2)
 
         qu3 = qu.limit(6)
-        eq_(qu3.count(), fast_query_count(qu3))
+        assert qu3.count() == fast_query_count(qu3)
 
 
 class TestSlugify(object):
@@ -425,26 +421,26 @@ class TestSlugify(object):
     def test_slugify(self):
 
         # text are slugified.
-        eq_('hey-im-a-feed', slugify("Hey! I'm a feed!!"))
-        eq_('you-and-me-n-every_feed', slugify("You & Me n Every_Feed"))
-        eq_('money-honey', slugify("Money $$$       Honey"))
-        eq_('some-title-somewhere', slugify('Some (???) Title Somewhere'))
-        eq_('sly-and-the-family-stone', slugify('sly & the family stone'))
+        assert 'hey-im-a-feed' == slugify("Hey! I'm a feed!!")
+        assert 'you-and-me-n-every_feed' == slugify("You & Me n Every_Feed")
+        assert 'money-honey' == slugify("Money $$$       Honey")
+        assert 'some-title-somewhere' == slugify('Some (???) Title Somewhere')
+        assert 'sly-and-the-family-stone' == slugify('sly & the family stone')
 
         # The results can be pared down according to length restrictions.
-        eq_('happ', slugify('Happy birthday', length_limit=4))
+        assert 'happ' == slugify('Happy birthday', length_limit=4)
 
         # Slugified text isn't altered
-        eq_('already-slugified', slugify('already-slugified'))
+        assert 'already-slugified' == slugify('already-slugified')
 
 
 class TestMoneyUtility(object):
 
     def test_parse(self):
         p = MoneyUtility.parse
-        eq_(Money("0", "USD"), p(None))
-        eq_(Money("4.00", "USD"), p("4"))
-        eq_(Money("-4.00", "USD"), p("-4"))
-        eq_(Money("4.40", "USD"), p("4.40"))
-        eq_(Money("4.40", "USD"), p("$4.40"))
-        eq_(Money("4.4", "USD"), p(4.4))
+        assert Money("0", "USD") == p(None)
+        assert Money("4.00", "USD") == p("4")
+        assert Money("-4.00", "USD") == p("-4")
+        assert Money("4.40", "USD") == p("4.40")
+        assert Money("4.40", "USD") == p("$4.40")
+        assert Money("4.4", "USD") == p(4.4)

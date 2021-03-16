@@ -7,14 +7,10 @@ import stat
 import tempfile
 from io import StringIO
 
-from nose.tools import (
-    assert_raises,
-    assert_raises_regexp,
-    eq_,
-)
+import pytest
 from parameterized import parameterized
 
-from . import (
+from ..testing import (
     DatabaseTest,
 )
 from ..classifier import Classifier
@@ -114,15 +110,15 @@ class TestScript(DatabaseTest):
     def test_parse_time(self):
         reference_date = datetime.datetime(2016, 1, 1)
 
-        eq_(Script.parse_time("2016-01-01"), reference_date)
+        assert Script.parse_time("2016-01-01") == reference_date
 
-        eq_(Script.parse_time("2016-1-1"), reference_date)
+        assert Script.parse_time("2016-1-1") == reference_date
 
-        eq_(Script.parse_time("1/1/2016"), reference_date)
+        assert Script.parse_time("1/1/2016") == reference_date
 
-        eq_(Script.parse_time("20160101"), reference_date)
+        assert Script.parse_time("20160101") == reference_date
 
-        assert_raises(ValueError, Script.parse_time, "201601-01")
+        pytest.raises(ValueError, Script.parse_time, "201601-01")
 
 
     def test_script_name(self):
@@ -133,12 +129,12 @@ class TestScript(DatabaseTest):
         # If a script does not define .name, its class name
         # is treated as the script name.
         script = Sample(self._db)
-        eq_("Sample", script.script_name)
+        assert "Sample" == script.script_name
 
 
         # If a script does define .name, that's used instead.
         script.name = "I'm a script"
-        eq_(script.name, script.script_name)
+        assert script.name == script.script_name
 
 
 class TestTimestampScript(DatabaseTest):
@@ -169,7 +165,7 @@ class TestTimestampScript(DatabaseTest):
         assert (now - timestamp.start).total_seconds() < 5
         assert (now - timestamp.finish).total_seconds() < 5
         assert timestamp.start < timestamp.finish
-        eq_(None, timestamp.collection)
+        assert None == timestamp.collection
 
     def test_update_timestamp_with_collection(self):
         # A script can indicate that it is operating on a specific
@@ -182,7 +178,7 @@ class TestTimestampScript(DatabaseTest):
         script.timestamp_collection = self._default_collection
         script.run()
         timestamp = self._ts(script)
-        eq_(self._default_collection, timestamp.collection)
+        assert self._default_collection == timestamp.collection
 
     def test_update_timestamp_on_failure(self):
         # A TimestampScript that fails to complete still has its
@@ -199,7 +195,9 @@ class TestTimestampScript(DatabaseTest):
                 raise Exception("i'm broken")
 
         script = Broken(self._db)
-        assert_raises_regexp(Exception, "i'm broken", script.run)
+        with pytest.raises(Exception) as excinfo:
+            script.run()
+        assert "i'm broken" in str(excinfo.value)
         timestamp = self._ts(script)
 
         now = datetime.datetime.utcnow()
@@ -216,7 +214,7 @@ class TestTimestampScript(DatabaseTest):
                 pass
         script = Silent(self._db)
         script.run()
-        eq_(None, self._ts(script))
+        assert None == self._ts(script)
 
 
 class TestCheckContributorNamesInDB(DatabaseTest):
@@ -241,9 +239,9 @@ class TestCheckContributorNamesInDB(DatabaseTest):
         edition_alice.sort_author="Alice Rocks"
 
         # everything is set up as we expect
-        eq_("Alice Alrighty", alice.sort_name)
-        eq_("Alice Alrighty", alice.display_name)
-        eq_("Alice Rocks", edition_alice.sort_author)
+        assert "Alice Alrighty" == alice.sort_name
+        assert "Alice Alrighty" == alice.display_name
+        assert "Alice Rocks" == edition_alice.sort_author
 
         edition_bob, pool_bob = self._edition(
             data_source_name=DataSource.GUTENBERG,
@@ -260,9 +258,9 @@ class TestCheckContributorNamesInDB(DatabaseTest):
         )
         edition_bob.sort_author="Bob Rocks"
 
-        eq_("Bob", bob.sort_name)
-        eq_("Bob Bitshifter", bob.display_name)
-        eq_("Bob Rocks", edition_bob.sort_author)
+        assert "Bob" == bob.sort_name
+        assert "Bob Bitshifter" == bob.display_name
+        assert "Bob Rocks" == edition_bob.sort_author
 
         contributor_fixer = CheckContributorNamesInDB(
             _db=self._db, cmd_args=cmd_args, stdin=stdin
@@ -270,21 +268,21 @@ class TestCheckContributorNamesInDB(DatabaseTest):
         contributor_fixer.do_run()
 
         # Alice got fixed up.
-        eq_("Alrighty, Alice", alice.sort_name)
-        eq_("Alice Alrighty", alice.display_name)
-        eq_("Alrighty, Alice", edition_alice.sort_author)
+        assert "Alrighty, Alice" == alice.sort_name
+        assert "Alice Alrighty" == alice.display_name
+        assert "Alrighty, Alice" == edition_alice.sort_author
 
         # Bob's repairs were too extensive to make.
-        eq_("Bob", bob.sort_name)
-        eq_("Bob Bitshifter", bob.display_name)
-        eq_("Bob Rocks", edition_bob.sort_author)
+        assert "Bob" == bob.sort_name
+        assert "Bob Bitshifter" == bob.display_name
+        assert "Bob Rocks" == edition_bob.sort_author
 
         # and we lodged a proper complaint
         q = self._db.query(Complaint).filter(Complaint.source==CheckContributorNamesInDB.COMPLAINT_SOURCE)
         q = q.filter(Complaint.type==CheckContributorNamesInDB.COMPLAINT_TYPE).filter(Complaint.license_pool==pool_bob)
         complaints = q.all()
-        eq_(1, len(complaints))
-        eq_(None, complaints[0].resolved)
+        assert 1 == len(complaints)
+        assert None == complaints[0].resolved
 
 
 
@@ -298,11 +296,10 @@ class TestIdentifierInputScript(DatabaseTest):
         identifiers = IdentifierInputScript.parse_identifier_list(
             self._db, i1.type, None, args
         )
-        eq_([i1, i2], identifiers)
+        assert [i1, i2] == identifiers
 
-        eq_([], IdentifierInputScript.parse_identifier_list(
+        assert [] == IdentifierInputScript.parse_identifier_list(
             self._db, i1.type, None, [])
-        )
 
     def test_parse_list_as_identifiers_with_autocreate(self):
 
@@ -311,8 +308,8 @@ class TestIdentifierInputScript(DatabaseTest):
         [i] = IdentifierInputScript.parse_identifier_list(
             self._db, type, None, args, autocreate=True
         )
-        eq_(type, i.type)
-        eq_('brand-new-identifier', i.identifier)
+        assert type == i.type
+        assert 'brand-new-identifier' == i.identifier
 
     def test_parse_list_as_identifiers_with_data_source(self):
         lp1 = self._licensepool(None, data_source_name=DataSource.UNGLUE_IT)
@@ -326,7 +323,7 @@ class TestIdentifierInputScript(DatabaseTest):
         # Only URIs with a FeedBooks LicensePool are selected.
         identifiers = IdentifierInputScript.parse_identifier_list(
             self._db, Identifier.URI, source, [])
-        eq_([i2], identifiers)
+        assert [i2] == identifiers
 
     def test_parse_list_as_identifiers_by_database_id(self):
         id1 = self._identifier()
@@ -339,7 +336,7 @@ class TestIdentifierInputScript(DatabaseTest):
 
         identifiers = IdentifierInputScript.parse_identifier_list(
             self._db, IdentifierInputScript.DATABASE_ID, None, ids)
-        eq_([id1, id2], identifiers)
+        assert [id1, id2] == identifiers
 
     def test_parse_command_line(self):
         i1 = self._identifier()
@@ -352,8 +349,8 @@ class TestIdentifierInputScript(DatabaseTest):
         parsed = IdentifierInputScript.parse_command_line(
             self._db, cmd_args, stdin
         )
-        eq_([i1, i2], parsed.identifiers)
-        eq_(i1.type, parsed.identifier_type)
+        assert [i1, i2] == parsed.identifiers
+        assert i1.type == parsed.identifier_type
 
     def test_parse_command_line_no_identifiers(self):
         cmd_args = [
@@ -363,9 +360,9 @@ class TestIdentifierInputScript(DatabaseTest):
         parsed = IdentifierInputScript.parse_command_line(
             self._db, cmd_args, MockStdin()
         )
-        eq_([], parsed.identifiers)
-        eq_(Identifier.OVERDRIVE_ID, parsed.identifier_type)
-        eq_(DataSource.STANDARD_EBOOKS, parsed.identifier_data_source)
+        assert [] == parsed.identifiers
+        assert Identifier.OVERDRIVE_ID == parsed.identifier_type
+        assert DataSource.STANDARD_EBOOKS == parsed.identifier_data_source
 
 
 class SuccessMonitor(Monitor):
@@ -412,7 +409,7 @@ class TestRunMonitorScript(DatabaseTest):
         )
         script.run()
         for c in [c1, c2]:
-            eq_("test value", c.ran_with_argument)
+            assert "test value" == c.ran_with_argument
 
 
 class TestRunMultipleMonitorsScript(DatabaseTest):
@@ -434,18 +431,18 @@ class TestRunMultipleMonitorsScript(DatabaseTest):
 
         # The kwarg we passed in to the MockScript constructor was
         # propagated into the monitors() method.
-        eq_(dict(kwarg="value"), script.kwargs)
+        assert dict(kwarg="value") == script.kwargs
 
         # All three monitors were run, even though the
         # second one raised an exception.
-        eq_(True, m1.ran)
-        eq_(True, m2.ran)
-        eq_(True, m3.ran)
+        assert True == m1.ran
+        assert True == m2.ran
+        assert True == m3.ran
 
         # The exception that crashed the second monitor was stored as
         # .exception, in case we want to look at it.
-        eq_("Doomed!", str(m2.exception))
-        eq_(None, getattr(m1, 'exception', None))
+        assert "Doomed!" == str(m2.exception)
+        assert None == getattr(m1, 'exception', None)
 
 
 class TestRunCollectionMonitorScript(DatabaseTest):
@@ -467,7 +464,7 @@ class TestRunCollectionMonitorScript(DatabaseTest):
         # is unaffected.
         monitors = script.monitors()
         collections = [x.collection for x in monitors]
-        eq_(set(collections), set([o1, o2, o3]))
+        assert set(collections) == set([o1, o2, o3])
         for i in monitors:
             assert isinstance(monitor, OPDSCollectionMonitor)
 
@@ -509,10 +506,10 @@ class TestPatronInputScript(DatabaseTest):
         patrons = PatronInputScript.parse_patron_list(
             self._db, l1, args
         )
-        eq_([p1, p2, p3], patrons)
-        eq_([], PatronInputScript.parse_patron_list(self._db, l1, []))
-        eq_([p1], PatronInputScript.parse_patron_list(self._db, l1, [p1.external_identifier, p4.external_identifier]))
-        eq_([p4], PatronInputScript.parse_patron_list(self._db, l2, [p1.external_identifier, p4.external_identifier]))
+        assert [p1, p2, p3] == patrons
+        assert [] == PatronInputScript.parse_patron_list(self._db, l1, [])
+        assert [p1] == PatronInputScript.parse_patron_list(self._db, l1, [p1.external_identifier, p4.external_identifier])
+        assert [p4] == PatronInputScript.parse_patron_list(self._db, l2, [p1.external_identifier, p4.external_identifier])
 
     def test_parse_command_line(self):
         l1 = self._library()
@@ -529,7 +526,7 @@ class TestPatronInputScript(DatabaseTest):
         parsed = PatronInputScript.parse_command_line(
             self._db, cmd_args, stdin
         )
-        eq_([p1, p2], parsed.patrons)
+        assert [p1, p2] == parsed.patrons
 
     def test_patron_different_library(self):
         l1 = self._library()
@@ -542,10 +539,10 @@ class TestPatronInputScript(DatabaseTest):
         p2.library_id = l2.id
         cmd_args = [l1.short_name, p1.authorization_identifier]
         parsed = PatronInputScript.parse_command_line(self._db, cmd_args, None)
-        eq_([p1], parsed.patrons)
+        assert [p1] == parsed.patrons
         cmd_args = [l2.short_name, p2.authorization_identifier]
         parsed = PatronInputScript.parse_command_line(self._db, cmd_args, None)
-        eq_([p2], parsed.patrons)
+        assert [p2] == parsed.patrons
 
     def test_do_run(self):
         """Test that PatronInputScript.do_run() calls process_patron()
@@ -570,9 +567,9 @@ class TestPatronInputScript(DatabaseTest):
         stdin = MockStdin(p2.authorization_identifier)
         script = MockPatronInputScript(self._db)
         script.do_run(cmd_args=cmd_args, stdin=stdin)
-        eq_(True, p1.processed)
-        eq_(True, p2.processed)
-        eq_(False, p3.processed)
+        assert True == p1.processed
+        assert True == p2.processed
+        assert False == p3.processed
 
 
 class TestLibraryInputScript(DatabaseTest):
@@ -585,9 +582,9 @@ class TestLibraryInputScript(DatabaseTest):
         libraries = LibraryInputScript.parse_library_list(
             self._db, args
         )
-        eq_([l1, l2], libraries)
+        assert [l1, l2] == libraries
 
-        eq_([], LibraryInputScript.parse_library_list(self._db, []))
+        assert [] == LibraryInputScript.parse_library_list(self._db, [])
 
     def test_parse_command_line(self):
         l1 = self._library()
@@ -596,7 +593,7 @@ class TestLibraryInputScript(DatabaseTest):
         parsed = LibraryInputScript.parse_command_line(self._db, cmd_args)
 
         # And here it is.
-        eq_([l1], parsed.libraries)
+        assert [l1] == parsed.libraries
 
     def test_parse_command_line_no_identifiers(self):
         """If you don't specify any libraries on the command
@@ -605,7 +602,7 @@ class TestLibraryInputScript(DatabaseTest):
         parsed =LibraryInputScript.parse_command_line(
             self._db, []
         )
-        eq_(self._db.query(Library).all(), parsed.libraries)
+        assert self._db.query(Library).all() == parsed.libraries
 
 
     def test_do_run(self):
@@ -621,8 +618,8 @@ class TestLibraryInputScript(DatabaseTest):
         cmd_args = [l1.name]
         script = MockLibraryInputScript(self._db)
         script.do_run(cmd_args=cmd_args)
-        eq_(True, l1.processed)
-        eq_(False, l2.processed)
+        assert True == l1.processed
+        assert False == l2.processed
 
 
 class TestLaneSweeperScript(DatabaseTest):
@@ -652,17 +649,17 @@ class TestLaneSweeperScript(DatabaseTest):
         # The first item considered for processing was an ad hoc
         # WorkList representing the library's entire collection.
         worklist = script.considered.pop(0)
-        eq_(self._default_library, worklist.get_library(self._db))
-        eq_(self._default_library.name, worklist.display_name)
-        eq_(set([good, bad]), set(worklist.children))
+        assert self._default_library == worklist.get_library(self._db)
+        assert self._default_library.name == worklist.display_name
+        assert set([good, bad]) == set(worklist.children)
 
         # After that, every lane was considered for processing, with
         # top-level lanes considered first.
-        eq_(set([good, bad, good_child]), set(script.considered))
+        assert set([good, bad, good_child]) == set(script.considered)
 
         # But a lane was processed only if should_process_lane
         # returned True.
-        eq_(set([good, good_child]), set(script.processed))
+        assert set([good, good_child]) == set(script.processed)
 
 
 class TestRunCoverageProviderScript(DatabaseTest):
@@ -674,9 +671,9 @@ class TestRunCoverageProviderScript(DatabaseTest):
         parsed = RunCoverageProviderScript.parse_command_line(
             self._db, cmd_args, MockStdin()
         )
-        eq_(datetime.datetime(2016, 5, 1), parsed.cutoff_time)
-        eq_([identifier], parsed.identifiers)
-        eq_(identifier.type, parsed.identifier_type)
+        assert datetime.datetime(2016, 5, 1) == parsed.cutoff_time
+        assert [identifier] == parsed.identifiers
+        assert identifier.type == parsed.identifier_type
 
 
 class TestRunThreadedCollectionCoverageProviderScript(DatabaseTest):
@@ -716,21 +713,21 @@ class TestRunThreadedCollectionCoverageProviderScript(DatabaseTest):
         self._db.commit()
 
         # The expected number of workers and jobs have been created.
-        eq_(2, len(pool.workers))
-        eq_(1, pool.job_total)
+        assert 2 == len(pool.workers)
+        assert 1 == pool.job_total
 
         # All relevant identifiers have been given coverage.
         source = DataSource.lookup(self._db, provider.DATA_SOURCE_NAME)
         identifiers_missing_coverage = Identifier.missing_coverage_from(
             self._db, provider.INPUT_IDENTIFIER_TYPES, source,
         )
-        eq_([id3], identifiers_missing_coverage.all())
+        assert [id3] == identifiers_missing_coverage.all()
 
         record1, was_registered1 = provider.register(id1)
         record2, was_registered2 = provider.register(id2)
-        eq_(CoverageRecord.SUCCESS, record1.status)
-        eq_(CoverageRecord.SUCCESS, record2.status)
-        eq_((False, False), (was_registered1, was_registered2))
+        assert CoverageRecord.SUCCESS == record1.status
+        assert CoverageRecord.SUCCESS == record2.status
+        assert (False, False) == (was_registered1, was_registered2)
 
 
         # The timestamp for the provider has been updated.
@@ -751,7 +748,7 @@ class TestRunWorkCoverageProviderScript(DatabaseTest):
         )
         [provider] = script.providers
         assert isinstance(provider, AlwaysSuccessfulWorkCoverageProvider)
-        eq_(123, provider.batch_size)
+        assert 123 == provider.batch_size
 
 
 class TestWorkProcessingScript(DatabaseTest):
@@ -783,23 +780,23 @@ class TestWorkProcessingScript(DatabaseTest):
         standard_ebooks = self._work(presentation_edition=se_edition)
 
         everything = WorkProcessingScript.make_query(self._db, None, None, None)
-        eq_(set([g1, g2, overdrive_work, unglue_it, standard_ebooks]),
+        assert (set([g1, g2, overdrive_work, unglue_it, standard_ebooks]) ==
             set(everything.all()))
 
         all_gutenberg = WorkProcessingScript.make_query(
             self._db, Identifier.GUTENBERG_ID, [], None
         )
-        eq_(set([g1, g2]), set(all_gutenberg.all()))
+        assert set([g1, g2]) == set(all_gutenberg.all())
 
         one_gutenberg = WorkProcessingScript.make_query(
             self._db, Identifier.GUTENBERG_ID, [g1.license_pools[0].identifier], None
         )
-        eq_([g1], one_gutenberg.all())
+        assert [g1] == one_gutenberg.all()
 
         one_standard_ebook = WorkProcessingScript.make_query(
             self._db, Identifier.URI, [], DataSource.STANDARD_EBOOKS
         )
-        eq_([standard_ebooks], one_standard_ebook.all())
+        assert [standard_ebooks] == one_standard_ebook.all()
 
 
 class TestTimestampInfo(DatabaseTest):
@@ -810,17 +807,17 @@ class TestTimestampInfo(DatabaseTest):
         # If there isn't a timestamp for the given service,
         # nothing is returned.
         result = self.TimestampInfo.find(self, 'test')
-        eq_(None, result)
+        assert None == result
 
         # But an empty Timestamp has been placed into the database.
         timestamp = self._db.query(Timestamp).filter(Timestamp.service=='test').one()
-        eq_(None, timestamp.start)
-        eq_(None, timestamp.finish)
-        eq_(None, timestamp.counter)
+        assert None == timestamp.start
+        assert None == timestamp.finish
+        assert None == timestamp.counter
 
         # A repeat search for the empty Timestamp also results in None.
         script = DatabaseMigrationScript(self._db)
-        eq_(None, self.TimestampInfo.find(script, 'test'))
+        assert None == self.TimestampInfo.find(script, 'test')
 
         # If the Timestamp is stamped, it is returned.
         timestamp.finish = datetime.datetime.utcnow()
@@ -828,8 +825,8 @@ class TestTimestampInfo(DatabaseTest):
         self._db.flush()
 
         result = self.TimestampInfo.find(script, 'test')
-        eq_(timestamp.finish, result.finish)
-        eq_(1, result.counter)
+        assert timestamp.finish == result.finish
+        assert 1 == result.counter
 
     def test_update(self):
         # Create a Timestamp to be updated.
@@ -846,14 +843,14 @@ class TestTimestampInfo(DatabaseTest):
 
         # When we refresh the Timestamp object, it's been updated.
         self._db.refresh(stamp)
-        eq_(now, stamp.start)
-        eq_(now, stamp.finish)
-        eq_(2, stamp.counter)
+        assert now == stamp.start
+        assert now == stamp.finish
+        assert 2 == stamp.counter
 
     def save(self):
         # The Timestamp doesn't exist.
         timestamp_qu = self._db.query(Timestamp).filter(Timestamp.service=='test')
-        eq_(False, timestamp_qu.exists())
+        assert False == timestamp_qu.exists()
 
         now = datetime.datetime.utcnow()
         timestamp_info = self.TimestampInfo('test', now, 47)
@@ -861,183 +858,140 @@ class TestTimestampInfo(DatabaseTest):
 
         # The Timestamp exists now.
         timestamp = timestamp_qu.one()
-        eq_(now, timestamp.finish)
-        eq_(47, timestamp.counter)
-
-
-class MockDatabaseMigrationScript(DatabaseMigrationScript):
-
-    @property
-    def directories_by_priority(self):
-        """Uses test migration directories for """
-        real_migration_directories = super(
-            MockDatabaseMigrationScript, self
-        ).directories_by_priority
-
-        test_directories = [
-            os.path.join(os.path.split(d)[0], 'test_migration')
-            for d in real_migration_directories
-        ]
-
-        return test_directories
+        assert now == timestamp.finish
+        assert 47 == timestamp.counter
 
 
 class DatabaseMigrationScriptTest(DatabaseTest):
 
-    def create_mock_script(self, cls, _db):
-        """Creates a mock version of a DatabaseMigrationScript"""
+    @pytest.fixture
+    def migration_dirs(self, tmp_path):
+        # create migration file structure
+        server = tmp_path / 'migration'
+        core = tmp_path / 'server_core' / 'migation'
+        server.mkdir()
+        core.mkdir(parents=True)
 
-        class MockDatabaseMigrationScript(cls):
+        # return fixture
+        yield [str(core), str(server)]
 
-            @property
-            def directories_by_priority(self):
-                """Uses test migration directories to find migration files."""
-                real_migration_directories = super(
-                    MockDatabaseMigrationScript, self
-                ).directories_by_priority
+        # cleanup files
+        def recursive_delete(path):
+            for file in path.iterdir():
+                if file.is_file():
+                    file.unlink()
+                if file.is_dir():
+                    recursive_delete(file)
+                    file.rmdir()
+        recursive_delete(tmp_path)
 
-                test_directories = [
-                    os.path.join(os.path.split(d)[0], 'test_migration')
-                    for d in real_migration_directories
-                ]
-                return test_directories
+    @pytest.fixture()
+    def migration_file(self, tmp_path):
+        def create_migration_file(directory, unique_string, migration_type, migration_date=None):
+            suffix = '.'+migration_type
 
-        return MockDatabaseMigrationScript(_db=_db)
+            if migration_type=='sql':
+                # Create unique, innocuous content for a SQL file.
+                # This SQL inserts a timestamp into the test database.
+                service = "Test Database Migration Script - %s" % unique_string
+                content = (("insert into timestamps(service, finish)"
+                            " values ('%s', '%s');") % (service, '1970-01-01'))
+            elif migration_type=='py':
+                # Create unique, innocuous content for a Python file.
+                content = (
+                    "#!/usr/bin/env python\n\n"+
+                    "import tempfile\nimport os\n\n"+
+                    "file_info = tempfile.mkstemp(prefix='"+
+                    unique_string+"-', suffix='.py', dir='"+str(tmp_path)+"')\n\n"+
+                    "# Close file descriptor\n"+
+                    "os.close(file_info[0])\n"
+                )
+            else:
+                content = ""
 
-    def _create_test_migration_file(self, directory, unique_string,
-                                    migration_type, migration_date=None):
-        suffix = '.'+migration_type
+            if not migration_date:
+                # Default date is just after self.timestamp.
+                migration_date = '20260811'
+            prefix = migration_date + '-'
 
-        if migration_type=='sql':
-            # Create unique, innocuous content for a SQL file.
-            # This SQL inserts a timestamp into the test database.
-            service = "Test Database Migration Script - %s" % unique_string
-            content = (("insert into timestamps(service, finish)"
-                        " values ('%s', '%s');") % (service, '1970-01-01'))
-        elif migration_type=='py':
-            # Create unique, innocuous content for a Python file.
-            # This python creates a temporary .py file in core/tests.
-            core = os.path.split(self.core_migration_dir)[0]
-            target_dir = os.path.join(core, 'tests')
-            content = (
-                "#!/usr/bin/env python\n\n"+
-                "import tempfile\nimport os\n\n"+
-                "file_info = tempfile.mkstemp(prefix='"+
-                unique_string+"-', suffix='.py', dir='"+target_dir+"')\n\n"+
-                "# Close file descriptor\n"+
-                "os.close(file_info[0])\n"
+            fd, migration_file = tempfile.mkstemp(
+                prefix=prefix, suffix=suffix, dir=directory, text=True
             )
+            os.write(fd, content)
 
-        if not migration_date:
-            # Default date is just after self.timestamp.
-            migration_date = '20260811'
-        prefix = migration_date + '-'
+            # If it's a python migration, make it executable.
+            if migration_file.endswith('py'):
+                original_mode = os.stat(migration_file).st_mode
+                mode = original_mode | (stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+                os.chmod(migration_file, mode)
 
-        migration_file_info = tempfile.mkstemp(
-            prefix=prefix, suffix=suffix, dir=directory
-        )
-        # Hold onto the filename for deletion in teardown().
-        fd, migration_file = migration_file_info
-        self.migration_files.append(migration_file)
+            # Close the file descriptor.
+            os.close(fd)
 
-        with open(migration_file, 'w') as migration:
-            # Write content to the file.
-            migration.write(content)
+            # return the filename
+            return migration_file
+        return create_migration_file
 
-        # If it's a python migration, make it executable.
-        if migration_file.endswith('py'):
-            original_mode = os.stat(migration_file).st_mode
-            mode = original_mode | (stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
-            os.chmod(migration_file, mode)
+    @pytest.fixture()
+    def migrations(self, migration_file, migration_dirs):
+        # Put a file of each migration type in each temporary migration directory.
+        core_migration_files = []
+        server_migration_files = []
+        [core_dir, server_dir] = migration_dirs
+        core_migration_files.append(migration_file(core_dir, 'CORE', 'sql'))
+        core_migration_files.append(migration_file(core_dir, 'CORE', 'py'))
+        server_migration_files.append(migration_file(server_dir, 'SERVER', 'sql'))
+        server_migration_files.append(migration_file(server_dir, 'SERVER', 'py'))
 
-        # Close the file descriptor.
-        os.close(fd)
+        return core_migration_files, server_migration_files
 
-    def setup(self):
-        super(DatabaseMigrationScriptTest, self).setup()
-
-        # This list holds any temporary files created during tests
-        # so they can be deleted during teardown().
-        self.migration_files = []
-
-        # Create temporary migration directories where
-        # DatabaseMigrationScript expects them.
-        script = self.create_mock_script(DatabaseMigrationScript, self._db)
-        self.directories = script.directories_by_priority
-        [self.core_migration_dir, self.parent_migration_dir] = self.directories
-        for migration_dir in self.directories:
-            if not os.path.isdir(migration_dir):
-                temp_migration_dir = tempfile.mkdtemp()
-                shutil.move(temp_migration_dir, migration_dir)
-
-    def teardown(self):
-        """Delete any files and directories created during testing."""
-        for fpath in self.migration_files:
-            os.remove(fpath)
-
-        if self.migration_files:
-            for directory in self.directories:
-                os.rmdir(directory)
-
-        test_dir = os.path.split(__file__)[0]
-        all_files = os.listdir(test_dir)
-        test_generated_files = sorted(
-            [f for f in all_files if f.startswith(('CORE', 'SERVER'))]
-        )
-        for filename in test_generated_files:
-            os.remove(os.path.join(test_dir, filename))
-
-        timestamps = self._db.query(Timestamp).filter(
+    def teardown_method(self):
+        self._db.query(Timestamp).filter(
             Timestamp.service.like('%Database Migration%')
         ).delete(synchronize_session=False)
-
-        super(DatabaseMigrationScriptTest, self).teardown()
+        super(DatabaseMigrationScriptTest, self).teardown_method()
 
 
 class TestDatabaseMigrationScript(DatabaseMigrationScriptTest):
 
-    def _create_test_migrations(self):
-        """Sets up migrations in the expected locations"""
-        # Put a file of each migratable type in each temporary migration
-        # directory.
-        self._create_test_migration_file(self.core_migration_dir, 'CORE', 'sql')
-        self._create_test_migration_file(self.core_migration_dir, 'CORE', 'py')
-        self._create_test_migration_file(self.parent_migration_dir, 'SERVER', 'sql')
-        self._create_test_migration_file(self.parent_migration_dir, 'SERVER', 'py')
+    @pytest.fixture()
+    def script(self, monkeypatch, migration_dirs):
+        # Patch DatabaseMigrationScript to use test directories for migrations
+        monkeypatch.setattr(DatabaseMigrationScript, "directories_by_priority", migration_dirs)
+        return DatabaseMigrationScript(self._db)
 
-    def setup(self):
-        super(TestDatabaseMigrationScript, self).setup()
-        self.script = self.create_mock_script(DatabaseMigrationScript, self._db)
-        self._create_test_migrations()
-
+    @pytest.fixture()
+    def timestamp(self, script):
         stamp = datetime.datetime.strptime('20260810', '%Y%m%d')
-        self.timestamp = Timestamp(
-            service=self.script.name, start=stamp, finish=stamp
+        timestamp = Timestamp(
+            service=script.name, start=stamp, finish=stamp
         )
-        self.python_timestamp = Timestamp(
-            service=self.script.PY_TIMESTAMP_SERVICE_NAME, start=stamp,
+        python_timestamp = Timestamp(
+            service=script.PY_TIMESTAMP_SERVICE_NAME, start=stamp,
             finish=stamp
         )
-        self._db.add_all([self.timestamp, self.python_timestamp])
+        self._db.add_all([timestamp, python_timestamp])
         self._db.flush()
 
-        self.timestamp_info = self.script.TimestampInfo(
-            self.timestamp.service, self.timestamp.start
+        timestamp_info = script.TimestampInfo(
+            timestamp.service, timestamp.start
         )
 
-    def test_name(self):
+        return timestamp, python_timestamp, timestamp_info
+
+    def test_name(self, script):
         """DatabaseMigrationScript.name returns an appropriate timestamp service
         name, depending on whether it is running only Python migrations or not.
         """
 
         # The default script returns the default timestamp name.
-        eq_("Database Migration", self.script.name)
+        assert "Database Migration" == script.name
 
         # A python-only script returns a Python-specific timestamp name.
-        self.script.python_only=True
-        eq_("Database Migration - Python", self.script.name)
+        script.python_only=True
+        assert "Database Migration - Python" == script.name
 
-    def test_timestamp_properties(self):
+    def test_timestamp_properties(self, script):
         """DatabaseMigrationScript provides the appropriate TimestampInfo
         objects as properties.
         """
@@ -1050,39 +1004,39 @@ class TestDatabaseMigrationScript(DatabaseMigrationScriptTest):
             self._db.delete(timestamp)
         self._db.commit()
 
-        self.script._session = self._db
-        eq_(None, self.script.python_timestamp)
-        eq_(None, self.script.overall_timestamp)
+        script._session = self._db
+        assert None == script.python_timestamp
+        assert None == script.overall_timestamp
 
         # If the Timestamps exist in the database, but they don't have
         # a timestamp, nothing is returned. Timestamps must be initialized.
         overall = self._db.query(Timestamp).filter(
-            Timestamp.service==self.script.SERVICE_NAME
+            Timestamp.service==script.SERVICE_NAME
         ).one()
         python = self._db.query(Timestamp).filter(
-            Timestamp.service==self.script.PY_TIMESTAMP_SERVICE_NAME
+            Timestamp.service==script.PY_TIMESTAMP_SERVICE_NAME
         ).one()
 
         # Neither Timestamp object has a timestamp.
-        eq_((None, None), (python.finish, overall.finish))
+        assert (None, None) == (python.finish, overall.finish)
         # So neither timestamp is returned as a property.
-        eq_(None, self.script.python_timestamp)
-        eq_(None, self.script.overall_timestamp)
+        assert None == script.python_timestamp
+        assert None == script.overall_timestamp
 
         # If you give the Timestamps data, suddenly they show up.
-        overall.finish = self.script.parse_time('1998-08-25')
-        python.finish = self.script.parse_time('1993-06-11')
+        overall.finish = script.parse_time('1998-08-25')
+        python.finish = script.parse_time('1993-06-11')
         python.counter = 2
         self._db.flush()
 
-        overall_timestamp_info = self.script.overall_timestamp
-        assert isinstance(overall_timestamp_info, self.script.TimestampInfo)
-        eq_(overall.finish, overall_timestamp_info.finish)
+        overall_timestamp_info = script.overall_timestamp
+        assert isinstance(overall_timestamp_info, script.TimestampInfo)
+        assert overall.finish == overall_timestamp_info.finish
 
-        python_timestamp_info = self.script.python_timestamp
-        assert isinstance(python_timestamp_info, self.script.TimestampInfo)
-        eq_(python.finish, python_timestamp_info.finish)
-        eq_(2, self.script.python_timestamp.counter)
+        python_timestamp_info = script.python_timestamp
+        assert isinstance(python_timestamp_info, script.TimestampInfo)
+        assert python.finish == python_timestamp_info.finish
+        assert 2 == script.python_timestamp.counter
 
     def test_directories_by_priority(self):
         core = os.path.split(os.path.split(__file__)[0])[0]
@@ -1093,58 +1047,51 @@ class TestDatabaseMigrationScript(DatabaseMigrationScriptTest):
         # This is the only place we're testing the real script.
         # Everywhere else should use the mock.
         script = DatabaseMigrationScript()
-        eq_(
-            [expected_core, expected_parent],
-            script.directories_by_priority
-        )
+        assert (
+            [expected_core, expected_parent] ==
+            script.directories_by_priority)
 
-    def test_fetch_migration_files(self):
-        result = self.script.fetch_migration_files()
+    def test_fetch_migration_files(self, script, migrations, migration_dirs):
+        result = script.fetch_migration_files()
         result_migrations, result_migrations_by_dir = result
+        core_migrations, server_migrations = migrations
+        all_migrations = []
+        all_migrations.extend(core_migrations)
+        all_migrations.extend(server_migrations)
+        [core_migration_dir, server_migration_dir] = migration_dirs
 
-        for migration_file in self.migration_files:
+        for migration_file in all_migrations:
             assert os.path.split(migration_file)[1] in result_migrations
-
-        def extract_filenames(core=True, extensions=['.py', '.sql']):
-            extensions = tuple(extensions)
-            if core:
-                pathnames = [p for p in self.migration_files if 'core' in p]
-            else:
-                pathnames = [p for p in self.migration_files if 'core' not in p]
-
-            return [os.path.split(p)[1] for p in pathnames if p.endswith(extensions)]
 
         # Ensure that all the expected migrations from CORE are included in
         # the 'core' directory array in migrations_by_directory.
-        core_migration_files = extract_filenames()
-        eq_(2, len(core_migration_files))
-        for filename in core_migration_files:
-            assert filename in result_migrations_by_dir[self.core_migration_dir]
+        assert 2 == len(core_migrations)
+        for filename in core_migrations:
+            assert os.path.split(filename)[1] in result_migrations_by_dir[core_migration_dir]
 
         # Ensure that all the expected migrations from the parent server
         # are included in the appropriate array in migrations_by_directory.
-        parent_migration_files = extract_filenames(core=False)
-        eq_(2, len(parent_migration_files))
-        for filename in parent_migration_files:
-            assert filename in result_migrations_by_dir[self.parent_migration_dir]
+        assert 2 == len(server_migrations)
+        for filename in server_migrations:
+            assert os.path.split(filename)[1] in result_migrations_by_dir[server_migration_dir]
 
         # When the script is python_only, only python migrations are returned.
-        self.script.python_only = True
-        result_migrations, result_migrations_by_dir = self.script.fetch_migration_files()
+        script.python_only = True
+        result_migrations, result_migrations_by_dir = script.fetch_migration_files()
 
-        py_migration_files = [m for m in self.migration_files if m.endswith('.py')]
+        py_migration_files = [m for m in all_migrations if m.endswith('.py')]
         py_migration_filenames = [os.path.split(f)[1] for f in py_migration_files]
-        eq_(sorted(py_migration_filenames), sorted(result_migrations))
+        assert sorted(py_migration_filenames) == sorted(result_migrations)
 
-        core_migration_files = [m for m in extract_filenames() if m.endswith('.py')]
-        eq_(1, len(core_migration_files))
-        eq_(result_migrations_by_dir[self.core_migration_dir], core_migration_files)
+        core_migration_files = [os.path.split(m)[1] for m in core_migrations if m.endswith('.py')]
+        assert 1 == len(core_migration_files)
+        assert result_migrations_by_dir[core_migration_dir] == core_migration_files
 
-        parent_migration_files = [m for m in extract_filenames(False) if m.endswith('.py')]
-        eq_(1, len(parent_migration_files))
-        eq_(result_migrations_by_dir[self.parent_migration_dir], parent_migration_files)
+        server_migration_files = [os.path.split(m)[1] for m in server_migrations if m.endswith('.py')]
+        assert 1 == len(server_migration_files)
+        assert result_migrations_by_dir[server_migration_dir] == server_migration_files
 
-    def test_migratable_files(self):
+    def test_migratable_files(self, script):
         """Returns migrations that end with particular extensions."""
 
         migrations = [
@@ -1152,19 +1099,20 @@ class TestDatabaseMigrationScript(DatabaseMigrationScriptTest):
             '20260802-did-a-thing.pyc', 'why-am-i-here.rb'
         ]
 
-        result = self.script.migratable_files(migrations, ['.sql', '.py'])
-        eq_(2, len(result))
-        eq_(['20250521-make-bananas.sql', '20260810-do-a-thing.py'], result)
+        result = script.migratable_files(migrations, ['.sql', '.py'])
+        assert 2 == len(result)
+        assert ['20250521-make-bananas.sql', '20260810-do-a-thing.py'] == result
 
-        result = self.script.migratable_files(migrations, ['.rb'])
-        eq_(1, len(result))
-        eq_(['why-am-i-here.rb'], result)
+        result = script.migratable_files(migrations, ['.rb'])
+        assert 1 == len(result)
+        assert ['why-am-i-here.rb'] == result
 
-        result = self.script.migratable_files(migrations, ['banana'])
-        eq_([], result)
+        result = script.migratable_files(migrations, ['banana'])
+        assert [] == result
 
-    def test_get_new_migrations(self):
+    def test_get_new_migrations(self, script, timestamp):
         """Filters out migrations that were run on or before a given timestamp"""
+        timestamp, python_timestamp, timestamp_info = timestamp
 
         migrations = [
             '20271204-far-future-migration-funtime.sql',
@@ -1176,7 +1124,7 @@ class TestDatabaseMigrationScript(DatabaseMigrationScriptTest):
             '20260809-already-done.sql',
         ]
 
-        result = self.script.get_new_migrations(self.timestamp_info, migrations)
+        result = script.get_new_migrations(timestamp_info, migrations)
         # Expected migrations will be sorted by timestamp. Python migrations
         # will be sorted after SQL migrations.
         expected = [
@@ -1186,8 +1134,8 @@ class TestDatabaseMigrationScript(DatabaseMigrationScriptTest):
             '20271203-do-another-thing.py',
         ]
 
-        eq_(4, len(result))
-        eq_(expected, result)
+        assert 4 == len(result)
+        assert expected == result
 
         # If the timestamp has a counter, the filter only finds new migrations
         # past the counter.
@@ -1198,15 +1146,15 @@ class TestDatabaseMigrationScript(DatabaseMigrationScriptTest):
             '20260810-2-do-all-the-things.sql',
             '20260809-already-done.sql'
         ]
-        self.timestamp_info.counter = 1
-        result = self.script.get_new_migrations(self.timestamp_info, migrations)
+        timestamp_info.counter = 1
+        result = script.get_new_migrations(timestamp_info, migrations)
         expected = [
             '20260810-2-do-all-the-things.sql',
             '20271202-future-migration-funtime.sql',
         ]
 
-        eq_(2, len(result))
-        eq_(expected, result)
+        assert 2 == len(result)
+        assert expected == result
 
         # If the timestamp has a (unlikely) mix of counter and non-counter
         # migrations with the same datetime, migrations with counters are
@@ -1218,157 +1166,155 @@ class TestDatabaseMigrationScript(DatabaseMigrationScriptTest):
             '20260809-already-done.sql',
             '20271202-future-migration-funtime.sql',
         ]
-        self.timestamp_info.counter = None
+        timestamp_info.counter = None
 
-        result = self.script.get_new_migrations(self.timestamp_info, migrations)
+        result = script.get_new_migrations(timestamp_info, migrations)
         expected = [
             '20260810-1-do-all-the-things.sql',
             '20271202-future-migration-funtime.sql',
             '20271202-1-more-future-migration-funtime.sql'
         ]
-        eq_(3, len(result))
-        eq_(expected, result)
+        assert 3 == len(result)
+        assert expected == result
 
-    def test_update_timestamps(self):
+    def test_update_timestamps(self, script, timestamp):
         """Resets a timestamp according to the date of a migration file"""
+        timestamp, python_timestamp, timestamp_info = timestamp
 
         migration = '20271202-future-migration-funtime.sql'
-        py_last_run_time = self.python_timestamp.finish
+        py_last_run_time = python_timestamp.finish
 
         def assert_unchanged_python_timestamp():
-            eq_(py_last_run_time, self.python_timestamp.finish)
+            assert py_last_run_time == python_timestamp.finish
 
         def assert_timestamp_matches_migration(timestamp, migration, counter=None):
             self._db.refresh(timestamp)
             timestamp_str = timestamp.finish.strftime('%Y%m%d')
-            eq_(migration[0:8], timestamp_str)
-            eq_(counter, timestamp.counter)
+            assert migration[0:8] == timestamp_str
+            assert counter == timestamp.counter
 
-        assert self.timestamp_info.finish.strftime('%Y%m%d') != migration[0:8]
-        self.script.update_timestamps(migration)
-        assert_timestamp_matches_migration(self.timestamp, migration)
+        assert timestamp_info.finish.strftime('%Y%m%d') != migration[0:8]
+        script.update_timestamps(migration)
+        assert_timestamp_matches_migration(timestamp, migration)
         assert_unchanged_python_timestamp()
 
         # It also takes care of counter digits when multiple migrations
         # exist for the same date.
         migration = '20280810-2-do-all-the-things.sql'
-        self.script.update_timestamps(migration)
-        assert_timestamp_matches_migration(self.timestamp, migration, counter=2)
+        script.update_timestamps(migration)
+        assert_timestamp_matches_migration(timestamp, migration, counter=2)
         assert_unchanged_python_timestamp()
 
         # And removes those counter digits when the timestamp is updated.
         migration = '20280901-what-it-do.sql'
-        self.script.update_timestamps(migration)
-        assert_timestamp_matches_migration(self.timestamp, migration)
+        script.update_timestamps(migration)
+        assert_timestamp_matches_migration(timestamp, migration)
         assert_unchanged_python_timestamp()
 
         # If the migration is earlier than the existing timestamp,
         # the timestamp is not updated.
         migration = '20280801-before-the-existing-timestamp.sql'
-        self.script.update_timestamps(migration)
-        eq_(self.timestamp.finish.strftime('%Y%m%d'), '20280901')
+        script.update_timestamps(migration)
+        assert timestamp.finish.strftime('%Y%m%d') == '20280901'
 
         # Python migrations update both timestamps.
         migration = '20281001-new-task.py'
-        self.script.update_timestamps(migration)
-        assert_timestamp_matches_migration(self.timestamp, migration)
-        assert_timestamp_matches_migration(self.python_timestamp, migration)
+        script.update_timestamps(migration)
+        assert_timestamp_matches_migration(timestamp, migration)
+        assert_timestamp_matches_migration(python_timestamp, migration)
 
-    def test_running_a_migration_updates_the_timestamps(self):
+    def test_running_a_migration_updates_the_timestamps(self, timestamp, migration_file, migration_dirs, script):
+        timestamp, python_timestamp, timestamp_info = timestamp
         future_time = datetime.datetime.strptime('20261030', '%Y%m%d')
-        self.timestamp_info.finish = future_time
+        timestamp_info.finish = future_time
+        [core_dir, server_dir] = migration_dirs
 
-        # Create a test migration after that point and grab relevant info
-        # about it.
-        self._create_test_migration_file(
-            self.core_migration_dir, 'SINGLE', 'sql',
+        # Create a test migration after that point and grab relevant info about it.
+        migration_filepath = migration_file(
+            core_dir, 'SINGLE', 'sql',
             migration_date='20261202'
         )
 
-        # Pop the last migration filepath off and run the migration with
-        # the relevant information.
-        migration_filepath = self.migration_files[-1]
+        # Run the migration with the relevant information.
         migration_filename = os.path.split(migration_filepath)[1]
         migrations_by_dir = {
-            self.core_migration_dir : [migration_filename],
-            self.parent_migration_dir : []
+            core_dir : [migration_filename],
+            server_dir : []
         }
 
         # Running the migration updates the timestamps
-        self.script.run_migrations(
-            [migration_filename], migrations_by_dir, self.timestamp_info
+        script.run_migrations(
+            [migration_filename], migrations_by_dir, timestamp_info
         )
-        eq_(self.timestamp.finish.strftime('%Y%m%d'), '20261202')
+        assert timestamp.finish.strftime('%Y%m%d') == '20261202'
 
         # Even when there are counters.
-        self._create_test_migration_file(
-            self.core_migration_dir, 'COUNTER', 'sql',
+        migration_filepath = migration_file(
+            core_dir, 'COUNTER', 'sql',
             migration_date='20261203-3'
         )
-        migration_filename = os.path.split(self.migration_files[-1])[1]
-        migrations_by_dir[self.core_migration_dir] = [migration_filename]
-        self.script.run_migrations(
-            [migration_filename], migrations_by_dir, self.timestamp_info
+        migration_filename = os.path.split(migration_filepath)[1]
+        migrations_by_dir[core_dir] = [migration_filename]
+        script.run_migrations(
+            [migration_filename], migrations_by_dir, timestamp_info
         )
-        eq_(self.timestamp.finish.strftime('%Y%m%d'), '20261203')
-        eq_(self.timestamp.counter, 3)
+        assert timestamp.finish.strftime('%Y%m%d') == '20261203'
+        assert timestamp.counter == 3
 
-    def test_all_migration_files_are_run(self):
-        self.script.run(
+    def test_all_migration_files_are_run(self, script, migrations, timestamp, tmp_path):
+        script.run(
             test_db=self._db, test=True,
             cmd_args=["--last-run-date", "2010-01-01"]
         )
 
         # There are two test timestamps in the database, confirming that
-        # the test SQL files created by self._create_test_migration_files()
+        # the test SQL files created by the migrations fixture
         # have been run.
         timestamps = self._db.query(Timestamp).filter(
             Timestamp.service.like('Test Database Migration Script - %')
         ).order_by(Timestamp.service).all()
-        eq_(2, len(timestamps))
+        assert 2 == len(timestamps)
 
         # A timestamp has been generated from each migration directory.
-        eq_(True, timestamps[0].service.endswith('CORE'))
-        eq_(True, timestamps[1].service.endswith('SERVER'))
+        assert True == timestamps[0].service.endswith('CORE')
+        assert True == timestamps[1].service.endswith('SERVER')
 
         for timestamp in timestamps:
             self._db.delete(timestamp)
 
-        # There are two temporary files created in core/tests,
+        # There are two temporary files created in tmp_path,
         # confirming that the test Python files created by
-        # self._create_test_migration_files() have been run.
-        test_dir = os.path.split(__file__)[0]
-        all_files = os.listdir(test_dir)
-        test_generated_files = sorted([f for f in all_files
-                                       if f.startswith(('CORE', 'SERVER'))])
-        eq_(2, len(test_generated_files))
+        # migrations fixture have been run.
+        test_generated_files = sorted([f.name for f in tmp_path.iterdir()
+            if f.name.startswith(('CORE', 'SERVER')) and f.is_file()])
+        assert 2 == len(test_generated_files)
 
         # A file has been generated from each migration directory.
         assert 'CORE' in test_generated_files[0]
         assert 'SERVER' in test_generated_files[1]
 
-    def test_python_migration_files_can_be_run_independently(self):
-        self.script.run(
+    def test_python_migration_files_can_be_run_independently(self, script, migrations, timestamp, tmp_path):
+        script.run(
             test_db=self._db, test=True,
             cmd_args=["--last-run-date", "2010-01-01", "--python-only"]
         )
 
         # There are no test timestamps in the database, confirming that
-        # no test SQL files created by self._create_test_migration_files()
+        # no test SQL files created by the migrations fixture
         # have been run.
         timestamps = self._db.query(Timestamp).filter(
             Timestamp.service.like('Test Database Migration Script - %')
         ).order_by(Timestamp.service).all()
-        eq_([], timestamps)
+        assert [] == timestamps
 
-        # There are two temporary files in core/tests, confirming that the test
-        # Python files created by self._create_test_migration_files() were run.
+        # There are two temporary files in tmp_path, confirming that the test
+        # Python files created by the migrations fixture were run.
         test_dir = os.path.split(__file__)[0]
         all_files = os.listdir(test_dir)
-        test_generated_files = sorted([f for f in all_files
-                                       if f.startswith(('CORE', 'SERVER'))])
+        test_generated_files = sorted([f.name for f in tmp_path.iterdir()
+                                       if f.name.startswith(('CORE', 'SERVER')) and f.is_file()])
 
-        eq_(2, len(test_generated_files))
+        assert 2 == len(test_generated_files)
 
         # A file has been generated from each migration directory.
         assert 'CORE' in test_generated_files[0]
@@ -1377,19 +1323,19 @@ class TestDatabaseMigrationScript(DatabaseMigrationScriptTest):
 
 class TestDatabaseMigrationInitializationScript(DatabaseMigrationScriptTest):
 
-    def setup(self):
-        super(TestDatabaseMigrationInitializationScript, self).setup()
-        self.script = DatabaseMigrationInitializationScript(self._db)
+    @pytest.fixture()
+    def script(self, monkeypatch, migration_dirs, migrations):
+        # Patch DatabaseMigrationInitializationScript to use test directories for migrations
+        monkeypatch.setattr(DatabaseMigrationInitializationScript, "directories_by_priority", migration_dirs)
+        return DatabaseMigrationInitializationScript(self._db)
 
-    def assert_matches_latest_python_migration(self, timestamp, script=None):
-        script = script or self.script
+    def assert_matches_latest_python_migration(self, timestamp, script):
         migrations = script.fetch_migration_files()[0]
         migrations_sorted = script.sort_migrations(migrations)
         last_migration_date = [x for x in migrations_sorted if x.endswith('.py')][-1][0:8]
         self.assert_matches_timestamp(timestamp, last_migration_date)
 
-    def assert_matches_latest_migration(self, timestamp, script=None):
-        script = script or self.script
+    def assert_matches_latest_migration(self, timestamp, script):
         migrations = script.fetch_migration_files()[0]
         migrations_sorted = script.sort_migrations(migrations)
         py_migration = [x for x in migrations_sorted if x.endswith('.py')][-1][0:8]
@@ -1398,87 +1344,87 @@ class TestDatabaseMigrationInitializationScript(DatabaseMigrationScriptTest):
         self.assert_matches_timestamp(timestamp, last_migration_date)
 
     def assert_matches_timestamp(self, timestamp, migration_date):
-        eq_(timestamp.finish.strftime('%Y%m%d'), migration_date)
+        assert timestamp.finish.strftime('%Y%m%d') == migration_date
 
-    def test_accurate_timestamps_created(self):
-        eq_(
-            None,
+    def test_accurate_timestamps_created(self, script):
+        assert (
+            None ==
             Timestamp.value(
-                self._db, self.script.name, Timestamp.SCRIPT_TYPE,
+                self._db, script.name, Timestamp.SCRIPT_TYPE,
                 collection=None
-            )
-        )
-        self.script.run()
-        self.assert_matches_latest_migration(self.script.overall_timestamp)
-        self.assert_matches_latest_python_migration(self.script.python_timestamp)
+            ))
+        script.run()
+        self.assert_matches_latest_migration(script.overall_timestamp, script)
+        self.assert_matches_latest_python_migration(script.python_timestamp, script)
 
-    def test_accurate_python_timestamp_created_python_later(self):
-        script = self.create_mock_script(DatabaseMigrationInitializationScript, self._db)
-        eq_(None, Timestamp.value(self._db, script.name, Timestamp.SCRIPT_TYPE, collection=None))
+    def test_accurate_python_timestamp_created_python_later(self, script, migration_dirs, migration_file):
+        [core_migration_dir, server_migration_dir] = migration_dirs
+        assert None == Timestamp.value(self._db, script.name, Timestamp.SCRIPT_TYPE, collection=None)
 
         # If the last python migration and the last SQL migration have
         # different timestamps, they're set accordingly.
-        self._create_test_migration_file(self.core_migration_dir, 'CORE', 'sql', '20310101')
-        self._create_test_migration_file(self.parent_migration_dir, 'SERVER', 'py', '20300101')
+        migration_file(core_migration_dir, 'CORE', 'sql', '20310101')
+        migration_file(server_migration_dir, 'SERVER', 'py', '20300101')
 
         script.run()
         self.assert_matches_timestamp(script.overall_timestamp, '20310101')
         self.assert_matches_timestamp(script.python_timestamp, '20300101')
 
-    def test_accurate_python_timestamp_created_python_earlier(self):
-        script = self.create_mock_script(DatabaseMigrationInitializationScript, self._db)
-        eq_(None, Timestamp.value(self._db, script.name, Timestamp.SCRIPT_TYPE, collection=None))
+    def test_accurate_python_timestamp_created_python_earlier(self, script, migration_dirs, migration_file):
+        [core_migration_dir, server_migration_dir] = migration_dirs
+        assert None == Timestamp.value(self._db, script.name, Timestamp.SCRIPT_TYPE, collection=None)
 
         # If the last python migration and the last SQL migration have
         # different timestamps, they're set accordingly.
-        self._create_test_migration_file(self.core_migration_dir, 'CORE', 'sql', '20310101')
-        self._create_test_migration_file(self.parent_migration_dir, 'SERVER', 'py', '20350101')
+        migration_file(core_migration_dir, 'CORE', 'sql', '20310101')
+        migration_file(server_migration_dir, 'SERVER', 'py', '20350101')
 
         script.run()
         self.assert_matches_timestamp(script.overall_timestamp, '20350101')
         self.assert_matches_timestamp(script.python_timestamp, '20350101')
 
     def test_error_raised_when_timestamp_exists(self):
-        Timestamp.stamp(self._db, self.script.name, Timestamp.SCRIPT_TYPE, None)
-        assert_raises(RuntimeError, self.script.run)
+        script = DatabaseMigrationInitializationScript(self._db)
+        Timestamp.stamp(self._db, script.name, Timestamp.SCRIPT_TYPE, None)
+        pytest.raises(RuntimeError, script.run)
 
-    def test_error_not_raised_when_timestamp_forced(self):
-        past = self.script.parse_time('19951127')
-        Timestamp.stamp(self._db, self.script.name, Timestamp.SCRIPT_TYPE, None, finish=past)
-        self.script.run(['-f'])
-        self.assert_matches_latest_migration(self.script.overall_timestamp)
-        self.assert_matches_latest_python_migration(self.script.python_timestamp)
+    def test_error_not_raised_when_timestamp_forced(self, script):
+        past = script.parse_time('19951127')
+        Timestamp.stamp(self._db, script.name, Timestamp.SCRIPT_TYPE, None, finish=past)
+        script.run(['-f'])
+        self.assert_matches_latest_migration(script.overall_timestamp, script)
+        self.assert_matches_latest_python_migration(script.python_timestamp, script)
 
-    def test_accepts_last_run_date(self):
+    def test_accepts_last_run_date(self, script):
         # A timestamp can be passed via the command line.
-        self.script.run(['--last-run-date', '20101010'])
+        script.run(['--last-run-date', '20101010'])
         expected_stamp = datetime.datetime.strptime('20101010', '%Y%m%d')
-        eq_(expected_stamp, self.script.overall_timestamp.finish)
+        assert expected_stamp == script.overall_timestamp.finish
 
         # It will override an existing timestamp if forced.
-        self.script.run(['--last-run-date', '20111111', '--force'])
+        script.run(['--last-run-date', '20111111', '--force'])
         expected_stamp = datetime.datetime.strptime('20111111', '%Y%m%d')
-        eq_(expected_stamp, self.script.overall_timestamp.finish)
-        eq_(expected_stamp, self.script.python_timestamp.finish)
+        assert expected_stamp == script.overall_timestamp.finish
+        assert expected_stamp == script.python_timestamp.finish
 
-    def test_accepts_last_run_counter(self):
+    def test_accepts_last_run_counter(self, script):
         # If a counter is passed without a date, an error is raised.
-        assert_raises(ValueError, self.script.run, ['--last-run-counter', '7'])
+        pytest.raises(ValueError, script.run, ['--last-run-counter', '7'])
 
         # With a date, the counter can be set.
-        self.script.run(['--last-run-date', '20101010', '--last-run-counter', '7'])
+        script.run(['--last-run-date', '20101010', '--last-run-counter', '7'])
         expected_stamp = datetime.datetime.strptime('20101010', '%Y%m%d')
-        eq_(expected_stamp, self.script.overall_timestamp.finish)
-        eq_(7, self.script.overall_timestamp.counter)
+        assert expected_stamp == script.overall_timestamp.finish
+        assert 7 == script.overall_timestamp.counter
 
         # When forced, the counter can be reset on an existing timestamp.
-        previous_timestamp = self.script.overall_timestamp.finish
-        self.script.run(['--last-run-date', '20121212', '--last-run-counter', '2', '-f'])
+        previous_timestamp = script.overall_timestamp.finish
+        script.run(['--last-run-date', '20121212', '--last-run-counter', '2', '-f'])
         expected_stamp = datetime.datetime.strptime('20121212', '%Y%m%d')
-        eq_(expected_stamp, self.script.overall_timestamp.finish)
-        eq_(expected_stamp, self.script.python_timestamp.finish)
-        eq_(2, self.script.overall_timestamp.counter)
-        eq_(2, self.script.python_timestamp.counter)
+        assert expected_stamp == script.overall_timestamp.finish
+        assert expected_stamp == script.python_timestamp.finish
+        assert 2 == script.overall_timestamp.counter
+        assert 2 == script.python_timestamp.counter
 
 
 class TestAddClassificationScript(DatabaseTest):
@@ -1487,7 +1433,7 @@ class TestAddClassificationScript(DatabaseTest):
         work = self._work(with_license_pool=True)
         identifier = work.license_pools[0].identifier
         stdin = MockStdin(identifier.identifier)
-        eq_(Classifier.AUDIENCE_ADULT, work.audience)
+        assert Classifier.AUDIENCE_ADULT == work.audience
 
         cmd_args = [
             "--identifier-type", identifier.type,
@@ -1502,20 +1448,20 @@ class TestAddClassificationScript(DatabaseTest):
 
         # The identifier has been classified under 'children'.
         [classification] = identifier.classifications
-        eq_(42, classification.weight)
+        assert 42 == classification.weight
         subject = classification.subject
-        eq_(Classifier.FREEFORM_AUDIENCE, subject.type)
-        eq_(Classifier.AUDIENCE_CHILDREN, subject.identifier)
+        assert Classifier.FREEFORM_AUDIENCE == subject.type
+        assert Classifier.AUDIENCE_CHILDREN == subject.identifier
 
         # The work has been reclassified and is now known as a
         # children's book.
-        eq_(Classifier.AUDIENCE_CHILDREN, work.audience)
+        assert Classifier.AUDIENCE_CHILDREN == work.audience
 
     def test_autocreate(self):
         work = self._work(with_license_pool=True)
         identifier = work.license_pools[0].identifier
         stdin = MockStdin(identifier.identifier)
-        eq_(Classifier.AUDIENCE_ADULT, work.audience)
+        assert Classifier.AUDIENCE_ADULT == work.audience
 
         cmd_args = [
             "--identifier-type", identifier.type,
@@ -1529,7 +1475,7 @@ class TestAddClassificationScript(DatabaseTest):
 
         # Nothing has happened. There was no Subject with that
         # identifier, so we assumed there was a typo and did nothing.
-        eq_([], identifier.classifications)
+        assert [] == identifier.classifications
 
         # If we stick the 'create-subject' onto the end of the
         # command-line arguments, the Subject is created and the
@@ -1543,7 +1489,7 @@ class TestAddClassificationScript(DatabaseTest):
 
         [classification] = identifier.classifications
         subject = classification.subject
-        eq_("some random tag", subject.identifier)
+        assert "some random tag" == subject.identifier
 
 
 class TestShowLibrariesScript(DatabaseTest):
@@ -1551,7 +1497,7 @@ class TestShowLibrariesScript(DatabaseTest):
     def test_with_no_libraries(self):
         output = StringIO()
         ShowLibrariesScript().do_run(self._db, output=output)
-        eq_("No libraries found.\n", output.getvalue())
+        assert "No libraries found.\n" == output.getvalue()
 
     def test_with_multiple_libraries(self):
         l1, ignore = create(
@@ -1570,7 +1516,7 @@ class TestShowLibrariesScript(DatabaseTest):
         expect_1 = "\n".join(l1.explain(include_secrets=False))
         expect_2 = "\n".join(l2.explain(include_secrets=False))
 
-        eq_(expect_1 + "\n" + expect_2 + "\n", output.getvalue())
+        assert expect_1 + "\n" + expect_2 + "\n" == output.getvalue()
 
 
         # We can tell the script to only list a single library.
@@ -1580,7 +1526,7 @@ class TestShowLibrariesScript(DatabaseTest):
             cmd_args=["--short-name=L2"],
             output=output
         )
-        eq_(expect_2 + "\n", output.getvalue())
+        assert expect_2 + "\n" == output.getvalue()
 
         # We can tell the script to include the library registry
         # shared secret.
@@ -1592,22 +1538,20 @@ class TestShowLibrariesScript(DatabaseTest):
         )
         expect_1 = "\n".join(l1.explain(include_secrets=True))
         expect_2 = "\n".join(l2.explain(include_secrets=True))
-        eq_(expect_1 + "\n" + expect_2 + "\n", output.getvalue())
+        assert expect_1 + "\n" + expect_2 + "\n" == output.getvalue()
 
 
 class TestConfigureSiteScript(DatabaseTest):
 
     def test_unknown_setting(self):
         script = ConfigureSiteScript()
-        assert_raises_regexp(
-            ValueError,
-            "'setting1' is not a known site-wide setting. Use --force to set it anyway.",
-            script.do_run, self._db, [
+        with pytest.raises(ValueError) as excinfo:
+            script.do_run(self._db, [
                 "--setting=setting1=value1"
-            ]
-        )
+            ])
+        assert "'setting1' is not a known site-wide setting. Use --force to set it anyway." in str(excinfo.value)
 
-        eq_(None, ConfigurationSetting.sitewide(self._db, "setting1").value)
+        assert None == ConfigurationSetting.sitewide(self._db, "setting1").value
 
         # Running with --force sets the setting.
         script.do_run(
@@ -1617,7 +1561,7 @@ class TestConfigureSiteScript(DatabaseTest):
             ]
         )
 
-        eq_("value1", ConfigurationSetting.sitewide(self._db, "setting1").value)
+        assert "value1" == ConfigurationSetting.sitewide(self._db, "setting1").value
 
     def test_settings(self):
         class TestConfig(object):
@@ -1641,11 +1585,11 @@ class TestConfigureSiteScript(DatabaseTest):
         expect = "\n".join(
             ConfigurationSetting.explain(self._db, include_secrets=False)
         )
-        eq_(expect, output.getvalue())
+        assert expect == output.getvalue()
         assert 'setting_secret' not in expect
-        eq_("value1", ConfigurationSetting.sitewide(self._db, "setting1").value)
-        eq_('[1,2,"3"]', ConfigurationSetting.sitewide(self._db, "setting2").value)
-        eq_("secretvalue", ConfigurationSetting.sitewide(self._db, "setting_secret").value)
+        assert "value1" == ConfigurationSetting.sitewide(self._db, "setting1").value
+        assert '[1,2,"3"]' == ConfigurationSetting.sitewide(self._db, "setting2").value
+        assert "secretvalue" == ConfigurationSetting.sitewide(self._db, "setting_secret").value
 
         # If we run again with --show-secrets, the secret is shown.
         output = StringIO()
@@ -1653,7 +1597,7 @@ class TestConfigureSiteScript(DatabaseTest):
         expect = "\n".join(
             ConfigurationSetting.explain(self._db, include_secrets=True)
         )
-        eq_(expect, output.getvalue())
+        assert expect == output.getvalue()
         assert 'setting_secret' in expect
 
 class TestConfigureLibraryScript(DatabaseTest):
@@ -1665,21 +1609,17 @@ class TestConfigureLibraryScript(DatabaseTest):
         )
         library.library_registry_shared_secret='secret'
         self._db.commit()
-        assert_raises_regexp(
-            ValueError,
-            "You must identify the library by its short name.",
-            script.do_run, self._db, []
-        )
+        with pytest.raises(ValueError) as excinfo:
+            script.do_run(self._db, [])
+        assert "You must identify the library by its short name." in str(excinfo.value)
 
-        assert_raises_regexp(
-            ValueError,
-            "Could not locate library 'foo'",
-            script.do_run, self._db, ["--short-name=foo"]
-        )
+        with pytest.raises(ValueError) as excinfo:
+            script.do_run(self._db, ["--short-name=foo"])
+        assert "Could not locate library 'foo'" in str(excinfo.value)
 
     def test_create_library(self):
         # There is no library.
-        eq_([], self._db.query(Library).all())
+        assert [] == self._db.query(Library).all()
 
         script = ConfigureLibraryScript()
         output = StringIO()
@@ -1694,11 +1634,11 @@ class TestConfigureLibraryScript(DatabaseTest):
 
         # Now there is one library.
         [library] = self._db.query(Library).all()
-        eq_("Library 1", library.name)
-        eq_("L1", library.short_name)
-        eq_("value", library.setting("customkey").value)
+        assert "Library 1" == library.name
+        assert "L1" == library.short_name
+        assert "value" == library.setting("customkey").value
         expect_output = "Configuration settings stored.\n" + "\n".join(library.explain()) + "\n"
-        eq_(expect_output, output.getvalue())
+        assert expect_output == output.getvalue()
 
     def test_reconfigure_library(self):
         # The library exists.
@@ -1718,11 +1658,11 @@ class TestConfigureLibraryScript(DatabaseTest):
             output
         )
 
-        eq_("Library 1 New Name", library.name)
-        eq_("value", library.setting("customkey").value)
+        assert "Library 1 New Name" == library.name
+        assert "value" == library.setting("customkey").value
 
         expect_output = "Configuration settings stored.\n" + "\n".join(library.explain()) + "\n"
-        eq_(expect_output, output.getvalue())
+        assert expect_output == output.getvalue()
 
 
 class TestShowCollectionsScript(DatabaseTest):
@@ -1730,7 +1670,7 @@ class TestShowCollectionsScript(DatabaseTest):
     def test_with_no_collections(self):
         output = StringIO()
         ShowCollectionsScript().do_run(self._db, output=output)
-        eq_("No collections found.\n", output.getvalue())
+        assert "No collections found.\n" == output.getvalue()
 
     def test_with_multiple_collections(self):
         c1 = self._collection(name="Collection 1",
@@ -1747,7 +1687,7 @@ class TestShowCollectionsScript(DatabaseTest):
         expect_1 = "\n".join(c1.explain(include_secrets=False))
         expect_2 = "\n".join(c2.explain(include_secrets=False))
 
-        eq_(expect_1 + "\n" + expect_2 + "\n", output.getvalue())
+        assert expect_1 + "\n" + expect_2 + "\n" == output.getvalue()
 
 
         # We can tell the script to only list a single collection.
@@ -1757,7 +1697,7 @@ class TestShowCollectionsScript(DatabaseTest):
             cmd_args=["--name=Collection 2"],
             output=output
         )
-        eq_(expect_2 + "\n", output.getvalue())
+        assert expect_2 + "\n" == output.getvalue()
 
         # We can tell the script to include the collection password
         output = StringIO()
@@ -1768,7 +1708,7 @@ class TestShowCollectionsScript(DatabaseTest):
         )
         expect_1 = "\n".join(c1.explain(include_secrets=True))
         expect_2 = "\n".join(c2.explain(include_secrets=True))
-        eq_(expect_1 + "\n" + expect_2 + "\n", output.getvalue())
+        assert expect_1 + "\n" + expect_2 + "\n" == output.getvalue()
 
 
 class TestConfigureCollectionScript(DatabaseTest):
@@ -1782,31 +1722,25 @@ class TestConfigureCollectionScript(DatabaseTest):
 
         # Reference to a nonexistent collection without the information
         # necessary to create it.
-        assert_raises_regexp(
-            ValueError,
-            'No collection called "collection". You can create it, but you must specify a protocol.',
-            script.do_run, self._db, ["--name=collection"]
-        )
+        with pytest.raises(ValueError) as excinfo:
+            script.do_run(self._db, ["--name=collection"])
+        assert 'No collection called "collection". You can create it, but you must specify a protocol.' in str(excinfo.value)
 
         # Incorrect format for the 'setting' argument.
-        assert_raises_regexp(
-            ValueError,
-            'Incorrect format for setting: "key". Should be "key=value"',
-            script.do_run, self._db, [
+        with pytest.raises(ValueError) as excinfo:
+            script.do_run(self._db, [
                 "--name=collection", "--protocol=Overdrive",
                 "--setting=key"
-            ]
-        )
+            ])
+        assert 'Incorrect format for setting: "key". Should be "key=value"' in str(excinfo.value)
 
         # Try to add the collection to a nonexistent library.
-        assert_raises_regexp(
-            ValueError,
-            'No such library: "nosuchlibrary". I only know about: "L1"',
-            script.do_run, self._db, [
+        with pytest.raises(ValueError) as excinfo:
+            script.do_run(self._db, [
                 "--name=collection", "--protocol=Overdrive",
                 "--library=nosuchlibrary"
-            ]
-        )
+            ])
+        assert 'No such library: "nosuchlibrary". I only know about: "L1"' in str(excinfo.value)
 
 
     def test_success(self):
@@ -1839,27 +1773,27 @@ class TestConfigureCollectionScript(DatabaseTest):
 
         # The collection was created and configured properly.
         collection = get_one(self._db, Collection)
-        eq_("New Collection", collection.name)
-        eq_("url", collection.external_integration.url)
-        eq_("acctid", collection.external_account_id)
-        eq_("username", collection.external_integration.username)
-        eq_("password", collection.external_integration.password)
+        assert "New Collection" == collection.name
+        assert "url" == collection.external_integration.url
+        assert "acctid" == collection.external_account_id
+        assert "username" == collection.external_integration.username
+        assert "password" == collection.external_integration.password
 
         # Two libraries now have access to the collection.
-        eq_([collection], l1.collections)
-        eq_([collection], l2.collections)
-        eq_([], l3.collections)
+        assert [collection] == l1.collections
+        assert [collection] == l2.collections
+        assert [] == l3.collections
 
         # One CollectionSetting was set on the collection, in addition
         # to url, username, and password.
         setting = collection.external_integration.setting("library_id")
-        eq_("library_id", setting.key)
-        eq_("1234", setting.value)
+        assert "library_id" == setting.key
+        assert "1234" == setting.value
 
         # The output explains the collection settings.
         expect = ("Configuration settings stored.\n"
                   + "\n".join(collection.explain()) + "\n")
-        eq_(expect, output.getvalue())
+        assert expect == output.getvalue()
 
     def test_reconfigure_collection(self):
         # The collection exists.
@@ -1881,13 +1815,13 @@ class TestConfigureCollectionScript(DatabaseTest):
         )
 
         # The collection has been changed.
-        eq_("foo", collection.external_integration.url)
-        eq_(ExternalIntegration.BIBLIOTHECA, collection.protocol)
+        assert "foo" == collection.external_integration.url
+        assert ExternalIntegration.BIBLIOTHECA == collection.protocol
 
         expect = ("Configuration settings stored.\n"
                   + "\n".join(collection.explain()) + "\n")
 
-        eq_(expect, output.getvalue())
+        assert expect == output.getvalue()
 
 
 class TestShowIntegrationsScript(DatabaseTest):
@@ -1895,7 +1829,7 @@ class TestShowIntegrationsScript(DatabaseTest):
     def test_with_no_integrations(self):
         output = StringIO()
         ShowIntegrationsScript().do_run(self._db, output=output)
-        eq_("No integrations found.\n", output.getvalue())
+        assert "No integrations found.\n" == output.getvalue()
 
     def test_with_multiple_integrations(self):
         i1 = self._external_integration(
@@ -1918,7 +1852,7 @@ class TestShowIntegrationsScript(DatabaseTest):
         expect_1 = "\n".join(i1.explain(include_secrets=False))
         expect_2 = "\n".join(i2.explain(include_secrets=False))
 
-        eq_(expect_1 + "\n" + expect_2 + "\n", output.getvalue())
+        assert expect_1 + "\n" + expect_2 + "\n" == output.getvalue()
 
 
         # We can tell the script to only list a single integration.
@@ -1928,7 +1862,7 @@ class TestShowIntegrationsScript(DatabaseTest):
             cmd_args=["--name=Integration 2"],
             output=output
         )
-        eq_(expect_2 + "\n", output.getvalue())
+        assert expect_2 + "\n" == output.getvalue()
 
         # We can tell the script to include the integration secrets
         output = StringIO()
@@ -1939,7 +1873,7 @@ class TestShowIntegrationsScript(DatabaseTest):
         )
         expect_1 = "\n".join(i1.explain(include_secrets=True))
         expect_2 = "\n".join(i2.explain(include_secrets=True))
-        eq_(expect_1 + "\n" + expect_2 + "\n", output.getvalue())
+        assert expect_1 + "\n" + expect_2 + "\n" == output.getvalue()
 
 
 class TestConfigureIntegrationScript(DatabaseTest):
@@ -1947,46 +1881,37 @@ class TestConfigureIntegrationScript(DatabaseTest):
     def test_load_integration(self):
         m = ConfigureIntegrationScript._integration
 
-        assert_raises_regexp(
-            ValueError,
-            "An integration must by identified by either ID, name, or the combination of protocol and goal.",
-            m, self._db, None, None, "protocol", None
-        )
+        with pytest.raises(ValueError) as excinfo:
+            m(self._db, None, None, "protocol", None)
+        assert "An integration must by identified by either ID, name, or the combination of protocol and goal." in str(excinfo.value)
 
-        assert_raises_regexp(
-            ValueError,
-            "No integration with ID notanid.",
-            m, self._db, "notanid", None, None, None
-        )
+        with pytest.raises(ValueError) as excinfo:
+            m(self._db, "notanid", None, None, None)
+        assert "No integration with ID notanid." in str(excinfo.value)
 
-        assert_raises_regexp(
-            ValueError,
-            'No integration with name "Unknown integration". To create it, you must also provide protocol and goal.',
-            m, self._db, None, "Unknown integration", None, None
-        )
+        with pytest.raises(ValueError) as excinfo:
+            m(self._db, None, "Unknown integration", None, None)
+        assert 'No integration with name "Unknown integration". To create it, you must also provide protocol and goal.' in str(excinfo.value)
 
         integration = self._external_integration(
             protocol="Protocol", goal="Goal"
         )
         integration.name = "An integration"
-        eq_(integration,
-            m(self._db, integration.id, None, None, None)
-        )
+        assert (integration ==
+            m(self._db, integration.id, None, None, None))
 
-        eq_(integration,
-            m(self._db, None, integration.name, None, None)
-        )
+        assert (integration ==
+            m(self._db, None, integration.name, None, None))
 
-        eq_(integration,
-            m(self._db, None, None, "Protocol", "Goal")
-        )
+        assert (integration ==
+            m(self._db, None, None, "Protocol", "Goal"))
 
         # An integration may be created given a protocol and goal.
         integration2 = m(self._db, None, "I exist now", "Protocol", "Goal2")
         assert integration2 != integration
-        eq_("Protocol", integration2.protocol)
-        eq_("Goal2", integration2.goal)
-        eq_("I exist now", integration2.name)
+        assert "Protocol" == integration2.protocol
+        assert "Goal2" == integration2.goal
+        assert "I exist now" == integration2.name
 
     def test_add_settings(self):
         script = ConfigureIntegrationScript()
@@ -2006,14 +1931,14 @@ class TestConfigureIntegrationScript(DatabaseTest):
                               protocol="aprotocol", goal="agoal")
 
         expect_output = "Configuration settings stored.\n" + "\n".join(integration.explain()) + "\n"
-        eq_(expect_output, output.getvalue())
+        assert expect_output == output.getvalue()
 
 class TestShowLanesScript(DatabaseTest):
 
     def test_with_no_lanes(self):
         output = StringIO()
         ShowLanesScript().do_run(self._db, output=output)
-        eq_("No lanes found.\n", output.getvalue())
+        assert "No lanes found.\n" == output.getvalue()
 
     def test_with_multiple_lanes(self):
         l1 = self._lane()
@@ -2026,7 +1951,7 @@ class TestShowLanesScript(DatabaseTest):
         expect_1 = "\n".join(l1.explain())
         expect_2 = "\n".join(l2.explain())
 
-        eq_(expect_1 + "\n\n" + expect_2 + "\n\n", output.getvalue())
+        assert expect_1 + "\n\n" + expect_2 + "\n\n" == output.getvalue()
 
         # We can tell the script to only list a single lane.
         output = StringIO()
@@ -2035,7 +1960,7 @@ class TestShowLanesScript(DatabaseTest):
             cmd_args=["--id=%s" % l2.id],
             output=output
         )
-        eq_(expect_2 + "\n\n", output.getvalue())
+        assert expect_2 + "\n\n" == output.getvalue()
 
 class TestConfigureLaneScript(DatabaseTest):
 
@@ -2043,21 +1968,16 @@ class TestConfigureLaneScript(DatabaseTest):
         script = ConfigureLaneScript()
 
         # No lane id but no library short name for creating it either.
-        assert_raises_regexp(
-            ValueError,
-            'Library short name is required to create a new lane',
-            script.do_run, self._db, []
-        )
+        with pytest.raises(ValueError) as excinfo:
+            script.do_run(self._db, [])
+        assert 'Library short name is required to create a new lane' in str(excinfo.value)
 
         # Try to create a lane for a nonexistent library.
-        assert_raises_regexp(
-            ValueError,
-            'No such library: "nosuchlibrary".',
-            script.do_run, self._db, [
+        with pytest.raises(ValueError) as excinfo:
+            script.do_run(self._db, [
                 "--library-short-name=nosuchlibrary"
-            ]
-        )
-
+            ])
+        assert 'No such library: "nosuchlibrary".' in str(excinfo.value)
 
     def test_create_lane(self):
         script = ConfigureLaneScript()
@@ -2075,14 +1995,14 @@ class TestConfigureLaneScript(DatabaseTest):
 
         # The lane was created and configured properly.
         lane = get_one(self._db, Lane, display_name="NewLane")
-        eq_(self._default_library, lane.library)
-        eq_(parent, lane.parent)
-        eq_(3, lane.priority)
+        assert self._default_library == lane.library
+        assert parent == lane.parent
+        assert 3 == lane.priority
 
         # The output explains the lane settings.
         expect = ("Lane settings stored.\n"
                   + "\n".join(lane.explain()) + "\n")
-        eq_(expect, output.getvalue())
+        assert expect == output.getvalue()
 
     def test_reconfigure_lane(self):
         # The lane exists.
@@ -2104,12 +2024,12 @@ class TestConfigureLaneScript(DatabaseTest):
         )
 
         # The lane has been changed.
-        eq_(1, lane.priority)
-        eq_(parent, lane.parent)
+        assert 1 == lane.priority
+        assert parent == lane.parent
         expect = ("Lane settings stored.\n"
                   + "\n".join(lane.explain()) + "\n")
 
-        eq_(expect, output.getvalue())
+        assert expect == output.getvalue()
 
 
 class TestCollectionInputScript(DatabaseTest):
@@ -2124,14 +2044,12 @@ class TestCollectionInputScript(DatabaseTest):
             return parsed.collections
 
         # No collections named on command line -> no collections
-        eq_([], collections([]))
+        assert [] == collections([])
 
         # Nonexistent collection -> ValueError
-        assert_raises_regexp(
-            ValueError,
-            'Unknown collection: "no such collection"',
-            collections, ['--collection="no such collection"']
-        )
+        with pytest.raises(ValueError) as excinfo:
+            collections(['--collection="no such collection"'])
+        assert 'Unknown collection: "no such collection"' in str(excinfo.value)
 
         # Collections are presented in the order they were encountered
         # on the command line.
@@ -2139,7 +2057,7 @@ class TestCollectionInputScript(DatabaseTest):
         expect = [c2, self._default_collection]
         args = ["--collection=" + c.name for c in expect]
         actual = collections(args)
-        eq_(expect, actual)
+        assert expect == actual
 
 
 # Mock classes used by TestOPDSImportScript
@@ -2180,7 +2098,7 @@ class TestOPDSImportScript(DatabaseTest):
         # Since we provided no collection, a MockOPDSImportMonitor
         # was instantiated for each OPDS Import collection in the database.
         monitor = MockOPDSImportMonitor.INSTANCES.pop()
-        eq_(self._default_collection, monitor.collection)
+        assert self._default_collection == monitor.collection
 
         args = ['--collection=%s' % self._default_collection.name]
         script.do_run(args)
@@ -2188,22 +2106,22 @@ class TestOPDSImportScript(DatabaseTest):
         # If we provide the collection name, a MockOPDSImportMonitor is
         # also instantiated.
         monitor = MockOPDSImportMonitor.INSTANCES.pop()
-        eq_(self._default_collection, monitor.collection)
-        eq_(True, monitor.was_run)
+        assert self._default_collection == monitor.collection
+        assert True == monitor.was_run
 
         # Our replacement OPDS importer class was passed in to the
         # monitor constructor. If this had been a real monitor, that's the
         # code we would have used to import OPDS feeds.
-        eq_(MockOPDSImporter, monitor.kwargs['import_class'])
-        eq_(False, monitor.kwargs['force_reimport'])
+        assert MockOPDSImporter == monitor.kwargs['import_class']
+        assert False == monitor.kwargs['force_reimport']
 
         # Setting --force changes the 'force_reimport' argument
         # passed to the monitor constructor.
         args.append('--force')
         script.do_run(args)
         monitor = MockOPDSImportMonitor.INSTANCES.pop()
-        eq_(self._default_collection, monitor.collection)
-        eq_(True, monitor.kwargs['force_reimport'])
+        assert self._default_collection == monitor.collection
+        assert True == monitor.kwargs['force_reimport']
 
 
 class MockWhereAreMyBooks(WhereAreMyBooksScript):
@@ -2238,12 +2156,11 @@ class TestWhereAreMyBooksScript(DatabaseTest):
         # out(), so this verifies that output actually gets written
         # out.
         output = StringIO()
-        assert_raises(CannotLoadConfiguration, WhereAreMyBooksScript,
+        pytest.raises(CannotLoadConfiguration, WhereAreMyBooksScript,
                       self._db, output=output)
-        eq_(
-            "Here's your problem: the search integration is missing or misconfigured.\n",
-            output.getvalue()
-        )
+        assert (
+            "Here's your problem: the search integration is missing or misconfigured.\n" ==
+            output.getvalue())
 
     def test_overall_structure(self):
         # Verify that run() calls the methods we expect.
@@ -2268,11 +2185,11 @@ class TestWhereAreMyBooksScript(DatabaseTest):
         # If there are no libraries in the system, that's a big problem.
         script = Mock(self._db)
         script.run()
-        eq_(["There are no libraries in the system -- that's a problem.", "\n"],
+        assert (["There are no libraries in the system -- that's a problem.", "\n"] ==
             script.output)
 
         # We still run the other checks, though.
-        eq_(True, script.delete_cached_feeds_called)
+        assert True == script.delete_cached_feeds_called
 
         # Make some libraries and some collections, and try again.
         library1 = self._default_library
@@ -2285,26 +2202,26 @@ class TestWhereAreMyBooksScript(DatabaseTest):
         script.run()
 
         # Every library in the collection was checked.
-        eq_(set([library1, library2]), set(script.checked_libraries))
+        assert set([library1, library2]) == set(script.checked_libraries)
 
         # delete_cached_feeds() was called.
-        eq_(True, script.delete_cached_feeds_called)
+        assert True == script.delete_cached_feeds_called
 
         # Every collection in the database was explained.
-        eq_(set([collection1, collection2]),
+        assert (set([collection1, collection2]) ==
             set(script.explained_collections))
 
         # There only output were the newlines after the five method
         # calls. All other output happened inside the methods we
         # mocked.
-        eq_(["\n"] * 5, script.output)
+        assert ["\n"] * 5 == script.output
 
         # Finally, verify the ability to use the command line to limit
         # the check to specific collections. (This isn't terribly useful
         # since checks now run very quickly.)
         script = Mock(self._db)
         script.run(cmd_args=["--collection=%s" % collection2.name])
-        eq_([collection2], script.explained_collections)
+        assert [collection2] == script.explained_collections
 
     def test_check_library(self):
         # Give the default library a collection and a lane.
@@ -2316,20 +2233,20 @@ class TestWhereAreMyBooksScript(DatabaseTest):
         script.check_library(library)
 
         checking, has_collection, has_lanes = script.output
-        eq_(('Checking library %s', [library.name]), checking)
-        eq_((' Associated with collection %s.', [collection.name]),
+        assert ('Checking library %s', [library.name]) == checking
+        assert ((' Associated with collection %s.', [collection.name]) ==
             has_collection)
-        eq_((' Associated with %s lanes.', [1]), has_lanes)
+        assert (' Associated with %s lanes.', [1]) == has_lanes
 
         # This library has no collections and no lanes.
         library2 = self._library()
         script.output = []
         script.check_library(library2)
         checking, no_collection, no_lanes = script.output
-        eq_(('Checking library %s', [library2.name]), checking)
-        eq_(" This library has no collections -- that's a problem.",
+        assert ('Checking library %s', [library2.name]) == checking
+        assert (" This library has no collections -- that's a problem." ==
             no_collection)
-        eq_(" This library has no lanes -- that's a problem.",
+        assert (" This library has no lanes -- that's a problem." ==
             no_lanes)
 
     def test_delete_cached_feeds(self):
@@ -2338,21 +2255,21 @@ class TestWhereAreMyBooksScript(DatabaseTest):
         not_groups = CachedFeed(type=CachedFeed.PAGE_TYPE, pagination="")
         self._db.add(not_groups)
 
-        eq_(2, self._db.query(CachedFeed).count())
+        assert 2 == self._db.query(CachedFeed).count()
 
         script = MockWhereAreMyBooks(self._db)
         script.delete_cached_feeds()
         how_many, theyre_gone = script.output
-        eq_(('%d feeds in cachedfeeds table, not counting grouped feeds.', [1]),
+        assert (('%d feeds in cachedfeeds table, not counting grouped feeds.', [1]) ==
             how_many)
-        eq_(" Deleting them all.", theyre_gone)
+        assert " Deleting them all." == theyre_gone
 
         # Call it again, and we don't see "Deleting them all". There aren't
         # any to delete.
         script.output = []
         script.delete_cached_feeds()
         [how_many] = script.output
-        eq_(('%d feeds in cachedfeeds table, not counting grouped feeds.', [0]),
+        assert (('%d feeds in cachedfeeds table, not counting grouped feeds.', [0]) ==
             how_many)
 
     def check_explanation(
@@ -2366,42 +2283,38 @@ class TestWhereAreMyBooksScript(DatabaseTest):
         out = script.output
 
         # This always happens.
-        eq_(('Examining collection "%s"', [self._default_collection.name]),
+        assert (('Examining collection "%s"', [self._default_collection.name]) ==
             out.pop(0))
-        eq_((' %d presentation-ready works.', [presentation_ready]),
+        assert ((' %d presentation-ready works.', [presentation_ready]) ==
             out.pop(0))
-        eq_((' %d works not presentation-ready.', [not_presentation_ready]),
+        assert ((' %d works not presentation-ready.', [not_presentation_ready]) ==
             out.pop(0))
 
         # These totals are only given if the numbers are nonzero.
         #
         if no_delivery_mechanisms:
-            eq_(
-                (" %d works are missing delivery mechanisms and won't show up.", [no_delivery_mechanisms]),
-                out.pop(0)
-            )
+            assert (
+                (" %d works are missing delivery mechanisms and won't show up.", [no_delivery_mechanisms]) ==
+                out.pop(0))
 
         if suppressed:
-            eq_(
+            assert (
                 (" %d works have suppressed LicensePools and won't show up.",
-                 [suppressed]),
-                out.pop(0)
-            )
+                 [suppressed]) ==
+                out.pop(0))
 
         if not_owned:
-            eq_(
+            assert (
                 (" %d non-open-access works have no owned licenses and won't show up.",
                  [not_owned]
-                ),
-                out.pop(0)
-            )
+                ) ==
+                out.pop(0))
 
         # Search engine statistics are always shown.
-        eq_(
+        assert (
             (" %d works in the search index, expected around %d.",
-             [in_search_index, presentation_ready]),
-            out.pop(0)
-        )
+             [in_search_index, presentation_ready]) ==
+            out.pop(0))
 
     def test_no_presentation_ready_works(self):
         # This work is not presentation-ready.
@@ -2488,10 +2401,10 @@ class TestReclassifyWorksForUncheckedSubjectsScript(DatabaseTest):
         with unchecked subjects.
         """
         script = ReclassifyWorksForUncheckedSubjectsScript(self._db)
-        eq_(WorkClassificationScript.policy,
+        assert (WorkClassificationScript.policy ==
             ReclassifyWorksForUncheckedSubjectsScript.policy)
-        eq_(100, script.batch_size)
-        eq_(dump_query(Work.for_unchecked_subjects(self._db)),
+        assert 100 == script.batch_size
+        assert (dump_query(Work.for_unchecked_subjects(self._db)) ==
             dump_query(script.query))
 
 
@@ -2555,19 +2468,19 @@ class TestMirrorResourcesScript(DatabaseTest):
         # by collections_with_uploader.
         script.do_run(cmd_args=[])
         processed = script.processed.pop()
-        eq_((has_uploader, mock_uploader), processed)
-        eq_([], script.processed)
+        assert (has_uploader, mock_uploader) == processed
+        assert [] == script.processed
 
         # If a Collection is named on the command line,
         # process_collection is called on that Collection _if_ it has
         # an uploader.
         args = ["--collection=%s" % self._default_collection.name]
         script.do_run(cmd_args=args)
-        eq_([], script.processed)
+        assert [] == script.processed
 
         script.do_run(cmd_args=["--collection=%s" % has_uploader.name])
         processed = script.processed.pop()
-        eq_((has_uploader, mock_uploader), processed)
+        assert (has_uploader, mock_uploader) == processed
 
     @parameterized.expand([
         (
@@ -2640,11 +2553,11 @@ class TestMirrorResourcesScript(DatabaseTest):
         )
 
         [(collection, policy)] = result
-        eq_(has_uploader, collection)
-        eq_(Mock.mock_policy, policy)
+        assert has_uploader == collection
+        assert Mock.mock_policy == policy
         # The mirror uploader was associated with a purpose of "covers", so we only
         # expect to have one MirrorUploader.
-        eq_(Mock.replacement_policy_called_with[book_mirror_type], None)
+        assert Mock.replacement_policy_called_with[book_mirror_type] == None
         assert isinstance(
             Mock.replacement_policy_called_with[ExternalIntegrationLink.COVERS], MirrorUploader
         )
@@ -2666,8 +2579,8 @@ class TestMirrorResourcesScript(DatabaseTest):
         )
 
         [(collection, policy)] = result
-        eq_(has_uploader, collection)
-        eq_(Mock.mock_policy, policy)
+        assert has_uploader == collection
+        assert Mock.mock_policy == policy
         # There should be two MirrorUploaders, one for each purpose.
         assert isinstance(Mock.replacement_policy_called_with[ExternalIntegrationLink.COVERS], uploader_class)
         assert isinstance(
@@ -2676,10 +2589,10 @@ class TestMirrorResourcesScript(DatabaseTest):
     def test_replacement_policy(self):
         uploader = object()
         p = MirrorResourcesScript.replacement_policy(uploader)
-        eq_(uploader, p.mirrors)
-        eq_(True, p.link_content)
-        eq_(True, p.even_if_not_apparently_updated)
-        eq_(False, p.rights)
+        assert uploader == p.mirrors
+        assert True == p.link_content
+        assert True == p.even_if_not_apparently_updated
+        assert False == p.rights
 
     def test_process_collection(self):
 
@@ -2692,7 +2605,7 @@ class TestMirrorResourcesScript(DatabaseTest):
         link1 = object()
         link2 = object()
         def unmirrored(collection):
-            eq_(collection, self._default_collection)
+            assert collection == self._default_collection
             yield link1
             yield link2
 
@@ -2703,8 +2616,8 @@ class TestMirrorResourcesScript(DatabaseTest):
         # Process_collection called unmirrored() and then called process_item
         # on every item yielded by unmirrored()
         call1, call2 = script.process_item_called_with
-        eq_((self._default_collection, link1, policy), call1)
-        eq_((self._default_collection, link2, policy), call2)
+        assert (self._default_collection, link1, policy) == call1
+        assert (self._default_collection, link2, policy) == call2
 
     def test_derive_rights_status(self):
         """Test our ability to determine the rights status of a Resource,
@@ -2721,13 +2634,13 @@ class TestMirrorResourcesScript(DatabaseTest):
         # Given the LicensePool, we can figure out the Resource's
         # rights status based on what was previously recovered. This lets
         # us know whether it's okay to mirror that Resource.
-        eq_(expect, m(pool, resource))
+        assert expect == m(pool, resource)
 
         # In theory, a Resource can be associated with several
         # LicensePoolDeliveryMechanisms. That's why a LicensePool is
         # necessary -- to see which LicensePoolDeliveryMechanism we're
         # looking at.
-        eq_(None, m(None, resource))
+        assert None == m(None, resource)
 
         # If there's no Resource-specific information, but a
         # LicensePool has only one rights URI among all of its
@@ -2735,7 +2648,7 @@ class TestMirrorResourcesScript(DatabaseTest):
         # for that LicensePool use that same set of rights.
         w2 = self._work(with_license_pool=True)
         [pool2] = w2.license_pools
-        eq_(pool2.delivery_mechanisms[0].rights_status.uri, m(pool2, None))
+        assert pool2.delivery_mechanisms[0].rights_status.uri == m(pool2, None)
 
         # If there's more than one possibility, or the LicensePool has
         # no LicensePoolDeliveryMechanisms at all, then we just don't
@@ -2744,10 +2657,10 @@ class TestMirrorResourcesScript(DatabaseTest):
             content_type="text/plain", drm_scheme=None,
             rights_uri=RightsStatus.CC_BY_ND
         )
-        eq_(None, m(pool2, None))
+        assert None == m(pool2, None)
 
         pool2.delivery_mechanisms = []
-        eq_(None, m(pool2, None))
+        assert None == m(pool2, None)
 
     def test_process_item(self):
         """Test the code that actually sets up the mirror operation."""
@@ -2799,7 +2712,7 @@ class TestMirrorResourcesScript(DatabaseTest):
         )
         self._default_collection.data_source = DataSource.GUTENBERG
         m(self._default_collection, download_link, policy)
-        eq_([], mirror.mirrored)
+        assert [] == mirror.mirrored
 
         # This HyperLink does match a LicensePool, but it's not
         # in the collection we're mirroring, so mirroring it might not be
@@ -2812,28 +2725,28 @@ class TestMirrorResourcesScript(DatabaseTest):
         wrong_collection = self._collection()
         wrong_collection.data_source = DataSource.GUTENBERG
         m(wrong_collection, download_link, policy)
-        eq_([], mirror.mirrored)
+        assert [] == mirror.mirrored
 
         # For "open-access" downloads of actual books, if we can't
         # determine the actual rights status of the book, then we
         # don't do anything.
         m(self._default_collection, download_link, policy)
-        eq_([], mirror.mirrored)
-        eq_((pool, download_link.resource),
+        assert [] == mirror.mirrored
+        assert ((pool, download_link.resource) ==
             script.derive_rights_status_called_with)
 
         # If we _can_ determine the rights status, a mirror attempt is made.
         script.RIGHTS_STATUS = object()
         m(self._default_collection, download_link, policy)
         attempt = mirror.mirrored.pop()
-        eq_(policy, attempt['policy'])
-        eq_(pool.data_source, attempt['data_source'])
-        eq_(pool, attempt['model_object'])
-        eq_(download_link, attempt['link_obj'])
+        assert policy == attempt['policy']
+        assert pool.data_source == attempt['data_source']
+        assert pool == attempt['model_object']
+        assert download_link == attempt['link_obj']
 
         link = attempt['link']
         assert isinstance(link, LinkData)
-        eq_(download_link.resource.url, link.href)
+        assert download_link.resource.url == link.href
 
         # For other types of links, we rely on fair use, so the "rights
         # status" doesn't matter.
@@ -2842,7 +2755,7 @@ class TestMirrorResourcesScript(DatabaseTest):
                               pool.identifier)
         m(self._default_collection, thumb_link, policy)
         attempt = mirror.mirrored.pop()
-        eq_(thumb_link.resource.url, attempt['link'].href)
+        assert thumb_link.resource.url == attempt['link'].href
 
 
 class TestRebuildSearchIndexScript(DatabaseTest):
@@ -2880,22 +2793,21 @@ class TestRebuildSearchIndexScript(DatabaseTest):
         [progress] = script.do_run()
 
         # The mock methods were called with the values we expect.
-        eq_(True, index.setup_index_called)
-        eq_(set([work, work2]), set(index.bulk_update_called_with))
+        assert True == index.setup_index_called
+        assert set([work, work2]) == set(index.bulk_update_called_with)
 
         # The script returned a list containing a single
         # CoverageProviderProgress object containing accurate
         # information about what happened (from the CoverageProvider's
         # point of view).
-        eq_(
-            'Items processed: 2. Successes: 2, transient failures: 0, persistent failures: 0',
-            progress.achievements
-        )
+        assert (
+            'Items processed: 2. Successes: 2, transient failures: 0, persistent failures: 0' ==
+            progress.achievements)
 
         # The old WorkCoverageRecords for the works were deleted. Then
         # the CoverageProvider did its job and new ones were added.
         new_coverage = [x.id for x in coverage_qu]
-        eq_(2, len(new_coverage))
+        assert 2 == len(new_coverage)
         assert set(new_coverage) != set(original_coverage)
 
 
@@ -2920,13 +2832,13 @@ class TestSearchIndexCoverageRemover(DatabaseTest):
         script = SearchIndexCoverageRemover(self._db)
         result = script.do_run()
         assert isinstance(result, TimestampData)
-        eq_("Coverage records deleted: 2", result.achievements)
+        assert "Coverage records deleted: 2" == result.achievements
 
         # UPDATE_SEARCH_INDEX_OPERATION records have been removed.
         # No other records are affected.
         for w in (work, work2):
             remaining = [x.operation for x in w.coverage_records]
-            eq_(sorted(remaining), sorted(decoys))
+            assert sorted(remaining) == sorted(decoys)
 
 
 class TestUpdateLaneSizeScript(DatabaseTest):
@@ -2935,16 +2847,16 @@ class TestUpdateLaneSizeScript(DatabaseTest):
         lane = self._lane()
         lane.size = 100
         UpdateLaneSizeScript(self._db).do_run(cmd_args=[])
-        eq_(0, lane.size)
+        assert 0 == lane.size
 
     def test_should_process_lane(self):
         """Only Lane objects can have their size updated."""
         lane = self._lane()
         script = UpdateLaneSizeScript(self._db)
-        eq_(True, script.should_process_lane(lane))
+        assert True == script.should_process_lane(lane)
 
         worklist = WorkList()
-        eq_(False, script.should_process_lane(worklist))
+        assert False == script.should_process_lane(worklist)
 
 
 class TestUpdateCustomListSizeScript(DatabaseTest):
@@ -2954,7 +2866,7 @@ class TestUpdateCustomListSizeScript(DatabaseTest):
         customlist.library = self._default_library
         customlist.size = 100
         UpdateCustomListSizeScript(self._db).do_run(cmd_args=[])
-        eq_(1, customlist.size)
+        assert 1 == customlist.size
 
 
 class TestWorkConsolidationScript(object):

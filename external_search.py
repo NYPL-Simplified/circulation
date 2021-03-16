@@ -1,7 +1,7 @@
 from collections import defaultdict
 import contextlib
 import datetime
-from nose.tools import set_trace
+
 import json
 from elasticsearch import Elasticsearch
 from elasticsearch.helpers import bulk as elasticsearch_bulk

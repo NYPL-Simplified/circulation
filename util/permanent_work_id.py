@@ -1,4 +1,4 @@
-from nose.tools import set_trace
+
 from hashlib import md5
 import re
 import struct

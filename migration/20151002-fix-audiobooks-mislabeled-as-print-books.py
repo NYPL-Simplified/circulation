@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """Fix audiobooks mislabeled as print books."""
-from nose.tools import set_trace
+
 import os
 import sys
 bin_dir = os.path.split(__file__)[0]

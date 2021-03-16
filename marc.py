@@ -1,4 +1,4 @@
-from nose.tools import set_trace
+
 import datetime
 from io import BytesIO
 from flask_babel import lazy_gettext as _

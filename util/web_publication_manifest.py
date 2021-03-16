@@ -3,7 +3,7 @@
 (https://github.com/HadrienGardeur/audiobook-manifest).
 """
 
-from nose.tools import set_trace
+
 import json
 from . import LanguageCodes
 

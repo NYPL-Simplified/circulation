@@ -39,9 +39,9 @@ from .model import (
 )
 from .model.configuration import ExternalIntegrationLink
 from .monitor import CollectionMonitor
-from nose.tools import set_trace
 from .selftest import HasSelfTests, SelfTestResult
 from urllib.parse import urljoin, urlparse, quote
+
 from sqlalchemy.orm import aliased
 from sqlalchemy.orm.session import Session
 from .util.http import HTTP, BadResponseException
@@ -1869,11 +1869,11 @@ class OPDSImportMonitor(CollectionMonitor, HasSelfTests):
         # turn into a Work?
         #
         # By default, this means it must contain an open-access link.
-        url, content = first_page.result
+        next_links, content = first_page.result
         yield self.run_test(
             "Checking for importable content",
             self.importer.assert_importable_content,
-            content, url
+            content, self.feed_url
         )
 
     def _get(self, url, headers):

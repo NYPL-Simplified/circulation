@@ -7,13 +7,9 @@ from io import StringIO
 import feedparser
 from flask_babel import lazy_gettext as _
 from lxml import etree
-from nose.tools import (
-    eq_,
-    set_trace,
-)
 from psycopg2.extras import NumericRange
 
-from . import (
+from ..testing import (
     DatabaseTest,
 )
 from ..classifier import (
@@ -102,20 +98,20 @@ class TestBaseAnnotator(DatabaseTest):
 
         # The <author> tag indicates a role of 'author', so there's no
         # need for an explicitly specified role property.
-        eq_('author', author.tag)
+        assert 'author' == author.tag
         [name] = author.getchildren()
-        eq_("name", name.tag)
-        eq_("King, Steven", name.text)
-        eq_({}, author.attrib)
+        assert "name" == name.tag
+        assert "King, Steven" == name.text
+        assert {} == author.attrib
 
         # The <contributor> tag includes an explicitly specified role
         # property to explain the nature of the contribution.
-        eq_('contributor', contributor.tag)
+        assert 'contributor' == contributor.tag
         [name] = contributor.getchildren()
-        eq_("name", name.tag)
-        eq_("Frakes, Jonathan", name.text)
+        assert "name" == name.tag
+        assert "Frakes, Jonathan" == name.text
         role_attrib = '{%s}role' % AtomFeed.OPF_NS
-        eq_(Contributor.MARC_ROLE_CODES[Contributor.NARRATOR_ROLE],
+        assert (Contributor.MARC_ROLE_CODES[Contributor.NARRATOR_ROLE] ==
             contributor.attrib[role_attrib])
 
     def test_annotate_work_entry_adds_tags(self):
@@ -195,26 +191,26 @@ class TestAnnotators(DatabaseTest):
         # gives us reasonable worst-case performance at the cost of
         # not showing every single random subject under which an
         # extremely popular book is filed.
-        eq_(100, self.work.called_with_policy.equivalent_identifier_cutoff)
+        assert 100 == self.work.called_with_policy.equivalent_identifier_cutoff
 
         ddc_uri = Subject.uri_lookup[Subject.DDC]
         rating_value = '{http://schema.org/}ratingValue'
-        eq_([{'term': '300',
+        assert ([{'term': '300',
               rating_value: 1,
-              'label': 'Social sciences, sociology & anthropology'}],
+              'label': 'Social sciences, sociology & anthropology'}] ==
             category_tags[ddc_uri])
 
         fast_uri = Subject.uri_lookup[Subject.FAST]
-        eq_([{'term': 'fast1', 'label': 'name1', rating_value: 1}],
+        assert ([{'term': 'fast1', 'label': 'name1', rating_value: 1}] ==
             category_tags[fast_uri])
 
         lcsh_uri = Subject.uri_lookup[Subject.LCSH]
-        eq_([{'term': 'lcsh1', 'label': 'name2', rating_value: 2},
-             {'term': 'lcsh2', 'label': 'name3', rating_value: 3}],
-            category_tags[lcsh_uri])
+        assert ([{'term': 'lcsh1', 'label': 'name2', rating_value: 2},
+             {'term': 'lcsh2', 'label': 'name3', rating_value: 3}] ==
+            sorted(category_tags[lcsh_uri], key=lambda x: x[rating_value]))
 
         genre_uri = Subject.uri_lookup[Subject.SIMPLIFIED_GENRE]
-        eq_([dict(label='Fiction', term=Subject.SIMPLIFIED_GENRE+"Fiction")], category_tags[genre_uri])
+        assert [dict(label='Fiction', term=Subject.SIMPLIFIED_GENRE+"Fiction")] == category_tags[genre_uri]
 
     def test_appeals(self):
         work = self._work(with_open_access_download=True)
@@ -236,7 +232,7 @@ class TestAnnotators(DatabaseTest):
             (x['term'], x['label'], x['{http://schema.org/}ratingValue'])
             for x in appeal_tags
         ]
-        eq_(set(expect), set(actual))
+        assert set(expect) == set(actual)
 
     def test_detailed_author(self):
         c, ignore = self._contributor("Familyname, Givenname")
@@ -259,7 +255,7 @@ class TestAnnotators(DatabaseTest):
         work.presentation_edition.add_contributor(c, Contributor.PRIMARY_AUTHOR_ROLE)
 
         [same_tag] = VerboseAnnotator.authors(work, work.presentation_edition)
-        eq_(tag_string, etree.tounicode(same_tag))
+        assert tag_string == etree.tounicode(same_tag)
 
     def test_duplicate_author_names_are_ignored(self):
         # Ignores duplicate author names
@@ -270,7 +266,7 @@ class TestAnnotators(DatabaseTest):
         edition = work.presentation_edition
         edition.add_contributor(duplicate, Contributor.AUTHOR_ROLE)
 
-        eq_(1, len(Annotator.authors(work, edition)))
+        assert 1 == len(Annotator.authors(work, edition))
 
     def test_all_annotators_mention_every_relevant_author(self):
         work = self._work(authors=[], with_license_pool=True)
@@ -303,11 +299,10 @@ class TestAnnotators(DatabaseTest):
             tags = Annotator.authors(work, edition)
             # We made two <author> tags and one <contributor>
             # tag, for the illustrator.
-            eq_(['author', 'author', 'contributor'],
+            assert (['author', 'author', 'contributor'] ==
                 [x.tag for x in tags])
-            eq_([None, None, illustrator_code],
-                [x.attrib.get(role_attrib) for x in tags]
-            )
+            assert ([None, None, illustrator_code] ==
+                [x.attrib.get(role_attrib) for x in tags])
 
     def test_ratings(self):
         work = self._work(
@@ -331,7 +326,7 @@ class TestAnnotators(DatabaseTest):
             ('0.2500', Measurement.POPULARITY),
             ('0.6000', None)
         ]
-        eq_(set(expected), set(ratings))
+        assert set(expected) == set(ratings)
 
     def test_subtitle(self):
         work = self._work(with_license_pool=True, with_open_access_download=True)
@@ -346,7 +341,7 @@ class TestAnnotators(DatabaseTest):
 
         feed = feedparser.parse(str(raw_feed))
         alternative_headline = feed['entries'][0]['schema_alternativeheadline']
-        eq_(work.presentation_edition.subtitle, alternative_headline)
+        assert work.presentation_edition.subtitle == alternative_headline
 
         # If there's no subtitle, the subtitle tag isn't included.
         work.presentation_edition.subtitle = None
@@ -374,8 +369,8 @@ class TestAnnotators(DatabaseTest):
 
         feed = feedparser.parse(str(raw_feed))
         schema_entry = feed['entries'][0]['schema_series']
-        eq_(work.presentation_edition.series, schema_entry['name'])
-        eq_(str(work.presentation_edition.series_position), schema_entry['schema:position'])
+        assert work.presentation_edition.series == schema_entry['name']
+        assert str(work.presentation_edition.series_position) == schema_entry['schema:position']
 
         # The series position can be 0, for a prequel for example.
         work.presentation_edition.series_position = 0
@@ -389,8 +384,8 @@ class TestAnnotators(DatabaseTest):
 
         feed = feedparser.parse(str(raw_feed))
         schema_entry = feed['entries'][0]['schema_series']
-        eq_(work.presentation_edition.series, schema_entry['name'])
-        eq_(str(work.presentation_edition.series_position), schema_entry['schema:position'])
+        assert work.presentation_edition.series == schema_entry['name']
+        assert str(work.presentation_edition.series_position) == schema_entry['schema:position']
 
         # If there's no series title, the series tag isn't included.
         work.presentation_edition.series = None
@@ -418,8 +413,8 @@ class TestOPDS(DatabaseTest):
                 r.append(l)
         return r
 
-    def setup(self):
-        super(TestOPDS, self).setup()
+    def setup_method(self):
+        super(TestOPDS, self).setup_method()
 
         self.fiction = self._lane("Fiction")
         self.fiction.fiction = True
@@ -448,6 +443,12 @@ class TestOPDS(DatabaseTest):
                       self.romance]
         )
 
+    def _assert_xml_equal(self, a, b):
+        # Compare xml is the same, we use etree to canonicalize the xml
+        # then compare the canonical versions
+        assert etree.tostring(a, method="c14n2") == \
+            etree.tostring(etree.fromstring(b), method="c14n2")
+
     def test_acquisition_link(self):
         m = AcquisitionFeed.acquisition_link
         rel = AcquisitionFeed.BORROW_REL
@@ -455,23 +456,26 @@ class TestOPDS(DatabaseTest):
 
         # A doubly-indirect acquisition link.
         a = m(rel, href, ["text/html", "text/plain", "application/pdf"])
-        eq_(
-            etree.tostring(a, encoding="unicode"),
-            '<link type="text/html" rel="http://opds-spec.org/acquisition/borrow" href="%s"><ns0:indirectAcquisition xmlns:ns0="http://opds-spec.org/2010/catalog" type="text/plain"><ns0:indirectAcquisition type="application/pdf"/></ns0:indirectAcquisition></link>' % href
+        self._assert_xml_equal(
+            a,
+            '<link href="%s" rel="http://opds-spec.org/acquisition/borrow" type="text/html"><ns0:indirectAcquisition '
+            'xmlns:ns0="http://opds-spec.org/2010/catalog" type="text/plain"><ns0:indirectAcquisition '
+            'type="application/pdf"/></ns0:indirectAcquisition></link>' % href
         )
 
         # A direct acquisition link.
         b = m(rel, href, ["application/epub"])
-        eq_(
-            etree.tostring(b, encoding="unicode"),
-            '<link type="application/epub" rel="http://opds-spec.org/acquisition/borrow" href="%s"/>' % href
+        self._assert_xml_equal(
+            b,
+            '<link href="%s" rel="http://opds-spec.org/acquisition/borrow" type="application/epub"/>' % href,
         )
 
         # A direct acquisition link to a document with embedded access restriction rules.
         c = m(rel, href, ['application/audiobook+json;profile=http://www.feedbooks.com/audiobooks/access-restriction'])
-        eq_(
-            etree.tostring(c, encoding="unicode"),
-            '<link type="application/audiobook+json;profile=http://www.feedbooks.com/audiobooks/access-restriction" rel="http://opds-spec.org/acquisition/borrow" href="%s"/>' % href
+        self._assert_xml_equal(
+            c,
+            '<link href="%s" rel="http://opds-spec.org/acquisition/borrow" '
+            'type="application/audiobook+json;profile=http://www.feedbooks.com/audiobooks/access-restriction"/>' % href
         )
 
     def test_group_uri(self):
@@ -486,9 +490,9 @@ class TestOPDS(DatabaseTest):
         [group_link] = parsed.entries[0]['links']
         expect_uri, expect_title = annotator.group_uri(
             work, lp, lp.identifier)
-        eq_(OPDSFeed.GROUP_REL, group_link['rel'])
-        eq_(expect_uri, group_link['href'])
-        eq_(expect_title, group_link['title'])
+        assert OPDSFeed.GROUP_REL == group_link['rel']
+        assert expect_uri == group_link['href']
+        assert expect_title == group_link['title']
 
     def test_acquisition_feed(self):
         work = self._work(with_open_access_download=True, authors="Alice")
@@ -499,7 +503,7 @@ class TestOPDS(DatabaseTest):
         assert '<entry schema:additionalType="http://schema.org/EBook">' in u
         parsed = feedparser.parse(u)
         [with_author] = parsed['entries']
-        eq_("Alice", with_author['authors'][0]['name'])
+        assert "Alice" == with_author['authors'][0]['name']
 
     def test_acquisition_feed_includes_license_source(self):
         work = self._work(with_open_access_download=True)
@@ -539,7 +543,7 @@ class TestOPDS(DatabaseTest):
         u = str(feed)
         parsed = feedparser.parse(u)
         entry = parsed['entries'][0]
-        eq_(work.presentation_edition.permanent_work_id,
+        assert (work.presentation_edition.permanent_work_id ==
             entry['simplified_pwid'])
 
     def test_lcp_acquisition_link_contains_hashed_passphrase(self):
@@ -556,24 +560,19 @@ class TestOPDS(DatabaseTest):
         rel = AcquisitionFeed.ACQUISITION_REL
         href = self._url
         types = [DeliveryMechanism.LCP_DRM, Representation.EPUB_MEDIA_TYPE]
-        expected_result = re.sub(
-            r'\s{2,}|\n+',
-            '',
-            '''
-            <link type="application/vnd.readium.lcp.license.v1.0+json" rel="http://opds-spec.org/acquisition" href="{0}">
-                <ns0:hashed_passphrase xmlns:ns0="http://readium.org/lcp-specs/ns">{1}</ns0:hashed_passphrase>
-                <ns0:indirectAcquisition xmlns:ns0="http://opds-spec.org/2010/catalog" type="application/epub+zip"/>
-            </link>
-            '''.format(href, hashed_passphrase)
-        )
+        expected_result = (
+            '<link href="{0}" rel="http://opds-spec.org/acquisition" '
+            'type="application/vnd.readium.lcp.license.v1.0+json">'
+            '<ns0:hashed_passphrase xmlns:ns0="http://readium.org/lcp-specs/ns">{1}</ns0:hashed_passphrase>'
+            '<ns0:indirectAcquisition xmlns:ns0="http://opds-spec.org/2010/catalog" type="application/epub+zip"/>'
+            '</link>').format(href, hashed_passphrase)
 
         # Act
         lcp_credential_factory.set_hashed_passphrase(self._db, patron, hashed_passphrase)
         acquisition_link = AcquisitionFeed.acquisition_link(rel, href, types, loan)
-        result = etree.tostring(acquisition_link, encoding="unicode")
 
         # Assert
-        eq_(result, expected_result)
+        self._assert_xml_equal(acquisition_link, expected_result)
 
     def test_lane_feed_contains_facet_links(self):
         work = self._work(with_open_access_download=True)
@@ -591,7 +590,7 @@ class TestOPDS(DatabaseTest):
         by_title = parsed['feed']
 
         [self_link] = self.links(by_title, 'self')
-        eq_("http://the-url.com/", self_link['href'])
+        assert "http://the-url.com/" == self_link['href']
         facet_links = self.links(by_title, AcquisitionFeed.FACET_REL)
 
         library = self._default_library
@@ -614,11 +613,11 @@ class TestOPDS(DatabaseTest):
             if selected:
                 # This facet set is already selected, so it should
                 # show up three times--once for every facet group.
-                eq_(3, len(links))
+                assert 3 == len(links)
             else:
                 # This facet set is not selected, so it should have one
                 # transition link.
-                eq_(1, len(links))
+                assert 1 == len(links)
 
         # As we'll see below, the feed parser parses facetGroup as
         # facetgroup and activeFacet as activefacet. As we see here,
@@ -694,17 +693,17 @@ class TestOPDS(DatabaseTest):
         e1, e2, e3, e4 = sorted(
             parsed, key = lambda x: x['title']
         )
-        eq_(today_s, e1['issued'])
-        eq_(the_distant_past_s, e1['published'])
+        assert today_s == e1['issued']
+        assert the_distant_past_s == e1['published']
 
-        eq_(the_past_s, e2['issued'])
-        eq_(the_distant_past_s, e2['published'])
+        assert the_past_s == e2['issued']
+        assert the_distant_past_s == e2['published']
 
-        eq_(None, e3['issued'])
-        eq_(None, e3['published'])
+        assert None == e3['issued']
+        assert None == e3['published']
 
-        eq_(None, e4['issued'])
-        eq_(None, e4['published'])
+        assert None == e4['issued']
+        assert None == e4['published']
 
     def test_acquisition_feed_includes_publisher_and_imprint_tag(self):
         work = self._work(with_open_access_download=True)
@@ -722,8 +721,8 @@ class TestOPDS(DatabaseTest):
             self._db, "test", "url", works, TestAnnotator)
         with_publisher = feedparser.parse(str(with_publisher))
         entries = sorted(with_publisher['entries'], key = lambda x: x['title'])
-        eq_('The Publisher', entries[0]['dcterms_publisher'])
-        eq_('The Imprint', entries[0]['bib_publisherimprint'])
+        assert 'The Publisher' == entries[0]['dcterms_publisher']
+        assert 'The Imprint' == entries[0]['bib_publisherimprint']
         assert 'publisher' not in entries[1]
 
     def test_acquisition_feed_includes_audience_as_category(self):
@@ -749,37 +748,33 @@ class TestOPDS(DatabaseTest):
         with_audience = feedparser.parse(u)
         ya, children, no_audience, adult = sorted(with_audience['entries'], key = lambda x: int(x['title']))
         scheme = "http://schema.org/audience"
-        eq_(
-            [('Young Adult', 'Young Adult')],
+        assert (
+            [('Young Adult', 'Young Adult')] ==
             [(x['term'], x['label']) for x in ya['tags']
-             if x['scheme'] == scheme]
-        )
+             if x['scheme'] == scheme])
 
-        eq_(
-            [('Children', 'Children')],
+        assert (
+            [('Children', 'Children')] ==
             [(x['term'], x['label']) for x in children['tags']
-             if x['scheme'] == scheme]
-        )
+             if x['scheme'] == scheme])
 
         age_scheme = Subject.uri_lookup[Subject.AGE_RANGE]
-        eq_(
-            [('7-9', '7-9')],
+        assert (
+            [('7-9', '7-9')] ==
             [(x['term'], x['label']) for x in children['tags']
-             if x['scheme'] == age_scheme]
-        )
+             if x['scheme'] == age_scheme])
 
-        eq_([],
+        assert ([] ==
             [(x['term'], x['label']) for x in no_audience['tags']
              if x['scheme'] == scheme])
 
         # Even though the 'Adult' book has a target age, the target
         # age is not shown, because target age is only a relevant
         # concept for children's and YA books.
-        eq_(
-            [],
+        assert (
+            [] ==
             [(x['term'], x['label']) for x in adult['tags']
-             if x['scheme'] == age_scheme]
-        )
+             if x['scheme'] == age_scheme])
 
     def test_acquisition_feed_includes_category_tags_for_appeals(self):
         work = self._work(with_open_access_download=True)
@@ -801,18 +796,17 @@ class TestOPDS(DatabaseTest):
 
         tags = entries[0]['tags']
         matches = [(x['term'], x['label']) for x in tags if x['scheme'] == Work.APPEALS_URI]
-        eq_([
+        assert ([
             (Work.APPEALS_URI + 'Character', 'Character'),
             (Work.APPEALS_URI + 'Language', 'Language'),
             (Work.APPEALS_URI + 'Setting', 'Setting'),
             (Work.APPEALS_URI + 'Story', 'Story'),
-        ],
-            sorted(matches)
-        )
+        ] ==
+            sorted(matches))
 
         tags = entries[1]['tags']
         matches = [(x['term'], x['label']) for x in tags if x['scheme'] == Work.APPEALS_URI]
-        eq_([], matches)
+        assert [] == matches
 
     def test_acquisition_feed_includes_category_tags_for_fiction_status(self):
         work = self._work(with_open_access_download=True)
@@ -832,14 +826,12 @@ class TestOPDS(DatabaseTest):
 
         scheme = "http://librarysimplified.org/terms/fiction/"
 
-        eq_([(scheme+'Nonfiction', 'Nonfiction')],
+        assert ([(scheme+'Nonfiction', 'Nonfiction')] ==
             [(x['term'], x['label']) for x in entries[0]['tags']
-             if x['scheme'] == scheme]
-        )
-        eq_([(scheme+'Fiction', 'Fiction')],
+             if x['scheme'] == scheme])
+        assert ([(scheme+'Fiction', 'Fiction')] ==
             [(x['term'], x['label']) for x in entries[1]['tags']
-             if x['scheme'] == scheme]
-        )
+             if x['scheme'] == scheme])
 
 
     def test_acquisition_feed_includes_category_tags_for_genres(self):
@@ -857,14 +849,13 @@ class TestOPDS(DatabaseTest):
         entries = sorted(feed['entries'], key = lambda x: int(x['title']))
 
         scheme = Subject.SIMPLIFIED_GENRE
-        eq_(
+        assert (
             [(scheme+'Romance', 'Romance'),
-             (scheme+'Science%20Fiction', 'Science Fiction')],
+             (scheme+'Science%20Fiction', 'Science Fiction')] ==
             sorted(
                 [(x['term'], x['label']) for x in entries[0]['tags']
                  if x['scheme'] == scheme]
-            )
-        )
+            ))
 
     def test_acquisition_feed_omits_works_with_no_active_license_pool(self):
         work = self._work(title="open access", with_open_access_download=True)
@@ -884,14 +875,13 @@ class TestOPDS(DatabaseTest):
         by_title = feedparser.parse(by_title_raw)
 
         # We have two entries...
-        eq_(2, len(by_title['entries']))
-        eq_(["not open access", "open access"], sorted(
-            [x['title'] for x in by_title['entries']]))
+        assert 2 == len(by_title['entries'])
+        assert ["not open access", "open access"] == sorted(
+            [x['title'] for x in by_title['entries']])
 
         # ...and two messages.
-        eq_(2,
-            by_title_raw.count("I've heard about this work but have no active licenses for it.")
-        )
+        assert (2 ==
+            by_title_raw.count("I've heard about this work but have no active licenses for it."))
 
     def test_acquisition_feed_includes_image_links(self):
         work = self._work(genre=Fantasy, with_open_access_download=True)
@@ -902,7 +892,7 @@ class TestOPDS(DatabaseTest):
         feed = feedparser.parse(str(work.simple_opds_entry))
         links = sorted([x['href'] for x in feed['entries'][0]['links'] if
                         'image' in x['rel']])
-        eq_(['http://full/a', 'http://thumbnail/b'], links)
+        assert ['http://full/a', 'http://thumbnail/b'] == links
 
     def test_acquisition_feed_image_links_respect_cdn(self):
         work = self._work(genre=Fantasy, with_open_access_download=True)
@@ -921,7 +911,7 @@ class TestOPDS(DatabaseTest):
         feed = feedparser.parse(work.simple_opds_entry)
         links = sorted([x['href'] for x in feed['entries'][0]['links'] if
                         'image' in x['rel']])
-        eq_(['http://bar/a', 'http://foo/b'], links)
+        assert ['http://bar/a', 'http://foo/b'] == links
 
     def test_messages(self):
         """Test the ability to include OPDSMessage objects for a given URN in
@@ -970,29 +960,29 @@ class TestOPDS(DatabaseTest):
             )
         cached_works = str(make_page(pagination))
         parsed = feedparser.parse(cached_works)
-        eq_(work1.title, parsed['entries'][0]['title'])
+        assert work1.title == parsed['entries'][0]['title']
 
         # Make sure the links are in place.
         [up_link] = self.links(parsed, 'up')
-        eq_(TestAnnotator.groups_url(lane.parent), up_link['href'])
-        eq_(lane.parent.display_name, up_link['title'])
+        assert TestAnnotator.groups_url(lane.parent) == up_link['href']
+        assert lane.parent.display_name == up_link['title']
 
         [start] = self.links(parsed, 'start')
-        eq_(TestAnnotator.groups_url(None), start['href'])
-        eq_(TestAnnotator.top_level_title(), start['title'])
+        assert TestAnnotator.groups_url(None) == start['href']
+        assert TestAnnotator.top_level_title() == start['title']
 
         [next_link] = self.links(parsed, 'next')
-        eq_(TestAnnotator.feed_url(lane, facets, pagination.next_page), next_link['href'])
+        assert TestAnnotator.feed_url(lane, facets, pagination.next_page) == next_link['href']
 
         # This was the first page, so no previous link.
-        eq_([], self.links(parsed, 'previous'))
+        assert [] == self.links(parsed, 'previous')
 
         # Now get the second page and make sure it has a 'previous' link.
         cached_works = str(make_page(pagination.next_page))
         parsed = feedparser.parse(cached_works)
         [previous] = self.links(parsed, 'previous')
-        eq_(TestAnnotator.feed_url(lane, facets, pagination), previous['href'])
-        eq_(work2.title, parsed['entries'][0]['title'])
+        assert TestAnnotator.feed_url(lane, facets, pagination) == previous['href']
+        assert work2.title == parsed['entries'][0]['title']
 
         # The feed has breadcrumb links
         parentage = list(lane.parentage)
@@ -1002,12 +992,12 @@ class TestOPDS(DatabaseTest):
 
         # There's one breadcrumb link for each parent Lane, plus one for
         # the top-level.
-        eq_(len(parentage) + 1, len(links))
-        eq_(TestAnnotator.top_level_title(), links[0].get("title"))
-        eq_(TestAnnotator.default_lane_url(), links[0].get("href"))
+        assert len(parentage) + 1 == len(links)
+        assert TestAnnotator.top_level_title() == links[0].get("title")
+        assert TestAnnotator.default_lane_url() == links[0].get("href")
         for i, lane in enumerate(parentage):
-            eq_(lane.display_name, links[i+1].get("title"))
-            eq_(TestAnnotator.lane_url(lane), links[i+1].get("href"))
+            assert lane.display_name == links[i+1].get("title")
+            assert TestAnnotator.lane_url(lane) == links[i+1].get("href")
 
     def test_page_feed_for_worklist(self):
         # Test the ability to create a paginated feed of works for a
@@ -1029,33 +1019,33 @@ class TestOPDS(DatabaseTest):
             )
         cached_works = make_page(pagination)
         parsed = feedparser.parse(str(cached_works))
-        eq_(work1.title, parsed['entries'][0]['title'])
+        assert work1.title == parsed['entries'][0]['title']
 
         # Make sure the links are in place.
         # This is the top-level, so no up link.
-        eq_([], self.links(parsed, 'up'))
+        assert [] == self.links(parsed, 'up')
 
         [start] = self.links(parsed, 'start')
-        eq_(TestAnnotator.groups_url(None), start['href'])
-        eq_(TestAnnotator.top_level_title(), start['title'])
+        assert TestAnnotator.groups_url(None) == start['href']
+        assert TestAnnotator.top_level_title() == start['title']
 
         [next_link] = self.links(parsed, 'next')
-        eq_(TestAnnotator.feed_url(lane, facets, pagination.next_page), next_link['href'])
+        assert TestAnnotator.feed_url(lane, facets, pagination.next_page) == next_link['href']
 
         # This was the first page, so no previous link.
-        eq_([], self.links(parsed, 'previous'))
+        assert [] == self.links(parsed, 'previous')
 
         # Now get the second page and make sure it has a 'previous' link.
         cached_works = str(make_page(pagination.next_page))
         parsed = feedparser.parse(cached_works)
         [previous] = self.links(parsed, 'previous')
-        eq_(TestAnnotator.feed_url(lane, facets, pagination), previous['href'])
-        eq_(work2.title, parsed['entries'][0]['title'])
+        assert TestAnnotator.feed_url(lane, facets, pagination) == previous['href']
+        assert work2.title == parsed['entries'][0]['title']
 
         # The feed has no parents, so no breadcrumbs.
         root = ET.fromstring(cached_works)
         breadcrumbs = root.find("{%s}breadcrumbs" % AtomFeed.SIMPLIFIED_NS)
-        eq_(None, breadcrumbs)
+        assert None == breadcrumbs
 
     def test_from_query(self):
         """Test creating a feed for a custom list from a query.
@@ -1093,22 +1083,22 @@ class TestOPDS(DatabaseTest):
 
         works = from_query(pagination)
         parsed = feedparser.parse(str(works))
-        eq_(1, len(parsed['entries']))
-        eq_(list.name, parsed['feed'].title)
+        assert 1 == len(parsed['entries'])
+        assert list.name == parsed['feed'].title
 
         [next_link] = self.links(parsed, 'next')
-        eq_(TestAnnotator.feed_url(worklist, pagination=pagination.next_page), next_link['href'])
+        assert TestAnnotator.feed_url(worklist, pagination=pagination.next_page) == next_link['href']
 
         # This was the first page, so no previous link.
-        eq_([], self.links(parsed, 'previous'))
+        assert [] == self.links(parsed, 'previous')
 
         # Now get the second page and make sure it has a 'previous' link.
         works = from_query(pagination.next_page)
         parsed = feedparser.parse(str(works))
         [previous_link] = self.links(parsed, 'previous')
-        eq_(TestAnnotator.feed_url(worklist, pagination=pagination.previous_page), previous_link['href'])
-        eq_(1, len(parsed['entries']))
-        eq_([], self.links(parsed, 'next'))
+        assert TestAnnotator.feed_url(worklist, pagination=pagination.previous_page) == previous_link['href']
+        assert 1 == len(parsed['entries'])
+        assert [] == self.links(parsed, 'next')
 
 
     def test_groups_feed(self):
@@ -1148,7 +1138,7 @@ class TestOPDS(DatabaseTest):
         # argument, unused by groups(), was passed along into the
         # constructor.
         assert isinstance(cached_groups, OPDSFeedResponse)
-        eq_(private, cached_groups.private)
+        assert private == cached_groups.private
 
         parsed = feedparser.parse(cached_groups.data)
 
@@ -1162,35 +1152,35 @@ class TestOPDS(DatabaseTest):
         # works under their subgenres.
         assert all([l['rel'] == 'collection' for l in (l1, l2)])
 
-        eq_(l1['href'], 'http://group/Epic Fantasy')
-        eq_(l1['title'], 'Group Title for Epic Fantasy!')
-        eq_(l2['href'], 'http://group/Urban Fantasy')
-        eq_(l2['title'], 'Group Title for Urban Fantasy!')
-        eq_(l3['href'], 'http://group/Fantasy')
-        eq_(l3['title'], 'Group Title for Fantasy!')
+        assert l1['href'] == 'http://group/Epic Fantasy'
+        assert l1['title'] == 'Group Title for Epic Fantasy!'
+        assert l2['href'] == 'http://group/Urban Fantasy'
+        assert l2['title'] == 'Group Title for Urban Fantasy!'
+        assert l3['href'] == 'http://group/Fantasy'
+        assert l3['title'] == 'Group Title for Fantasy!'
 
         # The feed itself has an 'up' link which points to the
         # groups for Fiction, and a 'start' link which points to
         # the top-level groups feed.
         [up_link] = self.links(parsed['feed'], 'up')
-        eq_("http://groups/%s" % self.fiction.id, up_link['href'])
-        eq_("Fiction", up_link['title'])
+        assert "http://groups/%s" % self.fiction.id == up_link['href']
+        assert "Fiction" == up_link['title']
 
         [start_link] = self.links(parsed['feed'], 'start')
-        eq_("http://groups/", start_link['href'])
-        eq_(annotator.top_level_title(), start_link['title'])
+        assert "http://groups/" == start_link['href']
+        assert annotator.top_level_title() == start_link['title']
 
         # The feed has breadcrumb links
         ancestors = list(self.fantasy.parentage)
         root = ET.fromstring(cached_groups.data)
         breadcrumbs = root.find("{%s}breadcrumbs" % AtomFeed.SIMPLIFIED_NS)
         links = breadcrumbs.getchildren()
-        eq_(len(ancestors) + 1, len(links))
-        eq_(annotator.top_level_title(), links[0].get("title"))
-        eq_(annotator.default_lane_url(), links[0].get("href"))
+        assert len(ancestors) + 1 == len(links)
+        assert annotator.top_level_title() == links[0].get("title")
+        assert annotator.default_lane_url() == links[0].get("href")
         for i, lane in enumerate(reversed(ancestors)):
-            eq_(lane.display_name, links[i+1].get("title"))
-            eq_(annotator.lane_url(lane), links[i+1].get("href"))
+            assert lane.display_name == links[i+1].get("title")
+            assert annotator.lane_url(lane) == links[i+1].get("href")
 
     def test_empty_groups_feed(self):
         # Test the case where a grouped feed turns up nothing.
@@ -1215,14 +1205,14 @@ class TestOPDS(DatabaseTest):
         # A grouped feed was cached for the lane, but there were no
         # relevant works found,.
         cached = get_one(self._db, CachedFeed, lane=test_lane)
-        eq_(CachedFeed.GROUPS_TYPE, cached.type)
+        assert CachedFeed.GROUPS_TYPE == cached.type
 
         # So the feed contains no entries.
         parsed = feedparser.parse(str(feed))
-        eq_([], parsed['entries'])
+        assert [] == parsed['entries']
 
         # but our mock Annotator got a chance to modify the feed in place.
-        eq_(True, annotator.called)
+        assert True == annotator.called
 
     def test_search_feed(self):
         # Test the ability to create a paginated feed of works for a given
@@ -1249,23 +1239,23 @@ class TestOPDS(DatabaseTest):
             )
         response = make_page(pagination)
         assert isinstance(response, OPDSFeedResponse)
-        eq_(OPDSFeed.DEFAULT_MAX_AGE, response.max_age)
-        eq_(OPDSFeed.ACQUISITION_FEED_TYPE, response.content_type)
-        eq_(private, response.private)
+        assert OPDSFeed.DEFAULT_MAX_AGE == response.max_age
+        assert OPDSFeed.ACQUISITION_FEED_TYPE == response.content_type
+        assert private == response.private
 
         parsed = feedparser.parse(response.data)
-        eq_(work1.title, parsed['entries'][0]['title'])
+        assert work1.title == parsed['entries'][0]['title']
 
         # Make sure the links are in place.
         [start] = self.links(parsed, 'start')
-        eq_(TestAnnotator.groups_url(None), start['href'])
-        eq_(TestAnnotator.top_level_title(), start['title'])
+        assert TestAnnotator.groups_url(None) == start['href']
+        assert TestAnnotator.top_level_title() == start['title']
 
         [next_link] = self.links(parsed, 'next')
         expect = TestAnnotator.search_url(
             fantasy_lane, "test", pagination.next_page, facets=facets
         )
-        eq_(expect, next_link['href'])
+        assert expect == next_link['href']
 
         # This is tested elsewhere, but let's make sure
         # SearchFacets-specific fields like order and min_score are
@@ -1273,13 +1263,13 @@ class TestOPDS(DatabaseTest):
         assert all(x in expect for x in ('order=author', 'min_score=10'))
 
         # This was the first page, so no previous link.
-        eq_([], self.links(parsed, 'previous'))
+        assert [] == self.links(parsed, 'previous')
 
         # Make sure there's an "up" link to the lane that was searched
         [up_link] = self.links(parsed, 'up')
         uplink_url = TestAnnotator.lane_url(fantasy_lane)
-        eq_(uplink_url, up_link['href'])
-        eq_(fantasy_lane.display_name, up_link['title'])
+        assert uplink_url == up_link['href']
+        assert fantasy_lane.display_name == up_link['title']
 
         # Now get the second page and make sure it has a 'previous' link.
         feed = str(make_page(pagination.next_page))
@@ -1288,10 +1278,10 @@ class TestOPDS(DatabaseTest):
         expect = TestAnnotator.search_url(
             fantasy_lane, "test", pagination, facets=facets
         )
-        eq_(expect, previous['href'])
+        assert expect == previous['href']
         assert all(x in expect for x in ('order=author', 'min_score=10'))
 
-        eq_(work2.title, parsed['entries'][0]['title'])
+        assert work2.title == parsed['entries'][0]['title']
 
         # The feed has no breadcrumb links, since we're not
         # searching the lane -- just using some aspects of the lane
@@ -1299,7 +1289,7 @@ class TestOPDS(DatabaseTest):
         parentage = list(fantasy_lane.parentage)
         root = ET.fromstring(feed)
         breadcrumbs = root.find("{%s}breadcrumbs" % AtomFeed.SIMPLIFIED_NS)
-        eq_(None, breadcrumbs)
+        assert None == breadcrumbs
 
     def test_cache(self):
         work1 = self._work(title="The Original Title",
@@ -1355,8 +1345,8 @@ class TestAcquisitionFeed(DatabaseTest):
         # The result is an OPDSFeedResponse. The 'private' argument,
         # unused by page(), was passed along into the constructor.
         assert isinstance(response, OPDSFeedResponse)
-        eq_(10, response.max_age)
-        eq_(private, response.private)
+        assert 10 == response.max_age
+        assert private == response.private
 
         assert '<title>feed title</title>' in str(response)
 
@@ -1368,7 +1358,7 @@ class TestAcquisitionFeed(DatabaseTest):
         # Some other piece of code set expectations for how this feed should
         # be cached.
         response = feed.as_response(max_age=101, private=False)
-        eq_(200, response.status_code)
+        assert 200 == response.status_code
 
         # We get an OPDSFeedResponse containing the feed in its
         # entity-body.
@@ -1376,8 +1366,8 @@ class TestAcquisitionFeed(DatabaseTest):
         assert '<title>feed title</title>' in str(response)
 
         # The caching expectations are respected.
-        eq_(101, response.max_age)
-        eq_(False, response.private)
+        assert 101 == response.max_age
+        assert False == response.private
 
     def test_as_error_response(self):
         # Verify the ability to convert an AcquisitionFeed object to an
@@ -1394,12 +1384,12 @@ class TestAcquisitionFeed(DatabaseTest):
         assert isinstance(response, OPDSFeedResponse)
 
         # The content of the feed is unchanged.
-        eq_(200, response.status_code)
+        assert 200 == response.status_code
         assert '<title>feed title</title>' in str(response)
 
         # But the max_age and private settings have been overridden.
-        eq_(0, response.max_age)
-        eq_(True, response.private)
+        assert 0 == response.max_age
+        assert True == response.private
 
     def test_add_entrypoint_links(self):
         """Verify that add_entrypoint_links calls _entrypoint_link
@@ -1436,20 +1426,18 @@ class TestAcquisitionFeed(DatabaseTest):
         c1, c2 = mock.calls
 
         # The first entry point is not selected.
-        eq_(c1,
-            (url_generator, AudiobooksEntryPoint, EbooksEntryPoint, True, "Some entry points")
-        )
+        assert (c1 ==
+            (url_generator, AudiobooksEntryPoint, EbooksEntryPoint, True, "Some entry points"))
         # The second one is selected.
-        eq_(c2,
-            (url_generator, EbooksEntryPoint, EbooksEntryPoint, False, "Some entry points")
-        )
+        assert (c2 ==
+            (url_generator, EbooksEntryPoint, EbooksEntryPoint, False, "Some entry points"))
 
         # Two identical <link> tags were added to the <feed> tag, one
         # for each call to the mock method.
         l1, l2 = list(xml.iterchildren())
         for l in l1, l2:
-            eq_("link", l.tag)
-            eq_(mock.attrs, l.attrib)
+            assert "link" == l.tag
+            assert mock.attrs == l.attrib
         AcquisitionFeed._entrypoint_link = old_entrypoint_link
 
         # If there is only one facet in the facet group, no links are
@@ -1462,7 +1450,7 @@ class TestAcquisitionFeed(DatabaseTest):
             feed, url_generator, entrypoints, EbooksEntryPoint,
             "Some entry points"
         )
-        eq_([], mock.calls)
+        assert [] == mock.calls
 
     def test_entrypoint_link(self):
         """Test the _entrypoint_link method's ability to create
@@ -1474,26 +1462,26 @@ class TestAcquisitionFeed(DatabaseTest):
             return "%s" % (entrypoint.INTERNAL_NAME)
 
         # If the entry point is not registered, None is returned.
-        eq_(None, m(g, object(), object(), True, "group"))
+        assert None == m(g, object(), object(), True, "group")
 
         # Now make a real set of link attributes.
         l = m(g, AudiobooksEntryPoint, AudiobooksEntryPoint, False, "Grupe")
 
         # The link is identified as belonging to an entry point-type
         # facet group.
-        eq_(l['rel'], AcquisitionFeed.FACET_REL)
-        eq_(l['{http://librarysimplified.org/terms/}facetGroupType'],
+        assert l['rel'] == AcquisitionFeed.FACET_REL
+        assert (l['{http://librarysimplified.org/terms/}facetGroupType'] ==
             FacetConstants.ENTRY_POINT_REL)
-        eq_('Grupe', l['{http://opds-spec.org/2010/catalog}facetGroup'])
+        assert 'Grupe' == l['{http://opds-spec.org/2010/catalog}facetGroup']
 
         # This facet is the active one in the group.
-        eq_('true', l['{http://opds-spec.org/2010/catalog}activeFacet'])
+        assert 'true' == l['{http://opds-spec.org/2010/catalog}activeFacet']
 
         # The URL generator was invoked to create the href.
-        eq_(l['href'], g(AudiobooksEntryPoint))
+        assert l['href'] == g(AudiobooksEntryPoint)
 
         # The facet title identifies it as a way to look at audiobooks.
-        eq_(EntryPoint.DISPLAY_TITLES[AudiobooksEntryPoint], l['title'])
+        assert EntryPoint.DISPLAY_TITLES[AudiobooksEntryPoint] == l['title']
 
         # Now try some variants.
 
@@ -1501,7 +1489,7 @@ class TestAcquisitionFeed(DatabaseTest):
         l = m(g, AudiobooksEntryPoint, AudiobooksEntryPoint, True, "Grupe")
 
         # This may affect the URL generated for the facet link.
-        eq_(l['href'], g(AudiobooksEntryPoint))
+        assert l['href'] == g(AudiobooksEntryPoint)
 
         # Here, the entry point for which we're generating the link is
         # not the selected one -- EbooksEntryPoint is.
@@ -1515,9 +1503,9 @@ class TestAcquisitionFeed(DatabaseTest):
         availability, holds, copies = AcquisitionFeed.license_tags(
             pool, None, None
         )
-        eq_(dict(status='available'), availability.attrib)
-        eq_(dict(total='0'), holds.attrib)
-        eq_(dict(total='1', available='1'), copies.attrib)
+        assert dict(status='available') == availability.attrib
+        assert dict(total='0') == holds.attrib
+        assert dict(total='1', available='1') == copies.attrib
 
     def test_license_tags_hold_position(self):
         # When a book is placed on hold, it typically takes a while
@@ -1536,8 +1524,8 @@ class TestAcquisitionFeed(DatabaseTest):
         availability, holds, copies = AcquisitionFeed.license_tags(
             pool, None, hold
         )
-        eq_('1', holds.attrib['position'])
-        eq_('3', holds.attrib['total'])
+        assert '1' == holds.attrib['position']
+        assert '3' == holds.attrib['total']
 
         # If the patron's hold position is missing, we assume they
         # are last in the list.
@@ -1545,8 +1533,8 @@ class TestAcquisitionFeed(DatabaseTest):
         availability, holds, copies = AcquisitionFeed.license_tags(
             pool, None, hold
         )
-        eq_('3', holds.attrib['position'])
-        eq_('3', holds.attrib['total'])
+        assert '3' == holds.attrib['position']
+        assert '3' == holds.attrib['total']
 
         # If the patron's current hold position is greater than the
         # total recorded number of holds+reserves, their position will
@@ -1555,8 +1543,8 @@ class TestAcquisitionFeed(DatabaseTest):
         availability, holds, copies = AcquisitionFeed.license_tags(
             pool, None, hold
         )
-        eq_('5', holds.attrib['position'])
-        eq_('5', holds.attrib['total'])
+        assert '5' == holds.attrib['position']
+        assert '5' == holds.attrib['total']
 
         # A patron earlier in the holds queue may see a different
         # total number of holds, but that's fine -- it doesn't matter
@@ -1566,8 +1554,8 @@ class TestAcquisitionFeed(DatabaseTest):
         availability, holds, copies = AcquisitionFeed.license_tags(
             pool, None, hold
         )
-        eq_('4', holds.attrib['position'])
-        eq_('4', holds.attrib['total'])
+        assert '4' == holds.attrib['position']
+        assert '4' == holds.attrib['total']
 
         # If the patron's hold position is zero (because the book is
         # reserved to them), we do not represent them as having a hold
@@ -1580,7 +1568,7 @@ class TestAcquisitionFeed(DatabaseTest):
             pool, None, hold
         )
         assert 'position' not in holds.attrib
-        eq_('1', holds.attrib['total'])
+        assert '1' == holds.attrib['total']
 
     def test_license_tags_show_unlimited_access_books(self):
         # Arrange
@@ -1595,14 +1583,14 @@ class TestAcquisitionFeed(DatabaseTest):
         )
 
         # Assert
-        eq_(1, len(tags))
+        assert 1 == len(tags)
 
         [tag] = tags
 
-        eq_('status' in tag.attrib, True)
-        eq_('available', tag.attrib['status'])
-        eq_('holds' in tag.attrib, False)
-        eq_('copies' in tag.attrib, False)
+        assert ('status' in tag.attrib) == True
+        assert 'available' == tag.attrib['status']
+        assert ('holds' in tag.attrib) == False
+        assert ('copies' in tag.attrib) == False
 
     def test_license_tags_show_self_hosted_books(self):
         # Arrange
@@ -1618,9 +1606,9 @@ class TestAcquisitionFeed(DatabaseTest):
         )
 
         # Assert
-        eq_(1, len(tags))
+        assert 1 == len(tags)
         assert 'status' in tags[0].attrib
-        eq_('available', tags[0].attrib['status'])
+        assert 'available' == tags[0].attrib['status']
 
     def test_single_entry(self):
 
@@ -1634,7 +1622,7 @@ class TestAcquisitionFeed(DatabaseTest):
 
         # The presentation edition of the Work is associated with
         # the first LicensePool added to it.
-        eq_(work.presentation_edition, original_pool.presentation_edition)
+        assert work.presentation_edition == original_pool.presentation_edition
 
         # This is the edition used when we create an <entry> tag for
         # this Work.
@@ -1647,8 +1635,8 @@ class TestAcquisitionFeed(DatabaseTest):
         # We provided a value for private, which was used.  We didn't
         # provide value for max_age, and zero was used instead of the
         # ten-minute default typical for OPDS feeds.
-        eq_(0, entry.max_age)
-        eq_(entry.private, private)
+        assert 0 == entry.max_age
+        assert entry.private == private
 
         entry_data = str(entry)
         assert original_pool.presentation_edition.title in entry_data
@@ -1689,13 +1677,13 @@ class TestAcquisitionFeed(DatabaseTest):
 
         # We got an OPDS entry containing the message.
         assert isinstance(response, OPDSEntryResponse)
-        eq_(200, response.status_code)
+        assert 200 == response.status_code
         assert '500' in str(response)
         assert 'oops' in str(response)
 
         # Our caching preferences were overridden.
-        eq_(True, response.private)
-        eq_(0, response.max_age)
+        assert True == response.private
+        assert 0 == response.max_age
 
     def test_entry_cache_adds_missing_drm_namespace(self):
 
@@ -1721,9 +1709,8 @@ class TestAcquisitionFeed(DatabaseTest):
         entry = AcquisitionFeed.single_entry(
             self._db, work, AddDRMTagAnnotator
         )
-        eq_('<entry xmlns:drm="http://librarysimplified.org/terms/drm"><foo>bar</foo><drm:licensor/></entry>',
-            str(entry)
-        )
+        assert ('<entry xmlns:drm="http://librarysimplified.org/terms/drm"><foo>bar</foo><drm:licensor/></entry>' ==
+            str(entry))
 
     def test_error_when_work_has_no_identifier(self):
         # We cannot create an OPDS entry for a Work that cannot be associated
@@ -1734,7 +1721,7 @@ class TestAcquisitionFeed(DatabaseTest):
         entry = AcquisitionFeed.single_entry(
             self._db, work, TestAnnotator
         )
-        eq_(entry, None)
+        assert entry == None
 
     def test_error_when_work_has_no_licensepool(self):
         work = self._work()
@@ -1747,7 +1734,7 @@ class TestAcquisitionFeed(DatabaseTest):
             403,
             "I've heard about this work but have no active licenses for it.",
         )
-        eq_(expect, entry)
+        assert expect == entry
 
     def test_error_when_work_has_no_presentation_edition(self):
         """We cannot create an OPDS entry (or even an error message) for a
@@ -1760,7 +1747,7 @@ class TestAcquisitionFeed(DatabaseTest):
             self._db, self._str, self._url, [], annotator=Annotator
         )
         entry = feed.create_entry(work)
-        eq_(None, entry)
+        assert None == entry
 
     def test_cache_usage(self):
         work = self._work(with_open_access_download=True)
@@ -1775,7 +1762,7 @@ class TestAcquisitionFeed(DatabaseTest):
         # If we pass in use_cache=True, the cached value is used as a basis
         # for the annotated entry.
         entry = feed.create_entry(work, use_cache=True)
-        eq_(tiny_entry, work.simple_opds_entry)
+        assert tiny_entry == work.simple_opds_entry
 
         # We know what the final value looks like -- it's the cached entry
         # run through `Annotator.annotate_work_entry`.
@@ -1786,13 +1773,13 @@ class TestAcquisitionFeed(DatabaseTest):
             work, pool, pool.presentation_edition, pool.identifier, feed,
             xml
         )
-        eq_(etree.tounicode(xml), etree.tounicode(entry))
+        assert etree.tounicode(xml) == etree.tounicode(entry)
 
         # If we pass in use_cache=False, a new OPDS entry is created
         # from scratch, but the cache is not updated.
         entry = feed.create_entry(work, use_cache=False)
         assert etree.tounicode(entry) != tiny_entry
-        eq_(tiny_entry, work.simple_opds_entry)
+        assert tiny_entry == work.simple_opds_entry
 
         # If we pass in force_create, a new OPDS entry is created
         # and the cache is updated.
@@ -1808,7 +1795,7 @@ class TestAcquisitionFeed(DatabaseTest):
             work, pool, pool.presentation_edition, pool.identifier, feed,
             full_entry
         )
-        eq_(entry_string, etree.tounicode(full_entry))
+        assert entry_string == etree.tounicode(full_entry)
 
     def test_exception_during_entry_creation_is_not_reraised(self):
         # This feed will raise an exception whenever it's asked
@@ -1824,7 +1811,7 @@ class TestAcquisitionFeed(DatabaseTest):
         # But calling create_entry() doesn't raise an exception, it
         # just returns None.
         entry = feed.create_entry(work)
-        eq_(entry, None)
+        assert entry == None
 
     def test_unfilfullable_work(self):
         work = self._work(with_open_access_download=True)
@@ -1839,49 +1826,46 @@ class TestAcquisitionFeed(DatabaseTest):
         )
         # The status code equivalent inside the OPDS message has not affected
         # the status code of the Response itself.
-        eq_(200, response.status_code)
-        eq_(str(expect), str(response))
+        assert 200 == response.status_code
+        assert str(expect) == str(response)
 
     def test_format_types(self):
         m = AcquisitionFeed.format_types
 
         epub_no_drm, ignore = DeliveryMechanism.lookup(
             self._db, Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.NO_DRM)
-        eq_([Representation.EPUB_MEDIA_TYPE], m(epub_no_drm))
+        assert [Representation.EPUB_MEDIA_TYPE] == m(epub_no_drm)
 
         epub_adobe_drm, ignore = DeliveryMechanism.lookup(
             self._db, Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.ADOBE_DRM)
-        eq_([DeliveryMechanism.ADOBE_DRM, Representation.EPUB_MEDIA_TYPE],
+        assert ([DeliveryMechanism.ADOBE_DRM, Representation.EPUB_MEDIA_TYPE] ==
             m(epub_adobe_drm))
 
         overdrive_streaming_text, ignore = DeliveryMechanism.lookup(
             self._db, DeliveryMechanism.STREAMING_TEXT_CONTENT_TYPE,
             DeliveryMechanism.OVERDRIVE_DRM
         )
-        eq_(
+        assert (
             [OPDSFeed.ENTRY_TYPE,
-             Representation.TEXT_HTML_MEDIA_TYPE + DeliveryMechanism.STREAMING_PROFILE],
-            m(overdrive_streaming_text)
-        )
+             Representation.TEXT_HTML_MEDIA_TYPE + DeliveryMechanism.STREAMING_PROFILE] ==
+            m(overdrive_streaming_text))
 
         audiobook_drm, ignore = DeliveryMechanism.lookup(
             self._db, Representation.AUDIOBOOK_MANIFEST_MEDIA_TYPE,
             DeliveryMechanism.FEEDBOOKS_AUDIOBOOK_DRM
         )
 
-        eq_(
-            [Representation.AUDIOBOOK_MANIFEST_MEDIA_TYPE + DeliveryMechanism.FEEDBOOKS_AUDIOBOOK_PROFILE],
-            m(audiobook_drm)
-        )
+        assert (
+            [Representation.AUDIOBOOK_MANIFEST_MEDIA_TYPE + DeliveryMechanism.FEEDBOOKS_AUDIOBOOK_PROFILE] ==
+            m(audiobook_drm))
 
         # Test a case where there is a DRM scheme but no underlying
         # content type.
         findaway_manifest, ignore = DeliveryMechanism.lookup(
             self._db, DeliveryMechanism.FINDAWAY_DRM, None
         )
-        eq_([DeliveryMechanism.FINDAWAY_DRM],
-            AcquisitionFeed.format_types(findaway_manifest)
-        )
+        assert ([DeliveryMechanism.FINDAWAY_DRM] ==
+            AcquisitionFeed.format_types(findaway_manifest))
 
     def test_add_breadcrumbs(self):
         _db = self._db
@@ -1929,7 +1913,7 @@ class TestAcquisitionFeed(DatabaseTest):
             if not expect_breadcrumbs_for:
                 # We are expecting no breadcrumbs at all;
                 # nothing should have been added to the feed.
-                eq_([], feed.feed)
+                assert [] == feed.feed
                 return
 
             # At this point we expect at least one breadcrumb.
@@ -1950,7 +1934,7 @@ class TestAcquisitionFeed(DatabaseTest):
 
             expect_titles = [title(x) for x in expect_breadcrumbs_for]
             actual_titles = [x.attrib.get('title') for x in crumbs]
-            eq_(expect_titles, actual_titles)
+            assert expect_titles == actual_titles
 
             # Now, compare the URLs of the breadcrumbs. This is
             # trickier, mainly because the URLs change once an
@@ -1996,7 +1980,7 @@ class TestAcquisitionFeed(DatabaseTest):
                     "%s: expect=%s actual=%s", expect_titles[i],
                     expect_url, actual_url
                 )
-                eq_(expect_url, actual_url)
+                assert expect_url == actual_url
 
                 # Keep track of the URL just used, in case the next
                 # breadcrumb is the same URL but with an entrypoint
@@ -2108,17 +2092,17 @@ class TestAcquisitionFeed(DatabaseTest):
         # add_link_to_feed was called twice, to create the 'start' and
         # 'up' links.
         start, up = feed.add_link_calls
-        eq_('start', start['rel'])
-        eq_(annotator.top_level_title(), start['title'])
+        assert 'start' == start['rel']
+        assert annotator.top_level_title() == start['title']
 
-        eq_('up', up['rel'])
-        eq_(lane.display_name, up['title'])
+        assert 'up' == up['rel']
+        assert lane.display_name == up['title']
 
         # The Lane and EntryPoint were passed into add_breadcrumbs.
-        eq_((sublane, ep), feed.add_breadcrumbs_call)
+        assert (sublane, ep) == feed.add_breadcrumbs_call
 
         # The EntryPoint was passed into show_current_entrypoint.
-        eq_(ep, feed.current_entrypoint)
+        assert ep == feed.current_entrypoint
 
     def test_show_current_entrypoint(self):
         """Calling AcquisitionFeed.show_current_entrypoint annotates
@@ -2133,7 +2117,7 @@ class TestAcquisitionFeed(DatabaseTest):
 
         ep = AudiobooksEntryPoint
         feed.show_current_entrypoint(ep)
-        eq_(ep.URI, feed.feed.attrib[feed.CURRENT_ENTRYPOINT_ATTRIBUTE])
+        assert ep.URI == feed.feed.attrib[feed.CURRENT_ENTRYPOINT_ATTRIBUTE]
 
     def test_facet_links_unrecognized_facets(self):
         # AcquisitionFeed.facet_links does not produce links for any
@@ -2203,11 +2187,11 @@ class TestAcquisitionFeed(DatabaseTest):
         [[url, facet, group, selected]] = MockFeed.facet_links(
             annotator, facets
         )
-        eq_('url: try the featured collection instead', url)
-        eq_(Facets.FACET_DISPLAY_TITLES[Facets.COLLECTION_FULL], facet)
-        eq_(Facets.GROUP_DISPLAY_TITLES[Facets.COLLECTION_FACET_GROUP_NAME],
+        assert 'url: try the featured collection instead' == url
+        assert Facets.FACET_DISPLAY_TITLES[Facets.COLLECTION_FULL] == facet
+        assert (Facets.GROUP_DISPLAY_TITLES[Facets.COLLECTION_FACET_GROUP_NAME] ==
             group)
-        eq_(True, selected)
+        assert True == selected
 
 
 class TestLookupAcquisitionFeed(DatabaseTest):
@@ -2272,22 +2256,20 @@ class TestLookupAcquisitionFeed(DatabaseTest):
         # Identifier and a totally random Work.
         expect_error = 'I tried to generate an OPDS entry for the identifier "%s" using a Work not associated with that identifier.'
         feed, entry = self.entry(identifier, work)
-        eq_(
-            entry,OPDSMessage(
+        assert (
+            entry ==OPDSMessage(
                 identifier.urn, 500, expect_error  % identifier.urn
-            )
-        )
+            ))
 
         # Even if the Identifier does have a Work, if the Works don't
         # match, we get the same error.
         edition, lp = self._edition(with_license_pool=True)
         work2 = lp.calculate_work()
         feed, entry = self.entry(lp.identifier, work)
-        eq_(entry,
+        assert (entry ==
             OPDSMessage(
                 lp.identifier.urn, 500, expect_error % lp.identifier.urn
-            )
-        )
+            ))
 
     def test_error_when_work_has_no_licensepool(self):
         """Under most circumstances, a Work must have at least one
@@ -2301,8 +2283,8 @@ class TestLookupAcquisitionFeed(DatabaseTest):
         # By default, a work is treated as 'not in the collection' if
         # there is no LicensePool for it.
         isinstance(entry, OPDSMessage)
-        eq_(404, entry.status_code)
-        eq_("Identifier not found in collection", entry.message)
+        assert 404 == entry.status_code
+        assert "Identifier not found in collection" == entry.message
 
     def test_unfilfullable_work(self):
         work = self._work(with_open_access_download=True)
@@ -2313,7 +2295,7 @@ class TestLookupAcquisitionFeed(DatabaseTest):
             pool.identifier, 403,
             "I know about this work but can offer no way of fulfilling it."
         )
-        eq_(expect, entry)
+        assert expect == entry
 
     def test_create_entry_uses_cache_for_all_licensepools_for_work(self):
         """A Work's cached OPDS entries can be reused by all LicensePools for
@@ -2350,10 +2332,10 @@ class TestLookupAcquisitionFeed(DatabaseTest):
         annotator = feed.annotator
 
         annotator.ACTIVE = pool1
-        eq_("Cached", m((pool1.identifier, work)).text)
+        assert "Cached" == m((pool1.identifier, work)).text
 
         annotator.ACTIVE = pool2
-        eq_("Cached", m((pool2.identifier, work)).text)
+        assert "Cached" == m((pool2.identifier, work)).text
 
         # If for some reason we pass in an identifier that is not
         # associated with the active license pool, we don't get
@@ -2373,8 +2355,8 @@ class TestEntrypointLinkInsertion(DatabaseTest):
     feed but through a different entry point.
     """
 
-    def setup(self):
-        super(TestEntrypointLinkInsertion, self).setup()
+    def setup_method(self):
+        super(TestEntrypointLinkInsertion, self).setup_method()
 
         # Mock for AcquisitionFeed.add_entrypoint_links
         class Mock(object):
@@ -2410,8 +2392,8 @@ class TestEntrypointLinkInsertion(DatabaseTest):
         self.old_add_entrypoint_links = AcquisitionFeed.add_entrypoint_links
         AcquisitionFeed.add_entrypoint_links = self.mock.add_entrypoint_links
 
-    def teardown(self):
-        super(TestEntrypointLinkInsertion, self).teardown()
+    def teardown_method(self):
+        super(TestEntrypointLinkInsertion, self).teardown_method()
         AcquisitionFeed.add_entrypoint_links = self.old_add_entrypoint_links
 
     def test_groups(self):
@@ -2431,7 +2413,7 @@ class TestEntrypointLinkInsertion(DatabaseTest):
 
         # This WorkList has no entry points, so the mock method is not
         # even called.
-        eq_(None, run(self.no_eps))
+        assert None == run(self.no_eps)
 
         # A WorkList with entry points does cause the mock method
         # to be called.
@@ -2443,12 +2425,12 @@ class TestEntrypointLinkInsertion(DatabaseTest):
 
         # add_entrypoint_links was passed both possible entry points
         # and the selected entry point.
-        eq_(self.wl.entrypoints, entrypoints)
-        eq_(selected, EbooksEntryPoint)
+        assert self.wl.entrypoints == entrypoints
+        assert selected == EbooksEntryPoint
 
         # The make_link function that was passed in calls
         # TestAnnotator.groups_url() when passed an EntryPoint.
-        eq_("http://groups/?entrypoint=Book", make_link(EbooksEntryPoint))
+        assert "http://groups/?entrypoint=Book" == make_link(EbooksEntryPoint)
 
     def test_page(self):
         # When AcquisitionFeed.page() generates the first page of a paginated
@@ -2471,7 +2453,7 @@ class TestEntrypointLinkInsertion(DatabaseTest):
 
         # The WorkList has no entry points, so the mock method is not
         # even called.
-        eq_(None, run(self.no_eps))
+        assert None == run(self.no_eps)
 
         # Let's give the WorkList two possible entry points, and choose one.
         facets = Facets.default(self._default_library).navigate(
@@ -2481,14 +2463,14 @@ class TestEntrypointLinkInsertion(DatabaseTest):
 
         # This time, add_entrypoint_links was called, and passed both
         # possible entry points and the selected entry point.
-        eq_(self.wl.entrypoints, entrypoints)
-        eq_(selected, EbooksEntryPoint)
+        assert self.wl.entrypoints == entrypoints
+        assert selected == EbooksEntryPoint
 
         # The make_link function that was passed in calls
         # TestAnnotator.feed_url() when passed an EntryPoint. The
         # Facets object's other facet groups are propagated in this URL.
         first_page_url = "http://wl/?available=all&collection=full&entrypoint=Book&order=author"
-        eq_(first_page_url, make_link(EbooksEntryPoint))
+        assert first_page_url == make_link(EbooksEntryPoint)
 
         # Pagination information is not propagated through entry point links
         # -- you always start at the beginning of the list.
@@ -2496,7 +2478,7 @@ class TestEntrypointLinkInsertion(DatabaseTest):
         feed, make_link, entrypoints, selected = run(
             self.wl, facets, pagination
         )
-        eq_(first_page_url, make_link(EbooksEntryPoint))
+        assert first_page_url == make_link(EbooksEntryPoint)
 
     def test_search(self):
         # When AcquisitionFeed.search() generates the first page of
@@ -2522,7 +2504,7 @@ class TestEntrypointLinkInsertion(DatabaseTest):
 
         # This WorkList has no entry points, so the mock method is not
         # even called.
-        eq_(None, run(self.no_eps))
+        assert None == run(self.no_eps)
 
         # The mock method is called for a WorkList that does have
         # entry points.
@@ -2533,19 +2515,18 @@ class TestEntrypointLinkInsertion(DatabaseTest):
         # Since the SearchFacets has more than one entry point,
         # the EverythingEntryPoint is prepended to the list of possible
         # entry points.
-        eq_(
-            [EverythingEntryPoint, AudiobooksEntryPoint, EbooksEntryPoint],
-            entrypoints
-        )
+        assert (
+            [EverythingEntryPoint, AudiobooksEntryPoint, EbooksEntryPoint] ==
+            entrypoints)
 
         # add_entrypoint_links was passed the three possible entry points
         # and the selected entry point.
-        eq_(selected, EbooksEntryPoint)
+        assert selected == EbooksEntryPoint
 
         # The make_link function that was passed in calls
         # TestAnnotator.search_url() when passed an EntryPoint.
         first_page_url = 'http://wl/?available=all&collection=full&entrypoint=Book&order=relevance'
-        eq_(first_page_url, make_link(EbooksEntryPoint))
+        assert first_page_url == make_link(EbooksEntryPoint)
 
         # Pagination information is not propagated through entry point links
         # -- you always start at the beginning of the list.
@@ -2553,7 +2534,7 @@ class TestEntrypointLinkInsertion(DatabaseTest):
         feed, make_link, entrypoints, selected = run(
             self.wl, facets, pagination
         )
-        eq_(first_page_url, make_link(EbooksEntryPoint))
+        assert first_page_url == make_link(EbooksEntryPoint)
 
 
 class TestNavigationFacets(object):
@@ -2561,13 +2542,13 @@ class TestNavigationFacets(object):
     def test_feed_type(self):
         # If a navigation feed is built via CachedFeed.fetch, it will be
         # filed as a navigation feed.
-        eq_(CachedFeed.NAVIGATION_TYPE, NavigationFacets.CACHED_FEED_TYPE)
+        assert CachedFeed.NAVIGATION_TYPE == NavigationFacets.CACHED_FEED_TYPE
 
 
 class TestNavigationFeed(DatabaseTest):
 
-    def setup(self):
-        super(TestNavigationFeed, self).setup()
+    def setup_method(self):
+        super(TestNavigationFeed, self).setup_method()
         self.fiction = self._lane("Fiction")
         self.fantasy = self._lane(
             "Fantasy", parent=self.fiction)
@@ -2581,11 +2562,11 @@ class TestNavigationFeed(DatabaseTest):
         feed.add_entry("http://example.com", "Example", "text/html")
         parsed = feedparser.parse(str(feed))
         [entry] = parsed["entries"]
-        eq_("Example", entry["title"])
+        assert "Example" == entry["title"]
         [link] = entry["links"]
-        eq_("http://example.com", link["href"])
-        eq_("text/html", link["type"])
-        eq_("subsection", link["rel"])
+        assert "http://example.com" == link["href"]
+        assert "text/html" == link["type"]
+        assert "subsection" == link["rel"]
 
     def test_navigation_with_sublanes(self):
         private = object()
@@ -2598,35 +2579,35 @@ class TestNavigationFeed(DatabaseTest):
         # max_age and private were propagated to the response
         # constructor.
         assert isinstance(response, OPDSFeedResponse)
-        eq_(42, response.max_age)
-        eq_(private, response.private)
+        assert 42 == response.max_age
+        assert private == response.private
 
         # The media type of this response is different than from the
         # typical OPDSFeedResponse.
-        eq_(OPDSFeed.NAVIGATION_FEED_TYPE, response.content_type)
+        assert OPDSFeed.NAVIGATION_FEED_TYPE == response.content_type
 
         parsed = feedparser.parse(response.data)
 
-        eq_("Navigation", parsed["feed"]["title"])
+        assert "Navigation" == parsed["feed"]["title"]
         [self_link] = parsed["feed"]["links"]
-        eq_("http://navigation", self_link["href"])
-        eq_("self", self_link["rel"])
-        eq_("http://navigation", parsed["feed"]["id"])
+        assert "http://navigation" == self_link["href"]
+        assert "self" == self_link["rel"]
+        assert "http://navigation" == parsed["feed"]["id"]
         [fantasy, romance] = sorted(parsed["entries"], key=lambda x: x["title"])
 
-        eq_(self.fantasy.display_name, fantasy["title"])
-        eq_("http://%s/" % self.fantasy.id, fantasy["id"])
+        assert self.fantasy.display_name == fantasy["title"]
+        assert "http://%s/" % self.fantasy.id == fantasy["id"]
         [fantasy_link] = fantasy["links"]
-        eq_("http://%s/" % self.fantasy.id, fantasy_link["href"])
-        eq_("subsection", fantasy_link["rel"])
-        eq_(NavigationFeed.ACQUISITION_FEED_TYPE, fantasy_link["type"])
+        assert "http://%s/" % self.fantasy.id == fantasy_link["href"]
+        assert "subsection" == fantasy_link["rel"]
+        assert NavigationFeed.ACQUISITION_FEED_TYPE == fantasy_link["type"]
 
-        eq_(self.romance.display_name, romance["title"])
-        eq_("http://navigation/%s" % self.romance.id, romance["id"])
+        assert self.romance.display_name == romance["title"]
+        assert "http://navigation/%s" % self.romance.id == romance["id"]
         [romance_link] = romance["links"]
-        eq_("http://navigation/%s" % self.romance.id, romance_link["href"])
-        eq_("subsection", romance_link["rel"])
-        eq_(NavigationFeed.NAVIGATION_FEED_TYPE, romance_link["type"])
+        assert "http://navigation/%s" % self.romance.id == romance_link["href"]
+        assert "subsection" == romance_link["rel"]
+        assert NavigationFeed.NAVIGATION_FEED_TYPE == romance_link["type"]
 
         # The feed was cached.
         cached = get_one(self._db, CachedFeed)
@@ -2637,16 +2618,16 @@ class TestNavigationFeed(DatabaseTest):
             self._db, "Navigation", "http://navigation",
             self.fantasy, TestAnnotator)
         parsed = feedparser.parse(str(feed))
-        eq_("Navigation", parsed["feed"]["title"])
+        assert "Navigation" == parsed["feed"]["title"]
         [self_link] = parsed["feed"]["links"]
-        eq_("http://navigation", self_link["href"])
-        eq_("self", self_link["rel"])
-        eq_("http://navigation", parsed["feed"]["id"])
+        assert "http://navigation" == self_link["href"]
+        assert "self" == self_link["rel"]
+        assert "http://navigation" == parsed["feed"]["id"]
         [fantasy] = parsed["entries"]
 
-        eq_("All " + self.fantasy.display_name, fantasy["title"])
-        eq_("http://%s/" % self.fantasy.id, fantasy["id"])
+        assert "All " + self.fantasy.display_name == fantasy["title"]
+        assert "http://%s/" % self.fantasy.id == fantasy["id"]
         [fantasy_link] = fantasy["links"]
-        eq_("http://%s/" % self.fantasy.id, fantasy_link["href"])
-        eq_("subsection", fantasy_link["rel"])
-        eq_(NavigationFeed.ACQUISITION_FEED_TYPE, fantasy_link["type"])
+        assert "http://%s/" % self.fantasy.id == fantasy_link["href"]
+        assert "subsection" == fantasy_link["rel"]
+        assert NavigationFeed.ACQUISITION_FEED_TYPE == fantasy_link["type"]

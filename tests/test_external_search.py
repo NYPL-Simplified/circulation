@@ -1,10 +1,5 @@
 # encoding: utf-8
-from nose.tools import (
-    assert_raises,
-    assert_raises_regexp,
-    eq_,
-    set_trace,
-)
+import pytest
 from collections import defaultdict
 import datetime
 import json
@@ -13,7 +8,7 @@ import re
 import time
 from psycopg2.extras import NumericRange
 
-from . import (
+from ..testing import (
     DatabaseTest,
 )
 
@@ -105,7 +100,7 @@ class TestExternalSearch(ExternalSearchTest):
         # load() returns whatever object was mocked.
         mock = object()
         with mock_search_index(mock):
-            eq_(mock, ExternalSearchIndex.load(self._db, in_testing=True))
+            assert mock == ExternalSearchIndex.load(self._db, in_testing=True)
 
     def test_constructor(self):
         # The configuration of the search ExternalIntegration becomes the
@@ -118,8 +113,8 @@ class TestExternalSearch(ExternalSearchTest):
                 self.set_works_index_and_alias_called_with = _db
 
         index = MockIndex(self._db)
-        eq_(self._db, index.set_works_index_and_alias_called_with)
-        eq_("test_search_term", index.test_search_term)
+        assert self._db == index.set_works_index_and_alias_called_with
+        assert "test_search_term" == index.test_search_term
 
     # TODO: would be good to check the put_script calls, but the
     # current constructor makes put_script difficult to mock.
@@ -137,18 +132,17 @@ class TestExternalSearch(ExternalSearchTest):
             def set_works_index_and_alias(self, _db):
                 raise ElasticsearchException("very bad")
 
-        assert_raises_regexp(
-            CannotLoadConfiguration,
-            "Exception communicating with Elasticsearch server:.*very bad",
-            Mock, self._db
-        )
+        with pytest.raises(CannotLoadConfiguration) as excinfo:
+            Mock(self._db)
+        assert "Exception communicating with Elasticsearch server: " in str(excinfo.value)
+        assert "very bad" in str(excinfo.value)
 
     def test_works_index_name(self):
         """The name of the search index is the prefix (defined in
         ExternalSearchTest.setup) plus a version number associated
         with this version of the core code.
         """
-        eq_("test_index-v4", self.search.works_index_name(self._db))
+        assert "test_index-v4" == self.search.works_index_name(self._db)
 
     def test_setup_index_creates_new_index(self):
         current_index = self.search.works_index
@@ -157,17 +151,17 @@ class TestExternalSearch(ExternalSearchTest):
         self.setup_index('the_other_index')
 
         # Both indices exist.
-        eq_(True, self.search.indices.exists(current_index))
-        eq_(True, self.search.indices.exists('the_other_index'))
+        assert True == self.search.indices.exists(current_index)
+        assert True == self.search.indices.exists('the_other_index')
 
         # The index for the app's search is still the original index.
-        eq_(current_index, self.search.works_index)
+        assert current_index == self.search.works_index
 
         # The alias hasn't been passed over to the new index.
         alias = 'test_index-' + self.search.CURRENT_ALIAS_SUFFIX
-        eq_(alias, self.search.works_alias)
-        eq_(True, self.search.indices.exists_alias(current_index, alias))
-        eq_(False, self.search.indices.exists_alias('the_other_index', alias))
+        assert alias == self.search.works_alias
+        assert True == self.search.indices.exists_alias(current_index, alias)
+        assert False == self.search.indices.exists_alias('the_other_index', alias)
 
     def test_set_works_index_and_alias(self):
         # If the index or alias don't exist, set_works_index_and_alias
@@ -177,26 +171,26 @@ class TestExternalSearch(ExternalSearchTest):
 
         expected_index = 'banana-' + CurrentMapping.version_name()
         expected_alias = 'banana-' + self.search.CURRENT_ALIAS_SUFFIX
-        eq_(expected_index, self.search.works_index)
-        eq_(expected_alias, self.search.works_alias)
+        assert expected_index == self.search.works_index
+        assert expected_alias == self.search.works_alias
 
         # If the index and alias already exist, set_works_index_and_alias
         # does nothing.
         self.search.set_works_index_and_alias(self._db)
-        eq_(expected_index, self.search.works_index)
-        eq_(expected_alias, self.search.works_alias)
+        assert expected_index == self.search.works_index
+        assert expected_alias == self.search.works_alias
 
     def test_setup_current_alias(self):
         # The index was generated from the string in configuration.
         version = CurrentMapping.version_name()
         index_name = 'test_index-' + version
-        eq_(index_name, self.search.works_index)
-        eq_(True, self.search.indices.exists(index_name))
+        assert index_name == self.search.works_index
+        assert True == self.search.indices.exists(index_name)
 
         # The alias is also created from the configuration.
         alias = 'test_index-' + self.search.CURRENT_ALIAS_SUFFIX
-        eq_(alias, self.search.works_alias)
-        eq_(True, self.search.indices.exists_alias(index_name, alias))
+        assert alias == self.search.works_alias
+        assert True == self.search.indices.exists_alias(index_name, alias)
 
         # If the -current alias is already set on a different index, it
         # won't be reassigned. Instead, search will occur against the
@@ -205,13 +199,13 @@ class TestExternalSearch(ExternalSearchTest):
         self.integration.set_setting(ExternalSearchIndex.WORKS_INDEX_PREFIX_KEY, 'my-app')
         self.search = ExternalSearchIndex(self._db)
 
-        eq_('my-app-%s' % version, self.search.works_index)
-        eq_('my-app-' + self.search.CURRENT_ALIAS_SUFFIX, self.search.works_alias)
+        assert 'my-app-%s' % version == self.search.works_index
+        assert 'my-app-' + self.search.CURRENT_ALIAS_SUFFIX == self.search.works_alias
 
     def test_transfer_current_alias(self):
         # An error is raised if you try to set the alias to point to
         # an index that doesn't already exist.
-        assert_raises(
+        pytest.raises(
             ValueError, self.search.transfer_current_alias, self._db,
             'no-such-index'
         )
@@ -225,32 +219,32 @@ class TestExternalSearch(ExternalSearchTest):
         )
         self.setup_index(new_index='test_index-v9999')
         self.search.transfer_current_alias(self._db, 'test_index-v9999')
-        eq_('test_index-v9999', self.search.works_index)
-        eq_('test_index-current', self.search.works_alias)
+        assert 'test_index-v9999' == self.search.works_index
+        assert 'test_index-current' == self.search.works_alias
 
         # If the -current alias already exists on the index,
         # it's used without a problem.
         self.search.transfer_current_alias(self._db, 'test_index-v9999')
-        eq_('test_index-v9999', self.search.works_index)
-        eq_('test_index-current', self.search.works_alias)
+        assert 'test_index-v9999' == self.search.works_index
+        assert 'test_index-current' == self.search.works_alias
 
         # If the -current alias is being used on a different version of the
         # index, it's deleted from that index and placed on the new one.
         self.setup_index(original_index)
         self.search.transfer_current_alias(self._db, original_index)
-        eq_(original_index, self.search.works_index)
-        eq_('test_index-current', self.search.works_alias)
+        assert original_index == self.search.works_index
+        assert 'test_index-current' == self.search.works_alias
 
         # It has been removed from other index.
-        eq_(False, self.search.indices.exists_alias(
-            index='test_index-v9999', name='test_index-current'))
+        assert False == self.search.indices.exists_alias(
+            index='test_index-v9999', name='test_index-current')
 
         # And only exists on the new index.
         alias_indices = list(self.search.indices.get_alias(name='test_index-current').keys())
-        eq_([original_index], alias_indices)
+        assert [original_index] == alias_indices
 
         # If the index doesn't have the same base name, an error is raised.
-        assert_raises(
+        pytest.raises(
             ValueError, self.search.transfer_current_alias, self._db,
             'banana-v10'
         )
@@ -276,8 +270,8 @@ class TestExternalSearch(ExternalSearchTest):
         query = object()
         pagination = object()
         filter = Filter(match_nothing=True)
-        eq_([], search.query_works(query, filter, pagination))
-        eq_([], search.query_works_multi_calls)
+        assert [] == search.query_works(query, filter, pagination)
+        assert [] == search.query_works_multi_calls
 
         # Otherwise, query_works_multi is called with a list
         # containing a single query, and the list of resultsets is
@@ -285,25 +279,25 @@ class TestExternalSearch(ExternalSearchTest):
         search.queued_results.append([["r1", "r2"]])
         filter = object()
         results = search.query_works(query, filter, pagination)
-        eq_(["r1", "r2"], results)
+        assert ["r1", "r2"] == results
         call = search.query_works_multi_calls.pop()
-        eq_(([(query, filter, pagination)], False), call)
-        eq_([], search.query_works_multi_calls)
+        assert ([(query, filter, pagination)], False) == call
+        assert [] == search.query_works_multi_calls
 
         # If no Pagination object is provided, a default is used.
         search.queued_results.append([["r3", "r4"]])
         results = search.query_works(query, filter, None, True)
-        eq_(["r3", "r4"], results)
+        assert ["r3", "r4"] == results
         ([query_tuple], debug) = search.query_works_multi_calls.pop()
-        eq_(True, debug)
-        eq_(query, query_tuple[0])
-        eq_(filter, query_tuple[1])
+        assert True == debug
+        assert query == query_tuple[0]
+        assert filter == query_tuple[1]
 
         pagination = query_tuple[2]
         default = Pagination.default()
         assert isinstance(pagination, Pagination)
-        eq_(pagination.offset, default.offset)
-        eq_(pagination.size, default.size)
+        assert pagination.offset == default.offset
+        assert pagination.size == default.size
 
     def test__run_self_tests(self):
         index = MockExternalSearchIndex()
@@ -311,29 +305,29 @@ class TestExternalSearch(ExternalSearchTest):
         # First, see what happens when the search returns no results.
         test_results = [x for x in index._run_self_tests(self._db, in_testing=True)]
 
-        eq_("Search results for 'a search term':", test_results[0].name)
-        eq_(True, test_results[0].success)
-        eq_([], test_results[0].result)
+        assert "Search results for 'a search term':" == test_results[0].name
+        assert True == test_results[0].success
+        assert [] == test_results[0].result
 
-        eq_("Search document for 'a search term':", test_results[1].name)
-        eq_(True, test_results[1].success)
-        eq_("[]", test_results[1].result)
+        assert "Search document for 'a search term':" == test_results[1].name
+        assert True == test_results[1].success
+        assert "[]" == test_results[1].result
 
-        eq_("Raw search results for 'a search term':", test_results[2].name)
-        eq_(True, test_results[2].success)
-        eq_([], test_results[2].result)
+        assert "Raw search results for 'a search term':" == test_results[2].name
+        assert True == test_results[2].success
+        assert [] == test_results[2].result
 
-        eq_("Total number of search results for 'a search term':", test_results[3].name)
-        eq_(True, test_results[3].success)
-        eq_("0", test_results[3].result)
+        assert "Total number of search results for 'a search term':" == test_results[3].name
+        assert True == test_results[3].success
+        assert "0" == test_results[3].result
 
-        eq_("Total number of documents in this search index:", test_results[4].name)
-        eq_(True, test_results[4].success)
-        eq_("0", test_results[4].result)
+        assert "Total number of documents in this search index:" == test_results[4].name
+        assert True == test_results[4].success
+        assert "0" == test_results[4].result
 
-        eq_("Total number of documents per collection:", test_results[5].name)
-        eq_(True, test_results[5].success)
-        eq_("{}", test_results[5].result)
+        assert "Total number of documents per collection:" == test_results[5].name
+        assert True == test_results[5].success
+        assert "{}" == test_results[5].result
 
         # Set up the search index so it will return a result.
         collection = self._collection()
@@ -345,33 +339,33 @@ class TestExternalSearch(ExternalSearchTest):
         test_results = [x for x in index._run_self_tests(self._db, in_testing=True)]
 
 
-        eq_("Search results for 'a search term':", test_results[0].name)
-        eq_(True, test_results[0].success)
-        eq_(["Sample Book Title (author)"], test_results[0].result)
+        assert "Search results for 'a search term':" == test_results[0].name
+        assert True == test_results[0].success
+        assert ["Sample Book Title (author)"] == test_results[0].result
 
-        eq_("Search document for 'a search term':", test_results[1].name)
-        eq_(True, test_results[1].success)
+        assert "Search document for 'a search term':" == test_results[1].name
+        assert True == test_results[1].success
         result = json.loads(test_results[1].result)
         sample_book = {"author": "author", "meta": {"id": "id", "_sort": ['Sample Book Title', 'author', 'id']}, "id": "id", "title": "Sample Book Title"}
-        eq_(sample_book, result)
+        assert sample_book == result
 
-        eq_("Raw search results for 'a search term':", test_results[2].name)
-        eq_(True, test_results[2].success)
+        assert "Raw search results for 'a search term':" == test_results[2].name
+        assert True == test_results[2].success
         result = json.loads(test_results[2].result[0])
-        eq_(sample_book, result)
+        assert sample_book == result
 
-        eq_("Total number of search results for 'a search term':", test_results[3].name)
-        eq_(True, test_results[3].success)
-        eq_("1", test_results[3].result)
+        assert "Total number of search results for 'a search term':" == test_results[3].name
+        assert True == test_results[3].success
+        assert "1" == test_results[3].result
 
-        eq_("Total number of documents in this search index:", test_results[4].name)
-        eq_(True, test_results[4].success)
-        eq_("1", test_results[4].result)
+        assert "Total number of documents in this search index:" == test_results[4].name
+        assert True == test_results[4].success
+        assert "1" == test_results[4].result
 
-        eq_("Total number of documents per collection:", test_results[5].name)
-        eq_(True, test_results[5].success)
+        assert "Total number of documents per collection:" == test_results[5].name
+        assert True == test_results[5].success
         result = json.loads(test_results[5].result)
-        eq_({collection.name: 1}, result)
+        assert {collection.name: 1} == result
 
 
 class TestCurrentMapping(object):
@@ -396,7 +390,7 @@ class TestCurrentMapping(object):
             """
             for find, replace in filters:
                 start = find.sub(replace, start)
-            eq_(start, finish)
+            assert start == finish
 
         # Only the primary author is considered for sorting purposes.
         filters_to("Adams, John Joseph ; Yu, Charles", "Adams, John Joseph")
@@ -569,8 +563,8 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
         )
 
         sherlock_2, is_new = self.sherlock_pool_2.calculate_work()
-        eq_(self.sherlock, sherlock_2)
-        eq_(2, len(self.sherlock.license_pools))
+        assert self.sherlock == sherlock_2
+        assert 2 == len(self.sherlock.license_pools)
 
         # These books look good for some search results, but they
         # will be filtered out by the universal filters, and will
@@ -600,8 +594,8 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
         # document query doesn't contain over-zealous joins. This test
         # class is the main place where we make a large number of
         # works and generate search documents for them.
-        eq_(1, len(self.moby_dick.to_search_document()['licensepools']))
-        eq_("Audio",
+        assert 1 == len(self.moby_dick.to_search_document()['licensepools'])
+        assert ("Audio" ==
             self.pride_audio.to_search_document()['licensepools'][0]['medium'])
 
         # Set up convenient aliases for methods we'll be calling a
@@ -625,7 +619,7 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
         # Now try some different search queries.
 
         # Search in title.
-        eq_(2, len(query("moby")))
+        assert 2 == len(query("moby"))
 
         # Search in author name
         expect(self.moby_dick, "melville")
@@ -767,8 +761,8 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
 
         # There are a number of results, but the top one is a presidential
         # biography for 8-year-olds.
-        eq_(5, len(results))
-        eq_(self.obama.id, results[0].work_id)
+        assert 5 == len(results)
+        assert self.obama.id == results[0].work_id
 
         # Now we'll test filters.
 
@@ -1001,7 +995,7 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
 
             # The last page should always be empty -- that's how we
             # knew we'd reached the end.
-            eq_([], pages[-1])
+            assert [] == pages[-1]
 
             # Return all the other pages for verification.
             return pages[:-1]
@@ -1012,18 +1006,18 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
             self._default_library, customlists=[self.presidential]
         )
         p1, p2 = pages(presidential)
-        eq_([self.lincoln, self.obama], p1)
-        eq_([self.washington], p2)
+        assert [self.lincoln, self.obama] == p1
+        assert [self.washington] == p2
 
         # Test a WorkList based on a language.
         spanish = WorkList()
         spanish.initialize(self._default_library, languages=['spa'])
-        eq_([[self.sherlock_spanish]], pages(spanish))
+        assert [[self.sherlock_spanish]] == pages(spanish)
 
         # Test a WorkList based on a genre.
         biography_wl = WorkList()
         biography_wl.initialize(self._default_library, genres=[biography])
-        eq_([[self.lincoln, self.obama]], pages(biography_wl))
+        assert [[self.lincoln, self.obama]] == pages(biography_wl)
 
         # Search results may be sorted by some field other than search
         # quality.
@@ -1400,7 +1394,7 @@ class TestSearchOrder(EndToEndSearchTest):
 
                 # We are now off the edge of the list -- we got an
                 # empty page of results and there is no next page.
-                eq_(None, pagination)
+                assert None == pagination
 
             # Now try the same tests but in reverse order.
             facets.order_ascending = False
@@ -1418,7 +1412,7 @@ class TestSearchOrder(EndToEndSearchTest):
                     pagination = pagination.next_page
                 # We are now off the edge of the list -- we got an
                 # empty page of results and there is no next page.
-                eq_(None, pagination)
+                assert None == pagination
 
         # We can sort by title.
         assert_order(
@@ -1809,51 +1803,49 @@ class TestFeaturedFacets(EndToEndSearchTest):
         source = filter.FEATURABLE_SCRIPT % dict(
             cutoff=f.minimum_featured_quality ** 2, exponent=2
         )
-        eq_(source, featurable.script['source'])
+        assert source == featurable.script['source']
 
         # It can be currently available.
         availability_filter = available_now['filter']
-        eq_(
+        assert (
             dict(nested=dict(
                 path='licensepools',
                 query=dict(term={'licensepools.available': True})
-            )),
-            availability_filter.to_dict()
-        )
-        eq_(5, available_now['weight'])
+            )) ==
+            availability_filter.to_dict())
+        assert 5 == available_now['weight']
 
         # It can get lucky.
         assert isinstance(random, RandomScore)
-        eq_(42, random.seed)
-        eq_(1.1, random.weight)
+        assert 42 == random.seed
+        assert 1.1 == random.weight
 
         # If the FeaturedFacets is set to be deterministic (which only happens
         # in tests), the RandomScore is removed.
         f.random_seed = filter.DETERMINISTIC
         [featurable_2, available_now_2] = f.scoring_functions(filter)
-        eq_(featurable_2, featurable)
-        eq_(available_now_2, available_now)
+        assert featurable_2 == featurable
+        assert available_now_2 == available_now
 
         # If custom lists are in play, it can also be featured on one
         # of its custom lists.
         filter.customlist_restriction_sets = [[1,2], [3]]
         [featurable_2, available_now_2,
          featured_on_list] = f.scoring_functions(filter)
-        eq_(featurable_2, featurable)
-        eq_(available_now_2, available_now)
+        assert featurable_2 == featurable
+        assert available_now_2 == available_now
 
         # Any list will do -- the customlist restriction sets aren't
         # relevant here.
         featured_filter = featured_on_list['filter']
-        eq_(dict(
+        assert (dict(
             nested=dict(
                 path='customlists',
                 query=dict(bool=dict(
                     must=[{'term': {'customlists.featured': True}},
-                          {'terms': {'customlists.list_id': [1, 2, 3]}}])))),
-            featured_filter.to_dict()
-        )
-        eq_(11, featured_on_list['weight'])
+                          {'terms': {'customlists.list_id': [1, 2, 3]}}])))) ==
+            featured_filter.to_dict())
+        assert 11 == featured_on_list['weight']
 
     def test_run(self):
 
@@ -1917,7 +1909,7 @@ class TestFeaturedFacets(EndToEndSearchTest):
         only_availability_matters = worklist.works(
             self._db, facets, None, self.search, debug=True
         )
-        eq_(5, len(only_availability_matters))
+        assert 5 == len(only_availability_matters)
         last_two = only_availability_matters[-2:]
         assert self.hq_not_available in last_two
         assert self.featured_on_list in last_two
@@ -1948,30 +1940,30 @@ class TestSearchBase(object):
         q2 = Q("simple_query_string", query="query 2")
 
         boosted_one = m(10, q1)
-        eq_("bool", boosted_one.name)
-        eq_(10.0, boosted_one.boost)
-        eq_([q1], boosted_one.must)
+        assert "bool" == boosted_one.name
+        assert 10.0 == boosted_one.boost
+        assert [q1] == boosted_one.must
 
         # By default, if you pass in multiple queries, only one of them
         # must match for the boost to apply.
         boosted_multiple = m(4.5, [q1, q2])
-        eq_("bool", boosted_multiple.name)
-        eq_(4.5, boosted_multiple.boost)
-        eq_(1, boosted_multiple.minimum_should_match)
-        eq_([q1, q2], boosted_multiple.should)
+        assert "bool" == boosted_multiple.name
+        assert 4.5 == boosted_multiple.boost
+        assert 1 == boosted_multiple.minimum_should_match
+        assert [q1, q2] == boosted_multiple.should
 
         # Here, every query must match for the boost to apply.
         boosted_multiple = m(4.5, [q1, q2], all_must_match=True)
-        eq_("bool", boosted_multiple.name)
-        eq_(4.5, boosted_multiple.boost)
-        eq_([q1, q2], boosted_multiple.must)
+        assert "bool" == boosted_multiple.name
+        assert 4.5 == boosted_multiple.boost
+        assert [q1, q2] == boosted_multiple.must
 
     def test__nest(self):
         # Test the _nest method, which turns a normal query into a
         # nested query.
         query = Term(**{"nested_field" : "value"})
         nested = SearchBase._nest("subdocument", query)
-        eq_(Nested(path='subdocument', query=query),
+        assert (Nested(path='subdocument', query=query) ==
             nested)
 
     def test_nestable(self):
@@ -1983,37 +1975,34 @@ class TestSearchBase(object):
         # unaffected.
         field = "name.minimal"
         normal_query = Term(**{field : "name"})
-        eq_(normal_query, m(field, normal_query))
+        assert normal_query == m(field, normal_query)
 
         # A query on a subdocument field becomes a nested query on
         # that subdocument.
         field = "contributors.sort_name.minimal"
         subdocument_query = Term(**{field : "name"})
         nested = m(field, subdocument_query)
-        eq_(
-            Nested(path='contributors', query=subdocument_query),
-            nested
-        )
+        assert (
+            Nested(path='contributors', query=subdocument_query) ==
+            nested)
 
     def test__match_term(self):
         # _match_term creates a Match Elasticsearch object which does a
         # match against a specific field.
         m = SearchBase._match_term
         qu = m("author", "flannery o'connor")
-        eq_(
-            Term(author="flannery o'connor"),
-            qu
-        )
+        assert (
+            Term(author="flannery o'connor") ==
+            qu)
 
         # If the field name references a subdocument, the query is
         # embedded in a Nested object that describes how to match it
         # against that subdocument.
         field = "genres.name"
         qu = m(field, "Biography")
-        eq_(
-            Nested(path='genres', query=Term(**{field: "Biography"})),
-            qu
-        )
+        assert (
+            Nested(path='genres', query=Term(**{field: "Biography"})) ==
+            qu)
 
     def test__match_range(self):
         # Test the _match_range helper method.
@@ -2022,7 +2011,7 @@ class TestSearchBase(object):
 
         # This only matches if field.name has a value >= 5.
         r = SearchBase._match_range("field.name", "gte", 5)
-        eq_(r, {'range': {'field.name': {'gte': 5}}})
+        assert r == {'range': {'field.name': {'gte': 5}}}
 
     def test__combine_hypotheses(self):
         # Verify that _combine_hypotheses creates a DisMax query object
@@ -2033,11 +2022,11 @@ class TestSearchBase(object):
         h2 = Term(field="value 2")
         hypotheses = [h1, h2]
         combined = m(hypotheses)
-        eq_(DisMax(queries=hypotheses), combined)
+        assert DisMax(queries=hypotheses) == combined
 
         # If there are no hypotheses to test, _combine_hypotheses creates
         # a MatchAll instead.
-        eq_(MatchAll(), m([]))
+        assert MatchAll() == m([])
 
     def test_make_target_age_query(self):
 
@@ -2054,7 +2043,7 @@ class TestSearchBase(object):
             Range(**{"target_age.upper":dict(gte=5)}),
             Range(**{"target_age.lower":dict(lte=10)}),
         ]
-        eq_(Bool(must=filter_clauses), as_filter)
+        assert Bool(must=filter_clauses) == as_filter
 
         # Here's the query part: a book gets boosted if its
         # age range fits _entirely_ within the target age range.
@@ -2062,7 +2051,7 @@ class TestSearchBase(object):
             Range(**{"target_age.upper":dict(lte=10)}),
             Range(**{"target_age.lower":dict(gte=5)}),
         ]
-        eq_(Bool(boost=1.1, must=filter_clauses, should=query_clauses),
+        assert (Bool(boost=1.1, must=filter_clauses, should=query_clauses) ==
             as_query)
 
 
@@ -2073,27 +2062,27 @@ class TestQuery(DatabaseTest):
         # no processing.
         filter = Filter()
         query = Query("query string", filter)
-        eq_("query string", query.query_string)
-        eq_(filter, query.filter)
+        assert "query string" == query.query_string
+        assert filter == query.filter
 
         # The query string does not contain English stopwords.
-        eq_(False, query.contains_stopwords)
+        assert False == query.contains_stopwords
 
         # Every word in the query string passes spellcheck,
         # so a fuzzy query will be given less weight.
-        eq_(0.5, query.fuzzy_coefficient)
+        assert 0.5 == query.fuzzy_coefficient
 
         # Try again with a query containing a stopword and
         # a word that fails spellcheck.
         query = Query("just a xlomph")
-        eq_(True, query.contains_stopwords)
-        eq_(1, query.fuzzy_coefficient)
+        assert True == query.contains_stopwords
+        assert 1 == query.fuzzy_coefficient
 
         # Try again with a query that contains no query string.
         # The fuzzy hypotheses will not be run at all.
         query = Query(None)
-        eq_(None, query.contains_stopwords)
-        eq_(0, query.fuzzy_coefficient)
+        assert None == query.contains_stopwords
+        assert 0 == query.fuzzy_coefficient
 
 
     def test_build(self):
@@ -2199,8 +2188,8 @@ class TestQuery(DatabaseTest):
                 that the rest of a test can ignore all the universal
                 stuff.
                 """
-                eq_(True, cls.universal_called)
-                eq_(True, cls.nested_called)
+                assert True == cls.universal_called
+                assert True == cls.nested_called
 
                 # Reset for next time.
                 cls.base_called = None
@@ -2220,7 +2209,7 @@ class TestQuery(DatabaseTest):
         # The return value is a new MockSearch object based on the one
         # that was passed in.
         assert isinstance(built, MockSearch)
-        eq_(search, built.parent.parent.parent)
+        assert search == built.parent.parent.parent
 
         # The (mocked) universal base query and universal nested
         # queries were called.
@@ -2229,27 +2218,26 @@ class TestQuery(DatabaseTest):
         # The mocked universal base filter was the first
         # base filter to be applied.
         universal_base_term = built._query.filter.pop(0)
-        eq_(MockFilter.universal_base_term, universal_base_term)
+        assert MockFilter.universal_base_term == universal_base_term
 
         # The pagination filter was the last one to be applied.
         pagination = built.nested_filter_calls.pop()
-        eq_(dict(name_or_query='pagination modified'), pagination)
+        assert dict(name_or_query='pagination modified') == pagination
 
         # The mocked universal nested filter was applied
         # just before that.
         universal_nested = built.nested_filter_calls.pop()
-        eq_(
+        assert (
             dict(
                 name_or_query='nested',
                 path='nested_called',
                 query=Bool(filter=[MockFilter.universal_nested_term])
-            ),
-            universal_nested
-        )
+            ) ==
+            universal_nested)
 
         # The result of Query.elasticsearch_query is used as the basis
         # for the Search object.
-        eq_(Bool(must=qu.elasticsearch_query), built._query)
+        assert Bool(must=qu.elasticsearch_query) == built._query
 
         # Now test some cases where the query has a filter.
 
@@ -2268,29 +2256,27 @@ class TestQuery(DatabaseTest):
         underlying_query = built._query
 
         # The query we passed in is used as the 'must' part of the
-        eq_(underlying_query.must, [qu.elasticsearch_query])
+        assert underlying_query.must == [qu.elasticsearch_query]
         main_filter, nested_filters = filter.build()
 
         # The filter we passed in was combined with the universal
         # base filter into a boolean query, with its own 'must'.
         main_filter.must = main_filter.must + [MockFilter.universal_base_term]
-        eq_(
-            underlying_query.filter,
-            [main_filter]
-        )
+        assert (
+            underlying_query.filter ==
+            [main_filter])
 
         # There are no nested filters, apart from the universal one.
-        eq_({}, nested_filters)
+        assert {} == nested_filters
         universal_nested = built.nested_filter_calls.pop()
-        eq_(
+        assert (
             dict(
                 name_or_query='nested',
                 path='nested_called',
                 query=Bool(filter=[MockFilter.universal_nested_term])
-            ),
-            universal_nested
-        )
-        eq_([], built.nested_filter_calls)
+            ) ==
+            universal_nested)
+        assert [] == built.nested_filter_calls
 
         # At this point the universal filters are more trouble than they're
         # worth. Disable them for the rest of the test.
@@ -2310,20 +2296,20 @@ class TestQuery(DatabaseTest):
         # nested filter.
         main_filter, nested_filters = filter.build()
         [nested_licensepool_filter] = nested_filters.pop('licensepools')
-        eq_({}, nested_filters)
+        assert {} == nested_filters
 
         # As before, the main filter has been applied to the underlying
         # query.
-        eq_(underlying_query.filter, [main_filter])
+        assert underlying_query.filter == [main_filter]
 
         # The nested filter was converted into a Bool query and passed
         # into Search.filter(). This applied an additional filter on the
         # 'licensepools' subdocument.
         [filter_call] = built.nested_filter_calls
-        eq_('nested', filter_call['name_or_query'])
-        eq_('licensepools', filter_call['path'])
+        assert 'nested' == filter_call['name_or_query']
+        assert 'licensepools' == filter_call['path']
         filter_as_query = filter_call['query']
-        eq_(Bool(filter=nested_licensepool_filter), filter_as_query)
+        assert Bool(filter=nested_licensepool_filter) == filter_as_query
 
         # Now we're going to test how queries are built to accommodate
         # various restrictions imposed by a Facets object.
@@ -2343,14 +2329,14 @@ class TestQuery(DatabaseTest):
         built = from_facets(Facets.COLLECTION_FEATURED, None, None)
 
         # There is no nested filter.
-        eq_([], built.nested_filter_calls)
+        assert [] == built.nested_filter_calls
 
         # A non-nested filter is applied on the 'quality' field.
         [quality_filter] = built._query.filter
         quality_range = Filter._match_range(
             'quality', 'gte', self._default_library.minimum_featured_quality
         )
-        eq_(Q('bool', must=[quality_range], must_not=[RESEARCH]), quality_filter)
+        assert Q('bool', must=[quality_range], must_not=[RESEARCH]) == quality_filter
 
         # When using the AVAILABLE_OPEN_ACCESS availability restriction...
         built = from_facets(Facets.COLLECTION_FULL,
@@ -2358,42 +2344,40 @@ class TestQuery(DatabaseTest):
 
         # An additional nested filter is applied.
         [available_now] = built.nested_filter_calls
-        eq_('nested', available_now['name_or_query'])
-        eq_('licensepools', available_now['path'])
+        assert 'nested' == available_now['name_or_query']
+        assert 'licensepools' == available_now['path']
 
         # It finds only license pools that are open access.
         nested_filter = available_now['query']
         open_access = dict(term={'licensepools.open_access': True})
-        eq_(
-            nested_filter.to_dict(),
-            {'bool': {'filter': [open_access]}}
-        )
+        assert (
+            nested_filter.to_dict() ==
+            {'bool': {'filter': [open_access]}})
 
         # When using the AVAILABLE_NOW restriction...
         built = from_facets(Facets.COLLECTION_FULL, Facets.AVAILABLE_NOW, None)
 
         # An additional nested filter is applied.
         [available_now] = built.nested_filter_calls
-        eq_('nested', available_now['name_or_query'])
-        eq_('licensepools', available_now['path'])
+        assert 'nested' == available_now['name_or_query']
+        assert 'licensepools' == available_now['path']
 
         # It finds only license pools that are open access *or* that have
         # active licenses.
         nested_filter = available_now['query']
         available = {'term': {'licensepools.available': True}}
-        eq_(
-            nested_filter.to_dict(),
+        assert (
+            nested_filter.to_dict() ==
             {'bool': {'filter': [{'bool': {'should': [open_access, available],
-                                           'minimum_should_match': 1}}]}}
-        )
+                                           'minimum_should_match': 1}}]}})
 
         # When using the AVAILABLE_NOT_NOW restriction...
         built = from_facets(Facets.COLLECTION_FULL, Facets.AVAILABLE_NOT_NOW, None)
 
         # An additional nested filter is applied.
         [not_available_now] = built.nested_filter_calls
-        eq_('nested', available_now['name_or_query'])
-        eq_('licensepools', available_now['path'])
+        assert 'nested' == available_now['name_or_query']
+        assert 'licensepools' == available_now['path']
 
         # It finds only license pools that are licensed, but not
         # currently available or open access.
@@ -2401,10 +2385,9 @@ class TestQuery(DatabaseTest):
         not_available = {'term': {'licensepools.available': False}}
         licensed = {'term': {'licensepools.licensed': True}}
         not_open_access = {'term': {'licensepools.open_access': False}}
-        eq_(
-            nested_filter.to_dict(),
-            {'bool': {'filter': [{'bool': {'must': [not_open_access, licensed, not_available]}}]}}
-        )
+        assert (
+            nested_filter.to_dict() ==
+            {'bool': {'filter': [{'bool': {'must': [not_open_access, licensed, not_available]}}]}})
 
         # If the Filter specifies script fields, those fields are
         # added to the Query through a call to script_fields()
@@ -2413,7 +2396,7 @@ class TestQuery(DatabaseTest):
         filter = Filter(script_fields=script_fields)
         qu = MockQuery("query string", filter=filter)
         built = qu.build(search)
-        eq_(script_fields, built._script_fields)
+        assert script_fields == built._script_fields
 
         # If the Filter specifies a sort order, Filter.sort_order is
         # used to convert it to appropriate Elasticsearch syntax, and
@@ -2425,13 +2408,13 @@ class TestQuery(DatabaseTest):
         # We asked for a random sort order, and that's the primary
         # sort field.
         order = list(built.order)
-        eq_(dict(random="desc"), order.pop(0))
+        assert dict(random="desc") == order.pop(0)
 
         # But a number of other sort fields are also employed to act
         # as tiebreakers.
         for tiebreaker_field in ('sort_author', 'sort_title', 'work_id'):
-            eq_({tiebreaker_field: "asc"}, order.pop(0))
-        eq_([], order)
+            assert {tiebreaker_field: "asc"} == order.pop(0)
+        assert [] == order
 
         # Finally, undo the mock of the Filter class methods
         Filter.universal_base_filter = original_base
@@ -2447,8 +2430,8 @@ class TestQuery(DatabaseTest):
             match_nothing = True
         )
         main, nested = filter.build()
-        eq_(MatchNone(), main)
-        eq_({}, nested)
+        assert MatchNone() == main
+        assert {} == nested
 
     def test_elasticsearch_query(self):
         # The elasticsearch_query property calls a number of other methods
@@ -2507,7 +2490,7 @@ class TestQuery(DatabaseTest):
         # string we get a match_all query that returns everything.
         query = Mock(None)
         result = query.elasticsearch_query
-        eq_(dict(match_all=dict()), result.to_dict())
+        assert dict(match_all=dict()) == result.to_dict()
 
         # Now try a real query string.
         q = "query string"
@@ -2517,10 +2500,10 @@ class TestQuery(DatabaseTest):
         # The final result is the result of calling _combine_hypotheses
         # on a number of hypotheses. Our mock class just returns
         # the hypotheses as-is, for easier testing.
-        eq_(result, query._combine_hypotheses_called_with)
+        assert result == query._combine_hypotheses_called_with
 
         # We ended up with a number of hypothesis:
-        eq_(result,
+        assert (result ==
             [
                 # Several hypotheses checking whether the search query is an attempt to
                 # match a single field -- the results of calling match_one_field()
@@ -2546,8 +2529,7 @@ class TestQuery(DatabaseTest):
                 # The 'query' part of the return value of
                 # parsed_query_matches()
                 Mock.SUBSTRING_HYPOTHESES
-            ]
-        )
+            ])
 
         # That's not the whole story, though. parsed_query_matches()
         # said it was okay to test certain hypotheses, but only
@@ -2557,17 +2539,17 @@ class TestQuery(DatabaseTest):
         # of _hypothesize added it to the 'filters' dict to indicate
         # we know that those filters go with the substring
         # hypotheses. That's the only time 'filters' was touched.
-        eq_(
-            {Mock.SUBSTRING_HYPOTHESES: 'only valid with this filter'},
-            query._filters
-        )
+        assert (
+            {Mock.SUBSTRING_HYPOTHESES: 'only valid with this filter'} ==
+            query._filters)
 
         # Each call to _hypothesize included a boost factor indicating
         # how heavily to weight that hypothesis. Rather than do
         # anything with this information -- which is mostly mocked
         # anyway -- we just stored it in _boosts.
-        boosts = sorted(list(query._boosts.items()), key=lambda x: x[1])
-        eq_(boosts,
+        boosts = sorted(list(query._boosts.items()), key=lambda x: str(x[0]))
+        boosts = sorted(boosts, key=lambda x: x[1])
+        assert (boosts ==
             [
                 ('match title', 1),
                 ('match subtitle', 1),
@@ -2586,11 +2568,10 @@ class TestQuery(DatabaseTest):
                 ('author query 1', 2),
                 ('author query 2', 3),
                 ('topic query', 4),
-                ('multi match title+subtitle', 5),
-                ('multi match title+series', 5),
                 ('multi match title+author', 5),
-            ]
-        )
+                ('multi match title+series', 5),
+                ('multi match title+subtitle', 5),
+            ])
 
     def test_match_one_field_hypotheses(self):
         # Test our ability to generate hypotheses that a search string
@@ -2628,8 +2609,8 @@ class TestQuery(DatabaseTest):
         # weight for this field.
         def validate_keyword(field, hypothesis, expect_weight):
             hypothesis, weight = hypothesis
-            eq_(Term(**{"%s.keyword" % field: "book"}), hypothesis)
-            eq_(expect_weight, weight)
+            assert Term(**{"%s.keyword" % field: "book"}) == hypothesis
+            assert expect_weight == weight
         validate_keyword("regular_field", term, 2000)
 
         # The MatchPhrase hypothesis tries to find a partial phrase
@@ -2637,8 +2618,8 @@ class TestQuery(DatabaseTest):
         # the baseline weight for this field.
         def validate_minimal(field, hypothesis, expect_weight):
             hypothesis, weight = hypothesis
-            eq_(MatchPhrase(**{"%s.minimal" % field: "book"}), hypothesis)
-            eq_(expect_weight, weight)
+            assert MatchPhrase(**{"%s.minimal" % field: "book"}) == hypothesis
+            assert expect_weight == weight
         validate_minimal("regular_field", phrase, 2)
 
         # Now let's try the same query, but with fuzzy searching
@@ -2656,14 +2637,14 @@ class TestQuery(DatabaseTest):
         def validate_fuzzy(field, hypothesis, phrase_weight):
             minimal_field = field + ".minimal"
             hypothesis, weight = fuzzy
-            eq_('fuzzy match for %s' % minimal_field, hypothesis)
-            eq_(phrase_weight*0.66, weight)
+            assert 'fuzzy match for %s' % minimal_field == hypothesis
+            assert phrase_weight*0.66 == weight
 
             # Validate standard arguments passed into _fuzzy_matches.
             # Since a fuzzy match is kind of loose, we don't allow a
             # match on a single word of a multi-word query. At least
             # two of the words have to be involved.
-            eq_(dict(minimum_should_match=2, query='book'),
+            assert (dict(minimum_should_match=2, query='book') ==
                 query.fuzzy_calls[minimal_field])
         validate_fuzzy("regular_field", fuzzy, 2)
 
@@ -2686,9 +2667,9 @@ class TestQuery(DatabaseTest):
         # stopword_field that leaves the stopwords in place.  This
         # hypothesis is boosted just above the baseline hypothesis.
         hypothesis, weight = stopword
-        eq_(hypothesis,
+        assert (hypothesis ==
             MatchPhrase(**{"stopword_field.with_stopwords": "book"}))
-        eq_(weight, 3 * Mock.SLIGHTLY_ABOVE_BASELINE)
+        assert weight == 3 * Mock.SLIGHTLY_ABOVE_BASELINE
 
         # Finally, let's try a stemmable field.
         term, phrase, fuzzy, stemmable = list(m("stemmable_field"))
@@ -2701,15 +2682,14 @@ class TestQuery(DatabaseTest):
         # minimum_should_match=2 here for the same reason we do it for
         # the fuzzy search -- a normal Match query is kind of loose.
         hypothesis, weight = stemmable
-        eq_(hypothesis,
+        assert (hypothesis ==
             Match(
                 stemmable_field=dict(
                     minimum_should_match=2,
                     query="book"
                 )
-            )
-        )
-        eq_(weight, 4 * 0.75)
+            ))
+        assert weight == 4 * 0.75
 
     def test_match_author_hypotheses(self):
         # Test our ability to generate hypotheses that a query string
@@ -2727,26 +2707,24 @@ class TestQuery(DatabaseTest):
         # display name, it's the author's sort name, or it matches the
         # author's sort name when automatically converted to a sort
         # name.
-        eq_(
+        assert (
             [
                 'display_name must match ursula le guin',
                 'sort_name must match le guin, ursula'
-            ],
-            hypotheses
-        )
+            ] ==
+            hypotheses)
 
         # If the string passed in already looks like a sort name, we
         # don't try to convert it -- but someone's name may contain a
         # comma, so we do check both fields.
         query = Mock("le guin, ursula")
         hypotheses = list(query.match_author_hypotheses)
-        eq_(
+        assert (
             [
                 'display_name must match le guin, ursula',
                 'sort_name must match le guin, ursula',
-            ],
-            hypotheses
-        )
+            ] ==
+            hypotheses)
 
     def test__author_field_must_match(self):
         class Mock(Query):
@@ -2764,23 +2742,21 @@ class TestQuery(DatabaseTest):
         # run the result through _role_must_also_match() to ensure we
         # only get works where this author made a major contribution.
         [(hypothesis, weight)] = list(m("display_name"))
-        eq_(
+        assert (
             ['maybe contributors.display_name matches ursula le guin',
-             '(but the role must be appropriate)'],
-            hypothesis
-        )
-        eq_(6, weight)
+             '(but the role must be appropriate)'] ==
+            hypothesis)
+        assert 6 == weight
 
         # We can pass in a different query string to override
         # .query_string. This is how we test a match against our guess
         # at an author's sort name.
         [(hypothesis, weight)] = list(m("sort_name", "le guin, ursula"))
-        eq_(
+        assert (
             ['maybe contributors.sort_name matches le guin, ursula',
-             '(but the role must be appropriate)'],
-            hypothesis
-        )
-        eq_(6, weight)
+             '(but the role must be appropriate)'] ==
+            hypothesis)
+        assert 6 == weight
 
     def test__role_must_also_match(self):
         class Mock(Query):
@@ -2798,14 +2774,14 @@ class TestQuery(DatabaseTest):
         # scenario this would turn it into a nested query against the
         # 'contributors' subdocument.
         nested, subdocument, modified_base = modified
-        eq_("nested", nested)
-        eq_("contributors", subdocument)
+        assert "nested" == nested
+        assert "contributors" == subdocument
 
         # The original query was combined with an extra clause, which
         # only matches people if their contribution to a book was of
         # the type that library patrons are likely to search for.
         extra = Terms(**{"contributors.role": ['Primary Author', 'Author', 'Narrator']})
-        eq_(Bool(must=[original_query, extra]), modified_base)
+        assert Bool(must=[original_query, extra]) == modified_base
 
     def test_match_topic_hypotheses(self):
         query = Query("whales")
@@ -2815,17 +2791,16 @@ class TestQuery(DatabaseTest):
         # summary text and classifications. The score for a book is
         # whichever of the two types of fields is a better match for
         # 'whales'.
-        eq_(
+        assert (
             MultiMatch(
                 query="whales",
                 fields=["summary", "classifications.term"],
                 type="best_fields",
-            ),
-            hypothesis
-        )
+            ) ==
+            hypothesis)
         # The weight of the hypothesis is the base weight associated
         # with the 'summary' field.
-        eq_(Query.WEIGHT_FOR_FIELD['summary'], weight)
+        assert Query.WEIGHT_FOR_FIELD['summary'] == weight
 
     def test_title_multi_match_for(self):
         # Test our ability to hypothesize that a query string might
@@ -2834,10 +2809,9 @@ class TestQuery(DatabaseTest):
 
         # If there's only one word in the query, then we don't bother
         # making this hypothesis at all.
-        eq_(
-            [],
-            list(Query("grasslands").title_multi_match_for("other field"))
-        )
+        assert (
+            [] ==
+            list(Query("grasslands").title_multi_match_for("other field")))
 
         query = Query("grass lands")
         [(hypothesis, weight)] = list(query.title_multi_match_for("author"))
@@ -2849,13 +2823,13 @@ class TestQuery(DatabaseTest):
             operator="and",
             minimum_should_match="100%",
         )
-        eq_(expect, hypothesis)
+        assert expect == hypothesis
 
         # The weight of this hypothesis is between the weight of a
         # pure title match and the weight of a pure author match.
         title_weight = Query.WEIGHT_FOR_FIELD['title']
         author_weight = Query.WEIGHT_FOR_FIELD['author']
-        eq_(weight, author_weight * (author_weight/title_weight))
+        assert weight == author_weight * (author_weight/title_weight)
 
     def test_parsed_query_matches(self):
         # Test our ability to take a query like "asteroids
@@ -2869,7 +2843,7 @@ class TestQuery(DatabaseTest):
         parser = QueryParser(query.query_string)
         expect = (parser.match_queries, parser.filters)
 
-        eq_(expect, query.parsed_query_matches)
+        assert expect == query.parsed_query_matches
 
     def test_hypothesize(self):
         # Verify that _hypothesize() adds a query to a list,
@@ -2887,27 +2861,27 @@ class TestQuery(DatabaseTest):
         # _hypothesize() does nothing if it's not passed a real
         # query.
         Mock._hypothesize(hypotheses, None, 100)
-        eq_([], hypotheses)
-        eq_([], Mock.boost_extras)
+        assert [] == hypotheses
+        assert [] == Mock.boost_extras
 
         # If it is passed a real query, _boost() is called on the
         # query object.
         Mock._hypothesize(hypotheses, "query object", 10)
-        eq_(["query object boosted by 10"], hypotheses)
-        eq_([], Mock.boost_extras)
+        assert ["query object boosted by 10"] == hypotheses
+        assert [] == Mock.boost_extras
 
         Mock._hypothesize(hypotheses, "another query object", 1)
-        eq_(["query object boosted by 10", "another query object boosted by 1"],
+        assert (["query object boosted by 10", "another query object boosted by 1"] ==
             hypotheses)
-        eq_([], Mock.boost_extras)
+        assert [] == Mock.boost_extras
 
         # If a filter or any other arguments are passed in, those arguments
         # are propagated to _boost().
         hypotheses = []
         Mock._hypothesize(hypotheses, "query with filter", 2, filters="some filters",
                           extra="extra kwarg")
-        eq_(["query with filter boosted by 2"], hypotheses)
-        eq_([("some filters", dict(extra="extra kwarg"))], Mock.boost_extras)
+        assert ["query with filter boosted by 2"] == hypotheses
+        assert [("some filters", dict(extra="extra kwarg"))] == Mock.boost_extras
 
 
 class TestQueryParser(DatabaseTest):
@@ -2942,21 +2916,21 @@ class TestQueryParser(DatabaseTest):
         parser = QueryParser("science fiction about dogs", MockQuery)
 
         # The original query string is always stored as .original_query_string.
-        eq_("science fiction about dogs", parser.original_query_string)
+        assert "science fiction about dogs" == parser.original_query_string
 
         # The part of the query that couldn't be parsed is always stored
         # as final_query_string.
-        eq_("about dogs", parser.final_query_string)
+        assert "about dogs" == parser.final_query_string
 
         # Leading and trailing whitespace is never regarded as
         # significant and it is stripped from the query string
         # immediately.
         whitespace = QueryParser(" abc ", MockQuery)
-        eq_("abc", whitespace.original_query_string)
+        assert "abc" == whitespace.original_query_string
 
         # parser.filters contains the filters that we think we were
         # able to derive from the query string.
-        eq_([('genres.name', 'Science Fiction')], parser.filters)
+        assert [('genres.name', 'Science Fiction')] == parser.filters
 
         # parser.match_queries contains the result of putting the rest
         # of the query string into a Query object (or, here, our
@@ -2964,7 +2938,7 @@ class TestQueryParser(DatabaseTest):
         # real scenario, this will result in a huge DisMax query
         # that tries to consider all the things someone might be
         # searching for, _in addition to_ applying a filter.
-        eq_(["A huge DisMax for 'about dogs'"], parser.match_queries)
+        assert ["A huge DisMax for 'about dogs'"] == parser.match_queries
 
         # Now that you see how it works, let's define a helper
         # function which makes it easy to verify that a certain query
@@ -2977,11 +2951,11 @@ class TestQueryParser(DatabaseTest):
             if not isinstance(queries, list):
                 queries = [queries]
             parser = QueryParser(query_string, MockQuery)
-            eq_(filters, parser.filters)
+            assert filters == parser.filters
 
             if remainder:
                 queries.append(MockQuery(remainder).elasticsearch_query)
-            eq_(queries, parser.match_queries)
+            assert queries == parser.match_queries
 
         # Here's the same test from before, using the new
         # helper function.
@@ -3051,8 +3025,8 @@ class TestQueryParser(DatabaseTest):
         # Nothing can be parsed out from this query--it's an author's name
         # and will be handled by another query.
         parser = QueryParser("octavia butler")
-        eq_([], parser.match_queries)
-        eq_("octavia butler", parser.final_query_string)
+        assert [] == parser.match_queries
+        assert "octavia butler" == parser.final_query_string
 
         # Finally, try parsing a query without using MockQuery.
         query = QueryParser("nonfiction asteroids")
@@ -3062,13 +3036,13 @@ class TestQueryParser(DatabaseTest):
         # It creates real Elasticsearch-DSL query objects.
 
         # The filter is a very simple Term query.
-        eq_(Term(fiction="nonfiction"), nonfiction)
+        assert Term(fiction="nonfiction") == nonfiction
 
         # The query part is an extremely complicated DisMax query, so
         # I won't test the whole thing, but it's what you would get if
         # you just tried a search for "asteroids".
         assert isinstance(asteroids, DisMax)
-        eq_(asteroids, Query("asteroids").elasticsearch_query)
+        assert asteroids == Query("asteroids").elasticsearch_query
 
     def test_add_match_term_filter(self):
         # TODO: this method could use a standalone test, but it's
@@ -3082,7 +3056,7 @@ class TestQueryParser(DatabaseTest):
         remainder = parser.add_target_age_filter(
             (10, 11), "penguins grade 5-6", "grade 5-6"
         )
-        eq_("penguins ", remainder)
+        assert "penguins " == remainder
 
         # Here's the filter part: a book's age range must be include the
         # 10-11 range, or it gets filtered out.
@@ -3090,7 +3064,7 @@ class TestQueryParser(DatabaseTest):
             Range(**{"target_age.upper":dict(gte=10)}),
             Range(**{"target_age.lower":dict(lte=11)}),
         ]
-        eq_([Bool(must=filter_clauses)], parser.filters)
+        assert [Bool(must=filter_clauses)] == parser.filters
 
         # Here's the query part: a book gets boosted if its
         # age range fits _entirely_ within the target age range.
@@ -3098,25 +3072,25 @@ class TestQueryParser(DatabaseTest):
             Range(**{"target_age.upper":dict(lte=11)}),
             Range(**{"target_age.lower":dict(gte=10)}),
         ]
-        eq_([Bool(boost=1.1, must=filter_clauses, should=query_clauses)],
+        assert ([Bool(boost=1.1, must=filter_clauses, should=query_clauses)] ==
             parser.match_queries)
 
     def test__without_match(self):
         # Test our ability to remove matched text from a string.
         m = QueryParser._without_match
-        eq_(" fiction", m("young adult fiction", "young adult"))
-        eq_(" of dinosaurs", m("science of dinosaurs", "science"))
+        assert " fiction" == m("young adult fiction", "young adult")
+        assert " of dinosaurs" == m("science of dinosaurs", "science")
 
         # If the match cuts off in the middle of a word, we remove
         # everything up to the end of the word.
-        eq_(" books", m("children's books", "children"))
-        eq_("", m("adulting", "adult"))
+        assert " books" == m("children's books", "children")
+        assert "" == m("adulting", "adult")
 
 
 class TestFilter(DatabaseTest):
 
-    def setup(self):
-        super(TestFilter, self).setup()
+    def setup_method(self):
+        super(TestFilter, self).setup_method()
 
         # Look up three Genre objects which can be used to make filters.
         self.literary_fiction, ignore = Genre.lookup(
@@ -3150,61 +3124,61 @@ class TestFilter(DatabaseTest):
             fiction=fiction, audiences=audiences, author=author,
             match_nothing=match_nothing, min_score=min_score
         )
-        eq_(media, filter.media)
-        eq_(languages, filter.languages)
-        eq_(fiction, filter.fiction)
-        eq_(audiences, filter.audiences)
-        eq_(author, filter.author)
-        eq_(match_nothing, filter.match_nothing)
-        eq_(min_score, filter.min_score)
+        assert media == filter.media
+        assert languages == filter.languages
+        assert fiction == filter.fiction
+        assert audiences == filter.audiences
+        assert author == filter.author
+        assert match_nothing == filter.match_nothing
+        assert min_score == filter.min_score
 
         # Test the `collections` argument.
 
         # If you pass in a library, you get all of its collections.
         library_filter = Filter(collections=self._default_library)
-        eq_([self._default_collection.id], library_filter.collection_ids)
+        assert [self._default_collection.id] == library_filter.collection_ids
 
         # If the library has no collections, the collection filter
         # will filter everything out.
         self._default_library.collections = []
         library_filter = Filter(collections=self._default_library)
-        eq_([], library_filter.collection_ids)
+        assert [] == library_filter.collection_ids
 
         # If you pass in Collection objects, you get their IDs.
         collection_filter = Filter(collections=self._default_collection)
-        eq_([self._default_collection.id], collection_filter.collection_ids)
+        assert [self._default_collection.id] == collection_filter.collection_ids
         collection_filter = Filter(collections=[self._default_collection])
-        eq_([self._default_collection.id], collection_filter.collection_ids)
+        assert [self._default_collection.id] == collection_filter.collection_ids
 
         # If you pass in IDs, they're left alone.
         ids = [10, 11, 22]
         collection_filter = Filter(collections=ids)
-        eq_(ids, collection_filter.collection_ids)
+        assert ids == collection_filter.collection_ids
 
         # If you pass in nothing, there is no collection filter. This
         # is different from the case above, where the library had no
         # collections and everything was filtered out.
         empty_filter = Filter()
-        eq_(None, empty_filter.collection_ids)
+        assert None == empty_filter.collection_ids
 
         # Test the `target_age` argument.
-        eq_(None, empty_filter.target_age)
+        assert None == empty_filter.target_age
 
         one_year = Filter(target_age=8)
-        eq_((8,8), one_year.target_age)
+        assert (8,8) == one_year.target_age
 
         year_range = Filter(target_age=(8,10))
-        eq_((8,10), year_range.target_age)
+        assert (8,10) == year_range.target_age
 
         year_range = Filter(target_age=NumericRange(3, 6, '()'))
-        eq_((4, 5), year_range.target_age)
+        assert (4, 5) == year_range.target_age
 
         # Test genre_restriction_sets
 
         # In these three cases, there are no restrictions on genre.
-        eq_([], empty_filter.genre_restriction_sets)
-        eq_([], Filter(genre_restriction_sets=[]).genre_restriction_sets)
-        eq_([], Filter(genre_restriction_sets=None).genre_restriction_sets)
+        assert [] == empty_filter.genre_restriction_sets
+        assert [] == Filter(genre_restriction_sets=[]).genre_restriction_sets
+        assert [] == Filter(genre_restriction_sets=None).genre_restriction_sets
 
         # Restrict to books that are literary fiction AND (horror OR
         # fantasy).
@@ -3214,21 +3188,20 @@ class TestFilter(DatabaseTest):
                 [self.literary_fiction],
             ]
         )
-        eq_(
+        assert (
             [[self.horror.id, self.fantasy.id],
-             [self.literary_fiction.id]],
-            restricted.genre_restriction_sets
-        )
+             [self.literary_fiction.id]] ==
+            restricted.genre_restriction_sets)
 
         # This is a restriction: 'only books that have no genre'
-        eq_([[]], Filter(genre_restriction_sets=[[]]).genre_restriction_sets)
+        assert [[]] == Filter(genre_restriction_sets=[[]]).genre_restriction_sets
 
         # Test customlist_restriction_sets
 
         # In these three cases, there are no restrictions.
-        eq_([], empty_filter.customlist_restriction_sets)
-        eq_([], Filter(customlist_restriction_sets=None).customlist_restriction_sets)
-        eq_([], Filter(customlist_restriction_sets=[]).customlist_restriction_sets)
+        assert [] == empty_filter.customlist_restriction_sets
+        assert [] == Filter(customlist_restriction_sets=None).customlist_restriction_sets
+        assert [] == Filter(customlist_restriction_sets=[]).customlist_restriction_sets
 
         # Restrict to books that are on *both* the best sellers list and the
         # staff picks list.
@@ -3238,25 +3211,23 @@ class TestFilter(DatabaseTest):
                 [self.staff_picks],
             ]
         )
-        eq_(
+        assert (
             [[self.best_sellers.id],
-             [self.staff_picks.id]],
-            restricted.customlist_restriction_sets
-        )
+             [self.staff_picks.id]] ==
+            restricted.customlist_restriction_sets)
 
         # This is a restriction -- 'only books that are not on any lists'.
-        eq_(
-            [[]],
-            Filter(customlist_restriction_sets=[[]]).customlist_restriction_sets
-        )
+        assert (
+            [[]] ==
+            Filter(customlist_restriction_sets=[[]]).customlist_restriction_sets)
 
         # Test the license_datasource argument
         overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
         overdrive_only = Filter(license_datasource=overdrive)
-        eq_([overdrive.id], overdrive_only.license_datasources)
+        assert [overdrive.id] == overdrive_only.license_datasources
 
         overdrive_only = Filter(license_datasource=overdrive.id)
-        eq_([overdrive.id], overdrive_only.license_datasources)
+        assert [overdrive.id] == overdrive_only.license_datasources
 
         # If you pass in a Facets object, its modify_search_filter()
         # and scoring_functions() methods are called.
@@ -3270,16 +3241,15 @@ class TestFilter(DatabaseTest):
 
         facets = Mock()
         filter = Filter(facets=facets)
-        eq_(filter, facets.modify_search_filter_called_with)
-        eq_(filter, facets.scoring_functions_called_with)
-        eq_(["some scoring functions"], filter.scoring_functions)
+        assert filter == facets.modify_search_filter_called_with
+        assert filter == facets.scoring_functions_called_with
+        assert ["some scoring functions"] == filter.scoring_functions
 
         # Some arguments to the constructor only exist as keyword
         # arguments, but you can't pass in whatever keywords you want.
-        assert_raises_regexp(
-            ValueError, "Unknown keyword arguments",
-            Filter, no_such_keyword="nope"
-        )
+        with pytest.raises(ValueError) as excinfo:
+            Filter(no_such_keyword="nope")
+        assert "Unknown keyword arguments" in str(excinfo.value)
 
     def test_from_worklist(self):
         # Any WorkList can be converted into a Filter.
@@ -3295,7 +3265,7 @@ class TestFilter(DatabaseTest):
         excluded_audio_sources.value = json.dumps([])
 
         library = self._default_library
-        eq_(True, library.allow_holds)
+        assert True == library.allow_holds
 
         parent = self._lane(
             display_name="Parent Lane", library=library
@@ -3326,15 +3296,15 @@ class TestFilter(DatabaseTest):
         facets = Mock()
 
         filter = Filter.from_worklist(self._db, inherits, facets)
-        eq_([self._default_collection.id], filter.collection_ids)
-        eq_(parent.media, filter.media)
-        eq_(parent.languages, filter.languages)
-        eq_(parent.fiction, filter.fiction)
-        eq_(parent.audiences + [Classifier.AUDIENCE_ALL_AGES], filter.audiences)
-        eq_([parent.license_datasource_id], filter.license_datasources)
-        eq_((parent.target_age.lower, parent.target_age.upper),
+        assert [self._default_collection.id] == filter.collection_ids
+        assert parent.media == filter.media
+        assert parent.languages == filter.languages
+        assert parent.fiction == filter.fiction
+        assert parent.audiences + [Classifier.AUDIENCE_ALL_AGES] == filter.audiences
+        assert [parent.license_datasource_id] == filter.license_datasources
+        assert ((parent.target_age.lower, parent.target_age.upper) ==
             filter.target_age)
-        eq_(True, filter.allow_holds)
+        assert True == filter.allow_holds
 
         # Filter.from_worklist passed the mock Facets object in to
         # the Filter constructor, which called its modify_search_filter()
@@ -3343,19 +3313,17 @@ class TestFilter(DatabaseTest):
 
         # For genre and custom list restrictions, the child values are
         # appended to the parent's rather than replacing it.
-        eq_([parent.genre_ids, inherits.genre_ids],
-            [set(x) for x in filter.genre_restriction_sets]
-        )
+        assert ([parent.genre_ids, inherits.genre_ids] ==
+            [set(x) for x in filter.genre_restriction_sets])
 
-        eq_([parent.customlist_ids, inherits.customlist_ids],
-            filter.customlist_restriction_sets
-        )
+        assert ([parent.customlist_ids, inherits.customlist_ids] ==
+            filter.customlist_restriction_sets)
 
         # If any other value is set on the child lane, the parent value
         # is overridden.
         inherits.media = Edition.BOOK_MEDIUM
         filter = Filter.from_worklist(self._db, inherits, facets)
-        eq_(inherits.media, filter.media)
+        assert inherits.media == filter.media
 
         # This lane doesn't inherit anything from its parent.
         does_not_inherit = self._lane(
@@ -3376,24 +3344,24 @@ class TestFilter(DatabaseTest):
         # 'licensepools' subdocument, where the collection ID lives.
 
         [subfilter] = subfilters.pop('licensepools')
-        eq_({'terms': {'licensepools.collection_id': [self._default_collection.id]}},
+        assert ({'terms': {'licensepools.collection_id': [self._default_collection.id]}} ==
             subfilter.to_dict())
 
         # No other subfilters were specified.
-        eq_({}, subfilters)
+        assert {} == subfilters
 
         # If the library does not allow holds, this information is
         # propagated to its Filter.
         library.setting(library.ALLOW_HOLDS).value = False
         filter = Filter.from_worklist(self._db, parent, facets)
-        eq_(False, library.allow_holds)
+        assert False == library.allow_holds
 
         # Any excluded audio sources in the sitewide settings
         # will be propagated to all Filters.
         overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
         excluded_audio_sources.value = json.dumps([overdrive.name])
         filter = Filter.from_worklist(self._db, parent, facets)
-        eq_([overdrive.id], filter.excluded_audiobook_data_sources)
+        assert [overdrive.id] == filter.excluded_audiobook_data_sources
 
         # A bit of setup to test how WorkList.collection_ids affects
         # the resulting Filter.
@@ -3404,7 +3372,7 @@ class TestFilter(DatabaseTest):
 
         # Its filter uses all the collections associated with that library.
         filter = Filter.from_worklist(self._db, for_default_library, None)
-        eq_([self._default_collection.id], filter.collection_ids)
+        assert [self._default_collection.id] == filter.collection_ids
 
         # Here's a child of that WorkList associated with a different
         # library.
@@ -3417,20 +3385,20 @@ class TestFilter(DatabaseTest):
 
         # Its filter uses the collection from the second library.
         filter = Filter.from_worklist(self._db, for_other_library, None)
-        eq_([collection2.id], filter.collection_ids)
+        assert [collection2.id] == filter.collection_ids
 
         # If for whatever reason, collection_ids on the child is not set,
         # all collections associated with the WorkList's library will be used.
         for_other_library.collection_ids = None
         filter = Filter.from_worklist(self._db, for_other_library, None)
-        eq_([collection2.id], filter.collection_ids)
+        assert [collection2.id] == filter.collection_ids
 
         # If no library is associated with a WorkList, we assume that
         # holds are allowed. (Usually this is controleld by a library
         # setting.)
         for_other_library.library_id = None
         filter = Filter.from_worklist(self._db, for_other_library, None)
-        eq_(True, filter.allow_holds)
+        assert True == filter.allow_holds
 
     def assert_filter_builds_to(self, expect, filter, _chain_filters=None):
         """Helper method for the most common case, where a
@@ -3441,7 +3409,7 @@ class TestFilter(DatabaseTest):
         if expect:
             final_query['bool']['must'] = expect
         main, nested = filter.build(_chain_filters)
-        eq_(final_query, main.to_dict())
+        assert final_query == main.to_dict()
 
         return main, nested
 
@@ -3450,28 +3418,27 @@ class TestFilter(DatabaseTest):
         # combination of what's in the ._audiences list and application
         # policies.
         filter = Filter()
-        eq_(filter.audiences, None)
+        assert filter.audiences == None
 
         # The output is a list whether audiences is a string...
         filter = Filter(audiences=Classifier.AUDIENCE_ALL_AGES)
-        eq_(filter.audiences, [Classifier.AUDIENCE_ALL_AGES])
+        assert filter.audiences == [Classifier.AUDIENCE_ALL_AGES]
         # ...or a list.
         filter = Filter(audiences=[Classifier.AUDIENCE_ALL_AGES])
-        eq_(filter.audiences, [Classifier.AUDIENCE_ALL_AGES])
+        assert filter.audiences == [Classifier.AUDIENCE_ALL_AGES]
 
         # "all ages" should always be an audience if the audience is
         # young adult or adult.
         filter = Filter(audiences=Classifier.AUDIENCE_YOUNG_ADULT)
-        eq_(filter.audiences, [Classifier.AUDIENCE_YOUNG_ADULT, Classifier.AUDIENCE_ALL_AGES])
+        assert filter.audiences == [Classifier.AUDIENCE_YOUNG_ADULT, Classifier.AUDIENCE_ALL_AGES]
         filter = Filter(audiences=Classifier.AUDIENCE_ADULT)
-        eq_(filter.audiences, [Classifier.AUDIENCE_ADULT, Classifier.AUDIENCE_ALL_AGES])
+        assert filter.audiences == [Classifier.AUDIENCE_ADULT, Classifier.AUDIENCE_ALL_AGES]
         filter = Filter(audiences=[Classifier.AUDIENCE_ADULT, Classifier.AUDIENCE_YOUNG_ADULT])
-        eq_(
-            filter.audiences,
+        assert (
+            filter.audiences ==
             [Classifier.AUDIENCE_ADULT,
             Classifier.AUDIENCE_YOUNG_ADULT,
-            Classifier.AUDIENCE_ALL_AGES]
-        )
+            Classifier.AUDIENCE_ALL_AGES])
 
         # If the audience is meant for adults, then "all ages" should not
         # be included
@@ -3487,7 +3454,7 @@ class TestFilter(DatabaseTest):
             audiences=Classifier.AUDIENCE_CHILDREN,
             target_age=5
         )
-        eq_(filter.audiences, [Classifier.AUDIENCE_CHILDREN])
+        assert filter.audiences == [Classifier.AUDIENCE_CHILDREN]
 
         # If the children's target age includes children older than
         # ALL_AGES_AGE_CUTOFF, or there is no target age, the
@@ -3495,10 +3462,9 @@ class TestFilter(DatabaseTest):
         all_children = Filter(audiences=Classifier.AUDIENCE_CHILDREN)
         nine_years = Filter(audiences=Classifier.AUDIENCE_CHILDREN, target_age=9)
         for filter in (all_children, nine_years):
-            eq_(
-                filter.audiences,
-                [Classifier.AUDIENCE_CHILDREN, Classifier.AUDIENCE_ALL_AGES]
-            )
+            assert (
+                filter.audiences ==
+                [Classifier.AUDIENCE_CHILDREN, Classifier.AUDIENCE_ALL_AGES])
 
     def test_build(self):
         # Test the ability to turn a Filter into an ElasticSearch
@@ -3517,13 +3483,13 @@ class TestFilter(DatabaseTest):
         # nested filters.
         filter = Filter()
         built_filters, subfilters = self.assert_filter_builds_to([], filter)
-        eq_({}, subfilters)
+        assert {} == subfilters
 
         # Add a medium clause to the filter.
         filter.media = "a medium"
         medium_built = {'terms': {'medium': ['amedium']}}
         built_filters, subfilters = self.assert_filter_builds_to([medium_built], filter)
-        eq_({}, subfilters)
+        assert {} == subfilters
 
         # Add a language clause to the filter.
         filter.languages = ["lang1", "LANG2"]
@@ -3534,7 +3500,7 @@ class TestFilter(DatabaseTest):
             [medium_built, language_built],
             filter
         )
-        eq_({}, subfilters)
+        assert {} == subfilters
 
         chain = self._mock_chain
 
@@ -3583,13 +3549,12 @@ class TestFilter(DatabaseTest):
          no_holds_filter] = nested.pop('licensepools')
 
         # The 'current collection' filter.
-        eq_(
-            {'terms': {'licensepools.collection_id': [self._default_collection.id]}},
-            licensepool_filter.to_dict()
-        )
+        assert (
+            {'terms': {'licensepools.collection_id': [self._default_collection.id]}} ==
+            licensepool_filter.to_dict())
 
         # The 'only certain data sources' filter.
-        eq_({'terms': {'licensepools.data_source_id': [overdrive.id]}},
+        assert ({'terms': {'licensepools.data_source_id': [overdrive.id]}} ==
             datasource_filter.to_dict())
 
         # The 'excluded audiobooks' filter.
@@ -3599,20 +3564,20 @@ class TestFilter(DatabaseTest):
         )
         excluded_audio = Bool(must=[audio, excluded_audio_source])
         not_excluded_audio = Bool(must_not=excluded_audio)
-        eq_(not_excluded_audio, excluded_audiobooks_filter)
+        assert not_excluded_audio == excluded_audiobooks_filter
 
         # The 'no holds' filter.
         open_access = Q('term', **{'licensepools.open_access' : True})
         licenses_available = Q('term', **{'licensepools.available' : True})
         currently_available = Bool(should=[licenses_available, open_access])
-        eq_(currently_available, no_holds_filter)
+        assert currently_available == no_holds_filter
 
         # The best-seller list and staff picks restrictions are also
         # expressed as nested filters.
         [best_sellers_filter, staff_picks_filter] = nested.pop('customlists')
-        eq_({'terms': {'customlists.list_id': [self.best_sellers.id]}},
+        assert ({'terms': {'customlists.list_id': [self.best_sellers.id]}} ==
             best_sellers_filter.to_dict())
-        eq_({'terms': {'customlists.list_id': [self.staff_picks.id]}},
+        assert ({'terms': {'customlists.list_id': [self.staff_picks.id]}} ==
             staff_picks_filter.to_dict())
 
         # The author restriction is also expressed as a nested filter.
@@ -3621,7 +3586,7 @@ class TestFilter(DatabaseTest):
         # It's value is the value of .author_filter, which is tested
         # separately in test_author_filter.
         assert isinstance(filter.author_filter, Bool)
-        eq_(filter.author_filter, contributor_filter)
+        assert filter.author_filter == contributor_filter
 
         # The genre restrictions are also expressed as nested filters.
         literary_fiction_filter, fantasy_or_horror_filter = nested.pop(
@@ -3630,9 +3595,9 @@ class TestFilter(DatabaseTest):
 
         # There are two different restrictions on genre, because
         # genre_restriction_sets was set to two lists of genres.
-        eq_({'terms': {'genres.term': [self.literary_fiction.id]}},
+        assert ({'terms': {'genres.term': [self.literary_fiction.id]}} ==
             literary_fiction_filter.to_dict())
-        eq_({'terms': {'genres.term': [self.fantasy.id, self.horror.id]}},
+        assert ({'terms': {'genres.term': [self.fantasy.id, self.horror.id]}} ==
             fantasy_or_horror_filter.to_dict())
 
         # There's a restriction on the identifier.
@@ -3647,11 +3612,11 @@ class TestFilter(DatabaseTest):
         ]
 
         # Any identifier will work, but at least one must match.
-        eq_(Bool(minimum_should_match=1, should=subclauses),
+        assert (Bool(minimum_should_match=1, should=subclauses) ==
             identifier_restriction)
 
         # There are no other nested filters.
-        eq_({}, nested)
+        assert {} == nested
 
         # Every other restriction imposed on the Filter object becomes an
         # Elasticsearch filter object in this list.
@@ -3671,15 +3636,15 @@ class TestFilter(DatabaseTest):
 
         # These we tested earlier -- we're just making sure the same
         # documents are put into the full filter.
-        eq_(medium_built, medium.to_dict())
-        eq_(language_built, language.to_dict())
+        assert medium_built == medium.to_dict()
+        assert language_built == language.to_dict()
 
-        eq_({'term': {'fiction': 'fiction'}}, fiction.to_dict())
-        eq_({'terms': {'audience': ['children']}}, audience.to_dict())
+        assert {'term': {'fiction': 'fiction'}} == fiction.to_dict()
+        assert {'terms': {'audience': ['children']}} == audience.to_dict()
 
         # The contents of target_age_filter are tested below -- this
         # just tests that the target_age_filter is included.
-        eq_(filter.target_age_filter, target_age)
+        assert filter.target_age_filter == target_age
 
         # There's a restriction on the last updated time for bibliographic
         # metadata. The datetime is converted to a number of seconds since
@@ -3687,43 +3652,40 @@ class TestFilter(DatabaseTest):
         expect = (
             last_update_time - datetime.datetime.utcfromtimestamp(0)
         ).total_seconds()
-        eq_(
+        assert (
             {'bool': {'must': [
                 {'range': {'last_update_time': {'gte': expect}}}
-            ]}},
-            updated_after.to_dict()
-        )
+            ]}} ==
+            updated_after.to_dict())
 
         # We tried fiction; now try nonfiction.
         filter = Filter()
         filter.fiction = False
         built_filters, subfilters = self.assert_filter_builds_to([{'term': {'fiction': 'nonfiction'}}], filter)
-        eq_({}, subfilters)
+        assert {} == subfilters
 
     def test_build_series(self):
         # Test what happens when a series restriction is placed on a Filter.
         f = Filter(series="Talking Hedgehog Mysteries")
         built, nested = f.build()
-        eq_({}, nested)
+        assert {} == nested
 
         # A match against a keyword field only matches on an exact
         # string match.
-        eq_(
-            built.to_dict()['bool']['must'],
-            [{'term': {'series.keyword': 'Talking Hedgehog Mysteries'}}],
-        )
+        assert (
+            built.to_dict()['bool']['must'] ==
+            [{'term': {'series.keyword': 'Talking Hedgehog Mysteries'}}])
 
         # Find books that are in _some_ series--which one doesn't
         # matter.
         f = Filter(series=True)
         built, nested = f.build()
 
-        eq_({}, nested)
+        assert {} == nested
         # The book must have an indexed series.
-        eq_(
-            built.to_dict()['bool']['must'],
-            [{'exists': {'field': 'series'}}]
-        )
+        assert (
+            built.to_dict()['bool']['must'] ==
+            [{'exists': {'field': 'series'}}])
 
         # But the 'series' that got indexed must not be the empty string.
         assert {'term': {'series.keyword': ''}} in built.to_dict()['bool']['must_not']
@@ -3733,8 +3695,8 @@ class TestFilter(DatabaseTest):
 
         # No sort order.
         f = Filter()
-        eq_([], f.sort_order)
-        eq_(False, f.order_ascending)
+        assert [] == f.sort_order
+        assert False == f.order_ascending
 
         def validate_sort_order(filter, main_field):
             """Validate the 'easy' part of the sort order -- the tiebreaker
@@ -3752,32 +3714,31 @@ class TestFilter(DatabaseTest):
                 {x: "asc"} for x in ['sort_author', 'sort_title', 'work_id']
                 if x != main_field
             ]
-            eq_(default_sort_fields, filter.sort_order[1:])
+            assert default_sort_fields == filter.sort_order[1:]
             return filter.sort_order[0]
 
         # A simple field, either ascending or descending.
         f.order='field'
-        eq_(False, f.order_ascending)
+        assert False == f.order_ascending
         first_field = validate_sort_order(f, 'field')
-        eq_(dict(field='desc'), first_field)
+        assert dict(field='desc') == first_field
 
         f.order_ascending = True
         first_field = validate_sort_order(f, 'field')
-        eq_(dict(field='asc'), first_field)
+        assert dict(field='asc') == first_field
 
         # When multiple fields are given, they are put at the
         # beginning and any remaining tiebreaker fields are added.
         f.order=['series_position', 'work_id', 'some_other_field']
-        eq_(
+        assert (
             [
                 dict(series_position='asc'),
                 dict(work_id='asc'),
                 dict(some_other_field='asc'),
                 dict(sort_author='asc'),
                 dict(sort_title='asc'),
-            ],
-            f.sort_order
-        )
+            ] ==
+            f.sort_order)
 
         # You can't sort by some random subdocument field, because there's
         # not enough information to know how to aggregate multiple values.
@@ -3786,10 +3747,9 @@ class TestFilter(DatabaseTest):
         # appearance on custom list -- those are tested below -- but it's
         # complicated.
         f.order = 'subdocument.field'
-        assert_raises_regexp(
-            ValueError, "I don't know how to sort by subdocument.field",
-            lambda: f.sort_order,
-        )
+        with pytest.raises(ValueError) as excinfo:
+            f.sort_order()
+        assert "I don't know how to sort by subdocument.field" in str(excinfo.value)
 
         # It's possible to sort by every field in
         # Facets.SORT_ORDER_TO_ELASTICSEARCH_FIELD_NAME.
@@ -3804,26 +3764,25 @@ class TestFilter(DatabaseTest):
                 continue
             f.order = sort_field
             first_field = validate_sort_order(f, sort_field)
-            eq_({sort_field: 'asc'}, first_field)
+            assert {sort_field: 'asc'} == first_field
 
         # A slightly more complicated case is when a feed is ordered by
         # series position -- there the second field is title rather than
         # author.
         f.order = series_position
-        eq_(
+        assert (
             [
                 {x:'asc'} for x in [
                     'series_position', 'sort_title', 'sort_author', 'work_id'
                 ]
-            ],
-            f.sort_order
-        )
+            ] ==
+            f.sort_order)
 
         # A more complicated case is when a feed is ordered by date
         # added to the collection. This requires an aggregate function
         # and potentially a nested filter.
         f.order = added_to_collection
-        first_field = validate_sort_order(f, sort_field)
+        first_field = validate_sort_order(f, added_to_collection)
 
         # Here there's no nested filter but there is an aggregate
         # function. If a book is available through multiple
@@ -3831,7 +3790,7 @@ class TestFilter(DatabaseTest):
         simple_nested_configuration = {
             'licensepools.availability_time': {'mode': 'min', 'order': 'asc'}
         }
-        eq_(simple_nested_configuration, first_field)
+        assert simple_nested_configuration == first_field
 
         # Setting a collection ID restriction will add a nested filter.
         f.collection_ids = [self._default_collection]
@@ -3848,50 +3807,49 @@ class TestFilter(DatabaseTest):
         # This just makes sure that the books show up in the right _order_
         # for any given set of collections.
         nested_filter = first_field['licensepools.availability_time'].pop('nested')
-        eq_(
+        assert (
             {'path': 'licensepools',
              'filter': {
                  'terms': {
                      'licensepools.collection_id': [self._default_collection.id]
                  }
              }
-            },
-            nested_filter
-        )
+            } ==
+            nested_filter)
 
         # Apart from the nested filter, this is the same ordering
         # configuration as before.
-        eq_(simple_nested_configuration, first_field)
+        assert simple_nested_configuration == first_field
 
         # An ordering by "last update" may be simple, if there are no
         # collections or lists associated with the filter.
         f.order = last_update
         f.collection_ids = []
-        first_field = validate_sort_order(f, sort_field)
-        eq_(dict(last_update_time='asc'), first_field)
+        first_field = validate_sort_order(f, last_update)
+        assert dict(last_update_time='asc') == first_field
 
         # Or it can be *incredibly complicated*, if there _are_
         # collections or lists associated with the filter. Which,
         # unfortunately, is almost all the time.
         f.collection_ids = [self._default_collection.id]
         f.customlist_restriction_sets = [[1], [1,2]]
-        first_field = validate_sort_order(f, sort_field)
+        first_field = validate_sort_order(f, last_update)
 
         # Here, the ordering is done by a script that runs on the
         # ElasticSearch server.
         sort = first_field.pop('_script')
-        eq_({}, first_field)
+        assert {} == first_field
 
         # The script returns a numeric value and we want to sort those
         # values in ascending order.
-        eq_('asc', sort.pop('order'))
-        eq_('number', sort.pop('type'))
+        assert 'asc' == sort.pop('order')
+        assert 'number' == sort.pop('type')
 
         script = sort.pop('script')
-        eq_({}, sort)
+        assert {} == sort
 
         # The script is the 'simplified.work_last_update' stored script.
-        eq_(CurrentMapping.script_name("work_last_update"),
+        assert (CurrentMapping.script_name("work_last_update") ==
             script.pop('stored'))
 
         # Two parameters are passed into the script -- the IDs of the
@@ -3899,18 +3857,18 @@ class TestFilter(DatabaseTest):
         # the query knows which updates should actually be considered
         # for purposes of this query.
         params = script.pop('params')
-        eq_({}, script)
+        assert {} == script
 
-        eq_([self._default_collection.id], params.pop('collection_ids'))
-        eq_([1,2], params.pop('list_ids'))
-        eq_({}, params)
+        assert [self._default_collection.id] == params.pop('collection_ids')
+        assert [1,2] == params.pop('list_ids')
+        assert {} == params
 
     def test_author_filter(self):
         # Test an especially complex subfilter for authorship.
 
         # If no author filter is set up, there is no author filter.
         no_filter = Filter(author=None)
-        eq_(None, no_filter.author_filter)
+        assert None == no_filter.author_filter
 
         def check_filter(contributor, *shoulds):
             # Create a Filter with an author restriction and verify
@@ -3933,7 +3891,7 @@ class TestFilter(DatabaseTest):
                     Bool(minimum_should_match=1, should=author_match)
                 ]
             )
-            eq_(expect, actual)
+            assert expect == actual
 
         # You can apply the filter on any one of these four fields,
         # using a Contributor or a ContributorData
@@ -4005,7 +3963,7 @@ class TestFilter(DatabaseTest):
         #
         # One filter matches against the lower age range; the other
         # matches against the upper age range.
-        eq_("bool", filter.name)
+        assert "bool" == filter.name
         lower_match, upper_match = filter.must
 
         # We must establish that two-year-olds are not too old
@@ -4015,27 +3973,25 @@ class TestFilter(DatabaseTest):
             matches one of a number of possibilities. Return those
             possibilities.
             """
-            eq_("bool", filter.name)
-            eq_(1, filter.minimum_should_match)
+            assert "bool" == filter.name
+            assert 1 == filter.minimum_should_match
             return filter.should
         more_than_two, no_upper_limit = dichotomy(upper_match)
 
 
         # Either the upper age limit must be greater than two...
-        eq_(
-            {'range': {'target_age.upper': {'gte': 2}}},
-            more_than_two.to_dict()
-        )
+        assert (
+            {'range': {'target_age.upper': {'gte': 2}}} ==
+            more_than_two.to_dict())
 
         # ...or the upper age limit must be missing entirely.
         def assert_matches_nonexistent_field(f, field):
             """Verify that a filter only matches when there is
             no value for the given field.
             """
-            eq_(
-                f.to_dict(),
-                {'bool': {'must_not': [{'exists': {'field': field}}]}},
-            )
+            assert (
+                f.to_dict() ==
+                {'bool': {'must_not': [{'exists': {'field': field}}]}})
         assert_matches_nonexistent_field(no_upper_limit, 'target_age.upper')
 
         # We must also establish that five-year-olds are not too young
@@ -4043,10 +3999,9 @@ class TestFilter(DatabaseTest):
         less_than_five, no_lower_limit = dichotomy(lower_match)
 
         # Either the lower age limit must be less than five...
-        eq_(
-            {'range': {'target_age.lower': {'lte': 5}}},
-            less_than_five.to_dict()
-        )
+        assert (
+            {'range': {'target_age.lower': {'lte': 5}}} ==
+            less_than_five.to_dict())
 
         # ...or the lower age limit must be missing entirely.
         assert_matches_nonexistent_field(no_lower_limit, 'target_age.lower')
@@ -4061,7 +4016,7 @@ class TestFilter(DatabaseTest):
         # Either the lower part of the age range must be <= ten, or
         # there must be no lower age limit. If neither of these are
         # true, then ten-year-olds are too young for the book.
-        eq_({'range': {'target_age.lower': {'lte': 10}}},
+        assert ({'range': {'target_age.lower': {'lte': 10}}} ==
             less_than_ten.to_dict())
         assert_matches_nonexistent_field(no_lower_limit, 'target_age.lower')
 
@@ -4075,44 +4030,44 @@ class TestFilter(DatabaseTest):
         # Either the upper part of the age range must be >= twelve, or
         # there must be no upper age limit. If neither of these are true,
         # then twelve-year-olds are too old for the book.
-        eq_({'range': {'target_age.upper': {'gte': 12}}},
+        assert ({'range': {'target_age.upper': {'gte': 12}}} ==
             more_than_twelve.to_dict())
         assert_matches_nonexistent_field(no_upper_limit, 'target_age.upper')
 
         # Finally, test filters that put no restriction on target age.
         no_target_age = Filter()
-        eq_(None, no_target_age.target_age_filter)
+        assert None == no_target_age.target_age_filter
 
         no_target_age = Filter(target_age=(None, None))
-        eq_(None, no_target_age.target_age_filter)
+        assert None == no_target_age.target_age_filter
 
     def test__scrub(self):
         # Test the _scrub helper method, which transforms incoming strings
         # to the type of strings Elasticsearch uses.
         m = Filter._scrub
-        eq_(None, m(None))
-        eq_("foo", m("foo"))
-        eq_("youngadult", m("Young Adult"))
+        assert None == m(None)
+        assert "foo" == m("foo")
+        assert "youngadult" == m("Young Adult")
 
     def test__scrub_list(self):
         # Test the _scrub_list helper method, which scrubs incoming
         # strings and makes sure they are in a list.
         m = Filter._scrub_list
-        eq_([], m(None))
-        eq_([], m([]))
-        eq_(["foo"], m("foo"))
-        eq_(["youngadult", "adult"], m(["Young Adult", "Adult"]))
+        assert [] == m(None)
+        assert [] == m([])
+        assert ["foo"] == m("foo")
+        assert ["youngadult", "adult"] == m(["Young Adult", "Adult"])
 
     def test__filter_ids(self):
         # Test the _filter_ids helper method, which converts database
         # objects to their IDs.
         m = Filter._filter_ids
-        eq_(None, m(None))
-        eq_([], m([]))
-        eq_([1,2,3], m([1,2,3]))
+        assert None == m(None)
+        assert [] == m([])
+        assert [1,2,3] == m([1,2,3])
 
         library = self._default_library
-        eq_([library.id], m([library]))
+        assert [library.id] == m([library])
 
     def test__scrub_identifiers(self):
         # Test the _scrub_identifiers helper method, which converts
@@ -4122,11 +4077,11 @@ class TestFilter(DatabaseTest):
         si1, si2 = Filter._scrub_identifiers([i1, i2])
         for before, after in ((i1, si1), (i2, si2)):
             assert isinstance(si1, IdentifierData)
-            eq_(before.identifier, after.identifier)
-            eq_(before.type, after.type)
+            assert before.identifier == after.identifier
+            assert before.type == after.type
 
         # If you pass in an IdentifierData you get it back.
-        eq_([si1], list(Filter._scrub_identifiers([si1])))
+        assert [si1] == list(Filter._scrub_identifiers([si1]))
 
     def test__chain_filters(self):
         # Test the _chain_filters method, which combines
@@ -4137,21 +4092,21 @@ class TestFilter(DatabaseTest):
         m = Filter._chain_filters
 
         # If this filter is the start of the chain, it's returned unaltered.
-        eq_(f1, m(None, f1))
+        assert f1 == m(None, f1)
 
         # Otherwise, a new filter is created.
         chained = m(f1, f2)
 
         # The chained filter is the conjunction of the two input
         # filters.
-        eq_(chained, f1 & f2)
+        assert chained == f1 & f2
 
     def test_universal_base_filter(self):
         # Test the base filters that are always applied.
 
         # We only want to show works that are presentation ready.
         base = Filter.universal_base_filter(self._mock_chain)
-        eq_([Term(presentation_ready=True)], base)
+        assert [Term(presentation_ready=True)] == base
 
     def test_universal_nested_filters(self):
         # Test the nested filters that are always applied.
@@ -4161,13 +4116,13 @@ class TestFilter(DatabaseTest):
         # Currently all nested filters operate on the 'licensepools'
         # subdocument.
         [not_suppressed, currently_owned] = nested.pop('licensepools')
-        eq_({}, nested)
+        assert {} == nested
 
         # Let's look at those filters.
 
         # The first one is simple -- the license pool must not be
         # suppressed.
-        eq_(Term(**{"licensepools.suppressed": False}),
+        assert (Term(**{"licensepools.suppressed": False}) ==
             not_suppressed)
 
         # The second one is a little more complex
@@ -4176,7 +4131,7 @@ class TestFilter(DatabaseTest):
 
         # We only count license pools that are open-access _or_ that have
         # currently owned licenses.
-        eq_(Bool(should=[owned, open_access]), currently_owned)
+        assert Bool(should=[owned, open_access]) == currently_owned
 
     def _mock_chain(self, filters, new_filter):
         """A mock of _chain_filters so we don't have to check
@@ -4205,20 +4160,20 @@ class TestSortKeyPagination(DatabaseTest):
         # No arguments -> Class defaults.
         pagination = SortKeyPagination.from_request({}.get, None)
         assert isinstance(pagination, SortKeyPagination)
-        eq_(SortKeyPagination.DEFAULT_SIZE, pagination.size)
-        eq_(None, pagination.pagination_key)
+        assert SortKeyPagination.DEFAULT_SIZE == pagination.size
+        assert None == pagination.pagination_key
 
         # Override the default page size.
         pagination = SortKeyPagination.from_request({}.get, 100)
         assert isinstance(pagination, SortKeyPagination)
-        eq_(100, pagination.size)
-        eq_(None, pagination.pagination_key)
+        assert 100 == pagination.size
+        assert None == pagination.pagination_key
 
         # The most common usages.
         pagination = SortKeyPagination.from_request(dict(size="4").get)
         assert isinstance(pagination, SortKeyPagination)
-        eq_(4, pagination.size)
-        eq_(None, pagination.pagination_key)
+        assert 4 == pagination.size
+        assert None == pagination.pagination_key
 
         pagination_key = json.dumps(["field 1", 2])
 
@@ -4226,46 +4181,45 @@ class TestSortKeyPagination(DatabaseTest):
             dict(key=pagination_key).get
         )
         assert isinstance(pagination, SortKeyPagination)
-        eq_(SortKeyPagination.DEFAULT_SIZE, pagination.size)
-        eq_(pagination_key, pagination.pagination_key)
+        assert SortKeyPagination.DEFAULT_SIZE == pagination.size
+        assert pagination_key == pagination.pagination_key
 
         # Invalid size -> problem detail
         error = SortKeyPagination.from_request(dict(size="string").get)
-        eq_(INVALID_INPUT.uri, error.uri)
-        eq_("Invalid page size: string", str(error.detail))
+        assert INVALID_INPUT.uri == error.uri
+        assert "Invalid page size: string" == str(error.detail)
 
         # Invalid pagination key -> problem detail
         error = SortKeyPagination.from_request(dict(key="not json").get)
-        eq_(INVALID_INPUT.uri, error.uri)
-        eq_("Invalid page key: not json", str(error.detail))
+        assert INVALID_INPUT.uri == error.uri
+        assert "Invalid page key: not json" == str(error.detail)
 
         # Size too large -> cut down to MAX_SIZE
         pagination = SortKeyPagination.from_request(dict(size="10000").get)
         assert isinstance(pagination, SortKeyPagination)
-        eq_(SortKeyPagination.MAX_SIZE, pagination.size)
-        eq_(None, pagination.pagination_key)
+        assert SortKeyPagination.MAX_SIZE == pagination.size
+        assert None == pagination.pagination_key
 
     def test_items(self):
         # Test the values added to URLs to propagate pagination
         # settings across requests.
         pagination = SortKeyPagination(size=20)
-        eq_([("size", 20)], list(pagination.items()))
+        assert [("size", 20)] == list(pagination.items())
         key = ["the last", "item"]
         pagination.last_item_on_previous_page = key
-        eq_(
-            [("key", json.dumps(key)), ("size", 20)],
-            list(pagination.items())
-        )
+        assert (
+            [("key", json.dumps(key)), ("size", 20)] ==
+            list(pagination.items()))
 
     def test_pagination_key(self):
         # SortKeyPagination has no pagination key until it knows
         # about the last item on the previous page.
         pagination = SortKeyPagination()
-        eq_(None, pagination. pagination_key)
+        assert None == pagination. pagination_key
 
         key = ["the last", "item"]
         pagination.last_item_on_previous_page = key
-        eq_(pagination.pagination_key, json.dumps(key))
+        assert pagination.pagination_key == json.dumps(key)
 
     def test_unimplemented_features(self):
         # Check certain features of a normal Pagination object that
@@ -4278,21 +4232,19 @@ class TestSortKeyPagination(DatabaseTest):
         pagination.last_item_on_this_page = object()
 
         # The offset is always zero.
-        eq_(0, pagination.offset)
+        assert 0 == pagination.offset
 
         # The total size is always undefined, even though we could
         # theoretically track it.
-        eq_(None, pagination.total_size)
+        assert None == pagination.total_size
 
         # The previous page is always undefined, through theoretically
         # we could navigate backwards.
-        eq_(None, pagination.previous_page)
+        assert None == pagination.previous_page
 
-        assert_raises_regexp(
-            NotImplementedError,
-            "SortKeyPagination does not work with database queries.",
-            pagination.modify_database_query, object()
-        )
+        with pytest.raises(NotImplementedError) as excinfo:
+            pagination.modify_database_query(object())
+        assert "SortKeyPagination does not work with database queries." in str(excinfo.value)
 
     def test_modify_search_query(self):
         class MockSearch(object):
@@ -4314,12 +4266,12 @@ class TestSortKeyPagination(DatabaseTest):
 
         # In this case, modify_search_query slices out the first
         # 'page' of results and returns a modified search object.
-        eq_("modified search object", pagination.modify_search_query(search))
-        eq_(slice(0, 50), search.getitem_called_with)
+        assert "modified search object" == pagination.modify_search_query(search)
+        assert slice(0, 50) == search.getitem_called_with
 
         # update_from_dict was not called. We don't know where to
         # start our search, so we start at the beginning.
-        eq_("not called", search.update_from_dict_called_with)
+        assert "not called" == search.update_from_dict_called_with
 
         # Now let's say we find out the last item on the previous page
         # -- in real life, this would be because we call page_loaded()
@@ -4337,15 +4289,15 @@ class TestSortKeyPagination(DatabaseTest):
 
         # The return value of modify_search_query() becomes the active
         # Search object.
-        eq_("modified search object", pagination.modify_search_query(search))
+        assert "modified search object" == pagination.modify_search_query(search)
 
         # Now we can see that the Elasticsearch object was modified to
         # use the 'search_after' feature.
-        eq_(dict(search_after=last_item), search.update_from_dict_called_with)
+        assert dict(search_after=last_item) == search.update_from_dict_called_with
 
         # And the resulting object was modified _again_ to get the
         # first 'page' of results following last_item.
-        eq_(slice(0, 50), search.getitem_called_with)
+        assert slice(0, 50) == search.getitem_called_with
 
     def test_page_loaded(self):
         # Test what happens to a SortKeyPagination object when a page of
@@ -4369,15 +4321,15 @@ class TestSortKeyPagination(DatabaseTest):
         last_hit = hits[-1]
 
         # Tell the page about the results.
-        eq_(False, this_page.page_has_loaded)
+        assert False == this_page.page_has_loaded
         this_page.page_loaded(hits)
-        eq_(True, this_page.page_has_loaded)
+        assert True == this_page.page_has_loaded
 
         # We know the size.
-        eq_(5, this_page.this_page_size)
+        assert 5 == this_page.this_page_size
 
         # We know the sort key of the last item in the page.
-        eq_(last_hit.meta.sort, this_page.last_item_on_this_page)
+        assert last_hit.meta.sort == this_page.last_item_on_this_page
 
         # This code has coverage elsewhere, but just so you see how it
         # works -- we can now get the next page...
@@ -4388,14 +4340,14 @@ class TestSortKeyPagination(DatabaseTest):
         # create_search_doc, it'll call this object's
         # modify_search_query method. The resulting search query will
         # pick up right where the previous page left off.
-        eq_(last_hit.meta.sort, next_page.last_item_on_previous_page)
+        assert last_hit.meta.sort == next_page.last_item_on_previous_page
 
     def test_next_page(self):
 
         # To start off, we can't say anything about the next page,
         # because we don't know anything about _this_ page.
         first_page = SortKeyPagination()
-        eq_(None, first_page.next_page)
+        assert None == first_page.next_page
 
         # Let's learn about this page.
         first_page.this_page_size = 10
@@ -4405,17 +4357,17 @@ class TestSortKeyPagination(DatabaseTest):
         # When we call next_page, the last item on this page becomes the
         # next page's "last item on previous_page"
         next_page = first_page.next_page
-        eq_(last_item, next_page.last_item_on_previous_page)
+        assert last_item == next_page.last_item_on_previous_page
 
         # Again, we know nothing about this page, since we haven't
         # loaded it yet.
-        eq_(None, next_page.this_page_size)
-        eq_(None, next_page.last_item_on_this_page)
+        assert None == next_page.this_page_size
+        assert None == next_page.last_item_on_this_page
 
         # In the unlikely event that we know the last item on the
         # page, but the page size is zero, there is no next page.
         first_page.this_page_size = 0
-        eq_(None, first_page.next_page)
+        assert None == first_page.next_page
 
 
 class TestBulkUpdate(DatabaseTest):
@@ -4431,21 +4383,21 @@ class TestBulkUpdate(DatabaseTest):
 
         # All three works are regarded as successes, because their
         # state was successfully mirrored to the index.
-        eq_(set([w1, w2, w3]), set(successes))
-        eq_([], failures)
+        assert set([w1, w2, w3]) == set(successes)
+        assert [] == failures
 
         # All three works were inserted into the index, even the one
         # that's not presentation-ready.
         ids = set(x[-1] for x in list(index.docs.keys()))
-        eq_(set([w1.id, w2.id, w3.id]), ids)
+        assert set([w1.id, w2.id, w3.id]) == ids
 
         # If a work stops being presentation-ready, it is kept in the
         # index.
         w2.presentation_ready = False
         successes, failures = index.bulk_update([w1, w2, w3])
-        eq_(set([w1.id, w2.id, w3.id]), set([x[-1] for x in list(index.docs.keys())]))
-        eq_(set([w1, w2, w3]), set(successes))
-        eq_([], failures)
+        assert set([w1.id, w2.id, w3.id]) == set([x[-1] for x in list(index.docs.keys())])
+        assert set([w1, w2, w3]) == set(successes)
+        assert [] == failures
 
 class TestSearchErrors(ExternalSearchTest):
 
@@ -4469,13 +4421,13 @@ class TestSearchErrors(ExternalSearchTest):
         work = self._work()
         work.set_presentation_ready()
         successes, failures = self.search.bulk_update([work])
-        eq_([], successes)
-        eq_(1, len(failures))
-        eq_(work, failures[0][0])
-        eq_("Connection Timeout!", failures[0][1])
+        assert [] == successes
+        assert 1 == len(failures)
+        assert work == failures[0][0]
+        assert "Connection Timeout!" == failures[0][1]
 
         # When all the documents fail, it tries again once with the same arguments.
-        eq_([work.id, work.id],
+        assert ([work.id, work.id] ==
             [docs[0]['_id'] for docs in attempts])
 
     def test_search_single_document_error(self):
@@ -4494,10 +4446,10 @@ class TestSearchErrors(ExternalSearchTest):
         self.search.bulk = bulk_with_error
 
         successes, failures = self.search.bulk_update([successful_work, failing_work])
-        eq_([successful_work], successes)
-        eq_(1, len(failures))
-        eq_(failing_work, failures[0][0])
-        eq_("There was an error!", failures[0][1])
+        assert [successful_work] == successes
+        assert 1 == len(failures)
+        assert failing_work == failures[0][0]
+        assert "There was an error!" == failures[0][1]
 
 
 class TestWorkSearchResult(DatabaseTest):
@@ -4511,13 +4463,13 @@ class TestWorkSearchResult(DatabaseTest):
         result = WorkSearchResult(work, hit)
 
         # The original Work object is available as ._work
-        eq_(work, result._work)
+        assert work == result._work
 
         # The Elasticsearch Hit object is available as ._hit
-        eq_(hit, result._hit)
+        assert hit == result._hit
 
         # Any other attributes are delegated to the Work.
-        eq_(work.sort_title, result.sort_title)
+        assert work.sort_title == result.sort_title
 
 
 class TestSearchIndexCoverageProvider(DatabaseTest):
@@ -4527,7 +4479,7 @@ class TestSearchIndexCoverageProvider(DatabaseTest):
         provider = SearchIndexCoverageProvider(
             self._db, search_index_client=index
         )
-        eq_(WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION,
+        assert (WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION ==
             provider.operation)
 
     def test_success(self):
@@ -4540,10 +4492,10 @@ class TestSearchIndexCoverageProvider(DatabaseTest):
         results = provider.process_batch([work])
 
         # We got one success and no failures.
-        eq_([work], results)
+        assert [work] == results
 
         # The work was added to the search index.
-        eq_(1, len(index.docs))
+        assert 1 == len(index.docs)
 
     def test_failure(self):
         class DoomedExternalSearchIndex(MockExternalSearchIndex):
@@ -4566,6 +4518,6 @@ class TestSearchIndexCoverageProvider(DatabaseTest):
 
         # We have one transient failure.
         [record] = results
-        eq_(work, record.obj)
-        eq_(True, record.transient)
-        eq_('There was an error!', record.exception)
+        assert work == record.obj
+        assert True == record.transient
+        assert 'There was an error!' == record.exception

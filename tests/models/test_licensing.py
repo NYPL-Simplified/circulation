@@ -1,15 +1,8 @@
 # encoding: utf-8
-import datetime
-
 from mock import MagicMock, PropertyMock
-from nose.tools import (
-    assert_not_equal,
-    assert_raises,
-    assert_raises_regexp,
-    eq_,
-    set_trace,
-)
 from parameterized import parameterized
+import pytest
+import datetime
 from sqlalchemy.exc import IntegrityError
 
 from ...mock_analytics_provider import MockAnalyticsProvider
@@ -33,12 +26,12 @@ from ...model.licensing import (
     RightsStatus,
 )
 from ...model.resource import Hyperlink, Representation
-from .. import DatabaseTest
+from ...testing import DatabaseTest
 
 
 class TestDeliveryMechanism(DatabaseTest):
-    def setup(self):
-        super(TestDeliveryMechanism, self).setup()
+    def setup_method(self):
+        super(TestDeliveryMechanism, self).setup_method()
         self.epub_no_drm, ignore = DeliveryMechanism.lookup(
             self._db, Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.NO_DRM)
         self.epub_adobe_drm, ignore = DeliveryMechanism.lookup(
@@ -51,32 +44,32 @@ class TestDeliveryMechanism(DatabaseTest):
         )
 
     def test_implicit_medium(self):
-        eq_(Edition.BOOK_MEDIUM, self.epub_no_drm.implicit_medium)
-        eq_(Edition.BOOK_MEDIUM, self.epub_adobe_drm.implicit_medium)
-        eq_(Edition.BOOK_MEDIUM, self.overdrive_streaming_text.implicit_medium)
+        assert Edition.BOOK_MEDIUM == self.epub_no_drm.implicit_medium
+        assert Edition.BOOK_MEDIUM == self.epub_adobe_drm.implicit_medium
+        assert Edition.BOOK_MEDIUM == self.overdrive_streaming_text.implicit_medium
 
     def test_is_media_type(self):
-        eq_(False, DeliveryMechanism.is_media_type(None))
-        eq_(True, DeliveryMechanism.is_media_type(Representation.EPUB_MEDIA_TYPE))
-        eq_(False, DeliveryMechanism.is_media_type(DeliveryMechanism.KINDLE_CONTENT_TYPE))
-        eq_(False, DeliveryMechanism.is_media_type(DeliveryMechanism.STREAMING_TEXT_CONTENT_TYPE))
+        assert False == DeliveryMechanism.is_media_type(None)
+        assert True == DeliveryMechanism.is_media_type(Representation.EPUB_MEDIA_TYPE)
+        assert False == DeliveryMechanism.is_media_type(DeliveryMechanism.KINDLE_CONTENT_TYPE)
+        assert False == DeliveryMechanism.is_media_type(DeliveryMechanism.STREAMING_TEXT_CONTENT_TYPE)
 
     def test_is_streaming(self):
-        eq_(False, self.epub_no_drm.is_streaming)
-        eq_(False, self.epub_adobe_drm.is_streaming)
-        eq_(True, self.overdrive_streaming_text.is_streaming)
+        assert False == self.epub_no_drm.is_streaming
+        assert False == self.epub_adobe_drm.is_streaming
+        assert True == self.overdrive_streaming_text.is_streaming
 
     def test_drm_scheme_media_type(self):
-        eq_(None, self.epub_no_drm.drm_scheme_media_type)
-        eq_(DeliveryMechanism.ADOBE_DRM, self.epub_adobe_drm.drm_scheme_media_type)
-        eq_(None, self.overdrive_streaming_text.drm_scheme_media_type)
+        assert None == self.epub_no_drm.drm_scheme_media_type
+        assert DeliveryMechanism.ADOBE_DRM == self.epub_adobe_drm.drm_scheme_media_type
+        assert None == self.overdrive_streaming_text.drm_scheme_media_type
 
     def test_content_type_media_type(self):
-        eq_(Representation.EPUB_MEDIA_TYPE, self.epub_no_drm.content_type_media_type)
-        eq_(Representation.EPUB_MEDIA_TYPE, self.epub_adobe_drm.content_type_media_type)
-        eq_(Representation.TEXT_HTML_MEDIA_TYPE + DeliveryMechanism.STREAMING_PROFILE,
+        assert Representation.EPUB_MEDIA_TYPE == self.epub_no_drm.content_type_media_type
+        assert Representation.EPUB_MEDIA_TYPE == self.epub_adobe_drm.content_type_media_type
+        assert (Representation.TEXT_HTML_MEDIA_TYPE + DeliveryMechanism.STREAMING_PROFILE ==
             self.overdrive_streaming_text.content_type_media_type)
-        eq_(Representation.AUDIOBOOK_MANIFEST_MEDIA_TYPE + DeliveryMechanism.FEEDBOOKS_AUDIOBOOK_PROFILE,
+        assert (Representation.AUDIOBOOK_MANIFEST_MEDIA_TYPE + DeliveryMechanism.FEEDBOOKS_AUDIOBOOK_PROFILE ==
             self.audiobook_drm_scheme.content_type_media_type)
 
     def test_default_fulfillable(self):
@@ -95,8 +88,8 @@ class TestDeliveryMechanism(DatabaseTest):
             # All of these DeliveryMechanisms were created when the
             # database was initialized.
             mechanism, is_new = DeliveryMechanism.lookup(self._db, media, drm)
-            eq_(False, is_new)
-            eq_(True, mechanism.default_client_can_fulfill)
+            assert False == is_new
+            assert True == mechanism.default_client_can_fulfill
 
         # It's possible to create new DeliveryMechanisms at runtime,
         # but their .default_client_can_fulfill will be False.
@@ -104,23 +97,23 @@ class TestDeliveryMechanism(DatabaseTest):
             self._db, MediaTypes.EPUB_MEDIA_TYPE,
             DeliveryMechanism.ADOBE_DRM
         )
-        eq_(False, is_new)
-        eq_(True, mechanism.default_client_can_fulfill)
+        assert False == is_new
+        assert True == mechanism.default_client_can_fulfill
 
         mechanism, is_new = DeliveryMechanism.lookup(
             self._db, MediaTypes.PDF_MEDIA_TYPE,
             DeliveryMechanism.STREAMING_DRM
         )
-        eq_(True, is_new)
-        eq_(False, mechanism.default_client_can_fulfill)
+        assert True == is_new
+        assert False == mechanism.default_client_can_fulfill
 
     def test_association_with_licensepool(self):
         ignore, with_download = self._edition(with_open_access_download=True)
         [lpmech] = with_download.delivery_mechanisms
-        eq_(b"Dummy content", lpmech.resource.representation.content)
+        assert b"Dummy content" == lpmech.resource.representation.content
         mech = lpmech.delivery_mechanism
-        eq_(MediaTypes.EPUB_MEDIA_TYPE, mech.content_type)
-        eq_(mech.NO_DRM, mech.drm_scheme)
+        assert MediaTypes.EPUB_MEDIA_TYPE == mech.content_type
+        assert mech.NO_DRM == mech.drm_scheme
 
     def test_compatible_with(self):
         """Test the rules about which DeliveryMechanisms are
@@ -153,23 +146,23 @@ class TestDeliveryMechanism(DatabaseTest):
 
         # A non-streaming DeliveryMechanism is compatible only with
         # itself or a streaming mechanism.
-        eq_(False, epub_adobe.compatible_with(None))
-        eq_(False, epub_adobe.compatible_with("Not a DeliveryMechanism"))
-        eq_(False, epub_adobe.compatible_with(epub_no_drm))
-        eq_(False, epub_adobe.compatible_with(pdf_adobe))
-        eq_(False, epub_no_drm.compatible_with(pdf_no_drm))
-        eq_(True, epub_adobe.compatible_with(epub_adobe))
-        eq_(True, epub_adobe.compatible_with(streaming))
+        assert False == epub_adobe.compatible_with(None)
+        assert False == epub_adobe.compatible_with("Not a DeliveryMechanism")
+        assert False == epub_adobe.compatible_with(epub_no_drm)
+        assert False == epub_adobe.compatible_with(pdf_adobe)
+        assert False == epub_no_drm.compatible_with(pdf_no_drm)
+        assert True == epub_adobe.compatible_with(epub_adobe)
+        assert True == epub_adobe.compatible_with(streaming)
 
         # A streaming mechanism is compatible with anything.
-        eq_(True, streaming.compatible_with(epub_adobe))
-        eq_(True, streaming.compatible_with(pdf_adobe))
-        eq_(True, streaming.compatible_with(epub_no_drm))
+        assert True == streaming.compatible_with(epub_adobe)
+        assert True == streaming.compatible_with(pdf_adobe)
+        assert True == streaming.compatible_with(epub_no_drm)
 
         # Rules are slightly different for open-access books: books
         # in any format are compatible so long as they have no DRM.
-        eq_(True, epub_no_drm.compatible_with(pdf_no_drm, True))
-        eq_(False, epub_no_drm.compatible_with(pdf_adobe, True))
+        assert True == epub_no_drm.compatible_with(pdf_no_drm, True)
+        assert False == epub_no_drm.compatible_with(pdf_adobe, True)
 
     def test_uniqueness_constraint(self):
 
@@ -180,13 +173,13 @@ class TestDeliveryMechanism(DatabaseTest):
         with_drm_args = dict(content_type="type1", drm_scheme="scheme1")
         without_drm_args = dict(content_type="type1", drm_scheme=None)
         with_drm = create(self._db, dm, **with_drm_args)
-        assert_raises(IntegrityError, create, self._db, dm, **with_drm_args)
+        pytest.raises(IntegrityError, create, self._db, dm, **with_drm_args)
         self._db.rollback()
 
         # You can't create two DeliveryMechanisms with the same value
         # for content_type and a null value for drm_scheme.
         without_drm = create(self._db, dm, **without_drm_args)
-        assert_raises(IntegrityError, create, self._db, dm, **without_drm_args)
+        pytest.raises(IntegrityError, create, self._db, dm, **without_drm_args)
         self._db.rollback()
 
 
@@ -194,16 +187,16 @@ class TestRightsStatus(DatabaseTest):
 
     def test_lookup(self):
         status = RightsStatus.lookup(self._db, RightsStatus.IN_COPYRIGHT)
-        eq_(RightsStatus.IN_COPYRIGHT, status.uri)
-        eq_(RightsStatus.NAMES.get(RightsStatus.IN_COPYRIGHT), status.name)
+        assert RightsStatus.IN_COPYRIGHT == status.uri
+        assert RightsStatus.NAMES.get(RightsStatus.IN_COPYRIGHT) == status.name
 
         status = RightsStatus.lookup(self._db, RightsStatus.CC0)
-        eq_(RightsStatus.CC0, status.uri)
-        eq_(RightsStatus.NAMES.get(RightsStatus.CC0), status.name)
+        assert RightsStatus.CC0 == status.uri
+        assert RightsStatus.NAMES.get(RightsStatus.CC0) == status.name
 
         status = RightsStatus.lookup(self._db, "not a known rights uri")
-        eq_(RightsStatus.UNKNOWN, status.uri)
-        eq_(RightsStatus.NAMES.get(RightsStatus.UNKNOWN), status.name)
+        assert RightsStatus.UNKNOWN == status.uri
+        assert RightsStatus.NAMES.get(RightsStatus.UNKNOWN) == status.name
 
     def test_unique_uri_constraint(self):
         # We already have this RightsStatus.
@@ -214,13 +207,13 @@ class TestRightsStatus(DatabaseTest):
         self._db.add(dupe)
 
         # Nope.
-        assert_raises(IntegrityError, self._db.commit)
+        pytest.raises(IntegrityError, self._db.commit)
 
 
 class TestLicense(DatabaseTest):
 
-    def setup(self):
-        super(TestLicense, self).setup()
+    def setup_method(self):
+        super(TestLicense, self).setup_method()
         self.pool = self._licensepool(None)
 
         now = datetime.datetime.utcnow()
@@ -258,47 +251,47 @@ class TestLicense(DatabaseTest):
         patron = self._patron()
         patron.last_loan_activity_sync = datetime.datetime.utcnow()
         loan, is_new = license.loan_to(patron)
-        eq_(license, loan.license)
-        eq_(pool, loan.license_pool)
-        eq_(True, is_new)
-        eq_(None, patron.last_loan_activity_sync)
+        assert license == loan.license
+        assert pool == loan.license_pool
+        assert True == is_new
+        assert None == patron.last_loan_activity_sync
 
         loan2, is_new = license.loan_to(patron)
-        eq_(loan, loan2)
-        eq_(license, loan2.license)
-        eq_(pool, loan2.license_pool)
-        eq_(False, is_new)
+        assert loan == loan2
+        assert license == loan2.license
+        assert pool == loan2.license_pool
+        assert False == is_new
 
     def test_license_types(self):
-        eq_(True, self.perpetual.is_perpetual)
-        eq_(False, self.perpetual.is_time_limited)
-        eq_(False, self.perpetual.is_loan_limited)
-        eq_(False, self.perpetual.is_expired)
+        assert True == self.perpetual.is_perpetual
+        assert False == self.perpetual.is_time_limited
+        assert False == self.perpetual.is_loan_limited
+        assert False == self.perpetual.is_expired
 
-        eq_(False, self.time_limited.is_perpetual)
-        eq_(True, self.time_limited.is_time_limited)
-        eq_(False, self.time_limited.is_loan_limited)
-        eq_(False, self.time_limited.is_expired)
+        assert False == self.time_limited.is_perpetual
+        assert True == self.time_limited.is_time_limited
+        assert False == self.time_limited.is_loan_limited
+        assert False == self.time_limited.is_expired
 
-        eq_(False, self.loan_limited.is_perpetual)
-        eq_(False, self.loan_limited.is_time_limited)
-        eq_(True, self.loan_limited.is_loan_limited)
-        eq_(False, self.loan_limited.is_expired)
+        assert False == self.loan_limited.is_perpetual
+        assert False == self.loan_limited.is_time_limited
+        assert True == self.loan_limited.is_loan_limited
+        assert False == self.loan_limited.is_expired
 
-        eq_(False, self.time_and_loan_limited.is_perpetual)
-        eq_(True, self.time_and_loan_limited.is_time_limited)
-        eq_(True, self.time_and_loan_limited.is_loan_limited)
-        eq_(False, self.time_and_loan_limited.is_expired)
+        assert False == self.time_and_loan_limited.is_perpetual
+        assert True == self.time_and_loan_limited.is_time_limited
+        assert True == self.time_and_loan_limited.is_loan_limited
+        assert False == self.time_and_loan_limited.is_expired
 
-        eq_(False, self.expired_time_limited.is_perpetual)
-        eq_(True, self.expired_time_limited.is_time_limited)
-        eq_(False, self.expired_time_limited.is_loan_limited)
-        eq_(True, self.expired_time_limited.is_expired)
+        assert False == self.expired_time_limited.is_perpetual
+        assert True == self.expired_time_limited.is_time_limited
+        assert False == self.expired_time_limited.is_loan_limited
+        assert True == self.expired_time_limited.is_expired
 
-        eq_(False, self.expired_loan_limited.is_perpetual)
-        eq_(False, self.expired_loan_limited.is_time_limited)
-        eq_(True, self.expired_loan_limited.is_loan_limited)
-        eq_(True, self.expired_loan_limited.is_expired)
+        assert False == self.expired_loan_limited.is_perpetual
+        assert False == self.expired_loan_limited.is_time_limited
+        assert True == self.expired_loan_limited.is_loan_limited
+        assert True == self.expired_loan_limited.is_expired
 
     def test_best_available_license(self):
         next_week = datetime.datetime.now() + datetime.timedelta(days=7)
@@ -310,36 +303,36 @@ class TestLicense(DatabaseTest):
             concurrent_checkouts=1)
 
         # First, we use the time-limited license that's expiring first.
-        eq_(time_limited_2, self.pool.best_available_license())
+        assert time_limited_2 == self.pool.best_available_license()
         time_limited_2.loan_to(self._patron())
 
         # When that's not available, we use the next time-limited license.
-        eq_(self.time_limited, self.pool.best_available_license())
+        assert self.time_limited == self.pool.best_available_license()
         self.time_limited.loan_to(self._patron())
 
         # The time-and-loan-limited license also counts as time-limited for this.
-        eq_(self.time_and_loan_limited, self.pool.best_available_license())
+        assert self.time_and_loan_limited == self.pool.best_available_license()
         self.time_and_loan_limited.loan_to(self._patron())
 
         # Next is the perpetual license.
-        eq_(self.perpetual, self.pool.best_available_license())
+        assert self.perpetual == self.pool.best_available_license()
         self.perpetual.loan_to(self._patron())
 
         # Then the loan-limited license with the most remaining checkouts.
-        eq_(self.loan_limited, self.pool.best_available_license())
+        assert self.loan_limited == self.pool.best_available_license()
         self.loan_limited.loan_to(self._patron())
 
         # That license allows 2 concurrent checkouts, so it's still the
         # best license until it's checked out again.
-        eq_(self.loan_limited, self.pool.best_available_license())
+        assert self.loan_limited == self.pool.best_available_license()
         self.loan_limited.loan_to(self._patron())
 
         # There's one more loan-limited license.
-        eq_(loan_limited_2, self.pool.best_available_license())
+        assert loan_limited_2 == self.pool.best_available_license()
         loan_limited_2.loan_to(self._patron())
 
         # Now all licenses are either loaned out or expired.
-        eq_(None, self.pool.best_available_license())
+        assert None == self.pool.best_available_license()
 
 
 class TestLicensePool(DatabaseTest):
@@ -353,20 +346,20 @@ class TestLicensePool(DatabaseTest):
             collection=self._collection()
         )
         assert (pool.availability_time - now).total_seconds() < 2
-        eq_(True, was_new)
-        eq_(DataSource.GUTENBERG, pool.data_source.name)
-        eq_(Identifier.GUTENBERG_ID, pool.identifier.type)
-        eq_("541", pool.identifier.identifier)
-        eq_(0, pool.licenses_owned)
-        eq_(0, pool.licenses_available)
-        eq_(0, pool.licenses_reserved)
-        eq_(0, pool.patrons_in_hold_queue)
+        assert True == was_new
+        assert DataSource.GUTENBERG == pool.data_source.name
+        assert Identifier.GUTENBERG_ID == pool.identifier.type
+        assert "541" == pool.identifier.identifier
+        assert 0 == pool.licenses_owned
+        assert 0 == pool.licenses_available
+        assert 0 == pool.licenses_reserved
+        assert 0 == pool.patrons_in_hold_queue
 
     def test_for_foreign_id_fails_when_no_collection_provided(self):
         """We cannot create a LicensePool that is not associated
         with some Collection.
         """
-        assert_raises(
+        pytest.raises(
             CollectionMissing,
             LicensePool.for_foreign_id,
             self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "541",
@@ -381,11 +374,11 @@ class TestLicensePool(DatabaseTest):
         pool = self._licensepool(None)
 
         # The LicensePool was created with a delivery mechanism.
-        eq_([], qu.all())
+        assert [] == qu.all()
 
         # Let's delete it.
         [self._db.delete(x) for x in pool.delivery_mechanisms]
-        eq_([pool], qu.all())
+        assert [pool] == qu.all()
 
     def test_no_license_pool_for_non_primary_identifier(self):
         """Overdrive offers licenses, but to get an Overdrive license pool for
@@ -393,13 +386,12 @@ class TestLicensePool(DatabaseTest):
         identifier, not some other kind of identifier.
         """
         collection = self._collection()
-        assert_raises_regexp(
-            ValueError,
-            "License pools for data source 'Overdrive' are keyed to identifier type 'Overdrive ID' \(not 'ISBN', which was provided\)",
-            LicensePool.for_foreign_id,
-            self._db, DataSource.OVERDRIVE, Identifier.ISBN, "{1-2-3}",
-            collection=collection
-        )
+        with pytest.raises(ValueError) as excinfo:
+            LicensePool.for_foreign_id(
+                self._db, DataSource.OVERDRIVE, Identifier.ISBN, "{1-2-3}",
+                collection = collection)
+        assert "License pools for data source 'Overdrive' are keyed to identifier type 'Overdrive ID' (not 'ISBN', which was provided)" \
+            in str(excinfo.value)
 
     def test_licensepools_for_same_identifier_have_same_presentation_edition(self):
         """Two LicensePools for the same Identifier will get the same
@@ -416,7 +408,7 @@ class TestLicensePool(DatabaseTest):
         )
         pool1.set_presentation_edition()
         pool2.set_presentation_edition()
-        eq_(pool1.presentation_edition, pool2.presentation_edition)
+        assert pool1.presentation_edition == pool2.presentation_edition
 
     def test_collection_datasource_identifier_must_be_unique(self):
         """You can't have two LicensePools with the same Collection,
@@ -433,7 +425,7 @@ class TestLicensePool(DatabaseTest):
             collection=collection
         )
 
-        assert_raises(
+        pytest.raises(
             IntegrityError,
             create,
             self._db,
@@ -459,7 +451,7 @@ class TestLicensePool(DatabaseTest):
 
         assert p1 in work.license_pools
 
-        eq_([p2], LicensePool.with_no_work(self._db))
+        assert [p2] == LicensePool.with_no_work(self._db)
 
     def test_update_availability(self):
         work = self._work(with_license_pool=True)
@@ -467,10 +459,10 @@ class TestLicensePool(DatabaseTest):
 
         [pool] = work.license_pools
         pool.update_availability(30, 20, 2, 0)
-        eq_(30, pool.licenses_owned)
-        eq_(20, pool.licenses_available)
-        eq_(2, pool.licenses_reserved)
-        eq_(0, pool.patrons_in_hold_queue)
+        assert 30 == pool.licenses_owned
+        assert 20 == pool.licenses_available
+        assert 2 == pool.licenses_reserved
+        assert 0 == pool.patrons_in_hold_queue
 
         # Updating availability also modified work.last_update_time.
         assert (datetime.datetime.utcnow() - work.last_update_time) < datetime.timedelta(seconds=2)
@@ -482,11 +474,11 @@ class TestLicensePool(DatabaseTest):
         pool.update_availability(30, 20, 2, 0, analytics=provider)
         count = provider.count
         pool.update_availability(30, 21, 2, 0, analytics=provider)
-        eq_(count + 1, provider.count)
-        eq_(CirculationEvent.DISTRIBUTOR_CHECKIN, provider.event_type)
+        assert count + 1 == provider.count
+        assert CirculationEvent.DISTRIBUTOR_CHECKIN == provider.event_type
         pool.update_availability(30, 21, 2, 1, analytics=provider)
-        eq_(count + 2, provider.count)
-        eq_(CirculationEvent.DISTRIBUTOR_HOLD_PLACE, provider.event_type)
+        assert count + 2 == provider.count
+        assert CirculationEvent.DISTRIBUTOR_HOLD_PLACE == provider.event_type
 
     def test_update_availability_does_nothing_if_given_no_data(self):
         """Passing an empty set of data into update_availability is
@@ -509,23 +501,23 @@ class TestLicensePool(DatabaseTest):
         pool.update_availability(None, None, None, None)
 
         # The LicensePool's circulation data is what it was before.
-        eq_(10, pool.licenses_owned)
-        eq_(20, pool.licenses_available)
-        eq_(30, pool.licenses_reserved)
-        eq_(40, pool.patrons_in_hold_queue)
+        assert 10 == pool.licenses_owned
+        assert 20 == pool.licenses_available
+        assert 30 == pool.licenses_reserved
+        assert 40 == pool.patrons_in_hold_queue
 
         # Work.update_time and LicensePool.last_checked are unaffected.
-        eq_(None, work.last_update_time)
-        eq_(None, pool.last_checked)
+        assert None == work.last_update_time
+        assert None == pool.last_checked
 
         # If we pass a mix of good and null values...
         pool.update_availability(5, None, None, None)
 
         # Only the good values are changed.
-        eq_(5, pool.licenses_owned)
-        eq_(20, pool.licenses_available)
-        eq_(30, pool.licenses_reserved)
-        eq_(40, pool.patrons_in_hold_queue)
+        assert 5 == pool.licenses_owned
+        assert 20 == pool.licenses_available
+        assert 30 == pool.licenses_reserved
+        assert 40 == pool.patrons_in_hold_queue
 
 
     def test_open_access_links(self):
@@ -552,7 +544,7 @@ class TestLicensePool(DatabaseTest):
         self._db.commit()
 
         # Only the two open-access download links show up.
-        eq_(set([oa1, oa2]), set(pool.open_access_links))
+        assert set([oa1, oa2]) == set(pool.open_access_links)
 
     def test_better_open_access_pool_than(self):
 
@@ -597,23 +589,23 @@ class TestLicensePool(DatabaseTest):
 
         # We would rather have nothing at all than a suppressed
         # LicensePool.
-        eq_(False, better(suppressed, None))
+        assert False == better(suppressed, None)
 
         # A non-open-access LicensePool is not considered at all.
-        eq_(False, better(overdrive, None))
+        assert False == better(overdrive, None)
 
         # Something is better than nothing.
-        eq_(True, better(gutenberg_1, None))
+        assert True == better(gutenberg_1, None)
 
         # An open access book from a high-quality source beats one
         # from a low-quality source.
-        eq_(True, better(standard_ebooks, gutenberg_1))
-        eq_(True, better(feedbooks, gutenberg_1))
-        eq_(False, better(gutenberg_1, standard_ebooks))
+        assert True == better(standard_ebooks, gutenberg_1)
+        assert True == better(feedbooks, gutenberg_1)
+        assert False == better(gutenberg_1, standard_ebooks)
 
         # A high Gutenberg number beats a low Gutenberg number.
-        eq_(True, better(gutenberg_2, gutenberg_1))
-        eq_(False, better(gutenberg_1, gutenberg_2))
+        assert True == better(gutenberg_2, gutenberg_1)
+        assert False == better(gutenberg_1, gutenberg_2)
 
         # If a supposedly open-access LicensePool doesn't have an
         # open-access download resource, it will only be considered if
@@ -624,8 +616,8 @@ class TestLicensePool(DatabaseTest):
             with_open_access_download=False,
         )
         no_resource.open_access = True
-        eq_(True, better(no_resource, None))
-        eq_(False, better(no_resource, gutenberg_1))
+        assert True == better(no_resource, None)
+        assert False == better(no_resource, gutenberg_1)
 
     def test_with_complaint(self):
         library = self._default_library
@@ -702,22 +694,22 @@ class TestLicensePool(DatabaseTest):
         # excludes resolved complaints by default
         results = LicensePool.with_complaint(library).all()
 
-        eq_(2, len(results))
-        eq_(lp1.id, results[0][0].id)
-        eq_(3, results[0][1])
-        eq_(lp2.id, results[1][0].id)
-        eq_(1, results[1][1])
+        assert 2 == len(results)
+        assert lp1.id == results[0][0].id
+        assert 3 == results[0][1]
+        assert lp2.id == results[1][0].id
+        assert 1 == results[1][1]
 
         # include resolved complaints this time
         more_results = LicensePool.with_complaint(library, resolved=None).all()
 
-        eq_(3, len(more_results))
-        eq_(lp1.id, more_results[0][0].id)
-        eq_(4, more_results[0][1])
-        eq_(lp2.id, more_results[1][0].id)
-        eq_(2, more_results[1][1])
-        eq_(lp3.id, more_results[2][0].id)
-        eq_(1, more_results[2][1])
+        assert 3 == len(more_results)
+        assert lp1.id == more_results[0][0].id
+        assert 4 == more_results[0][1]
+        assert lp2.id == more_results[1][0].id
+        assert 2 == more_results[1][1]
+        assert lp3.id == more_results[2][0].id
+        assert 1 == more_results[2][1]
 
         # show only resolved complaints
         resolved_results = LicensePool.with_complaint(
@@ -725,19 +717,19 @@ class TestLicensePool(DatabaseTest):
         lp_ids = set([result[0].id for result in resolved_results])
         counts = set([result[1] for result in resolved_results])
 
-        eq_(3, len(resolved_results))
-        eq_(lp_ids, set([lp1.id, lp2.id, lp3.id]))
-        eq_(counts, set([1]))
+        assert 3 == len(resolved_results)
+        assert lp_ids == set([lp1.id, lp2.id, lp3.id])
+        assert counts == set([1])
 
         # This library has none of the license pools that have complaints,
         # so passing it in to with_complaint() gives no results.
         library2 = self._library()
-        eq_(0, LicensePool.with_complaint(library2).count())
+        assert 0 == LicensePool.with_complaint(library2).count()
 
         # If we add the default library's collection to this new library,
         # we start getting the same results.
         library2.collections.extend(library.collections)
-        eq_(3, LicensePool.with_complaint(library2, resolved=None).count())
+        assert 3 == LicensePool.with_complaint(library2, resolved=None).count()
 
     def test_set_presentation_edition(self):
         """
@@ -775,25 +767,25 @@ class TestLicensePool(DatabaseTest):
         # Editions.
         pool.set_presentation_edition()
         presentation = pool.presentation_edition
-        eq_([pool], presentation.is_presentation_for)
+        assert [pool] == presentation.is_presentation_for
 
         # The presentation edition is a completely new Edition.
-        assert_not_equal(mw, od)
-        assert_not_equal(od, admin)
-        assert_not_equal(admin, presentation)
-        assert_not_equal(od, presentation)
+        assert mw != od
+        assert od != admin
+        assert admin != presentation
+        assert od != presentation
 
         # Within the presentation edition, information from the
         # library staff takes precedence over anything else.
-        eq_(presentation.title, "AdminInterfaceTitle1")
-        eq_(admin.contributors, presentation.contributors)
+        assert presentation.title == "AdminInterfaceTitle1"
+        assert admin.contributors == presentation.contributors
 
         # Where the library staff has no opinion, the license source
         # takes precedence over the metadata wrangler.
-        eq_(Edition.AUDIO_MEDIUM, presentation.medium)
+        assert Edition.AUDIO_MEDIUM == presentation.medium
 
         # The metadata wrangler fills in any missing information.
-        eq_(presentation.subtitle, "MetadataWranglerSubTitle1")
+        assert presentation.subtitle == "MetadataWranglerSubTitle1"
 
         # Now, change the admin interface's opinion about who the
         # author is.
@@ -807,7 +799,7 @@ class TestLicensePool(DatabaseTest):
 
         # The old contributor has been removed from the presentation
         # edition, and the new contributor added.
-        eq_(set([jane]), presentation.contributors)
+        assert set([jane]) == presentation.contributors
 
     def test_circulation_changelog(self):
 
@@ -821,29 +813,25 @@ class TestLicensePool(DatabaseTest):
 
         # Since all four circulation values changed, the message is as
         # long as it could possibly get.
-        eq_(
-            'CHANGED %s "%s" %s (%s/%s) %s: %s=>%s %s: %s=>%s %s: %s=>%s %s: %s=>%s',
-            msg
-        )
-        eq_(
-            args,
+        assert (
+            'CHANGED %s "%s" %s (%s/%s) %s: %s=>%s %s: %s=>%s %s: %s=>%s %s: %s=>%s' ==
+            msg)
+        assert (
+            args ==
             (edition.medium, edition.title, edition.author,
              pool.identifier.type, pool.identifier.identifier,
-             'OWN', 1, 10, 'AVAIL', 2, 9, 'RSRV', 3, 8, 'HOLD', 4, 7)
-        )
+             'OWN', 1, 10, 'AVAIL', 2, 9, 'RSRV', 3, 8, 'HOLD', 4, 7))
 
         # If only one circulation value changes, the message is a lot shorter.
         msg, args = pool.circulation_changelog(10, 9, 8, 15)
-        eq_(
-            'CHANGED %s "%s" %s (%s/%s) %s: %s=>%s',
-            msg
-        )
-        eq_(
-            args,
+        assert (
+            'CHANGED %s "%s" %s (%s/%s) %s: %s=>%s' ==
+            msg)
+        assert (
+            args ==
             (edition.medium, edition.title, edition.author,
              pool.identifier.type, pool.identifier.identifier,
-             'HOLD', 15, 7)
-        )
+             'HOLD', 15, 7))
 
         # This works even if, for whatever reason, the edition's
         # bibliographic data is missing.
@@ -851,8 +839,8 @@ class TestLicensePool(DatabaseTest):
         edition.author = None
 
         msg, args = pool.circulation_changelog(10, 9, 8, 15)
-        eq_("[NO TITLE]", args[1])
-        eq_("[NO AUTHOR]", args[2])
+        assert "[NO TITLE]" == args[1]
+        assert "[NO AUTHOR]" == args[2]
 
     def test_update_availability_from_delta(self):
         """A LicensePool may have its availability information updated based
@@ -860,25 +848,25 @@ class TestLicensePool(DatabaseTest):
         """
 
         edition, pool = self._edition(with_license_pool=True)
-        eq_(None, pool.last_checked)
-        eq_(1, pool.licenses_owned)
-        eq_(1, pool.licenses_available)
+        assert None == pool.last_checked
+        assert 1 == pool.licenses_owned
+        assert 1 == pool.licenses_available
 
         add = CirculationEvent.DISTRIBUTOR_LICENSE_ADD
         checkout = CirculationEvent.DISTRIBUTOR_CHECKOUT
         analytics = MockAnalyticsProvider()
-        eq_(0, analytics.count)
+        assert 0 == analytics.count
 
         # This observation has no timestamp, but the pool has no
         # history, so we process it.
         pool.update_availability_from_delta(add, CirculationEvent.NO_DATE, 1, analytics)
-        eq_(None, pool.last_checked)
-        eq_(2, pool.licenses_owned)
-        eq_(2, pool.licenses_available)
+        assert None == pool.last_checked
+        assert 2 == pool.licenses_owned
+        assert 2 == pool.licenses_available
 
         # Processing triggered two analytics events -- one for creating
         # the license pool and one for making it available.
-        eq_(2, analytics.count)
+        assert 2 == analytics.count
 
         # Now the pool has a history, and we can't fit an undated
         # observation into that history, so undated observations
@@ -887,40 +875,40 @@ class TestLicensePool(DatabaseTest):
         yesterday = now - datetime.timedelta(days=1)
         pool.last_checked = yesterday
         pool.update_availability_from_delta(add, CirculationEvent.NO_DATE, 1, analytics)
-        eq_(2, pool.licenses_owned)
-        eq_(yesterday, pool.last_checked)
+        assert 2 == pool.licenses_owned
+        assert yesterday == pool.last_checked
 
         # However, outdated events are passed on to analytics so that
         # we record the fact that they happened... at some point.
-        eq_(3, analytics.count)
+        assert 3 == analytics.count
 
         # This observation is more recent than the last time the pool
         # was checked, so it's processed and the last check time is
         # updated.
         pool.update_availability_from_delta(checkout, now, 1, analytics)
-        eq_(2, pool.licenses_owned)
-        eq_(1, pool.licenses_available)
-        eq_(now, pool.last_checked)
-        eq_(4, analytics.count)
+        assert 2 == pool.licenses_owned
+        assert 1 == pool.licenses_available
+        assert now == pool.last_checked
+        assert 4 == analytics.count
 
         # This event is less recent than the last time the pool was
         # checked, so it's ignored. Processing it is likely to do more
         # harm than good.
         pool.update_availability_from_delta(add, yesterday, 1, analytics)
-        eq_(2, pool.licenses_owned)
-        eq_(now, pool.last_checked)
+        assert 2 == pool.licenses_owned
+        assert now == pool.last_checked
 
         # It's still logged to analytics, though.
-        eq_(5, analytics.count)
+        assert 5 == analytics.count
 
         # This event is new but does not actually cause the
         # circulation to change at all.
         pool.update_availability_from_delta(add, now, 0, analytics)
-        eq_(2, pool.licenses_owned)
-        eq_(now, pool.last_checked)
+        assert 2 == pool.licenses_owned
+        assert now == pool.last_checked
 
         # We still send the analytics event.
-        eq_(6, analytics.count)
+        assert 6 == analytics.count
 
     def test_calculate_change_from_one_event(self):
         """Test the internal method called by update_availability_from_delta."""
@@ -937,39 +925,39 @@ class TestLicensePool(DatabaseTest):
         # event that makes no difference. This lets us see what a
         # 'status quo' response from the method would look like.
         calc = pool._calculate_change_from_one_event
-        eq_((5,4,0,0), calc(CE.DISTRIBUTOR_CHECKIN, 0))
+        assert (5,4,0,0) == calc(CE.DISTRIBUTOR_CHECKIN, 0)
 
         # If there ever appear to be more licenses available than
         # owned, the number of owned licenses is left alone. It's
         # possible that we have more licenses than we thought, but
         # it's more likely that a license has expired or otherwise
         # been removed.
-        eq_((5,5,0,0), calc(CE.DISTRIBUTOR_CHECKIN, 3))
+        assert (5,5,0,0) == calc(CE.DISTRIBUTOR_CHECKIN, 3)
 
         # But we don't bump up the number of available licenses just
         # because one becomes available.
-        eq_((5,5,0,0), calc(CE.DISTRIBUTOR_CHECKIN, 1))
+        assert (5,5,0,0) == calc(CE.DISTRIBUTOR_CHECKIN, 1)
 
         # When you signal a hold on a book that's available, we assume
         # that the book has stopped being available.
-        eq_((5,0,0,3), calc(CE.DISTRIBUTOR_HOLD_PLACE, 3))
+        assert (5,0,0,3) == calc(CE.DISTRIBUTOR_HOLD_PLACE, 3)
 
         # If a license stops being owned, it implicitly stops being
         # available. (But we don't know if the license that became
         # unavailable is one of the ones currently checked out to
         # someone, or one of the other ones.)
-        eq_((3,3,0,0), calc(CE.DISTRIBUTOR_LICENSE_REMOVE, 2))
+        assert (3,3,0,0) == calc(CE.DISTRIBUTOR_LICENSE_REMOVE, 2)
 
         # If a license stops being available, it doesn't stop
         # being owned.
-        eq_((5,3,0,0), calc(CE.DISTRIBUTOR_CHECKOUT, 1))
+        assert (5,3,0,0) == calc(CE.DISTRIBUTOR_CHECKOUT, 1)
 
         # None of these numbers will go below zero.
-        eq_((0,0,0,0), calc(CE.DISTRIBUTOR_LICENSE_REMOVE, 100))
+        assert (0,0,0,0) == calc(CE.DISTRIBUTOR_LICENSE_REMOVE, 100)
 
         # Newly added licenses start out available if there are no
         # patrons in the hold queue.
-        eq_((6,5,0,0), calc(CE.DISTRIBUTOR_LICENSE_ADD, 1))
+        assert (6,5,0,0) == calc(CE.DISTRIBUTOR_LICENSE_ADD, 1)
 
         # Now let's run some tests with a LicensePool that has a large holds
         # queue.
@@ -977,26 +965,26 @@ class TestLicensePool(DatabaseTest):
         pool.licenses_available = 0
         pool.licenses_reserved = 1
         pool.patrons_in_hold_queue = 3
-        eq_((5,0,1,3), calc(CE.DISTRIBUTOR_HOLD_PLACE, 0))
+        assert (5,0,1,3) == calc(CE.DISTRIBUTOR_HOLD_PLACE, 0)
 
         # When you signal a hold on a book that already has holds, it
         # does nothing but increase the number of patrons in the hold
         # queue.
-        eq_((5,0,1,6), calc(CE.DISTRIBUTOR_HOLD_PLACE, 3))
+        assert (5,0,1,6) == calc(CE.DISTRIBUTOR_HOLD_PLACE, 3)
 
         # A checkin event has no effect...
-        eq_((5,0,1,3), calc(CE.DISTRIBUTOR_CHECKIN, 1))
+        assert (5,0,1,3) == calc(CE.DISTRIBUTOR_CHECKIN, 1)
 
         # ...because it's presumed that it will be followed by an
         # availability notification event, which takes a patron off
         # the hold queue and adds them to the reserved list.
-        eq_((5,0,2,2), calc(CE.DISTRIBUTOR_AVAILABILITY_NOTIFY, 1))
+        assert (5,0,2,2) == calc(CE.DISTRIBUTOR_AVAILABILITY_NOTIFY, 1)
 
         # The only exception is if the checkin event wipes out the
         # entire holds queue, in which case the number of available
         # licenses increases.  (But nothing else changes -- we're
         # still waiting for the availability notification events.)
-        eq_((5,3,1,3), calc(CE.DISTRIBUTOR_CHECKIN, 6))
+        assert (5,3,1,3) == calc(CE.DISTRIBUTOR_CHECKIN, 6)
 
         # Again, note that even though six copies were checked in,
         # we're not assuming we own more licenses than we
@@ -1005,11 +993,11 @@ class TestLicensePool(DatabaseTest):
 
         # When there are no licenses available, a checkout event
         # draws from the pool of licenses reserved instead.
-        eq_((5,0,0,3), calc(CE.DISTRIBUTOR_CHECKOUT, 2))
+        assert (5,0,0,3) == calc(CE.DISTRIBUTOR_CHECKOUT, 2)
 
         # Newly added licenses do not start out available if there are
         # patrons in the hold queue.
-        eq_((6,0,1,3), calc(CE.DISTRIBUTOR_LICENSE_ADD, 1))
+        assert (6,0,1,3) == calc(CE.DISTRIBUTOR_LICENSE_ADD, 1)
 
     def test_loan_to_patron(self):
         # Test our ability to loan LicensePools to Patrons.
@@ -1033,21 +1021,21 @@ class TestLicensePool(DatabaseTest):
             fulfillment=fulfillment, external_identifier=external_identifier
         )
 
-        eq_(True, is_new)
+        assert True == is_new
         assert isinstance(loan, Loan)
-        eq_(pool, loan.license_pool)
-        eq_(patron, loan.patron)
-        eq_(yesterday, loan.start)
-        eq_(tomorrow, loan.end)
-        eq_(fulfillment, loan.fulfillment)
-        eq_(external_identifier, loan.external_identifier)
+        assert pool == loan.license_pool
+        assert patron == loan.patron
+        assert yesterday == loan.start
+        assert tomorrow == loan.end
+        assert fulfillment == loan.fulfillment
+        assert external_identifier == loan.external_identifier
 
         # Issuing a loan locally created uncertainty about a patron's
         # loans, since we don't know how the external vendor dealt
         # with the request. The last_loan_activity_sync has been
         # cleared out so we know to check back with the source of
         # truth.
-        eq_(None, patron.last_loan_activity_sync)
+        assert None == patron.last_loan_activity_sync
 
         # 'Creating' a loan that already exists does not create any
         # uncertainty.
@@ -1056,9 +1044,9 @@ class TestLicensePool(DatabaseTest):
             patron, start=yesterday, end=tomorrow, 
             fulfillment=fulfillment, external_identifier=external_identifier
         )
-        eq_(False, is_new)
-        eq_(loan, loan2)
-        eq_(now, patron.last_loan_activity_sync)
+        assert False == is_new
+        assert loan == loan2
+        assert now == patron.last_loan_activity_sync
 
 
     def test_on_hold_to_patron(self):
@@ -1083,21 +1071,21 @@ class TestLicensePool(DatabaseTest):
             position=position, external_identifier=external_identifier
         )
 
-        eq_(True, is_new)
+        assert True == is_new
         assert isinstance(hold, Hold)
-        eq_(pool, hold.license_pool)
-        eq_(patron, hold.patron)
-        eq_(yesterday, hold.start)
-        eq_(tomorrow, hold.end)
-        eq_(position, hold.position)
-        eq_(external_identifier, hold.external_identifier)
+        assert pool == hold.license_pool
+        assert patron == hold.patron
+        assert yesterday == hold.start
+        assert tomorrow == hold.end
+        assert position == hold.position
+        assert external_identifier == hold.external_identifier
 
         # Issuing a hold locally created uncertainty about a patron's
         # loans, since we don't know how the external vendor dealt
         # with the request. The last_loan_activity_sync has been
         # cleared out so we know to check back with the source of
         # truth.
-        eq_(None, patron.last_loan_activity_sync)
+        assert None == patron.last_loan_activity_sync
 
         # 'Creating' a hold that already exists does not create any
         # uncertainty.
@@ -1106,16 +1094,16 @@ class TestLicensePool(DatabaseTest):
             patron, start=yesterday, end=tomorrow, 
             position=position, external_identifier=external_identifier
         )
-        eq_(False, is_new)
-        eq_(hold, hold2)
-        eq_(now, patron.last_loan_activity_sync)
+        assert False == is_new
+        assert hold == hold2
+        assert now == patron.last_loan_activity_sync
         
 
 class TestLicensePoolDeliveryMechanism(DatabaseTest):
     def test_lpdm_change_may_change_open_access_status(self):
         # Here's a book that's not open access.
         edition, pool = self._edition(with_license_pool=True)
-        eq_(False, pool.open_access)
+        assert False == pool.open_access
 
         # We're going to use LicensePoolDeliveryMechanism.set to
         # to give it a non-open-access LPDM.
@@ -1129,7 +1117,7 @@ class TestLicensePoolDeliveryMechanism(DatabaseTest):
         )
 
         # Now there's a way to get the book, but it's not open access.
-        eq_(False, pool.open_access)
+        assert False == pool.open_access
 
         # Now give it an open-access LPDM.
         link, new = pool.identifier.add_link(
@@ -1142,11 +1130,11 @@ class TestLicensePoolDeliveryMechanism(DatabaseTest):
         )
 
         # Now it's open access.
-        eq_(True, pool.open_access)
+        assert True == pool.open_access
 
         # Delete the open-access LPDM, and it stops being open access.
         oa_lpdm.delete()
-        eq_(False, pool.open_access)
+        assert False == pool.open_access
 
     def test_set_rights_status(self):
         # Here's a non-open-access book.
@@ -1157,50 +1145,50 @@ class TestLicensePoolDeliveryMechanism(DatabaseTest):
         # We set its rights status to 'in copyright', and nothing changes.
         uri = RightsStatus.IN_COPYRIGHT
         status = lpdm.set_rights_status(uri)
-        eq_(status, lpdm.rights_status)
-        eq_(uri, status.uri)
-        eq_(RightsStatus.NAMES.get(uri), status.name)
-        eq_(False, pool.open_access)
+        assert status == lpdm.rights_status
+        assert uri == status.uri
+        assert RightsStatus.NAMES.get(uri) == status.name
+        assert False == pool.open_access
 
         # Setting it again won't change anything.
         status2 = lpdm.set_rights_status(uri)
-        eq_(status, status2)
+        assert status == status2
 
         # Set the rights status to a different URL, we change to a different
         # RightsStatus object.
         uri2 = "http://unknown"
         status3 = lpdm.set_rights_status(uri2)
         assert status != status3
-        eq_(RightsStatus.UNKNOWN, status3.uri)
-        eq_(RightsStatus.NAMES.get(RightsStatus.UNKNOWN), status3.name)
+        assert RightsStatus.UNKNOWN == status3.uri
+        assert RightsStatus.NAMES.get(RightsStatus.UNKNOWN) == status3.name
 
         # Set the rights status to a URL that implies open access,
         # and the status of the LicensePool is changed.
         open_access_uri = RightsStatus.GENERIC_OPEN_ACCESS
         open_access_status = lpdm.set_rights_status(open_access_uri)
-        eq_(open_access_uri, open_access_status.uri)
-        eq_(RightsStatus.NAMES.get(open_access_uri), open_access_status.name)
-        eq_(True, pool.open_access)
+        assert open_access_uri == open_access_status.uri
+        assert RightsStatus.NAMES.get(open_access_uri) == open_access_status.name
+        assert True == pool.open_access
 
         # Set it back to a URL that does not imply open access, and
         # the status of the LicensePool is changed back.
         non_open_access_status = lpdm.set_rights_status(uri)
-        eq_(False, pool.open_access)
+        assert False == pool.open_access
 
         # Now add a second delivery mechanism, so the pool has one
         # open-access and one commercial delivery mechanism.
         lpdm2 = pool.set_delivery_mechanism(
             MediaTypes.EPUB_MEDIA_TYPE, DeliveryMechanism.NO_DRM,
             RightsStatus.CC_BY, None)
-        eq_(2, len(pool.delivery_mechanisms))
+        assert 2 == len(pool.delivery_mechanisms)
 
         # Now the pool is open access again
-        eq_(True, pool.open_access)
+        assert True == pool.open_access
 
         # But if we change the new delivery mechanism to non-open
         # access, the pool won't be open access anymore either.
         lpdm2.set_rights_status(uri)
-        eq_(False, pool.open_access)
+        assert False == pool.open_access
 
     def test_uniqueness_constraint(self):
         # with_open_access_download will create a LPDM
@@ -1221,7 +1209,7 @@ class TestLicensePoolDeliveryMechanism(DatabaseTest):
             lpdm.rights_status.uri,
             link.resource,
         )
-        eq_(lpdm2.delivery_mechanism, lpdm.delivery_mechanism)
+        assert lpdm2.delivery_mechanism == lpdm.delivery_mechanism
         assert lpdm2.resource != lpdm.resource
 
         # We can even create an LPDM with the same data type and DRM
@@ -1232,12 +1220,12 @@ class TestLicensePoolDeliveryMechanism(DatabaseTest):
             lpdm.rights_status.uri,
             None
         )
-        eq_(lpdm3.delivery_mechanism, lpdm.delivery_mechanism)
-        eq_(None, lpdm3.resource)
+        assert lpdm3.delivery_mechanism == lpdm.delivery_mechanism
+        assert None == lpdm3.resource
 
         # But we can't create a second such LPDM -- it violates a
         # constraint of a unique index.
-        assert_raises(
+        pytest.raises(
             IntegrityError, create, self._db,
             LicensePoolDeliveryMechanism,
             delivery_mechanism=lpdm3.delivery_mechanism,
@@ -1257,9 +1245,9 @@ class TestLicensePoolDeliveryMechanism(DatabaseTest):
         [mech] = pool.delivery_mechanisms
 
         # Test the simple cases.
-        eq_(False, mech.compatible_with(None))
-        eq_(False, mech.compatible_with("Not a LicensePoolDeliveryMechanism"))
-        eq_(True, mech.compatible_with(mech))
+        assert False == mech.compatible_with(None)
+        assert False == mech.compatible_with("Not a LicensePoolDeliveryMechanism")
+        assert True == mech.compatible_with(mech)
 
         # Now let's set up a scenario that works and then see how it fails.
         self._add_generic_delivery_mechanism(pool)
@@ -1269,17 +1257,17 @@ class TestLicensePoolDeliveryMechanism(DatabaseTest):
         # compatible.
         [mech1, mech2] = pool.delivery_mechanisms
         assert mech1.id != mech2.id
-        eq_(mech1.delivery_mechanism, mech2.delivery_mechanism)
-        eq_(True, mech1.compatible_with(mech2))
+        assert mech1.delivery_mechanism == mech2.delivery_mechanism
+        assert True == mech1.compatible_with(mech2)
 
         # The LicensePoolDeliveryMechanisms must identify the same
         # book from the same data source.
         mech1.data_source_id = self._id
-        eq_(False, mech1.compatible_with(mech2))
+        assert False == mech1.compatible_with(mech2)
 
         mech1.data_source_id = mech2.data_source_id
         mech1.identifier_id = self._id
-        eq_(False, mech1.compatible_with(mech2))
+        assert False == mech1.compatible_with(mech2)
         mech1.identifier_id = mech2.identifier_id
 
         # The underlying delivery mechanisms don't have to be exactly
@@ -1290,7 +1278,7 @@ class TestLicensePoolDeliveryMechanism(DatabaseTest):
         )
         mech1.delivery_mechanism = pdf_adobe
         self._db.commit()
-        eq_(False, mech1.compatible_with(mech2))
+        assert False == mech1.compatible_with(mech2)
 
         streaming, ignore = DeliveryMechanism.lookup(
             self._db, DeliveryMechanism.STREAMING_TEXT_CONTENT_TYPE,
@@ -1298,7 +1286,7 @@ class TestLicensePoolDeliveryMechanism(DatabaseTest):
         )
         mech1.delivery_mechanism = streaming
         self._db.commit()
-        eq_(True, mech1.compatible_with(mech2))
+        assert True == mech1.compatible_with(mech2)
 
     def test_compatible_with_calls_compatible_with_on_deliverymechanism(self):
         # Create two LicensePoolDeliveryMechanisms with different
@@ -1312,8 +1300,8 @@ class TestLicensePoolDeliveryMechanism(DatabaseTest):
         )
         self._db.commit()
 
-        eq_(True, mech1.is_open_access)
-        eq_(False, mech2.is_open_access)
+        assert True == mech1.is_open_access
+        assert False == mech2.is_open_access
 
         # Determining whether the mechanisms are compatible requires
         # calling compatible_with on the first mechanism's
@@ -1333,10 +1321,9 @@ class TestLicensePoolDeliveryMechanism(DatabaseTest):
         # LicensePoolDeliveryMechanisms is not open-access) the value
         # False.
         mech1.compatible_with(mech2)
-        eq_(
-            (mech2.delivery_mechanism, False),
-            Mock.called_with
-        )
+        assert (
+            (mech2.delivery_mechanism, False) ==
+            Mock.called_with)
 
         # If both LicensePoolDeliveryMechanisms are open-access,
         # True is passed in instead, so that
@@ -1344,10 +1331,9 @@ class TestLicensePoolDeliveryMechanism(DatabaseTest):
         # compatibility rules for open-access fulfillment.
         mech2.set_rights_status(RightsStatus.GENERIC_OPEN_ACCESS)
         mech1.compatible_with(mech2)
-        eq_(
-            (mech2.delivery_mechanism, True),
-            Mock.called_with
-        )
+        assert (
+            (mech2.delivery_mechanism, True) ==
+            Mock.called_with)
 
     @parameterized.expand([
         ('ascii_sy', 'a', 'a', 'a'),

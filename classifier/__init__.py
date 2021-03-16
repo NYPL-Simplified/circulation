@@ -22,7 +22,7 @@ from collections import (
     Counter,
     defaultdict,
 )
-from nose.tools import set_trace
+
 from sqlalchemy.orm.session import Session
 from sqlalchemy.sql.expression import and_
 

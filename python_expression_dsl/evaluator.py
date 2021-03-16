@@ -134,7 +134,7 @@ class DSLEvaluationVisitor(Visitor):
         if unary_expression.operator not in available_operators:
             raise DSLEvaluationError(
                 "Wrong operator {0}. Was expecting one of {1}".format(
-                    unary_expression.operator, available_operators.keys()
+                    unary_expression.operator, list(available_operators.keys())
                 )
             )
 
@@ -161,7 +161,7 @@ class DSLEvaluationVisitor(Visitor):
         if binary_expression.operator not in available_operators:
             raise DSLEvaluationError(
                 "Wrong operator {0}. Was expecting one of {1}".format(
-                    binary_expression.operator, available_operators.keys()
+                    binary_expression.operator, list(available_operators.keys())
                 )
             )
 
