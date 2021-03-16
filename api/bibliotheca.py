@@ -1281,6 +1281,7 @@ class BibliothecaEventMonitor(CollectionMonitor, TimelineMonitor):
     SERVICE_NAME = "Bibliotheca Event Monitor"
     DEFAULT_START_TIME = timedelta(365*3)
     PROTOCOL = ExternalIntegration.BIBLIOTHECA
+    LOG_DATE_FORMAT = '%Y-%m-%dT%H:%M:%S'
 
     def __init__(self, _db, collection, api_class=BibliothecaAPI,
                  cli_date=None, analytics=None):
@@ -1325,16 +1326,15 @@ class BibliothecaEventMonitor(CollectionMonitor, TimelineMonitor):
                     date = cli_date[0]
                 return datetime.strptime(date, "%Y-%m-%d")
             except ValueError as e:
-                # Date argument wasn't in the proper format.
                 self.log.warn(
-                    "%r. Using default date instead: %s.", e,
-                    default_start_time.strftime("%B %d, %Y")
+                    '%r. Date argument was not in a valid format. Using default date instead: %s.',
+                    e, default_start_time.strftime(self.LOG_DATE_FORMAT)
                 )
                 return default_start_time
         if not initialized:
             self.log.info(
                 "Initializing %s from date: %s.", self.service_name,
-                default_start_time.strftime("%B %d, %Y")
+                default_start_time.strftime(self.LOG_DATE_FORMAT)
             )
             return default_start_time
         return None
@@ -1369,8 +1369,9 @@ class BibliothecaEventMonitor(CollectionMonitor, TimelineMonitor):
             start, cutoff, timespan_to_check
         ):
             self.log.info(
-                "Asking for events between %r and %r", slice_start,
-                slice_cutoff
+                "Requesting events between %s and %s",
+                slice_start.strftime(self.LOG_DATE_FORMAT),
+                slice_cutoff.strftime(self.LOG_DATE_FORMAT)
             )
             events = self.api.get_events_between(
                 slice_start, slice_cutoff, full_slice, no_events_error
@@ -1440,7 +1441,8 @@ class BibliothecaEventMonitor(CollectionMonitor, TimelineMonitor):
                 0, 1
             )
         title = edition.title or "[no title]"
-        self.log.info("%r %s: %s", start_time, title, internal_event_type)
+        self.log.info("%s %s: %s", start_time.strftime(self.LOG_DATE_FORMAT),
+                      title, internal_event_type)
         return start_time
 
 class BibliothecaBibliographicCoverageProvider(BibliographicCoverageProvider):
