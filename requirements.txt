@@ -1,4 +1,4 @@
--r core/requirements.txt
+-r core/requirements-dev.txt
 
 alabaster==0.7.12
 backports.functools-lru-cache==1.6.1

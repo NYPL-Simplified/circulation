@@ -1,4 +1,4 @@
-from io import StringIO
+from io import BytesIO
 
 from nose.tools import (
     eq_,
@@ -19,13 +19,13 @@ from . import sample_data
 class TestONIXExtractor(object):
 
     def sample_data(self, filename):
-        return sample_data(filename, "onix")
+        return sample_data(filename, "onix").encode("utf-8")
 
     def test_parser(self):
         """Parse an ONIX file into Metadata objects."""
 
         file = self.sample_data("onix_example.xml")
-        metadata_records = ONIXExtractor().parse(StringIO(file), "MIT Press")
+        metadata_records = ONIXExtractor().parse(BytesIO(file), "MIT Press")
 
         eq_(2, len(metadata_records))
 
@@ -78,7 +78,7 @@ class TestONIXExtractor(object):
         file = self.sample_data(file_name)
 
         # Act
-        metadata_records = ONIXExtractor().parse(StringIO(file), 'ONIX 3 Usage Constraints Example')
+        metadata_records = ONIXExtractor().parse(BytesIO(file), 'ONIX 3 Usage Constraints Example')
 
         # Assert
         eq_(len(metadata_records), 1)
