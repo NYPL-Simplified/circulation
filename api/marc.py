@@ -1,4 +1,3 @@
-from nose.tools import set_trace
 from pymarc import Field
 import urllib.request, urllib.parse, urllib.error
 

@@ -1,4 +1,3 @@
-from nose.tools import set_trace
 import flask
 from flask import Response
 from api.admin.problem_details import *

@@ -1,8 +1,5 @@
-from nose.tools import (
-    set_trace,
-    eq_,
-    assert_raises
-)
+import pytest
+
 import flask
 import json
 from werkzeug.datastructures import MultiDict
@@ -28,16 +25,16 @@ class TestAdminAuthServices(SettingsControllerTest):
     def test_admin_auth_services_get_with_no_services(self):
         with self.request_context_with_admin("/"):
             response = self.manager.admin_auth_services_controller.process_admin_auth_services()
-            eq_(response.get("admin_auth_services"), [])
+            assert response.get("admin_auth_services") == []
 
             # All the protocols in ExternalIntegration.ADMIN_AUTH_PROTOCOLS
             # are supported by the admin interface.
-            eq_(sorted([p.get("name") for p in response.get("protocols")]),
+            assert (sorted([p.get("name") for p in response.get("protocols")]) ==
                 sorted(ExternalIntegration.ADMIN_AUTH_PROTOCOLS))
 
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
             self._db.flush()
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_auth_services_controller.process_admin_auth_services)
 
     def test_admin_auth_services_get_with_google_oauth_service(self):
@@ -58,15 +55,15 @@ class TestAdminAuthServices(SettingsControllerTest):
             response = self.manager.admin_auth_services_controller.process_admin_auth_services()
             [service] = response.get("admin_auth_services")
 
-            eq_(auth_service.id, service.get("id"))
-            eq_(auth_service.name, service.get("name"))
-            eq_(auth_service.protocol, service.get("protocol"))
-            eq_(auth_service.url, service.get("settings").get("url"))
-            eq_(auth_service.username, service.get("settings").get("username"))
-            eq_(auth_service.password, service.get("settings").get("password"))
+            assert auth_service.id == service.get("id")
+            assert auth_service.name == service.get("name")
+            assert auth_service.protocol == service.get("protocol")
+            assert auth_service.url == service.get("settings").get("url")
+            assert auth_service.username == service.get("settings").get("username")
+            assert auth_service.password == service.get("settings").get("password")
             [library_info] = service.get("libraries")
-            eq_(self._default_library.short_name, library_info.get("short_name"))
-            eq_(["nypl.org"], library_info.get("domains"))
+            assert self._default_library.short_name == library_info.get("short_name")
+            assert ["nypl.org"] == library_info.get("domains")
 
     def test_admin_auth_services_post_errors(self):
         with self.request_context_with_admin("/", method="POST"):
@@ -74,19 +71,19 @@ class TestAdminAuthServices(SettingsControllerTest):
                 ("protocol", "Unknown"),
             ])
             response = self.manager.admin_auth_services_controller.process_admin_auth_services()
-            eq_(response, UNKNOWN_PROTOCOL)
+            assert response == UNKNOWN_PROTOCOL
 
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([])
             response = self.manager.admin_auth_services_controller.process_admin_auth_services()
-            eq_(response, NO_PROTOCOL_FOR_NEW_SERVICE)
+            assert response == NO_PROTOCOL_FOR_NEW_SERVICE
 
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("id", "1234"),
             ])
             response = self.manager.admin_auth_services_controller.process_admin_auth_services()
-            eq_(response, MISSING_SERVICE)
+            assert response == MISSING_SERVICE
 
         auth_service, ignore = create(
             self._db, ExternalIntegration,
@@ -99,14 +96,14 @@ class TestAdminAuthServices(SettingsControllerTest):
                 ("id", str(auth_service.id)),
             ])
             response = self.manager.admin_auth_services_controller.process_admin_auth_services()
-            eq_(response, CANNOT_CHANGE_PROTOCOL)
+            assert response == CANNOT_CHANGE_PROTOCOL
 
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("protocol", "Google OAuth"),
             ])
             response = self.manager.admin_auth_services_controller.process_admin_auth_services()
-            eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
+            assert response.uri == INCOMPLETE_CONFIGURATION.uri
 
         self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
         self._db.flush()
@@ -119,7 +116,7 @@ class TestAdminAuthServices(SettingsControllerTest):
                 ("password", "password"),
                 ("domains", "nypl.org"),
             ])
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_auth_services_controller.process_admin_auth_services)
 
     def test_admin_auth_services_post_create(self):
@@ -134,22 +131,22 @@ class TestAdminAuthServices(SettingsControllerTest):
                                             "domains": ["nypl.org", "gmail.com"] }])),
             ])
             response = self.manager.admin_auth_services_controller.process_admin_auth_services()
-            eq_(response.status_code, 201)
+            assert response.status_code == 201
 
         # The auth service was created and configured properly.
         auth_service = ExternalIntegration.admin_authentication(self._db)
-        eq_(auth_service.protocol, response.get_data(as_text=True))
-        eq_("oauth", auth_service.name)
-        eq_("http://url2", auth_service.url)
-        eq_("username", auth_service.username)
-        eq_("password", auth_service.password)
+        assert auth_service.protocol == response.get_data(as_text=True)
+        assert "oauth" == auth_service.name
+        assert "http://url2" == auth_service.url
+        assert "username" == auth_service.username
+        assert "password" == auth_service.password
 
-        eq_([self._default_library], auth_service.libraries)
+        assert [self._default_library] == auth_service.libraries
         setting = ConfigurationSetting.for_library_and_externalintegration(
             self._db, "domains", self._default_library, auth_service
         )
-        eq_("domains", setting.key)
-        eq_(["nypl.org", "gmail.com"], json.loads(setting.value))
+        assert "domains" == setting.key
+        assert ["nypl.org", "gmail.com"] == json.loads(setting.value)
 
     def test_admin_auth_services_post_google_oauth_edit(self):
         # The auth service exists.
@@ -177,14 +174,14 @@ class TestAdminAuthServices(SettingsControllerTest):
                                             "domains": ["library2.org"] }])),
             ])
             response = self.manager.admin_auth_services_controller.process_admin_auth_services()
-            eq_(response.status_code, 200)
+            assert response.status_code == 200
 
-        eq_(auth_service.protocol, response.get_data(as_text=True))
-        eq_("oauth", auth_service.name)
-        eq_("http://url2", auth_service.url)
-        eq_("user2", auth_service.username)
-        eq_("domains", setting.key)
-        eq_(["library2.org"], json.loads(setting.value))
+        assert auth_service.protocol == response.get_data(as_text=True)
+        assert "oauth" == auth_service.name
+        assert "http://url2" == auth_service.url
+        assert "user2" == auth_service.username
+        assert "domains" == setting.key
+        assert ["library2.org"] == json.loads(setting.value)
 
     def test_admin_auth_service_delete(self):
         auth_service, ignore = create(
@@ -199,13 +196,13 @@ class TestAdminAuthServices(SettingsControllerTest):
 
         with self.request_context_with_admin("/", method="DELETE"):
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_auth_services_controller.process_delete,
                           auth_service.protocol)
 
             self.admin.add_role(AdminRole.SYSTEM_ADMIN)
             response = self.manager.admin_auth_services_controller.process_delete(auth_service.protocol)
-            eq_(response.status_code, 200)
+            assert response.status_code == 200
 
         service = get_one(self._db, ExternalIntegration, id=auth_service.id)
-        eq_(None, service)
+        assert None == service

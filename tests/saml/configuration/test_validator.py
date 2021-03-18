@@ -1,6 +1,5 @@
 from itertools import tee
 
-from nose.tools import eq_
 from parameterized import parameterized
 from werkzeug.datastructures import MultiDict
 
@@ -104,9 +103,9 @@ class TestSAMLSettingsValidator(ControllerTest):
 
         # Assert
         if isinstance(result, ProblemDetail):
-            eq_(expected_validation_result.response, result.response)
+            assert expected_validation_result.response == result.response
         else:
-            eq_(expected_validation_result, result)
+            assert expected_validation_result == result
 
 
 class TestSAMLSettingsValidatorFactory(object):
@@ -119,4 +118,4 @@ class TestSAMLSettingsValidatorFactory(object):
         result = factory.create(protocol)
 
         # Assert
-        eq_(True, isinstance(result, SAMLSettingsValidator))
+        assert True == isinstance(result, SAMLSettingsValidator)

@@ -1,4 +1,3 @@
-from nose.tools import set_trace
 import flask
 from flask import Response
 from flask_babel import lazy_gettext as _
@@ -847,7 +846,7 @@ class WorkController(AdminCirculationManagerController):
         if isinstance(collection, ProblemDetail):
             return collection
 
-        # Look for an appropriate mirror to store this cover image. Since the 
+        # Look for an appropriate mirror to store this cover image. Since the
         # mirror should be used for covers, we don't need a mirror for books.
         mirrors = mirrors or dict(
             covers_mirror=MirrorUploader.for_collection(collection, ExternalIntegrationLink.COVERS),

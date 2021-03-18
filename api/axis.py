@@ -7,7 +7,6 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 from flask_babel import lazy_gettext as _
 from lxml import etree
-from nose.tools import set_trace
 from sqlalchemy.orm import contains_eager
 from sqlalchemy.orm.session import Session
 

@@ -1,14 +1,10 @@
-from nose.tools import (
-    eq_,
-    set_trace,
-    assert_raises_regexp,
-)
+import pytest
 from api.config import (
     CannotLoadConfiguration,
 )
 from core.analytics import Analytics
 from api.google_analytics_provider import GoogleAnalyticsProvider
-from . import DatabaseTest
+from core.testing import DatabaseTest
 from core.model import (
     get_one_or_create,
     create,
@@ -40,29 +36,25 @@ class TestGoogleAnalyticsProvider(DatabaseTest):
             protocol="api.google_analytics_provider",
         )
 
-        assert_raises_regexp(
-            CannotLoadConfiguration,
-            "Google Analytics can't be configured without a library.",
-            GoogleAnalyticsProvider, integration
-        )
+        with pytest.raises(CannotLoadConfiguration) as excinfo:
+            GoogleAnalyticsProvider(integration)
+        assert "Google Analytics can't be configured without a library." in str(excinfo.value)
 
-        assert_raises_regexp(
-            CannotLoadConfiguration,
-            "Missing tracking id for library %s" % self._default_library.short_name,
-            GoogleAnalyticsProvider, integration, self._default_library
-        )
+        with pytest.raises(CannotLoadConfiguration) as excinfo:
+            GoogleAnalyticsProvider(integration, self._default_library)
+        assert "Missing tracking id for library %s" % self._default_library.short_name in str(excinfo.value)
 
         ConfigurationSetting.for_library_and_externalintegration(
             self._db, GoogleAnalyticsProvider.TRACKING_ID, self._default_library, integration
         ).value = "faketrackingid"
         ga = GoogleAnalyticsProvider(integration, self._default_library)
-        eq_(GoogleAnalyticsProvider.DEFAULT_URL, ga.url)
-        eq_("faketrackingid", ga.tracking_id)
+        assert GoogleAnalyticsProvider.DEFAULT_URL == ga.url
+        assert "faketrackingid" == ga.tracking_id
 
         integration.url = self._str
         ga = GoogleAnalyticsProvider(integration, self._default_library)
-        eq_(integration.url, ga.url)
-        eq_("faketrackingid", ga.tracking_id)
+        assert integration.url == ga.url
+        assert "faketrackingid" == ga.tracking_id
 
     def test_collect_event_with_work(self):
         integration, ignore = create(
@@ -98,29 +90,29 @@ class TestGoogleAnalyticsProvider(DatabaseTest):
         # Let's take a look at what _is_ being sent.
         params = urllib.parse.parse_qs(ga.params)
 
-        eq_(1, ga.count)
-        eq_(integration.url, ga.url)
-        eq_("faketrackingid", params['tid'][0])
-        eq_("event", params['t'][0])
-        eq_("circulation", params['ec'][0])
-        eq_(CirculationEvent.DISTRIBUTOR_CHECKIN, params['ea'][0])
-        eq_(str(now), params['cd1'][0])
-        eq_(lp.identifier.identifier, params['cd2'][0])
-        eq_(lp.identifier.type, params['cd3'][0])
-        eq_(unicodedata.normalize("NFKD", work.title),
+        assert 1 == ga.count
+        assert integration.url == ga.url
+        assert "faketrackingid" == params['tid'][0]
+        assert "event" == params['t'][0]
+        assert "circulation" == params['ec'][0]
+        assert CirculationEvent.DISTRIBUTOR_CHECKIN == params['ea'][0]
+        assert str(now) == params['cd1'][0]
+        assert lp.identifier.identifier == params['cd2'][0]
+        assert lp.identifier.type == params['cd3'][0]
+        assert (unicodedata.normalize("NFKD", work.title).encode('utf8') ==
             params['cd4'][0])
-        eq_(unicodedata.normalize("NFKD", work.author),
+        assert (unicodedata.normalize("NFKD", work.author).encode('utf8') ==
             params['cd5'][0])
-        eq_("fiction", params['cd6'][0])
-        eq_("audience", params['cd7'][0])
-        eq_(work.target_age_string, params['cd8'][0])
-        eq_("publisher", params['cd9'][0])
-        eq_("lang", params['cd10'][0])
-        eq_("Folklore", params['cd11'][0])
-        eq_("true", params['cd12'][0])
-        eq_(DataSource.GUTENBERG, params['cd13'][0])
-        eq_(EditionConstants.BOOK_MEDIUM, params['cd14'][0])
-        eq_(self._default_library.short_name, params['cd15'][0])
+        assert "fiction" == params['cd6'][0]
+        assert "audience" == params['cd7'][0]
+        assert work.target_age_string == params['cd8'][0]
+        assert "publisher" == params['cd9'][0]
+        assert "lang" == params['cd10'][0]
+        assert "Folklore" == params['cd11'][0]
+        assert "true" == params['cd12'][0]
+        assert DataSource.GUTENBERG == params['cd13'][0]
+        assert EditionConstants.BOOK_MEDIUM == params['cd14'][0]
+        assert self._default_library.short_name == params['cd15'][0]
 
     def test_collect_event_without_work(self):
         integration, ignore = create(
@@ -146,27 +138,27 @@ class TestGoogleAnalyticsProvider(DatabaseTest):
         ga.collect_event(self._default_library, pool, CirculationEvent.DISTRIBUTOR_CHECKIN, now)
         params = urllib.parse.parse_qs(ga.params)
 
-        eq_(1, ga.count)
-        eq_(integration.url, ga.url)
-        eq_("faketrackingid", params['tid'][0])
-        eq_("event", params['t'][0])
-        eq_("circulation", params['ec'][0])
-        eq_(CirculationEvent.DISTRIBUTOR_CHECKIN, params['ea'][0])
-        eq_(str(now), params['cd1'][0])
-        eq_(pool.identifier.identifier, params['cd2'][0])
-        eq_(pool.identifier.type, params['cd3'][0])
-        eq_(None, params.get('cd4'))
-        eq_(None, params.get('cd5'))
-        eq_(None, params.get('cd6'))
-        eq_(None, params.get('cd7'))
-        eq_(None, params.get('cd8'))
-        eq_(None, params.get('cd9'))
-        eq_(None, params.get('cd10'))
-        eq_(None, params.get('cd11'))
-        eq_(None, params.get('cd12'))
-        eq_([source.name], params.get('cd13'))
-        eq_(None, params.get('cd14'))
-        eq_([self._default_library.short_name], params.get('cd15'))
+        assert 1 == ga.count
+        assert integration.url == ga.url
+        assert "faketrackingid" == params['tid'][0]
+        assert "event" == params['t'][0]
+        assert "circulation" == params['ec'][0]
+        assert CirculationEvent.DISTRIBUTOR_CHECKIN == params['ea'][0]
+        assert str(now) == params['cd1'][0]
+        assert pool.identifier.identifier == params['cd2'][0]
+        assert pool.identifier.type == params['cd3'][0]
+        assert None == params.get('cd4')
+        assert None == params.get('cd5')
+        assert None == params.get('cd6')
+        assert None == params.get('cd7')
+        assert None == params.get('cd8')
+        assert None == params.get('cd9')
+        assert None == params.get('cd10')
+        assert None == params.get('cd11')
+        assert None == params.get('cd12')
+        assert [source.name] == params.get('cd13')
+        assert None == params.get('cd14')
+        assert [self._default_library.short_name] == params.get('cd15')
 
     def test_collect_event_without_license_pool(self):
         integration, ignore = create(
@@ -184,24 +176,24 @@ class TestGoogleAnalyticsProvider(DatabaseTest):
         ga.collect_event(self._default_library, None, CirculationEvent.NEW_PATRON, now)
         params = urllib.parse.parse_qs(ga.params)
 
-        eq_(1, ga.count)
-        eq_(integration.url, ga.url)
-        eq_("faketrackingid", params['tid'][0])
-        eq_("event", params['t'][0])
-        eq_("circulation", params['ec'][0])
-        eq_(CirculationEvent.NEW_PATRON, params['ea'][0])
-        eq_(str(now), params['cd1'][0])
-        eq_(None, params.get('cd2'))
-        eq_(None, params.get('cd3'))
-        eq_(None, params.get('cd4'))
-        eq_(None, params.get('cd5'))
-        eq_(None, params.get('cd6'))
-        eq_(None, params.get('cd7'))
-        eq_(None, params.get('cd8'))
-        eq_(None, params.get('cd9'))
-        eq_(None, params.get('cd10'))
-        eq_(None, params.get('cd11'))
-        eq_(None, params.get('cd12'))
-        eq_(None, params.get('cd13'))
-        eq_(None, params.get('cd14'))
-        eq_([self._default_library.short_name], params.get('cd15'))
+        assert 1 == ga.count
+        assert integration.url == ga.url
+        assert "faketrackingid" == params['tid'][0]
+        assert "event" == params['t'][0]
+        assert "circulation" == params['ec'][0]
+        assert CirculationEvent.NEW_PATRON == params['ea'][0]
+        assert str(now) == params['cd1'][0]
+        assert None == params.get('cd2')
+        assert None == params.get('cd3')
+        assert None == params.get('cd4')
+        assert None == params.get('cd5')
+        assert None == params.get('cd6')
+        assert None == params.get('cd7')
+        assert None == params.get('cd8')
+        assert None == params.get('cd9')
+        assert None == params.get('cd10')
+        assert None == params.get('cd11')
+        assert None == params.get('cd12')
+        assert None == params.get('cd13')
+        assert None == params.get('cd14')
+        assert [self._default_library.short_name] == params.get('cd15')

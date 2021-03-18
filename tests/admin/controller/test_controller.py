@@ -7,10 +7,8 @@ from datetime import datetime, timedelta
 
 import feedparser
 import flask
-from nose.tools import (
-    eq_,
-    assert_raises
-)
+import pytest
+
 from werkzeug.datastructures import MultiDict
 from werkzeug.http import dump_cookie
 
@@ -73,8 +71,8 @@ class AdminControllerTest(CirculationControllerTest):
     # don't need them.
     BOOKS = []
 
-    def setup(self):
-        super(AdminControllerTest, self).setup()
+    def setup_method(self):
+        super(AdminControllerTest, self).setup_method()
         ConfigurationSetting.sitewide(self._db, Configuration.SECRET_KEY).value = "a secret"
         setup_admin(self._db)
         setup_admin_controllers(self.manager)
@@ -118,7 +116,7 @@ class TestViewController(AdminControllerTest):
 
         with self.app.test_request_context('/admin'):
             response = self.manager.admin_view_controller(None, None)
-            eq_(200, response.status_code)
+            assert 200 == response.status_code
             html = response.get_data(as_text=True)
             assert 'settingUp: true' in html
 
@@ -127,14 +125,14 @@ class TestViewController(AdminControllerTest):
             flask.session['admin_email'] = self.admin.email
             flask.session['auth_type'] = PasswordAdminAuthenticationProvider.NAME
             response = self.manager.admin_view_controller("collection", "book")
-            eq_(200, response.status_code)
+            assert 200 == response.status_code
             html = response.get_data(as_text=True)
             assert 'settingUp: false' in html
 
     def test_redirect_to_sign_in(self):
         with self.app.test_request_context('/admin/web/collection/a/(b)/book/c/(d)'):
             response = self.manager.admin_view_controller("a/(b)", "c/(d)")
-            eq_(302, response.status_code)
+            assert 302 == response.status_code
             location = response.headers.get("Location")
             assert "sign_in" in location
             assert "admin%2Fweb" in location
@@ -148,8 +146,8 @@ class TestViewController(AdminControllerTest):
             flask.session['admin_email'] = self.admin.email
             flask.session['auth_type'] = PasswordAdminAuthenticationProvider.NAME
             response = self.manager.admin_view_controller(None, None)
-            eq_(200, response.status_code)
-            assert "Your admin account doesn't have access to any libraries" in response.get_data(as_text=True)
+            assert 200 == response.status_code
+            assert "Your admin account doesn't have access to any libraries" in response.data
 
         # Unless there aren't any libraries yet. In that case, an admin needs to
         # get in to create one.
@@ -159,8 +157,8 @@ class TestViewController(AdminControllerTest):
             flask.session['admin_email'] = self.admin.email
             flask.session['auth_type'] = PasswordAdminAuthenticationProvider.NAME
             response = self.manager.admin_view_controller(None, None)
-            eq_(200, response.status_code)
-            assert "<body>" in response.get_data(as_text=True)
+            assert 200 == response.status_code
+            assert "<body>" in response.data
 
         l1 = self._library(short_name="L1")
         l2 = self._library(short_name="L2")
@@ -172,7 +170,7 @@ class TestViewController(AdminControllerTest):
             flask.session['admin_email'] = self.admin.email
             flask.session['auth_type'] = PasswordAdminAuthenticationProvider.NAME
             response = self.manager.admin_view_controller(None, None)
-            eq_(302, response.status_code)
+            assert 302 == response.status_code
             location = response.headers.get("Location")
             assert "admin/web/collection/%s" % l1.short_name in location
 
@@ -182,13 +180,13 @@ class TestViewController(AdminControllerTest):
             flask.session['admin_email'] = self.admin.email
             flask.session['auth_type'] = PasswordAdminAuthenticationProvider.NAME
             response = self.manager.admin_view_controller(None, None, "config")
-            eq_(200, response.status_code)
+            assert 200 == response.status_code
 
     def test_csrf_token(self):
         self.admin.password_hashed = None
         with self.app.test_request_context('/admin'):
             response = self.manager.admin_view_controller(None, None)
-            eq_(200, response.status_code)
+            assert 200 == response.status_code
             html = response.get_data(as_text=True)
 
             # The CSRF token value is random, but the cookie and the html have the same value.
@@ -208,8 +206,8 @@ class TestViewController(AdminControllerTest):
             flask.session['admin_email'] = self.admin.email
             flask.session['auth_type'] = PasswordAdminAuthenticationProvider.NAME
             response = self.manager.admin_view_controller("collection", "book")
-            eq_(200, response.status_code)
-            html = response.get_data(as_text=True)
+            assert 200 == response.status_code
+            html = response.response[0]
             assert 'csrfToken: "%s"' % token in html
             assert token in response.headers.get('Set-Cookie')
 
@@ -220,7 +218,7 @@ class TestViewController(AdminControllerTest):
                 flask.session['admin_email'] = self.admin.email
                 flask.session['auth_type'] = PasswordAdminAuthenticationProvider.NAME
                 response = self.manager.admin_view_controller("collection", "book")
-                eq_(200, response.status_code)
+                assert 200 == response.status_code
                 html = response.get_data(as_text=True)
 
                 assert ('tos_link_href: "%s",' % expect_href) in html
@@ -251,7 +249,7 @@ class TestViewController(AdminControllerTest):
             flask.session['admin_email'] = self.admin.email
             flask.session['auth_type'] = PasswordAdminAuthenticationProvider.NAME
             response = self.manager.admin_view_controller("collection", "book")
-            eq_(200, response.status_code)
+            assert 200 == response.status_code
             html = response.get_data(as_text=True)
             assert 'showCircEventsDownload: true' in html
 
@@ -262,7 +260,7 @@ class TestViewController(AdminControllerTest):
             flask.session['admin_email'] = self.admin.email
             flask.session['auth_type'] = PasswordAdminAuthenticationProvider.NAME
             response = self.manager.admin_view_controller("collection", "book")
-            eq_(200, response.status_code)
+            assert 200 == response.status_code
             html = response.get_data(as_text=True)
             assert "\"role\": \"librarian-all\"" in html
             assert "\"role\": \"manager\", \"library\": \"%s\"" % self._default_library.short_name in html
@@ -270,7 +268,7 @@ class TestViewController(AdminControllerTest):
 class TestAdminCirculationManagerController(AdminControllerTest):
     def test_require_system_admin(self):
         with self.request_context_with_admin('/admin'):
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_work_controller.require_system_admin)
 
             self.admin.add_role(AdminRole.SYSTEM_ADMIN)
@@ -278,7 +276,7 @@ class TestAdminCirculationManagerController(AdminControllerTest):
 
     def test_require_sitewide_library_manager(self):
         with self.request_context_with_admin('/admin'):
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_work_controller.require_sitewide_library_manager)
 
             self.admin.add_role(AdminRole.SITEWIDE_LIBRARY_MANAGER)
@@ -286,7 +284,7 @@ class TestAdminCirculationManagerController(AdminControllerTest):
 
     def test_require_library_manager(self):
         with self.request_context_with_admin('/admin'):
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_work_controller.require_library_manager,
                           self._default_library)
 
@@ -295,7 +293,7 @@ class TestAdminCirculationManagerController(AdminControllerTest):
 
     def test_require_librarian(self):
         with self.request_context_with_admin('/admin'):
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_work_controller.require_librarian,
                           self._default_library)
 
@@ -304,8 +302,8 @@ class TestAdminCirculationManagerController(AdminControllerTest):
 
 class TestSignInController(AdminControllerTest):
 
-    def setup(self):
-        super(TestSignInController, self).setup()
+    def setup_method(self):
+        super(TestSignInController, self).setup_method()
         self.admin.credential = json.dumps({
             'access_token': 'abc123',
             'client_id': '', 'client_secret': '',
@@ -320,7 +318,7 @@ class TestSignInController(AdminControllerTest):
 
             # An admin exists, but they have no password and there's
             # no auth service set up.
-            eq_([], ctrl.admin_auth_providers)
+            assert [] == ctrl.admin_auth_providers
 
             # The auth service exists.
             create(
@@ -328,27 +326,27 @@ class TestSignInController(AdminControllerTest):
                 protocol=ExternalIntegration.GOOGLE_OAUTH,
                 goal=ExternalIntegration.ADMIN_AUTH_GOAL
             )
-            eq_(1, len(ctrl.admin_auth_providers))
-            eq_(GoogleOAuthAdminAuthenticationProvider.NAME, ctrl.admin_auth_providers[0].NAME)
+            assert 1 == len(ctrl.admin_auth_providers)
+            assert GoogleOAuthAdminAuthenticationProvider.NAME == ctrl.admin_auth_providers[0].NAME
 
             # Here's another admin with a password.
             pw_admin, ignore = create(self._db, Admin, email="pw@nypl.org")
             pw_admin.password = "password"
-            eq_(2, len(ctrl.admin_auth_providers))
-            eq_(set([GoogleOAuthAdminAuthenticationProvider.NAME, PasswordAdminAuthenticationProvider.NAME]),
+            assert 2 == len(ctrl.admin_auth_providers)
+            assert (set([GoogleOAuthAdminAuthenticationProvider.NAME, PasswordAdminAuthenticationProvider.NAME]) ==
                 set([provider.NAME for provider in ctrl.admin_auth_providers]))
 
             # Only an admin with a password.
             self._db.delete(self.admin)
-            eq_(2, len(ctrl.admin_auth_providers))
-            eq_(set([GoogleOAuthAdminAuthenticationProvider.NAME, PasswordAdminAuthenticationProvider.NAME]),
+            assert 2 == len(ctrl.admin_auth_providers)
+            assert (set([GoogleOAuthAdminAuthenticationProvider.NAME, PasswordAdminAuthenticationProvider.NAME]) ==
                 set([provider.NAME for provider in ctrl.admin_auth_providers]))
 
             # No admins. Someone new could still log in with google if domains are
             # configured.
             self._db.delete(pw_admin)
-            eq_(1, len(ctrl.admin_auth_providers))
-            eq_(GoogleOAuthAdminAuthenticationProvider.NAME, ctrl.admin_auth_providers[0].NAME)
+            assert 1 == len(ctrl.admin_auth_providers)
+            assert GoogleOAuthAdminAuthenticationProvider.NAME == ctrl.admin_auth_providers[0].NAME
 
     def test_admin_auth_provider(self):
         with self.app.test_request_context('/admin'):
@@ -366,7 +364,7 @@ class TestSignInController(AdminControllerTest):
 
             # But not a password auth provider, since no admin has a password.
             auth = ctrl.admin_auth_provider(PasswordAdminAuthenticationProvider.NAME)
-            eq_(None, auth)
+            assert None == auth
 
             # Here's another admin with a password.
             pw_admin, ignore = create(self._db, Admin, email="pw@nypl.org")
@@ -384,7 +382,7 @@ class TestSignInController(AdminControllerTest):
             flask.session['admin_email'] = self.admin.email
             flask.session['auth_type'] = GoogleOAuthAdminAuthenticationProvider.NAME
             response = self.manager.admin_sign_in_controller.authenticated_admin_from_request()
-            eq_(ADMIN_AUTH_NOT_CONFIGURED, response)
+            assert ADMIN_AUTH_NOT_CONFIGURED == response
 
         # Works once the admin auth service exists.
         create(
@@ -396,35 +394,35 @@ class TestSignInController(AdminControllerTest):
             flask.session['admin_email'] = self.admin.email
             flask.session['auth_type'] = GoogleOAuthAdminAuthenticationProvider.NAME
             response = self.manager.admin_sign_in_controller.authenticated_admin_from_request()
-            eq_(self.admin, response)
+            assert self.admin == response
 
         # Returns an error if you aren't authenticated.
         with self.app.test_request_context('/admin'):
             # You get back a problem detail when you're not authenticated.
             response = self.manager.admin_sign_in_controller.authenticated_admin_from_request()
-            eq_(401, response.status_code)
-            eq_(INVALID_ADMIN_CREDENTIALS.detail, response.detail)
+            assert 401 == response.status_code
+            assert INVALID_ADMIN_CREDENTIALS.detail == response.detail
 
         # Returns an error if the admin email or auth type is missing from the session.
         with self.app.test_request_context('/admin'):
             flask.session['auth_type'] = GoogleOAuthAdminAuthenticationProvider.NAME
             response = self.manager.admin_sign_in_controller.authenticated_admin_from_request()
-            eq_(401, response.status_code)
-            eq_(INVALID_ADMIN_CREDENTIALS.detail, response.detail)
+            assert 401 == response.status_code
+            assert INVALID_ADMIN_CREDENTIALS.detail == response.detail
 
         with self.app.test_request_context('/admin'):
             flask.session['admin_email'] = self.admin.email
             response = self.manager.admin_sign_in_controller.authenticated_admin_from_request()
-            eq_(401, response.status_code)
-            eq_(INVALID_ADMIN_CREDENTIALS.detail, response.detail)
+            assert 401 == response.status_code
+            assert INVALID_ADMIN_CREDENTIALS.detail == response.detail
 
         # Returns an error if the admin authentication type isn't configured.
         with self.app.test_request_context('/admin'):
             flask.session['admin_email'] = self.admin.email
             flask.session['auth_type'] = PasswordAdminAuthenticationProvider.NAME
             response = self.manager.admin_sign_in_controller.authenticated_admin_from_request()
-            eq_(400, response.status_code)
-            eq_(ADMIN_AUTH_MECHANISM_NOT_CONFIGURED.detail, response.detail)
+            assert 400 == response.status_code
+            assert ADMIN_AUTH_MECHANISM_NOT_CONFIGURED.detail == response.detail
 
     def test_authenticated_admin(self):
 
@@ -434,7 +432,7 @@ class TestSignInController(AdminControllerTest):
             self._db, Configuration.BASE_URL_KEY
         )
         base_url.value = None
-        eq_(None, base_url.value)
+        assert None == base_url.value
 
 
         # Creates a new admin with fresh details.
@@ -447,20 +445,20 @@ class TestSignInController(AdminControllerTest):
         with self.app.test_request_context('/admin/sign_in?redirect=foo'):
             flask.request.url = "http://chosen-hostname/admin/sign_in?redirect=foo"
             admin = self.manager.admin_sign_in_controller.authenticated_admin(new_admin_details)
-            eq_('admin@nypl.org', admin.email)
-            eq_('gnarly', admin.credential)
+            assert 'admin@nypl.org' == admin.email
+            assert 'gnarly' == admin.credential
             [role] = admin.roles
-            eq_(AdminRole.LIBRARY_MANAGER, role.role)
-            eq_(self._default_library, role.library)
+            assert AdminRole.LIBRARY_MANAGER == role.role
+            assert self._default_library == role.library
 
             # Also sets up the admin's flask session.
-            eq_("admin@nypl.org", flask.session["admin_email"])
-            eq_(GoogleOAuthAdminAuthenticationProvider.NAME, flask.session["auth_type"])
-            eq_(True, flask.session.permanent)
+            assert "admin@nypl.org" == flask.session["admin_email"]
+            assert GoogleOAuthAdminAuthenticationProvider.NAME == flask.session["auth_type"]
+            assert True == flask.session.permanent
 
         # The first successfully authenticated admin user automatically
         # sets the site's base URL.
-        eq_("http://chosen-hostname/", base_url.value)
+        assert "http://chosen-hostname/" == base_url.value
 
         # Or overwrites credentials for an existing admin.
         existing_admin_details = {
@@ -472,21 +470,21 @@ class TestSignInController(AdminControllerTest):
         with self.app.test_request_context('/admin/sign_in?redirect=foo'):
             flask.request.url = "http://a-different-hostname/"
             admin = self.manager.admin_sign_in_controller.authenticated_admin(existing_admin_details)
-            eq_(self.admin.id, admin.id)
-            eq_('b-a-n-a-n-a-s', self.admin.credential)
+            assert self.admin.id == admin.id
+            assert 'b-a-n-a-n-a-s' == self.admin.credential
             # No roles were created since the admin already existed.
-            eq_([], admin.roles)
+            assert [] == admin.roles
 
         # We already set the site's base URL, and it doesn't get set
         # to a different value just because someone authenticated
         # through a different hostname.
-        eq_("http://chosen-hostname/", base_url.value)
+        assert "http://chosen-hostname/" == base_url.value
 
     def test_admin_signin(self):
         # Returns an error if there's no admin auth service.
         with self.app.test_request_context('/admin/sign_in?redirect=foo'):
             response = self.manager.admin_sign_in_controller.sign_in()
-            eq_(ADMIN_AUTH_NOT_CONFIGURED, response)
+            assert ADMIN_AUTH_NOT_CONFIGURED == response
 
         create(
             self._db, ExternalIntegration,
@@ -498,7 +496,7 @@ class TestSignInController(AdminControllerTest):
         # but no signed in admin.
         with self.app.test_request_context('/admin/sign_in?redirect=foo'):
             response = self.manager.admin_sign_in_controller.sign_in()
-            eq_(200, response.status_code)
+            assert 200 == response.status_code
             response_data = response.get_data(as_text=True)
             assert "GOOGLE REDIRECT" in response_data
             assert "Sign in with Google" in response_data
@@ -510,7 +508,7 @@ class TestSignInController(AdminControllerTest):
         self.admin.password = "password"
         with self.app.test_request_context('/admin/sign_in?redirect=foo'):
             response = self.manager.admin_sign_in_controller.sign_in()
-            eq_(200, response.status_code)
+            assert 200 == response.status_code
             response_data = response.get_data(as_text=True)
             assert "GOOGLE REDIRECT" in response_data
             assert "Sign in with Google" in response_data
@@ -522,8 +520,8 @@ class TestSignInController(AdminControllerTest):
             flask.session['admin_email'] = self.admin.email
             flask.session['auth_type'] = PasswordAdminAuthenticationProvider.NAME
             response = self.manager.admin_sign_in_controller.sign_in()
-            eq_(302, response.status_code)
-            eq_("foo", response.headers["Location"])
+            assert 302 == response.status_code
+            assert "foo" == response.headers["Location"]
 
     def test_redirect_after_google_sign_in(self):
         self._db.delete(self.admin)
@@ -531,14 +529,14 @@ class TestSignInController(AdminControllerTest):
         # Returns an error if there's no admin auth service.
         with self.app.test_request_context('/admin/GoogleOAuth/callback'):
             response = self.manager.admin_sign_in_controller.redirect_after_google_sign_in()
-            eq_(ADMIN_AUTH_NOT_CONFIGURED, response)
+            assert ADMIN_AUTH_NOT_CONFIGURED == response
 
         # Returns an error if the admin auth service isn't google.
         admin, ignore = create(self._db, Admin, email="admin@nypl.org")
         admin.password = "password"
         with self.app.test_request_context('/admin/GoogleOAuth/callback'):
             response = self.manager.admin_sign_in_controller.redirect_after_google_sign_in()
-            eq_(ADMIN_AUTH_MECHANISM_NOT_CONFIGURED, response)
+            assert ADMIN_AUTH_MECHANISM_NOT_CONFIGURED == response
 
         self._db.delete(admin)
         auth_integration, ignore = create(
@@ -553,26 +551,26 @@ class TestSignInController(AdminControllerTest):
         # Returns an error if google oauth fails..
         with self.app.test_request_context('/admin/GoogleOAuth/callback?error=foo'):
             response = self.manager.admin_sign_in_controller.redirect_after_google_sign_in()
-            eq_(400, response.status_code)
+            assert 400 == response.status_code
 
         # Returns an error if the admin email isn't a staff email.
         setting.value = json.dumps(["alibrary.org"])
         with self.app.test_request_context('/admin/GoogleOAuth/callback?code=1234&state=foo'):
             response = self.manager.admin_sign_in_controller.redirect_after_google_sign_in()
-            eq_(401, response.status_code)
+            assert 401 == response.status_code
 
         # Redirects to the state parameter if the admin email is valid.
         setting.value = json.dumps(["nypl.org"])
         with self.app.test_request_context('/admin/GoogleOAuth/callback?code=1234&state=foo'):
             response = self.manager.admin_sign_in_controller.redirect_after_google_sign_in()
-            eq_(302, response.status_code)
-            eq_("foo", response.headers["Location"])
+            assert 302 == response.status_code
+            assert "foo" == response.headers["Location"]
 
     def test_password_sign_in(self):
         # Returns an error if there's no admin auth service and no admins.
         with self.app.test_request_context('/admin/sign_in_with_password'):
             response = self.manager.admin_sign_in_controller.password_sign_in()
-            eq_(ADMIN_AUTH_NOT_CONFIGURED, response)
+            assert ADMIN_AUTH_NOT_CONFIGURED == response
 
         # Returns an error if the admin auth service isn't password auth.
         auth_integration, ignore = create(
@@ -582,7 +580,7 @@ class TestSignInController(AdminControllerTest):
         )
         with self.app.test_request_context('/admin/sign_in_with_password'):
             response = self.manager.admin_sign_in_controller.password_sign_in()
-            eq_(ADMIN_AUTH_MECHANISM_NOT_CONFIGURED, response)
+            assert ADMIN_AUTH_MECHANISM_NOT_CONFIGURED == response
 
         self._db.delete(auth_integration)
         admin, ignore = create(self._db, Admin, email="admin@nypl.org")
@@ -596,7 +594,7 @@ class TestSignInController(AdminControllerTest):
                 ("redirect", "foo")
             ])
             response = self.manager.admin_sign_in_controller.password_sign_in()
-            eq_(401, response.status_code)
+            assert 401 == response.status_code
 
         # Returns an error if the password doesn't match.
         self.admin.password = "password"
@@ -607,7 +605,7 @@ class TestSignInController(AdminControllerTest):
                 ("redirect", "foo")
             ])
             response = self.manager.admin_sign_in_controller.password_sign_in()
-            eq_(401, response.status_code)
+            assert 401 == response.status_code
 
         # Redirects if the admin email/password combination is valid.
         with self.app.test_request_context('/admin/sign_in_with_password', method='POST'):
@@ -617,8 +615,8 @@ class TestSignInController(AdminControllerTest):
                 ("redirect", "foo")
             ])
             response = self.manager.admin_sign_in_controller.password_sign_in()
-            eq_(302, response.status_code)
-            eq_("foo", response.headers["Location"])
+            assert 302 == response.status_code
+            assert "foo" == response.headers["Location"]
 
     def test_change_password(self):
         admin, ignore = create(self._db, Admin, email=self._str)
@@ -628,9 +626,9 @@ class TestSignInController(AdminControllerTest):
                 ("password", "new"),
             ])
             response = self.manager.admin_sign_in_controller.change_password()
-            eq_(200, response.status_code)
-            eq_(admin, Admin.authenticate(self._db, admin.email, "new"))
-            eq_(None, Admin.authenticate(self._db, admin.email, "old"))
+            assert 200 == response.status_code
+            assert admin == Admin.authenticate(self._db, admin.email, "new")
+            assert None == Admin.authenticate(self._db, admin.email, "old")
 
     def test_sign_out(self):
         admin, ignore = create(self._db, Admin, email=self._str)
@@ -639,16 +637,16 @@ class TestSignInController(AdminControllerTest):
             flask.session["admin_email"] = admin.email
             flask.session["auth_type"] = PasswordAdminAuthenticationProvider.NAME
             response = self.manager.admin_sign_in_controller.sign_out()
-            eq_(302, response.status_code)
+            assert 302 == response.status_code
 
             # The admin's credentials have been removed from the session.
-            eq_(None, flask.session.get("admin_email"))
-            eq_(None, flask.session.get("auth_type"))
+            assert None == flask.session.get("admin_email")
+            assert None == flask.session.get("auth_type")
 
 
 class TestPatronController(AdminControllerTest):
-    def setup(self):
-        super(TestPatronController, self).setup()
+    def setup_method(self):
+        super(TestPatronController, self).setup_method()
         self.admin.add_role(AdminRole.LIBRARIAN, self._default_library)
 
     def test__load_patrondata(self):
@@ -673,25 +671,24 @@ class TestPatronController(AdminControllerTest):
 
         # User doesn't have admin permission
         with self.request_context_with_library("/"):
-            assert_raises(AdminNotAuthorized, m, authenticator)
+            pytest.raises(AdminNotAuthorized, m, authenticator)
 
         # No form data specified
         with self.request_context_with_library_and_admin("/"):
             response = m(authenticator)
-            eq_(404, response.status_code)
-            eq_(NO_SUCH_PATRON.uri, response.uri)
-            eq_("Please enter a patron identifier", response.detail)
+            assert 404 == response.status_code
+            assert NO_SUCH_PATRON.uri == response.uri
+            assert "Please enter a patron identifier" == response.detail
 
         # AuthenticationProvider has no Authenticators.
         with self.request_context_with_library_and_admin("/"):
             flask.request.form = form
             response = m(authenticator)
 
-            eq_(404, response.status_code)
-            eq_(NO_SUCH_PATRON.uri, response.uri)
-            eq_("This library has no authentication providers, so it has no patrons.",
-                response.detail
-            )
+            assert 404 == response.status_code
+            assert NO_SUCH_PATRON.uri == response.uri
+            assert ("This library has no authentication providers, so it has no patrons." ==
+                response.detail)
 
         # Authenticator can't find patron with this identifier
         authenticator.providers.append(auth_provider)
@@ -699,9 +696,9 @@ class TestPatronController(AdminControllerTest):
             flask.request.form = form
             response = m(authenticator)
 
-            eq_(404, response.status_code)
-            eq_(NO_SUCH_PATRON.uri, response.uri)
-            eq_("No patron with identifier %s was found at your library" % identifier,
+            assert 404 == response.status_code
+            assert NO_SUCH_PATRON.uri == response.uri
+            assert ("No patron with identifier %s was found at your library" % identifier ==
             response.detail)
 
     def test_lookup_patron(self):
@@ -727,13 +724,13 @@ class TestPatronController(AdminControllerTest):
             flask.request.form = MultiDict([("identifier", object())])
             response = controller.lookup_patron(authenticator)
             # The authenticator was passed into _load_patrondata()
-            eq_(authenticator, controller.called_with)
+            assert authenticator == controller.called_with
 
             # _load_patrondata() returned a PatronData object. We
             # converted it to a dictionary, which will be dumped to
             # JSON on the way out.
-            eq_("An Identifier", response['authorization_identifier'])
-            eq_("A Patron", response['personal_name'])
+            assert "An Identifier" == response['authorization_identifier']
+            assert "A Patron" == response['personal_name']
 
     def test_reset_adobe_id(self):
         # Here's a patron with two Adobe-relevant credentials.
@@ -767,14 +764,14 @@ class TestPatronController(AdminControllerTest):
             flask.request.form = form
 
             response = controller.reset_adobe_id(authenticator)
-            eq_(200, response.status_code)
+            assert 200 == response.status_code
 
             # _load_patrondata was called and gave us information about
             # which Patron to modify.
             controller.called_with = authenticator
 
         # Both of the Patron's credentials are gone.
-        eq_(patron.credentials, [])
+        assert patron.credentials == []
 
         # Here, the AuthenticationProvider finds a PatronData, but the
         # controller can't turn it into a Patron because it's too vague.
@@ -783,14 +780,14 @@ class TestPatronController(AdminControllerTest):
             flask.request.form = form
             response = controller.reset_adobe_id(authenticator)
 
-            eq_(404, response.status_code)
-            eq_(NO_SUCH_PATRON.uri, response.uri)
+            assert 404 == response.status_code
+            assert NO_SUCH_PATRON.uri == response.uri
             assert "Could not create local patron object" in response.detail
 
 class TestTimestampsController(AdminControllerTest):
 
-    def setup(self):
-        super(TestTimestampsController, self).setup()
+    def setup_method(self):
+        super(TestTimestampsController, self).setup_method()
         for timestamp in self._db.query(Timestamp):
             self._db.delete(timestamp)
 
@@ -835,7 +832,7 @@ class TestTimestampsController(AdminControllerTest):
 
     def test_diagnostics_admin_not_authorized(self):
         with self.request_context_with_admin("/"):
-            assert_raises(AdminNotAuthorized, self.manager.timestamps_controller.diagnostics)
+            pytest.raises(AdminNotAuthorized, self.manager.timestamps_controller.diagnostics)
 
     def test_diagnostics(self):
         duration = (self.finish - self.start).total_seconds()
@@ -844,52 +841,52 @@ class TestTimestampsController(AdminControllerTest):
             self.admin.add_role(AdminRole.SYSTEM_ADMIN)
             response = self.manager.timestamps_controller.diagnostics()
 
-        eq_(set(response.keys()), set(["coverage_provider", "monitor", "script", "other"]))
+        assert set(response.keys()) == set(["coverage_provider", "monitor", "script", "other"])
 
         cp_service = response["coverage_provider"]
         cp_name, cp_collection = list(cp_service.items())[0]
-        eq_(cp_name, "test_cp")
+        assert cp_name == "test_cp"
         cp_collection_name, [cp_timestamp] = list(cp_collection.items())[0]
-        eq_(cp_collection_name, self.collection.name)
-        eq_(cp_timestamp.get("exception"), None)
-        eq_(cp_timestamp.get("start"), self.start)
-        eq_(cp_timestamp.get("duration"), duration)
-        eq_(cp_timestamp.get("achievements"), None)
+        assert cp_collection_name == self.collection.name
+        assert cp_timestamp.get("exception") == None
+        assert cp_timestamp.get("start") == self.start
+        assert cp_timestamp.get("duration") == duration
+        assert cp_timestamp.get("achievements") == None
 
         monitor_service = response["monitor"]
         monitor_name, monitor_collection = list(monitor_service.items())[0]
-        eq_(monitor_name, "test_monitor")
+        assert monitor_name == "test_monitor"
         monitor_collection_name, [monitor_timestamp] = list(monitor_collection.items())[0]
-        eq_(monitor_collection_name, self.collection.name)
-        eq_(monitor_timestamp.get("exception"), "stack trace string")
-        eq_(monitor_timestamp.get("start"), self.start)
-        eq_(monitor_timestamp.get("duration"), duration)
-        eq_(monitor_timestamp.get("achievements"), None)
+        assert monitor_collection_name == self.collection.name
+        assert monitor_timestamp.get("exception") == "stack trace string"
+        assert monitor_timestamp.get("start") == self.start
+        assert monitor_timestamp.get("duration") == duration
+        assert monitor_timestamp.get("achievements") == None
 
         script_service = response["script"]
         script_name, script_collection = list(script_service.items())[0]
-        eq_(script_name, "test_script")
+        assert script_name == "test_script"
         script_collection_name, [script_timestamp] = list(script_collection.items())[0]
-        eq_(script_collection_name, "No associated collection")
-        eq_(script_timestamp.get("exception"), None)
-        eq_(script_timestamp.get("duration"), duration)
-        eq_(script_timestamp.get("start"), self.start)
-        eq_(script_timestamp.get("achievements"), "ran a script")
+        assert script_collection_name == "No associated collection"
+        assert script_timestamp.get("exception") == None
+        assert script_timestamp.get("duration") == duration
+        assert script_timestamp.get("start") == self.start
+        assert script_timestamp.get("achievements") == "ran a script"
 
         other_service = response["other"]
         other_name, other_collection = list(other_service.items())[0]
-        eq_(other_name, "test_other")
+        assert other_name == "test_other"
         other_collection_name, [other_timestamp] = list(other_collection.items())[0]
-        eq_(other_collection_name, "No associated collection")
-        eq_(other_timestamp.get("exception"), None)
-        eq_(other_timestamp.get("duration"), duration)
-        eq_(other_timestamp.get("start"), self.start)
-        eq_(other_timestamp.get("achievements"), None)
+        assert other_collection_name == "No associated collection"
+        assert other_timestamp.get("exception") == None
+        assert other_timestamp.get("duration") == duration
+        assert other_timestamp.get("start") == self.start
+        assert other_timestamp.get("achievements") == None
 
 class TestFeedController(AdminControllerTest):
 
-    def setup(self):
-        super(TestFeedController, self).setup()
+    def setup_method(self):
+        super(TestFeedController, self).setup_method()
         self.admin.add_role(AdminRole.LIBRARIAN, self._default_library)
 
     def test_complaints(self):
@@ -928,11 +925,11 @@ class TestFeedController(AdminControllerTest):
             feed = feedparser.parse(response.get_data(as_text=True))
             entries = feed['entries']
 
-            eq_(len(entries), 2)
+            assert len(entries) == 2
 
         self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
         with self.request_context_with_library_and_admin("/"):
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_feed_controller.complaints)
 
     def test_suppressed(self):
@@ -945,12 +942,12 @@ class TestFeedController(AdminControllerTest):
             response = self.manager.admin_feed_controller.suppressed()
             feed = feedparser.parse(response.get_data(as_text=True))
             entries = feed['entries']
-            eq_(1, len(entries))
-            eq_(suppressed_work.title, entries[0]['title'])
+            assert 1 == len(entries)
+            assert suppressed_work.title == entries[0]['title']
 
         self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
         with self.request_context_with_library_and_admin("/"):
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_feed_controller.suppressed)
 
     def test_genres(self):
@@ -959,15 +956,15 @@ class TestFeedController(AdminControllerTest):
 
             for name in genres:
                 top = "Fiction" if genres[name].is_fiction else "Nonfiction"
-                eq_(response[top][name], dict({
+                assert response[top][name] == dict({
                     "name": name,
                     "parents": [parent.name for parent in genres[name].parents],
                     "subgenres": [subgenre.name for subgenre in genres[name].subgenres]
-                }))
+                })
 
 class TestCustomListsController(AdminControllerTest):
-    def setup(self):
-        super(TestCustomListsController, self).setup()
+    def setup_method(self):
+        super(TestCustomListsController, self).setup_method()
         self.admin.add_role(AdminRole.LIBRARIAN, self._default_library)
 
     def test_custom_lists_get(self):
@@ -984,27 +981,27 @@ class TestCustomListsController(AdminControllerTest):
 
         with self.request_context_with_library_and_admin("/"):
             response = self.manager.admin_custom_lists_controller.custom_lists()
-            eq_(2, len(response.get("custom_lists")))
+            assert 2 == len(response.get("custom_lists"))
             lists = response.get("custom_lists")
             [l1, l2] = sorted(lists, key=lambda l: l.get("id"))
 
-            eq_(one_entry.id, l1.get("id"))
-            eq_(one_entry.name, l1.get("name"))
-            eq_(1, l1.get("entry_count"))
-            eq_(1, len(l1.get("collections")))
+            assert one_entry.id == l1.get("id")
+            assert one_entry.name == l1.get("name")
+            assert 1 == l1.get("entry_count")
+            assert 1 == len(l1.get("collections"))
             [c] = l1.get("collections")
-            eq_(collection.name, c.get("name"))
-            eq_(collection.id, c.get("id"))
-            eq_(collection.protocol, c.get("protocol"))
+            assert collection.name == c.get("name")
+            assert collection.id == c.get("id")
+            assert collection.protocol == c.get("protocol")
 
-            eq_(no_entries.id, l2.get("id"))
-            eq_(no_entries.name, l2.get("name"))
-            eq_(0, l2.get("entry_count"))
-            eq_(0, len(l2.get("collections")))
+            assert no_entries.id == l2.get("id")
+            assert no_entries.name == l2.get("name")
+            assert 0 == l2.get("entry_count")
+            assert 0 == len(l2.get("collections"))
 
         self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
         with self.request_context_with_library_and_admin("/"):
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_custom_lists_controller.custom_lists)
 
     def test_custom_lists_post_errors(self):
@@ -1014,7 +1011,7 @@ class TestCustomListsController(AdminControllerTest):
                 ("name", "name"),
             ])
             response = self.manager.admin_custom_lists_controller.custom_lists()
-            eq_(MISSING_CUSTOM_LIST, response)
+            assert MISSING_CUSTOM_LIST == response
 
         library = self._library()
         data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
@@ -1026,7 +1023,7 @@ class TestCustomListsController(AdminControllerTest):
                 ("name", list.name),
             ])
             response = self.manager.admin_custom_lists_controller.custom_lists()
-            eq_(CANNOT_CHANGE_LIBRARY_FOR_CUSTOM_LIST, response)
+            assert CANNOT_CHANGE_LIBRARY_FOR_CUSTOM_LIST == response
 
         list, ignore = create(self._db, CustomList, name=self._str, data_source=data_source, library=self._default_library)
         with self.request_context_with_library_and_admin("/", method='POST'):
@@ -1034,7 +1031,7 @@ class TestCustomListsController(AdminControllerTest):
                 ("name", list.name),
             ])
             response = self.manager.admin_custom_lists_controller.custom_lists()
-            eq_(CUSTOM_LIST_NAME_ALREADY_IN_USE, response)
+            assert CUSTOM_LIST_NAME_ALREADY_IN_USE == response
 
         l1, ignore = create(self._db, CustomList, name=self._str, data_source=data_source, library=self._default_library)
         l2, ignore = create(self._db, CustomList, name=self._str, data_source=data_source, library=self._default_library)
@@ -1044,7 +1041,7 @@ class TestCustomListsController(AdminControllerTest):
                 ("name", l1.name),
             ])
             response = self.manager.admin_custom_lists_controller.custom_lists()
-            eq_(CUSTOM_LIST_NAME_ALREADY_IN_USE, response)
+            assert CUSTOM_LIST_NAME_ALREADY_IN_USE == response
 
         with self.request_context_with_library_and_admin("/", method='POST'):
             flask.request.form = MultiDict([
@@ -1052,7 +1049,7 @@ class TestCustomListsController(AdminControllerTest):
                 ("collections", json.dumps([12345])),
             ])
             response = self.manager.admin_custom_lists_controller.custom_lists()
-            eq_(MISSING_COLLECTION, response)
+            assert MISSING_COLLECTION == response
 
         admin, ignore = create(self._db, Admin, email="test@nypl.org")
         library = self._library()
@@ -1062,7 +1059,7 @@ class TestCustomListsController(AdminControllerTest):
                 ("name", "name"),
                 ("collections", json.dumps([])),
             ])
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_custom_lists_controller.custom_lists)
 
     def test_custom_lists_post_collection_with_wrong_library(self):
@@ -1074,7 +1071,7 @@ class TestCustomListsController(AdminControllerTest):
                 ("collections", json.dumps([collection.id])),
             ])
             response = self.manager.admin_custom_lists_controller.custom_lists()
-            eq_(COLLECTION_NOT_ASSOCIATED_WITH_LIBRARY, response)
+            assert COLLECTION_NOT_ASSOCIATED_WITH_LIBRARY == response
 
     def test_custom_lists_create(self):
         work = self._work(with_open_access_download=True)
@@ -1089,17 +1086,17 @@ class TestCustomListsController(AdminControllerTest):
             ])
 
             response = self.manager.admin_custom_lists_controller.custom_lists()
-            eq_(201, response.status_code)
+            assert 201 == response.status_code
 
             [list] = self._db.query(CustomList).all()
-            eq_(list.id, int(response.get_data(as_text=True)))
-            eq_(self._default_library, list.library)
-            eq_("List", list.name)
-            eq_(1, len(list.entries))
-            eq_(work, list.entries[0].work)
-            eq_(work.presentation_edition, list.entries[0].edition)
-            eq_(True, list.entries[0].featured)
-            eq_([collection], list.collections)
+            assert list.id == int(response.get_data(as_text=True))
+            assert self._default_library == list.library
+            assert "List" == list.name
+            assert 1 == len(list.entries)
+            assert work == list.entries[0].work
+            assert work.presentation_edition == list.entries[0].edition
+            assert True == list.entries[0].featured
+            assert [collection] == list.collections
 
     def test_custom_list_get(self):
         data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
@@ -1114,31 +1111,31 @@ class TestCustomListsController(AdminControllerTest):
             response = self.manager.admin_custom_lists_controller.custom_list(list.id)
             feed = feedparser.parse(response.get_data())
 
-            eq_(list.name, feed.feed.title)
-            eq_(2, len(feed.entries))
+            assert list.name == feed.feed.title
+            assert 2 == len(feed.entries)
 
             [self_custom_list_link] = [x['href'] for x in feed.feed['links']
                               if x['rel'] == "self"]
-            eq_(self_custom_list_link, feed.feed.id)
+            assert self_custom_list_link == feed.feed.id
 
             [entry1, entry2] = feed.entries
-            eq_(work1.title, entry1.get("title"))
-            eq_(work2.title, entry2.get("title"))
+            assert work1.title == entry1.get("title")
+            assert work2.title == entry2.get("title")
 
-            eq_(work1.presentation_edition.author, entry1.get("author"))
-            eq_(work2.presentation_edition.author, entry2.get("author"))
+            assert work1.presentation_edition.author == entry1.get("author")
+            assert work2.presentation_edition.author == entry2.get("author")
 
     def test_custom_list_get_errors(self):
         with self.request_context_with_library_and_admin("/"):
             response = self.manager.admin_custom_lists_controller.custom_list(123)
-            eq_(MISSING_CUSTOM_LIST, response)
+            assert MISSING_CUSTOM_LIST == response
 
         data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
         list, ignore = create(self._db, CustomList, name=self._str, library=self._default_library, data_source=data_source)
 
         self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
         with self.request_context_with_library_and_admin("/"):
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_custom_lists_controller.custom_list,
                           list.id)
 
@@ -1190,17 +1187,17 @@ class TestCustomListsController(AdminControllerTest):
             ])
 
             response = self.manager.admin_custom_lists_controller.custom_list(list.id)
-        eq_(200, response.status_code)
-        eq_(list.id, int(response.get_data(as_text=True)))
+        assert 200 == response.status_code
+        assert list.id == int(response.get_data(as_text=True))
 
-        eq_("new name", list.name)
-        eq_(set([w2, w3]),
+        assert "new name" == list.name
+        assert (set([w2, w3]) ==
             set([entry.work for entry in list.entries]))
-        eq_(new_collections, list.collections)
+        assert new_collections == list.collections
 
         # This change caused an immediate update to lane.size
         # based on information from the mocked search index.
-        eq_(2, lane.size)
+        assert 2 == lane.size
 
         self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
         with self.request_context_with_library_and_admin("/", method="POST"):
@@ -1210,7 +1207,7 @@ class TestCustomListsController(AdminControllerTest):
                 ("entries", json.dumps(new_entries)),
                 ("collections", json.dumps([c.id for c in new_collections])),
             ])
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_custom_lists_controller.custom_list,
                           list.id)
 
@@ -1268,16 +1265,16 @@ class TestCustomListsController(AdminControllerTest):
 
         with self.request_context_with_library_and_admin("/", method="DELETE"):
             response = self.manager.admin_custom_lists_controller.custom_list(list.id)
-            eq_(200, response.status_code)
+            assert 200 == response.status_code
 
         # The first CustomList and all of its entries have been removed.
         # Only the second one remains.
-        eq_([list2], self._db.query(CustomList).all())
-        eq_(list2.entries, self._db.query(CustomListEntry).all())
+        assert [list2] == self._db.query(CustomList).all()
+        assert list2.entries == self._db.query(CustomListEntry).all()
 
         # The first lane was automatically removed when it became
         # based on an empty set of CustomLists.
-        eq_(None, get_one(self._db, Lane, id=lane.id))
+        assert None == get_one(self._db, Lane, id=lane.id)
 
         # The second and third lanes were not removed, because they
         # weren't based solely on this specific list. But their .size
@@ -1287,26 +1284,26 @@ class TestCustomListsController(AdminControllerTest):
         # In the context of this test, this means that
         # MockExternalSearchIndex.count_works() was called, and we set
         # it up to always return 2.
-        eq_(2, lane2.size)
-        eq_(2, lane3.size)
+        assert 2 == lane2.size
+        assert 2 == lane3.size
 
     def test_custom_list_delete_errors(self):
         data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
         list, ignore = create(self._db, CustomList, name=self._str, data_source=data_source)
         with self.request_context_with_library_and_admin("/", method="DELETE"):
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_custom_lists_controller.custom_list,
                           list.id)
 
         self.admin.add_role(AdminRole.LIBRARY_MANAGER, self._default_library)
         with self.request_context_with_library_and_admin("/", method="DELETE"):
             response = self.manager.admin_custom_lists_controller.custom_list(123)
-            eq_(MISSING_CUSTOM_LIST, response)
+            assert MISSING_CUSTOM_LIST == response
 
 
 class TestLanesController(AdminControllerTest):
-    def setup(self):
-        super(TestLanesController, self).setup()
+    def setup_method(self):
+        super(TestLanesController, self).setup_method()
         self.admin.add_role(AdminRole.LIBRARY_MANAGER, self._default_library)
 
     def test_lanes_get(self):
@@ -1341,63 +1338,63 @@ class TestLanesController(AdminControllerTest):
         with self.request_context_with_library_and_admin("/"):
             flask.request.library = library
             # The admin is not a librarian for this library.
-            assert_raises(AdminNotAuthorized, self.manager.admin_lanes_controller.lanes)
+            pytest.raises(AdminNotAuthorized, self.manager.admin_lanes_controller.lanes)
             self.admin.add_role(AdminRole.LIBRARIAN, library)
             response = self.manager.admin_lanes_controller.lanes()
 
-            eq_(3, len(response.get("lanes")))
+            assert 3 == len(response.get("lanes"))
             [english_info, spanish_info, list_info] = response.get("lanes")
 
-            eq_(english.id, english_info.get("id"))
-            eq_(english.display_name, english_info.get("display_name"))
-            eq_(english.visible, english_info.get("visible"))
-            eq_(44, english_info.get("count"))
-            eq_([], english_info.get("custom_list_ids"))
-            eq_(True, english_info.get("inherit_parent_restrictions"))
+            assert english.id == english_info.get("id")
+            assert english.display_name == english_info.get("display_name")
+            assert english.visible == english_info.get("visible")
+            assert 44 == english_info.get("count")
+            assert [] == english_info.get("custom_list_ids")
+            assert True == english_info.get("inherit_parent_restrictions")
 
             [fiction_info] = english_info.get("sublanes")
-            eq_(english_fiction.id, fiction_info.get("id"))
-            eq_(english_fiction.display_name, fiction_info.get("display_name"))
-            eq_(english_fiction.visible, fiction_info.get("visible"))
-            eq_(33, fiction_info.get("count"))
-            eq_([], fiction_info.get("custom_list_ids"))
-            eq_(True, fiction_info.get("inherit_parent_restrictions"))
+            assert english_fiction.id == fiction_info.get("id")
+            assert english_fiction.display_name == fiction_info.get("display_name")
+            assert english_fiction.visible == fiction_info.get("visible")
+            assert 33 == fiction_info.get("count")
+            assert [] == fiction_info.get("custom_list_ids")
+            assert True == fiction_info.get("inherit_parent_restrictions")
 
             [sf_info] = fiction_info.get("sublanes")
-            eq_(english_sf.id, sf_info.get("id"))
-            eq_(english_sf.display_name, sf_info.get("display_name"))
-            eq_(english_sf.visible, sf_info.get("visible"))
-            eq_(22, sf_info.get("count"))
-            eq_([], sf_info.get("custom_list_ids"))
-            eq_(True, sf_info.get("inherit_parent_restrictions"))
+            assert english_sf.id == sf_info.get("id")
+            assert english_sf.display_name == sf_info.get("display_name")
+            assert english_sf.visible == sf_info.get("visible")
+            assert 22 == sf_info.get("count")
+            assert [] == sf_info.get("custom_list_ids")
+            assert True == sf_info.get("inherit_parent_restrictions")
 
-            eq_(spanish.id, spanish_info.get("id"))
-            eq_(spanish.display_name, spanish_info.get("display_name"))
-            eq_(spanish.visible, spanish_info.get("visible"))
-            eq_(11, spanish_info.get("count"))
-            eq_([], spanish_info.get("custom_list_ids"))
-            eq_(True, spanish_info.get("inherit_parent_restrictions"))
+            assert spanish.id == spanish_info.get("id")
+            assert spanish.display_name == spanish_info.get("display_name")
+            assert spanish.visible == spanish_info.get("visible")
+            assert 11 == spanish_info.get("count")
+            assert [] == spanish_info.get("custom_list_ids")
+            assert True == spanish_info.get("inherit_parent_restrictions")
 
-            eq_(lane_for_list.id, list_info.get("id"))
-            eq_(lane_for_list.display_name, list_info.get("display_name"))
-            eq_(lane_for_list.visible, list_info.get("visible"))
-            eq_(1, list_info.get("count"))
-            eq_([list.id], list_info.get("custom_list_ids"))
-            eq_(True, list_info.get("inherit_parent_restrictions"))
+            assert lane_for_list.id == list_info.get("id")
+            assert lane_for_list.display_name == list_info.get("display_name")
+            assert lane_for_list.visible == list_info.get("visible")
+            assert 1 == list_info.get("count")
+            assert [list.id] == list_info.get("custom_list_ids")
+            assert True == list_info.get("inherit_parent_restrictions")
 
     def test_lanes_post_errors(self):
         with self.request_context_with_library_and_admin("/", method='POST'):
             flask.request.form = MultiDict([
             ])
             response = self.manager.admin_lanes_controller.lanes()
-            eq_(NO_DISPLAY_NAME_FOR_LANE, response)
+            assert NO_DISPLAY_NAME_FOR_LANE == response
 
         with self.request_context_with_library_and_admin("/", method='POST'):
             flask.request.form = MultiDict([
                 ("display_name", "lane"),
             ])
             response = self.manager.admin_lanes_controller.lanes()
-            eq_(NO_CUSTOM_LISTS_FOR_LANE, response)
+            assert NO_CUSTOM_LISTS_FOR_LANE == response
 
         list, ignore = self._customlist(data_source_name=DataSource.LIBRARY_STAFF, num_entries=0)
         list.library = self._default_library
@@ -1409,7 +1406,7 @@ class TestLanesController(AdminControllerTest):
                 ("custom_list_ids", json.dumps([list.id])),
             ])
             response = self.manager.admin_lanes_controller.lanes()
-            eq_(MISSING_LANE, response)
+            assert MISSING_LANE == response
 
         library = self._library()
         with self.request_context_with_library_and_admin("/", method='POST'):
@@ -1418,7 +1415,7 @@ class TestLanesController(AdminControllerTest):
                 ("display_name", "lane"),
                 ("custom_list_ids", json.dumps([list.id])),
             ])
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_lanes_controller.lanes)
 
         lane1 = self._lane("lane1")
@@ -1431,7 +1428,7 @@ class TestLanesController(AdminControllerTest):
                 ("custom_list_ids", json.dumps([list.id])),
             ])
             response = self.manager.admin_lanes_controller.lanes()
-            eq_(CANNOT_EDIT_DEFAULT_LANE, response)
+            assert CANNOT_EDIT_DEFAULT_LANE == response
 
         lane1.customlists += [list]
 
@@ -1442,7 +1439,7 @@ class TestLanesController(AdminControllerTest):
                 ("custom_list_ids", json.dumps([list.id])),
             ])
             response = self.manager.admin_lanes_controller.lanes()
-            eq_(LANE_WITH_PARENT_AND_DISPLAY_NAME_ALREADY_EXISTS, response)
+            assert LANE_WITH_PARENT_AND_DISPLAY_NAME_ALREADY_EXISTS == response
 
         with self.request_context_with_library_and_admin("/", method="POST"):
             flask.request.form = MultiDict([
@@ -1450,7 +1447,7 @@ class TestLanesController(AdminControllerTest):
                 ("custom_list_ids", json.dumps([list.id])),
             ])
             response = self.manager.admin_lanes_controller.lanes()
-            eq_(LANE_WITH_PARENT_AND_DISPLAY_NAME_ALREADY_EXISTS, response)
+            assert LANE_WITH_PARENT_AND_DISPLAY_NAME_ALREADY_EXISTS == response
 
         with self.request_context_with_library_and_admin("/", method="POST"):
             flask.request.form = MultiDict([
@@ -1459,7 +1456,7 @@ class TestLanesController(AdminControllerTest):
                 ("custom_list_ids", json.dumps([list.id])),
             ])
             response = self.manager.admin_lanes_controller.lanes()
-            eq_(MISSING_LANE.uri, response.uri)
+            assert MISSING_LANE.uri == response.uri
 
         with self.request_context_with_library_and_admin("/", method="POST"):
             flask.request.form = MultiDict([
@@ -1468,7 +1465,7 @@ class TestLanesController(AdminControllerTest):
                 ("custom_list_ids", json.dumps(["12345"])),
             ])
             response = self.manager.admin_lanes_controller.lanes()
-            eq_(MISSING_CUSTOM_LIST.uri, response.uri)
+            assert MISSING_CUSTOM_LIST.uri == response.uri
 
     def test_lanes_create(self):
         list, ignore = self._customlist(data_source_name=DataSource.LIBRARY_STAFF, num_entries=0)
@@ -1486,21 +1483,21 @@ class TestLanesController(AdminControllerTest):
                 ("inherit_parent_restrictions", "false"),
             ])
             response = self.manager.admin_lanes_controller.lanes()
-            eq_(201, response.status_code)
+            assert 201 == response.status_code
 
             [lane] = self._db.query(Lane).filter(Lane.display_name=="lane")
-            eq_(lane.id, int(response.get_data(as_text=True)))
-            eq_(self._default_library, lane.library)
-            eq_("lane", lane.display_name)
-            eq_(parent, lane.parent)
-            eq_(None, lane.media)
-            eq_(1, len(lane.customlists))
-            eq_(list, lane.customlists[0])
-            eq_(False, lane.inherit_parent_restrictions)
-            eq_(0, lane.priority)
+            assert lane.id == int(response.get_data(as_text=True))
+            assert self._default_library == lane.library
+            assert "lane" == lane.display_name
+            assert parent == lane.parent
+            assert None == lane.media
+            assert 1 == len(lane.customlists)
+            assert list == lane.customlists[0]
+            assert False == lane.inherit_parent_restrictions
+            assert 0 == lane.priority
 
             # The sibling's priority has been shifted down to put the new lane at the top.
-            eq_(1, sibling.priority)
+            assert 1 == sibling.priority
 
     def test_lanes_edit(self):
 
@@ -1518,7 +1515,7 @@ class TestLanesController(AdminControllerTest):
         # When we add a list to the lane, the controller will ask the
         # search engine to update lane.size, and it will think there
         # are two works in the lane.
-        eq_(0, lane.size)
+        assert 0 == lane.size
         self.controller.search_engine.docs = dict(id1="value1", id2="value2")
 
         with self.request_context_with_library_and_admin("/", method="POST"):
@@ -1530,14 +1527,14 @@ class TestLanesController(AdminControllerTest):
             ])
 
             response = self.manager.admin_lanes_controller.lanes()
-            eq_(200, response.status_code)
-            eq_(lane.id, int(response.get_data(as_text=True)))
+            assert 200 == response.status_code
+            assert lane.id == int(response.get_data(as_text=True))
 
-            eq_("new name", lane.display_name)
-            eq_([list2], lane.customlists)
-            eq_(True, lane.inherit_parent_restrictions)
-            eq_(None, lane.media)
-            eq_(2, lane.size)
+            assert "new name" == lane.display_name
+            assert [list2] == lane.customlists
+            assert True == lane.inherit_parent_restrictions
+            assert None == lane.media
+            assert 2 == lane.size
 
     def test_lane_delete_success(self):
         library = self._library()
@@ -1546,18 +1543,18 @@ class TestLanesController(AdminControllerTest):
         list, ignore = self._customlist(data_source_name=DataSource.LIBRARY_STAFF, num_entries=0)
         list.library = library
         lane.customlists += [list]
-        eq_(1, self._db.query(Lane).filter(Lane.library==library).count())
+        assert 1 == self._db.query(Lane).filter(Lane.library==library).count()
 
         with self.request_context_with_library_and_admin("/", method="DELETE"):
             flask.request.library = library
             response = self.manager.admin_lanes_controller.lane(lane.id)
-            eq_(200, response.status_code)
+            assert 200 == response.status_code
 
             # The lane has been deleted.
-            eq_(0, self._db.query(Lane).filter(Lane.library==library).count())
+            assert 0 == self._db.query(Lane).filter(Lane.library==library).count()
 
             # The custom list still exists though.
-            eq_(1, self._db.query(CustomList).filter(CustomList.library==library).count())
+            assert 1 == self._db.query(CustomList).filter(CustomList.library==library).count()
 
         lane = self._lane("lane", library=library)
         lane.customlists += [list]
@@ -1565,48 +1562,48 @@ class TestLanesController(AdminControllerTest):
         child.customlists += [list]
         grandchild = self._lane("grandchild", parent=child, library=library)
         grandchild.customlists += [list]
-        eq_(3, self._db.query(Lane).filter(Lane.library==library).count())
+        assert 3 == self._db.query(Lane).filter(Lane.library==library).count()
 
         with self.request_context_with_library_and_admin("/", method="DELETE"):
             flask.request.library = library
             response = self.manager.admin_lanes_controller.lane(lane.id)
-            eq_(200, response.status_code)
+            assert 200 == response.status_code
 
             # The lanes have all been deleted.
-            eq_(0, self._db.query(Lane).filter(Lane.library==library).count())
+            assert 0 == self._db.query(Lane).filter(Lane.library==library).count()
 
             # The custom list still exists though.
-            eq_(1, self._db.query(CustomList).filter(CustomList.library==library).count())
+            assert 1 == self._db.query(CustomList).filter(CustomList.library==library).count()
 
     def test_lane_delete_errors(self):
         with self.request_context_with_library_and_admin("/", method="DELETE"):
             response = self.manager.admin_lanes_controller.lane(123)
-            eq_(MISSING_LANE, response)
+            assert MISSING_LANE == response
 
         lane = self._lane("lane")
         library = self._library()
         with self.request_context_with_library_and_admin("/", method="DELETE"):
             flask.request.library = library
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_lanes_controller.lane,
                           lane.id)
 
         with self.request_context_with_library_and_admin("/", method="DELETE"):
             response = self.manager.admin_lanes_controller.lane(lane.id)
-            eq_(CANNOT_EDIT_DEFAULT_LANE, response)
+            assert CANNOT_EDIT_DEFAULT_LANE == response
 
     def test_show_lane_success(self):
         lane = self._lane("lane")
         lane.visible = False
         with self.request_context_with_library_and_admin("/"):
             response = self.manager.admin_lanes_controller.show_lane(lane.id)
-            eq_(200, response.status_code)
-            eq_(True, lane.visible)
+            assert 200 == response.status_code
+            assert True == lane.visible
 
     def test_show_lane_errors(self):
         with self.request_context_with_library_and_admin("/"):
             response = self.manager.admin_lanes_controller.show_lane(123)
-            eq_(MISSING_LANE, response)
+            assert MISSING_LANE == response
 
         parent = self._lane("parent")
         parent.visible = False
@@ -1615,11 +1612,11 @@ class TestLanesController(AdminControllerTest):
         child.parent = parent
         with self.request_context_with_library_and_admin("/"):
             response = self.manager.admin_lanes_controller.show_lane(child.id)
-            eq_(CANNOT_SHOW_LANE_WITH_HIDDEN_PARENT, response)
+            assert CANNOT_SHOW_LANE_WITH_HIDDEN_PARENT == response
 
         self.admin.remove_role(AdminRole.LIBRARY_MANAGER, self._default_library)
         with self.request_context_with_library_and_admin("/"):
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_lanes_controller.show_lane,
                           parent.id)
 
@@ -1628,18 +1625,18 @@ class TestLanesController(AdminControllerTest):
         lane.visible = True
         with self.request_context_with_library_and_admin("/"):
             response = self.manager.admin_lanes_controller.hide_lane(lane.id)
-            eq_(200, response.status_code)
-            eq_(False, lane.visible)
+            assert 200 == response.status_code
+            assert False == lane.visible
 
     def test_hide_lane_errors(self):
         with self.request_context_with_library_and_admin("/"):
             response = self.manager.admin_lanes_controller.hide_lane(123456789)
-            eq_(MISSING_LANE, response)
+            assert MISSING_LANE == response
 
         lane = self._lane()
         self.admin.remove_role(AdminRole.LIBRARY_MANAGER, self._default_library)
         with self.request_context_with_library_and_admin("/"):
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_lanes_controller.show_lane,
                           lane.id)
 
@@ -1649,14 +1646,14 @@ class TestLanesController(AdminControllerTest):
 
         with self.request_context_with_library_and_admin("/"):
             flask.request.library = library
-            assert_raises(AdminNotAuthorized, self.manager.admin_lanes_controller.reset)
+            pytest.raises(AdminNotAuthorized, self.manager.admin_lanes_controller.reset)
 
             self.admin.add_role(AdminRole.LIBRARY_MANAGER, library)
             response = self.manager.admin_lanes_controller.reset()
-            eq_(200, response.status_code)
+            assert 200 == response.status_code
 
             # The old lane is gone.
-            eq_(0, self._db.query(Lane).filter(Lane.library==library).filter(Lane.id==old_lane.id).count())
+            assert 0 == self._db.query(Lane).filter(Lane.library==library).filter(Lane.id==old_lane.id).count()
             # tests/test_lanes.py tests the default lane creation, but make sure some
             # lanes were created.
             assert 0 < self._db.query(Lane).filter(Lane.library==library).count()
@@ -1679,16 +1676,16 @@ class TestLanesController(AdminControllerTest):
             flask.request.library = library
             flask.request.data = json.dumps(new_order)
 
-            assert_raises(AdminNotAuthorized, self.manager.admin_lanes_controller.change_order)
+            pytest.raises(AdminNotAuthorized, self.manager.admin_lanes_controller.change_order)
 
             self.admin.add_role(AdminRole.LIBRARY_MANAGER, library)
             response = self.manager.admin_lanes_controller.change_order()
-            eq_(200, response.status_code)
+            assert 200 == response.status_code
 
-            eq_(0, parent2.priority)
-            eq_(1, parent1.priority)
-            eq_(0, child2.priority)
-            eq_(1, child1.priority)
+            assert 0 == parent2.priority
+            assert 1 == parent1.priority
+            assert 0 == child2.priority
+            assert 1 == child1.priority
 
 class TestDashboardController(AdminControllerTest):
 
@@ -1718,16 +1715,16 @@ class TestDashboardController(AdminControllerTest):
             url = AdminAnnotator(self.manager.d_circulation, self._default_library).permalink_for(self.english_1, lp, lp.identifier)
 
         events = response['circulation_events']
-        eq_(types[::-1], [event['type'] for event in events])
-        eq_([self.english_1.title]*len(types), [event['book']['title'] for event in events])
-        eq_([url]*len(types), [event['book']['url'] for event in events])
+        assert types[::-1] == [event['type'] for event in events]
+        assert [self.english_1.title]*len(types) == [event['book']['title'] for event in events]
+        assert [url]*len(types) == [event['book']['url'] for event in events]
 
         # request fewer events
         with self.request_context_with_library_and_admin("/?num=2"):
             response = self.manager.admin_dashboard_controller.circulation_events()
             url = AdminAnnotator(self.manager.d_circulation, self._default_library).permalink_for(self.english_1, lp, lp.identifier)
 
-        eq_(2, len(response['circulation_events']))
+        assert 2 == len(response['circulation_events'])
 
     def test_bulk_circulation_events(self):
         [lp] = self.english_1.license_pools
@@ -1753,13 +1750,13 @@ class TestDashboardController(AdminControllerTest):
             dialect=csv.excel
         )
         rows = [row for row in reader][1::] # skip header row
-        eq_(1, len(rows))
+        assert 1 == len(rows)
         [row] = rows
-        eq_(CirculationEvent.DISTRIBUTOR_CHECKOUT, row[1])
-        eq_(identifier.identifier, row[2])
-        eq_(identifier.type, row[3])
-        eq_(edition.title, row[4])
-        eq_(genres[0].name, row[12])
+        assert CirculationEvent.DISTRIBUTOR_CHECKOUT == row[1]
+        assert identifier.identifier == row[2]
+        assert identifier.type == row[3]
+        assert edition.title == row[4]
+        assert genres[0].name == row[12]
 
         # Now verify that this works by passing incoming query
         # parameters into a LocalAnalyticsExporter object.
@@ -1777,28 +1774,28 @@ class TestDashboardController(AdminControllerTest):
             # export() was called with the arguments we expect.
             #
             args = list(exporter.called_with)
-            eq_(self._db, args.pop(0))
-            eq_(datetime(2018, 1, 1), args.pop(0))
+            assert self._db == args.pop(0)
+            assert datetime(2018, 1, 1) == args.pop(0)
             # This is the start of the day _after_ the dateEnd we
             # specified -- we want all events that happened _before_
             # 2018-01-05.
-            eq_(datetime(2018, 1, 5), args.pop(0))
-            eq_("loc1,loc2", args.pop(0))
-            eq_(self._default_library, args.pop(0))
-            eq_([], args)
+            assert datetime(2018, 1, 5) == args.pop(0)
+            assert "loc1,loc2" == args.pop(0)
+            assert self._default_library == args.pop(0)
+            assert [] == args
 
             # The data returned is whatever export() returned.
-            eq_("A CSV file", response)
+            assert "A CSV file" == response
 
             # The other data is necessary to build a filename for the
             # "CSV file".
-            eq_("2018-01-01", requested_date)
+            assert "2018-01-01" == requested_date
 
             # Note that the date_end is the date we requested --
             # 2018-01-04 -- not the cutoff time passed in to export(),
             # which is the start of the subsequent day.
-            eq_("2018-01-04", date_end)
-            eq_(self._default_library.short_name, library_short_name)
+            assert "2018-01-04" == date_end
+            assert self._default_library.short_name == library_short_name
 
 
     def test_stats_patrons(self):
@@ -1811,11 +1808,11 @@ class TestDashboardController(AdminControllerTest):
             total_data = response.get("total")
             for data in [library_data, total_data]:
                 patron_data = data.get('patrons')
-                eq_(1, patron_data.get('total'))
-                eq_(0, patron_data.get('with_active_loans'))
-                eq_(0, patron_data.get('with_active_loans_or_holds'))
-                eq_(0, patron_data.get('loans'))
-                eq_(0, patron_data.get('holds'))
+                assert 1 == patron_data.get('total')
+                assert 0 == patron_data.get('with_active_loans')
+                assert 0 == patron_data.get('with_active_loans_or_holds')
+                assert 0 == patron_data.get('loans')
+                assert 0 == patron_data.get('holds')
 
             edition, pool = self._edition(with_license_pool=True, with_open_access_download=False)
             edition2, open_access_pool = self._edition(with_open_access_download=True)
@@ -1838,11 +1835,11 @@ class TestDashboardController(AdminControllerTest):
             total_data = response.get("total")
             for data in [library_data, total_data]:
                 patron_data = data.get('patrons')
-                eq_(4, patron_data.get('total'))
-                eq_(1, patron_data.get('with_active_loans'))
-                eq_(2, patron_data.get('with_active_loans_or_holds'))
-                eq_(1, patron_data.get('loans'))
-                eq_(1, patron_data.get('holds'))
+                assert 4 == patron_data.get('total')
+                assert 1 == patron_data.get('with_active_loans')
+                assert 2 == patron_data.get('with_active_loans_or_holds')
+                assert 1 == patron_data.get('loans')
+                assert 1 == patron_data.get('holds')
 
             # These patrons are in a different library..
             l2 = self._library()
@@ -1854,16 +1851,16 @@ class TestDashboardController(AdminControllerTest):
             response = self.manager.admin_dashboard_controller.stats()
             library_data = response.get(self._default_library.short_name)
             total_data = response.get("total")
-            eq_(4, library_data.get('patrons').get('total'))
-            eq_(1, library_data.get('patrons').get('with_active_loans'))
-            eq_(2, library_data.get('patrons').get('with_active_loans_or_holds'))
-            eq_(1, library_data.get('patrons').get('loans'))
-            eq_(1, library_data.get('patrons').get('holds'))
-            eq_(6, total_data.get('patrons').get('total'))
-            eq_(2, total_data.get('patrons').get('with_active_loans'))
-            eq_(4, total_data.get('patrons').get('with_active_loans_or_holds'))
-            eq_(2, total_data.get('patrons').get('loans'))
-            eq_(2, total_data.get('patrons').get('holds'))
+            assert 4 == library_data.get('patrons').get('total')
+            assert 1 == library_data.get('patrons').get('with_active_loans')
+            assert 2 == library_data.get('patrons').get('with_active_loans_or_holds')
+            assert 1 == library_data.get('patrons').get('loans')
+            assert 1 == library_data.get('patrons').get('holds')
+            assert 6 == total_data.get('patrons').get('total')
+            assert 2 == total_data.get('patrons').get('with_active_loans')
+            assert 4 == total_data.get('patrons').get('with_active_loans_or_holds')
+            assert 2 == total_data.get('patrons').get('loans')
+            assert 2 == total_data.get('patrons').get('holds')
 
             # If the admin only has access to some libraries, only those will be counted
             # in the total stats.
@@ -1873,16 +1870,16 @@ class TestDashboardController(AdminControllerTest):
             response = self.manager.admin_dashboard_controller.stats()
             library_data = response.get(self._default_library.short_name)
             total_data = response.get("total")
-            eq_(4, library_data.get('patrons').get('total'))
-            eq_(1, library_data.get('patrons').get('with_active_loans'))
-            eq_(2, library_data.get('patrons').get('with_active_loans_or_holds'))
-            eq_(1, library_data.get('patrons').get('loans'))
-            eq_(1, library_data.get('patrons').get('holds'))
-            eq_(4, total_data.get('patrons').get('total'))
-            eq_(1, total_data.get('patrons').get('with_active_loans'))
-            eq_(2, total_data.get('patrons').get('with_active_loans_or_holds'))
-            eq_(1, total_data.get('patrons').get('loans'))
-            eq_(1, total_data.get('patrons').get('holds'))
+            assert 4 == library_data.get('patrons').get('total')
+            assert 1 == library_data.get('patrons').get('with_active_loans')
+            assert 2 == library_data.get('patrons').get('with_active_loans_or_holds')
+            assert 1 == library_data.get('patrons').get('loans')
+            assert 1 == library_data.get('patrons').get('holds')
+            assert 4 == total_data.get('patrons').get('total')
+            assert 1 == total_data.get('patrons').get('with_active_loans')
+            assert 2 == total_data.get('patrons').get('with_active_loans_or_holds')
+            assert 1 == total_data.get('patrons').get('loans')
+            assert 1 == total_data.get('patrons').get('holds')
 
     def test_stats_inventory(self):
         with self.request_context_with_admin("/"):
@@ -1895,9 +1892,9 @@ class TestDashboardController(AdminControllerTest):
             total_data = response.get("total")
             for data in [library_data, total_data]:
                 inventory_data = data.get('inventory')
-                eq_(1, inventory_data.get('titles'))
-                eq_(0, inventory_data.get('licenses'))
-                eq_(0, inventory_data.get('available_licenses'))
+                assert 1 == inventory_data.get('titles')
+                assert 0 == inventory_data.get('licenses')
+                assert 0 == inventory_data.get('available_licenses')
 
             # This edition has no licenses owned and isn't counted in the inventory.
             edition1, pool1 = self._edition(with_license_pool=True, with_open_access_download=False)
@@ -1920,9 +1917,9 @@ class TestDashboardController(AdminControllerTest):
             total_data = response.get("total")
             for data in [library_data, total_data]:
                 inventory_data = data.get('inventory')
-                eq_(3, inventory_data.get('titles'))
-                eq_(15, inventory_data.get('licenses'))
-                eq_(4, inventory_data.get('available_licenses'))
+                assert 3 == inventory_data.get('titles')
+                assert 15 == inventory_data.get('licenses')
+                assert 4 == inventory_data.get('available_licenses')
 
             # This edition is in a different collection.
             c2 = self._collection()
@@ -1933,12 +1930,12 @@ class TestDashboardController(AdminControllerTest):
             response = self.manager.admin_dashboard_controller.stats()
             library_data = response.get(self._default_library.short_name)
             total_data = response.get("total")
-            eq_(3, library_data.get('inventory').get('titles'))
-            eq_(4, total_data.get('inventory').get('titles'))
-            eq_(15, library_data.get('inventory').get('licenses'))
-            eq_(17, total_data.get('inventory').get('licenses'))
-            eq_(4, library_data.get('inventory').get('available_licenses'))
-            eq_(6, total_data.get('inventory').get('available_licenses'))
+            assert 3 == library_data.get('inventory').get('titles')
+            assert 4 == total_data.get('inventory').get('titles')
+            assert 15 == library_data.get('inventory').get('licenses')
+            assert 17 == total_data.get('inventory').get('licenses')
+            assert 4 == library_data.get('inventory').get('available_licenses')
+            assert 6 == total_data.get('inventory').get('available_licenses')
 
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
             self.admin.add_role(AdminRole.LIBRARIAN, self._default_library)
@@ -1950,9 +1947,9 @@ class TestDashboardController(AdminControllerTest):
             total_data = response.get("total")
             for data in [library_data, total_data]:
                 inventory_data = data.get('inventory')
-                eq_(3, inventory_data.get('titles'))
-                eq_(15, inventory_data.get('licenses'))
-                eq_(4, inventory_data.get('available_licenses'))
+                assert 3 == inventory_data.get('titles')
+                assert 15 == inventory_data.get('licenses')
+                assert 4 == inventory_data.get('available_licenses')
 
     def test_stats_collections(self):
         with self.request_context_with_admin("/"):
@@ -1965,12 +1962,12 @@ class TestDashboardController(AdminControllerTest):
             total_data = response.get("total")
             for data in [library_data, total_data]:
                 collections_data = data.get('collections')
-                eq_(1, len(collections_data))
+                assert 1 == len(collections_data)
                 collection_data = collections_data.get(self._default_collection.name)
-                eq_(0, collection_data.get('licensed_titles'))
-                eq_(1, collection_data.get('open_access_titles'))
-                eq_(0, collection_data.get('licenses'))
-                eq_(0, collection_data.get('available_licenses'))
+                assert 0 == collection_data.get('licensed_titles')
+                assert 1 == collection_data.get('open_access_titles')
+                assert 0 == collection_data.get('licenses')
+                assert 0 == collection_data.get('available_licenses')
 
             c2 = self._collection()
             c3 = self._collection()
@@ -2012,27 +2009,27 @@ class TestDashboardController(AdminControllerTest):
             total_data = response.get("total")
             library_collections_data = library_data.get('collections')
             total_collections_data = total_data.get('collections')
-            eq_(2, len(library_collections_data))
-            eq_(3, len(total_collections_data))
+            assert 2 == len(library_collections_data)
+            assert 3 == len(total_collections_data)
             for data in [library_collections_data, total_collections_data]:
                 c1_data = data.get(self._default_collection.name)
-                eq_(1, c1_data.get('licensed_titles'))
-                eq_(1, c1_data.get('open_access_titles'))
-                eq_(3, c1_data.get('licenses'))
-                eq_(0, c1_data.get('available_licenses'))
+                assert 1 == c1_data.get('licensed_titles')
+                assert 1 == c1_data.get('open_access_titles')
+                assert 3 == c1_data.get('licenses')
+                assert 0 == c1_data.get('available_licenses')
 
                 c3_data = data.get(c3.name)
-                eq_(0, c3_data.get('licensed_titles'))
-                eq_(0, c3_data.get('open_access_titles'))
-                eq_(0, c3_data.get('licenses'))
-                eq_(0, c3_data.get('available_licenses'))
+                assert 0 == c3_data.get('licensed_titles')
+                assert 0 == c3_data.get('open_access_titles')
+                assert 0 == c3_data.get('licenses')
+                assert 0 == c3_data.get('available_licenses')
 
-            eq_(None, library_collections_data.get(c2.name))
+            assert None == library_collections_data.get(c2.name)
             c2_data = total_collections_data.get(c2.name)
-            eq_(2, c2_data.get('licensed_titles'))
-            eq_(0, c2_data.get('open_access_titles'))
-            eq_(15, c2_data.get('licenses'))
-            eq_(10, c2_data.get('available_licenses'))
+            assert 2 == c2_data.get('licensed_titles')
+            assert 0 == c2_data.get('open_access_titles')
+            assert 15 == c2_data.get('licenses')
+            assert 10 == c2_data.get('available_licenses')
 
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
             self.admin.add_role(AdminRole.LIBRARY_MANAGER, self._default_library)
@@ -2044,27 +2041,27 @@ class TestDashboardController(AdminControllerTest):
             total_data = response.get("total")
             for data in [library_data, total_data]:
                 collections_data = data.get("collections")
-                eq_(2, len(collections_data))
-                eq_(None, collections_data.get(c2.name))
+                assert 2 == len(collections_data)
+                assert None == collections_data.get(c2.name)
 
                 c1_data = collections_data.get(self._default_collection.name)
-                eq_(1, c1_data.get('licensed_titles'))
-                eq_(1, c1_data.get('open_access_titles'))
-                eq_(3, c1_data.get('licenses'))
-                eq_(0, c1_data.get('available_licenses'))
+                assert 1 == c1_data.get('licensed_titles')
+                assert 1 == c1_data.get('open_access_titles')
+                assert 3 == c1_data.get('licenses')
+                assert 0 == c1_data.get('available_licenses')
 
                 c3_data = collections_data.get(c3.name)
-                eq_(0, c3_data.get('licensed_titles'))
-                eq_(0, c3_data.get('open_access_titles'))
-                eq_(0, c3_data.get('licenses'))
-                eq_(0, c3_data.get('available_licenses'))
+                assert 0 == c3_data.get('licensed_titles')
+                assert 0 == c3_data.get('open_access_titles')
+                assert 0 == c3_data.get('licenses')
+                assert 0 == c3_data.get('available_licenses')
 
 
 class SettingsControllerTest(AdminControllerTest):
     """Test some part of the settings controller."""
 
-    def setup(self):
-        super(SettingsControllerTest, self).setup()
+    def setup_method(self):
+        super(SettingsControllerTest, self).setup_method()
         # Delete any existing patron auth services created by controller test setup.
         for auth_service in self._db.query(ExternalIntegration).filter(
             ExternalIntegration.goal==ExternalIntegration.PATRON_AUTH_GOAL
@@ -2125,24 +2122,24 @@ class SettingsControllerTest(AdminControllerTest):
 
         # No collection or collection with protocol passed
         self_test_results = controller._get_prior_test_results({}, {})
-        eq_(None, self_test_results)
+        assert None == self_test_results
         self_test_results = controller._get_prior_test_results(collectionNoProtocol, {})
-        eq_(None, self_test_results)
+        assert None == self_test_results
 
         collection = MockAxis360API.mock_collection(self._db)
         # Test that a collection's protocol calls HasSelfTests.prior_test_results
         self_test_results = controller._get_prior_test_results(collection, Axis360API)
         args = self.prior_test_results_called_with[0]
-        eq_(args[1], Axis360API)
-        eq_(args[3], collection)
+        assert args[1] == Axis360API
+        assert args[3] == collection
 
         OPDSCollection = self._collection()
         # If a collection's protocol is OPDSImporter, make sure that
         # OPDSImportMonitor.prior_test_results is called
         self_test_results = controller._get_prior_test_results(OPDSCollection, OPDSImporter)
         args = self.prior_test_results_called_with[0]
-        eq_(args[1], OPDSImportMonitor)
-        eq_(args[3], OPDSCollection)
+        assert args[1] == OPDSImportMonitor
+        assert args[3] == OPDSCollection
 
         # We don't crash if there's a problem getting the prior test
         # results -- _get_prior_test_results just returns None.
@@ -2153,12 +2150,11 @@ class SettingsControllerTest(AdminControllerTest):
         self_test_results = controller._get_prior_test_results(
             OPDSCollection, OPDSImporter
         )
-        eq_(
+        assert (
             "Exception getting self-test results for collection %s: Test result disaster!" % (
                 OPDSCollection.name
-            ),
-            self_test_results["exception"]
-        )
+            ) ==
+            self_test_results["exception"])
 
         HasSelfTests.prior_test_results = old_prior_test_results
 
@@ -2184,7 +2180,7 @@ class TestSettingsController(SettingsControllerTest):
             child_settings=[4, 5], label='my label',
             cardinality=1, name='my name'
         )
-        eq_(expect, result)
+        assert expect == result
 
         # Remove the CARDINALITY setting
         del Protocol.CARDINALITY
@@ -2194,7 +2190,7 @@ class TestSettingsController(SettingsControllerTest):
             [Protocol], protocol_name_attr='NAME'
         )
 
-        eq_('my label', result['name'])
+        assert 'my label' == result['name']
         assert 'cardinality' not in result
 
     def test_get_integration_info(self):
@@ -2208,7 +2204,7 @@ class TestSettingsController(SettingsControllerTest):
         integration = self._external_integration(
             protocol="a protocol", goal=goal
         )
-        eq_([], m(goal, [dict(name="some other protocol")]))
+        assert [] == m(goal, [dict(name="some other protocol")])
 
     def test_create_integration(self):
         """Test the _create_integration helper method."""
@@ -2222,39 +2218,37 @@ class TestSettingsController(SettingsControllerTest):
         goal = "some goal"
 
         # You get an error if you don't pass in a protocol.
-        eq_(
-            (NO_PROTOCOL_FOR_NEW_SERVICE, False),
-            m(protocol_definitions, None, goal)
-        )
+        assert (
+            (NO_PROTOCOL_FOR_NEW_SERVICE, False) ==
+            m(protocol_definitions, None, goal))
 
         # You get an error if you do provide a protocol but no definition
         # for it can be found.
-        eq_(
-            (UNKNOWN_PROTOCOL, False),
-            m(protocol_definitions, "no definition", goal)
-        )
+        assert (
+            (UNKNOWN_PROTOCOL, False) ==
+            m(protocol_definitions, "no definition", goal))
 
         # If the protocol has multiple cardinality you can create as many
         # integrations using that protocol as you want.
         i1, is_new1 = m(protocol_definitions, "allow many", goal)
-        eq_(True, is_new1)
+        assert True == is_new1
 
         i2, is_new2 = m(protocol_definitions, "allow many", goal)
-        eq_(True, is_new2)
+        assert True == is_new2
 
         assert i1 != i2
         for i in [i1, i2]:
-            eq_("allow many", i.protocol)
-            eq_(goal, i.goal)
+            assert "allow many" == i.protocol
+            assert goal == i.goal
 
         # If the protocol has single cardinality, you can only create one
         # integration using that protocol before you start getting errors.
         i1, is_new1 = m(protocol_definitions, "allow one", goal)
-        eq_(True, is_new1)
+        assert True == is_new1
 
         i2, is_new2 = m(protocol_definitions, "allow one", goal)
-        eq_(False, is_new2)
-        eq_(DUPLICATE_INTEGRATION, i2)
+        assert False == is_new2
+        assert DUPLICATE_INTEGRATION == i2
 
     def test_validate_formats(self):
         class MockValidator(Validator):
@@ -2282,21 +2276,21 @@ class TestSettingsController(SettingsControllerTest):
                 (Configuration.LOGO, StringIO())
             ])
             response = self.manager.admin_settings_controller.validate_formats(Configuration.LIBRARY_SETTINGS, validator)
-            eq_(response, None)
-            eq_(validator.was_called, True)
-            eq_(validator.args[0], Configuration.LIBRARY_SETTINGS)
-            eq_(validator.args[1], {"files": flask.request.files, "form": flask.request.form})
+            assert response == None
+            assert validator.was_called == True
+            assert validator.args[0] == Configuration.LIBRARY_SETTINGS
+            assert validator.args[1] == {"files": flask.request.files, "form": flask.request.form}
 
             validator.validate = validator.validate_error
             # If the validator returns an problem detail, validate_formats returns it.
             response = self.manager.admin_settings_controller.validate_formats(Configuration.LIBRARY_SETTINGS, validator)
-            eq_(response, INVALID_EMAIL)
+            assert response == INVALID_EMAIL
 
     def test__mirror_integration_settings(self):
         # If no storage integrations are available, return none
         mirror_integration_settings = self.manager.admin_settings_controller._mirror_integration_settings
 
-        eq_(None, mirror_integration_settings())
+        assert None == mirror_integration_settings()
 
         # Storages created will appear for settings of any purpose
         storage1 = self._external_integration(
@@ -2310,22 +2304,22 @@ class TestSettingsController(SettingsControllerTest):
 
         settings = mirror_integration_settings()
 
-        eq_(settings[0]["key"], "covers_mirror_integration_id")
-        eq_(settings[0]["label"], "Covers Mirror")
-        eq_(settings[0]["options"][0]['key'],
+        assert settings[0]["key"] == "covers_mirror_integration_id"
+        assert settings[0]["label"] == "Covers Mirror"
+        assert (settings[0]["options"][0]['key'] ==
             self.manager.admin_settings_controller.NO_MIRROR_INTEGRATION)
-        eq_(settings[0]["options"][1]['key'],
+        assert (settings[0]["options"][1]['key'] ==
             str(storage1.id))
-        eq_(settings[1]["key"], "books_mirror_integration_id")
-        eq_(settings[1]["label"], "Open Access Books Mirror")
-        eq_(settings[1]["options"][0]['key'],
+        assert settings[1]["key"] == "books_mirror_integration_id"
+        assert settings[1]["label"] == "Open Access Books Mirror"
+        assert (settings[1]["options"][0]['key'] ==
             self.manager.admin_settings_controller.NO_MIRROR_INTEGRATION)
-        eq_(settings[1]["options"][1]['key'],
+        assert (settings[1]["options"][1]['key'] ==
             str(storage1.id))
-        eq_(settings[2]["label"], "Protected Access Books Mirror")
-        eq_(settings[2]["options"][0]['key'],
+        assert settings[2]["label"] == "Protected Access Books Mirror"
+        assert (settings[2]["options"][0]['key'] ==
             self.manager.admin_settings_controller.NO_MIRROR_INTEGRATION)
-        eq_(settings[2]["options"][1]['key'],
+        assert (settings[2]["options"][1]['key'] ==
             str(storage1.id))
 
         storage2 = self._external_integration(
@@ -2338,26 +2332,26 @@ class TestSettingsController(SettingsControllerTest):
         )
         settings = mirror_integration_settings()
 
-        eq_(settings[0]["key"], "covers_mirror_integration_id")
-        eq_(settings[0]["label"], "Covers Mirror")
-        eq_(settings[0]["options"][0]['key'],
+        assert settings[0]["key"] == "covers_mirror_integration_id"
+        assert settings[0]["label"] == "Covers Mirror"
+        assert (settings[0]["options"][0]['key'] ==
             self.manager.admin_settings_controller.NO_MIRROR_INTEGRATION)
-        eq_(settings[0]["options"][1]['key'],
+        assert (settings[0]["options"][1]['key'] ==
             str(storage1.id))
-        eq_(settings[0]["options"][2]['key'],
+        assert (settings[0]["options"][2]['key'] ==
             str(storage2.id))
-        eq_(settings[1]["key"], "books_mirror_integration_id")
-        eq_(settings[1]["label"], "Open Access Books Mirror")
-        eq_(settings[1]["options"][0]['key'],
+        assert settings[1]["key"] == "books_mirror_integration_id"
+        assert settings[1]["label"] == "Open Access Books Mirror"
+        assert (settings[1]["options"][0]['key'] ==
             self.manager.admin_settings_controller.NO_MIRROR_INTEGRATION)
-        eq_(settings[1]["options"][1]['key'],
+        assert (settings[1]["options"][1]['key'] ==
             str(storage1.id))
-        eq_(settings[1]["options"][2]['key'],
+        assert (settings[1]["options"][2]['key'] ==
             str(storage2.id))
-        eq_(settings[2]["label"], "Protected Access Books Mirror")
-        eq_(settings[2]["options"][0]['key'],
+        assert settings[2]["label"] == "Protected Access Books Mirror"
+        assert (settings[2]["options"][0]['key'] ==
             self.manager.admin_settings_controller.NO_MIRROR_INTEGRATION)
-        eq_(settings[2]["options"][1]['key'],
+        assert (settings[2]["options"][1]['key'] ==
             str(storage1.id))
 
     def test_check_url_unique(self):
@@ -2396,32 +2390,31 @@ class TestSettingsController(SettingsControllerTest):
                 )
 
         # The original ExternalIntegration is not a duplicate of itself.
-        eq_(
-            None,
-            m(original, original.url, protocol, goal)
-        )
+        assert (
+            None ==
+            m(original, original.url, protocol, goal))
 
         # However, any other ExternalIntegration with the same URL,
         # protocol, and goal is considered a duplicate.
-        eq_(True, is_dupe(original.url, protocol, goal))
+        assert True == is_dupe(original.url, protocol, goal)
 
         # Minor URL differences are ignored when considering duplicates
         # -- this is with help from url_variants().
-        eq_(True, is_dupe("https://service/", protocol, goal))
-        eq_(True, is_dupe("https://service", protocol, goal))
+        assert True == is_dupe("https://service/", protocol, goal)
+        assert True == is_dupe("https://service", protocol, goal)
 
         # Not all variants are handled in this way
-        eq_(False, is_dupe("https://service/#fragment", protocol, goal))
+        assert False == is_dupe("https://service/#fragment", protocol, goal)
 
         # If any of URL, protocol, and goal are different, then the
         # integration is not considered a duplicate.
-        eq_(False, is_dupe("different url", protocol, goal))
-        eq_(False, is_dupe(original.url, "different protocol", goal))
-        eq_(False, is_dupe(original.url, protocol, "different goal"))
+        assert False == is_dupe("different url", protocol, goal)
+        assert False == is_dupe(original.url, "different protocol", goal)
+        assert False == is_dupe(original.url, protocol, "different goal")
 
         # If you're not considering a URL at all, we assume no
         # duplicate.
-        eq_(False, is_dupe(None, protocol, goal))
+        assert False == is_dupe(None, protocol, goal)
 
     def test_url_variants(self):
         # Test the helper method that generates slight variants of
@@ -2430,23 +2423,20 @@ class TestSettingsController(SettingsControllerTest):
             return list(SettingsController.url_variants(url))
 
         # No URL, no variants.
-        eq_([], m(None))
-        eq_([], m("not a url"))
+        assert [] == m(None)
+        assert [] == m("not a url")
 
         # Variants of an HTTP URL with a trailing slash.
-        eq_(
-            ['http://url/', 'http://url', 'https://url/', 'https://url'],
-            m("http://url/")
-        )
+        assert (
+            ['http://url/', 'http://url', 'https://url/', 'https://url'] ==
+            m("http://url/"))
 
         # Variants of an HTTPS URL with a trailing slash.
-        eq_(
-            ['https://url/', 'https://url', 'http://url/', 'http://url'],
-            m("https://url/")
-        )
+        assert (
+            ['https://url/', 'https://url', 'http://url/', 'http://url'] ==
+            m("https://url/"))
 
         # Variants of a URL with no trailing slash.
-        eq_(
-            ['https://url', 'https://url/', 'http://url', 'http://url/'],
-            m("https://url")
-        )
+        assert (
+            ['https://url', 'https://url/', 'http://url', 'http://url/'] ==
+            m("https://url"))

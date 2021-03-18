@@ -5,9 +5,7 @@ import json
 import logging
 import os
 import sys
-import urllib.request, urllib.parse, urllib.error
 import urllib.parse
-from nose.tools import set_trace
 from collections import defaultdict
 from time import mktime
 from wsgiref.handlers import format_date_time

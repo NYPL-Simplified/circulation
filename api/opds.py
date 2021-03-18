@@ -2,7 +2,6 @@ import datetime
 import urllib.request, urllib.parse, urllib.error
 import copy
 import logging
-from nose.tools import set_trace
 from flask import url_for
 from lxml import etree
 from collections import defaultdict

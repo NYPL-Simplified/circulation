@@ -1,8 +1,5 @@
-from nose.tools import (
-    set_trace,
-    eq_,
-    assert_raises
-)
+import pytest
+
 from api.admin.exceptions import *
 from api.config import Configuration
 from core.opds import AcquisitionFeed
@@ -22,7 +19,7 @@ class TestSitewideSettings(SettingsControllerTest):
             settings = response.get("settings")
             all_settings = response.get("all_settings")
 
-            eq_([], settings)
+            assert [] == settings
             keys = [s.get("key") for s in all_settings]
             assert Configuration.LOG_LEVEL in keys
             assert Configuration.DATABASE_LOG_LEVEL in keys
@@ -37,10 +34,10 @@ class TestSitewideSettings(SettingsControllerTest):
             settings = response.get("settings")
             all_settings = response.get("all_settings")
 
-            eq_(2, len(settings))
+            assert 2 == len(settings)
             settings_by_key = { s.get("key") : s.get("value") for s in settings }
-            eq_("INFO", settings_by_key.get(Configuration.DATABASE_LOG_LEVEL))
-            eq_("secret", settings_by_key.get(Configuration.SECRET_KEY))
+            assert "INFO" == settings_by_key.get(Configuration.DATABASE_LOG_LEVEL)
+            assert "secret" == settings_by_key.get(Configuration.SECRET_KEY)
             keys = [s.get("key") for s in all_settings]
             assert Configuration.LOG_LEVEL in keys
             assert Configuration.DATABASE_LOG_LEVEL in keys
@@ -48,14 +45,14 @@ class TestSitewideSettings(SettingsControllerTest):
 
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
             self._db.flush()
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_sitewide_configuration_settings_controller.process_get)
 
     def test_sitewide_settings_post_errors(self):
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([("key", None)])
             response = self.manager.admin_sitewide_configuration_settings_controller.process_post()
-            eq_(response, MISSING_SITEWIDE_SETTING_KEY)
+            assert response == MISSING_SITEWIDE_SETTING_KEY
 
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
@@ -63,7 +60,7 @@ class TestSitewideSettings(SettingsControllerTest):
                 ("value", None)
             ])
             response = self.manager.admin_sitewide_configuration_settings_controller.process_post()
-            eq_(response, MISSING_SITEWIDE_SETTING_VALUE)
+            assert response == MISSING_SITEWIDE_SETTING_VALUE
 
         self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
         with self.request_context_with_admin("/", method="POST"):
@@ -71,7 +68,7 @@ class TestSitewideSettings(SettingsControllerTest):
                 ("key", Configuration.SECRET_KEY),
                 ("value", "secret"),
             ])
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_sitewide_configuration_settings_controller.process_post)
 
     def test_sitewide_settings_post_create(self):
@@ -81,12 +78,12 @@ class TestSitewideSettings(SettingsControllerTest):
                 ("value", "10"),
             ])
             response = self.manager.admin_sitewide_configuration_settings_controller.process_post()
-            eq_(response.status_code, 200)
+            assert response.status_code == 200
 
         # The setting was created.
         setting = ConfigurationSetting.sitewide(self._db, Configuration.DATABASE_LOG_LEVEL)
-        eq_(setting.key, response.get_data(as_text=True))
-        eq_("10", setting.value)
+        assert setting.key == response.get_data(as_text=True)
+        assert "10" == setting.value
 
     def test_sitewide_settings_post_edit(self):
         setting = ConfigurationSetting.sitewide(self._db, Configuration.DATABASE_LOG_LEVEL)
@@ -98,11 +95,11 @@ class TestSitewideSettings(SettingsControllerTest):
                 ("value", "ERROR"),
             ])
             response = self.manager.admin_sitewide_configuration_settings_controller.process_post()
-            eq_(response.status_code, 200)
+            assert response.status_code == 200
 
         # The setting was changed.
-        eq_(setting.key, response.get_data(as_text=True))
-        eq_("ERROR", setting.value)
+        assert setting.key == response.get_data(as_text=True)
+        assert "ERROR" == setting.value
 
     def test_sitewide_setting_delete(self):
         setting = ConfigurationSetting.sitewide(self._db, Configuration.DATABASE_LOG_LEVEL)
@@ -110,12 +107,12 @@ class TestSitewideSettings(SettingsControllerTest):
 
         with self.request_context_with_admin("/", method="DELETE"):
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_sitewide_configuration_settings_controller.process_delete,
                           setting.key)
 
             self.admin.add_role(AdminRole.SYSTEM_ADMIN)
             response = self.manager.admin_sitewide_configuration_settings_controller.process_delete(setting.key)
-            eq_(response.status_code, 200)
+            assert response.status_code == 200
 
-        eq_(None, setting.value)
+        assert None == setting.value

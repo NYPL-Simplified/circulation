@@ -1,12 +1,7 @@
 from datetime import datetime, timedelta, date
-from nose.tools import (
-    set_trace,
-    eq_,
-    assert_raises,
-)
 import csv
 
-from . import DatabaseTest
+from core.testing import DatabaseTest
 from core.model import (
     get_one_or_create,
     CirculationEvent,
@@ -74,10 +69,10 @@ class TestLocalAnalyticsExporter(DatabaseTest):
         output = exporter.export(self._db, today, time)
         reader = csv.reader([row for row in output.split("\r\n") if row], dialect=csv.excel)
         rows = [row for row in reader][1::] # skip header row
-        eq_(num, len(rows))
+        assert num == len(rows)
 
         # We've got one circulation event for each type.
-        eq_(types, [row[1] for row in rows])
+        assert types == [row[1] for row in rows]
 
         # After the start date and event type, every row has the same
         # data. For the rest of this test we'll be using this block of
@@ -91,27 +86,27 @@ class TestLocalAnalyticsExporter(DatabaseTest):
             ordered_genre_string, location
         ]
         for row in rows:
-            eq_(14, len(row))
-            eq_(constant, row[2:])
+            assert 14 == len(row)
+            assert constant == row[2:]
 
         # Now run a query that includes the last event created.
         output = exporter.export(self._db, today, time + timedelta(minutes=1))
         reader = csv.reader([row for row in output.split("\r\n") if row], dialect=csv.excel)
         rows = [row for row in reader][1::] # skip header row
-        eq_(num + 1, len(rows))
-        eq_(types + [types[3]], [row[1] for row in rows])
+        assert num + 1 == len(rows)
+        assert types + [types[3]] == [row[1] for row in rows]
 
         # All but the last row is the same as in the previous report.
         all_but_last_row = rows[:-1]
-        eq_(types, [row[1] for row in all_but_last_row])
+        assert types == [row[1] for row in all_but_last_row]
         for row in all_but_last_row:
-            eq_(14, len(row))
-            eq_(constant, row[2:])
+            assert 14 == len(row)
+            assert constant == row[2:]
 
         # Now let's look at the last row. It's got metadata from a
         # different book, and notably, there is no location.
         no_location = ''
-        eq_(
+        assert (
             [
                 types[3], identifier2.identifier, identifier2.type,
                 edition2.title, edition2.author, "fiction",
@@ -119,14 +114,13 @@ class TestLocalAnalyticsExporter(DatabaseTest):
                 edition2.imprint or '', edition2.language,
                 w2.target_age_string or '', genres[1].name,
                 no_location
-            ],
-            rows[-1][1:]
-        )
+            ] ==
+            rows[-1][1:])
 
         output = exporter.export(self._db, today, today)
         reader = csv.reader([row for row in output.split("\r\n") if row], dialect=csv.excel)
         rows = [row for row in reader][1::] # skip header row
-        eq_(0, len(rows))
+        assert 0 == len(rows)
 
         # Gather events by library - these events have an associated library id
         # but it was not passed in the exporter
@@ -148,7 +142,7 @@ class TestLocalAnalyticsExporter(DatabaseTest):
 
         # There have been a total of 11 events so far. No library ID was passed
         # so all events are returned.
-        eq_(11, len(rows))
+        assert 11 == len(rows)
 
         # Pass in the library ID.
         today = date.today() - timedelta(days=1)
@@ -157,11 +151,11 @@ class TestLocalAnalyticsExporter(DatabaseTest):
         rows = [row for row in reader][1::] # skip header row
 
         # There are five events with a library ID.
-        eq_(num, len(rows))
-        eq_(types, [row[1] for row in rows])
+        assert num == len(rows)
+        assert types == [row[1] for row in rows]
         for row in rows:
-            eq_(14, len(row))
-            eq_(constant, row[2:])
+            assert 14 == len(row)
+            assert constant == row[2:]
 
         # We are looking for events from a different library but there
         # should be no events associated with this library.
@@ -171,7 +165,7 @@ class TestLocalAnalyticsExporter(DatabaseTest):
         reader = csv.reader([row for row in output.split("\r\n") if row], dialect=csv.excel)
         rows = [row for row in reader][1::] # skip header row
 
-        eq_(0, len(rows))
+        assert 0 == len(rows)
 
 
         # Add example events that will be used to report by location
@@ -200,7 +194,7 @@ class TestLocalAnalyticsExporter(DatabaseTest):
         rows = [row for row in reader][1::] # skip header row
 
         # No location was associated with each event so none will be returned
-        eq_(0, len(rows))
+        assert 0 == len(rows)
 
         for type in new_types:
             get_one_or_create(
@@ -213,7 +207,7 @@ class TestLocalAnalyticsExporter(DatabaseTest):
         rows = [row for row in reader][1::] # skip header row
 
         # Some events have a location but not in the list of locations that was passed
-        eq_(0, len(rows))
+        assert 0 == len(rows)
 
         for type in new_types:
             get_one_or_create(
@@ -229,12 +223,12 @@ class TestLocalAnalyticsExporter(DatabaseTest):
         # locations. The CM_HOLD_PLACE event is not in the list of event types
         # to gather information from, so it should not be returned even though
         # it has a location.
-        eq_(num, len(rows))
+        assert num == len(rows)
         # The last event in new_types should not be returned
-        eq_(new_types[:-1], [row[1] for row in rows])
+        assert new_types[:-1] == [row[1] for row in rows]
 
         # After the start time and event type, the rest of the row is
         # the same content we've come to expect.
         for row in rows:
-            eq_(14, len(row))
-            eq_(constant, row[2:])
+            assert 14 == len(row)
+            assert constant == row[2:]

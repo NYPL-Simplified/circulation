@@ -1,4 +1,3 @@
-from nose.tools import set_trace
 from core.model import ConfigurationSetting
 from . import SettingsController
 from api.config import Configuration

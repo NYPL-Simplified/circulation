@@ -1,4 +1,3 @@
-from nose.tools import set_trace
 from sqlalchemy import (
     and_,
     func,
@@ -761,7 +760,7 @@ def create_lane_for_tiny_collection(_db, library, parent, languages, priority=0)
 
     if isinstance(languages, (bytes, str)):
         languages = [languages]
-    
+
     try:
         name = LanguageCodes.name_for_languageset(languages)
     except ValueError as e:
@@ -1273,7 +1272,7 @@ class KnownOverviewFacetsWorkList(WorkList):
     def overview_facets(self, _db, facets):
         """Return the faceting object to be used when generating a grouped
         feed.
-        
+
         :param _db: Ignored -- only present for API compatibility.
         :param facets: Ignored -- only present for API compatibility.
         """

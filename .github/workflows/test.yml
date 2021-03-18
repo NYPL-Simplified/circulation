@@ -1,0 +1,35 @@
+name: Test Circulation
+on: [push, pull_request]
+
+jobs:
+  test-core:
+    name: Run Circulation Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 2.7
+
+      - name: Install Apt Packages
+        run: |
+          sudo apt-get install --yes libxmlsec1-dev libxml2-dev
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install tox
+
+      - name: Run DB container for Tests
+        run: |
+          docker run -d -p 9005:5432/tcp --name db -e POSTGRES_USER=simplified_test -e POSTGRES_PASSWORD=test -e POSTGRES_DB=simplified_circulation_test postgres:9.6
+
+      - name: Run Tests
+        run: tox
+        env:
+          SIMPLIFIED_TEST_DATABASE: "postgres://simplified_test:test@localhost:9005/simplified_circulation_test"

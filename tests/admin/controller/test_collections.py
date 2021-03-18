@@ -1,10 +1,8 @@
 import json
 
 import flask
-from nose.tools import (
-    eq_,
-    assert_raises
-)
+import pytest
+
 from werkzeug.datastructures import MultiDict
 
 from api.admin.exceptions import *
@@ -32,7 +30,7 @@ class TestCollectionSettings(SettingsControllerTest):
 
         with self.request_context_with_admin("/"):
             response = self.manager.admin_collection_settings_controller.process_collections()
-            eq_(response.get("collections"), [])
+            assert response.get("collections") == []
 
             names = [p.get("name") for p in response.get("protocols")]
             assert ExternalIntegration.OVERDRIVE in names
@@ -89,9 +87,9 @@ class TestCollectionSettings(SettingsControllerTest):
                 covers_mirror = mirror_settings[0]
                 open_access_books_mirror = mirror_settings[1]
                 protected_access_books_mirror = mirror_settings[2]
-                eq_("Covers Mirror", covers_mirror['label'])
-                eq_("Open Access Books Mirror", open_access_books_mirror['label'])
-                eq_("Protected Access Books Mirror", protected_access_books_mirror['label'])
+                assert "Covers Mirror" == covers_mirror['label']
+                assert "Open Access Books Mirror" == open_access_books_mirror['label']
+                assert "Protected Access Books Mirror" == protected_access_books_mirror['label']
                 covers_mirror_option = covers_mirror['options']
                 open_books_mirror_option = open_access_books_mirror['options']
                 protected_books_mirror_option = protected_access_books_mirror['options']
@@ -101,9 +99,9 @@ class TestCollectionSettings(SettingsControllerTest):
                 no_mirror_covers = covers_mirror_option[0]
                 no_mirror_open_books = open_books_mirror_option[0]
                 no_mirror_protected_books = protected_books_mirror_option[0]
-                eq_(controller.NO_MIRROR_INTEGRATION, no_mirror_covers['key'])
-                eq_(controller.NO_MIRROR_INTEGRATION, no_mirror_open_books['key'])
-                eq_(controller.NO_MIRROR_INTEGRATION, no_mirror_protected_books['key'])
+                assert controller.NO_MIRROR_INTEGRATION == no_mirror_covers['key']
+                assert controller.NO_MIRROR_INTEGRATION == no_mirror_open_books['key']
+                assert controller.NO_MIRROR_INTEGRATION == no_mirror_protected_books['key']
 
                 # The other options are to use one of the storage
                 # integrations to do the mirroring.
@@ -117,13 +115,13 @@ class TestCollectionSettings(SettingsControllerTest):
                 # Expect to have two separate mirrors
                 expect_covers = [(str(integration.id), integration.name)
                           for integration in (storage1, storage2)]
-                eq_(expect_covers, use_covers_mirror)
+                assert expect_covers == use_covers_mirror
                 expect_open_books = [(str(integration.id), integration.name)
                           for integration in (storage1, storage2)]
-                eq_(expect_open_books, use_open_books_mirror)
+                assert expect_open_books == use_open_books_mirror
                 expect_protected_books = [(str(integration.id), integration.name)
                           for integration in (storage1, storage2)]
-                eq_(expect_protected_books, use_protected_books_mirror)
+                assert expect_protected_books == use_protected_books_mirror
 
         HasSelfTests.prior_test_results = old_prior_test_results
 
@@ -173,64 +171,64 @@ class TestCollectionSettings(SettingsControllerTest):
             coll2, coll3, coll1 = sorted(
                 response.get("collections"), key = lambda c: c.get('name')
             )
-            eq_(c1.id, coll1.get("id"))
-            eq_(c2.id, coll2.get("id"))
-            eq_(c3.id, coll3.get("id"))
+            assert c1.id == coll1.get("id")
+            assert c2.id == coll2.get("id")
+            assert c3.id == coll3.get("id")
 
-            eq_(c1.name, coll1.get("name"))
-            eq_(c2.name, coll2.get("name"))
-            eq_(c3.name, coll3.get("name"))
+            assert c1.name == coll1.get("name")
+            assert c2.name == coll2.get("name")
+            assert c3.name == coll3.get("name")
 
-            eq_(c1.protocol, coll1.get("protocol"))
-            eq_(c2.protocol, coll2.get("protocol"))
-            eq_(c3.protocol, coll3.get("protocol"))
+            assert c1.protocol == coll1.get("protocol")
+            assert c2.protocol == coll2.get("protocol")
+            assert c3.protocol == coll3.get("protocol")
 
-            eq_(self.self_test_results, coll1.get("self_test_results"))
-            eq_(self.self_test_results, coll2.get("self_test_results"))
-            eq_(self.self_test_results, coll3.get("self_test_results"))
+            assert self.self_test_results == coll1.get("self_test_results")
+            assert self.self_test_results == coll2.get("self_test_results")
+            assert self.self_test_results == coll3.get("self_test_results")
 
             settings1 = coll1.get("settings", {})
             settings2 = coll2.get("settings", {})
             settings3 = coll3.get("settings", {})
 
-            eq_(controller.NO_MIRROR_INTEGRATION,
+            assert (controller.NO_MIRROR_INTEGRATION ==
                 settings1.get("covers_mirror_integration_id"))
-            eq_(controller.NO_MIRROR_INTEGRATION,
+            assert (controller.NO_MIRROR_INTEGRATION ==
                 settings1.get("books_mirror_integration_id"))
             # Only added an integration for S3 storage for covers.
-            eq_(str(c2_storage.id), settings2.get("covers_mirror_integration_id"))
-            eq_(controller.NO_MIRROR_INTEGRATION, settings2.get("books_mirror_integration_id"))
-            eq_(controller.NO_MIRROR_INTEGRATION,
+            assert str(c2_storage.id) == settings2.get("covers_mirror_integration_id")
+            assert controller.NO_MIRROR_INTEGRATION == settings2.get("books_mirror_integration_id")
+            assert (controller.NO_MIRROR_INTEGRATION ==
                 settings3.get("covers_mirror_integration_id"))
-            eq_(controller.NO_MIRROR_INTEGRATION,
+            assert (controller.NO_MIRROR_INTEGRATION ==
                 settings3.get("books_mirror_integration_id"))
 
-            eq_(c1.external_account_id, settings1.get("external_account_id"))
-            eq_(c2.external_account_id, settings2.get("external_account_id"))
-            eq_(c3.external_account_id, settings3.get("external_account_id"))
+            assert c1.external_account_id == settings1.get("external_account_id")
+            assert c2.external_account_id == settings2.get("external_account_id")
+            assert c3.external_account_id == settings3.get("external_account_id")
 
-            eq_(c1.external_integration.password, settings1.get("password"))
-            eq_(c2.external_integration.password, settings2.get("password"))
+            assert c1.external_integration.password == settings1.get("password")
+            assert c2.external_integration.password == settings2.get("password")
 
-            eq_(c2.id, coll3.get("parent_id"))
+            assert c2.id == coll3.get("parent_id")
 
             coll3_libraries = coll3.get("libraries")
-            eq_(2, len(coll3_libraries))
+            assert 2 == len(coll3_libraries)
             coll3_l1, coll3_default = sorted(coll3_libraries, key=lambda x: x.get("short_name"))
-            eq_("L1", coll3_l1.get("short_name"))
-            eq_("14", coll3_l1.get("ebook_loan_duration"))
-            eq_(self._default_library.short_name, coll3_default.get("short_name"))
+            assert "L1" == coll3_l1.get("short_name")
+            assert "14" == coll3_l1.get("ebook_loan_duration")
+            assert self._default_library.short_name == coll3_default.get("short_name")
 
         with self.request_context_with_admin("/", admin=l1_librarian):
             # A librarian only sees collections associated with their library.
             response = controller.process_collections()
             [coll3] = response.get("collections")
-            eq_(c3.id, coll3.get("id"))
+            assert c3.id == coll3.get("id")
 
             coll3_libraries = coll3.get("libraries")
-            eq_(1, len(coll3_libraries))
-            eq_("L1", coll3_libraries[0].get("short_name"))
-            eq_("14", coll3_libraries[0].get("ebook_loan_duration"))
+            assert 1 == len(coll3_libraries)
+            assert "L1" == coll3_libraries[0].get("short_name")
+            assert "14" == coll3_libraries[0].get("ebook_loan_duration")
 
         HasSelfTests.prior_test_results = old_prior_test_results
 
@@ -240,14 +238,14 @@ class TestCollectionSettings(SettingsControllerTest):
                 ("protocol", "Overdrive"),
             ])
             response = self.manager.admin_collection_settings_controller.process_collections()
-            eq_(response, MISSING_COLLECTION_NAME)
+            assert response == MISSING_COLLECTION_NAME
 
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("name", "collection"),
             ])
             response = self.manager.admin_collection_settings_controller.process_collections()
-            eq_(response, NO_PROTOCOL_FOR_NEW_SERVICE)
+            assert response == NO_PROTOCOL_FOR_NEW_SERVICE
 
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
@@ -255,7 +253,7 @@ class TestCollectionSettings(SettingsControllerTest):
                 ("protocol", "Unknown"),
             ])
             response = self.manager.admin_collection_settings_controller.process_collections()
-            eq_(response, UNKNOWN_PROTOCOL)
+            assert response == UNKNOWN_PROTOCOL
 
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
@@ -264,7 +262,7 @@ class TestCollectionSettings(SettingsControllerTest):
                 ("protocol", "Bibliotheca"),
             ])
             response = self.manager.admin_collection_settings_controller.process_collections()
-            eq_(response, MISSING_COLLECTION)
+            assert response == MISSING_COLLECTION
 
         collection = self._collection(
             name="Collection 1",
@@ -277,7 +275,7 @@ class TestCollectionSettings(SettingsControllerTest):
                 ("protocol", "Bibliotheca"),
             ])
             response = self.manager.admin_collection_settings_controller.process_collections()
-            eq_(response, COLLECTION_NAME_ALREADY_IN_USE)
+            assert response == COLLECTION_NAME_ALREADY_IN_USE
 
         self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
         with self.request_context_with_admin("/", method="POST"):
@@ -286,7 +284,7 @@ class TestCollectionSettings(SettingsControllerTest):
                 ("name", "Collection 1"),
                 ("protocol", "Overdrive"),
             ])
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_collection_settings_controller.process_collections)
 
         self.admin.add_role(AdminRole.SYSTEM_ADMIN)
@@ -297,7 +295,7 @@ class TestCollectionSettings(SettingsControllerTest):
                 ("protocol", "Bibliotheca"),
             ])
             response = self.manager.admin_collection_settings_controller.process_collections()
-            eq_(response, CANNOT_CHANGE_PROTOCOL)
+            assert response == CANNOT_CHANGE_PROTOCOL
 
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
@@ -306,7 +304,7 @@ class TestCollectionSettings(SettingsControllerTest):
                 ("parent_id", "1234"),
             ])
             response = self.manager.admin_collection_settings_controller.process_collections()
-            eq_(response, PROTOCOL_DOES_NOT_SUPPORT_PARENTS)
+            assert response == PROTOCOL_DOES_NOT_SUPPORT_PARENTS
 
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
@@ -315,7 +313,7 @@ class TestCollectionSettings(SettingsControllerTest):
                 ("parent_id", "1234"),
             ])
             response = self.manager.admin_collection_settings_controller.process_collections()
-            eq_(response, MISSING_PARENT)
+            assert response == MISSING_PARENT
 
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
@@ -326,7 +324,7 @@ class TestCollectionSettings(SettingsControllerTest):
                 ("libraries", json.dumps([{"short_name": "nosuchlibrary"}])),
             ])
             response = self.manager.admin_collection_settings_controller.process_collections()
-            eq_(response.uri, NO_SUCH_LIBRARY.uri)
+            assert response.uri == NO_SUCH_LIBRARY.uri
 
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
@@ -334,7 +332,7 @@ class TestCollectionSettings(SettingsControllerTest):
                 ("protocol", "OPDS Import"),
             ])
             response = self.manager.admin_collection_settings_controller.process_collections()
-            eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
+            assert response.uri == INCOMPLETE_CONFIGURATION.uri
 
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
@@ -345,7 +343,7 @@ class TestCollectionSettings(SettingsControllerTest):
                 ("password", "password"),
             ])
             response = self.manager.admin_collection_settings_controller.process_collections()
-            eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
+            assert response.uri == INCOMPLETE_CONFIGURATION.uri
 
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
@@ -355,7 +353,7 @@ class TestCollectionSettings(SettingsControllerTest):
                 ("password", "password"),
             ])
             response = self.manager.admin_collection_settings_controller.process_collections()
-            eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
+            assert response.uri == INCOMPLETE_CONFIGURATION.uri
 
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
@@ -365,7 +363,7 @@ class TestCollectionSettings(SettingsControllerTest):
                 ("password", "password"),
             ])
             response = self.manager.admin_collection_settings_controller.process_collections()
-            eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
+            assert response.uri == INCOMPLETE_CONFIGURATION.uri
 
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
@@ -375,7 +373,7 @@ class TestCollectionSettings(SettingsControllerTest):
                 ("password", "password"),
             ])
             response = self.manager.admin_collection_settings_controller.process_collections()
-            eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
+            assert response.uri == INCOMPLETE_CONFIGURATION.uri
 
     def test_collections_post_create(self):
         l1, ignore = create(
@@ -402,30 +400,30 @@ class TestCollectionSettings(SettingsControllerTest):
                 ("website_id", "1234"),
             ])
             response = self.manager.admin_collection_settings_controller.process_collections()
-            eq_(response.status_code, 201)
+            assert response.status_code == 201
 
         # The collection was created and configured properly.
         collection = get_one(self._db, Collection, name="New Collection")
-        eq_(collection.id, int(response.response[0]))
-        eq_("New Collection", collection.name)
-        eq_("acctid", collection.external_account_id)
-        eq_("username", collection.external_integration.username)
-        eq_("password", collection.external_integration.password)
+        assert collection.id == int(response.response[0])
+        assert "New Collection" == collection.name
+        assert "acctid" == collection.external_account_id
+        assert "username" == collection.external_integration.username
+        assert "password" == collection.external_integration.password
 
         # Two libraries now have access to the collection.
-        eq_([collection], l1.collections)
-        eq_([collection], l2.collections)
-        eq_([], l3.collections)
+        assert [collection] == l1.collections
+        assert [collection] == l2.collections
+        assert [] == l3.collections
 
         # Additional settings were set on the collection.
         setting = collection.external_integration.setting("website_id")
-        eq_("website_id", setting.key)
-        eq_("1234", setting.value)
+        assert "website_id" == setting.key
+        assert "1234" == setting.value
 
-        eq_("l1_ils", ConfigurationSetting.for_library_and_externalintegration(
-                self._db, "ils_name", l1, collection.external_integration).value)
-        eq_("l2_ils", ConfigurationSetting.for_library_and_externalintegration(
-                self._db, "ils_name", l2, collection.external_integration).value)
+        assert "l1_ils" == ConfigurationSetting.for_library_and_externalintegration(
+                self._db, "ils_name", l1, collection.external_integration).value
+        assert "l2_ils" == ConfigurationSetting.for_library_and_externalintegration(
+                self._db, "ils_name", l2, collection.external_integration).value
 
         # This collection will be a child of the first collection.
         with self.request_context_with_admin("/", method="POST"):
@@ -437,25 +435,25 @@ class TestCollectionSettings(SettingsControllerTest):
                 ("external_account_id", "child-acctid"),
             ])
             response = self.manager.admin_collection_settings_controller.process_collections()
-            eq_(response.status_code, 201)
+            assert response.status_code == 201
 
         # The collection was created and configured properly.
         child = get_one(self._db, Collection, name="Child Collection")
-        eq_(child.id, int(response.response[0]))
-        eq_("Child Collection", child.name)
-        eq_("child-acctid", child.external_account_id)
+        assert child.id == int(response.response[0])
+        assert "Child Collection" == child.name
+        assert "child-acctid" == child.external_account_id
 
         # The settings that are inherited from the parent weren't set.
-        eq_(None, child.external_integration.username)
-        eq_(None, child.external_integration.password)
+        assert None == child.external_integration.username
+        assert None == child.external_integration.password
         setting = child.external_integration.setting("website_id")
-        eq_(None, setting.value)
+        assert None == setting.value
 
         # One library has access to the collection.
-        eq_([child], l3.collections)
+        assert [child] == l3.collections
 
-        eq_("l3_ils", ConfigurationSetting.for_library_and_externalintegration(
-                self._db, "ils_name", l3, child.external_integration).value)
+        assert "l3_ils" == ConfigurationSetting.for_library_and_externalintegration(
+                self._db, "ils_name", l3, child.external_integration).value
 
     def test_collections_post_edit(self):
         # The collection exists.
@@ -480,23 +478,23 @@ class TestCollectionSettings(SettingsControllerTest):
                 ("libraries", json.dumps([{"short_name": "L1", "ils_name": "the_ils"}])),
             ])
             response = self.manager.admin_collection_settings_controller.process_collections()
-            eq_(response.status_code, 200)
+            assert response.status_code == 200
 
-        eq_(collection.id, int(response.response[0]))
+        assert collection.id == int(response.response[0])
 
         # The collection has been changed.
-        eq_("user2", collection.external_integration.username)
+        assert "user2" == collection.external_integration.username
 
         # A library now has access to the collection.
-        eq_([collection], l1.collections)
+        assert [collection] == l1.collections
 
         # Additional settings were set on the collection.
         setting = collection.external_integration.setting("website_id")
-        eq_("website_id", setting.key)
-        eq_("1234", setting.value)
+        assert "website_id" == setting.key
+        assert "1234" == setting.value
 
-        eq_("the_ils", ConfigurationSetting.for_library_and_externalintegration(
-                self._db, "ils_name", l1, collection.external_integration).value)
+        assert "the_ils" == ConfigurationSetting.for_library_and_externalintegration(
+                self._db, "ils_name", l1, collection.external_integration).value
 
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
@@ -510,16 +508,16 @@ class TestCollectionSettings(SettingsControllerTest):
                 ("libraries", json.dumps([])),
             ])
             response = self.manager.admin_collection_settings_controller.process_collections()
-            eq_(response.status_code, 200)
+            assert response.status_code == 200
 
-        eq_(collection.id, int(response.response[0]))
+        assert collection.id == int(response.response[0])
 
         # The collection is the same.
-        eq_("user2", collection.external_integration.username)
-        eq_(ExternalIntegration.OVERDRIVE, collection.protocol)
+        assert "user2" == collection.external_integration.username
+        assert ExternalIntegration.OVERDRIVE == collection.protocol
 
         # But the library has been removed.
-        eq_([], l1.collections)
+        assert [] == l1.collections
 
         # All ConfigurationSettings for that library and collection
         # have been deleted.
@@ -528,7 +526,7 @@ class TestCollectionSettings(SettingsControllerTest):
         ).filter(
             ConfigurationSetting.external_integration==collection.external_integration
         )
-        eq_(0, qu.count())
+        assert 0 == qu.count()
 
         parent = self._collection(
             name="Parent",
@@ -545,12 +543,12 @@ class TestCollectionSettings(SettingsControllerTest):
                 ("libraries", json.dumps([])),
             ])
             response = self.manager.admin_collection_settings_controller.process_collections()
-            eq_(response.status_code, 200)
+            assert response.status_code == 200
 
-        eq_(collection.id, int(response.response[0]))
+        assert collection.id == int(response.response[0])
 
         # The collection now has a parent.
-        eq_(parent, collection.parent)
+        assert parent == collection.parent
 
     def _base_collections_post_request(self, collection):
         """A template for POST requests to the collections controller."""
@@ -586,7 +584,7 @@ class TestCollectionSettings(SettingsControllerTest):
             )
             flask.request.form = request
             response = self.manager.admin_collection_settings_controller.process_collections()
-            eq_(response.status_code, 200)
+            assert response.status_code == 200
 
             # There is an external integration link to associate the collection's
             # external integration with the storage integration for a books mirror.
@@ -594,7 +592,7 @@ class TestCollectionSettings(SettingsControllerTest):
                 self._db, ExternalIntegrationLink,
                 external_integration_id=collection.external_integration.id
             )
-            eq_(storage.id, external_integration_link.other_integration_id)
+            assert storage.id == external_integration_link.other_integration_id
 
         # It's possible to unset the mirror integration.
         controller = self.manager.admin_collection_settings_controller
@@ -605,12 +603,12 @@ class TestCollectionSettings(SettingsControllerTest):
             )
             flask.request.form = request
             response = controller.process_collections()
-            eq_(response.status_code, 200)
+            assert response.status_code == 200
             external_integration_link = get_one(
                 self._db, ExternalIntegrationLink,
                 external_integration_id=collection.external_integration.id
             )
-            eq_(None, external_integration_link)
+            assert None == external_integration_link
 
         # Providing a nonexistent integration ID gives an error.
         with self.request_context_with_admin("/", method="POST"):
@@ -619,7 +617,7 @@ class TestCollectionSettings(SettingsControllerTest):
             )
             flask.request.form = request
             response = self.manager.admin_collection_settings_controller.process_collections()
-            eq_(response, MISSING_SERVICE)
+            assert response == MISSING_SERVICE
 
     def test_cannot_set_non_storage_integration_as_mirror_integration(self):
         # The collection exists.
@@ -648,7 +646,7 @@ class TestCollectionSettings(SettingsControllerTest):
             )
             flask.request.form = request
             response = self.manager.admin_collection_settings_controller.process_collections()
-            eq_(response, INTEGRATION_GOAL_CONFLICT)
+            assert response == INTEGRATION_GOAL_CONFLICT
 
     def test_collections_post_edit_library_specific_configuration(self):
         # The collection exists.
@@ -680,13 +678,13 @@ class TestCollectionSettings(SettingsControllerTest):
                 ),
             ])
             response = self.manager.admin_collection_settings_controller.process_collections()
-            eq_(response.status_code, 200)
+            assert response.status_code == 200
 
         # Additional settings were set on the collection+library.
-        eq_("14", ConfigurationSetting.for_library_and_externalintegration(
-                self._db, "ebook_loan_duration", l1, collection.external_integration).value)
-        eq_("12", ConfigurationSetting.for_library_and_externalintegration(
-                self._db, "audio_loan_duration", l1, collection.external_integration).value)
+        assert "14" == ConfigurationSetting.for_library_and_externalintegration(
+                self._db, "ebook_loan_duration", l1, collection.external_integration).value
+        assert "12" == ConfigurationSetting.for_library_and_externalintegration(
+                self._db, "audio_loan_duration", l1, collection.external_integration).value
 
         # Remove the connection between collection and library.
         with self.request_context_with_admin("/", method="POST"):
@@ -701,38 +699,38 @@ class TestCollectionSettings(SettingsControllerTest):
                 ("libraries", json.dumps([])),
             ])
             response = self.manager.admin_collection_settings_controller.process_collections()
-            eq_(response.status_code, 200)
+            assert response.status_code == 200
 
-        eq_(collection.id, int(response.response[0]))
+        assert collection.id == int(response.response[0])
 
         # The settings associated with the collection+library were removed
         # when the connection between collection and library was deleted.
-        eq_(None, ConfigurationSetting.for_library_and_externalintegration(
-                self._db, "ebook_loan_duration", l1, collection.external_integration).value)
-        eq_(None, ConfigurationSetting.for_library_and_externalintegration(
-                self._db, "audio_loan_duration", l1, collection.external_integration).value)
-        eq_([], collection.libraries)
+        assert None == ConfigurationSetting.for_library_and_externalintegration(
+                self._db, "ebook_loan_duration", l1, collection.external_integration).value
+        assert None == ConfigurationSetting.for_library_and_externalintegration(
+                self._db, "audio_loan_duration", l1, collection.external_integration).value
+        assert [] == collection.libraries
 
     def test_collection_delete(self):
         collection = self._collection()
-        eq_(False, collection.marked_for_deletion)
+        assert False == collection.marked_for_deletion
 
         with self.request_context_with_admin("/", method="DELETE"):
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_collection_settings_controller.process_delete,
                           collection.id)
 
             self.admin.add_role(AdminRole.SYSTEM_ADMIN)
             response = self.manager.admin_collection_settings_controller.process_delete(collection.id)
-            eq_(response.status_code, 200)
+            assert response.status_code == 200
 
         # The collection should still be available because it is not immediately deleted.
         # The collection will be deleted in the background by a script, but it is
         # now marked for deletion
         fetchedCollection = get_one(self._db, Collection, id=collection.id)
-        eq_(collection, fetchedCollection)
-        eq_(True, fetchedCollection.marked_for_deletion)
+        assert collection == fetchedCollection
+        assert True == fetchedCollection.marked_for_deletion
 
     def test_collection_delete_cant_delete_parent(self):
         parent = self._collection(protocol=ExternalIntegration.OVERDRIVE)
@@ -741,4 +739,4 @@ class TestCollectionSettings(SettingsControllerTest):
 
         with self.request_context_with_admin("/", method="DELETE"):
             response = self.manager.admin_collection_settings_controller.process_delete(parent.id)
-            eq_(CANNOT_DELETE_COLLECTION_WITH_CHILDREN, response)
+            assert CANNOT_DELETE_COLLECTION_WITH_CHILDREN == response

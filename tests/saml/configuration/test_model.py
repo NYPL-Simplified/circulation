@@ -2,7 +2,6 @@ import json
 
 import sqlalchemy
 from mock import MagicMock, PropertyMock, call, create_autospec
-from nose.tools import eq_
 from parameterized import parameterized
 
 from api.app import initialize_database
@@ -71,8 +70,8 @@ IDENTITY_PROVIDERS = [
 
 
 class TestSAMLConfiguration(DatabaseTest):
-    def setup(self, mock_search=True):
-        super(TestSAMLConfiguration, self).setup(mock_search)
+    def setup_method(self):
+        super(TestSAMLConfiguration, self).setup_method()
 
         self._saml_provider_integration = self._external_integration(
             "api.saml.provider", ExternalIntegration.PATRON_AUTH_GOAL
@@ -105,8 +104,8 @@ class TestSAMLConfiguration(DatabaseTest):
             service_provider = configuration.get_service_provider(self._db)
 
             # Assert
-            eq_(True, isinstance(service_provider, SAMLServiceProviderMetadata))
-            eq_(fixtures.SP_ENTITY_ID, service_provider.entity_id)
+            assert True == isinstance(service_provider, SAMLServiceProviderMetadata)
+            assert fixtures.SP_ENTITY_ID == service_provider.entity_id
 
             configuration_storage.load.assert_has_calls(
                 [
@@ -139,13 +138,13 @@ class TestSAMLConfiguration(DatabaseTest):
             identity_providers = configuration.get_identity_providers(self._db)
 
             # Assert
-            eq_(2, len(identity_providers))
+            assert 2 == len(identity_providers)
 
-            eq_(True, isinstance(identity_providers[0], SAMLIdentityProviderMetadata))
-            eq_(fixtures.IDP_1_ENTITY_ID, identity_providers[0].entity_id)
+            assert True == isinstance(identity_providers[0], SAMLIdentityProviderMetadata)
+            assert fixtures.IDP_1_ENTITY_ID == identity_providers[0].entity_id
 
-            eq_(True, isinstance(identity_providers[1], SAMLIdentityProviderMetadata))
-            eq_(fixtures.IDP_2_ENTITY_ID, identity_providers[1].entity_id)
+            assert True == isinstance(identity_providers[1], SAMLIdentityProviderMetadata)
+            assert fixtures.IDP_2_ENTITY_ID == identity_providers[1].entity_id
 
             configuration_storage.load.assert_has_calls(
                 [
@@ -202,12 +201,12 @@ class TestSAMLConfiguration(DatabaseTest):
             identity_providers = configuration.get_identity_providers(self._db)
 
             # Assert
-            eq_(2, len(identity_providers))
-            eq_(True, isinstance(identity_providers[0], SAMLIdentityProviderMetadata))
-            eq_(fixtures.IDP_1_ENTITY_ID, identity_providers[0].entity_id)
+            assert 2 == len(identity_providers)
+            assert True == isinstance(identity_providers[0], SAMLIdentityProviderMetadata)
+            assert fixtures.IDP_1_ENTITY_ID == identity_providers[0].entity_id
 
-            eq_(True, isinstance(identity_providers[1], SAMLIdentityProviderMetadata))
-            eq_(fixtures.IDP_2_ENTITY_ID, identity_providers[1].entity_id)
+            assert True == isinstance(identity_providers[1], SAMLIdentityProviderMetadata)
+            assert fixtures.IDP_2_ENTITY_ID == identity_providers[1].entity_id
 
             configuration_storage.load.assert_has_calls(
                 [
@@ -273,18 +272,18 @@ class TestSAMLConfiguration(DatabaseTest):
             identity_providers = configuration.get_identity_providers(self._db)
 
             # Assert
-            eq_(4, len(identity_providers))
-            eq_(True, isinstance(identity_providers[0], SAMLIdentityProviderMetadata))
-            eq_(fixtures.IDP_1_ENTITY_ID, identity_providers[0].entity_id)
+            assert 4 == len(identity_providers)
+            assert True == isinstance(identity_providers[0], SAMLIdentityProviderMetadata)
+            assert fixtures.IDP_1_ENTITY_ID == identity_providers[0].entity_id
 
-            eq_(True, isinstance(identity_providers[1], SAMLIdentityProviderMetadata))
-            eq_(fixtures.IDP_2_ENTITY_ID, identity_providers[1].entity_id)
+            assert True == isinstance(identity_providers[1], SAMLIdentityProviderMetadata)
+            assert fixtures.IDP_2_ENTITY_ID == identity_providers[1].entity_id
 
-            eq_(True, isinstance(identity_providers[2], SAMLIdentityProviderMetadata))
-            eq_(fixtures.IDP_1_ENTITY_ID, identity_providers[2].entity_id)
+            assert True == isinstance(identity_providers[2], SAMLIdentityProviderMetadata)
+            assert fixtures.IDP_1_ENTITY_ID == identity_providers[2].entity_id
 
-            eq_(True, isinstance(identity_providers[3], SAMLIdentityProviderMetadata))
-            eq_(fixtures.IDP_2_ENTITY_ID, identity_providers[3].entity_id)
+            assert True == isinstance(identity_providers[3], SAMLIdentityProviderMetadata)
+            assert fixtures.IDP_2_ENTITY_ID == identity_providers[3].entity_id
 
             configuration_storage.load.assert_has_calls(
                 [
@@ -320,7 +319,7 @@ class TestSAMLSettings(DatabaseTest):
         ]
 
         # Without an active database session there are no federated IdPs and no options
-        eq_(None, federated_identity_provider_entity_ids["options"])
+        assert None == federated_identity_provider_entity_ids["options"]
 
         initialize_database(autoinitialize=False)
 
@@ -346,7 +345,7 @@ class TestSAMLSettings(DatabaseTest):
         ]
 
         # After getting an active database session options get initialized
-        eq_(1, len(federated_identity_provider_entity_ids["options"]))
+        assert 1 == len(federated_identity_provider_entity_ids["options"])
 
 
 class TestSAMLOneLoginConfiguration(object):
@@ -377,7 +376,7 @@ class TestSAMLOneLoginConfiguration(object):
         )
 
         # Assert
-        eq_(result, expected_result)
+        assert result == expected_result
         configuration.get_identity_providers.assert_called_once_with(db)
 
     @parameterized.expand(
@@ -439,7 +438,7 @@ class TestSAMLOneLoginConfiguration(object):
         # Assert
         result["sp"]["x509cert"] = fixtures.strip_certificate(result["sp"]["x509cert"])
 
-        eq_(result, expected_result)
+        assert result == expected_result
         configuration.get_service_provider.assert_called_once_with(db)
 
     def test_get_settings_returns_correct_result(self):
@@ -528,7 +527,7 @@ class TestSAMLOneLoginConfiguration(object):
         # Assert
         result["sp"]["x509cert"] = fixtures.strip_certificate(result["sp"]["x509cert"])
 
-        eq_(result, expected_result)
+        assert result == expected_result
         service_provider_debug_mode_mock.assert_called_with()
         service_provider_strict_mode_mock.assert_called_with()
         configuration.get_service_provider.assert_called_with(db)

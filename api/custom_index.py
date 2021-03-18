@@ -7,7 +7,6 @@ OPDS navigation feed it generates.
 """
 
 import datetime
-from nose.tools import set_trace
 
 from flask import Response
 from flask_babel import lazy_gettext as _

@@ -1,8 +1,5 @@
-from nose.tools import (
-    assert_raises_regexp,
-    eq_,
-    set_trace,
-)
+import pytest
+
 from lxml import etree
 
 from flask import Response
@@ -17,7 +14,7 @@ from api.custom_index import (
     COPPAGate,
 )
 
-from . import DatabaseTest
+from core.testing import DatabaseTest
 
 class TestCustomIndexView(DatabaseTest):
 
@@ -33,19 +30,18 @@ class TestCustomIndexView(DatabaseTest):
             PROTOCOL = "A protocol"
 
         c.register(Mock1)
-        eq_(Mock1, c.BY_PROTOCOL[Mock1.PROTOCOL])
+        assert Mock1 == c.BY_PROTOCOL[Mock1.PROTOCOL]
 
-        assert_raises_regexp(ValueError,
-                             "Duplicate index view for protocol: A protocol",
-                             c.register, Mock2)
+        with pytest.raises(ValueError) as excinfo:
+            c.register(Mock2)
+        assert "Duplicate index view for protocol: A protocol" in str(excinfo.value)
         c.BY_PROTOCOL = old_registry
 
     def test_default_registry(self):
         """Verify the default contents of the registry."""
-        eq_(
-            {COPPAGate.PROTOCOL : COPPAGate},
-            CustomIndexView.BY_PROTOCOL
-        )
+        assert (
+            {COPPAGate.PROTOCOL : COPPAGate} ==
+            CustomIndexView.BY_PROTOCOL)
 
 
     def test_for_library(self):
@@ -60,7 +56,7 @@ class TestCustomIndexView(DatabaseTest):
         CustomIndexView.register(MockCustomIndexView)
 
         # By default, a library has no CustomIndexView.
-        eq_(None, m(self._default_library))
+        assert None == m(self._default_library)
 
         # But if a library has an ExternalIntegration that corresponds
         # to a registered CustomIndexView...
@@ -73,13 +69,13 @@ class TestCustomIndexView(DatabaseTest):
         # and returned.
         view = m(self._default_library)
         assert isinstance(view, MockCustomIndexView)
-        eq_((self._default_library, integration), view.instantiated_with)
+        assert (self._default_library, integration) == view.instantiated_with
 
 
 class TestCOPPAGate(DatabaseTest):
 
-    def setup(self):
-        super(TestCOPPAGate, self).setup()
+    def setup_method(self):
+        super(TestCOPPAGate, self).setup_method()
         # Configure a COPPAGate for the default library.
         self.integration = self._external_integration(
             COPPAGate.PROTOCOL, CustomIndexView.GOAL,
@@ -100,20 +96,17 @@ class TestCOPPAGate(DatabaseTest):
     def test_lane_loading(self):
         # The default setup loads lane IDs properly.
         gate = COPPAGate(self._default_library, self.integration)
-        eq_(self.lane1.id, gate.yes_lane_id)
-        eq_(self.lane2.id, gate.no_lane_id)
+        assert self.lane1.id == gate.yes_lane_id
+        assert self.lane2.id == gate.no_lane_id
 
         # If a lane isn't associated with the right library, the
         # COPPAGate is misconfigured and cannot be instantiated.
         library = self._library()
         self.lane1.library = library
         self._db.commit()
-        assert_raises_regexp(
-            CannotLoadConfiguration,
-            "Lane .* is for the wrong library",
-            COPPAGate,
-            self._default_library, self.integration
-        )
+        with pytest.raises(CannotLoadConfiguration) as excinfo:
+            COPPAGate(self._default_library, self.integration)
+        assert "Lane {} is for the wrong library".format(self.lane1.id) in str(excinfo.value)
         self.lane1.library_id = self._default_library.id
 
         # If the lane ID doesn't correspond to a real lane, the
@@ -122,10 +115,9 @@ class TestCOPPAGate(DatabaseTest):
             self._db, COPPAGate.REQUIREMENT_MET_LANE, self._default_library,
             self.integration
         ).value = -100
-        assert_raises_regexp(
-            CannotLoadConfiguration, "No lane with ID: -100",
-            COPPAGate, self._default_library, self.integration
-        )
+        with pytest.raises(CannotLoadConfiguration) as excinfo:
+            COPPAGate(self._default_library, self.integration)
+        assert "No lane with ID: -100" in str(excinfo.value)
 
     def test_invocation(self):
         # Test the ability of a COPPAGate to act as a view.
@@ -141,11 +133,10 @@ class TestCOPPAGate(DatabaseTest):
 
         # The entity-body is the result of calling _navigation_feed,
         # which has been cached as .navigation_feed.
-        eq_("200 OK", response.status)
-        eq_(OPDSFeed.NAVIGATION_FEED_TYPE, response.headers['Content-Type'])
-        response_data = response.get_data(as_text=True)
-        eq_("fake feed", response_data)
-        eq_(response_data, gate.navigation_feed)
+        assert "200 OK" == response.status
+        assert OPDSFeed.NAVIGATION_FEED_TYPE == response.headers['Content-Type']
+        assert "fake feed" == response.get_data(as_text=True)
+        assert response.data == gate.navigation_feed
 
     def test__navigation_feed(self):
         """Test the code that builds an OPDS navigation feed."""
@@ -188,7 +179,7 @@ class TestCOPPAGate(DatabaseTest):
 
         # The feed was passed to our mock Annotator, which decided to do
         # nothing to it.
-        eq_((feed, None), annotator.called_with)
+        assert (feed, None) == annotator.called_with
 
         # navigation_entry was called twice, once for the 'old enough'
         # entry and once for the 'not old enough' entry.
@@ -199,30 +190,30 @@ class TestCOPPAGate(DatabaseTest):
             "acquisition_groups", self._default_library.short_name,
             lane_identifier=gate.yes_lane_id
         )
-        eq_(lane_url, yes_url)
-        eq_(title, gate.YES_TITLE)
-        eq_(content, gate.YES_CONTENT)
+        assert lane_url == yes_url
+        assert title == gate.YES_TITLE
+        assert content == gate.YES_CONTENT
 
         lane_url, title, content = younger
         no_url = mock_url_for(
             "acquisition_groups", self._default_library.short_name,
             lane_identifier=gate.no_lane_id
         )
-        eq_(lane_url, no_url)
-        eq_(title, gate.NO_TITLE)
-        eq_(content, gate.NO_CONTENT)
+        assert lane_url == no_url
+        assert title == gate.NO_TITLE
+        assert content == gate.NO_CONTENT
 
         # gate_tag was called once.
         [(restriction, met_url, not_met_url)] = gate_tag_calls
-        eq_(gate.URI, restriction)
-        eq_(yes_url, met_url)
-        eq_(no_url, not_met_url)
+        assert gate.URI == restriction
+        assert yes_url == met_url
+        assert no_url == not_met_url
 
         # The feed as a whole incorporates the return values of
         # the methods that were called.
         feed = str(feed)
         assert "<gate/>" in feed
-        eq_(2, feed.count("<entry/>"))
+        assert 2 == feed.count("<entry/>")
 
         # There's also a self link, a title, an ID, and an updated
         # time, which were inserted by the OPDSFeed constructor.
@@ -256,12 +247,12 @@ class TestCOPPAGate(DatabaseTest):
             "restriction", "http://met/", "http://not-met/"
         )
         simplified_ns = '{%s}' % OPDSFeed.SIMPLIFIED_NS
-        eq_(simplified_ns + "gate", gate.tag)
+        assert simplified_ns + "gate" == gate.tag
 
         # The tag contains the URI for the restriction, and the
         # destination URLs designating where clients should go if they
         # do (or don't) meet the restriction.
-        eq_("restriction", gate.attrib["restriction"])
-        eq_("http://met/", gate.attrib["restriction-met"])
-        eq_("http://not-met/", gate.attrib["restriction-not-met"])
+        assert "restriction" == gate.attrib["restriction"]
+        assert "http://met/" == gate.attrib["restriction-met"]
+        assert "http://not-met/" == gate.attrib["restriction-not-met"]
 

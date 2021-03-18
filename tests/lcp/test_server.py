@@ -5,7 +5,6 @@ import urllib.parse
 
 import requests_mock
 from mock import create_autospec, MagicMock
-from nose.tools import eq_
 from parameterized import parameterized
 
 from api.lcp import utils
@@ -20,8 +19,8 @@ from tests.lcp.database_test import DatabaseTest
 
 
 class TestLCPServer(DatabaseTest):
-    def setup(self, mock_search=True):
-        super(TestLCPServer, self).setup()
+    def setup_method(self):
+        super(TestLCPServer, self).setup_method()
 
         self._lcp_collection = self._collection(protocol=ExternalIntegration.LCP)
         self._integration = self._lcp_collection.external_integration
@@ -75,16 +74,16 @@ class TestLCPServer(DatabaseTest):
                 lcp_server.add_content(self._db, encrypted_content)
 
                 # Assert
-                eq_(request_mock.called, True)
+                assert request_mock.called == True
 
                 json_request = json.loads(request_mock.last_request.text)
-                eq_(json_request['content-id'], encrypted_content.content_id)
-                eq_(json_request['content-encryption-key'], encrypted_content.content_encryption_key)
-                eq_(json_request['protected-content-location'], expected_protected_content_disposition)
-                eq_(json_request['protected-content-disposition'], encrypted_content.protected_content_disposition)
-                eq_(json_request['protected-content-type'], encrypted_content.protected_content_type)
-                eq_(json_request['protected-content-length'], encrypted_content.protected_content_length)
-                eq_(json_request['protected-content-sha256'], encrypted_content.protected_content_sha256)
+                assert json_request['content-id'] == encrypted_content.content_id
+                assert json_request['content-encryption-key'] == encrypted_content.content_encryption_key
+                assert json_request['protected-content-location'] == expected_protected_content_disposition
+                assert json_request['protected-content-disposition'] == encrypted_content.protected_content_disposition
+                assert json_request['protected-content-type'] == encrypted_content.protected_content_type
+                assert json_request['protected-content-length'] == encrypted_content.protected_content_length
+                assert json_request['protected-content-sha256'] == encrypted_content.protected_content_sha256
 
     @parameterized.expand([
         ('none_rights', None, None, None, None),
@@ -191,29 +190,29 @@ class TestLCPServer(DatabaseTest):
                     self._db, fixtures.CONTENT_ID, patron, license_start, license_end)
 
                 # Assert
-                eq_(request_mock.called, True)
-                eq_(license, fixtures.LCPSERVER_LICENSE)
+                assert request_mock.called == True
+                assert license == fixtures.LCPSERVER_LICENSE
 
                 json_request = json.loads(request_mock.last_request.text)
-                eq_(json_request['provider'], fixtures.PROVIDER_NAME)
-                eq_(json_request['user']['id'], expected_patron_id)
-                eq_(json_request['encryption']['user_key']['text_hint'], fixtures.TEXT_HINT)
-                eq_(json_request['encryption']['user_key']['hex_value'], expected_patron_key)
+                assert json_request['provider'] == fixtures.PROVIDER_NAME
+                assert json_request['user']['id'] == expected_patron_id
+                assert json_request['encryption']['user_key']['text_hint'] == fixtures.TEXT_HINT
+                assert json_request['encryption']['user_key']['hex_value'] == expected_patron_key
 
                 if license_start is not None:
-                    eq_(json_request['rights']['start'], utils.format_datetime(license_start))
+                    assert json_request['rights']['start'] == utils.format_datetime(license_start)
                 if license_end is not None:
-                    eq_(json_request['rights']['end'], utils.format_datetime(license_end))
+                    assert json_request['rights']['end'] == utils.format_datetime(license_end)
                 if max_printable_pages is not None and max_printable_pages != '':
-                    eq_(json_request['rights']['print'], max_printable_pages)
+                    assert json_request['rights']['print'] == max_printable_pages
                 if max_copiable_pages is not None and max_copiable_pages != '':
-                    eq_(json_request['rights']['copy'], max_copiable_pages)
+                    assert json_request['rights']['copy'] == max_copiable_pages
 
                 all_rights_fields_are_empty = all(
                     [rights_field is None or rights_field == '' for rights_field in [license_start, license_end, max_printable_pages, max_copiable_pages]]
                 )
                 if all_rights_fields_are_empty:
-                    eq_('rights' in json_request, False)
+                    assert ('rights' in json_request) == False
 
                 self._credential_factory.get_patron_id.assert_called_once_with(self._db, patron)
                 self._credential_factory.get_patron_passphrase.assert_called_once_with(self._db, patron)

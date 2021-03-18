@@ -1,7 +1,6 @@
 import json
 
 from mock import PropertyMock, create_autospec
-from nose.tools import eq_
 
 from api.admin.controller.collection_settings import CollectionSettingsController
 from api.controller import CirculationManager
@@ -43,8 +42,8 @@ class TestCollectionSettingsController(DatabaseTest):
         )
 
         # Assert
-        eq_(True, affiliation_attributes_key in settings)
+        assert True == (affiliation_attributes_key in settings)
 
         # We want to make sure that the result setting array contains a correct value in a list format.
         saved_affiliation_attributes = settings[affiliation_attributes_key]
-        eq_(expected_affiliation_attributes, saved_affiliation_attributes)
+        assert expected_affiliation_attributes == saved_affiliation_attributes

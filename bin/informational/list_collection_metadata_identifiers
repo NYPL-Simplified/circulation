@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-from nose.tools import set_trace
 import os
 import sys
 bin_dir = os.path.split(__file__)[0]
@@ -8,4 +7,4 @@ sys.path.append(os.path.abspath(package_dir))
 
 from core.scripts import ListCollectionMetadataIdentifiersScript
 
-ListCollectionMetadataIdentifiersScript().run() 
+ListCollectionMetadataIdentifiersScript().run()

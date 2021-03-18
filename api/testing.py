@@ -3,7 +3,6 @@ import datetime
 import json
 import logging
 from collections import defaultdict
-from nose.tools import set_trace
 
 from core.testing import DatabaseTest
 

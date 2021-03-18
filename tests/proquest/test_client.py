@@ -1,8 +1,8 @@
 import json
 
+import pytest
 import requests_mock
 from mock import MagicMock, create_autospec
-from nose.tools import assert_raises, eq_
 from parameterized import parameterized
 from requests import HTTPError
 
@@ -30,8 +30,8 @@ DOWNLOAD_LINK_SERVICE_URL = "https://proquest.com/lib/nyulibrary-ebooks/Download
 
 
 class TestProQuestAPIClient(DatabaseTest):
-    def setup(self, mock_search=True):
-        super(TestProQuestAPIClient, self).setup()
+    def setup_method(self, mock_search=True):
+        super(TestProQuestAPIClient, self).setup_method()
 
         self._proquest_collection = self._collection(
             protocol=ExternalIntegration.PROQUEST
@@ -91,7 +91,7 @@ class TestProQuestAPIClient(DatabaseTest):
             request_mock.get(books_catalog_service_url, **response_arguments)
 
             # Act
-            with assert_raises(expected_exception_class):
+            with pytest.raises(expected_exception_class):
                 self._client.download_feed_page(self._db, page, hits_per_page)
 
     def test_download_feed_page_successfully_extracts_feed_from_correct_response(self):
@@ -119,7 +119,7 @@ class TestProQuestAPIClient(DatabaseTest):
             feed = self._client.download_feed_page(self._db, page, hits_per_page)
 
             # Assert
-            eq_(expected_feed, feed)
+            assert expected_feed == feed
 
     @parameterized.expand(
         [
@@ -187,7 +187,7 @@ class TestProQuestAPIClient(DatabaseTest):
             feeds = self._client.download_all_feed_pages(self._db)
 
             # Assert
-            eq_([expected_feed_1, expected_feed_2], list(feeds))
+            assert [expected_feed_1, expected_feed_2] == list(feeds)
 
     @parameterized.expand(
         [
@@ -234,7 +234,7 @@ class TestProQuestAPIClient(DatabaseTest):
             request_mock.get(partner_auth_token_service_url, **response_arguments)
 
             # Act
-            with assert_raises(expected_exception_class):
+            with pytest.raises(expected_exception_class):
                 self._client.create_token(self._db, affiliation_id)
 
     def test_create_token_correctly_extracts_token(self):
@@ -263,7 +263,7 @@ class TestProQuestAPIClient(DatabaseTest):
             token = self._client.create_token(self._db, affiliation_id)
 
             # Assert
-            eq_(expected_token, token)
+            assert expected_token == token
 
     @parameterized.expand(
         [
@@ -304,7 +304,7 @@ class TestProQuestAPIClient(DatabaseTest):
             request_mock.get(download_link_service_url, **response_arguments)
 
             # Act
-            with assert_raises(expected_exception_class):
+            with pytest.raises(expected_exception_class):
                 self._client.get_book(self._db, token, document_id)
 
     def test_get_book_correctly_extracts_open_access_books(self):
@@ -331,8 +331,8 @@ class TestProQuestAPIClient(DatabaseTest):
             book = self._client.get_book(self._db, token, document_id)
 
             # Assert
-            eq_(expected_open_access_book, book)
-            eq_(type(expected_open_access_book), type(book))
+            assert expected_open_access_book == book
+            assert type(expected_open_access_book) == type(book)
 
     def test_get_book_correctly_extracts_acsm_books(
         self,
@@ -374,5 +374,5 @@ class TestProQuestAPIClient(DatabaseTest):
             book = self._client.get_book(self._db, token, document_id)
 
             # Assert
-            eq_(expected_acsm_book, book)
-            eq_(type(expected_acsm_book), type(book))
+            assert expected_acsm_book == book
+            assert type(expected_acsm_book) == type(book)

@@ -28,11 +28,8 @@
 
 from functools import wraps
 import logging
-import urllib.request, urllib.parse, urllib.error
-from nose.tools import (
-    eq_,
-    set_trace,
-)
+import urllib.parse
+
 import os
 import re
 import json
@@ -773,7 +770,7 @@ class TestUnownedTitle(SearchTest):
         # This specific book isn't in the collection, but there's a
         # book with a very similar title, which is the first result.
         self.search(
-            "Save the Cat", 
+            "Save the Cat",
             [Common(title=re.compile("save the cat"), threshold=0.1),
              Common(title=re.compile("(save|cat)"), threshold=0.6)]
         )
@@ -2486,7 +2483,7 @@ class TestSeriesMatch(SearchTest):
 
     def test_goosebump_singular(self):
         self.search(
-            "goosebump", 
+            "goosebump",
             SpecificSeries(
                 series="Goosebumps", author="R. L. Stine",
             )
@@ -2494,7 +2491,7 @@ class TestSeriesMatch(SearchTest):
 
     def test_goosebumps_misspelled(self):
         self.search(
-            "goosebump", 
+            "goosebump",
             SpecificSeries(
                 series="Goosebumps", author="R. L. Stine",
             )

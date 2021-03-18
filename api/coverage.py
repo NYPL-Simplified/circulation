@@ -6,7 +6,6 @@ so on.
 """
 import logging
 from lxml import etree
-from nose.tools import set_trace
 from io import StringIO
 from core.coverage import (
     CoverageFailure,

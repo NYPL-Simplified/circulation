@@ -30,7 +30,6 @@ from api.admin.geographic_validator import GeographicValidator
 from api.admin.announcement_list_validator import AnnouncementListValidator
 from core.util.problem_detail import ProblemDetail
 from core.util import LanguageCodes
-from nose.tools import set_trace
 from api.registry import RemoteRegistry
 
 class LibrarySettingsController(SettingsController):

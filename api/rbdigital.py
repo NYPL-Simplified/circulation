@@ -6,7 +6,6 @@ from flask import Response
 from flask_babel import lazy_gettext as _
 import json
 import logging
-from nose.tools import set_trace
 import os
 import random
 import re

@@ -1,5 +1,4 @@
 from datetime import datetime
-from nose.tools import set_trace
 from flask_babel import lazy_gettext as _
 from api.authenticator import (
     BasicAuthenticationProvider,
@@ -208,7 +207,7 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
                 use_ssl=self.use_ssl, ssl_cert=self.ssl_cert, ssl_key=self.ssl_key,
                 dialect=self.dialect
             )
-        
+
         connection = self.run_test(
             ("Test Connection"),
             makeConnection,

@@ -1,4 +1,3 @@
-from nose.tools import set_trace
 from flask_babel import lazy_gettext as _
 import jwt
 from jwt.algorithms import HMACAlgorithm

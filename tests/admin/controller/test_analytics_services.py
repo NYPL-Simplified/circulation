@@ -1,8 +1,5 @@
-from nose.tools import (
-    set_trace,
-    eq_,
-    assert_raises
-)
+import pytest
+
 import flask
 import json
 from werkzeug.datastructures import MultiDict
@@ -24,10 +21,10 @@ class TestAnalyticsServices(SettingsControllerTest):
     def test_analytics_services_get_with_one_default_service(self):
         with self.request_context_with_admin("/"):
             response = self.manager.admin_analytics_services_controller.process_analytics_services()
-            eq_(len(response.get("analytics_services")), 1)
+            assert len(response.get("analytics_services")) == 1
             local_analytics = response.get("analytics_services")[0]
-            eq_(local_analytics.get("name"), LocalAnalyticsProvider.NAME);
-            eq_(local_analytics.get("protocol"), LocalAnalyticsProvider.__module__)
+            assert local_analytics.get("name") == LocalAnalyticsProvider.NAME;
+            assert local_analytics.get("protocol") == LocalAnalyticsProvider.__module__
 
             protocols = response.get("protocols")
             assert GoogleAnalyticsProvider.NAME in [p.get("label") for p in protocols]
@@ -53,9 +50,9 @@ class TestAnalyticsServices(SettingsControllerTest):
             response = self.manager.admin_analytics_services_controller.process_analytics_services()
             [service] = response.get("analytics_services")
 
-            eq_(ga_service.id, service.get("id"))
-            eq_(ga_service.protocol, service.get("protocol"))
-            eq_(ga_service.url, service.get("settings").get(ExternalIntegration.URL))
+            assert ga_service.id == service.get("id")
+            assert ga_service.protocol == service.get("protocol")
+            assert ga_service.url == service.get("settings").get(ExternalIntegration.URL)
 
         ga_service.libraries += [self._default_library]
         ConfigurationSetting.for_library_and_externalintegration(
@@ -66,8 +63,8 @@ class TestAnalyticsServices(SettingsControllerTest):
             [service] = response.get("analytics_services")
 
             [library] = service.get("libraries")
-            eq_(self._default_library.short_name, library.get("short_name"))
-            eq_("trackingid", library.get(GoogleAnalyticsProvider.TRACKING_ID))
+            assert self._default_library.short_name == library.get("short_name")
+            assert "trackingid" == library.get(GoogleAnalyticsProvider.TRACKING_ID)
 
         self._db.delete(ga_service)
 
@@ -82,17 +79,17 @@ class TestAnalyticsServices(SettingsControllerTest):
             response = self.manager.admin_analytics_services_controller.process_analytics_services()
             [local_analytics] = response.get("analytics_services")
 
-            eq_(local_service.id, local_analytics.get("id"))
-            eq_(local_service.protocol, local_analytics.get("protocol"))
-            eq_(local_analytics.get("protocol"), LocalAnalyticsProvider.__module__)
+            assert local_service.id == local_analytics.get("id")
+            assert local_service.protocol == local_analytics.get("protocol")
+            assert local_analytics.get("protocol") == LocalAnalyticsProvider.__module__
             [library] = local_analytics.get("libraries")
-            eq_(self._default_library.short_name, library.get("short_name"))
+            assert self._default_library.short_name == library.get("short_name")
 
     def test_analytics_services_post_errors(self):
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([])
             response = self.manager.admin_analytics_services_controller.process_analytics_services()
-            eq_(response, MISSING_ANALYTICS_NAME)
+            assert response == MISSING_ANALYTICS_NAME
 
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
@@ -101,7 +98,7 @@ class TestAnalyticsServices(SettingsControllerTest):
                 ("url", "http://test"),
             ])
             response = self.manager.admin_analytics_services_controller.process_analytics_services()
-            eq_(response, UNKNOWN_PROTOCOL)
+            assert response == UNKNOWN_PROTOCOL
 
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
@@ -109,7 +106,7 @@ class TestAnalyticsServices(SettingsControllerTest):
                 ("url", "http://test"),
             ])
             response = self.manager.admin_analytics_services_controller.process_analytics_services()
-            eq_(response, NO_PROTOCOL_FOR_NEW_SERVICE)
+            assert response == NO_PROTOCOL_FOR_NEW_SERVICE
 
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
@@ -118,7 +115,7 @@ class TestAnalyticsServices(SettingsControllerTest):
                 ("url", "http://test"),
             ])
             response = self.manager.admin_analytics_services_controller.process_analytics_services()
-            eq_(response.uri, MISSING_SERVICE.uri)
+            assert response.uri == MISSING_SERVICE.uri
 
         service, ignore = create(
             self._db, ExternalIntegration,
@@ -134,7 +131,7 @@ class TestAnalyticsServices(SettingsControllerTest):
                 ("url", "http://test"),
             ])
             response = self.manager.admin_analytics_services_controller.process_analytics_services()
-            eq_(response, INTEGRATION_NAME_ALREADY_IN_USE)
+            assert response == INTEGRATION_NAME_ALREADY_IN_USE
 
         service, ignore = create(
             self._db, ExternalIntegration,
@@ -150,7 +147,7 @@ class TestAnalyticsServices(SettingsControllerTest):
                 ("url", "http://test"),
             ])
             response = self.manager.admin_analytics_services_controller.process_analytics_services()
-            eq_(response, CANNOT_CHANGE_PROTOCOL)
+            assert response == CANNOT_CHANGE_PROTOCOL
 
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
@@ -160,7 +157,7 @@ class TestAnalyticsServices(SettingsControllerTest):
                 ("url", None),
             ])
             response = self.manager.admin_analytics_services_controller.process_analytics_services()
-            eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
+            assert response.uri == INCOMPLETE_CONFIGURATION.uri
 
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
@@ -171,7 +168,7 @@ class TestAnalyticsServices(SettingsControllerTest):
                 ("libraries", json.dumps([{"short_name": "not-a-library"}])),
             ])
             response = self.manager.admin_analytics_services_controller.process_analytics_services()
-            eq_(response.uri, NO_SUCH_LIBRARY.uri)
+            assert response.uri == NO_SUCH_LIBRARY.uri
 
         library, ignore = create(
             self._db, Library, name="Library", short_name="L",
@@ -186,7 +183,7 @@ class TestAnalyticsServices(SettingsControllerTest):
                 ("libraries", json.dumps([{"short_name": library.short_name}])),
             ])
             response = self.manager.admin_analytics_services_controller.process_analytics_services()
-            eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
+            assert response.uri == INCOMPLETE_CONFIGURATION.uri
 
         self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
         self.admin.remove_role(AdminRole.LIBRARY_MANAGER)
@@ -196,7 +193,7 @@ class TestAnalyticsServices(SettingsControllerTest):
                 (ExternalIntegration.URL, "url"),
                 ("libraries", json.dumps([])),
             ])
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_analytics_services_controller.process_analytics_services)
 
     def test_analytics_services_post_create(self):
@@ -211,19 +208,19 @@ class TestAnalyticsServices(SettingsControllerTest):
                 ("libraries", json.dumps([{"short_name": "L", "tracking_id": "trackingid"}])),
             ])
             response = self.manager.admin_analytics_services_controller.process_analytics_services()
-            eq_(response.status_code, 201)
+            assert response.status_code == 201
 
         service = get_one(
             self._db, ExternalIntegration,
             goal=ExternalIntegration.ANALYTICS_GOAL,
             protocol=GoogleAnalyticsProvider.__module__
         )
-        eq_(service.id, int(response.get_data()))
-        eq_(GoogleAnalyticsProvider.__module__, service.protocol)
-        eq_("http://test", service.url)
-        eq_([library], service.libraries)
-        eq_("trackingid", ConfigurationSetting.for_library_and_externalintegration(
-                self._db, GoogleAnalyticsProvider.TRACKING_ID, library, service).value)
+        assert service.id == int(response.get_data())
+        assert GoogleAnalyticsProvider.__module__ == service.protocol
+        assert "http://test" == service.url
+        assert [library] == service.libraries
+        assert "trackingid" == ConfigurationSetting.for_library_and_externalintegration(
+                self._db, GoogleAnalyticsProvider.TRACKING_ID, library, service).value
 
         local_analytics_default = get_one(
             self._db, ExternalIntegration,
@@ -240,7 +237,7 @@ class TestAnalyticsServices(SettingsControllerTest):
                 ("libraries", json.dumps([{"short_name": "L", "tracking_id": "trackingid"}])),
             ])
             response = self.manager.admin_analytics_services_controller.process_analytics_services()
-            eq_(response.status_code, 201)
+            assert response.status_code == 201
 
     def test_analytics_services_post_edit(self):
         l1, ignore = create(
@@ -267,14 +264,14 @@ class TestAnalyticsServices(SettingsControllerTest):
                 ("libraries", json.dumps([{"short_name": "L2", "tracking_id": "l2id"}])),
             ])
             response = self.manager.admin_analytics_services_controller.process_analytics_services()
-            eq_(response.status_code, 200)
+            assert response.status_code == 200
 
-        eq_(ga_service.id, int(response.get_data()))
-        eq_(GoogleAnalyticsProvider.__module__, ga_service.protocol)
-        eq_("http://test", ga_service.url)
-        eq_([l2], ga_service.libraries)
-        eq_("l2id", ConfigurationSetting.for_library_and_externalintegration(
-                self._db, GoogleAnalyticsProvider.TRACKING_ID, l2, ga_service).value)
+        assert ga_service.id == int(response.get_data())
+        assert GoogleAnalyticsProvider.__module__ == ga_service.protocol
+        assert "http://test" == ga_service.url
+        assert [l2] == ga_service.libraries
+        assert "l2id" == ConfigurationSetting.for_library_and_externalintegration(
+                self._db, GoogleAnalyticsProvider.TRACKING_ID, l2, ga_service).value
 
     def test_check_name_unique(self):
        kwargs = dict(protocol=GoogleAnalyticsProvider.__module__,
@@ -287,19 +284,17 @@ class TestAnalyticsServices(SettingsControllerTest):
        # Try to change new service so that it has the same name as existing service
        # -- this is not allowed.
        result = m(new_service, existing_service.name)
-       eq_(result, INTEGRATION_NAME_ALREADY_IN_USE)
+       assert result == INTEGRATION_NAME_ALREADY_IN_USE
 
        # Try to edit existing service without changing its name -- this is fine.
-       eq_(
-           None,
-           m(existing_service, existing_service.name)
-       )
+       assert (
+           None ==
+           m(existing_service, existing_service.name))
 
        # Changing the existing service's name is also fine.
-       eq_(
-            None,
-            m(existing_service, "new name")
-       )
+       assert (
+            None ==
+            m(existing_service, "new name"))
 
     def test_analytics_service_delete(self):
         l1, ignore = create(
@@ -315,13 +310,13 @@ class TestAnalyticsServices(SettingsControllerTest):
 
         with self.request_context_with_admin("/", method="DELETE"):
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_analytics_services_controller.process_delete,
                           ga_service.id)
 
             self.admin.add_role(AdminRole.SYSTEM_ADMIN)
             response = self.manager.admin_analytics_services_controller.process_delete(ga_service.id)
-            eq_(response.status_code, 200)
+            assert response.status_code == 200
 
         service = get_one(self._db, ExternalIntegration, id=ga_service.id)
-        eq_(None, service)
+        assert None == service

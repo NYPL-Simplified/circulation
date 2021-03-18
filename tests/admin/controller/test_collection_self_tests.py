@@ -1,8 +1,4 @@
-from nose.tools import (
-    set_trace,
-    eq_,
-    assert_raises
-)
+
 from flask_babel import lazy_gettext as _
 from api.admin.problem_details import *
 from api.axis import (Axis360API, MockAxis360API)
@@ -14,15 +10,15 @@ class TestCollectionSelfTests(SettingsControllerTest):
     def test_collection_self_tests_with_no_identifier(self):
         with self.request_context_with_admin("/"):
             response = self.manager.admin_collection_self_tests_controller.process_collection_self_tests(None)
-            eq_(response.title, MISSING_IDENTIFIER.title)
-            eq_(response.detail, MISSING_IDENTIFIER.detail)
-            eq_(response.status_code, 400)
+            assert response.title == MISSING_IDENTIFIER.title
+            assert response.detail == MISSING_IDENTIFIER.detail
+            assert response.status_code == 400
 
     def test_collection_self_tests_with_no_collection_found(self):
         with self.request_context_with_admin("/"):
             response = self.manager.admin_collection_self_tests_controller.process_collection_self_tests(-1)
-            eq_(response, NO_SUCH_COLLECTION)
-            eq_(response.status_code, 404)
+            assert response == NO_SUCH_COLLECTION
+            assert response.status_code == 404
 
     def test_collection_self_tests_test_get(self):
         old_prior_test_results = HasSelfTests.prior_test_results
@@ -36,10 +32,10 @@ class TestCollectionSelfTests(SettingsControllerTest):
 
             responseCollection = response.get("self_test_results")
 
-            eq_(responseCollection.get("id"), collection.id)
-            eq_(responseCollection.get("name"), collection.name)
-            eq_(responseCollection.get("protocol"), collection.protocol)
-            eq_(responseCollection.get("self_test_results"), self.self_test_results)
+            assert responseCollection.get("id") == collection.id
+            assert responseCollection.get("name") == collection.name
+            assert responseCollection.get("protocol") == collection.protocol
+            assert responseCollection.get("self_test_results") == self.self_test_results
 
         HasSelfTests.prior_test_results = old_prior_test_results
 
@@ -55,9 +51,9 @@ class TestCollectionSelfTests(SettingsControllerTest):
             response = self.manager.admin_collection_self_tests_controller.process_collection_self_tests(collection.id)
 
             (run_self_tests_args, run_self_tests_kwargs) = self.failed_run_self_tests_called_with
-            eq_(response.title, FAILED_TO_RUN_SELF_TESTS.title)
-            eq_(response.detail, "Failed to run self tests for this collection.")
-            eq_(response.status_code, 400)
+            assert response.title == FAILED_TO_RUN_SELF_TESTS.title
+            assert response.detail == "Failed to run self tests for this collection."
+            assert response.status_code == 400
 
         HasSelfTests.run_self_tests = old_run_self_tests
 
@@ -71,13 +67,13 @@ class TestCollectionSelfTests(SettingsControllerTest):
             response = self.manager.admin_collection_self_tests_controller.process_collection_self_tests(collection.id)
 
             (run_self_tests_args, run_self_tests_kwargs) = self.run_self_tests_called_with
-            eq_(response.response, _("Successfully ran new self tests"))
-            eq_(response._status, "200 OK")
+            assert response.response == _("Successfully ran new self tests")
+            assert response._status == "200 OK"
 
             # The provider API class and the collection should be passed to
             # the run_self_tests method of the provider API class.
-            eq_(run_self_tests_args[1], OPDSImportMonitor)
-            eq_(run_self_tests_args[3], collection)
+            assert run_self_tests_args[1] == OPDSImportMonitor
+            assert run_self_tests_args[3] == collection
 
 
         collection = MockAxis360API.mock_collection(self._db)
@@ -86,13 +82,13 @@ class TestCollectionSelfTests(SettingsControllerTest):
             response = self.manager.admin_collection_self_tests_controller.process_collection_self_tests(collection.id)
 
             (run_self_tests_args, run_self_tests_kwargs) = self.run_self_tests_called_with
-            eq_(response.response, _("Successfully ran new self tests"))
-            eq_(response._status, "200 OK")
+            assert response.response == _("Successfully ran new self tests")
+            assert response._status == "200 OK"
 
             # The provider API class and the collection should be passed to
             # the run_self_tests method of the provider API class.
-            eq_(run_self_tests_args[1], Axis360API)
-            eq_(run_self_tests_args[3], collection)
+            assert run_self_tests_args[1] == Axis360API
+            assert run_self_tests_args[3] == collection
 
         collection = MockAxis360API.mock_collection(self._db)
         collection.protocol = "Non existing protocol"
@@ -104,11 +100,11 @@ class TestCollectionSelfTests(SettingsControllerTest):
             response = self.manager.admin_collection_self_tests_controller.process_collection_self_tests(collection.id)
 
             (run_self_tests_args, run_self_tests_kwargs) = self.run_self_tests_called_with
-            eq_(response.title, FAILED_TO_RUN_SELF_TESTS.title)
-            eq_(response.detail, "Failed to run self tests for this collection.")
-            eq_(response.status_code, 400)
+            assert response.title == FAILED_TO_RUN_SELF_TESTS.title
+            assert response.detail == "Failed to run self tests for this collection."
+            assert response.status_code == 400
 
             # The method returns None but it was not called
-            eq_(run_self_tests_args, None)
+            assert run_self_tests_args == None
 
         HasSelfTests.run_self_tests = old_run_self_tests

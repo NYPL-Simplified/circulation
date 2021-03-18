@@ -2,7 +2,6 @@ import json
 import sys
 
 from mock import MagicMock, create_autospec, patch
-from nose.tools import eq_
 
 from api.proquest.client import ProQuestAPIClient, ProQuestAPIClientFactory
 from api.proquest.importer import ProQuestOPDS2Importer, ProQuestOPDS2ImportMonitor
@@ -32,8 +31,8 @@ class TestProQuestOPDS2ImportScript(DatabaseTest):
 
         return None
 
-    def setup(self, mock_search=True):
-        super(TestProQuestOPDS2ImportScript, self).setup()
+    def setup_method(self, mock_search=True):
+        super(TestProQuestOPDS2ImportScript, self).setup_method()
 
         self._proquest_data_source = DataSource.lookup(
             self._db, DataSource.PROQUEST, autocreate=True
@@ -93,29 +92,27 @@ class TestProQuestOPDS2ImportScript(DatabaseTest):
             import_script.run()
 
             # We want to make sure that the collection contains both publications.
-            eq_(2, len(self._proquest_collection.licensepools))
+            assert 2 == len(self._proquest_collection.licensepools)
 
             test_book_1_license_pool = self._get_licensepool_by_identifier(
                 self._proquest_collection.licensepools,
                 fixtures.PROQUEST_RAW_PUBLICATION_1_ID,
             )
-            eq_(Identifier.PROQUEST_ID, test_book_1_license_pool.identifier.type)
-            eq_(
-                fixtures.PROQUEST_RAW_PUBLICATION_1_ID,
-                test_book_1_license_pool.identifier.identifier,
-            )
-            eq_(True, test_book_1_license_pool.unlimited_access)
+            assert Identifier.PROQUEST_ID == test_book_1_license_pool.identifier.type
+            assert (
+                fixtures.PROQUEST_RAW_PUBLICATION_1_ID ==
+                test_book_1_license_pool.identifier.identifier)
+            assert True == test_book_1_license_pool.unlimited_access
 
             test_book_2_license_pool = self._get_licensepool_by_identifier(
                 self._proquest_collection.licensepools,
                 fixtures.PROQUEST_RAW_PUBLICATION_2_ID,
             )
-            eq_(Identifier.PROQUEST_ID, test_book_2_license_pool.identifier.type)
-            eq_(
-                fixtures.PROQUEST_RAW_PUBLICATION_2_ID,
-                test_book_2_license_pool.identifier.identifier,
-            )
-            eq_(True, test_book_2_license_pool.unlimited_access)
+            assert Identifier.PROQUEST_ID == test_book_2_license_pool.identifier.type
+            assert (
+                fixtures.PROQUEST_RAW_PUBLICATION_2_ID ==
+                test_book_2_license_pool.identifier.identifier)
+            assert True == test_book_2_license_pool.unlimited_access
 
         # 2. When we run the monitor for the second time it gets another feed containing:
         # - Test Book 1
@@ -144,40 +141,37 @@ class TestProQuestOPDS2ImportScript(DatabaseTest):
             import_script.run()
 
             # The collection contains 3 items but only two of them are visible.
-            eq_(3, len(self._proquest_collection.licensepools))
+            assert 3 == len(self._proquest_collection.licensepools)
             test_book_1_license_pool = self._get_licensepool_by_identifier(
                 self._proquest_collection.licensepools,
                 fixtures.PROQUEST_RAW_PUBLICATION_1_ID,
             )
-            eq_(Identifier.PROQUEST_ID, test_book_1_license_pool.identifier.type)
-            eq_(
-                fixtures.PROQUEST_RAW_PUBLICATION_1_ID,
-                test_book_1_license_pool.identifier.identifier,
-            )
-            eq_(True, test_book_1_license_pool.unlimited_access)
+            assert Identifier.PROQUEST_ID == test_book_1_license_pool.identifier.type
+            assert (
+                fixtures.PROQUEST_RAW_PUBLICATION_1_ID ==
+                test_book_1_license_pool.identifier.identifier)
+            assert True == test_book_1_license_pool.unlimited_access
 
             test_book_2_license_pool = self._get_licensepool_by_identifier(
                 self._proquest_collection.licensepools,
                 fixtures.PROQUEST_RAW_PUBLICATION_2_ID,
             )
-            eq_(Identifier.PROQUEST_ID, test_book_2_license_pool.identifier.type)
-            eq_(
-                fixtures.PROQUEST_RAW_PUBLICATION_2_ID,
-                test_book_2_license_pool.identifier.identifier,
-            )
+            assert Identifier.PROQUEST_ID == test_book_2_license_pool.identifier.type
+            assert (
+                fixtures.PROQUEST_RAW_PUBLICATION_2_ID ==
+                test_book_2_license_pool.identifier.identifier)
             # We want to make sure that Test Book 2 is no longer visible in the CM's catalog
             # because it doesn't have any licenses.
-            eq_(False, test_book_2_license_pool.unlimited_access)
-            eq_(0, test_book_2_license_pool.licenses_owned)
-            eq_(0, test_book_2_license_pool.licenses_available)
+            assert False == test_book_2_license_pool.unlimited_access
+            assert 0 == test_book_2_license_pool.licenses_owned
+            assert 0 == test_book_2_license_pool.licenses_available
 
             test_book_3_license_pool = self._get_licensepool_by_identifier(
                 self._proquest_collection.licensepools,
                 fixtures.PROQUEST_RAW_PUBLICATION_3_ID,
             )
-            eq_(Identifier.PROQUEST_ID, test_book_3_license_pool.identifier.type)
-            eq_(
-                fixtures.PROQUEST_RAW_PUBLICATION_3_ID,
-                test_book_3_license_pool.identifier.identifier,
-            )
-            eq_(True, test_book_3_license_pool.unlimited_access)
+            assert Identifier.PROQUEST_ID == test_book_3_license_pool.identifier.type
+            assert (
+                fixtures.PROQUEST_RAW_PUBLICATION_3_ID ==
+                test_book_3_license_pool.identifier.identifier)
+            assert True == test_book_3_license_pool.unlimited_access

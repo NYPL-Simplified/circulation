@@ -1,4 +1,3 @@
-from nose.tools import set_trace
 
 class AdminAuthenticationProvider(object):
     def __init__(self, integration):

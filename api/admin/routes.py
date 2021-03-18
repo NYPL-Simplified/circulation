@@ -1,4 +1,3 @@
-from nose.tools import set_trace
 from functools import wraps
 import flask
 from flask import (

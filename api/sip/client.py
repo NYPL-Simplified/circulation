@@ -33,7 +33,6 @@ import socket
 import ssl
 import tempfile
 from api.sip.dialect import GenericILS
-from nose.tools import set_trace
 
 # SIP2 defines a large number of fields which are used in request and
 # response messages. This library focuses on defining the response
@@ -325,7 +324,7 @@ class SIPClient(Constants):
                 self.connection = self.make_secure_connection()
             else:
                 self.connection = self.make_insecure_connection()
-            
+
             self.connection.settimeout(12)
             self.connection.connect((self.target_server, self.target_port))
         except socket.error as message:
@@ -334,7 +333,7 @@ class SIPClient(Constants):
                     self.target_server, self.target_port, message
                 )
             )
-        
+
         # Since this is a new socket connection, reset the message count
         self.reset_connection_state()
 

@@ -1,4 +1,3 @@
-from nose.tools import eq_
 from parameterized import parameterized
 
 from api.proquest.identifier import ProQuestIdentifierParser
@@ -25,4 +24,4 @@ class TestProQuestIdentifierParser(object):
 
         result = parser.parse(identifier_string)
 
-        eq_(expected_result, result)
+        assert expected_result == result

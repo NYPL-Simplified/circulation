@@ -1,5 +1,4 @@
 import argparse
-from nose.tools import set_trace
 import json
 import logging
 import uuid

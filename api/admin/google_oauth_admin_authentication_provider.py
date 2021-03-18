@@ -1,5 +1,4 @@
 import json
-from nose.tools import set_trace
 from collections import defaultdict
 
 from api.admin.template_styles import *

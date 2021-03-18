@@ -1,11 +1,7 @@
-from nose.tools import (
-    eq_,
-    set_trace,
-)
 from pymarc import Record
 import urllib.request, urllib.parse, urllib.error
 
-from . import DatabaseTest
+from core.testing import DatabaseTest
 from core.config import Configuration
 from core.model import (
     ConfigurationSetting,
@@ -60,9 +56,9 @@ class TestLibraryAnnotator(DatabaseTest):
         assert 'add_marc_organization_code' not in annotator.called_with
         assert 'add_summary' not in annotator.called_with
         assert 'add_simplified_genres' not in annotator.called_with
-        eq_([record, self._default_library, identifier, integration], annotator.called_with.get('add_web_client_urls'))
-        eq_([record, pool], annotator.called_with.get('add_distributor'))
-        eq_([record, pool], annotator.called_with.get('add_formats'))
+        assert [record, self._default_library, identifier, integration] == annotator.called_with.get('add_web_client_urls')
+        assert [record, pool] == annotator.called_with.get('add_distributor')
+        assert [record, pool] == annotator.called_with.get('add_formats')
 
         # If settings are false, the methods still won't be called.
         ConfigurationSetting.for_library_and_externalintegration(
@@ -79,9 +75,9 @@ class TestLibraryAnnotator(DatabaseTest):
         assert 'add_marc_organization_code' not in annotator.called_with
         assert 'add_summary' not in annotator.called_with
         assert 'add_simplified_genres' not in annotator.called_with
-        eq_([record, self._default_library, identifier, integration], annotator.called_with.get('add_web_client_urls'))
-        eq_([record, pool], annotator.called_with.get('add_distributor'))
-        eq_([record, pool], annotator.called_with.get('add_formats'))
+        assert [record, self._default_library, identifier, integration] == annotator.called_with.get('add_web_client_urls')
+        assert [record, pool] == annotator.called_with.get('add_distributor')
+        assert [record, pool] == annotator.called_with.get('add_formats')
 
         # Once the include settings are true and the marc organization code is set,
         # all methods are called.
@@ -100,12 +96,12 @@ class TestLibraryAnnotator(DatabaseTest):
         annotator = MockAnnotator(self._default_library)
         annotator.annotate_work_record(work, pool, edition, identifier, record, integration)
 
-        eq_([record, "marc org"], annotator.called_with.get("add_marc_organization_code"))
-        eq_([record, work], annotator.called_with.get("add_summary"))
-        eq_([record, work], annotator.called_with.get("add_simplified_genres"))
-        eq_([record, self._default_library, identifier, integration], annotator.called_with.get('add_web_client_urls'))
-        eq_([record, pool], annotator.called_with.get('add_distributor'))
-        eq_([record, pool], annotator.called_with.get('add_formats'))
+        assert [record, "marc org"] == annotator.called_with.get("add_marc_organization_code")
+        assert [record, work] == annotator.called_with.get("add_summary")
+        assert [record, work] == annotator.called_with.get("add_simplified_genres")
+        assert [record, self._default_library, identifier, integration] == annotator.called_with.get('add_web_client_urls')
+        assert [record, pool] == annotator.called_with.get('add_distributor')
+        assert [record, pool] == annotator.called_with.get('add_formats')
 
     def test_add_web_client_urls(self):
         # Web client URLs can come from either the MARC export integration or
@@ -152,7 +148,7 @@ class TestLibraryAnnotator(DatabaseTest):
         # If no web catalog URLs are set for the library, nothing will be changed.
         record = Record()
         annotator.add_web_client_urls(record, self._default_library, identifier)
-        eq_([], record.get_fields("856"))
+        assert [] == record.get_fields("856")
 
         # Add a URL from a library registry.
         registry = self._external_integration(
@@ -165,8 +161,8 @@ class TestLibraryAnnotator(DatabaseTest):
         record = Record()
         annotator.add_web_client_urls(record, self._default_library, identifier)
         [field] = record.get_fields("856")
-        eq_(["4", "0"], field.indicators)
-        eq_(expected_client_url_1, field.get_subfields("u")[0])
+        assert ["4", "0"] == field.indicators
+        assert expected_client_url_1 == field.get_subfields("u")[0]
 
         # Add a manually configured URL on a MARC export integration.
         integration = self._external_integration(
@@ -180,8 +176,8 @@ class TestLibraryAnnotator(DatabaseTest):
         record = Record()
         annotator.add_web_client_urls(record, self._default_library, identifier, integration)
         [field1, field2] = record.get_fields("856")
-        eq_(["4", "0"], field1.indicators)
-        eq_(expected_client_url_2, field1.get_subfields("u")[0])
+        assert ["4", "0"] == field1.indicators
+        assert expected_client_url_2 == field1.get_subfields("u")[0]
 
-        eq_(["4", "0"], field2.indicators)
-        eq_(expected_client_url_1, field2.get_subfields("u")[0])
+        assert ["4", "0"] == field2.indicators
+        assert expected_client_url_1 == field2.get_subfields("u")[0]

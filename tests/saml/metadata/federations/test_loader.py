@@ -1,5 +1,5 @@
+import pytest
 from mock import MagicMock, create_autospec, patch
-from nose.tools import eq_, raises
 
 from api.saml.metadata.federations import incommon
 from api.saml.metadata.federations.loader import (
@@ -15,7 +15,6 @@ from tests.saml import fixtures
 
 class TestSAMLMetadataLoader(object):
     @patch("urllib2.urlopen")
-    @raises(SAMLMetadataLoadingError)
     def test_load_idp_metadata_raises_error_when_xml_is_incorrect(self, urlopen_mock):
         # Arrange
         url = "http://md.incommon.org/InCommon/metadata.xml"
@@ -26,7 +25,8 @@ class TestSAMLMetadataLoader(object):
         metadata_loader = SAMLMetadataLoader()
 
         # Act
-        metadata_loader.load_idp_metadata(url)
+        with pytest.raises(SAMLMetadataLoadingError):
+            metadata_loader.load_idp_metadata(url)
 
     @patch("urllib2.urlopen")
     def test_load_idp_metadata_correctly_loads_one_descriptor(self, urlopen_mock):
@@ -43,7 +43,7 @@ class TestSAMLMetadataLoader(object):
 
         # Assert
         urlopen_mock.assert_called_with(url)
-        eq_(fixtures.CORRECT_XML_WITH_IDP_1, xml_metadata)
+        assert fixtures.CORRECT_XML_WITH_IDP_1 == xml_metadata
 
     @patch("urllib2.urlopen")
     def test_load_idp_metadata_correctly_loads_multiple_descriptors(self, urlopen_mock):
@@ -60,7 +60,7 @@ class TestSAMLMetadataLoader(object):
 
         # Assert
         urlopen_mock.assert_called_with(url)
-        eq_(fixtures.CORRECT_XML_WITH_MULTIPLE_IDPS, xml_metadata)
+        assert fixtures.CORRECT_XML_WITH_MULTIPLE_IDPS == xml_metadata
 
 
 class TestSAMLFederatedIdentityProviderLoader(object):
@@ -87,15 +87,15 @@ class TestSAMLFederatedIdentityProviderLoader(object):
         idps = idp_loader.load(saml_federation)
 
         # Assert
-        eq_(2, len(idps))
+        assert 2 == len(idps)
 
-        eq_(fixtures.IDP_1_ENTITY_ID, idps[0].entity_id)
-        eq_(fixtures.IDP_1_UI_INFO_EN_DISPLAY_NAME, idps[0].display_name)
-        eq_(saml_federation, idps[0].federation)
+        assert fixtures.IDP_1_ENTITY_ID == idps[0].entity_id
+        assert fixtures.IDP_1_UI_INFO_EN_DISPLAY_NAME == idps[0].display_name
+        assert saml_federation == idps[0].federation
 
-        eq_(fixtures.IDP_2_ENTITY_ID, idps[1].entity_id)
-        eq_(fixtures.IDP_2_UI_INFO_EN_DISPLAY_NAME, idps[1].display_name)
-        eq_(saml_federation, idps[1].federation)
+        assert fixtures.IDP_2_ENTITY_ID == idps[1].entity_id
+        assert fixtures.IDP_2_UI_INFO_EN_DISPLAY_NAME == idps[1].display_name
+        assert saml_federation == idps[1].federation
 
         metadata_loader.load_idp_metadata.assert_called_once_with(
             federation_idp_metadata_service_url
