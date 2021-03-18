@@ -1,11 +1,9 @@
 import datetime
-from nose.tools import (
-    eq_,
-    assert_raises_regexp,
-)
+
+import pytest
 from parameterized import parameterized
 
-from . import DatabaseTest
+from ..testing import DatabaseTest
 from ..config import CannotLoadConfiguration
 from ..mirror import MirrorUploader
 from ..model import ExternalIntegration
@@ -80,11 +78,9 @@ class TestInitialization(DatabaseTest):
         storage_name = "some storage"
         # If there's no integration with goal=STORAGE or name=storage_name,
         # MirrorUploader.mirror raises an exception.
-        assert_raises_regexp(
-            CannotLoadConfiguration,
-            "No storage integration with name 'some storage' is configured",
-            MirrorUploader.mirror, self._db, storage_name
-        )
+        with pytest.raises(CannotLoadConfiguration) as excinfo:
+            MirrorUploader.mirror(self._db, storage_name)
+        assert "No storage integration with name 'some storage' is configured" in str(excinfo.value)
 
         # If there's only one, mirror() uses it to initialize a
         # MirrorUploader.
@@ -103,11 +99,9 @@ class TestInitialization(DatabaseTest):
         integration = self._integration
 
         # No name was passed so nothing is found
-        assert_raises_regexp(
-            CannotLoadConfiguration,
-            "No storage integration with name 'None' is configured",
-            MirrorUploader.integration_by_name, self._db
-        )
+        with pytest.raises(CannotLoadConfiguration) as excinfo:
+            MirrorUploader.integration_by_name(self._db)
+        assert "No storage integration with name 'None' is configured" in str(excinfo.value)
 
         # Correct name was passed
         integration = MirrorUploader.integration_by_name(self._db, integration.name)
@@ -117,7 +111,7 @@ class TestInitialization(DatabaseTest):
         # This collection has no mirror_integration, so
         # there is no MirrorUploader for it.
         collection = self._collection()
-        eq_(None, MirrorUploader.for_collection(collection, ExternalIntegrationLink.COVERS))
+        assert None == MirrorUploader.for_collection(collection, ExternalIntegrationLink.COVERS)
 
         # This collection has a properly configured mirror_integration,
         # so it can have an MirrorUploader.
@@ -157,12 +151,9 @@ class TestInitialization(DatabaseTest):
         if settings:
             for key, value in settings.iteritems():
                 integration.setting(key).value = value
-
-        assert_raises_regexp(
-            CannotLoadConfiguration,
-            "from an integration with goal=licenses",
-            uploader_class, integration
-        )
+        with pytest.raises(CannotLoadConfiguration) as excinfo:
+            uploader_class(integration)
+        assert "from an integration with goal=licenses" in str(excinfo.value)
 
     def test_implementation_registry(self):
         # The implementation class used for a given ExternalIntegration
@@ -192,11 +183,11 @@ class TestMirrorUploader(DatabaseTest):
         now = datetime.datetime.utcnow()
         DummySuccessUploader().mirror_one(r, '')
         assert r.mirrored_at > now
-        eq_(None, r.mirror_exception)
+        assert None == r.mirror_exception
 
         # Even if the original upload succeeds, a subsequent upload
         # may fail in a way that leaves the image in an inconsistent
         # state.
         DummyFailureUploader().mirror_one(r, '')
-        eq_(None, r.mirrored_at)
-        eq_("I always fail.", r.mirror_exception)
+        assert None == r.mirrored_at
+        assert "I always fail." == r.mirror_exception

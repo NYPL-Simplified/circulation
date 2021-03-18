@@ -1,10 +1,6 @@
 # encoding: utf-8
-from nose.tools import (
-    eq_,
-    set_trace,
-)
 import datetime
-from .. import DatabaseTest
+from ...testing import DatabaseTest
 from ...model.coverage import (
     BaseCoverageRecord,
     CoverageRecord,
@@ -27,35 +23,30 @@ class TestTimestamp(DatabaseTest):
         )
 
         # Look it up.
-        eq_(
-            timestamp,
-            Timestamp.lookup(self._db, "service", Timestamp.SCRIPT_TYPE, c1)
-        )
+        assert (
+            timestamp ==
+            Timestamp.lookup(self._db, "service", Timestamp.SCRIPT_TYPE, c1))
 
         # There are a number of ways to _fail_ to look up this timestamp.
-        eq_(
-            None,
+        assert (
+            None ==
             Timestamp.lookup(
                 self._db, "other service", Timestamp.SCRIPT_TYPE, c1
-            )
-        )
-        eq_(
-            None,
-            Timestamp.lookup(self._db, "service", Timestamp.MONITOR_TYPE, c1)
-        )
-        eq_(
-            None,
-            Timestamp.lookup(self._db, "service", Timestamp.SCRIPT_TYPE, c2)
-        )
+            ))
+        assert (
+            None ==
+            Timestamp.lookup(self._db, "service", Timestamp.MONITOR_TYPE, c1))
+        assert (
+            None ==
+            Timestamp.lookup(self._db, "service", Timestamp.SCRIPT_TYPE, c2))
 
         # value() works the same way as lookup() but returns the actual
         # timestamp.finish value.
-        eq_(timestamp.finish,
+        assert (timestamp.finish ==
             Timestamp.value(self._db, "service", Timestamp.SCRIPT_TYPE, c1))
-        eq_(
-            None,
-            Timestamp.value(self._db, "service", Timestamp.SCRIPT_TYPE, c2)
-        )
+        assert (
+            None ==
+            Timestamp.value(self._db, "service", Timestamp.SCRIPT_TYPE, c2))
 
     def test_stamp(self):
         service = "service"
@@ -66,36 +57,36 @@ class TestTimestamp(DatabaseTest):
         stamp = Timestamp.stamp(self._db, service, type)
         now = datetime.datetime.utcnow()
         assert (now - stamp.finish).total_seconds() < 2
-        eq_(stamp.start, stamp.finish)
-        eq_(service, stamp.service)
-        eq_(type, stamp.service_type)
-        eq_(None, stamp.collection)
-        eq_(None, stamp.achievements)
-        eq_(None, stamp.counter)
-        eq_(None, stamp.exception)
+        assert stamp.start == stamp.finish
+        assert service == stamp.service
+        assert type == stamp.service_type
+        assert None == stamp.collection
+        assert None == stamp.achievements
+        assert None == stamp.counter
+        assert None == stamp.exception
 
         # Calling stamp() again will update the Timestamp.
         stamp2 = Timestamp.stamp(
             self._db, service, type, achievements="yay",
             counter=100, exception="boo"
         )
-        eq_(stamp, stamp2)
+        assert stamp == stamp2
         now = datetime.datetime.utcnow()
         assert (now - stamp.finish).total_seconds() < 2
-        eq_(stamp.start, stamp.finish)
-        eq_(service, stamp.service)
-        eq_(type, stamp.service_type)
-        eq_(None, stamp.collection)
-        eq_('yay', stamp.achievements)
-        eq_(100, stamp.counter)
-        eq_('boo', stamp.exception)
+        assert stamp.start == stamp.finish
+        assert service == stamp.service
+        assert type == stamp.service_type
+        assert None == stamp.collection
+        assert 'yay' == stamp.achievements
+        assert 100 == stamp.counter
+        assert 'boo' == stamp.exception
 
         # Passing in a different collection will create a new Timestamp.
         stamp3 = Timestamp.stamp(
             self._db, service, type, collection=self._default_collection
         )
         assert stamp3 != stamp
-        eq_(self._default_collection, stamp3.collection)
+        assert self._default_collection == stamp3.collection
 
         # Passing in CLEAR_VALUE for start, end, or exception will
         # clear an existing Timestamp.
@@ -104,10 +95,10 @@ class TestTimestamp(DatabaseTest):
             start=Timestamp.CLEAR_VALUE, finish=Timestamp.CLEAR_VALUE,
             exception=Timestamp.CLEAR_VALUE
         )
-        eq_(stamp4, stamp)
-        eq_(None, stamp4.start)
-        eq_(None, stamp4.finish)
-        eq_(None, stamp4.exception)
+        assert stamp4 == stamp
+        assert None == stamp4.start
+        assert None == stamp4.finish
+        assert None == stamp4.exception
 
     def test_update(self):
         # update() can modify the fields of a Timestamp that aren't
@@ -120,21 +111,21 @@ class TestTimestamp(DatabaseTest):
         exception = self._str
         stamp.update(start, finish, achievements, counter, exception)
 
-        eq_(start, stamp.start)
-        eq_(finish, stamp.finish)
-        eq_(achievements, stamp.achievements)
-        eq_(counter, stamp.counter)
-        eq_(exception, stamp.exception)
+        assert start == stamp.start
+        assert finish == stamp.finish
+        assert achievements == stamp.achievements
+        assert counter == stamp.counter
+        assert exception == stamp.exception
 
         # .exception is the only field update() will set to a value of
         # None. For all other fields, None means "don't update the existing
         # value".
         stamp.update()
-        eq_(start, stamp.start)
-        eq_(finish, stamp.finish)
-        eq_(achievements, stamp.achievements)
-        eq_(counter, stamp.counter)
-        eq_(None, stamp.exception)
+        assert start == stamp.start
+        assert finish == stamp.finish
+        assert achievements == stamp.achievements
+        assert counter == stamp.counter
+        assert None == stamp.exception
 
     def to_data(self):
         stamp = Timestamp.stamp(
@@ -145,15 +136,15 @@ class TestTimestamp(DatabaseTest):
         assert isinstance(data, TimestampData)
 
         # The TimestampData is not finalized.
-        eq_(None, data.service)
-        eq_(None, data.service_type)
-        eq_(None, data.collection_id)
+        assert None == data.service
+        assert None == data.service_type
+        assert None == data.collection_id
 
         # But all the other information is there.
-        eq_(stamp.start, data.start)
-        eq_(stamp.finish, data.finish)
-        eq_(stamp.achievements, data.achievements)
-        eq_(stamp.counter, data.counter)
+        assert stamp.start == data.start
+        assert stamp.finish == data.finish
+        assert stamp.achievements == data.achievements
+        assert stamp.counter == data.counter
 
 
 class TestBaseCoverageRecord(DatabaseTest):
@@ -172,27 +163,27 @@ class TestBaseCoverageRecord(DatabaseTest):
         success_record.timestamp = (
             datetime.datetime.utcnow() - datetime.timedelta(seconds=3600)
         )
-        eq_(CoverageRecord.SUCCESS, success_record.status)
+        assert CoverageRecord.SUCCESS == success_record.status
 
         transient = self._identifier()
         transient_record = self._coverage_record(
             transient, source, status=CoverageRecord.TRANSIENT_FAILURE
         )
-        eq_(CoverageRecord.TRANSIENT_FAILURE, transient_record.status)
+        assert CoverageRecord.TRANSIENT_FAILURE == transient_record.status
 
         persistent = self._identifier()
         persistent_record = self._coverage_record(
             persistent, source, status = BaseCoverageRecord.PERSISTENT_FAILURE
         )
-        eq_(CoverageRecord.PERSISTENT_FAILURE, persistent_record.status)
+        assert CoverageRecord.PERSISTENT_FAILURE == persistent_record.status
 
         # Here's a query that finds all four.
         qu = self._db.query(Identifier).outerjoin(CoverageRecord)
-        eq_(4, qu.count())
+        assert 4 == qu.count()
 
         def check_not_covered(expect, **kwargs):
             missing = CoverageRecord.not_covered(**kwargs)
-            eq_(sorted(expect), sorted(qu.filter(missing).all()))
+            assert sorted(expect) == sorted(qu.filter(missing).all())
 
         # By default, not_covered() only finds the identifier with no
         # coverage and the one with a transient failure.
@@ -247,7 +238,7 @@ class TestCoverageRecord(DatabaseTest):
         # and collection must all match.
         result = CoverageRecord.lookup(edition, source, operation,
                                        collection=collection)
-        eq_(record, result)
+        assert record == result
 
         # You can substitute the Edition's primary identifier for the
         # Edition iteslf.
@@ -255,33 +246,33 @@ class TestCoverageRecord(DatabaseTest):
             edition.primary_identifier, source, operation,
             collection=self._default_collection
         )
-        eq_(lookup, record)
+        assert lookup == record
 
 
         # Omit the collection, and you find nothing.
         result = CoverageRecord.lookup(edition, source, operation)
-        eq_(None, result)
+        assert None == result
 
         # Same for operation.
         result = CoverageRecord.lookup(edition, source, collection=collection)
-        eq_(None, result)
+        assert None == result
 
         result = CoverageRecord.lookup(edition, source, "other operation",
                                        collection=collection)
-        eq_(None, result)
+        assert None == result
 
         # Same for data source.
         other_source = DataSource.lookup(self._db, DataSource.OVERDRIVE)
         result = CoverageRecord.lookup(edition, other_source, operation,
                                        collection=collection)
-        eq_(None, result)
+        assert None == result
 
     def test_add_for(self):
         source = DataSource.lookup(self._db, DataSource.OCLC)
         edition = self._edition()
         operation = 'foo'
         record, is_new = CoverageRecord.add_for(edition, source, operation)
-        eq_(True, is_new)
+        assert True == is_new
 
         # If we call add_for again we get the same record back, but we
         # can modify the timestamp.
@@ -289,29 +280,29 @@ class TestCoverageRecord(DatabaseTest):
         record2, is_new = CoverageRecord.add_for(
             edition, source, operation, a_week_ago
         )
-        eq_(record, record2)
-        eq_(False, is_new)
-        eq_(a_week_ago, record2.timestamp)
+        assert record == record2
+        assert False == is_new
+        assert a_week_ago == record2.timestamp
 
         # If we don't specify an operation we get a totally different
         # record.
         record3, ignore = CoverageRecord.add_for(edition, source)
         assert record3 != record
-        eq_(None, record3.operation)
+        assert None == record3.operation
         seconds = (datetime.datetime.utcnow() - record3.timestamp).seconds
         assert seconds < 10
 
         # If we call lookup we get the same record.
         record4 = CoverageRecord.lookup(edition.primary_identifier, source)
-        eq_(record3, record4)
+        assert record3 == record4
 
         # We can change the status.
         record5, is_new = CoverageRecord.add_for(
             edition, source, operation,
             status=CoverageRecord.PERSISTENT_FAILURE
         )
-        eq_(record5, record)
-        eq_(CoverageRecord.PERSISTENT_FAILURE, record.status)
+        assert record5 == record
+        assert CoverageRecord.PERSISTENT_FAILURE == record.status
 
     def test_bulk_add(self):
         source = DataSource.lookup(self._db, DataSource.GUTENBERG)
@@ -334,19 +325,19 @@ class TestCoverageRecord(DatabaseTest):
         )
 
         # A new coverage record is created for the uncovered identifier.
-        eq_(i1.coverage_records, resulting_records)
+        assert i1.coverage_records == resulting_records
         [new_record] = resulting_records
-        eq_(source, new_record.data_source)
-        eq_(operation, new_record.operation)
-        eq_(CoverageRecord.SUCCESS, new_record.status)
-        eq_(None, new_record.exception)
+        assert source == new_record.data_source
+        assert operation == new_record.operation
+        assert CoverageRecord.SUCCESS == new_record.status
+        assert None == new_record.exception
 
         # The existing coverage record is untouched.
-        eq_([covered], ignored_identifiers)
-        eq_([existing], covered.coverage_records)
-        eq_(CoverageRecord.TRANSIENT_FAILURE, existing.status)
-        eq_(original_timestamp, existing.timestamp)
-        eq_('Uh oh', existing.exception)
+        assert [covered] == ignored_identifiers
+        assert [existing] == covered.coverage_records
+        assert CoverageRecord.TRANSIENT_FAILURE == existing.status
+        assert original_timestamp == existing.timestamp
+        assert 'Uh oh' == existing.exception
 
         # Newly untouched identifier.
         i2 = self._identifier()
@@ -363,17 +354,17 @@ class TestCoverageRecord(DatabaseTest):
         # The existing record has been updated.
         assert existing in resulting_records
         assert covered not in ignored_identifiers
-        eq_(CoverageRecord.SUCCESS, existing.status)
+        assert CoverageRecord.SUCCESS == existing.status
         assert existing.timestamp > original_timestamp
-        eq_(None, existing.exception)
+        assert None == existing.exception
 
         # If no records are created or updated, no records are returned.
         resulting_records, ignored_identifiers = CoverageRecord.bulk_add(
             [i2, covered], source, operation=operation
         )
 
-        eq_([], resulting_records)
-        eq_(sorted([i2, covered]), sorted(ignored_identifiers))
+        assert [] == resulting_records
+        assert sorted([i2, covered]) == sorted(ignored_identifiers)
 
     def test_bulk_add_with_collection(self):
         source = DataSource.lookup(self._db, DataSource.GUTENBERG)
@@ -399,22 +390,22 @@ class TestCoverageRecord(DatabaseTest):
             force=True
         )
 
-        eq_(2, len(resulting_records))
-        eq_([], ignored_identifiers)
+        assert 2 == len(resulting_records)
+        assert [] == ignored_identifiers
 
         # A new record is created for the new identifier.
         [new_record] = i1.coverage_records
         assert new_record in resulting_records
-        eq_(source, new_record.data_source)
-        eq_(operation, new_record.operation)
-        eq_(CoverageRecord.SUCCESS, new_record.status)
-        eq_(c1, new_record.collection)
+        assert source == new_record.data_source
+        assert operation == new_record.operation
+        assert CoverageRecord.SUCCESS == new_record.status
+        assert c1 == new_record.collection
 
         # The existing record has been updated.
         assert existing in resulting_records
-        eq_(CoverageRecord.SUCCESS, existing.status)
+        assert CoverageRecord.SUCCESS == existing.status
         assert existing.timestamp > original_timestamp
-        eq_(None, existing.exception)
+        assert None == existing.exception
 
         # Bulk add for a different collection.
         resulting_records, ignored_identifiers = CoverageRecord.bulk_add(
@@ -425,11 +416,11 @@ class TestCoverageRecord(DatabaseTest):
         # A new record has been added to the identifier.
         assert existing not in resulting_records
         [new_record] = resulting_records
-        eq_(covered, new_record.identifier)
-        eq_(CoverageRecord.TRANSIENT_FAILURE, new_record.status)
-        eq_(source, new_record.data_source)
-        eq_(operation, new_record.operation)
-        eq_(u'Oh no', new_record.exception)
+        assert covered == new_record.identifier
+        assert CoverageRecord.TRANSIENT_FAILURE == new_record.status
+        assert source == new_record.data_source
+        assert operation == new_record.operation
+        assert u'Oh no' == new_record.exception
 
 class TestWorkCoverageRecord(DatabaseTest):
 
@@ -438,20 +429,20 @@ class TestWorkCoverageRecord(DatabaseTest):
         operation = 'foo'
 
         lookup = WorkCoverageRecord.lookup(work, operation)
-        eq_(None, lookup)
+        assert None == lookup
 
         record = self._work_coverage_record(work, operation)
 
         lookup = WorkCoverageRecord.lookup(work, operation)
-        eq_(lookup, record)
+        assert lookup == record
 
-        eq_(None, WorkCoverageRecord.lookup(work, "another operation"))
+        assert None == WorkCoverageRecord.lookup(work, "another operation")
 
     def test_add_for(self):
         work = self._work()
         operation = 'foo'
         record, is_new = WorkCoverageRecord.add_for(work, operation)
-        eq_(True, is_new)
+        assert True == is_new
 
         # If we call add_for again we get the same record back, but we
         # can modify the timestamp.
@@ -459,28 +450,28 @@ class TestWorkCoverageRecord(DatabaseTest):
         record2, is_new = WorkCoverageRecord.add_for(
             work, operation, a_week_ago
         )
-        eq_(record, record2)
-        eq_(False, is_new)
-        eq_(a_week_ago, record2.timestamp)
+        assert record == record2
+        assert False == is_new
+        assert a_week_ago == record2.timestamp
 
         # If we don't specify an operation we get a totally different
         # record.
         record3, ignore = WorkCoverageRecord.add_for(work, None)
         assert record3 != record
-        eq_(None, record3.operation)
+        assert None == record3.operation
         seconds = (datetime.datetime.utcnow() - record3.timestamp).seconds
         assert seconds < 10
 
         # If we call lookup we get the same record.
         record4 = WorkCoverageRecord.lookup(work, None)
-        eq_(record3, record4)
+        assert record3 == record4
 
         # We can change the status.
         record5, is_new = WorkCoverageRecord.add_for(
             work, operation, status=WorkCoverageRecord.PERSISTENT_FAILURE
         )
-        eq_(record5, record)
-        eq_(WorkCoverageRecord.PERSISTENT_FAILURE, record.status)
+        assert record5 == record
+        assert WorkCoverageRecord.PERSISTENT_FAILURE == record.status
 
     def test_bulk_add(self):
 
@@ -535,23 +526,23 @@ class TestWorkCoverageRecord(DatabaseTest):
 
         # No coverage records were added or modified for works not
         # passed in to the method.
-        eq_([], relevant_records(not_affected))
+        assert [] == relevant_records(not_affected)
         assert not_modified.timestamp < new_timestamp
 
         # The record associated with already_covered has been updated,
         # and its exception removed.
         [record] = relevant_records(already_covered)
-        eq_(new_timestamp, record.timestamp)
-        eq_(new_status, record.status)
-        eq_(None, previously_failed.exception)
+        assert new_timestamp == record.timestamp
+        assert new_status == record.status
+        assert None == previously_failed.exception
 
         # A new record has been associated with not_already_covered
         [record] = relevant_records(not_already_covered)
-        eq_(new_timestamp, record.timestamp)
-        eq_(new_status, record.status)
+        assert new_timestamp == record.timestamp
+        assert new_status == record.status
 
         # The irrelevant WorkCoverageRecord is not affected by the update,
         # even though its Work was affected, because it's a record for
         # a different operation.
-        eq_(WorkCoverageRecord.SUCCESS, irrelevant_record.status)
+        assert WorkCoverageRecord.SUCCESS == irrelevant_record.status
         assert irrelevant_record.timestamp < new_timestamp

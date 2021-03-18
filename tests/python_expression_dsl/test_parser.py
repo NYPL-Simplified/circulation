@@ -1,4 +1,4 @@
-from nose.tools import assert_raises, eq_
+import pytest
 from parameterized import parameterized
 
 from ...python_expression_dsl.parser import DSLParseError, DSLParser
@@ -19,8 +19,8 @@ class TestDSLParser(object):
         parser = DSLParser()
 
         # Act
-        with assert_raises(DSLParseError) as exception_context:
+        with pytest.raises(DSLParseError) as exception_context:
             parser.parse(expression)
 
         # Assert
-        eq_(expected_error_message, str(exception_context.exception))
+        assert expected_error_message == str(exception_context.value)

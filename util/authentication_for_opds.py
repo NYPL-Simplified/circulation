@@ -1,4 +1,4 @@
-from nose.tools import set_trace
+
 
 class OPDSAuthenticationFlow(object):
     """An object that can be represented as an Authentication Flow

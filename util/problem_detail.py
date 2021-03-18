@@ -6,7 +6,7 @@ import json as j
 import logging
 
 from flask_babel import LazyString
-from nose.tools import set_trace
+
 
 from ..exceptions import BaseError
 

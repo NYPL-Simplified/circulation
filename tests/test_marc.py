@@ -1,15 +1,12 @@
-from nose.tools import (
-    eq_,
-    set_trace,
-    assert_raises,
-)
 import datetime
+
+import pytest
 from pymarc import Record, MARCReader
 from StringIO import StringIO
 import urllib
 from sqlalchemy.orm.session import Session
 
-from . import DatabaseTest
+from ..testing import DatabaseTest
 
 from ..model import (
     CachedMARCFile,
@@ -61,30 +58,30 @@ class TestAnnotator(DatabaseTest):
         pool = work.license_pools[0]
 
         annotator.annotate_work_record(work, pool, None, None, record)
-        eq_([record, pool], annotator.add_distributor_called_with)
-        eq_([record, pool], annotator.add_formats_called_with)
+        assert [record, pool] == annotator.add_distributor_called_with
+        assert [record, pool] == annotator.add_formats_called_with
 
     def test_leader(self):
         work = self._work(with_license_pool=True)
         leader = Annotator.leader(work)
-        eq_("00000nam  2200000   4500", leader)
+        assert "00000nam  2200000   4500" == leader
 
         # If there's already a marc record cached, the record status changes.
         work.marc_record = "cached"
         leader = Annotator.leader(work)
-        eq_("00000cam  2200000   4500", leader)
+        assert "00000cam  2200000   4500" == leader
 
     def _check_control_field(self, record, tag, expected):
         [field] = record.get_fields(tag)
-        eq_(expected, field.value())
+        assert expected == field.value()
 
     def _check_field(self, record, tag, expected_subfields, expected_indicators=None):
         if not expected_indicators:
             expected_indicators = [" ", " "]
         [field] = record.get_fields(tag)
-        eq_(expected_indicators, field.indicators)
+        assert expected_indicators == field.indicators
         for subfield, value in expected_subfields.items():
-            eq_(value, field.get_subfields(subfield)[0])
+            assert value == field.get_subfields(subfield)[0]
 
     def test_add_control_fields(self):
         # This edition has one format and was published before 1900.
@@ -147,7 +144,7 @@ class TestAnnotator(DatabaseTest):
         non_isbn = self._identifier()
         record = Record()
         Annotator.add_isbn(record, non_isbn)
-        eq_([], record.get_fields("020"))
+        assert [] == record.get_fields("020")
 
     def test_add_title(self):
         edition = self._edition()
@@ -176,8 +173,8 @@ class TestAnnotator(DatabaseTest):
             record, "245", {
                 "a": edition.title,
             }, ["0", "4"])
-        eq_([], field.get_subfields("b"))
-        eq_([], field.get_subfields("c"))
+        assert [] == field.get_subfields("b")
+        assert [] == field.get_subfields("c")
 
     def test_add_contributors(self):
         author = "a"
@@ -190,7 +187,7 @@ class TestAnnotator(DatabaseTest):
 
         record = Record()
         Annotator.add_contributors(record, edition)
-        eq_([], record.get_fields("700"))
+        assert [] == record.get_fields("700")
         self._check_field(record, "100", {"a": edition.sort_author}, ["1", " "])
 
         # Edition with two authors and a translator gets three 700 fields and no 100 fields.
@@ -199,17 +196,17 @@ class TestAnnotator(DatabaseTest):
 
         record = Record()
         Annotator.add_contributors(record, edition)
-        eq_([], record.get_fields("100"))
+        assert [] == record.get_fields("100")
         fields = record.get_fields("700")
         for field in fields:
-            eq_(["1", " "], field.indicators)
+            assert ["1", " "] == field.indicators
         [author_field, author2_field, translator_field] = sorted(fields, key=lambda x: x.get_subfields("a")[0])
-        eq_(author, author_field.get_subfields("a")[0])
-        eq_(Contributor.PRIMARY_AUTHOR_ROLE, author_field.get_subfields("e")[0])
-        eq_(author2, author2_field.get_subfields("a")[0])
-        eq_(Contributor.AUTHOR_ROLE, author2_field.get_subfields("e")[0])
-        eq_(translator, translator_field.get_subfields("a")[0])
-        eq_(Contributor.TRANSLATOR_ROLE, translator_field.get_subfields("e")[0])
+        assert author == author_field.get_subfields("a")[0]
+        assert Contributor.PRIMARY_AUTHOR_ROLE == author_field.get_subfields("e")[0]
+        assert author2 == author2_field.get_subfields("a")[0]
+        assert Contributor.AUTHOR_ROLE == author2_field.get_subfields("e")[0]
+        assert translator == translator_field.get_subfields("a")[0]
+        assert Contributor.TRANSLATOR_ROLE == translator_field.get_subfields("e")[0]
 
     def test_add_publisher(self):
         edition = self._edition()
@@ -229,7 +226,7 @@ class TestAnnotator(DatabaseTest):
         record = Record()
         edition.publisher = None
         Annotator.add_publisher(record, edition)
-        eq_([], record.get_fields("264"))
+        assert [] == record.get_fields("264")
 
     def test_add_distributor(self):
         edition, pool = self._edition(with_license_pool=True)
@@ -295,7 +292,7 @@ class TestAnnotator(DatabaseTest):
             "a": "audio file",
             "2": "rda",
         })
-        eq_([], record.get_fields("380"))
+        assert [] == record.get_fields("380")
 
     def test_add_audience(self):
         for audience, term in Annotator.AUDIENCE_TERMS.items():
@@ -327,13 +324,13 @@ class TestAnnotator(DatabaseTest):
             "a": edition.series,
         }, ["0", " "])
         [field] = record.get_fields("490")
-        eq_([], field.get_subfields("v"))
+        assert [] == field.get_subfields("v")
 
         # If there's no series, the field is left out.
         edition.series = None
         record = Record()
         Annotator.add_series(record, edition)
-        eq_([], record.get_fields("490"))
+        assert [] == record.get_fields("490")
 
     def test_add_system_details(self):
         record = Record()
@@ -352,12 +349,12 @@ class TestAnnotator(DatabaseTest):
         record = Record()
         Annotator.add_formats(record, pool)
         fields = record.get_fields("538")
-        eq_(2, len(fields))
+        assert 2 == len(fields)
         [pdf, epub] = sorted(fields, key=lambda x: x.get_subfields("a")[0])
-        eq_("Adobe PDF eBook", pdf.get_subfields("a")[0])
-        eq_([" ", " "], pdf.indicators)
-        eq_("EPUB eBook", epub.get_subfields("a")[0])
-        eq_([" ", " "], epub.indicators)
+        assert "Adobe PDF eBook" == pdf.get_subfields("a")[0]
+        assert [" ", " "] == pdf.indicators
+        assert "EPUB eBook" == epub.get_subfields("a")[0]
+        assert [" ", " "] == epub.indicators
 
     def test_add_summary(self):
         work = self._work(with_license_pool=True)
@@ -377,12 +374,12 @@ class TestAnnotator(DatabaseTest):
         Annotator.add_simplified_genres(record, work)
         fields = record.get_fields("650")
         [fantasy_field, romance_field] = sorted(fields, key=lambda x: x.get_subfields("a")[0])
-        eq_(["0", "7"], fantasy_field.indicators)
-        eq_("Fantasy", fantasy_field.get_subfields("a")[0])
-        eq_("Library Simplified", fantasy_field.get_subfields("2")[0])
-        eq_(["0", "7"], romance_field.indicators)
-        eq_("Romance", romance_field.get_subfields("a")[0])
-        eq_("Library Simplified", romance_field.get_subfields("2")[0])
+        assert ["0", "7"] == fantasy_field.indicators
+        assert "Fantasy" == fantasy_field.get_subfields("a")[0]
+        assert "Library Simplified" == fantasy_field.get_subfields("2")[0]
+        assert ["0", "7"] == romance_field.indicators
+        assert "Romance" == romance_field.get_subfields("a")[0]
+        assert "Library Simplified" == romance_field.get_subfields("2")[0]
 
     def test_add_ebooks_subject(self):
         record = Record()
@@ -398,15 +395,15 @@ class TestMARCExporter(DatabaseTest):
             libraries=[self._default_library])
 
     def test_from_config(self):
-        assert_raises(CannotLoadConfiguration, MARCExporter.from_config, self._default_library)
+        pytest.raises(CannotLoadConfiguration, MARCExporter.from_config, self._default_library)
 
         integration = self._integration()
         exporter = MARCExporter.from_config(self._default_library)
-        eq_(integration, exporter.integration)
-        eq_(self._default_library, exporter.library)
+        assert integration == exporter.integration
+        assert self._default_library == exporter.library
 
         other_library = self._library()
-        assert_raises(CannotLoadConfiguration, MARCExporter.from_config, other_library)
+        pytest.raises(CannotLoadConfiguration, MARCExporter.from_config, other_library)
 
     def test_create_record(self):
         work = self._work(with_license_pool=True, title="old title",
@@ -414,14 +411,14 @@ class TestMARCExporter(DatabaseTest):
         annotator = Annotator()
 
         # The record isn't cached yet, so a new record is created and cached.
-        eq_(None, work.marc_record)
+        assert None == work.marc_record
         record = MARCExporter.create_record(work, annotator)
         [title_field] = record.get_fields("245")
-        eq_("old title", title_field.get_subfields("a")[0])
+        assert "old title" == title_field.get_subfields("a")[0]
         [author_field] = record.get_fields("100")
-        eq_("author, old", author_field.get_subfields("a")[0])
+        assert "author, old" == author_field.get_subfields("a")[0]
         [distributor_field] = record.get_fields("264")
-        eq_(DataSource.OVERDRIVE, distributor_field.get_subfields("b")[0])
+        assert DataSource.OVERDRIVE == distributor_field.get_subfields("b")[0]
         cached = work.marc_record
         assert b"old title" in cached
         assert b"author, old" in cached
@@ -438,20 +435,20 @@ class TestMARCExporter(DatabaseTest):
         # not part of the cached record.
         record = MARCExporter.create_record(work, annotator)
         [title_field] = record.get_fields("245")
-        eq_("old title", title_field.get_subfields("a")[0])
+        assert "old title" == title_field.get_subfields("a")[0]
         [author_field] = record.get_fields("100")
-        eq_("author, old", author_field.get_subfields("a")[0])
+        assert "author, old" == author_field.get_subfields("a")[0]
         [distributor_field] = record.get_fields("264")
-        eq_(DataSource.BIBLIOTHECA, distributor_field.get_subfields("b")[0])
+        assert DataSource.BIBLIOTHECA == distributor_field.get_subfields("b")[0]
 
         # But we can force an update to the cached record.
         record = MARCExporter.create_record(work, annotator, force_create=True)
         [title_field] = record.get_fields("245")
-        eq_("new title", title_field.get_subfields("a")[0])
+        assert "new title" == title_field.get_subfields("a")[0]
         [author_field] = record.get_fields("100")
-        eq_("author, new", author_field.get_subfields("a")[0])
+        assert "author, new" == author_field.get_subfields("a")[0]
         [distributor_field] = record.get_fields("264")
-        eq_(DataSource.BIBLIOTHECA, distributor_field.get_subfields("b")[0])
+        assert DataSource.BIBLIOTHECA == distributor_field.get_subfields("b")[0]
         cached = work.marc_record
         assert b"old title" not in cached
         assert b"author, old" not in cached
@@ -467,7 +464,7 @@ class TestMARCExporter(DatabaseTest):
 
         annotator = MockAnnotator()
         record = MARCExporter.create_record(work, annotator, integration=integration)
-        eq_(integration, annotator.integration)
+        assert integration == annotator.integration
 
     def test_create_record_roundtrip(self):
         # Create a marc record from a work with special characters
@@ -485,13 +482,13 @@ class TestMARCExporter(DatabaseTest):
         )
         record = MARCExporter.create_record(work, annotator)
         loaded_record = MARCExporter.create_record(work, annotator)
-        eq_(record.as_marc(), loaded_record.as_marc())
+        assert record.as_marc() == loaded_record.as_marc()
 
         # Loads a existing record from the DB
         db = Session(self.connection)
         new_work = get_one(db, Work, id=work.id)
         new_record = MARCExporter.create_record(new_work, annotator)
-        eq_(record.as_marc(), new_record.as_marc())
+        assert record.as_marc() == new_record.as_marc()
 
     def test_records(self):
         integration = self._integration()
@@ -507,7 +504,7 @@ class TestMARCExporter(DatabaseTest):
 
         # If there's a storage protocol but not corresponding storage integration,
         # it raises an exception.
-        assert_raises(Exception, exporter.records, lane, annotator)
+        pytest.raises(Exception, exporter.records, lane, annotator)
 
         # If there is a storage integration, the output file is mirrored.
         mirror_integration = self._external_integration(
@@ -520,29 +517,29 @@ class TestMARCExporter(DatabaseTest):
         exporter.records(lane, annotator, mirror_integration, mirror=mirror, query_batch_size=1, upload_batch_size=1, search_engine=search_engine)
 
         # The file was mirrored and a CachedMARCFile was created to track the mirrored file.
-        eq_(1, len(mirror.uploaded))
+        assert 1 == len(mirror.uploaded)
         [cache] = self._db.query(CachedMARCFile).all()
-        eq_(self._default_library, cache.library)
-        eq_(lane, cache.lane)
-        eq_(mirror.uploaded[0], cache.representation)
-        eq_(None, cache.representation.content)
-        eq_("https://test-marc-bucket.s3.amazonaws.com/%s/%s/%s.mrc" % (
+        assert self._default_library == cache.library
+        assert lane == cache.lane
+        assert mirror.uploaded[0] == cache.representation
+        assert None == cache.representation.content
+        assert ("https://test-marc-bucket.s3.amazonaws.com/%s/%s/%s.mrc" % (
             self._default_library.short_name,
             urllib.quote(str(cache.representation.fetched_at)),
-            urllib.quote(lane.display_name)),
+            urllib.quote(lane.display_name)) ==
             mirror.uploaded[0].mirror_url)
-        eq_(None, cache.start_time)
+        assert None == cache.start_time
         assert cache.end_time > now
 
         # The content was uploaded in two parts.
-        eq_(2, len(mirror.content[0]))
+        assert 2 == len(mirror.content[0])
         complete_file = b"".join(mirror.content[0])
         records = list(MARCReader(complete_file))
-        eq_(2, len(records))
+        assert 2 == len(records)
 
         title_fields = [record.get_fields("245") for record in records]
         titles = [fields[0].get_subfields("a")[0] for fields in title_fields]
-        eq_(set([w1.title, w2.title]), set(titles))
+        assert set([w1.title, w2.title]) == set(titles)
 
         assert w1.title.encode("utf8") in w1.marc_record
         assert w2.title.encode("utf8") in w2.marc_record
@@ -557,24 +554,24 @@ class TestMARCExporter(DatabaseTest):
         mirror = MockS3Uploader()
         exporter.records(worklist, annotator, mirror_integration, mirror=mirror, query_batch_size=1, upload_batch_size=1, search_engine=search_engine)
 
-        eq_(1, len(mirror.uploaded))
+        assert 1 == len(mirror.uploaded)
         [cache] = self._db.query(CachedMARCFile).all()
-        eq_(self._default_library, cache.library)
-        eq_(None, cache.lane)
-        eq_(mirror.uploaded[0], cache.representation)
-        eq_(None, cache.representation.content)
-        eq_("https://test-marc-bucket.s3.amazonaws.com/%s/%s/%s.mrc" % (
+        assert self._default_library == cache.library
+        assert None == cache.lane
+        assert mirror.uploaded[0] == cache.representation
+        assert None == cache.representation.content
+        assert ("https://test-marc-bucket.s3.amazonaws.com/%s/%s/%s.mrc" % (
             self._default_library.short_name,
             urllib.quote(str(cache.representation.fetched_at)),
-            urllib.quote(worklist.display_name)),
+            urllib.quote(worklist.display_name)) ==
             mirror.uploaded[0].mirror_url)
-        eq_(None, cache.start_time)
+        assert None == cache.start_time
         assert cache.end_time > now
 
-        eq_(2, len(mirror.content[0]))
+        assert 2 == len(mirror.content[0])
         complete_file = b"".join(mirror.content[0])
         records = list(MARCReader(complete_file))
-        eq_(2, len(records))
+        assert 2 == len(records)
 
         self._db.delete(cache)
 
@@ -593,16 +590,16 @@ class TestMARCExporter(DatabaseTest):
             upload_batch_size=2, search_engine=search_engine
         )
         [cache] = self._db.query(CachedMARCFile).all()
-        eq_(self._default_library, cache.library)
-        eq_(lane, cache.lane)
-        eq_(mirror.uploaded[0], cache.representation)
-        eq_(None, cache.representation.content)
-        eq_("https://test-marc-bucket.s3.amazonaws.com/%s/%s-%s/%s.mrc" % (
+        assert self._default_library == cache.library
+        assert lane == cache.lane
+        assert mirror.uploaded[0] == cache.representation
+        assert None == cache.representation.content
+        assert ("https://test-marc-bucket.s3.amazonaws.com/%s/%s-%s/%s.mrc" % (
             self._default_library.short_name, urllib.quote(str(start_time)),
             urllib.quote(str(cache.representation.fetched_at)),
-            urllib.quote(lane.display_name)),
+            urllib.quote(lane.display_name)) ==
             mirror.uploaded[0].mirror_url)
-        eq_(start_time, cache.start_time)
+        assert start_time == cache.start_time
         assert cache.end_time > now
         self._db.delete(cache)
 
@@ -615,13 +612,13 @@ class TestMARCExporter(DatabaseTest):
         exporter.records(lane, annotator, mirror_integration,
                          mirror=mirror, search_engine=empty_search_engine)
 
-        eq_([], mirror.content[0])
+        assert [] == mirror.content[0]
         [cache] = self._db.query(CachedMARCFile).all()
-        eq_(cache.representation, mirror.uploaded[0])
-        eq_(self._default_library, cache.library)
-        eq_(lane, cache.lane)
-        eq_(None, cache.representation.content)
-        eq_(None, cache.start_time)
+        assert cache.representation == mirror.uploaded[0]
+        assert self._default_library == cache.library
+        assert lane == cache.lane
+        assert None == cache.representation.content
+        assert None == cache.start_time
         assert cache.end_time > now
 
         self._db.delete(cache)
@@ -640,11 +637,11 @@ class TestMARCExporterFacets(object):
 
         # updated_after has been set and results are to be returned in
         # order of increasing last_update_time.
-        eq_("last_update_time", filter.order)
-        eq_(True, filter.order_ascending)
-        eq_("some start time", filter.updated_after)
+        assert "last_update_time" == filter.order
+        assert True == filter.order_ascending
+        assert "some start time" == filter.updated_after
 
     def test_scoring_functions(self):
         # A no-op.
         facets = MARCExporterFacets("some start time")
-        eq_([], facets.scoring_functions(object()))
+        assert [] == facets.scoring_functions(object())

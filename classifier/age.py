@@ -1,5 +1,5 @@
 import re
-from nose.tools import set_trace
+
 from . import Classifier
 
 class GradeLevelClassifier(Classifier):

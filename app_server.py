@@ -1,5 +1,5 @@
 """Implement logic common to more than one of the Simplified applications."""
-from nose.tools import set_trace
+
 from psycopg2 import DatabaseError
 import flask
 import gzip

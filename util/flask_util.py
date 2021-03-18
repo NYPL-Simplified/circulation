@@ -2,7 +2,7 @@
 import datetime
 import flask
 from lxml import etree
-from nose.tools import set_trace
+
 from flask import Response as FlaskResponse
 from wsgiref.handlers import format_date_time
 import time

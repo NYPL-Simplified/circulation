@@ -1,6 +1,6 @@
 # encoding: utf-8
 # LoanAndHoldMixin, Patron, Loan, Hold, Annotation, PatronProfileStorage
-from nose.tools import set_trace
+
 
 from . import (
     Base,

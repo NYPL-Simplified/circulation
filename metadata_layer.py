@@ -9,7 +9,7 @@ the information into this format.
 
 from collections import defaultdict
 from sqlalchemy.orm.session import Session
-from nose.tools import set_trace
+
 from dateutil.parser import parse
 from sqlalchemy.sql.expression import and_, or_
 from sqlalchemy.orm.exc import (

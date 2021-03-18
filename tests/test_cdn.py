@@ -1,9 +1,5 @@
 # encoding: utf-8
-from nose.tools import (
-    eq_,
-    set_trace,
-)
-from . import DatabaseTest
+from ..testing import DatabaseTest
 
 from ..config import Configuration, temp_config
 from ..model import ExternalIntegration
@@ -20,7 +16,7 @@ class TestCDN(DatabaseTest):
         with temp_config() as config:
             config[Configuration.INTEGRATIONS][ExternalIntegration.CDN] = cdns
             config[Configuration.CDNS_LOADED_FROM_DATABASE] = True
-            eq_(expect, cdnify(url))
+            assert expect == cdnify(url)
 
     def test_no_cdns(self):
         url = "http://foo/"

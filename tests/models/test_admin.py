@@ -1,10 +1,6 @@
 # encoding: utf-8
-from nose.tools import (
-    assert_raises,
-    eq_,
-    set_trace,
-)
-from .. import DatabaseTest
+import pytest
+from ...testing import DatabaseTest
 from ...model import create
 from ...model.admin import (
     Admin,
@@ -12,112 +8,112 @@ from ...model.admin import (
 )
 
 class TestAdmin(DatabaseTest):
-    def setup(self):
-        super(TestAdmin, self).setup()
+    def setup_method(self):
+        super(TestAdmin, self).setup_method()
         self.admin, ignore = create(self._db, Admin, email=u"admin@nypl.org")
         self.admin.password = u"password"
 
     def test_password_hashed(self):
-        assert_raises(NotImplementedError, lambda: self.admin.password)
+        pytest.raises(NotImplementedError, lambda: self.admin.password)
         assert self.admin.password_hashed.startswith('$2a$')
 
     def test_with_password(self):
         self._db.delete(self.admin)
-        eq_([], Admin.with_password(self._db).all())
+        assert [] == Admin.with_password(self._db).all()
 
         admin, ignore = create(self._db, Admin, email="admin@nypl.org")
-        eq_([], Admin.with_password(self._db).all())
+        assert [] == Admin.with_password(self._db).all()
 
         admin.password = "password"
-        eq_([admin], Admin.with_password(self._db).all())
+        assert [admin] == Admin.with_password(self._db).all()
 
         admin2, ignore = create(self._db, Admin, email="admin2@nypl.org")
-        eq_([admin], Admin.with_password(self._db).all())
+        assert [admin] == Admin.with_password(self._db).all()
 
         admin2.password = "password2"
-        eq_(set([admin, admin2]), set(Admin.with_password(self._db).all()))
+        assert set([admin, admin2]) == set(Admin.with_password(self._db).all())
 
     def test_with_email_spaces(self):
         admin_spaces, ignore = create(self._db, Admin, email=u"test@email.com ")
-        eq_(u"test@email.com", admin_spaces.email)
+        assert u"test@email.com" == admin_spaces.email
 
     def test_has_password(self):
-        eq_(True, self.admin.has_password(u"password"))
-        eq_(False, self.admin.has_password(u"banana"))
+        assert True == self.admin.has_password(u"password")
+        assert False == self.admin.has_password(u"banana")
 
     def test_authenticate(self):
         other_admin, ignore = create(self._db, Admin, email=u"other@nypl.org")
         other_admin.password = u"banana"
-        eq_(self.admin, Admin.authenticate(self._db, "admin@nypl.org", "password"))
-        eq_(None, Admin.authenticate(self._db, "other@nypl.org", "password"))
-        eq_(None, Admin.authenticate(self._db, "example@nypl.org", "password"))
+        assert self.admin == Admin.authenticate(self._db, "admin@nypl.org", "password")
+        assert None == Admin.authenticate(self._db, "other@nypl.org", "password")
+        assert None == Admin.authenticate(self._db, "example@nypl.org", "password")
 
     def test_roles(self):
         # The admin has no roles yet.
-        eq_(False, self.admin.is_system_admin())
-        eq_(False, self.admin.is_library_manager(self._default_library))
-        eq_(False, self.admin.is_librarian(self._default_library))
+        assert False == self.admin.is_system_admin()
+        assert False == self.admin.is_library_manager(self._default_library)
+        assert False == self.admin.is_librarian(self._default_library)
 
         self.admin.add_role(AdminRole.SYSTEM_ADMIN)
-        eq_(True, self.admin.is_system_admin())
-        eq_(True, self.admin.is_sitewide_library_manager())
-        eq_(True, self.admin.is_sitewide_librarian())
-        eq_(True, self.admin.is_library_manager(self._default_library))
-        eq_(True, self.admin.is_librarian(self._default_library))
+        assert True == self.admin.is_system_admin()
+        assert True == self.admin.is_sitewide_library_manager()
+        assert True == self.admin.is_sitewide_librarian()
+        assert True == self.admin.is_library_manager(self._default_library)
+        assert True == self.admin.is_librarian(self._default_library)
 
         self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
         self.admin.add_role(AdminRole.SITEWIDE_LIBRARY_MANAGER)
-        eq_(False, self.admin.is_system_admin())
-        eq_(True, self.admin.is_sitewide_library_manager())
-        eq_(True, self.admin.is_sitewide_librarian())
-        eq_(True, self.admin.is_library_manager(self._default_library))
-        eq_(True, self.admin.is_librarian(self._default_library))
+        assert False == self.admin.is_system_admin()
+        assert True == self.admin.is_sitewide_library_manager()
+        assert True == self.admin.is_sitewide_librarian()
+        assert True == self.admin.is_library_manager(self._default_library)
+        assert True == self.admin.is_librarian(self._default_library)
 
         self.admin.remove_role(AdminRole.SITEWIDE_LIBRARY_MANAGER)
         self.admin.add_role(AdminRole.SITEWIDE_LIBRARIAN)
-        eq_(False, self.admin.is_system_admin())
-        eq_(False, self.admin.is_sitewide_library_manager())
-        eq_(True, self.admin.is_sitewide_librarian())
-        eq_(False, self.admin.is_library_manager(self._default_library))
-        eq_(True, self.admin.is_librarian(self._default_library))
+        assert False == self.admin.is_system_admin()
+        assert False == self.admin.is_sitewide_library_manager()
+        assert True == self.admin.is_sitewide_librarian()
+        assert False == self.admin.is_library_manager(self._default_library)
+        assert True == self.admin.is_librarian(self._default_library)
 
         self.admin.remove_role(AdminRole.SITEWIDE_LIBRARIAN)
         self.admin.add_role(AdminRole.LIBRARY_MANAGER, self._default_library)
-        eq_(False, self.admin.is_system_admin())
-        eq_(False, self.admin.is_sitewide_library_manager())
-        eq_(False, self.admin.is_sitewide_librarian())
-        eq_(True, self.admin.is_library_manager(self._default_library))
-        eq_(True, self.admin.is_librarian(self._default_library))
+        assert False == self.admin.is_system_admin()
+        assert False == self.admin.is_sitewide_library_manager()
+        assert False == self.admin.is_sitewide_librarian()
+        assert True == self.admin.is_library_manager(self._default_library)
+        assert True == self.admin.is_librarian(self._default_library)
 
         self.admin.remove_role(AdminRole.LIBRARY_MANAGER, self._default_library)
         self.admin.add_role(AdminRole.LIBRARIAN, self._default_library)
-        eq_(False, self.admin.is_system_admin())
-        eq_(False, self.admin.is_sitewide_library_manager())
-        eq_(False, self.admin.is_sitewide_librarian())
-        eq_(False, self.admin.is_library_manager(self._default_library))
-        eq_(True, self.admin.is_librarian(self._default_library))
+        assert False == self.admin.is_system_admin()
+        assert False == self.admin.is_sitewide_library_manager()
+        assert False == self.admin.is_sitewide_librarian()
+        assert False == self.admin.is_library_manager(self._default_library)
+        assert True == self.admin.is_librarian(self._default_library)
 
         self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
-        eq_(False, self.admin.is_system_admin())
-        eq_(False, self.admin.is_sitewide_library_manager())
-        eq_(False, self.admin.is_sitewide_librarian())
-        eq_(False, self.admin.is_library_manager(self._default_library))
-        eq_(False, self.admin.is_librarian(self._default_library))
+        assert False == self.admin.is_system_admin()
+        assert False == self.admin.is_sitewide_library_manager()
+        assert False == self.admin.is_sitewide_librarian()
+        assert False == self.admin.is_library_manager(self._default_library)
+        assert False == self.admin.is_librarian(self._default_library)
 
         other_library = self._library()
         self.admin.add_role(AdminRole.LIBRARY_MANAGER, other_library)
-        eq_(False, self.admin.is_library_manager(self._default_library))
-        eq_(True, self.admin.is_library_manager(other_library))
+        assert False == self.admin.is_library_manager(self._default_library)
+        assert True == self.admin.is_library_manager(other_library)
         self.admin.add_role(AdminRole.SITEWIDE_LIBRARIAN)
-        eq_(False, self.admin.is_library_manager(self._default_library))
-        eq_(True, self.admin.is_library_manager(other_library))
-        eq_(True, self.admin.is_librarian(self._default_library))
-        eq_(True, self.admin.is_librarian(other_library))
+        assert False == self.admin.is_library_manager(self._default_library)
+        assert True == self.admin.is_library_manager(other_library)
+        assert True == self.admin.is_librarian(self._default_library)
+        assert True == self.admin.is_librarian(other_library)
         self.admin.remove_role(AdminRole.LIBRARY_MANAGER, other_library)
-        eq_(False, self.admin.is_library_manager(self._default_library))
-        eq_(False, self.admin.is_library_manager(other_library))
-        eq_(True, self.admin.is_librarian(self._default_library))
-        eq_(True, self.admin.is_librarian(other_library))
+        assert False == self.admin.is_library_manager(self._default_library)
+        assert False == self.admin.is_library_manager(other_library)
+        assert True == self.admin.is_librarian(self._default_library)
+        assert True == self.admin.is_librarian(other_library)
 
     def test_can_see_collection(self):
         # This collection is only visible to system admins since it has no libraries.
@@ -128,33 +124,33 @@ class TestAdmin(DatabaseTest):
         c2.libraries += [self._default_library]
 
         # The admin has no roles yet.
-        eq_(False, self.admin.can_see_collection(c1));
-        eq_(False, self.admin.can_see_collection(c2));
+        assert False == self.admin.can_see_collection(c1);
+        assert False == self.admin.can_see_collection(c2);
 
         self.admin.add_role(AdminRole.SYSTEM_ADMIN)
-        eq_(True, self.admin.can_see_collection(c1))
-        eq_(True, self.admin.can_see_collection(c2))
+        assert True == self.admin.can_see_collection(c1)
+        assert True == self.admin.can_see_collection(c2)
 
         self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
         self.admin.add_role(AdminRole.SITEWIDE_LIBRARY_MANAGER)
-        eq_(False, self.admin.can_see_collection(c1));
-        eq_(True, self.admin.can_see_collection(c2));
+        assert False == self.admin.can_see_collection(c1);
+        assert True == self.admin.can_see_collection(c2);
 
         self.admin.remove_role(AdminRole.SITEWIDE_LIBRARY_MANAGER)
         self.admin.add_role(AdminRole.SITEWIDE_LIBRARIAN)
-        eq_(False, self.admin.can_see_collection(c1));
-        eq_(True, self.admin.can_see_collection(c2));
+        assert False == self.admin.can_see_collection(c1);
+        assert True == self.admin.can_see_collection(c2);
 
         self.admin.remove_role(AdminRole.SITEWIDE_LIBRARIAN)
         self.admin.add_role(AdminRole.LIBRARY_MANAGER, self._default_library)
-        eq_(False, self.admin.can_see_collection(c1));
-        eq_(True, self.admin.can_see_collection(c2));
+        assert False == self.admin.can_see_collection(c1);
+        assert True == self.admin.can_see_collection(c2);
 
         self.admin.remove_role(AdminRole.LIBRARY_MANAGER, self._default_library)
         self.admin.add_role(AdminRole.LIBRARIAN, self._default_library)
-        eq_(False, self.admin.can_see_collection(c1));
-        eq_(True, self.admin.can_see_collection(c2));
+        assert False == self.admin.can_see_collection(c1);
+        assert True == self.admin.can_see_collection(c2);
 
         self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
-        eq_(False, self.admin.can_see_collection(c1));
-        eq_(False, self.admin.can_see_collection(c2));
+        assert False == self.admin.can_see_collection(c1);
+        assert False == self.admin.can_see_collection(c2);

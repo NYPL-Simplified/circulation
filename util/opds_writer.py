@@ -4,7 +4,7 @@ import logging
 from flask import Response
 
 from lxml import builder, etree
-from nose.tools import set_trace
+
 
 class ElementMaker(builder.ElementMaker):
     """A helper object for creating etree elements."""

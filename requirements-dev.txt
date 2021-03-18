@@ -1,0 +1,3 @@
+-r requirements-base.txt
+psycopg2-binary
+

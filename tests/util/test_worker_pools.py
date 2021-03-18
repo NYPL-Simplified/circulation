@@ -1,11 +1,6 @@
 import threading
 from contextlib import contextmanager
 
-from nose.tools import (
-    eq_,
-    set_trace,
-)
-
 from ...model import (
     Identifier,
     SessionManager,
@@ -20,7 +15,7 @@ from ...util.worker_pools import (
     Worker,
 )
 
-from .. import DatabaseTest
+from ...testing import DatabaseTest
 
 
 class TestPool(object):
@@ -29,19 +24,19 @@ class TestPool(object):
         original_thread_count = threading.active_count()
         with Pool(3) as pool:
             pool_thread_count = threading.active_count() - original_thread_count
-            eq_(3, pool_thread_count)
-            eq_(3, pool.size)
-            eq_(3, len(pool.workers))
+            assert 3 == pool_thread_count
+            assert 3 == pool.size
+            assert 3 == len(pool.workers)
 
     def test_put_tracks_total_job_count(self):
         def task():
             return "T'Challa"
 
         with Pool(2) as pool:
-            eq_(0, pool.job_total)
+            assert 0 == pool.job_total
             for i in range(4):
                 pool.put(task)
-            eq_(4, pool.job_total)
+            assert 4 == pool.job_total
 
     def test_pool_tracks_error_count(self):
         def broken_task():
@@ -50,7 +45,7 @@ class TestPool(object):
         pool = Pool(2)
         try:
             # The pool instantiates with 0 errors.
-            eq_(0, pool.error_count)
+            assert 0 == pool.error_count
 
             for i in range(3):
                 pool.put(broken_task)
@@ -58,7 +53,7 @@ class TestPool(object):
             pool.join()
 
         # The pool maintains a count of its errors.
-        eq_(3, pool.error_count)
+        assert 3 == pool.error_count
 
     def test_success_rate(self):
         def task():
@@ -70,19 +65,19 @@ class TestPool(object):
         pool = Pool(2)
         try:
             # When there are no tasks, the success rate is 1.0.
-            eq_(1.0, pool.success_rate)
+            assert 1.0 == pool.success_rate
 
             pool.put(task)
             pool.put(task)
             # When there are no errors, the success rate is 1.0.
             pool.join()
-            eq_(1.0, pool.success_rate)
+            assert 1.0 == pool.success_rate
 
             # When a job fails, it impacts the success rate.
             pool.put(broken_task)
         finally:
             pool.join()
-        eq_(1/3.0, pool.success_rate)
+        assert 1/3.0 == pool.success_rate
 
 
 class TestDatabasePool(DatabaseTest):
@@ -94,7 +89,7 @@ class TestDatabasePool(DatabaseTest):
         try:
             for worker in pool.workers:
                 assert worker._db
-                eq_(bind, worker._db.connection())
+                assert bind == worker._db.connection()
         finally:
             pool.join()
 
@@ -112,8 +107,8 @@ class TestWorker(object):
         mock_queue = object()
         result = Worker.factory(mock_queue)
         assert isinstance(result, Worker)
-        eq_(mock_queue, result.jobs)
-        eq_(True, result.daemon)
+        assert mock_queue == result.jobs
+        assert True == result.daemon
 
     def test_works_on_callable_job(self):
         results = list()
@@ -130,7 +125,7 @@ class TestWorker(object):
         finally:
             q.join()
 
-        eq_(['werk', 'werk', 'werk', 'werk', 'werk', 'werk'], results)
+        assert ['werk', 'werk', 'werk', 'werk', 'werk', 'werk'] == results
 
     def test_works_on_job_object(self):
         results = list()
@@ -152,7 +147,7 @@ class TestWorker(object):
         finally:
             q.join()
 
-        eq_(sorted(original), sorted(results))
+        assert sorted(original) == sorted(results)
 
 
 class TestDatabaseJob(DatabaseTest):
@@ -176,5 +171,5 @@ class TestDatabaseJob(DatabaseTest):
             pass
 
         [identifier] = self._db.query(Identifier).all()
-        eq_('Keep It', identifier.type)
-        eq_('100', identifier.identifier)
+        assert 'Keep It' == identifier.type
+        assert '100' == identifier.identifier

@@ -1,6 +1,6 @@
 # encoding: utf-8
 # Measurement
-from nose.tools import set_trace
+
 
 from . import Base
 from constants import DataSourceConstants

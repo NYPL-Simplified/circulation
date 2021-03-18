@@ -1,6 +1,6 @@
 # encoding: utf-8
 # Resource, ResourceTransformation, Hyperlink, Representation
-from nose.tools import set_trace
+
 
 from . import (
     Base,

@@ -40,7 +40,7 @@ from model import (
 )
 from model.configuration import ExternalIntegrationLink
 from monitor import CollectionMonitor
-from nose.tools import set_trace
+
 from selftest import HasSelfTests, SelfTestResult
 from six.moves.urllib.parse import urljoin, urlparse
 from sqlalchemy.orm import aliased

@@ -23,6 +23,42 @@ Should you need to work on the core alone, use a traditional git workflow:
 $ git clone git@github.com:NYPL/Simplified-server-core.git core
 ```
 
+## Testing
+To run `pytest` unit tests locally, install `tox`.
+
+```
+pip install tox
+```
+
+If you have all the services used by the tests setup, you can simply run the `tox` command and it will run the tests.
+
+The following commands start all the necessary services in docker containers. If you already have elastic search or postgres running locally, you don't need to run the elastic search or db docker commands.
+
+```
+# Start the containers for testing
+docker run -d -p 9005:5432/tcp --name db -e POSTGRES_USER=simplified_test -e POSTGRES_PASSWORD=test -e POSTGRES_DB=simplified_circulation_test postgres:9.6
+docker run -d -p 9006:9200/tcp --name es -e discovery.type=single-node elasticsearch:6.8.6
+docker run -d -p 9007:9000/tcp --name minio -e MINIO_ACCESS_KEY=simplified -e MINIO_SECRET_KEY=12345678901234567890 bitnami/minio:latest
+
+# Add elasticsearch plugin
+docker exec es elasticsearch-plugin install -s analysis-icu
+docker restart es
+```
+
+If you already have elastic search or postgres running locally, make sure that the localhost port is updated in the following commands:
+
+```
+# Set environment variables
+export SIMPLIFIED_TEST_DATABASE="postgres://simplified_test:test@localhost:9005/simplified_circulation_test"
+export SIMPLIFIED_TEST_ELASTICSEARCH="http://localhost:9006"
+export SIMPLIFIED_TEST_MINIO_ENDPOINT_URL="http://localhost:9007"
+export SIMPLIFIED_TEST_MINIO_USER="simplified"
+export SIMPLIFIED_TEST_MINIO_PASSWORD="12345678901234567890"
+
+# Run tox
+tox
+```
+
 ## License
 
 ```
