@@ -1,9 +1,0 @@
-#!/usr/bin/env python
-"""An interactive shell that can be run from within core.
-
-Without the `import startup` bit, you can't refer to `core.foo` from
-_within_ the core directory.
-"""
-import startup
-import code
-code.interact()
