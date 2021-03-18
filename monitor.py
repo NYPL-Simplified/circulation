@@ -331,14 +331,18 @@ class CollectionMonitor(Monitor):
         if self.protocol:
             if collection is None:
                 raise CollectionMissing()
-        if self.protocol and collection.protocol != self.protocol:
+        cls._validate_collection(collection, protocol=self.protocol)
+        super(CollectionMonitor, self).__init__(_db, collection)
+
+    @classmethod
+    def _validate_collection(cls, collection, protocol=None):
+        protocol = protocol or cls.PROTOCOL
+        if protocol and collection.protocol != protocol:
             raise ValueError(
                 "Collection protocol (%s) does not match Monitor protocol (%s)" % (
-                    collection.protocol, cls.PROTOCOL
+                    collection.protocol, protocol
                 )
             )
-
-        super(CollectionMonitor, self).__init__(_db, collection)
 
     @classmethod
     def all(cls, _db, collections=None, **constructor_kwargs):
@@ -375,12 +379,15 @@ class CollectionMonitor(Monitor):
         if collections:
             # verify that each specified collection exists in this context
             for coll in collections:  # type: str
-                if coll not in collections_for_protocol:
-                    error_message = ('Collection "{}" is not available for update by this script. '
-                                     'Only the following collections are available: {!r}').format(
-                        coll.name, [c.name for c in collections_for_protocol]
+                try:
+                    cls._validate_collection(coll, cls.PROTOCOL)
+                except ValueError as e:
+                    additional_info = 'Only the following collections are available: {!r}'.format(
+                        [c.name for c in collections_for_protocol]
                     )
-                    raise ValueError(error_message)
+                    e.args += (additional_info,)
+                    e.message += '\n' + additional_info
+                    raise
         else:
             collections = collections_for_protocol.order_by(
                 Timestamp.start.asc().nullsfirst()
