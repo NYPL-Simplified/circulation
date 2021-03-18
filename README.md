@@ -53,10 +53,14 @@ Test Python 3.8
 tox -e py38
 ```
 
+You need to have the Python versions you are testing against installed on your local system. `tox` searches the system for installed Python versions, but does not install new Python versions. If `tox` doesn't find the Python version its looking for it will give an `InterpreterNotFound` errror.
+
+[Pyenv](https://github.com/pyenv/pyenv) is a useful tool to install multiple Python versions, if you need to install missing Python versions in your system for local testing.
+
 ### Docker
 
 If you install `tox-docker` tox will take care of setting up all the service containers necessary to run the unit tests
-and pass the correct environment variables to configure the tests to use these services.
+and pass the correct environment variables to configure the tests to use these services. Using `tox-docker` is not required, but it is the recommended way to run the tests locally, since it runs the tests in the same way they are run on the Github Actions CI server. 
 
 ```
 pip install tox-docker
