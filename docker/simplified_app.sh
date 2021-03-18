@@ -18,7 +18,6 @@ apt-get update
 $minimal_apt_get_install --no-upgrade \
   python-dev \
   python2.7 \
-  python-nose \
   python-setuptools \
   gcc \
   git \
