@@ -56,6 +56,7 @@ from ..s3 import S3Uploader, MinIOUploader, MinIOUploaderConfiguration
 from ..scripts import (
     AddClassificationScript,
     CheckContributorNamesInDB,
+    CollectionArgumentsScript,
     CollectionInputScript,
     ConfigureCollectionScript,
     ConfigureIntegrationScript,
@@ -2061,7 +2062,6 @@ class TestConfigureLaneScript(DatabaseTest):
         assert expect == output.getvalue()
 
 
-# Need some of this for CollectionArgumentScript
 class TestCollectionInputScript(DatabaseTest):
     """Test the ability to name collections on the command line."""
 
@@ -2086,6 +2086,40 @@ class TestCollectionInputScript(DatabaseTest):
         c2 = self._collection()
         expect = [c2, self._default_collection]
         args = ["--collection=" + c.name for c in expect]
+        actual = collections(args)
+        assert expect == actual
+
+
+class TestCollectionArgumentsScript(DatabaseTest):
+    """Test the ability to take collection arguments on the command line."""
+
+    def test_parse_command_line(self):
+
+        def collections(cmd_args):
+            parsed = CollectionArgumentsScript.parse_command_line(
+                self._db, cmd_args
+            )
+            return parsed.collections
+
+        # No collections named on command line -> no collections
+        assert [] == collections([])
+
+        # Nonexistent collection -> ValueError
+        with pytest.raises(ValueError) as excinfo:
+            collections(['no such collection'])
+        assert 'Unknown collection: no such collection' in str(excinfo.value)
+
+        # Collections are presented in the order they were encountered
+        # on the command line.
+        c2 = self._collection()
+        expect = [c2, self._default_collection]
+        args = [c.name for c in expect]
+        actual = collections(args)
+        assert expect == actual
+
+        # It is okay to not specify any collections.
+        expect = []
+        args = [c.name for c in expect]
         actual = collections(args)
         assert expect == actual
 
