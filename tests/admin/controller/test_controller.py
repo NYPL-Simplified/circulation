@@ -63,7 +63,6 @@ from core.s3 import S3UploaderConfiguration
 from core.selftest import HasSelfTests
 from core.util.http import HTTP
 from tests.test_controller import CirculationControllerTest
-from nose.tools import set_trace
 
 class AdminControllerTest(CirculationControllerTest):
 

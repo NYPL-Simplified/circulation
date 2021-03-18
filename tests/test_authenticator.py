@@ -67,7 +67,7 @@ from api.problem_details import *
 from api.testing import VendorIDTest
 
 from core.testing import DatabaseTest
-from test_controller import ControllerTest
+from .test_controller import ControllerTest
 
 class MockAuthenticationProvider(object):
     """An AuthenticationProvider that always authenticates requests for

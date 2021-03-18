@@ -134,7 +134,6 @@ from core.util.flask_util import Response
 from core.util.http import RemoteIntegrationException
 from core.util.opds_writer import OPDSFeed
 from core.util.problem_detail import ProblemDetail
-from nose.tools import set_trace
 from core.util.string_helpers import base64
 
 class ControllerTest(VendorIDTest):
