@@ -99,10 +99,8 @@ class TestGoogleAnalyticsProvider(DatabaseTest):
         assert str(now) == params['cd1'][0]
         assert lp.identifier.identifier == params['cd2'][0]
         assert lp.identifier.type == params['cd3'][0]
-        assert (unicodedata.normalize("NFKD", work.title).encode('utf8') ==
-            params['cd4'][0])
-        assert (unicodedata.normalize("NFKD", work.author).encode('utf8') ==
-            params['cd5'][0])
+        assert unicodedata.normalize("NFKD", work.title) == params['cd4'][0]
+        assert unicodedata.normalize("NFKD", work.author) == params['cd5'][0]
         assert "fiction" == params['cd6'][0]
         assert "audience" == params['cd7'][0]
         assert work.target_age_string == params['cd8'][0]

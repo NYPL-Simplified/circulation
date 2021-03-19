@@ -3,7 +3,6 @@ import os
 import json
 import datetime
 import re
-import base64
 import urllib.parse
 
 from core.testing import DatabaseTest
@@ -38,6 +37,7 @@ from core.util.http import (
     BadResponseException,
     RemoteIntegrationException,
 )
+from core.util.string_helpers import base64
 
 class BaseODLTest(object):
     base_path = os.path.split(__file__)[0]
@@ -77,7 +77,7 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
         parsed = urllib.parse.urlparse(requested_url)
         assert "https" == parsed.scheme
         assert "loan.feedbooks.net" == parsed.netloc
-        params = urlparse.parse_qs(parsed.query)
+        params = urllib.parse.parse_qs(parsed.query)
 
         assert self.license.identifier == params.get("id")[0]
 
@@ -96,7 +96,7 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
         assert expires < after_expiration
 
         notification_url = urllib.parse.unquote_plus(params.get("notification_url")[0])
-        assert ("http://odl_notify?loan_id=%s&library_short_name=%s" % (self._default_library.short_name, loan.id) ==
+        assert ("http://odl_notify?library_short_name=%s&loan_id=%s" % (self._default_library.short_name, loan.id) ==
             notification_url)
 
         # With an existing loan.

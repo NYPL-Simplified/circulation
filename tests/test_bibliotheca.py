@@ -141,7 +141,7 @@ class TestBibliothecaAPI(BibliothecaAPITest):
             no_patron_credential.name)
         assert False == no_patron_credential.success
         assert ("Library has no test patron configured." ==
-            no_patron_credential.exception.message)
+            str(no_patron_credential.exception))
 
         assert ("Asking for circulation events for the last five minutes" ==
             recent_circulation_events.name)
@@ -159,14 +159,14 @@ class TestBibliothecaAPI(BibliothecaAPITest):
         assert "password1" == pin
 
     def test_full_path(self):
-        id = self.api.library_id.decode("utf-8")
+        id = self.api.library_id
         assert "/cirrus/library/%s/foo" % id == self.api.full_path("foo")
         assert "/cirrus/library/%s/foo" % id == self.api.full_path("/foo")
         assert ("/cirrus/library/%s/foo" % id ==
             self.api.full_path("/cirrus/library/%s/foo" % id))
 
     def test_full_url(self):
-        id = self.api.library_id.decode("utf-8")
+        id = self.api.library_id
         assert ("http://bibliotheca.test/cirrus/library/%s/foo" % id ==
             self.api.full_url("foo"))
         assert ("http://bibliotheca.test/cirrus/library/%s/foo" % id ==

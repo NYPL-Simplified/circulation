@@ -1,4 +1,3 @@
-import base64
 import json
 
 import pytest
@@ -35,6 +34,7 @@ from core.model import (
     Library,
 )
 from core.util.problem_detail import ProblemDetail
+from core.util.string_helpers import base64
 
 from api.config import (
     CannotLoadConfiguration,
@@ -730,7 +730,7 @@ class TestAuthdataUtility(VendorIDTest):
 
         # A mischievious party in the middle decodes our authdata
         # without telling us.
-        authdata = base64.decodestring(authdata)
+        authdata = base64.decodebytes(authdata)
 
         # But it still works.
         decoded = self.authdata.decode(authdata)
@@ -745,7 +745,7 @@ class TestAuthdataUtility(VendorIDTest):
             self.authdata.library_uri, patron_identifier, now, expires
         )
         assert (
-            base64.encodestring('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwOi8vbXktbGlicmFyeS5vcmcvIiwiaWF0IjoxNDUxNjQ5NjAwLjAsInN1YiI6IlBhdHJvbiBpZGVudGlmaWVyIiwiZXhwIjoxNTE0ODA4MDAwLjB9.n7VRVv3gIyLmNxTzNRTEfCdjoky0T0a1Jhehcag1oQw') ==
+            base64.encodebytes('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwOi8vbXktbGlicmFyeS5vcmcvIiwiaWF0IjoxNDUxNjQ5NjAwLjAsInN1YiI6IlBhdHJvbiBpZGVudGlmaWVyIiwiZXhwIjoxNTE0ODA4MDAwLjB9.n7VRVv3gIyLmNxTzNRTEfCdjoky0T0a1Jhehcag1oQw') ==
             authdata)
 
     def test_decode_from_another_library(self):
@@ -948,7 +948,7 @@ class TestAuthdataUtility(VendorIDTest):
         # newline stripped.
         assert (
             encoded.replace(":", "+").replace(";", "/").replace("@", "=") + "\n" ==
-            base64.encodestring(value))
+            base64.encodebytes(value))
 
         # We can reverse the encoding to get the original value.
         assert value == AuthdataUtility.adobe_base64_decode(encoded)

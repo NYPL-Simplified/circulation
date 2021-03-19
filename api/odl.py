@@ -1,5 +1,3 @@
-
-import base64
 import json
 import uuid
 import datetime
@@ -66,6 +64,7 @@ from core.util.http import (
     BadResponseException,
     RemoteIntegrationException,
 )
+from core.util.string_helpers import base64
 from flask import url_for
 from core.testing import (
     DatabaseTest,

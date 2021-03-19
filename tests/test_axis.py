@@ -202,7 +202,7 @@ class TestAxis360API(Axis360Test):
             no_patron_credential.name)
         assert False == no_patron_credential.success
         assert ("Library has no test patron configured." ==
-            no_patron_credential.exception.message)
+            str(no_patron_credential.exception))
 
         assert ("Asking for circulation events for the last five minutes" ==
             recent_circulation_events.name)

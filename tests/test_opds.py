@@ -1,11 +1,9 @@
-import base64
 from collections import defaultdict
 import contextlib
 import datetime
 import os
 import re
 import json
-
 import pytest
 from lxml import etree
 from mock import create_autospec
@@ -69,7 +67,7 @@ from core.util.flask_util import (
     OPDSEntryResponse,
     OPDSFeedResponse,
 )
-
+from core.util.string_helpers import base64
 from api.circulation import (
     BaseCirculationAPI,
     CirculationAPI,

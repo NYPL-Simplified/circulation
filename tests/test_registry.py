@@ -851,7 +851,7 @@ class TestLibraryRegistrationScript(DatabaseTest):
             # library registry.
             assert (
                 RemoteRegistry.DEFAULT_LIBRARY_REGISTRY_URL ==
-                x[0].integration.url)
+                i[0].integration.url)
 
     def test_process_library(self):
         """Test the things that might happen when process_library is called."""

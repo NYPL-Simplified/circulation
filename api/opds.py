@@ -6,7 +6,6 @@ from flask import url_for
 from lxml import etree
 from collections import defaultdict
 import uuid
-
 from sqlalchemy.orm import lazyload
 
 from core.cdn import cdnify

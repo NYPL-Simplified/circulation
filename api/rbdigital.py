@@ -1,4 +1,3 @@
-import base64
 from collections import defaultdict
 import datetime
 from dateutil.relativedelta import relativedelta
@@ -92,6 +91,7 @@ from core.util.personal_names import (
 from core.util.web_publication_manifest import (
     AudiobookManifest as CoreAudiobookManifest
 )
+from core.util.string_helpers import random_string
 
 from .selftest import (
     HasSelfTests,
@@ -1100,7 +1100,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         # account with the patron's email address, they'll be able to
         # recover their password. If not, at least we didn't claim
         # their barcode, and they can make a new account if they want.
-        post_args['password'] = os.urandom(8).encode('hex')
+        post_args['password'] = random_string(8)
         return post_args
 
     def dummy_patron_identifier(self, authorization_identifier):

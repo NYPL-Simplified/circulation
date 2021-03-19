@@ -37,7 +37,7 @@ class TestHasSelfTests(DatabaseTest):
         assert "Acquiring test patron credentials." == result.name
         assert False == result.success
         assert ("Collection is not associated with any libraries." ==
-            result.exception.message)
+            str(result.exception))
         assert (
             "Add the collection to a library that has a patron authentication service." ==
             result.exception.debug_message)

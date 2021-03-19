@@ -72,8 +72,8 @@ class TestFeedbooksOPDSImporter(DatabaseTest):
         # Create a default importer that's good enough for most tests.
         self.collection, self.importer = self._importer()
 
-    def sample_file(self, filename):
-        return sample_data(filename, "feedbooks")
+    def sample_file(self, filename, mode="r"):
+        return sample_data(filename, "feedbooks", mode)
 
     def test_safety_switch(self):
         """The importer won't be instantiated if REALLY_IMPORT_KEY is not
@@ -245,7 +245,7 @@ class TestFeedbooksOPDSImporter(DatabaseTest):
         # The requests to the various copies of the book will succeed,
         # and the books will be mirrored.
         self.http.queue_response(
-            200, content=self.sample_file("677.epub"),
+            200, content=self.sample_file("677.epub", "rb"),
             media_type=Representation.EPUB_MEDIA_TYPE
         )
 

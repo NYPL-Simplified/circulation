@@ -163,7 +163,7 @@ class TestEnkiAPI(BaseEnkiTest):
             no_patron_activity.name)
         assert False == no_patron_activity.success
         assert ("Library has no test patron configured." ==
-            no_patron_activity.exception.message)
+            str(no_patron_activity.exception))
 
         assert (
             "Checking patron activity, using test patron for library %s" % with_default_patron.name ==

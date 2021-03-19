@@ -183,7 +183,7 @@ class TestOverdriveAPI(OverdriveAPITest):
             no_patron_credential.name)
         assert False == no_patron_credential.success
         assert ("Library has no test patron configured." ==
-            no_patron_credential.exception.message)
+            str(no_patron_credential.exception))
 
         assert (
             "Checking Patron Authentication privileges, using test patron for library %s" % with_default_patron.name ==
@@ -211,7 +211,7 @@ class TestOverdriveAPI(OverdriveAPITest):
 
         # Only one test will be run.
         [check_creds] = self.api._run_self_tests(self._db)
-        assert "Failure!" == check_creds.exception.message
+        assert "Failure!" == str(check_creds.exception)
 
     def test_default_notification_email_address(self):
         """Test the ability of the Overdrive API to detect an email address
@@ -1754,10 +1754,10 @@ class TestSyncBookshelf(OverdriveAPITest):
             [
                 (Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.NO_DRM),
                 (Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.ADOBE_DRM),
-                (Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.ADOBE_DRM),
                 (Representation.PDF_MEDIA_TYPE, DeliveryMechanism.ADOBE_DRM),
+                (Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.ADOBE_DRM),
             ] ==
-            sorted(mechanisms))
+            mechanisms)
 
         # There are no holds.
         assert [] == holds

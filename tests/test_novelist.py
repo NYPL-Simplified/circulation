@@ -247,7 +247,7 @@ class TestNoveListAPI(DatabaseTest):
         # make the request.
         rep = novelist.lookup_info_to_metadata_called_with
         assert "http://scrubbed-url/" == rep.url
-        assert "yay" == rep.content
+        assert b"yay" == rep.content
 
     def test_lookup_info_to_metadata_ignores_empty_responses(self):
         """API requests that return no data result return a None tuple"""

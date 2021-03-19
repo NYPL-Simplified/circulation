@@ -154,7 +154,7 @@ class TestSharedCollectionAPI(DatabaseTest):
 
         # Here's an auth document with a valid key.
         key = RSA.generate(2048)
-        public_key = key.publickey().exportKey()
+        public_key = key.publickey().exportKey().decode("utf-8")
         encryptor = PKCS1_OAEP.new(key)
         auth_response = json.dumps({"public_key": { "type": "RSA", "value": public_key },
                                     "links": [{"href": "http://library.org", "rel": "start"}]})

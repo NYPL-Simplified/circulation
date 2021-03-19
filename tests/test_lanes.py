@@ -85,11 +85,11 @@ class TestLaneCreation(DatabaseTest):
         for lane in lanes:
             assert self._default_library == lane.library
             # They all are restricted to English and Spanish.
-            assert x.languages == languages
+            assert lane.languages == languages
 
             # They have no restrictions on media type -- that's handled
             # with entry points.
-            assert None == x.media
+            assert None == lane.media
 
         assert (
             ['Fiction', 'Nonfiction', 'Young Adult Fiction',

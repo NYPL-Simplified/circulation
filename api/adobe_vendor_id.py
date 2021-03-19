@@ -2,13 +2,11 @@ import argparse
 import json
 import logging
 import uuid
-import base64
 import os
 import datetime
 import jwt
 from jwt.algorithms import HMACAlgorithm
 import sys
-
 import flask
 from flask import Response
 from flask_babel import lazy_gettext as _
@@ -21,6 +19,7 @@ from .problem_details import *
 from sqlalchemy.orm.session import Session
 from core.util.xmlparser import XMLParser
 from core.util.problem_detail import ProblemDetail
+from core.util.string_helpers import base64
 from core.app_server import url_for
 from core.model import (
     create,
@@ -794,7 +793,7 @@ class AuthdataUtility(object):
             payload['iat'] = self.numericdate(iat) # Issued At
         if exp:
             payload['exp'] = self.numericdate(exp) # Expiration Time
-        return base64.encodestring(
+        return base64.encodebytes(
             jwt.encode(payload, self.secret, algorithm=self.ALGORITHM)
         )
 
@@ -807,14 +806,14 @@ class AuthdataUtility(object):
         with :. We also replace / (another "suspicious" character)
         with ;. and strip newlines.
         """
-        encoded = base64.encodestring(str)
+        encoded = base64.encodebytes(str).strip()
         return encoded.replace("+", ":").replace("/", ";").replace("=", "@").strip()
 
     @classmethod
     def adobe_base64_decode(cls, str):
         """Undoes adobe_base64_encode."""
         encoded = str.replace(":", "+").replace(";", "/").replace("@", "=")
-        return base64.decodestring(encoded)
+        return base64.decodebytes(encoded)
 
     def decode(self, authdata):
         """Decode and verify an authdata JWT from one of the libraries managed
@@ -832,7 +831,7 @@ class AuthdataUtility(object):
         # try to decode it ourselves and verify it that way.
         potential_tokens = [authdata]
         try:
-            decoded = base64.decodestring(authdata)
+            decoded = base64.decodebytes(authdata)
             potential_tokens.append(decoded)
         except Exception as e:
             # Do nothing -- the authdata was not encoded to begin with.
@@ -876,7 +875,7 @@ class AuthdataUtility(object):
         return library_uri, decoded['sub']
 
     @classmethod
-    def _adobe_patron_identifier(self, patron):
+    def _adobe_patron_identifier(cls, patron):
         """Take patron object and return identifier for Adobe ID purposes"""
         _db = Session.object_session(patron)
         internal = DataSource.lookup(_db, DataSource.INTERNAL_PROCESSING)
@@ -925,7 +924,7 @@ class AuthdataUtility(object):
                                    patron_identifier, expires):
         base = library_short_name + "|" + str(expires) + "|" + patron_identifier
         signature = self.short_token_signer.sign(
-            base, self.short_token_signing_key
+            base.encode("utf-8"), self.short_token_signing_key
         )
         signature = self.adobe_base64_encode(signature)
         if len(base) > 80:
