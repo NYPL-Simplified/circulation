@@ -38,7 +38,7 @@ class TestUnicodeAwareBase64(object):
             ('b64encode', 'b64decode'),
             ('standard_b64encode', 'standard_b64decode'),
             ('urlsafe_b64encode', 'urlsafe_b64decode'),
-            ('encodestring', 'decodestring')
+            ('encodebytes', 'decodebytes')
         ]:
             encode_method = getattr(base64, encode)
             decode_method = getattr(base64, decode)

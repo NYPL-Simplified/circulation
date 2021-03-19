@@ -1,7 +1,6 @@
 # encoding: utf-8
 # LoanAndHoldMixin, Patron, Loan, Hold, Annotation, PatronProfileStorage
 
-
 from . import (
     Base,
     get_one_or_create,
@@ -514,6 +513,9 @@ class Loan(Base, LoanAndHoldMixin):
     __table_args__ = (
         UniqueConstraint('patron_id', 'license_pool_id'),
     )
+    
+    def __lt__(self, other):
+        return self.id < other.id
 
     def until(self, default_loan_period):
         """Give or estimate the time at which the loan will end."""
@@ -537,6 +539,9 @@ class Hold(Base, LoanAndHoldMixin):
     end = Column(DateTime, index=True)
     position = Column(Integer, index=True)
     external_identifier = Column(Unicode, unique=True, nullable=True)
+    
+    def __lt__(self, other):
+        return self.id < other.id
 
     @classmethod
     def _calculate_until(
