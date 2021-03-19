@@ -2,7 +2,6 @@ import json
 
 from flask import request
 from mock import MagicMock, create_autospec, patch, call
-from nose.tools import eq_
 
 from api.controller import CirculationManager
 from api.lcp.collection import LCPAPI
@@ -41,9 +40,9 @@ class TestLCPController(ControllerTest):
 
                 # Assert
                 for result in [result1, result2]:
-                    eq_(result.status_code, 200)
-                    eq_('passphrase' in result.json, True)
-                    eq_(result.json['passphrase'], expected_passphrase)
+                    assert result.status_code == 200
+                    assert ('passphrase' in result.json) == True
+                    assert result.json['passphrase'] == expected_passphrase
 
                 credential_factory.get_patron_passphrase.assert_has_calls(
                     [
@@ -83,7 +82,7 @@ class TestLCPController(ControllerTest):
                 result = controller.get_lcp_license(missing_collection_name, license_id)
 
                 # Assert
-                eq_(result.status_code, 404)
+                assert result.status_code == 404
 
     def test_get_lcp_license_returns_the_same_license_for_authenticated_patron(self):
         # Arrange
@@ -117,5 +116,5 @@ class TestLCPController(ControllerTest):
 
                 # Assert
                 for result in [result1, result2]:
-                    eq_(result.status_code, 200)
-                    eq_(result.json, expected_license)
+                    assert result.status_code == 200
+                    assert result.json == expected_license

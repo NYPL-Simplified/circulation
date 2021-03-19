@@ -1,7 +1,4 @@
-from nose.tools import (
-    set_trace,
-    eq_,
-)
+
 import requests
 from requests.auth import HTTPBasicAuth
 import feedparser

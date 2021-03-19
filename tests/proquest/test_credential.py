@@ -1,7 +1,6 @@
 import datetime
 import json
 
-from nose.tools import eq_
 from parameterized import parameterized
 
 from api.authenticator import BaseSAMLAuthenticationProvider
@@ -19,8 +18,8 @@ from tests.saml import fixtures
 
 
 class TestProQuestCredentialManager(DatabaseTest):
-    def setup(self, mock_search=True):
-        super(TestProQuestCredentialManager, self).setup(mock_search)
+    def setup_method(self):
+        super(TestProQuestCredentialManager, self).setup_method()
 
         self._data_source = DataSource.lookup(
             self._db, DataSource.PROQUEST, autocreate=True
@@ -35,7 +34,7 @@ class TestProQuestCredentialManager(DatabaseTest):
         token = credential_manager.lookup_proquest_token(self._db, patron)
 
         # Assert
-        eq_(None, token)
+        assert None == token
 
     def test_lookup_proquest_token_returns_token(self):
         # Arrange
@@ -56,8 +55,8 @@ class TestProQuestCredentialManager(DatabaseTest):
         token = credential_manager.lookup_proquest_token(self._db, patron)
 
         # Assert
-        eq_(True, isinstance(token, Credential))
-        eq_(expected_token, token.credential)
+        assert True == isinstance(token, Credential)
+        assert expected_token == token.credential
 
     def test_save_proquest_token_saves_token(self):
         # Arrange
@@ -77,7 +76,7 @@ class TestProQuestCredentialManager(DatabaseTest):
         )
 
         # Assert
-        eq_(expected_token, token.credential)
+        assert expected_token == token.credential
 
     @parameterized.expand(
         [
@@ -173,4 +172,4 @@ class TestProQuestCredentialManager(DatabaseTest):
             token = credential_manager.lookup_patron_affiliation_id(self._db, patron)
 
         # Assert
-        eq_(expected_affiliation_id, token)
+        assert expected_affiliation_id == token

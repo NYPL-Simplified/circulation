@@ -1,4 +1,6 @@
 import datetime
+
+import pytest
 from dateutil.relativedelta import relativedelta
 import json
 from lxml import etree
@@ -6,13 +8,6 @@ import os
 import random
 import urllib
 import uuid
-
-from nose.tools import (
-    eq_,
-    assert_raises,
-    assert_raises_regexp,
-    set_trace,
-)
 
 from StringIO import StringIO
 
@@ -86,7 +81,7 @@ from core.util.http import (
     HTTP,
 )
 
-from . import (
+from core.testing import (
     DatabaseTest,
 )
 
@@ -95,8 +90,8 @@ from .test_controller import ControllerTest
 
 class RBDigitalAPITest(DatabaseTest):
 
-    def setup(self):
-        super(RBDigitalAPITest, self).setup()
+    def setup_method(self):
+        super(RBDigitalAPITest, self).setup_method()
 
         self.base_path = os.path.split(__file__)[0]
         self.resource_path = os.path.join(self.base_path, "files", "rbdigital")
@@ -180,28 +175,27 @@ class TestRBDigitalAPI(RBDigitalAPITest):
 
         # Verify that each test method was called and returned the
         # expected SelfTestResult object.
-        eq_(
-            "Acquiring test patron credentials for library %s" % no_default_patron.name,
-            no_patron_credential.name
-        )
-        eq_(False, no_patron_credential.success)
-        eq_("Library has no test patron configured.",
+        assert (
+            "Acquiring test patron credentials for library %s" % no_default_patron.name ==
+            no_patron_credential.name)
+        assert False == no_patron_credential.success
+        assert ("Library has no test patron configured." ==
             no_patron_credential.exception.message)
 
-        eq_("Checking patron activity, using test patron for library %s" % with_default_patron.name,
+        assert ("Checking patron activity, using test patron for library %s" % with_default_patron.name ==
             patron_activity.name)
-        eq_(True, patron_activity.success)
-        eq_("Total loans and holds: 3", patron_activity.result)
-        eq_([("username1", "password1")], api.patron_activity_called_with)
+        assert True == patron_activity.success
+        assert "Total loans and holds: 3" == patron_activity.result
+        assert [("username1", "password1")] == api.patron_activity_called_with
 
-        eq_("Counting audiobooks in collection", audio_count.name)
-        eq_(True, audio_count.success)
-        eq_("Total items: 3 (1 currently loanable, 2 currently not loanable)",
+        assert "Counting audiobooks in collection" == audio_count.name
+        assert True == audio_count.success
+        assert ("Total items: 3 (1 currently loanable, 2 currently not loanable)" ==
             audio_count.result)
 
-        eq_("Counting ebooks in collection", ebook_count.name)
-        eq_(True, ebook_count.success)
-        eq_("Total items: 0 (0 currently loanable, 0 currently not loanable)",
+        assert "Counting ebooks in collection" == ebook_count.name
+        assert True == ebook_count.success
+        assert ("Total items: 0 (0 currently loanable, 0 currently not loanable)" ==
             ebook_count.result)
 
     def test__run_self_tests_short_circuit(self):
@@ -217,12 +211,12 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         [result] = api._run_self_tests(self._db)
 
         # We gave up after the first test failed.
-        eq_("Counting ebooks in collection", result.name)
-        eq_("Invalid library id is provided or permission denied", result.exception.message)
-        eq_(repr(error), result.exception.debug_message)
+        assert "Counting ebooks in collection" == result.name
+        assert "Invalid library id is provided or permission denied" == result.exception.message
+        assert repr(error) == result.exception.debug_message
 
     def test_external_integration(self):
-        eq_(self.collection.external_integration,
+        assert (self.collection.external_integration ==
             self.api.external_integration(self._db))
 
     def queue_initial_patron_id_lookup(self, api=None):
@@ -270,10 +264,10 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         storing their RBdigital ID.
         """
         [credential] = patron.credentials
-        eq_(DataSource.RB_DIGITAL, credential.data_source.name)
-        eq_(Credential.IDENTIFIER_FROM_REMOTE_SERVICE, credential.type)
-        eq_(external_id, credential.credential)
-        eq_(None, credential.expires)
+        assert DataSource.RB_DIGITAL == credential.data_source.name
+        assert Credential.IDENTIFIER_FROM_REMOTE_SERVICE == credential.type
+        assert external_id == credential.credential
+        assert None == credential.expires
 
     def _set_notification_address(self, library):
         """Set the default notification address for the given library.
@@ -288,14 +282,13 @@ class TestRBDigitalAPI(RBDigitalAPITest):
     def test_create_identifier_strings(self):
         identifier = self._identifier()
         values = RBDigitalAPI.create_identifier_strings(["foo", identifier])
-        eq_(["foo", identifier.identifier], values)
+        assert ["foo", identifier.identifier] == values
 
     def test_availability_exception(self):
         self.api.queue_response(500)
-        assert_raises_regexp(
-            BadResponseException, "Bad response from availability_search",
-            self.api.get_all_available_through_search
-        )
+        with pytest.raises(BadResponseException) as excinfo:
+            self.api.get_all_available_through_search()
+        assert "Bad response from availability_search" in str(excinfo.value)
 
     def test_search(self):
         datastr, datadict = self.api.get_data("response_search_one_item_1.json")
@@ -303,17 +296,17 @@ class TestRBDigitalAPI(RBDigitalAPITest):
 
         response = self.api.search(mediatype='ebook', author="Alexander Mccall Smith", title="Tea Time for the Traditionally Built")
         response_dictionary = response.json()
-        eq_(1, response_dictionary['pageCount'])
-        eq_(u'Tea Time for the Traditionally Built', response_dictionary['items'][0]['item']['title'])
+        assert 1 == response_dictionary['pageCount']
+        assert u'Tea Time for the Traditionally Built' == response_dictionary['items'][0]['item']['title']
 
     def test_get_all_available_through_search(self):
         datastr, datadict = self.api.get_data("response_search_five_items_1.json")
         self.api.queue_response(status_code=200, content=datastr)
 
         response_dictionary = self.api.get_all_available_through_search()
-        eq_(1, response_dictionary['pageCount'])
-        eq_(5, response_dictionary['resultSetCount'])
-        eq_(5, len(response_dictionary['items']))
+        assert 1 == response_dictionary['pageCount']
+        assert 5 == response_dictionary['resultSetCount']
+        assert 5 == len(response_dictionary['items'])
         returned_titles = [iteminterest['item']['title'] for iteminterest in response_dictionary['items']]
         assert (u'Unusual Uses for Olive Oil' in returned_titles)
 
@@ -322,10 +315,9 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         self.api.queue_response(status_code=200, content=datastr)
 
         catalog = self.api.get_all_catalog()
-        eq_(
-            [u'Tricks', u'Emperor Mage: The Immortals', u'In-Flight Russian'],
-            [x['title'] for x in catalog]
-        )
+        assert (
+            [u'Tricks', u'Emperor Mage: The Immortals', u'In-Flight Russian'] ==
+            [x['title'] for x in catalog])
 
 
     def test_fuzzy_binary_searcher(self):
@@ -337,26 +329,26 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         search = self.api._FuzzyBinarySearcher(array)
 
         nine_idx, nine_rel = search(9)
-        eq_((nine_idx == 4 and nine_rel == search.INDEXED_LESS_THAN_MATCH) or
-            (nine_idx == 4 and nine_rel == search.INDEXED_GREATER_THAN_MATCH), True)
+        assert ((nine_idx == 4 and nine_rel == search.INDEXED_LESS_THAN_MATCH) or
+            (nine_idx == 4 and nine_rel == search.INDEXED_GREATER_THAN_MATCH)) == True
 
         ten = search(10)
-        eq_(True, ten == (5, search.INDEXED_EQUALS_MATCH))
+        assert True == (ten == (5, search.INDEXED_EQUALS_MATCH))
 
         neg5 = search(-5)
-        eq_(True, neg5 == (0, search.INDEXED_LESS_THAN_MATCH) or (1, search.INDEXED_GREATER_THAN_MATCH))
+        assert True == (neg5 == (0, search.INDEXED_LESS_THAN_MATCH) or (1, search.INDEXED_GREATER_THAN_MATCH))
 
         # make sure we can hit the edges
         neg7 = search(-7)
         nineteen = search(19)
-        eq_(True, neg7 == (0, search.INDEXED_EQUALS_MATCH))
-        eq_(True, nineteen == (6, search.INDEXED_EQUALS_MATCH))
+        assert True == (neg7 == (0, search.INDEXED_EQUALS_MATCH))
+        assert True == (nineteen == (6, search.INDEXED_EQUALS_MATCH))
 
         # and beyond the edges
         neg100 = search(-100)
         pos100 = search(100)
-        eq_(True, neg100 == (0, search.INDEXED_GREATER_THAN_MATCH))
-        eq_(True, pos100 == (6, search.INDEXED_LESS_THAN_MATCH))
+        assert True == (neg100 == (0, search.INDEXED_GREATER_THAN_MATCH))
+        assert True == (pos100 == (6, search.INDEXED_LESS_THAN_MATCH))
 
         # Lookups in more complicated objects
         _, snapshots = self.api.get_data("response_catalog_availability_dates_multi.json")
@@ -371,23 +363,22 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         # create the searcher object
         snap_date_searcher = self.api._FuzzyBinarySearcher(snapshots, key=lambda s: s["asOf"])
         sorted_snapshots = snap_date_searcher.sorted_list
-        eq_(first_snapshot, sorted_snapshots[0]["asOf"])
-        eq_(last_snapshot, sorted_snapshots[snapshots_max_index]["asOf"])
+        assert first_snapshot == sorted_snapshots[0]["asOf"]
+        assert last_snapshot == sorted_snapshots[snapshots_max_index]["asOf"]
 
         first = snap_date_searcher(first_snapshot)
         last = snap_date_searcher(last_snapshot)
-        eq_(first, (0, snap_date_searcher.INDEXED_EQUALS_MATCH))
-        eq_(last, (snapshots_max_index, snap_date_searcher.INDEXED_EQUALS_MATCH))
+        assert first == (0, snap_date_searcher.INDEXED_EQUALS_MATCH)
+        assert last == (snapshots_max_index, snap_date_searcher.INDEXED_EQUALS_MATCH)
 
         very_neg = snap_date_searcher(neg_infinity)
         very_pos = snap_date_searcher(pos_infinity)
-        eq_(very_neg, (0, snap_date_searcher.INDEXED_GREATER_THAN_MATCH))
-        eq_(very_pos, (snapshots_max_index, snap_date_searcher.INDEXED_LESS_THAN_MATCH))
+        assert very_neg == (0, snap_date_searcher.INDEXED_GREATER_THAN_MATCH)
+        assert very_pos == (snapshots_max_index, snap_date_searcher.INDEXED_LESS_THAN_MATCH)
 
-        assert_raises_regexp(
-            TypeError, ".*'key' must be 'None' or a callable.",
-            self.api._FuzzyBinarySearcher, snapshots, key="not a callable"
-        )
+        with pytest.raises(TypeError) as excinfo:
+            self.api._FuzzyBinarySearcher(snapshots, key="not a callable")
+        assert "'key' must be 'None' or a callable." in str(excinfo.value)
 
     def test_align_delta_dates_to_available_snapshots(self):
         datastr, datadict = self.api.get_data("response_catalog_availability_dates_multi.json")
@@ -399,15 +390,15 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         # snapshot; a missing end date, should get the date of the latest.
         self.api.queue_response(status_code=200, content=datastr)
         from_date, to_date = self.api.align_dates_to_available_snapshots()
-        eq_(first_snapshot, from_date)
-        eq_(last_snapshot, to_date)
+        assert first_snapshot == from_date
+        assert last_snapshot == to_date
 
         # Items at the temporal beginning and end of
         # the snapshot list should match when specified
         self.api.queue_response(status_code=200, content=datastr)
         from_date, to_date = self.api.align_dates_to_available_snapshots(from_date=first_snapshot, to_date=last_snapshot)
-        eq_(first_snapshot, from_date)
-        eq_(last_snapshot, to_date)
+        assert first_snapshot == from_date
+        assert last_snapshot == to_date
 
         # A unmatched from_date should be assigned the date of the previous
         # snapshot (or the first snapshot, if there is not an earlier one).
@@ -415,44 +406,40 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         # snapshot (or the last snapshot, if there is not a later one).
         self.api.queue_response(status_code=200, content=datastr)
         from_date, to_date = self.api.align_dates_to_available_snapshots(from_date="2016-06-15", to_date="2020-03-22")
-        eq_("2016-06-01", from_date)
-        eq_("2020-03-22", to_date)
+        assert "2016-06-01" == from_date
+        assert "2020-03-22" == to_date
 
         self.api.queue_response(status_code=200, content=datastr)
         from_date, to_date = self.api.align_dates_to_available_snapshots(from_date="2016-05-31", to_date="2016-09-02")
-        eq_("2016-05-01", from_date)
-        eq_("2016-10-01", to_date)
+        assert "2016-05-01" == from_date
+        assert "2016-10-01" == to_date
 
         self.api.queue_response(status_code=200, content=datastr)
         from_date, to_date = self.api.align_dates_to_available_snapshots(from_date="1960-01-01", to_date="2999-12-31")
-        eq_(first_snapshot, from_date)
-        eq_(last_snapshot, to_date)
+        assert first_snapshot == from_date
+        assert last_snapshot == to_date
 
         # date alignment cannot work without at least one snapshot
         self.api.queue_response(status_code=200, content=u"[]")
-        assert_raises_regexp(
-            BadResponseException, ".*RBDigital available-dates response contains no snapshots.",
-            self.api.align_dates_to_available_snapshots, from_date="2000-02-02", to_date="2000-01-01"
-        )
+        with pytest.raises(BadResponseException) as excinfo:
+            self.api.align_dates_to_available_snapshots(from_date="2000-02-02", to_date="2000-01-01")
+        assert "RBDigital available-dates response contains no snapshots." in str(excinfo.value)
         self.api.queue_response(status_code=200, content=u"[]")
-        assert_raises_regexp(
-            BadResponseException, ".*RBDigital available-dates response contains no snapshots.",
-            self.api.align_dates_to_available_snapshots
-        )
+        with pytest.raises(BadResponseException) as excinfo:
+            self.api.align_dates_to_available_snapshots()
+        assert "RBDigital available-dates response contains no snapshots." in str(excinfo.value)
 
         # exception for invalid json
         self.api.queue_response(status_code=200, content="this is not JSON")
-        assert_raises_regexp(
-            BadResponseException, ".*RBDigital available-dates response not parsable.",
-            self.api.align_dates_to_available_snapshots
-        )
+        with pytest.raises(BadResponseException) as excinfo:
+            self.api.align_dates_to_available_snapshots()
+        assert "RBDigital available-dates response not parsable." in str(excinfo.value)
 
 
     def test_get_delta(self):
-        assert_raises_regexp(
-            ValueError, 'from_date 2000-02-02 cannot be after to_date 2000-01-01.',
-            self.api.get_delta, from_date="2000-02-02", to_date="2000-01-01"
-        )
+        with pytest.raises(ValueError) as excinfo:
+            self.api.get_delta(from_date="2000-02-02", to_date="2000-01-01")
+        assert 'from_date 2000-02-02 cannot be after to_date 2000-01-01.' in str(excinfo.value)
 
         # The effective begin and end snapshot dates (after availability alignment)
         # cannot be the same.
@@ -460,35 +447,30 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         # and there is an exact snapshot date match, ...
         available_dates_string, datadict = self.api.get_data("response_catalog_availability_dates_multi.json")
         self.api.queue_response(status_code=200, content=available_dates_string)
-        assert_raises_regexp(
-            ValueError, 'The effective begin and end RBDigital catalog snapshot dates cannot be the same.',
-            self.api.get_delta, from_date="2020-04-01", to_date="2020-04-01"
-        )
+        with pytest.raises(ValueError) as excinfo:
+            self.api.get_delta(from_date="2020-04-01", to_date="2020-04-01")
+        assert 'The effective begin and end RBDigital catalog snapshot dates cannot be the same.' in str(excinfo.value)
         # but can also occur when:
         # - both dates are less than the date of the first snapshot, ...
         self.api.queue_response(status_code=200, content=available_dates_string)
-        assert_raises_regexp(
-            ValueError, 'The effective begin and end RBDigital catalog snapshot dates cannot be the same.',
-            self.api.get_delta, from_date="1960-01-01", to_date="1960-01-02"
-        )
+        with pytest.raises(ValueError) as excinfo:
+            self.api.get_delta(from_date="1960-01-01", to_date="1960-01-02")
+        assert 'The effective begin and end RBDigital catalog snapshot dates cannot be the same.' in str(excinfo.value)
         # - both dates are greater than the date of the last snapshot, or ...
         self.api.queue_response(status_code=200, content=available_dates_string)
-        assert_raises_regexp(
-            ValueError, 'The effective begin and end RBDigital catalog snapshot dates cannot be the same.',
-            self.api.get_delta, from_date="2999-12-31", to_date="2999-12-31"
-        )
+        with pytest.raises(ValueError) as excinfo:
+            self.api.get_delta(from_date="2999-12-31", to_date="2999-12-31")
+        assert 'The effective begin and end RBDigital catalog snapshot dates cannot be the same.' in str(excinfo.value)
         # - only a single snapshot is available
         datastr, datadict = self.api.get_data("response_catalog_availability_dates_only_one.json")
         self.api.queue_response(status_code=200, content=datastr)
-        assert_raises_regexp(
-            ValueError, 'The effective begin and end RBDigital catalog snapshot dates cannot be the same.',
-            self.api.get_delta, from_date="1960-01-01", to_date="2999-12-31"
-        )
+        with pytest.raises(ValueError) as excinfo:
+            self.api.get_delta(from_date="1960-01-01", to_date="2999-12-31")
+        assert 'The effective begin and end RBDigital catalog snapshot dates cannot be the same.' in str(excinfo.value)
         self.api.queue_response(status_code=200, content=datastr)
-        assert_raises_regexp(
-            ValueError, 'The effective begin and end RBDigital catalog snapshot dates cannot be the same.',
-            self.api.get_delta
-        )
+        with pytest.raises(ValueError) as excinfo:
+            self.api.get_delta()
+        assert 'The effective begin and end RBDigital catalog snapshot dates cannot be the same.' in str(excinfo.value)
 
         # Retrieving a delta requires first retrieving a list of dated
         # snapshots, then retrieving the changes between those dates.
@@ -498,13 +480,13 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         self.api.queue_response(status_code=200, content=datastr)
 
         delta = self.api.get_delta()
-        eq_(1931, delta["tenantId"])
-        eq_("2020-03-14", delta["beginDate"])
-        eq_("2020-04-14", delta["endDate"])
-        eq_(1, delta["booksAddedCount"])
-        eq_(1, delta["booksRemovedCount"])
-        eq_([{u'isbn': u'9781934180723', u'id': 1301944, u'mediaType': u'eAudio'}], delta["addedBooks"])
-        eq_([{u'isbn': u'9780590543439', u'id': 1031919, u'mediaType': u'eAudio'}], delta["removedBooks"])
+        assert 1931 == delta["tenantId"]
+        assert "2020-03-14" == delta["beginDate"]
+        assert "2020-04-14" == delta["endDate"]
+        assert 1 == delta["booksAddedCount"]
+        assert 1 == delta["booksRemovedCount"]
+        assert [{u'isbn': u'9781934180723', u'id': 1301944, u'mediaType': u'eAudio'}] == delta["addedBooks"]
+        assert [{u'isbn': u'9780590543439', u'id': 1031919, u'mediaType': u'eAudio'}] == delta["removedBooks"]
 
     def test_patron_remote_identifier_new_patron(self):
         # End-to-end test of patron_remote_identifier, in the case
@@ -528,7 +510,7 @@ class TestRBDigitalAPI(RBDigitalAPITest):
 
         # If it turns out the API has never heard of a given patron, a
         # second call is made to create_patron().
-        eq_("rbdigital internal id", api.patron_remote_identifier(patron))
+        assert "rbdigital internal id" == api.patron_remote_identifier(patron)
 
         library, authorization_identifier, email_address = api.called_with
 
@@ -540,13 +522,13 @@ class TestRBDigitalAPI(RBDigitalAPITest):
 
         # The patron's library and authorization identifier were passed
         # into create_patron.
-        eq_(patron.library, library)
-        eq_(patron.authorization_identifier, authorization_identifier)
+        assert patron.library == library
+        assert patron.authorization_identifier == authorization_identifier
 
         # We didn't set up the patron with a fake email address,
         # so we weren't able to find anything and no email address
         # was passed into create_patron.
-        eq_(None, email_address)
+        assert None == email_address
 
     def test_patron_remote_identifier_existing_patron(self):
         # End-to-end test of patron_remote_identifier, in the case
@@ -569,7 +551,7 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         # If it turns out the API has heard of a given patron, no call
         # is made to create_patron() -- if it happened here the test
         # would explode.
-        eq_("i know you", api.patron_remote_identifier(patron))
+        assert "i know you" == api.patron_remote_identifier(patron)
 
         # A permanent Credential has been created for the remote
         # identifier.
@@ -594,16 +576,16 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         # associated with a Credential for the patron.
         api = Mock(self._db, self.collection, base_path=self.base_path)
         patron = self._patron()
-        eq_("rbdigital internal id", api.patron_remote_identifier(patron))
+        assert "rbdigital internal id" == api.patron_remote_identifier(patron)
         self._assert_patron_has_remote_identifier_credential(
             patron, "rbdigital internal id"
         )
-        eq_(patron, api.called_with)
+        assert patron == api.called_with
 
         # The second time, _find_or_create_remove_account is _not_
         # called -- calling the mock method again would raise an
         # exception. Instead, the cached Credential is returned.
-        eq_("rbdigital internal id", api.patron_remote_identifier(patron))
+        assert "rbdigital internal id" == api.patron_remote_identifier(patron)
 
     def test__find_or_create_remote_account(self):
         # If the remote lookup succeeds (because the patron already
@@ -623,8 +605,8 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         )
         patron = self._patron("a barcode")
         patron.authorization_identifier = "a barcode"
-        eq_("an internal ID", api._find_or_create_remote_account(patron))
-        eq_("a barcode", api.patron_remote_identifier_lookup_called_with)
+        assert "an internal ID" == api._find_or_create_remote_account(patron)
+        assert "a barcode" == api.patron_remote_identifier_lookup_called_with
 
         # If the remote lookup fails, create_patron() is called
         # with the patron's library, authorization identifier, and
@@ -646,11 +628,11 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         api = RemoteLookupFails(
             self._db, self.collection, base_path=self.base_path
         )
-        eq_("an internal ID", api._find_or_create_remote_account(patron))
-        eq_("a barcode", api.patron_remote_identifier_lookup_called_with)
-        eq_(patron, api.patron_email_address_called_with)
-        eq_((patron.library, patron.authorization_identifier,
-             "mock email address"), api.create_patron_called_with_args)
+        assert "an internal ID" == api._find_or_create_remote_account(patron)
+        assert "a barcode" == api.patron_remote_identifier_lookup_called_with
+        assert patron == api.patron_email_address_called_with
+        assert (patron.library, patron.authorization_identifier,
+             "mock email address") == api.create_patron_called_with_args
 
         actual_create_keywords_keys = sorted(api.create_patron_called_with_kwargs.keys())
         allowed_create_keywords_keys = ["bearer_token_handler"]
@@ -659,7 +641,7 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         for key in api.create_patron_called_with_kwargs.keys():
             assert key in allowed_create_keywords_keys
         # expected kwargs keys
-        eq_(actual_create_keywords_keys, expected_create_keywords_keys)
+        assert actual_create_keywords_keys == expected_create_keywords_keys
 
         # If a remote lookup fails, and create patron fails with a
         # RemotePatronCreationFailedException we will try to do a patron
@@ -685,9 +667,9 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         api = RemoteLookupFailAndRecovery(
             self._db, self.collection, base_path=self.base_path
         )
-        eq_("an internal ID", api._find_or_create_remote_account(patron))
-        eq_(["a barcode", "mock email address"], api.patron_remote_identifier_lookup_called_with)
-        eq_([patron, patron], api.patron_email_address_called_with)
+        assert "an internal ID" == api._find_or_create_remote_account(patron)
+        assert ["a barcode", "mock email address"] == api.patron_remote_identifier_lookup_called_with
+        assert [patron, patron] == api.patron_email_address_called_with
 
 
         # If a remote lookup fails, and create patron fails with a
@@ -712,9 +694,9 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         api = RemoteLookupFailAndRecoveryAndFail(
             self._db, self.collection, base_path=self.base_path
         )
-        assert_raises(RemotePatronCreationFailedException, api._find_or_create_remote_account, patron)
-        eq_(["a barcode", "mock email address"], api.patron_remote_identifier_lookup_called_with)
-        eq_([patron, patron], api.patron_email_address_called_with)
+        pytest.raises(RemotePatronCreationFailedException, api._find_or_create_remote_account, patron)
+        assert ["a barcode", "mock email address"] == api.patron_remote_identifier_lookup_called_with
+        assert [patron, patron] == api.patron_email_address_called_with
 
     def test_create_patron(self):
         # Test the method that creates an RBdigital account for a
@@ -738,19 +720,18 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         patron_rbdigital_id = api.create_patron(*args)
 
         # The arguments we passed in were propagated to _create_patron_body.
-        eq_(args, api.called_with)
+        assert args == api.called_with
 
         # The return value is the internal ID RBdigital established for this
         # patron.
-        eq_(940000, patron_rbdigital_id)
+        assert 940000 == patron_rbdigital_id
 
         # Test the case where the patron already exists.
         datastr, datadict = api.get_data("response_patron_create_fail_already_exists.json")
         api.queue_response(status_code=409, content=datastr)
-        assert_raises_regexp(
-            RemotePatronCreationFailedException, 'create_patron: http=409, response={"message":"A patron account with the specified username, email address, or card number already exists for this library."}',
-            api.create_patron, *args
-        )
+        with pytest.raises(RemotePatronCreationFailedException) as excinfo:
+            api.create_patron(*args)
+        assert 'create_patron: http=409, response={"message":"A patron account with the specified username, email address, or card number already exists for this library."}' in str(excinfo.value)
 
     def test__find_or_create_create_patron_caches_bearer_token(self):
         # Test that the method that creates an RBDigital account caches
@@ -782,12 +763,12 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         [credential] = patron.credentials
 
         # Should return the RBdigital `patronId` property from the response.
-        eq_(expected_patron_rbd_id, patron_rbdigital_id)
+        assert expected_patron_rbd_id == patron_rbdigital_id
         # And we should have a credential with the bearer token.
-        eq_(expected_bearer_token, credential.credential)
-        eq_(api.CREDENTIAL_TYPES[api.BEARER_TOKEN_PROPERTY]['label'], credential.type)
-        eq_(DataSource.RB_DIGITAL, credential.data_source.name)
-        eq_(self.collection.id, credential.collection_id)
+        assert expected_bearer_token == credential.credential
+        assert api.CREDENTIAL_TYPES[api.BEARER_TOKEN_PROPERTY]['label'] == credential.type
+        assert DataSource.RB_DIGITAL == credential.data_source.name
+        assert self.collection.id == credential.collection_id
         assert credential.expires is not None
 
     def test_patron_remote_identifier_exception(self):
@@ -800,7 +781,7 @@ class TestRBDigitalAPI(RBDigitalAPITest):
 
         patron = self._patron("a barcode")
         api = ApiThrowsException(self._db, self.collection, base_path=self.base_path)
-        assert_raises(CirculationException, api.patron_remote_identifier, patron)
+        pytest.raises(CirculationException, api.patron_remote_identifier, patron)
         data_source = DataSource.lookup(self._db, DataSource.RB_DIGITAL)
         credential, new = get_one_or_create(
             self._db,
@@ -810,7 +791,7 @@ class TestRBDigitalAPI(RBDigitalAPITest):
             patron=patron,
             collection=api.collection
         )
-        eq_(True, new)
+        assert True == new
 
 
 
@@ -846,7 +827,7 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         # number generator, because it's generated with os.urandom(),
         # but we can verify that it's the right length.
         password = body.pop("password")
-        eq_(16, len(password))
+        assert 16 == len(password)
 
         # And we can directly check every other value.
         expect = {
@@ -858,13 +839,13 @@ class TestRBDigitalAPI(RBDigitalAPITest):
             'libraryId': api.library_id,
             'email': email
         }
-        eq_(expect, body)
+        assert expect == body
 
         # dummy_patron_identifier and dummy_email_address were not called,
         # since we're able to create an RBdigital account that the patron
         # can use through other means.
-        eq_(None, api.dummy_patron_identifier_called_with)
-        eq_(None, api.dummy_email_address_called_with)
+        assert None == api.dummy_patron_identifier_called_with
+        assert None == api.dummy_email_address_called_with
 
         # Test the case where no 'real' email address is provided.
         body = api._create_patron_body(library, identifier, None)
@@ -878,11 +859,11 @@ class TestRBDigitalAPI(RBDigitalAPITest):
             'libraryId': api.library_id,
             'email': 'dummy@email'
         }
-        eq_(expect, body)
+        assert expect == body
 
         # dummy_patron_identifier and dummy_email_address were called.
-        eq_(identifier, api.dummy_patron_identifier_called_with)
-        eq_((library, identifier), api.dummy_email_address_called_with)
+        assert identifier == api.dummy_patron_identifier_called_with
+        assert (library, identifier) == api.dummy_email_address_called_with
 
     def test_dummy_patron_identifier(self):
         random.seed(42)
@@ -892,11 +873,11 @@ class TestRBDigitalAPI(RBDigitalAPITest):
 
         # The dummy identifier is the input identifier plus
         # 6 random characters.
-        eq_(auth + "N098QO", remote_auth)
+        assert auth + "N098QO" == remote_auth
 
         # It's different every time.
         remote_auth = self.api.dummy_patron_identifier(auth)
-        eq_(auth + "W3F17I", remote_auth)
+        assert auth + "W3F17I" == remote_auth
 
     def test_dummy_email_address(self):
 
@@ -908,15 +889,13 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         # Without a setting for DEFAULT_NOTIFICATION_EMAIL_ADDRESS, we
         # can't calculate the email address to send RBdigital for a
         # patron.
-        assert_raises_regexp(
-            RemotePatronCreationFailedException,
-            "Cannot create remote account for patron because library's default notification address is not set.",
-            m, patron, auth
-        )
+        with pytest.raises(RemotePatronCreationFailedException) as excinfo:
+            m(patron, auth)
+        assert "Cannot create remote account for patron because library's default notification address is not set." in str(excinfo.value)
 
         self._set_notification_address(patron.library)
         address = m(patron, auth)
-        eq_("genericemail+rbdigital-%s@library.org" % auth,
+        assert ("genericemail+rbdigital-%s@library.org" % auth ==
             address)
 
     def test_patron_remote_identifier_lookup(self):
@@ -933,13 +912,13 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         )
         self.api.queue_response(status_code=200, content=datastr)
         rbdigital_patron_id = m(identifier)
-        eq_(None, rbdigital_patron_id)
+        assert None == rbdigital_patron_id
 
         # Test the case where RBdigital recognizes the identifier
         # we're using.
         self.queue_initial_patron_id_lookup()
         rbdigital_patron_id = m(identifier)
-        eq_(939981, rbdigital_patron_id)
+        assert 939981 == rbdigital_patron_id
 
         # Test the case where RBdigital sends an error because it
         # doesn't like our input.
@@ -947,39 +926,36 @@ class TestRBDigitalAPI(RBDigitalAPITest):
             "response_patron_internal_id_error.json"
         )
         self.api.queue_response(status_code=500, content=datastr)
-        assert_raises_regexp(
-            InvalidInputException, "patron_id:",
-            m, identifier
-        )
+        with pytest.raises(InvalidInputException) as excinfo:
+            m(identifier)
+        assert "patron_id:" in str(excinfo.value)
 
     def test_get_ebook_availability_info(self):
         datastr, datadict = self.api.get_data("response_availability_ebook_1.json")
         self.api.queue_response(status_code=200, content=datastr)
 
         response_list = self.api.get_ebook_availability_info()
-        eq_(u'9781420128567', response_list[0]['isbn'])
-        eq_(False, response_list[0]['availability'])
+        assert u'9781420128567' == response_list[0]['isbn']
+        assert False == response_list[0]['availability']
 
     def test_get_metadata_by_isbn(self):
         datastr, datadict = self.api.get_data("response_isbn_notfound_1.json")
         self.api.queue_response(status_code=200, content=datastr)
 
         response_dictionary = self.api.get_metadata_by_isbn('97BADISBNFAKE')
-        eq_(None, response_dictionary)
+        assert None == response_dictionary
 
 
         self.api.queue_response(status_code=404, content="{}")
-        assert_raises_regexp(
-            BadResponseException,
-            "Bad response from .*",
-            self.api.get_metadata_by_isbn, identifier='97BADISBNFAKE'
-        )
+        with pytest.raises(BadResponseException) as excinfo:
+            self.api.get_metadata_by_isbn(identifier='97BADISBNFAKE')
+        assert "Bad response from " in str(excinfo.value)
 
         datastr, datadict = self.api.get_data("response_isbn_found_1.json")
         self.api.queue_response(status_code=200, content=datastr)
         response_dictionary = self.api.get_metadata_by_isbn('9780307378101')
-        eq_(u'9780307378101', response_dictionary['isbn'])
-        eq_(u'Anchor', response_dictionary['publisher'])
+        assert u'9780307378101' == response_dictionary['isbn']
+        assert u'Anchor' == response_dictionary['publisher']
 
     def test_populate_all_catalog(self):
         # Test the method that retrieves the entire catalog from RBdigital
@@ -991,29 +967,29 @@ class TestRBDigitalAPI(RBDigitalAPITest):
 
         # populate_all_catalog returns two numbers, as required by
         # RBDigitalSyncMonitor.
-        eq_((3, 3), result)
+        assert (3, 3) == result
 
         # We created three presentation-ready works.
         works = sorted(
             self._db.query(Work).all(), key=lambda x: x.title
         )
         emperor, russian, tricks = works
-        eq_("Emperor Mage: The Immortals", emperor.title)
-        eq_("In-Flight Russian", russian.title)
-        eq_("Tricks", tricks.title)
+        assert "Emperor Mage: The Immortals" == emperor.title
+        assert "In-Flight Russian" == russian.title
+        assert "Tricks" == tricks.title
 
-        eq_(["9781934180723", "9781400024018", "9781615730186"],
+        assert (["9781934180723", "9781400024018", "9781615730186"] ==
             [x.license_pools[0].identifier.identifier for x in works])
 
         for w in works:
             [pool] = w.license_pools
             # We know we own licenses for this book.
-            eq_(1, pool.licenses_owned)
+            assert 1 == pool.licenses_owned
 
             # We _presume_ that this book is lendable. We may find out
             # differently the next time we run the availability
             # monitor.
-            eq_(1, pool.licenses_available)
+            assert 1 == pool.licenses_available
 
     def test_populate_delta(self):
 
@@ -1056,19 +1032,19 @@ class TestRBDigitalAPI(RBDigitalAPITest):
 
         # populate_delta returns two numbers, as required by
         # RBDigitalSyncMonitor.
-        eq_((2, 2), result)
+        assert (2, 2) == result
 
         # "Tricks" has not been modified.
-        eq_(10, tricks.licenses_owned)
-        eq_(5, tricks.licenses_available)
+        assert 10 == tricks.licenses_owned
+        assert 5 == tricks.licenses_available
 
         # "Greatest: Muhammad Ali, The" is still known to the system,
         # but its circulation data has been updated to indicate the
         # fact that this collection has no licenses.
-        eq_(0, ali.licenses_owned)
-        eq_(0, ali.licenses_available)
-        eq_(0, ali.licenses_reserved)
-        eq_(0, ali.patrons_in_hold_queue)
+        assert 0 == ali.licenses_owned
+        assert 0 == ali.licenses_available
+        assert 0 == ali.licenses_reserved
+        assert 0 == ali.patrons_in_hold_queue
 
         # "Emperor Mage: The Immortals" is now known to the system
         emperor, ignore = LicensePool.for_foreign_id(
@@ -1076,14 +1052,14 @@ class TestRBDigitalAPI(RBDigitalAPITest):
             "9781934180723", collection=self.collection
         )
         work = emperor.work
-        eq_("Emperor Mage", work.title)
-        eq_(True, work.presentation_ready)
+        assert "Emperor Mage" == work.title
+        assert True == work.presentation_ready
 
         # However, we have not set availability information on this
         # title.  That will happen (for all titles) the next time
         # RBDigitalAPI.process_availability is called.
-        eq_(0, emperor.licenses_owned)
-        eq_(0, emperor.licenses_available)
+        assert 0 == emperor.licenses_owned
+        assert 0 == emperor.licenses_available
 
     def test_populate_delta_remove_item_missing_metadata(self):
         item_media_str, item_media = self.get_data("response_catalog_media_isbn.json")
@@ -1101,9 +1077,9 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         add_remove_same_delta["booksRemovedCount"] = add_remove_same_delta["booksAddedCount"]
 
         # ensure test conditions are valid
-        eq_(item_media["isbn"], add_remove_same_delta["addedBooks"][0]["isbn"])
-        eq_(item_media["isbn"], add_remove_same_delta["removedBooks"][0]["isbn"])
-        eq_(1, len(add_remove_same_delta["removedBooks"]))
+        assert item_media["isbn"] == add_remove_same_delta["addedBooks"][0]["isbn"]
+        assert item_media["isbn"] == add_remove_same_delta["removedBooks"][0]["isbn"]
+        assert 1 == len(add_remove_same_delta["removedBooks"])
 
         add_remove_same_delta["addedBooks"] = add_remove_same_delta["removedBooks"]
         add_remove_same_delta["booksAddedCount"] = add_remove_same_delta["booksRemovedCount"]
@@ -1118,8 +1094,8 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         api = GoodMetaRBDigitalAPI(self._db, self.collection, base_path=self.base_path)
         api.queue_response(status_code=200, content=item_media_str)
         items_transmitted, items_updated = api.populate_delta()
-        eq_(2, items_transmitted)
-        eq_(2, items_updated)
+        assert 2 == items_transmitted
+        assert 2 == items_updated
 
         # Exercise RBDigitalAPI.populate_delta when attempting to
         # remove item with no metadata.
@@ -1130,8 +1106,8 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         api = NoneMetaRBDigitalAPI(self._db, self.collection, base_path=self.base_path)
         api.queue_response(status_code=200, content=item_media_str)
         items_transmitted, items_updated = api.populate_delta()
-        eq_(2, items_transmitted)
-        eq_(1, items_updated)
+        assert 2 == items_transmitted
+        assert 1 == items_updated
 
     def test_circulate_item(self):
         edition, pool = self._edition(
@@ -1152,46 +1128,43 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         # borrow functionality checks
         response_dictionary = self.api.circulate_item(rbdigital_id, edition.primary_identifier.identifier)
         assert('error_code' not in response_dictionary)
-        eq_("9781441260468", response_dictionary['isbn'])
-        eq_("SUCCESS", response_dictionary['output'])
-        eq_(False, response_dictionary['canRenew'])
+        assert "9781441260468" == response_dictionary['isbn']
+        assert "SUCCESS" == response_dictionary['output']
+        assert False == response_dictionary['canRenew']
         #eq_(9828517, response_dictionary['transactionId'])
-        eq_(939981, response_dictionary['patronId'])
-        eq_(1931, response_dictionary['libraryId'])
+        assert 939981 == response_dictionary['patronId']
+        assert 1931 == response_dictionary['libraryId']
         request_url, request_args, request_kwargs = self.api.requests[-1]
         assert "checkouts" in request_url
-        eq_("post", request_kwargs.get("method"))
+        assert "post" == request_kwargs.get("method")
 
         datastr, datadict = self.api.get_data("response_checkout_unavailable.json")
         self.api.queue_response(status_code=409, content=datastr)
-        assert_raises_regexp(
-            NoAvailableCopies, "Title is not available for checkout",
-            self.api.circulate_item, rbdigital_id, edition.primary_identifier.identifier
-        )
+        with pytest.raises(NoAvailableCopies) as excinfo:
+            self.api.circulate_item(rbdigital_id, edition.primary_identifier.identifier)
+        assert "Title is not available for checkout" in str(excinfo.value)
         request_url, request_args, request_kwargs = self.api.requests[-1]
         assert "checkouts" in request_url
-        eq_("post", request_kwargs.get("method"))
+        assert "post" == request_kwargs.get("method")
 
         # book return functionality checks
         self.api.queue_response(status_code=200, content="")
 
         response_dictionary = self.api.circulate_item(rbdigital_id, edition.primary_identifier.identifier,
             return_item=True)
-        eq_({}, response_dictionary)
+        assert {} == response_dictionary
         request_url, request_args, request_kwargs = self.api.requests[-1]
         assert "checkouts" in request_url
-        eq_("delete", request_kwargs.get("method"))
+        assert "delete" == request_kwargs.get("method")
 
         datastr, datadict = self.api.get_data("response_return_unavailable.json")
         self.api.queue_response(status_code=409, content=datastr)
-        assert_raises_regexp(
-            NotCheckedOut, "checkin:",
-            self.api.circulate_item, rbdigital_id, edition.primary_identifier.identifier,
-            return_item=True
-        )
+        with pytest.raises(NotCheckedOut) as excinfo:
+            self.api.circulate_item(rbdigital_id, edition.primary_identifier.identifier, return_item=True)
+        assert "checkin:" in str(excinfo.value)
         request_url, request_args, request_kwargs = self.api.requests[-1]
         assert "checkouts" in request_url
-        eq_("delete", request_kwargs.get("method"))
+        assert "delete" == request_kwargs.get("method")
 
         # hold functionality checks
         datastr, datadict = self.api.get_data("response_patron_hold_success.json")
@@ -1199,21 +1172,21 @@ class TestRBDigitalAPI(RBDigitalAPITest):
 
         response = self.api.circulate_item(rbdigital_id, edition.primary_identifier.identifier,
                                            hold=True)
-        eq_(9828560, response)
+        assert 9828560 == response
         request_url, request_args, request_kwargs = self.api.requests[-1]
         assert "holds" in request_url
-        eq_("post", request_kwargs.get("method"))
+        assert "post" == request_kwargs.get("method")
 
         datastr, datadict = self.api.get_data("response_patron_hold_fail_409_reached_limit.json")
         self.api.queue_response(status_code=409, content=datastr)
 
         response = self.api.circulate_item(rbdigital_id, edition.primary_identifier.identifier,
                                            hold=True)
-        eq_("You have reached your checkout limit and therefore are unable to place additional holds.",
+        assert ("You have reached your checkout limit and therefore are unable to place additional holds." ==
             response)
         request_url, request_args, request_kwargs = self.api.requests[-1]
         assert "holds" in request_url
-        eq_("post", request_kwargs.get("method"))
+        assert "post" == request_kwargs.get("method")
 
     def test_checkin(self):
         # Returning a book is, for now, more of a "notify RBDigital that we've
@@ -1236,12 +1209,12 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         self.api.queue_response(status_code=200, content='{"message": "success"}')
 
         success = self.api.checkin(patron, None, pool)
-        eq_(True, success)
+        assert True == success
 
         # queue unexpected non-empty response from the server
         self.api.queue_response(status_code=200, content=json.dumps({"error_code": "error"}))
 
-        assert_raises(CirculationException, self.api.checkin,
+        pytest.raises(CirculationException, self.api.checkin,
                       patron, None, pool)
 
     def test_checkout(self):
@@ -1276,15 +1249,15 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         assert "days=%s" % ebook_period in checkout_url
 
         # Now we have a LoanInfo that describes the remote loan.
-        eq_(Identifier.RB_DIGITAL_ID, loan_info.identifier_type)
-        eq_(pool.identifier.identifier, loan_info.identifier)
+        assert Identifier.RB_DIGITAL_ID == loan_info.identifier_type
+        assert pool.identifier.identifier == loan_info.identifier
         today = datetime.datetime.utcnow()
         assert (loan_info.start_date - today).total_seconds() < 20
         assert (loan_info.end_date - today).days <= ebook_period
 
         # But we can only get a FulfillmentInfo by calling
         # get_patron_checkouts().
-        eq_(None, loan_info.fulfillment_info)
+        assert None == loan_info.fulfillment_info
 
         # Try the checkout again but pretend that we're checking out
         # an audiobook.
@@ -1337,11 +1310,11 @@ class TestRBDigitalAPI(RBDigitalAPITest):
 
         # Since the book being fulfilled is an EPUB, the
         # FulfillmentInfo returned contains a direct link to the EPUB.
-        eq_(Identifier.RB_DIGITAL_ID, found_fulfillment.identifier_type)
-        eq_(u'9781426893483', found_fulfillment.identifier)
-        eq_(download_url, found_fulfillment.content_link)
-        eq_(u'application/epub+zip', found_fulfillment.content_type)
-        eq_(None, found_fulfillment.content)
+        assert Identifier.RB_DIGITAL_ID == found_fulfillment.identifier_type
+        assert u'9781426893483' == found_fulfillment.identifier
+        assert download_url == found_fulfillment.content_link
+        assert u'application/epub+zip' == found_fulfillment.content_type
+        assert None == found_fulfillment.content
 
         # The fulfillment link expires in about 14 minutes -- rather
         # than testing this exactly we estimate it.
@@ -1371,7 +1344,7 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         self.api.queue_response(status_code=200, content=datastr)
 
         # The patron can't fulfill the book if it's not one of their checkouts.
-        assert_raises(NoActiveLoan, self.api.fulfill,
+        pytest.raises(NoActiveLoan, self.api.fulfill,
                       patron, None, pool2, None)
 
         # Try again with a scenario where the patron has no active
@@ -1379,7 +1352,7 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         datastr, datadict = self.api.get_data("response_patron_checkouts_200_emptylist.json")
         self.api.queue_response(status_code=200, content=datastr)
 
-        assert_raises(NoActiveLoan, self.api.fulfill,
+        pytest.raises(NoActiveLoan, self.api.fulfill,
                       patron, None, pool, None)
 
     def test_fulfill_audiobook(self):
@@ -1436,7 +1409,7 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         # bearer token to rewrite the URLs, so we'll queue up the needed
         # responses before getting the manifest.
         self.queue_fetch_patron_bearer_token(api=api)
-        eq_(Representation.AUDIOBOOK_MANIFEST_MEDIA_TYPE,
+        assert (Representation.AUDIOBOOK_MANIFEST_MEDIA_TYPE ==
             found_fulfillment.content_type)
 
         # A manifest is associated with the FulfillmentInfo.
@@ -1445,11 +1418,11 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         # The Unicode representation of the manifest is used as the
         # content to be sent to the client.
         output = json.loads(found_fulfillment.content)
-        eq_('http://readium.org/webpub/default.jsonld', output['@context'])
-        eq_('http://bib.schema.org/Audiobook', output['metadata']['@type'])
+        assert 'http://readium.org/webpub/default.jsonld' == output['@context']
+        assert 'http://bib.schema.org/Audiobook' == output['metadata']['@type']
 
         # Ensure that we've consumed all of the queued responses so far
-        eq_(0, len(api.responses))
+        assert 0 == len(api.responses)
 
         # Each item in the manifest's readingOrder has a download url
         # generated by calling make_part_url().
@@ -1469,11 +1442,11 @@ class TestRBDigitalAPI(RBDigitalAPITest):
             expected_proxied_url = '{}/rbdproxy/{}?{}'.format(
                 make_part_url(i), patron_bearer_token, urllib.urlencode({'url': expected_downloadUrl})
             )
-            eq_(expected_proxied_url, part['href'])
-            eq_("vnd.librarysimplified/rbdigital-access-document+json", part['type'])
+            assert expected_proxied_url == part['href']
+            assert "vnd.librarysimplified/rbdigital-access-document+json" == part['type']
 
         # Ensure that we've consumed all of the queued responses so far
-        eq_(0, len(api.responses))
+        assert 0 == len(api.responses)
 
         # This function will be used to validate the next few
         # fulfillment requests.
@@ -1483,8 +1456,8 @@ class TestRBDigitalAPI(RBDigitalAPITest):
             chapter = api.fulfill(patron, None, pool, None, part=3,
                                        fulfill_part_url=lambda part: "http://does.not/matter")
             assert isinstance(chapter, FulfillmentInfo)
-            eq_("http://book/chapter1.mp3", chapter.content_link)
-            eq_("audio/mpeg", chapter.content_type)
+            assert "http://book/chapter1.mp3" == chapter.content_link
+            assert "audio/mpeg" == chapter.content_type
 
             # We should have a cached bearer token now. And it should be unexpired.
             data_source = DataSource.lookup(self._db, DataSource.RB_DIGITAL)
@@ -1495,11 +1468,11 @@ class TestRBDigitalAPI(RBDigitalAPITest):
                 patron=patron,
                 collection=api.collection,
             )
-            eq_(False, new)
+            assert False == new
             assert credential.expires > datetime.datetime.utcnow()
 
             # Ensure that we've consumed all of the queued responses so far
-            eq_(0, len(api.responses))
+            assert 0 == len(api.responses)
 
         # Now let's try fulfilling one of those parts.
         #
@@ -1577,21 +1550,21 @@ class TestRBDigitalAPI(RBDigitalAPITest):
 
         patron_activity = self.api.patron_activity(patron, None)
 
-        eq_(Identifier.RB_DIGITAL_ID, patron_activity[0].identifier_type)
-        eq_(u'9781456103859', patron_activity[0].identifier)
-        eq_(None, patron_activity[0].start_date)
-        eq_(datetime.date(2016, 11, 19), patron_activity[0].end_date)
+        assert Identifier.RB_DIGITAL_ID == patron_activity[0].identifier_type
+        assert u'9781456103859' == patron_activity[0].identifier
+        assert None == patron_activity[0].start_date
+        assert datetime.date(2016, 11, 19) == patron_activity[0].end_date
 
-        eq_(Identifier.RB_DIGITAL_ID, patron_activity[1].identifier_type)
-        eq_(u'9781426893483', patron_activity[1].identifier)
-        eq_(None, patron_activity[1].start_date)
-        eq_(datetime.date(2016, 11, 19), patron_activity[1].end_date)
+        assert Identifier.RB_DIGITAL_ID == patron_activity[1].identifier_type
+        assert u'9781426893483' == patron_activity[1].identifier
+        assert None == patron_activity[1].start_date
+        assert datetime.date(2016, 11, 19) == patron_activity[1].end_date
 
-        eq_(Identifier.RB_DIGITAL_ID, patron_activity[2].identifier_type)
-        eq_('9781426893483', patron_activity[2].identifier)
-        eq_(None, patron_activity[2].start_date)
-        eq_(datetime.date(2050, 12, 31), patron_activity[2].end_date)
-        eq_(None, patron_activity[2].hold_position)
+        assert Identifier.RB_DIGITAL_ID == patron_activity[2].identifier_type
+        assert '9781426893483' == patron_activity[2].identifier
+        assert None == patron_activity[2].start_date
+        assert datetime.date(2050, 12, 31) == patron_activity[2].end_date
+        assert None == patron_activity[2].hold_position
 
     def test_place_hold(self):
         "Test reserving a book."
@@ -1611,19 +1584,17 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         # because we can't distinguish between the two cases.)
         datastr, datadict = self.api.get_data("response_patron_hold_fail_409_already_exists.json")
         self.api.queue_response(status_code=409, content=datastr)
-        assert_raises_regexp(
-            CannotHold, ".*Hold or Checkout already exists.",
-            self.api.place_hold, patron, None, pool, None
-        )
+        with pytest.raises(CannotHold) as excinfo:
+            self.api.place_hold(patron, None, pool, None)
+        assert "Hold or Checkout already exists." in str(excinfo.value)
 
         # If the patron has reached a limit and cannot place any more holds,
         # CannotHold is raised.
         datastr, datadict = self.api.get_data("response_patron_hold_fail_409_reached_limit.json")
         self.api.queue_response(status_code=409, content=datastr)
-        assert_raises_regexp(
-            CannotHold, ".*You have reached your checkout limit and therefore are unable to place additional holds.",
-            self.api.place_hold, patron, None, pool, None
-        )
+        with pytest.raises(CannotHold) as excinfo:
+            self.api.place_hold(patron, None, pool, None)
+        assert "You have reached your checkout limit and therefore are unable to place additional holds." in str(excinfo.value)
 
         # Finally let's test a successful hold.
         datastr, datadict = self.api.get_data("response_patron_hold_success.json")
@@ -1631,8 +1602,8 @@ class TestRBDigitalAPI(RBDigitalAPITest):
 
         hold_info = self.api.place_hold(patron, None, pool, None)
 
-        eq_(Identifier.RB_DIGITAL_ID, hold_info.identifier_type)
-        eq_(pool.identifier.identifier, hold_info.identifier)
+        assert Identifier.RB_DIGITAL_ID == hold_info.identifier_type
+        assert pool.identifier.identifier == hold_info.identifier
         today = datetime.datetime.now()
         assert (hold_info.start_date - today).total_seconds() < 20
 
@@ -1653,12 +1624,12 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         self.api.queue_response(status_code=200, content='{"message": "success"}')
 
         success = self.api.release_hold(patron, None, pool)
-        eq_(True, success)
+        assert True == success
 
         # queue unexpected non-empty response from the server
         self.api.queue_response(status_code=200, content=json.dumps({"error_code": "error"}))
 
-        assert_raises(CirculationException, self.api.release_hold,
+        pytest.raises(CirculationException, self.api.release_hold,
                       patron, None, pool)
 
     def test_update_licensepool_for_identifier(self):
@@ -1676,13 +1647,13 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         pool, is_new, circulation_changed = self.api.update_licensepool_for_identifier(
             isbn, True, 'ebook'
         )
-        eq_(True, is_new)
-        eq_(True, circulation_changed)
-        eq_(1, pool.licenses_owned)
-        eq_(1, pool.licenses_available)
+        assert True == is_new
+        assert True == circulation_changed
+        assert 1 == pool.licenses_owned
+        assert 1 == pool.licenses_available
         [lpdm] = pool.delivery_mechanisms
-        eq_(Representation.EPUB_MEDIA_TYPE, lpdm.delivery_mechanism.content_type)
-        eq_(DeliveryMechanism.ADOBE_DRM, lpdm.delivery_mechanism.drm_scheme)
+        assert Representation.EPUB_MEDIA_TYPE == lpdm.delivery_mechanism.content_type
+        assert DeliveryMechanism.ADOBE_DRM == lpdm.delivery_mechanism.drm_scheme
 
         # Create a LicensePool that needs updating.
         edition, pool = self._edition(
@@ -1697,36 +1668,36 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         pool.licenses_owned = 5
         pool.licenses_available = 3
         pool.patrons_in_hold_queue = 3
-        eq_(None, pool.last_checked)
+        assert None == pool.last_checked
 
         isbn = pool.identifier.identifier.encode("ascii")
 
         pool, is_new, circulation_changed = self.api.update_licensepool_for_identifier(
             isbn, False, 'eaudio'
         )
-        eq_(False, is_new)
-        eq_(True, circulation_changed)
+        assert False == is_new
+        assert True == circulation_changed
 
         # The availability information has been updated, as has the
         # date the availability information was last checked.
         #
         # We still own a license, but it's no longer available for
         # checkout.
-        eq_(1, pool.licenses_owned)
-        eq_(0, pool.licenses_available)
-        eq_(3, pool.patrons_in_hold_queue)
+        assert 1 == pool.licenses_owned
+        assert 0 == pool.licenses_available
+        assert 3 == pool.patrons_in_hold_queue
         assert pool.last_checked is not None
 
         # A delivery mechanism was also added to the pool.
         [lpdm] = pool.delivery_mechanisms
-        eq_(Representation.AUDIOBOOK_MANIFEST_MEDIA_TYPE,
+        assert (Representation.AUDIOBOOK_MANIFEST_MEDIA_TYPE ==
             lpdm.delivery_mechanism.content_type)
-        eq_(None, lpdm.delivery_mechanism.drm_scheme)
+        assert None == lpdm.delivery_mechanism.drm_scheme
 
         self.api.update_licensepool_for_identifier(isbn, True, 'ebook')
-        eq_(1, pool.licenses_owned)
-        eq_(1, pool.licenses_available)
-        eq_(3, pool.patrons_in_hold_queue)
+        assert 1 == pool.licenses_owned
+        assert 1 == pool.licenses_available
+        assert 3 == pool.patrons_in_hold_queue
 
 class TestCirculationMonitor(RBDigitalAPITest):
 
@@ -1747,24 +1718,24 @@ class TestCirculationMonitor(RBDigitalAPITest):
         )
         timestamp = monitor.timestamp().to_data()
         progress = monitor.run_once(timestamp)
-        eq_(['eBook', 'eAudio'], monitor.process_availability_calls)
+        assert ['eBook', 'eAudio'] == monitor.process_availability_calls
 
         # The TimestampData returned by run_once() describes its
         # achievements.
-        eq_("Ebooks processed: 3. Audiobooks processed: 3.",
+        assert ("Ebooks processed: 3. Audiobooks processed: 3." ==
             progress.achievements)
 
         # The TimestampData does not include any timing information
         # -- that will be applied by run().
-        eq_(None, progress.start)
-        eq_(None, progress.finish)
+        assert None == progress.start
+        assert None == progress.finish
 
     def test_process_availability(self):
         monitor = RBDigitalCirculationMonitor(
             self._db, self.collection, api_class=MockRBDigitalAPI,
             api_class_kwargs=dict(base_path=self.base_path)
         )
-        eq_(ExternalIntegration.RB_DIGITAL, monitor.protocol)
+        assert ExternalIntegration.RB_DIGITAL == monitor.protocol
 
         # Create a LicensePool that needs updating.
         edition_ebook, pool_ebook = self._edition(
@@ -1775,7 +1746,7 @@ class TestCirculationMonitor(RBDigitalAPITest):
         pool_ebook.licenses_owned = 3
         pool_ebook.licenses_available = 2
         pool_ebook.patrons_in_hold_queue = 1
-        eq_(None, pool_ebook.last_checked)
+        assert None == pool_ebook.last_checked
 
         # Prepare availability information.
         datastr, datadict = monitor.api.get_data("response_availability_single_ebook.json")
@@ -1787,7 +1758,7 @@ class TestCirculationMonitor(RBDigitalAPITest):
         monitor.api.queue_response(status_code=200, content=datastr)
 
         item_count = monitor.process_availability()
-        eq_(1, item_count)
+        assert 1 == item_count
         pool_ebook.licenses_available = 0
 
 class TestRBFulfillmentInfo(RBDigitalAPITest):
@@ -1829,7 +1800,7 @@ class TestRBFulfillmentInfo(RBDigitalAPITest):
         # We won't be using fulfill_part_url, since it's only used
         # when we're fulfilling the audiobook as a whole, but let's
         # check to make sure it was set correctly.
-        eq_(fulfill_part_url, info.fulfill_part_url)
+        assert fulfill_part_url == info.fulfill_part_url
 
         # Prepopulate the manifest so that we don't go over the
         # network trying to get it.
@@ -1842,26 +1813,23 @@ class TestRBFulfillmentInfo(RBDigitalAPITest):
         m = info.fulfill_part
 
         info._content_type = "not/an/audiobook"
-        assert_raises_regexp(
-            CannotPartiallyFulfill,
-            "This work does not support partial fulfillment."
-        )
+        with pytest.raises(CannotPartiallyFulfill) as excinfo:
+            m(3)
+        assert "This work does not support partial fulfillment." in str(excinfo.value)
 
         info._content_type = Representation.AUDIOBOOK_MANIFEST_MEDIA_TYPE
-        assert_raises_regexp(
-            CannotPartiallyFulfill,
-            '"not a number" is not a valid part number', m, "not a number"
-        )
+        with pytest.raises(CannotPartiallyFulfill) as excinfo:
+            m("not a number")
+        assert '"not a number" is not a valid part number' in str(excinfo.value)
 
-        assert_raises_regexp(
-            CannotPartiallyFulfill, 'Could not locate part number -1', m, -1
-        )
+        with pytest.raises(CannotPartiallyFulfill) as excinfo:
+            m(-1)
+        assert 'Could not locate part number -1' in str(excinfo.value)
 
         # There are 21 parts in this audiobook, numbered from 0 to 20.
-        assert_raises_regexp(
-            CannotPartiallyFulfill, 'Could not locate part number 21', m,
-            len(manifest.readingOrder)
-        )
+        with pytest.raises(CannotPartiallyFulfill) as excinfo:
+            m(len(manifest.readingOrder))
+        assert 'Could not locate part number 21' in str(excinfo.value)
 
         # Finally, let's fulfill a part that does exist.
         part_index = 10
@@ -1869,10 +1837,10 @@ class TestRBFulfillmentInfo(RBDigitalAPITest):
         assert isinstance(fulfillment, FulfillmentInfo)
         # Fulfillment should be requested with the real downloadUrl, not the proxy URL.
         assert proxied_cm_part_url, request_tracker.fulfillment_request_last_called_with
-        eq_("https://download-piece/{}".format(part_index + 1),
+        assert ("https://download-piece/{}".format(part_index + 1) ==
             request_tracker.fulfillment_request_last_called_with)
-        eq_("http://book/chapter1.mp3", fulfillment.content_link)
-        eq_("audio/mpeg", fulfillment.content_type)
+        assert "http://book/chapter1.mp3" == fulfillment.content_link
+        assert "audio/mpeg" == fulfillment.content_type
 
 
 class TestAudiobookManifest(RBDigitalAPITest):
@@ -1908,37 +1876,36 @@ class TestAudiobookManifest(RBDigitalAPITest):
         # that clients cannot directly retrieve the access document
         # from the primary downloadUrl, not providing a function to
         # generate this alternative is treated as an error.
-        assert_raises_regexp(
-            TypeError, "__init__\(\) takes exactly .* arguments .*",
-            AudiobookManifest, book
-        )
+        with pytest.raises(TypeError) as excinfo:
+            AudiobookManifest(book)
+        assert "__init__() takes exactly 3 arguments (2 given)" in str(excinfo.value)
 
         manifest = AudiobookManifest(book, fulfill_part_url)
 
         # We know about a lot of metadata.
-        eq_('http://bib.schema.org/Audiobook', manifest.metadata['@type'])
-        eq_(u'Sharyn McCrumb', manifest.metadata['author'])
-        eq_(u'Award-winning, New York Times best-selling novelist Sharyn McCrumb crafts absorbing, lyrical tales featuring the rich culture and lore of Appalachia. In the compelling...', manifest.metadata['description'])
-        eq_(52710.0, manifest.metadata['duration'])
-        eq_(u'9781449871789', manifest.metadata['identifier'])
-        eq_(u'Barbara Rosenblat', manifest.metadata['narrator'])
-        eq_(u'Recorded Books, Inc.', manifest.metadata['publisher'])
-        eq_(u'', manifest.metadata['rbdigital:encryptionKey'])
-        eq_(False, manifest.metadata['rbdigital:hasDrm'])
-        eq_(316314528, manifest.metadata['schema:contentSize'])
-        eq_(u'The Ballad of Frankie Silver', manifest.metadata['title'])
+        assert 'http://bib.schema.org/Audiobook' == manifest.metadata['@type']
+        assert u'Sharyn McCrumb' == manifest.metadata['author']
+        assert u'Award-winning, New York Times best-selling novelist Sharyn McCrumb crafts absorbing, lyrical tales featuring the rich culture and lore of Appalachia. In the compelling...' == manifest.metadata['description']
+        assert 52710.0 == manifest.metadata['duration']
+        assert u'9781449871789' == manifest.metadata['identifier']
+        assert u'Barbara Rosenblat' == manifest.metadata['narrator']
+        assert u'Recorded Books, Inc.' == manifest.metadata['publisher']
+        assert u'' == manifest.metadata['rbdigital:encryptionKey']
+        assert False == manifest.metadata['rbdigital:hasDrm']
+        assert 316314528 == manifest.metadata['schema:contentSize']
+        assert u'The Ballad of Frankie Silver' == manifest.metadata['title']
 
         # We know about 21 items in the reading order.
-        eq_(21, len(manifest.readingOrder))
+        assert 21 == len(manifest.readingOrder)
 
         # Let's spot check one.
         first = manifest.readingOrder[0]
-        eq_("https://download-piece/1", first['href'])
-        eq_("vnd.librarysimplified/rbdigital-access-document+json", first['type'])
-        eq_("358456", first['rbdigital:id'])
-        eq_(417200, first['schema:contentSize'])
-        eq_("Introduction", first['title'])
-        eq_(69.0, first['duration'])
+        assert "https://download-piece/1" == first['href']
+        assert "vnd.librarysimplified/rbdigital-access-document+json" == first['type']
+        assert "358456" == first['rbdigital:id']
+        assert 417200 == first['schema:contentSize']
+        assert "Introduction" == first['title']
+        assert 69.0 == first['duration']
 
         # We can ask for a manifest in which the download `type` and
         # `href` point to resources on this circulation manager, so
@@ -1957,44 +1924,44 @@ class TestAudiobookManifest(RBDigitalAPITest):
             fulfill_part_url(0), patron_bearer_token, urllib.urlencode({'url': expected_downloadUrl})
         )
 
-        eq_(expected_proxied_url, first_proxied['href'])
-        eq_("vnd.librarysimplified/rbdigital-access-document+json", first_proxied['type'])
-        eq_("358456", first_proxied['rbdigital:id'])
-        eq_(417200, first_proxied['schema:contentSize'])
-        eq_("Introduction", first_proxied['title'])
-        eq_(69.0, first_proxied['duration'])
+        assert expected_proxied_url == first_proxied['href']
+        assert "vnd.librarysimplified/rbdigital-access-document+json" == first_proxied['type']
+        assert "358456" == first_proxied['rbdigital:id']
+        assert 417200 == first_proxied['schema:contentSize']
+        assert "Introduction" == first_proxied['title']
+        assert 69.0 == first_proxied['duration']
 
         # An alternate link and a cover link were imported.
         alternate, cover = manifest.links
-        eq_("alternate", alternate['rel'])
-        eq_("https://download/full-book.zip", alternate['href'])
-        eq_("application/zip", alternate['type'])
+        assert "alternate" == alternate['rel']
+        assert "https://download/full-book.zip" == alternate['href']
+        assert "application/zip" == alternate['type']
 
-        eq_("cover", cover['rel'])
+        assert "cover" == cover['rel']
         assert "image_512x512" in cover['href']
-        eq_("image/png", cover['type'])
+        assert "image/png" == cover['type']
 
     def test_best_cover(self):
         m = AudiobookManifest.best_cover
 
         # If there are no covers, or no URLs, None is returned.
-        eq_(None, m(None))
-        eq_(None, m([]))
-        eq_(None, m([{'nonsense': 'value'}]))
-        eq_(None, m([{'name': 'xx-large'}]))
-        eq_(None, m([{'url': 'somewhere'}]))
+        assert None == m(None)
+        assert None == m([])
+        assert None == m([{'nonsense': 'value'}])
+        assert None == m([{'name': 'xx-large'}])
+        assert None == m([{'url': 'somewhere'}])
 
         # No image with a name other than 'large', 'x-large', or
         # 'xx-large' will be accepted.
-        eq_(None, m([{'name': 'xx-small', 'url': 'foo'}]))
+        assert None == m([{'name': 'xx-small', 'url': 'foo'}])
 
         # Of those, the largest sized image will be used.
-        eq_('yep', m([
+        assert 'yep' == m([
             {'name': 'small', 'url': 'no way'},
             {'name': 'large', 'url': 'nope'},
             {'name': 'x-large', 'url': 'still nope'},
             {'name': 'xx-large', 'url': 'yep'},
-        ]))
+        ])
 
 class TestRBDigitalRepresentationExtractor(RBDigitalAPITest):
 
@@ -2004,91 +1971,89 @@ class TestRBDigitalRepresentationExtractor(RBDigitalAPITest):
         datastr, datadict = self.api.get_data("response_isbn_found_1.json")
         metadata = RBDigitalRepresentationExtractor.isbn_info_to_metadata(datadict)
 
-        eq_("Tea Time for the Traditionally Built", metadata.title)
-        eq_(None, metadata.sort_title)
-        eq_(None, metadata.subtitle)
-        eq_(Edition.BOOK_MEDIUM, metadata.medium)
-        eq_("No. 1 Ladies Detective Agency", metadata.series)
-        eq_(10, metadata.series_position)
-        eq_("eng", metadata.language)
-        eq_("Anchor", metadata.publisher)
-        eq_(None, metadata.imprint)
-        eq_(2013, metadata.published.year)
-        eq_(12, metadata.published.month)
-        eq_(27, metadata.published.day)
+        assert "Tea Time for the Traditionally Built" == metadata.title
+        assert None == metadata.sort_title
+        assert None == metadata.subtitle
+        assert Edition.BOOK_MEDIUM == metadata.medium
+        assert "No. 1 Ladies Detective Agency" == metadata.series
+        assert 10 == metadata.series_position
+        assert "eng" == metadata.language
+        assert "Anchor" == metadata.publisher
+        assert None == metadata.imprint
+        assert 2013 == metadata.published.year
+        assert 12 == metadata.published.month
+        assert 27 == metadata.published.day
 
         [author1, author2, narrator] = metadata.contributors
-        eq_(u"Mccall Smith, Alexander", author1.sort_name)
-        eq_(u"Alexander Mccall Smith", author1.display_name)
-        eq_([Contributor.AUTHOR_ROLE], author1.roles)
-        eq_(u"Wilder, Thornton", author2.sort_name)
-        eq_(u"Thornton Wilder", author2.display_name)
-        eq_([Contributor.AUTHOR_ROLE], author2.roles)
+        assert u"Mccall Smith, Alexander" == author1.sort_name
+        assert u"Alexander Mccall Smith" == author1.display_name
+        assert [Contributor.AUTHOR_ROLE] == author1.roles
+        assert u"Wilder, Thornton" == author2.sort_name
+        assert u"Thornton Wilder" == author2.display_name
+        assert [Contributor.AUTHOR_ROLE] == author2.roles
 
-        eq_(u"Guskin, Laura Flanagan", narrator.sort_name)
-        eq_(u"Laura Flanagan Guskin", narrator.display_name)
-        eq_([Contributor.NARRATOR_ROLE], narrator.roles)
+        assert u"Guskin, Laura Flanagan" == narrator.sort_name
+        assert u"Laura Flanagan Guskin" == narrator.display_name
+        assert [Contributor.NARRATOR_ROLE] == narrator.roles
 
         subjects = sorted(metadata.subjects, key=lambda x: x.identifier)
 
         weight = Classification.TRUSTED_DISTRIBUTOR_WEIGHT
-        eq_([(None, u"FICTION / Humorous / General", Subject.BISAC, weight),
+        assert ([(None, u"FICTION / Humorous / General", Subject.BISAC, weight),
 
             (u'adult', None, Classifier.RBDIGITAL_AUDIENCE, weight),
 
             (u'humorous-fiction', None, Subject.RBDIGITAL, weight),
             (u'mystery', None, Subject.RBDIGITAL, weight),
             (u'womens-fiction', None, Subject.RBDIGITAL, weight)
-         ],
-            [(x.identifier, x.name, x.type, x.weight) for x in subjects]
-        )
+         ] ==
+            [(x.identifier, x.name, x.type, x.weight) for x in subjects])
 
         # Related IDs.
-        eq_((Identifier.RB_DIGITAL_ID, '9780307378101'),
+        assert ((Identifier.RB_DIGITAL_ID, '9780307378101') ==
             (metadata.primary_identifier.type, metadata.primary_identifier.identifier))
 
         ids = [(x.type, x.identifier) for x in metadata.identifiers]
 
         # We made exactly one RBDigital and one ISBN-type identifiers.
-        eq_(
-            [(Identifier.ISBN, "9780307378101"), (Identifier.RB_DIGITAL_ID, "9780307378101")],
-            sorted(ids)
-        )
+        assert (
+            [(Identifier.ISBN, "9780307378101"), (Identifier.RB_DIGITAL_ID, "9780307378101")] ==
+            sorted(ids))
 
         # Available formats.
         [epub] = sorted(metadata.circulation.formats, key=lambda x: x.content_type)
-        eq_(Representation.EPUB_MEDIA_TYPE, epub.content_type)
-        eq_(DeliveryMechanism.ADOBE_DRM, epub.drm_scheme)
+        assert Representation.EPUB_MEDIA_TYPE == epub.content_type
+        assert DeliveryMechanism.ADOBE_DRM == epub.drm_scheme
 
         # Links to various resources.
         shortd, image = sorted(
             metadata.links, key=lambda x:x.rel
         )
 
-        eq_(Hyperlink.SHORT_DESCRIPTION, shortd.rel)
+        assert Hyperlink.SHORT_DESCRIPTION == shortd.rel
         assert shortd.content.startswith("THE NO. 1 LADIES' DETECTIVE AGENCY")
 
-        eq_(Hyperlink.IMAGE, image.rel)
-        eq_('http://images.oneclickdigital.com/EB00148140/EB00148140_image_128x192.jpg', image.href)
+        assert Hyperlink.IMAGE == image.rel
+        assert 'http://images.oneclickdigital.com/EB00148140/EB00148140_image_128x192.jpg' == image.href
 
         thumbnail = image.thumbnail
 
-        eq_(Hyperlink.THUMBNAIL_IMAGE, thumbnail.rel)
-        eq_('http://images.oneclickdigital.com/EB00148140/EB00148140_image_95x140.jpg', thumbnail.href)
+        assert Hyperlink.THUMBNAIL_IMAGE == thumbnail.rel
+        assert 'http://images.oneclickdigital.com/EB00148140/EB00148140_image_95x140.jpg' == thumbnail.href
 
         # Note: For now, no measurements associated with the book.
 
         # Request only the bibliographic information.
         metadata = RBDigitalRepresentationExtractor.isbn_info_to_metadata(datadict, include_bibliographic=True, include_formats=False)
-        eq_("Tea Time for the Traditionally Built", metadata.title)
-        eq_(None, metadata.circulation)
+        assert "Tea Time for the Traditionally Built" == metadata.title
+        assert None == metadata.circulation
 
         # Request only the format information.
         metadata = RBDigitalRepresentationExtractor.isbn_info_to_metadata(datadict, include_bibliographic=False, include_formats=True)
-        eq_(None, metadata.title)
+        assert None == metadata.title
         [epub] = sorted(metadata.circulation.formats, key=lambda x: x.content_type)
-        eq_(Representation.EPUB_MEDIA_TYPE, epub.content_type)
-        eq_(DeliveryMechanism.ADOBE_DRM, epub.drm_scheme)
+        assert Representation.EPUB_MEDIA_TYPE == epub.content_type
+        assert DeliveryMechanism.ADOBE_DRM == epub.drm_scheme
 
 
     def test_book_info_metadata_no_series(self):
@@ -2099,15 +2064,15 @@ class TestRBDigitalRepresentationExtractor(RBDigitalAPITest):
         datastr, datadict = self.api.get_data("response_isbn_found_no_series.json")
         metadata = RBDigitalRepresentationExtractor.isbn_info_to_metadata(datadict)
 
-        eq_("Tea Time for the Traditionally Built", metadata.title)
-        eq_(None, metadata.series)
-        eq_(None, metadata.series_position)
+        assert "Tea Time for the Traditionally Built" == metadata.title
+        assert None == metadata.series
+        assert None == metadata.series_position
 
 class TestRBDigitalBibliographicCoverageProvider(RBDigitalAPITest):
     """Test the code that looks up bibliographic information from RBDigital."""
 
-    def setup(self):
-        super(TestRBDigitalBibliographicCoverageProvider, self).setup()
+    def setup_method(self):
+        super(TestRBDigitalBibliographicCoverageProvider, self).setup_method()
 
         self.provider = RBDigitalBibliographicCoverageProvider(
             self.collection, api_class=MockRBDigitalAPI,
@@ -2127,7 +2092,7 @@ class TestRBDigitalBibliographicCoverageProvider(RBDigitalAPITest):
         assert isinstance(provider,
                           RBDigitalBibliographicCoverageProvider)
         assert isinstance(provider.api, MockRBDigitalAPI)
-        eq_(self.collection, provider.collection)
+        assert self.collection == provider.collection
 
     def test_invalid_or_unrecognized_guid(self):
         # A bad or malformed ISBN can't get coverage.
@@ -2140,7 +2105,7 @@ class TestRBDigitalBibliographicCoverageProvider(RBDigitalAPITest):
 
         failure = self.provider.process_item(identifier)
         assert isinstance(failure, CoverageFailure)
-        eq_(True, failure.transient)
+        assert True == failure.transient
         assert failure.exception.startswith('Cannot find RBDigital metadata')
 
     def test_process_item_creates_presentation_ready_work(self):
@@ -2155,28 +2120,28 @@ class TestRBDigitalBibliographicCoverageProvider(RBDigitalAPITest):
         identifier.identifier = '9780307378101'
 
         # This book has no LicensePool.
-        eq_([], identifier.licensed_through)
+        assert [] == identifier.licensed_through
 
         # Run it through the RBDigitalBibliographicCoverageProvider
         result = self.provider.process_item(identifier)
-        eq_(identifier, result)
+        assert identifier == result
 
         # A LicensePool was created. But we do NOT know how many copies of this
         # book are available, only what formats it's available in.
         [pool] = identifier.licensed_through
-        eq_(0, pool.licenses_owned)
+        assert 0 == pool.licenses_owned
         [lpdm] = pool.delivery_mechanisms
-        eq_('application/epub+zip (application/vnd.adobe.adept+xml)', lpdm.delivery_mechanism.name)
+        assert 'application/epub+zip (application/vnd.adobe.adept+xml)' == lpdm.delivery_mechanism.name
 
         # A Work was created and made presentation ready.
-        eq_('Tea Time for the Traditionally Built', pool.work.title)
-        eq_(True, pool.work.presentation_ready)
+        assert 'Tea Time for the Traditionally Built' == pool.work.title
+        assert True == pool.work.presentation_ready
 
 class TestRBDigitalSyncMonitor(RBDigitalAPITest):
     """Test the superclass of most of the RBDigital monitors."""
 
-    def setup(self):
-        super(TestRBDigitalSyncMonitor, self).setup()
+    def setup_method(self):
+        super(TestRBDigitalSyncMonitor, self).setup_method()
         self.base_path = os.path.split(__file__)[0]
         self.collection = MockRBDigitalAPI.mock_collection(self._db)
 
@@ -2196,19 +2161,18 @@ class TestRBDigitalSyncMonitor(RBDigitalAPITest):
         progress = monitor.run_once(monitor.timestamp().to_data())
 
         # invoke() was called.
-        eq_(True, monitor.invoked)
+        assert True == monitor.invoked
 
         # The TimestampData returned by run_once() describes its
         # achievements.
-        eq_(
-            "Records received from vendor: 10. Records written to database: 5",
-            progress.achievements
-        )
+        assert (
+            "Records received from vendor: 10. Records written to database: 5" ==
+            progress.achievements)
 
         # The TimestampData does not include any timing information --
         # that will be applied by run().
-        eq_(None, progress.start)
-        eq_(None, progress.finish)
+        assert None == progress.start
+        assert None == progress.finish
 
 
 class TestRBDigitalImportMonitor(RBDigitalAPITest):
@@ -2226,19 +2190,19 @@ class TestRBDigitalImportMonitor(RBDigitalAPITest):
             self._db, self.collection, api_class=api
         )
         timestamp = monitor.timestamp()
-        eq_(None, timestamp.counter)
+        assert None == timestamp.counter
         monitor.invoke()
 
         # This monitor is for performing the initial import, and it
         # can only be invoked once.
-        eq_(True, api.called)
-        eq_(1, timestamp.counter)
+        assert True == api.called
+        assert 1 == timestamp.counter
 
         # Invoking the monitor a second time will do nothing.
         api.called = False
         result = monitor.invoke()
-        eq_((0, 0), result)
-        eq_(False, api.called)
+        assert (0, 0) == result
+        assert False == api.called
 
 
 class TestRBDigitalDeltaMonitor(RBDigitalAPITest):
@@ -2257,7 +2221,7 @@ class TestRBDigitalDeltaMonitor(RBDigitalAPITest):
             self._db, self.collection, api_class=api
         )
         monitor.invoke()
-        eq_(True, api.called)
+        assert True == api.called
 
 # NB: These tests would normally be distributed into other test files
 # (e.g., `test_controller.py`), but because RBdigital is being phased
@@ -2318,13 +2282,13 @@ class TestRBDProxyController(ControllerTest):
         # No URL parameter, but valid token
         with self.app.test_request_context("/"):
             response = self.app.manager.rbdproxy.proxy(valid_bearer_token)
-        eq_(400, response.status_code)
+        assert 400 == response.status_code
 
         # No token, but valid URL parameter
         with self.app.test_request_context('/?url={}'.format(downloadUrl)):
             response = self.app.manager.rbdproxy.proxy(invalid_bearer_token)
         assert len(downloadUrl) > 0
-        eq_(403, response.status_code)
+        assert 403 == response.status_code
 
         # Valid URL and valid token. We need our mock api for this one.
         with self.app.test_request_context('/?url={}'.format(downloadUrl)):
@@ -2333,8 +2297,8 @@ class TestRBDProxyController(ControllerTest):
         expected_url = '{}{}'.format(MockAPI.PRODUCTION_BASE_URL, downloadUrl)
         assert len(downloadUrl) > 0
         assert len(MockAPI.PRODUCTION_BASE_URL) > 0
-        eq_(200, response.status_code)
+        assert 200 == response.status_code
         # We should prepend the downloadUrl with the API prefix.
-        eq_(expected_url, response.json.get('request_url'))
+        assert expected_url == response.json.get('request_url')
         # We should not allow token reauthorization when proxying.
-        eq_(False, response.json.get('reauthorize'))
+        assert False == response.json.get('reauthorize')

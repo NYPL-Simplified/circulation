@@ -1,4 +1,3 @@
-from nose.tools import set_trace
 
 import base64
 import datetime

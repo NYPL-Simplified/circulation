@@ -7,7 +7,6 @@ from database_test import DatabaseTest
 from defusedxml.lxml import fromstring
 from freezegun import freeze_time
 from mock import MagicMock, PropertyMock, create_autospec, patch
-from nose.tools import eq_
 from onelogin.saml2.utils import OneLogin_Saml2_Utils
 from parameterized import parameterized
 from six.moves.urllib.parse import parse_qs, urlsplit
@@ -216,28 +215,27 @@ class TestSAMLAuthenticationManager(ControllerTest):
             saml_request_dom = fromstring(decoded_saml_request)
 
             acs_url = saml_request_dom.get("AssertionConsumerServiceURL")
-            eq_(acs_url, SERVICE_PROVIDER_WITH_UNSIGNED_REQUESTS.acs_service.url)
+            assert acs_url == SERVICE_PROVIDER_WITH_UNSIGNED_REQUESTS.acs_service.url
 
             acs_binding = saml_request_dom.get("ProtocolBinding")
-            eq_(
-                acs_binding,
-                SERVICE_PROVIDER_WITH_UNSIGNED_REQUESTS.acs_service.binding.value,
-            )
+            assert (
+                acs_binding ==
+                SERVICE_PROVIDER_WITH_UNSIGNED_REQUESTS.acs_service.binding.value)
 
             sso_url = saml_request_dom.get("Destination")
-            eq_(sso_url, IDENTITY_PROVIDERS[0].sso_service.url)
+            assert sso_url == IDENTITY_PROVIDERS[0].sso_service.url
 
             name_id_policy_nodes = OneLogin_Saml2_Utils.query(
                 saml_request_dom, "./samlp:NameIDPolicy"
             )
 
             assert name_id_policy_nodes is not None
-            eq_(len(name_id_policy_nodes), 1)
+            assert len(name_id_policy_nodes) == 1
 
             name_id_policy_node = name_id_policy_nodes[0]
             name_id_format = name_id_policy_node.get("Format")
 
-            eq_(name_id_format, SERVICE_PROVIDER_WITH_UNSIGNED_REQUESTS.name_id_format)
+            assert name_id_format == SERVICE_PROVIDER_WITH_UNSIGNED_REQUESTS.name_id_format
 
     @parameterized.expand(
         [
@@ -435,7 +433,7 @@ class TestSAMLAuthenticationManager(ControllerTest):
                     )
 
                     # Assert
-                    eq_(expected_value, result)
+                    assert expected_value == result
 
 
 class TestSAMLAuthenticationManagerFactory(DatabaseTest):
@@ -451,4 +449,4 @@ class TestSAMLAuthenticationManagerFactory(DatabaseTest):
         result = factory.create(integration_owner)
 
         # Assert
-        eq_(True, isinstance(result, SAMLAuthenticationManager))
+        assert True == isinstance(result, SAMLAuthenticationManager)

@@ -3,7 +3,6 @@ import flask
 from flask import Response
 from flask_babel import lazy_gettext as _
 import json
-from nose.tools import set_trace
 from core.model import (
     Admin,
     AdminRole,

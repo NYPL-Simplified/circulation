@@ -7,7 +7,6 @@ import os
 import sys
 import urllib
 import urlparse
-from nose.tools import set_trace
 from collections import defaultdict
 from time import mktime
 from wsgiref.handlers import format_date_time

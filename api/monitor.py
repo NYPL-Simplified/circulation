@@ -2,7 +2,6 @@ import datetime
 import logging
 import os
 import sys
-from nose.tools import set_trace
 
 from sqlalchemy import (
     and_,

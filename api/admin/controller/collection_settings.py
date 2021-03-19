@@ -1,4 +1,3 @@
-from nose.tools import set_trace
 from . import SettingsController
 import flask
 from flask import Response

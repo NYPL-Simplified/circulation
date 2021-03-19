@@ -1,11 +1,8 @@
 import datetime
 from decimal import Decimal
-from nose.tools import (
-    set_trace, eq_,
-    assert_raises,
-)
 
-from . import (
+import pytest
+from core.testing import (
     DatabaseTest,
 )
 
@@ -46,24 +43,24 @@ class TestPatronUtility(DatabaseTest):
 
         # Patron has never been synced.
         patron.last_external_sync = None
-        eq_(True, MockPatronUtility.needs_external_sync(patron))
+        assert True == MockPatronUtility.needs_external_sync(patron)
 
         # Patron was synced recently.
         patron.last_external_sync = one_hour_ago
-        eq_(False, MockPatronUtility.needs_external_sync(patron))
+        assert False == MockPatronUtility.needs_external_sync(patron)
 
         # Patron was synced more than 12 hours ago.
         patron.last_external_sync = yesterday
-        eq_(True, MockPatronUtility.needs_external_sync(patron))
+        assert True == MockPatronUtility.needs_external_sync(patron)
 
         # Patron was synced recently but has no borrowing
         # privileges. Timeout is five seconds instead of 12 hours.
         MockPatronUtility.mock_has_borrowing_privileges = False
         patron.last_external_sync = three_seconds_ago
-        eq_(False, MockPatronUtility.needs_external_sync(patron))
+        assert False == MockPatronUtility.needs_external_sync(patron)
 
         patron.last_external_sync = six_seconds_ago
-        eq_(True, MockPatronUtility.needs_external_sync(patron))
+        assert True == MockPatronUtility.needs_external_sync(patron)
 
     def test_has_borrowing_privileges(self):
         """Test the methods that encapsulate the determination
@@ -78,13 +75,13 @@ class TestPatronUtility(DatabaseTest):
         patron = self._patron()
 
         # Most patrons have borrowing privileges.
-        eq_(True, PatronUtility.has_borrowing_privileges(patron))
+        assert True == PatronUtility.has_borrowing_privileges(patron)
         PatronUtility.assert_borrowing_privileges(patron)
 
         # If your card expires you lose borrowing privileges.
         patron.authorization_expires = one_day_ago
-        eq_(False, PatronUtility.has_borrowing_privileges(patron))
-        assert_raises(
+        assert False == PatronUtility.has_borrowing_privileges(patron)
+        pytest.raises(
             AuthorizationExpired,
             PatronUtility.assert_borrowing_privileges, patron
         )
@@ -97,9 +94,9 @@ class TestPatronUtility(DatabaseTest):
             def has_excess_fines(cls, patron):
                 cls.called_with = patron
                 return True
-        eq_(False, Mock.has_borrowing_privileges(patron))
-        eq_(patron, Mock.called_with)
-        assert_raises(
+        assert False == Mock.has_borrowing_privileges(patron)
+        assert patron == Mock.called_with
+        pytest.raises(
             OutstandingFines,
             Mock.assert_borrowing_privileges, patron
         )
@@ -109,7 +106,7 @@ class TestPatronUtility(DatabaseTest):
         # might know, and might store that information in the
         # patron's block_reason.
         patron.block_reason = PatronData.EXCESSIVE_FINES
-        assert_raises(
+        pytest.raises(
             OutstandingFines,
             PatronUtility.assert_borrowing_privileges, patron
         )
@@ -117,14 +114,14 @@ class TestPatronUtility(DatabaseTest):
         # If your card is blocked for any reason you lose borrowing
         # privileges.
         patron.block_reason = "some reason"
-        eq_(False, PatronUtility.has_borrowing_privileges(patron))
-        assert_raises(
+        assert False == PatronUtility.has_borrowing_privileges(patron)
+        pytest.raises(
             AuthorizationBlocked,
             PatronUtility.assert_borrowing_privileges, patron
         )
 
         patron.block_reason = None
-        eq_(True, PatronUtility.has_borrowing_privileges(patron))
+        assert True == PatronUtility.has_borrowing_privileges(patron)
 
     def test_has_excess_fines(self):
         # Test the has_excess_fines method.
@@ -148,7 +145,7 @@ class TestPatronUtility(DatabaseTest):
                 ["$0", "$0.00", "0", 0]  # any fines is too much
             ):
                 setting.value = max_fines
-                eq_(True, PatronUtility.has_excess_fines(patron))
+                assert True == PatronUtility.has_excess_fines(patron)
 
             # Test cases where the patron's fines are below a
             # well-defined limit, or where fines are ignored
@@ -158,7 +155,7 @@ class TestPatronUtility(DatabaseTest):
                 [None, ""]      # fines ignored
             ):
                 setting.value = max_fines
-                eq_(False, PatronUtility.has_excess_fines(patron))
+                assert False == PatronUtility.has_excess_fines(patron)
 
         # Test various cases where fines in any amount deny borrowing
         # privileges, but the patron has no fines.
@@ -166,4 +163,4 @@ class TestPatronUtility(DatabaseTest):
             patron.fines = patron_fines
             for max_fines in ["$0", "$0.00", "0", 0]:
                 setting.value = max_fines
-                eq_(False, PatronUtility.has_excess_fines(patron))
+                assert False == PatronUtility.has_excess_fines(patron)

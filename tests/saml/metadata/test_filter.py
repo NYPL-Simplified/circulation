@@ -1,4 +1,4 @@
-from nose.tools import assert_raises, eq_
+import pytest
 from parameterized import parameterized
 
 from api.saml.metadata.filter import SAMLSubjectFilter, SAMLSubjectFilterError
@@ -114,13 +114,13 @@ class TestSAMLSubjectFilter(object):
 
         # Act
         if expected_exception:
-            with assert_raises(expected_exception):
+            with pytest.raises(expected_exception):
                 subject_filter.execute(expression, subject)
         else:
             result = subject_filter.execute(expression, subject)
 
             # Assert
-            eq_(expected_result, result)
+            assert expected_result == result
 
     @parameterized.expand(
         [
@@ -160,7 +160,7 @@ class TestSAMLSubjectFilter(object):
 
         # Act
         if expected_exception:
-            with assert_raises(expected_exception):
+            with pytest.raises(expected_exception):
                 subject_filter.validate(expression)
         else:
             subject_filter.validate(expression)

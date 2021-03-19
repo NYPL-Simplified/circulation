@@ -1,5 +1,4 @@
 from mock import MagicMock, create_autospec
-from nose.tools import eq_
 
 from api.saml.metadata.federations.loader import SAMLFederatedIdentityProviderLoader
 from api.saml.metadata.federations.model import (
@@ -45,4 +44,4 @@ class TestSAMLMetadataMonitor(DatabaseTest):
 
         # Assert
         identity_providers = self._db.query(SAMLFederatedIdentityProvider).all()
-        eq_(expected_federated_identity_providers, identity_providers)
+        assert expected_federated_identity_providers == identity_providers

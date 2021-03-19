@@ -1,4 +1,3 @@
-from nose.tools import set_trace
 
 from sqlalchemy import and_
 from api.opds import LibraryAnnotator

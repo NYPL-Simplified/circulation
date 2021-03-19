@@ -1,5 +1,4 @@
 import logging
-from nose.tools import set_trace
 from lxml import etree
 from urlparse import urljoin
 from urllib import urlencode

@@ -1,5 +1,4 @@
 """Self-tests for metadata integrations."""
-from nose.tools import set_trace
 from flask_babel import lazy_gettext as _
 from core.opds_import import MetadataWranglerOPDSLookup
 from core.model import (

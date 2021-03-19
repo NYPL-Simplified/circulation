@@ -1,6 +1,5 @@
 import json
 import re
-from nose.tools import set_trace
 import contextlib
 from copy import deepcopy
 

@@ -1,5 +1,4 @@
 from mock import create_autospec, patch, ANY
-from nose.tools import eq_
 
 from api.lcp.importer import LCPImporter
 from api.lcp.mirror import LCPMirror
@@ -9,8 +8,8 @@ from tests.lcp.database_test import DatabaseTest
 
 
 class TestLCPMirror(DatabaseTest):
-    def setup(self, mock_search=True):
-        super(TestLCPMirror, self).setup(mock_search)
+    def setup_method(self):
+        super(TestLCPMirror, self).setup_method()
 
         settings = {
             S3UploaderConfiguration.PROTECTED_CONTENT_BUCKET_KEY: 'encrypted-books',
@@ -31,7 +30,7 @@ class TestLCPMirror(DatabaseTest):
         result = self._lcp_mirror.book_url(identifier, data_source=data_source)
 
         # Assert
-        eq_(result, 'http://encrypted-books.minio/12345')
+        assert result == 'http://encrypted-books.minio/12345'
 
     def test_mirror_one(self):
         # Arrange

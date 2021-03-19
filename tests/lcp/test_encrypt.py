@@ -1,5 +1,5 @@
+import pytest
 from mock import patch, create_autospec, MagicMock
-from nose.tools import eq_, assert_raises
 from parameterized import parameterized
 from pyfakefs.fake_filesystem_unittest import Patcher
 
@@ -91,14 +91,13 @@ class TestLCPEncryptor(DatabaseTest):
                 with patch('subprocess.check_output') as subprocess_check_output_mock:
                     subprocess_check_output_mock.return_value = lcpencrypt_output
 
-                    # Act
                     if expected_exception:
-                        with assert_raises(LCPEncryptionException) as exception_metadata:
+                        with pytest.raises(expected_exception.__class__) as exception_metadata:
                             encryptor.encrypt(self._db, file_path, identifier.identifier)
 
                         # Assert
-                        eq_(exception_metadata.exception, expected_exception)
+                        assert exception_metadata.value == expected_exception
                     else:
                         # Assert
                         result = encryptor.encrypt(self._db, file_path, identifier.identifier)
-                        eq_(result, expected_result)
+                        assert result == expected_result

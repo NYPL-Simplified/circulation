@@ -1,7 +1,4 @@
-from nose.tools import (
-    set_trace,
-    eq_,
-)
+
 from urllib import urlopen
 import feedparser
 import os

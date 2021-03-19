@@ -1,6 +1,5 @@
 import datetime
 import feedparser
-from nose.tools import set_trace
 from StringIO import StringIO
 from zipfile import ZipFile
 from lxml import etree

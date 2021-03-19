@@ -1,2 +1,2 @@
 #!/bin/sh
-TESTING=true PYTHONWARNINGS=ignore nosetests -v tests
+TESTING=true PYTHONWARNINGS=ignore pytest -v tests

@@ -1,8 +1,5 @@
-from nose.tools import (
-    set_trace,
-    eq_,
-    assert_raises
-)
+import pytest
+
 import flask
 from werkzeug.datastructures import MultiDict
 from api.admin.exceptions import *
@@ -19,14 +16,14 @@ class TestSearchServices(SettingsControllerTest):
     def test_search_services_get_with_no_services(self):
         with self.request_context_with_admin("/"):
             response = self.manager.admin_search_services_controller.process_services()
-            eq_(response.get("search_services"), [])
+            assert response.get("search_services") == []
             protocols = response.get("protocols")
             assert ExternalIntegration.ELASTICSEARCH in [p.get("name") for p in protocols]
             assert "settings" in protocols[0]
 
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
             self._db.flush()
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_search_services_controller.process_services)
 
     def test_search_services_get_with_one_service(self):
@@ -43,11 +40,11 @@ class TestSearchServices(SettingsControllerTest):
             response = self.manager.admin_search_services_controller.process_services()
             [service] = response.get("search_services")
 
-            eq_(search_service.id, service.get("id"))
-            eq_(search_service.protocol, service.get("protocol"))
-            eq_("search url", service.get("settings").get(ExternalIntegration.URL))
-            eq_("works-index-prefix", service.get("settings").get(ExternalSearchIndex.WORKS_INDEX_PREFIX_KEY))
-            eq_("search-term-for-self-tests", service.get("settings").get(ExternalSearchIndex.TEST_SEARCH_TERM_KEY))
+            assert search_service.id == service.get("id")
+            assert search_service.protocol == service.get("protocol")
+            assert "search url" == service.get("settings").get(ExternalIntegration.URL)
+            assert "works-index-prefix" == service.get("settings").get(ExternalSearchIndex.WORKS_INDEX_PREFIX_KEY)
+            assert "search-term-for-self-tests" == service.get("settings").get(ExternalSearchIndex.TEST_SEARCH_TERM_KEY)
 
     def test_search_services_post_errors(self):
         controller = self.manager.admin_search_services_controller
@@ -58,12 +55,12 @@ class TestSearchServices(SettingsControllerTest):
                 ("protocol", "Unknown"),
             ])
             response = controller.process_services()
-            eq_(response, UNKNOWN_PROTOCOL)
+            assert response == UNKNOWN_PROTOCOL
 
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([("name", "Name")])
             response = controller.process_services()
-            eq_(response, NO_PROTOCOL_FOR_NEW_SERVICE)
+            assert response == NO_PROTOCOL_FOR_NEW_SERVICE
 
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
@@ -71,7 +68,7 @@ class TestSearchServices(SettingsControllerTest):
                 ("id", "123"),
             ])
             response = controller.process_services()
-            eq_(response, MISSING_SERVICE)
+            assert response == MISSING_SERVICE
 
         service, ignore = create(
             self._db, ExternalIntegration,
@@ -85,7 +82,7 @@ class TestSearchServices(SettingsControllerTest):
                 ("protocol", ExternalIntegration.ELASTICSEARCH),
             ])
             response = controller.process_services()
-            eq_(response.uri, MULTIPLE_SITEWIDE_SERVICES.uri)
+            assert response.uri == MULTIPLE_SITEWIDE_SERVICES.uri
 
         self._db.delete(service)
         service, ignore = create(
@@ -101,7 +98,7 @@ class TestSearchServices(SettingsControllerTest):
                 ("protocol", ExternalIntegration.ELASTICSEARCH),
             ])
             response = controller.process_services()
-            eq_(response, INTEGRATION_NAME_ALREADY_IN_USE)
+            assert response == INTEGRATION_NAME_ALREADY_IN_USE
 
         service, ignore = create(
             self._db, ExternalIntegration,
@@ -116,7 +113,7 @@ class TestSearchServices(SettingsControllerTest):
                 ("protocol", ExternalIntegration.ELASTICSEARCH),
             ])
             response = controller.process_services()
-            eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
+            assert response.uri == INCOMPLETE_CONFIGURATION.uri
 
         self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
         with self.request_context_with_admin("/", method="POST"):
@@ -125,7 +122,7 @@ class TestSearchServices(SettingsControllerTest):
                 (ExternalIntegration.URL, "search url"),
                 (ExternalSearchIndex.WORKS_INDEX_PREFIX_KEY, "works-index-prefix"),
             ])
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                          controller.process_services)
 
     def test_search_services_post_create(self):
@@ -138,14 +135,14 @@ class TestSearchServices(SettingsControllerTest):
                 (ExternalSearchIndex.TEST_SEARCH_TERM_KEY, "sample-search-term")
             ])
             response = self.manager.admin_search_services_controller.process_services()
-            eq_(response.status_code, 201)
+            assert response.status_code == 201
 
         service = get_one(self._db, ExternalIntegration, goal=ExternalIntegration.SEARCH_GOAL)
-        eq_(service.id, int(response.response[0]))
-        eq_(ExternalIntegration.ELASTICSEARCH, service.protocol)
-        eq_("http://search_url", service.url)
-        eq_("works-index-prefix", service.setting(ExternalSearchIndex.WORKS_INDEX_PREFIX_KEY).value)
-        eq_("sample-search-term", service.setting(ExternalSearchIndex.TEST_SEARCH_TERM_KEY).value)
+        assert service.id == int(response.response[0])
+        assert ExternalIntegration.ELASTICSEARCH == service.protocol
+        assert "http://search_url" == service.url
+        assert "works-index-prefix" == service.setting(ExternalSearchIndex.WORKS_INDEX_PREFIX_KEY).value
+        assert "sample-search-term" == service.setting(ExternalSearchIndex.TEST_SEARCH_TERM_KEY).value
 
     def test_search_services_post_edit(self):
         search_service, ignore = create(
@@ -167,13 +164,13 @@ class TestSearchServices(SettingsControllerTest):
                 (ExternalSearchIndex.TEST_SEARCH_TERM_KEY, "new-sample-search-term")
             ])
             response = self.manager.admin_search_services_controller.process_services()
-            eq_(response.status_code, 200)
+            assert response.status_code == 200
 
-        eq_(search_service.id, int(response.response[0]))
-        eq_(ExternalIntegration.ELASTICSEARCH, search_service.protocol)
-        eq_("http://new_search_url", search_service.url)
-        eq_("new-works-index-prefix", search_service.setting(ExternalSearchIndex.WORKS_INDEX_PREFIX_KEY).value)
-        eq_("new-sample-search-term", search_service.setting(ExternalSearchIndex.TEST_SEARCH_TERM_KEY).value)
+        assert search_service.id == int(response.response[0])
+        assert ExternalIntegration.ELASTICSEARCH == search_service.protocol
+        assert "http://new_search_url" == search_service.url
+        assert "new-works-index-prefix" == search_service.setting(ExternalSearchIndex.WORKS_INDEX_PREFIX_KEY).value
+        assert "new-sample-search-term" == search_service.setting(ExternalSearchIndex.TEST_SEARCH_TERM_KEY).value
 
     def test_search_service_delete(self):
         search_service, ignore = create(
@@ -186,13 +183,13 @@ class TestSearchServices(SettingsControllerTest):
 
         with self.request_context_with_admin("/", method="DELETE"):
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
-            assert_raises(AdminNotAuthorized,
+            pytest.raises(AdminNotAuthorized,
                           self.manager.admin_search_services_controller.process_delete,
                           search_service.id)
 
             self.admin.add_role(AdminRole.SYSTEM_ADMIN)
             response = self.manager.admin_search_services_controller.process_delete(search_service.id)
-            eq_(response.status_code, 200)
+            assert response.status_code == 200
 
         service = get_one(self._db, ExternalIntegration, id=search_service.id)
-        eq_(None, service)
+        assert None == service
