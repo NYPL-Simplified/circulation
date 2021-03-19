@@ -99,7 +99,7 @@ class TestBaseAnnotator(DatabaseTest):
         # The <author> tag indicates a role of 'author', so there's no
         # need for an explicitly specified role property.
         assert 'author' == author.tag
-        [name] = author.getchildren()
+        [name] = author
         assert "name" == name.tag
         assert "King, Steven" == name.text
         assert {} == author.attrib
@@ -107,7 +107,7 @@ class TestBaseAnnotator(DatabaseTest):
         # The <contributor> tag includes an explicitly specified role
         # property to explain the nature of the contribution.
         assert 'contributor' == contributor.tag
-        [name] = contributor.getchildren()
+        [name] = contributor
         assert "name" == name.tag
         assert "Frakes, Jonathan" == name.text
         role_attrib = '{%s}role' % AtomFeed.OPF_NS
@@ -988,7 +988,7 @@ class TestOPDS(DatabaseTest):
         parentage = list(lane.parentage)
         root = ET.fromstring(cached_works)
         breadcrumbs = root.find("{%s}breadcrumbs" % AtomFeed.SIMPLIFIED_NS)
-        links = breadcrumbs.getchildren()
+        links = breadcrumbs
 
         # There's one breadcrumb link for each parent Lane, plus one for
         # the top-level.
@@ -1174,7 +1174,7 @@ class TestOPDS(DatabaseTest):
         ancestors = list(self.fantasy.parentage)
         root = ET.fromstring(cached_groups.data)
         breadcrumbs = root.find("{%s}breadcrumbs" % AtomFeed.SIMPLIFIED_NS)
-        links = breadcrumbs.getchildren()
+        links = breadcrumbs
         assert len(ancestors) + 1 == len(links)
         assert annotator.top_level_title() == links[0].get("title")
         assert annotator.default_lane_url() == links[0].get("href")
@@ -1872,7 +1872,7 @@ class TestAcquisitionFeed(DatabaseTest):
 
         def getElementChildren(feed):
             f = feed.feed[0]
-            children = f.getchildren()
+            children = f
             return children
 
         class MockFeed(AcquisitionFeed):
