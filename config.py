@@ -157,6 +157,8 @@ class Configuration(ConfigurationConstants):
     EXTERNAL_TYPE_REGULAR_EXPRESSION = 'external_type_regular_expression'
 
     WEBSITE_URL = 'website'
+    NAME = 'name'
+    SHORT_NAME = 'short_name'
 
     DEBUG = "DEBUG"
     INFO = "INFO"
@@ -220,12 +222,29 @@ class Configuration(ConfigurationConstants):
 
     LIBRARY_SETTINGS = [
         {
+            "key": NAME,
+            "label": _("Name"),
+            "description": _("The human-readable name of this library."),
+            "category": "Basic Information",
+            "level": ConfigurationConstants.SYS_ADMIN_ONLY,
+            "required": True
+        },
+        {
+            "key": SHORT_NAME,
+            "label": _("Short name"),
+            "description": _("A short name of this library, to use when identifying it in scripts or URLs, e.g. 'NYPL'."),
+            "category": "Basic Information",
+            "level": ConfigurationConstants.SYS_ADMIN_ONLY,
+            "required": True
+        },
+        {
             "key": WEBSITE_URL,
             "label": _("URL of the library's website"),
             "description": _("The library's main website, e.g. \"https://www.nypl.org/\" (not this Circulation Manager's URL)."),
             "required": True,
             "format": "url",
-            "level": ConfigurationConstants.SYS_ADMIN_ONLY
+            "level": ConfigurationConstants.SYS_ADMIN_ONLY,
+            "category": "Basic Information"
         },
         {
             "key": ALLOW_HOLDS,
