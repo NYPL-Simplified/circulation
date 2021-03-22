@@ -6,6 +6,10 @@ set -x
 repo="$1"
 version="$2"
 
+if [ -z ${version} ]; then
+  echo "WARN: No version specified, will build default branch.";
+fi
+
 # Install the nodesource nodejs package
 # This lets us use node 10 and avoids dependency conflict between node and libxmlsec1 over the
 # version of the ssl library that we find from package managemnet
