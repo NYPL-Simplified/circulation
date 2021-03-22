@@ -11,7 +11,7 @@ import math
 import operator
 import os
 from PIL import Image
-from io import StringIO
+from io import BytesIO
 from tests.admin.controller.test_controller import AdminControllerTest
 from tests.test_controller import CirculationControllerTest
 from core.classifier import (
@@ -928,14 +928,14 @@ class TestWorkController(AdminControllerTest):
             assert INVALID_URL.uri == response.uri
             assert '"bad_url" is not a valid URL.' == response.detail
 
-        class TestFileUpload(StringIO):
+        class TestFileUpload(BytesIO):
             headers = { "Content-Type": "image/png" }
         base_path = os.path.split(__file__)[0]
         folder = os.path.dirname(base_path)
         resource_path = os.path.join(folder, "..", "files", "images")
         path = os.path.join(resource_path, "blue.jpg")
         original = Image.open(path)
-        buffer = StringIO()
+        buffer = BytesIO()
         original.save(buffer, format="PNG")
         image_data = buffer.getvalue()
 
@@ -1014,14 +1014,14 @@ class TestWorkController(AdminControllerTest):
             assert INVALID_CONFIGURATION_OPTION.uri == response.uri
             assert "Could not find a storage integration" in response.detail
 
-        class TestFileUpload(StringIO):
+        class TestFileUpload(BytesIO):
             headers = { "Content-Type": "image/png" }
         base_path = os.path.split(__file__)[0]
         folder = os.path.dirname(base_path)
         resource_path = os.path.join(folder, "..", "files", "images")
         path = os.path.join(resource_path, "blue.jpg")
         original = Image.open(path)
-        buffer = StringIO()
+        buffer = BytesIO()
         original.save(buffer, format="PNG")
         image_data = buffer.getvalue()
 

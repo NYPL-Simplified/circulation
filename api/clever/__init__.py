@@ -1,5 +1,4 @@
 import logging
-import base64
 import json
 import os
 import datetime
@@ -22,6 +21,7 @@ from core.model import (
     Patron,
 )
 from core.util.http import HTTP
+from core.util.string_helpers import base64
 from api.problem_details import *
 
 

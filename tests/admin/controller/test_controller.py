@@ -146,7 +146,7 @@ class TestViewController(AdminControllerTest):
             flask.session['auth_type'] = PasswordAdminAuthenticationProvider.NAME
             response = self.manager.admin_view_controller(None, None)
             assert 200 == response.status_code
-            assert "Your admin account doesn't have access to any libraries" in response.data
+            assert "Your admin account doesn't have access to any libraries" in response.get_data(as_text=True)
 
         # Unless there aren't any libraries yet. In that case, an admin needs to
         # get in to create one.
@@ -157,7 +157,7 @@ class TestViewController(AdminControllerTest):
             flask.session['auth_type'] = PasswordAdminAuthenticationProvider.NAME
             response = self.manager.admin_view_controller(None, None)
             assert 200 == response.status_code
-            assert "<body>" in response.data
+            assert "<body>" in response.get_data(as_text=True)
 
         l1 = self._library(short_name="L1")
         l2 = self._library(short_name="L2")
@@ -206,7 +206,7 @@ class TestViewController(AdminControllerTest):
             flask.session['auth_type'] = PasswordAdminAuthenticationProvider.NAME
             response = self.manager.admin_view_controller("collection", "book")
             assert 200 == response.status_code
-            html = response.response[0]
+            html = response.get_data(as_text=True)
             assert 'csrfToken: "%s"' % token in html
             assert token in response.headers.get('Set-Cookie')
 

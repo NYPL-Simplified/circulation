@@ -95,7 +95,7 @@ class TestMetadataServices(SettingsControllerTest):
             [service] = response.get("metadata_services")
             assert metadata_service.id == service.get("id")
             assert ExternalIntegration.METADATA_WRANGLER == service.get("protocol")
-            assert service.has_key("self_test_results") == True
+            assert "self_test_results" in service
             # The exception is because there isn't a library registered with the metadata service.
             # But we just need to make sure that the response has a self_test_results attribute--for this test,
             # it doesn't matter what it is--so that's fine.

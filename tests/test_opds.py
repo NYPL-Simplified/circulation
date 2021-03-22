@@ -500,7 +500,7 @@ class TestLibraryAnnotator(VendorIDTest):
         link = self.annotator.fulfill_link(
             pool, loan, other_delivery_mechanism
        )
-        for child in link.getchildren():
+        for child in link:
             assert child.tag != "{http://librarysimplified.org/terms/drm}licensor"
 
         # No new Credential has been associated with the patron.
@@ -511,7 +511,7 @@ class TestLibraryAnnotator(VendorIDTest):
         link = self.annotator.fulfill_link(
             pool, loan, adobe_delivery_mechanism
         )
-        licensor = link.getchildren()[-1]
+        licensor = link[-1]
         assert ("{http://librarysimplified.org/terms/drm}licensor" ==
             licensor.tag)
 
@@ -550,7 +550,7 @@ class TestLibraryAnnotator(VendorIDTest):
         key = '{http://librarysimplified.org/terms/drm}vendor'
         assert self.adobe_vendor_id.username == element.attrib[key]
 
-        [token, device_management_link] = element.getchildren()
+        [token, device_management_link] = element
 
         assert '{http://librarysimplified.org/terms/drm}clientToken' == token.tag
         # token.text is a token which we can decode, since we know
@@ -1041,7 +1041,7 @@ class TestLibraryAnnotator(VendorIDTest):
         # and the patron's patron identifier for Adobe purposes.
         assert (self.adobe_vendor_id.username ==
             licensor.attrib['{http://librarysimplified.org/terms/drm}vendor'])
-        [client_token, device_management_link] = licensor.getchildren()
+        [client_token, device_management_link] = licensor
         expected = ConfigurationSetting.for_library_and_externalintegration(
             self._db, ExternalIntegration.USERNAME, self._default_library, self.registry
         ).value.upper()

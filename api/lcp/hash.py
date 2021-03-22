@@ -34,9 +34,9 @@ class Hasher(object, metaclass=ABCMeta):
 class UniversalHasher(Hasher):
     def hash(self, value):
         if self._hashing_algorithm in [HashingAlgorithm.SHA256, HashingAlgorithm.SHA256.value]:
-            return hashlib.sha256(value).hexdigest()
+            return hashlib.sha256(value.encode("utf-8")).hexdigest()
         elif self._hashing_algorithm in [HashingAlgorithm.SHA512, HashingAlgorithm.SHA512.value]:
-            return hashlib.sha512(value).hexdigest()
+            return hashlib.sha512(value.encode("utf-8")).hexdigest()
         else:
             raise HashingError('Unknown hashing algorithm {0}'.format(self._hashing_algorithm))
 

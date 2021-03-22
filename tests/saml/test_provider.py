@@ -133,7 +133,7 @@ class TestSAMLWebSSOAuthenticationProvider(ControllerTest):
                     "links": [
                         {
                             "rel": "authenticate",
-                            "href": "http://localhost/default/saml_authenticate?idp_entity_id=http%3A%2F%2Fidp2.hilbertteam.net%2Fidp%2Fshibboleth&provider=SAML+2.0+Web+SSO",
+                            "href": "http://localhost/default/saml_authenticate?provider=SAML+2.0+Web+SSO&idp_entity_id=http%3A%2F%2Fidp2.hilbertteam.net%2Fidp%2Fshibboleth",
                             "display_names": [
                                 {
                                     "value": fixtures.IDP_1_UI_INFO_EN_DISPLAY_NAME,
@@ -197,7 +197,7 @@ class TestSAMLWebSSOAuthenticationProvider(ControllerTest):
                     "links": [
                         {
                             "rel": "authenticate",
-                            "href": "http://localhost/default/saml_authenticate?idp_entity_id=http%3A%2F%2Fidp2.hilbertteam.net%2Fidp%2Fshibboleth&provider=SAML+2.0+Web+SSO",
+                            "href": "http://localhost/default/saml_authenticate?provider=SAML+2.0+Web+SSO&idp_entity_id=http%3A%2F%2Fidp2.hilbertteam.net%2Fidp%2Fshibboleth",
                             "display_names": [
                                 {
                                     "value": fixtures.IDP_1_ORGANIZATION_EN_ORGANIZATION_DISPLAY_NAME,
@@ -228,7 +228,7 @@ class TestSAMLWebSSOAuthenticationProvider(ControllerTest):
                     "links": [
                         {
                             "rel": "authenticate",
-                            "href": "http://localhost/default/saml_authenticate?idp_entity_id=http%3A%2F%2Fidp1.hilbertteam.net%2Fidp%2Fshibboleth&provider=SAML+2.0+Web+SSO",
+                            "href": "http://localhost/default/saml_authenticate?provider=SAML+2.0+Web+SSO&idp_entity_id=http%3A%2F%2Fidp1.hilbertteam.net%2Fidp%2Fshibboleth",
                             "display_names": [
                                 {
                                     "value": SAMLConfiguration.IDP_DISPLAY_NAME_DEFAULT_TEMPLATE.format(
@@ -244,7 +244,7 @@ class TestSAMLWebSSOAuthenticationProvider(ControllerTest):
                         },
                         {
                             "rel": "authenticate",
-                            "href": "http://localhost/default/saml_authenticate?idp_entity_id=http%3A%2F%2Fidp1.hilbertteam.net%2Fidp%2Fshibboleth&provider=SAML+2.0+Web+SSO",
+                            "href": "http://localhost/default/saml_authenticate?provider=SAML+2.0+Web+SSO&idp_entity_id=http%3A%2F%2Fidp1.hilbertteam.net%2Fidp%2Fshibboleth",
                             "display_names": [
                                 {
                                     "value": SAMLConfiguration.IDP_DISPLAY_NAME_DEFAULT_TEMPLATE.format(

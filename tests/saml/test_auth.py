@@ -7,9 +7,9 @@ from .database_test import DatabaseTest
 from defusedxml.lxml import fromstring
 from freezegun import freeze_time
 from mock import MagicMock, PropertyMock, create_autospec, patch
-from onelogin.saml2.utils import OneLogin_Saml2_Utils
+from onelogin.saml2.utils import OneLogin_Saml2_Utils, OneLogin_Saml2_XML
 from parameterized import parameterized
-from six.moves.urllib.parse import parse_qs, urlsplit
+from urllib.parse import parse_qs, urlsplit
 
 from api.saml.auth import (
     SAML_NO_ACCESS_ERROR,
@@ -207,7 +207,7 @@ class TestSAMLAuthenticationManager(ControllerTest):
                 saml_request
             )
 
-            validation_result = OneLogin_Saml2_Utils.validate_xml(
+            validation_result = OneLogin_Saml2_XML.validate_xml(
                 decoded_saml_request, "saml-schema-protocol-2.0.xsd", False
             )
             assert isinstance(validation_result, Document)

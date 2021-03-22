@@ -1,6 +1,6 @@
 import datetime
 import feedparser
-from io import StringIO
+from io import BytesIO
 from zipfile import ZipFile
 from lxml import etree
 import os
@@ -22,6 +22,7 @@ from core.model import (
     RightsStatus,
 )
 from core.util.epub import EpubAccessor
+from pdb import set_trace
 
 
 class FeedbooksOPDSImporter(OPDSImporter):
@@ -262,7 +263,7 @@ class FeedbooksOPDSImporter(OPDSImporter):
             # There is no CSS to replace. Do nothing.
             return
 
-        new_zip_content = StringIO()
+        new_zip_content = BytesIO()
         with EpubAccessor.open_epub(representation.url, content=representation.content) as (zip_file, package_path):
             try:
                 manifest_element = EpubAccessor.get_element_from_package(

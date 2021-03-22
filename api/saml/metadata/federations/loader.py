@@ -131,7 +131,7 @@ class SAMLFederatedIdentityProviderLoader(object):
 
         self._validator.validate(federation, metadata)
 
-        parsing_results = self._parser.parse(bytes(metadata))
+        parsing_results = self._parser.parse(metadata.encode("utf-8"))
 
         for parsing_result in parsing_results:
             idp = parsing_result.provider

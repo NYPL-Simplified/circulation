@@ -2,7 +2,7 @@
 import pytest
 
 import os
-from io import StringIO
+from io import BytesIO
 from zipfile import ZipFile
 from core.testing import DatabaseTest
 from . import sample_data
@@ -298,7 +298,7 @@ class TestFeedbooksOPDSImporter(DatabaseTest):
 
         # The mirrored content contains the modified CSS in the books mirror
         # due to the link rel type.
-        content = StringIO(self.mirrors[ExternalIntegrationLink.OPEN_ACCESS_BOOKS].content[0])
+        content = BytesIO(self.mirrors[ExternalIntegrationLink.OPEN_ACCESS_BOOKS].content[0])
         with ZipFile(content) as zip:
             # The zip still contains the original epub's files.
             assert "META-INF/container.xml" in zip.namelist()
@@ -307,11 +307,11 @@ class TestFeedbooksOPDSImporter(DatabaseTest):
 
             # The content of an old file hasn't changed.
             with zip.open("mimetype") as f:
-                assert "application/epub+zip\r\n" == f.read()
+                assert b"application/epub+zip\r\n" == f.read()
 
             # The content of CSS files has been changed to the new value.
             with zip.open("OPS/css/about.css") as f:
-                assert "Some new CSS" == f.read()
+                assert b"Some new CSS" == f.read()
 
     def test_in_copyright_book_not_mirrored(self):
 

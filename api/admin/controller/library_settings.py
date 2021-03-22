@@ -5,7 +5,7 @@ from flask_babel import lazy_gettext as _
 import json
 from pypostalcode import PostalCodeDatabase
 import re
-from io import StringIO
+from io import BytesIO
 import urllib.request, urllib.parse, urllib.error
 import uszipcode
 import uuid
@@ -345,7 +345,7 @@ class LibrarySettingsController(SettingsController):
             width, height = image.size
             if width > 135 or height > 135:
                 image.thumbnail((135, 135), Image.ANTIALIAS)
-            buffer = StringIO()
+            buffer = BytesIO()
             image.save(buffer, format="PNG")
             b64 = base64.b64encode(buffer.getvalue())
             return "data:image/png;base64,%s" % b64
