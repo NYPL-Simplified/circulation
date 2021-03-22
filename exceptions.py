@@ -8,11 +8,11 @@ class BaseError(Exception):
         :param inner_exception: (Optional) Inner exception
         """
         if inner_exception and not message:
-            message = inner_exception.message
+            message = str(inner_exception)
 
         super(BaseError, self).__init__(message)
 
-        self._inner_exception = inner_exception
+        self._inner_exception = str(inner_exception)
 
     @property
     def inner_exception(self):
@@ -35,11 +35,11 @@ class BaseError(Exception):
         if not isinstance(other, BaseError):
             return False
 
-        return self.message == other.message
+        return str(self) == str(other)
 
     def __repr__(self):
         return '<BaseError(message={0}, inner_exception={1})>'.format(
-            self.message,
+            (self),
             self.inner_exception
         )
 
