@@ -448,7 +448,7 @@ class SAMLWebSSOAuthenticationProvider(
             return patron_data
 
         # Convert the PatronData into a Patron object
-        patron, is_new = patron_data.get_or_create_patron(db, self.library_id)
+        patron, is_new = patron_data.get_or_create_patron(db, self.library_id, self.analytics)
 
         # Create a credential for the Patron
         with self.get_configuration(db) as configuration:
