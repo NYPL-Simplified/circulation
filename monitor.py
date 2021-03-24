@@ -34,6 +34,20 @@ from model import (
 from model.configuration import ConfigurationSetting
 
 
+class CollectionMonitorLogger(logging.LoggerAdapter):
+    """Prefix log messages with a collection, if one is present."""
+
+    def __init__(self, logger, extra):
+        self.logger = logger
+        self.extra = extra
+        collection = self.extra.get('collection', None)
+        self.log_prefix = '[{}] '.format(collection.name) if collection else ''
+        self.warn = self.warning
+
+    def process(self, msg, kwargs):
+        return '{}{}'.format(self.log_prefix, msg), kwargs
+
+
 class Monitor(object):
     """A Monitor is responsible for running some piece of code on a
     regular basis. A Monitor has an associated Timestamp that tracks
@@ -99,7 +113,10 @@ class Monitor(object):
     @property
     def log(self):
         if not hasattr(self, '_log'):
-            self._log = logging.getLogger(self.service_name)
+            self._log = CollectionMonitorLogger(
+                logging.getLogger(self.service_name),
+                {'collection': self.collection},
+            )
         return self._log
 
     @property
@@ -121,7 +138,6 @@ class Monitor(object):
         if self.default_start_time:
             return self.default_start_time
         return datetime.datetime.utcnow()
-
 
     def timestamp(self):
         """Find or create a Timestamp for this Monitor.
@@ -328,40 +344,67 @@ class CollectionMonitor(Monitor):
         if self.protocol:
             if collection is None:
                 raise CollectionMissing()
-        if self.protocol and collection.protocol != self.protocol:
-            raise ValueError(
-                "Collection protocol (%s) does not match Monitor protocol (%s)" % (
-                    collection.protocol, cls.PROTOCOL
-                )
-            )
-
+        cls._validate_collection(collection, protocol=self.protocol)
         super(CollectionMonitor, self).__init__(_db, collection)
 
     @classmethod
-    def all(cls, _db, **constructor_kwargs):
+    def _validate_collection(cls, collection, protocol=None):
+        protocol = protocol or cls.PROTOCOL
+        if protocol and collection.protocol != protocol:
+            raise ValueError(
+                "Collection protocol (%s) does not match Monitor protocol (%s)" % (
+                    collection.protocol, protocol
+                )
+            )
+
+    @classmethod
+    def all(cls, _db, collections=None, **constructor_kwargs):
         """Yield a sequence of CollectionMonitor objects: one for every
         Collection associated with cls.PROTOCOL.
+
+        If `collections` is specified, then there must be a Monitor
+        for each one and Monitors will be yielded in the same order
+        that the collections are specified. Otherwise, Monitors will
+        be yielded as follows...
 
         Monitors that have no Timestamp will be yielded first. After
         that, Monitors with older values for Timestamp.start will be
         yielded before Monitors with newer values.
 
+        :param _db: Database session object.
+        :param collections: An optional list of collections. If None,
+            we'll process all collections.
+        :type collections: List[Collection]
         :param constructor_kwargs: These keyword arguments will be passed
             into the CollectionMonitor constructor.
 
         """
         service_match = or_(Timestamp.service==cls.SERVICE_NAME,
                             Timestamp.service==None)
-        collections = Collection.by_protocol(_db, cls.PROTOCOL).outerjoin(
+        collections_for_protocol = Collection.by_protocol(_db, cls.PROTOCOL).outerjoin(
             Timestamp,
             and_(
                 Timestamp.collection_id==Collection.id,
                 service_match,
             )
         )
-        collections = collections.order_by(
-            Timestamp.start.asc().nullsfirst()
-        )
+
+        if collections:
+            # verify that each specified collection exists in this context
+            for coll in collections:  # type: str
+                try:
+                    cls._validate_collection(coll, cls.PROTOCOL)
+                except ValueError as e:
+                    additional_info = 'Only the following collections are available: {!r}'.format(
+                        [c.name for c in collections_for_protocol]
+                    )
+                    e.args += (additional_info,)
+                    e.message += '\n' + additional_info
+                    raise
+        else:
+            collections = collections_for_protocol.order_by(
+                Timestamp.start.asc().nullsfirst()
+            )
         for collection in collections:
             yield cls(_db=_db, collection=collection, **constructor_kwargs)
 

@@ -340,6 +340,30 @@ class TestCollectionMonitor(DatabaseTest):
         # OPDSCollectionMonitor for the Bibliotheca collection.
         assert [o2, o3, o1] == [x.collection for x in monitors]
 
+        # If `collections` are specified, monitors should be yielded in the same order.
+        opds_collections = [o3, o1, o2]
+        monitors = list(OPDSCollectionMonitor.all(self._db, collections=opds_collections))
+        monitor_collections = [m.collection for m in monitors]
+        # We should get a monitor for each collection.
+        assert set(opds_collections) == set(monitor_collections)
+        # We should get them back in order.
+        assert opds_collections == monitor_collections
+
+        # If `collections` are specified, monitors should be yielded in the same order.
+        opds_collections = [o3, o1]
+        monitors = list(OPDSCollectionMonitor.all(self._db, collections=opds_collections))
+        monitor_collections = [m.collection for m in monitors]
+        # We should get a monitor for each collection.
+        assert set(opds_collections) == set(monitor_collections)
+        # We should get them back in order.
+        assert opds_collections == monitor_collections
+
+        # If collections are specified, they must match the monitor's protocol.
+        with pytest.raises(ValueError) as excinfo:
+            monitors = list(OPDSCollectionMonitor.all(self._db, collections=[b1]))
+        assert 'Collection protocol (Bibliotheca) does not match Monitor protocol (OPDS Import)' in str(excinfo.value)
+        assert 'Only the following collections are available: ' in str(excinfo.value)
+
 
 class TestTimelineMonitor(DatabaseTest):
 
