@@ -42,6 +42,7 @@ class CollectionMonitorLogger(logging.LoggerAdapter):
         self.extra = extra
         collection = self.extra.get('collection', None)
         self.log_prefix = '[{}] '.format(collection.name) if collection else ''
+        self.warn = self.warning
 
     def process(self, msg, kwargs):
         return '{}{}'.format(self.log_prefix, msg), kwargs
