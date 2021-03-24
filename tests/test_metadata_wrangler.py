@@ -42,6 +42,7 @@ from api.metadata_wrangler import (
 from api.testing import MonitorTest
 from core.testing import DatabaseTest
 from . import sample_data
+from pdb import set_trace
 
 class InstrumentedMWCollectionUpdateMonitor(MWCollectionUpdateMonitor):
 
@@ -924,7 +925,8 @@ class TestMetadataWranglerCollectionReaper(MetadataWranglerCoverageProviderTest)
 
         # The syncing record has been deleted from the database
         assert doubly_sync_record not in remaining_records
-        assert sorted([sync_cr, reaped_cr, doubly_reap_record]) == sorted(remaining_records)
+        assert (sorted([sync_cr, reaped_cr, doubly_reap_record], key=lambda x: x.id) ==
+                sorted(remaining_records, key=lambda x: x.id))
 
 
 class TestMetadataUploadCoverageProvider(DatabaseTest):

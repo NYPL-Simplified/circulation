@@ -1,5 +1,3 @@
-
-import base64
 import datetime
 import feedparser
 import json
@@ -35,6 +33,7 @@ from .circulation import (
     FulfillmentInfo,
 )
 from core.util.http import HTTP
+from core.util.string_helpers import base64
 from core.testing import (
     DatabaseTest,
     MockRequestsResponse,

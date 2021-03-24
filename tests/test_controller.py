@@ -15,7 +15,6 @@ from wsgiref.handlers import format_date_time
 import feedparser
 import flask
 import urllib.parse
-
 import pytest
 from flask import Response as FlaskResponse
 from flask import url_for
@@ -1496,7 +1495,7 @@ class TestIndexController(CirculationControllerTest):
             response = self.manager.index_controller.authentication_document()
             assert 200 == response.status_code
             assert AuthenticationForOPDSDocument.MEDIA_TYPE == response.headers['Content-Type']
-            data = response.data
+            data = response.get_data(as_text=True)
             assert self.manager.auth.create_authentication_document() == data
 
             # Make sure we got the A4OPDS document for the right library.
@@ -1759,8 +1758,7 @@ class TestLoanController(CirculationControllerTest):
                 self.pool.id, do_get=http.do_get
             )
             assert 200 == response.status_code
-            assert (["I am an ACSM file"] ==
-                response.get_data(as_text=True))
+            assert "I am an ACSM file" == response.get_data(as_text=True)
             assert http.requests == [fulfillable_mechanism.resource.url]
 
             # But we can't use some other mechanism -- we're stuck with
@@ -4198,7 +4196,7 @@ class TestOPDSFeedController(CirculationControllerTest):
             expect_url = self.manager.opds_feeds.url_for(
                 'lane_search', lane_identifier=None,
                 library_short_name=library.short_name,
-                q=query, **dict(list(facets.items()))
+                **dict(list(facets.items())), q=query
             )
         assert expect_url == kwargs.pop('url')
 

@@ -9,7 +9,7 @@ from lxml import etree
 from mock import create_autospec
 import feedparser
 from core.testing import DatabaseTest
-
+from pdb import set_trace
 from core.analytics import Analytics
 from core.lane import (
     FacetsWithEntryPoint,
@@ -922,9 +922,8 @@ class TestLibraryAnnotator(VendorIDTest):
             PresentationCalculationPolicy(regenerate_opds_entries=True),
             MockExternalSearchIndex()
         )
-        feed = self.get_parsed_feed([work])
-        [entry] = feed.entries
-        assert [] == filter(lambda l: l.rel=='contributor', entry.links)
+        [entry] = self.get_parsed_feed([work]).entries
+        assert [] == [l for l in entry.links if l.rel=='contributor']
 
     def test_work_entry_includes_series_link(self):
         """A series lane link is added to the work entry when its in a series
@@ -944,7 +943,7 @@ class TestLibraryAnnotator(VendorIDTest):
         work = self._work(with_open_access_download=True)
         feed = self.get_parsed_feed([work])
         [entry] = feed.entries
-        assert [] == filter(lambda l: l.rel=='series', entry.links)
+        assert [] == [l for l in entry.links if l.rel=='series']
 
     def test_work_entry_includes_recommendations_link(self):
         work = self._work(with_open_access_download=True)
@@ -952,7 +951,7 @@ class TestLibraryAnnotator(VendorIDTest):
         # If NoveList Select isn't configured, there's no recommendations link.
         feed = self.get_parsed_feed([work])
         [entry] = feed.entries
-        assert [] == filter(lambda l: l.rel=='recommendations', entry.links)
+        assert [] == [l for l in entry.links if l.rel=='recommendations']
 
         # There's a recommendation link when configuration is found, though!
         NoveListAPI.IS_CONFIGURED = None

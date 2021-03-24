@@ -210,7 +210,7 @@ class TestAxis360API(Axis360Test):
         assert "Found 3 event(s)" == recent_circulation_events.result
         since = api.recent_activity_called_with
         five_minutes_ago = datetime.datetime.utcnow() - datetime.timedelta(minutes=5)
-        assert (five_minutes_ago-since).total_seconds() < 2
+        assert (five_minutes_ago-since).total_seconds() < 3
 
         assert ("Checking activity for test patron for library %s" % with_default_patron.name ==
             patron_activity.name)
@@ -928,7 +928,7 @@ class TestParsers(Axis360Test):
 
         # Check the subjects for #2 because it includes an audience,
         # unlike #1.
-        subjects = sorted(bib2.subjects, key = lambda x: x.identifier)
+        subjects = sorted(bib2.subjects, key = lambda x: x.identifier or "")
         assert [Subject.BISAC, Subject.BISAC, Subject.BISAC,
              Subject.AXIS_360_AUDIENCE] == [x.type for x in subjects]
         general_fiction, women_sleuths, romantic_suspense = sorted([

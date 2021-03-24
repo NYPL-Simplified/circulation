@@ -1,4 +1,3 @@
-import base64
 import datetime
 import email
 import json
@@ -114,6 +113,7 @@ from core.util.opds_writer import (
     OPDSFeed,
 )
 from core.util.problem_detail import ProblemDetail
+from core.util.string_helpers import base64
 from .custom_index import CustomIndexView
 from .lanes import (
     load_lanes,
@@ -492,7 +492,7 @@ class CirculationManager(object):
                 short_client_token_initialization_exceptions[library.id] = e
                 self.log.error(
                     "Short Client Token configuration for %s is present but not working. This may be cause for concern. Original error: %s",
-                    library.name, e
+                    library.name, str(e)
                 )
         self.short_client_token_initialization_exceptions = short_client_token_initialization_exceptions
         return authdata

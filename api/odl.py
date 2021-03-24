@@ -534,7 +534,7 @@ class ODLAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
             # The licenses will have to go through some number of cycles
             # before one of them gets to this hold. This leavs out the first cycle -
             # it's already started so we'll handle it separately.
-            cycles = (hold.position - licenses_reserved - 1) / pool.licenses_owned
+            cycles = (hold.position - licenses_reserved - 1) // pool.licenses_owned
 
             # Each of the owned licenses is currently either on loan or reserved.
             # Figure out which license this hold will eventually get if every

@@ -806,7 +806,7 @@ class AuthdataUtility(object):
         with :. We also replace / (another "suspicious" character)
         with ;. and strip newlines.
         """
-        encoded = base64.encodebytes(str).strip()
+        encoded = base64.encodebytes(str)
         return encoded.replace("+", ":").replace("/", ";").replace("=", "@").strip()
 
     @classmethod

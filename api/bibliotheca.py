@@ -1329,7 +1329,7 @@ class BibliothecaEventMonitor(CollectionMonitor, TimelineMonitor):
             except ValueError as e:
                 # Date argument wasn't in the proper format.
                 self.log.warn(
-                    "%r. Using default date instead: %s.", e,
+                    "%r. Using default date instead: %s.", str(e),
                     default_start_time.strftime("%B %d, %Y")
                 )
                 return default_start_time

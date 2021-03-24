@@ -701,7 +701,7 @@ class TestLibraryAuthenticator(AuthenticatorTest):
 
         not_found = auth.initialization_exceptions[unknown.id]
         assert isinstance(not_found, ImportError)
-        assert 'No module named unknown protocol' == str(not_found)
+        assert "No module named 'unknown protocol'" == str(not_found)
 
     def test_register_fails_when_integration_has_wrong_goal(self):
         integration = self._external_integration(
@@ -1073,7 +1073,7 @@ class TestLibraryAuthenticator(AuthenticatorTest):
 
         # A token is created and signed with the bearer token.
         token1 = authenticator.create_bearer_token(oauth1.NAME, "some token")
-        assert ("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJvYXV0aDEiLCJ0b2tlbiI6InNvbWUgdG9rZW4ifQ.Ve-bbEN4mdWQdR-VA6gbrK2xOz2KRbmPhttmTTCA0ng" ==
+        assert ("eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ0b2tlbiI6InNvbWUgdG9rZW4iLCJpc3MiOiJvYXV0aDEifQ.toy4qdoziL99SN4q9DRMdN-3a0v81CfVjwJVFNUt_mk" ==
             token1)
 
         # Varying the name of the OAuth provider varies the bearer
@@ -2736,7 +2736,7 @@ class TestOAuthController(AuthenticatorTest):
         params = dict(provider=self.oauth1.NAME)
         response = self.controller.oauth_authentication_redirect(params, self._db)
         assert 302 == response.status_code
-        expected_state = dict(redirect_uri="", provider=self.oauth1.NAME)
+        expected_state = dict(provider=self.oauth1.NAME, redirect_uri="", )
         expected_state = urllib.parse.quote(json.dumps(expected_state))
         assert "http://oauth1.com/?state=" + expected_state == response.location
 

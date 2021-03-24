@@ -1128,7 +1128,7 @@ class TestDirectoryImportScript(DatabaseTest):
 
         # The EPUB Representation was cleared out after the upload, to
         # save database space.
-        assert "I'm an EPUB." == mirrors[mirror_type_books].content[0]
+        assert b"I'm an EPUB." == mirrors[mirror_type_books].content[0]
         assert None == epub.content
 
         # Now attempt to get a work for a different collection, but with

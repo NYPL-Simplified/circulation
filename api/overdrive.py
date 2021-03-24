@@ -269,7 +269,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests, Overdrive
         its own Patron Authentication.
         """
         return "websiteid:%s authorizationname:%s" % (
-            self.website_id, self.ils_name(library)
+            self.website_id.decode("utf-8"), self.ils_name(library)
         )
 
     def refresh_patron_access_token(self, credential, patron, pin):

@@ -19,7 +19,7 @@ from core.model import (
     create,
     get_one,
 )
-from core.util.string_helpers import base64
+import base64
 from api.circulation import FulfillmentInfo
 
 from core.testing import DatabaseTest
@@ -163,7 +163,7 @@ class TestSharedCollectionAPI(DatabaseTest):
         # An IntegrationClient has been created.
         client = get_one(self._db, IntegrationClient, url=IntegrationClient.normalize_url("http://library.org/"))
         decrypted_secret = encryptor.decrypt(base64.b64decode(response.get("metadata", {}).get("shared_secret")))
-        assert client.shared_secret == decrypted_secret
+        assert client.shared_secret == decrypted_secret.decode("utf-8")
 
     def test_borrow(self):
         # This client is registered, but isn't one of the allowed URLs for the collection

@@ -3,7 +3,7 @@ import json
 import os
 import shutil
 import tempfile
-
+from pdb import set_trace
 import pytest
 from flask import Response
 from freezegun import freeze_time
@@ -412,7 +412,6 @@ class TestProQuestOPDS2Importer(DatabaseTest):
     def test_checkout_raises_cannot_loan_error_if_it_cannot_get_affiliation_id(self):
         # We want to test that checkout operation returns api.proquest.importer.MISSING_AFFILIATION_ID
         # when it cannot get the patron's affiliation ID.
-
         # Arrange
         credential_manager_mock = create_autospec(spec=ProQuestCredentialManager)
         credential_manager_mock.lookup_proquest_token = MagicMock(return_value=None)

@@ -1,6 +1,5 @@
 import logging
 import flask
-import base64
 import json
 from flask_babel import lazy_gettext as _
 
@@ -14,6 +13,7 @@ from .circulation_exceptions import *
 from .config import Configuration
 from core.config import CannotLoadConfiguration
 from core.util.http import HTTP
+import base64
 
 class SharedCollectionAPI(object):
     """Logic for circulating books to patrons of libraries on other
@@ -137,8 +137,8 @@ class SharedCollectionAPI(object):
         if not client:
             client, ignore = IntegrationClient.register(self._db, start_url)
 
-        shared_secret = client.shared_secret
-        encrypted_secret = encryptor.encrypt(str(shared_secret))
+        shared_secret = client.shared_secret.encode("utf-8")
+        encrypted_secret = encryptor.encrypt(shared_secret)
         return dict(metadata=dict(shared_secret=base64.b64encode(encrypted_secret)))
 
     def check_client_authorization(self, collection, client):

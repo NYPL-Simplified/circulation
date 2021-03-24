@@ -5,8 +5,7 @@ import logging
 import shutil
 import tempfile
 from contextlib import contextmanager
-
-import six
+from pdb import set_trace
 import webpub_manifest_parser.opds2.ast as opds2_ast
 from flask_babel import lazy_gettext as _
 from requests import HTTPError
@@ -75,7 +74,7 @@ class CannotCreateProQuestTokenError(BaseError):
     def __init__(self, inner_exception):
         message = "{0}: {1}".format(
             _("Can not create a ProQuest JWT bearer token"),
-            six.ensure_text(str(inner_exception)),
+            str(inner_exception),
         )
 
         super(CannotCreateProQuestTokenError, self).__init__(message, inner_exception)
@@ -373,7 +372,7 @@ class ProQuestOPDS2Importer(OPDS2Importer, BaseCirculationAPI, HasExternalIntegr
         except Exception as exception:
             self._logger.exception("Cannot create a ProQuest JWT bearer token")
 
-            raise CannotCreateProQuestTokenError(exception)
+            raise CannotCreateProQuestTokenError(str(exception))
 
     def _get_or_create_proquest_token(self, patron, configuration):
         """Get an existing or create a new ProQuest JWT bearer token.
@@ -672,8 +671,7 @@ class ProQuestOPDS2Importer(OPDS2Importer, BaseCirculationAPI, HasExternalIntegr
                 return loan
         except BaseError as exception:
             self._logger.exception("Failed to check out {0} for patron {1}")
-
-            raise CannotLoan(six.ensure_text(str(exception)))
+            raise CannotLoan(str(exception))
 
     def fulfill(
         self,
@@ -745,7 +743,7 @@ class ProQuestOPDS2Importer(OPDS2Importer, BaseCirculationAPI, HasExternalIntegr
         except BaseError as exception:
             self._logger.exception("Failed to fulfill out {0} for patron {1}")
 
-            raise CannotFulfill(six.ensure_text(str(exception)))
+            raise CannotFulfill(str(exception))
 
     def external_integration(self, db):
         """Return an external integration associated with this object.
