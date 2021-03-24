@@ -12,7 +12,10 @@ class BaseError(Exception):
 
         super(BaseError, self).__init__(message)
 
-        self._inner_exception = str(inner_exception)
+        self._inner_exception = str(inner_exception) if inner_exception else None
+    
+    def __hash__(self):
+        return hash(str(self))
 
     @property
     def inner_exception(self):
