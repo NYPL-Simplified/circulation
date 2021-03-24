@@ -297,26 +297,6 @@ class RunMultipleMonitorsScript(Script):
                 )
 
 
-class RunCollectionMonitorScript(RunMultipleMonitorsScript):
-    """Run a CollectionMonitor on every Collection that comes through a
-    certain protocol.
-    """
-    def __init__(self, monitor_class, _db=None, **kwargs):
-        """Constructor.
-
-        :param monitor_class: A class object that derives from
-            CollectionMonitor.
-        :param kwargs: Keyword arguments to pass into the `monitor_class`
-            constructor each time it's called.
-        """
-        super(RunCollectionMonitorScript, self).__init__(_db, **kwargs)
-        self.monitor_class = monitor_class
-        self.name = self.monitor_class.SERVICE_NAME
-
-    def monitors(self, **kwargs):
-        return self.monitor_class.all(self._db, **kwargs)
-
-
 class RunReaperMonitorsScript(RunMultipleMonitorsScript):
     """Run all the monitors found in ReaperMonitor.REGISTRY"""
 
@@ -1818,6 +1798,51 @@ class CollectionInputScript(Script):
             default=CollectionType.OPEN_ACCESS
         )
         return parser
+
+
+class CollectionArgumentsScript(CollectionInputScript):
+
+    @classmethod
+    def arg_parser(cls):
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            'collection_names',
+            help='One or more collection names.',
+            metavar='COLLECTION', nargs='*'
+        )
+        return parser
+
+
+class RunCollectionMonitorScript(RunMultipleMonitorsScript, CollectionArgumentsScript):
+    """Run a CollectionMonitor on every Collection that comes through a
+    certain protocol.
+    """
+
+    def __init__(self, monitor_class, _db=None, cmd_args=None, **kwargs):
+        """Constructor.
+
+        :param monitor_class: A class object that derives from
+            CollectionMonitor.
+        :type monitor_class: CollectionMonitor
+
+        :param cmd_args: Optional command line arguments. These will be
+            passed on to the command line parser.
+        :type cmd_args: Optional[List[str]]
+
+        :param kwargs: Keyword arguments to pass into the `monitor_class`
+            constructor each time it's called.
+
+        """
+        super(RunCollectionMonitorScript, self).__init__(_db, **kwargs)
+        self.monitor_class = monitor_class
+        self.name = self.monitor_class.SERVICE_NAME
+        parsed = vars(self.parse_command_line(self._db, cmd_args=cmd_args))
+        parsed.pop('collection_names', None)
+        self.collections = parsed.pop('collections', None)
+        self.kwargs.update(parsed)
+
+    def monitors(self, **kwargs):
+        return self.monitor_class.all(self._db, collections=self.collections, **kwargs)
 
 
 class OPDSImportScript(CollectionInputScript):
