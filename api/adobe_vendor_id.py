@@ -294,6 +294,8 @@ class AdobeRequestParser(XMLParser):
                 v = v.strip()
                 if transform is not None:
                     v = transform(v)
+        if isinstance(v, bytes):
+            v = v.decode("utf-8")
         d[key] = v
 
 class AdobeSignInRequestParser(AdobeRequestParser):
@@ -799,7 +801,7 @@ class AuthdataUtility(object):
         )
 
     @classmethod
-    def adobe_base64_encode(cls, str):
+    def adobe_base64_encode(cls, str_to_encode):
         """A modified base64 encoding that avoids triggering an Adobe bug.
 
         The bug seems to happen when the 'password' portion of a
@@ -807,7 +809,9 @@ class AuthdataUtility(object):
         with :. We also replace / (another "suspicious" character)
         with ;. and strip newlines.
         """
-        encoded = base64.encodebytes(str).decode("utf-8").strip()
+        if isinstance(str_to_encode, str):
+            str_to_encode = str_to_encode.encode("utf-8")
+        encoded = base64.encodebytes(str_to_encode).decode("utf-8").strip()
         return encoded.replace("+", ":").replace("/", ";").replace("=", "@")
 
     @classmethod

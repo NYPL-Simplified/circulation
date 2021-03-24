@@ -10,7 +10,7 @@ from jwt.exceptions import (
 )
 import re
 import datetime
-
+from pdb import set_trace
 from api.problem_details import *
 from api.adobe_vendor_id import (
     AdobeSignInRequestParser,
@@ -521,7 +521,7 @@ class TestVendorIDRequestHandler(object):
 
     def test_handle_username_authdata_request_success(self):
         doc = self.authdata_sign_in_request % dict(
-            authdata=base64.b64encode("The secret token"))
+            authdata=base64.b64encode(b"The secret token").decode("utf-8"))
         result = self._handler.handle_signin_request(
             doc, self._standard_login, self._authdata_login)
         assert result.startswith('<signInResponse xmlns="http://ns.adobe.com/adept">\n<user>test-uuid</user>\n<label>Human-readable label for user1</label>\n</signInResponse>')
@@ -535,14 +535,14 @@ class TestVendorIDRequestHandler(object):
 
     def test_handle_username_authdata_request_failure(self):
         doc = self.authdata_sign_in_request % dict(
-            authdata=base64.b64encode("incorrect"))
+            authdata=base64.b64encode(b"incorrect").decode("utf-8"))
         result = self._handler.handle_signin_request(
             doc, self._standard_login, self._authdata_login)
         assert '<error xmlns="http://ns.adobe.com/adept" data="E_1045_AUTH Incorrect token."/>' == result
 
     def test_failure_send_login_request_to_accountinfo(self):
         doc = self.authdata_sign_in_request % dict(
-            authdata=base64.b64encode("incorrect"))
+            authdata=base64.b64encode(b"incorrect"))
         result = self._handler.handle_accountinfo_request(
             doc, self._userinfo)
         assert '<error xmlns="http://ns.adobe.com/adept" data="E_1045_ACCOUNT_INFO Request document in wrong format."/>' == result
@@ -948,10 +948,10 @@ class TestAuthdataUtility(VendorIDTest):
         # newline stripped.
         assert (
             encoded.replace(":", "+").replace(";", "/").replace("@", "=") + "\n" ==
-            base64.encodebytes(value))
+            base64.encodebytes(value.encode("utf-8")).decode("utf-8"))
 
         # We can reverse the encoding to get the original value.
-        assert value == AuthdataUtility.adobe_base64_decode(encoded)
+        assert value == AuthdataUtility.adobe_base64_decode(encoded).decode("utf-8")
 
     def test__encode_short_client_token_uses_adobe_base64_encoding(self):
         class MockSigner(object):

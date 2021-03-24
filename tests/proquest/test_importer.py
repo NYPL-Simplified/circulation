@@ -756,7 +756,7 @@ class TestProQuestOPDS2Importer(DatabaseTest):
                 fulfilment_info.identifier_type)
             assert None == fulfilment_info.content_link
             assert (
-                self._proquest_delivery_mechanism.delivery_mechanism.media_type ==
+                self._proquest_delivery_mechanism.delivery_mechanism.content_type ==
                 fulfilment_info.content_type)
             assert book.content == fulfilment_info.content
             assert None == fulfilment_info.content_expires
