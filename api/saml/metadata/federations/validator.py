@@ -109,10 +109,10 @@ class SAMLFederatedMetadataExpirationValidator(SAMLFederatedMetadataValidator):
         )
 
         try:
-            root = fromstring(metadata)
+            root = fromstring(metadata.encode("utf-8"))
         except Exception as exception:
             raise SAMLFederatedMetadataValidationError(
-                "Metadata's XML is not valid", exception
+                "Metadata's XML is not valid", str(exception)
             )
 
         if "EntitiesDescriptor" not in root.tag:

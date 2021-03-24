@@ -265,7 +265,7 @@ class TestOverdriveAPI(OverdriveAPITest):
         # integration and the ILS name associated with the library
         # into the form expected by Overdrive.
         expect = "websiteid:%s authorizationname:%s" % (
-            self.api.website_id, self.api.ils_name(self._default_library)
+            self.api.website_id.decode("utf-8"), self.api.ils_name(self._default_library)
         )
         assert expect == self.api.scope_string(self._default_library)
 
@@ -1436,7 +1436,7 @@ class TestOverdriveAPI(OverdriveAPITest):
         assert "https://oauth-patron.overdrive.com/patrontoken" == url
         assert "barcode" == payload['username']
         expect_scope = "websiteid:%s authorizationname:%s" % (
-            self.api.website_id, self.api.ils_name(patron.library)
+            self.api.website_id.decode("utf-8"), self.api.ils_name(patron.library)
         )
         assert expect_scope == payload['scope']
         assert "a pin" == payload['password']

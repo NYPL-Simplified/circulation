@@ -14,12 +14,13 @@ from .config import (
     CannotLoadConfiguration,
     Configuration,
 )
+
 from api.base_controller import BaseCirculationManagerController
 from .problem_details import *
 from sqlalchemy.orm.session import Session
 from core.util.xmlparser import XMLParser
 from core.util.problem_detail import ProblemDetail
-from core.util.string_helpers import base64
+import base64
 from core.app_server import url_for
 from core.model import (
     create,
@@ -806,14 +807,14 @@ class AuthdataUtility(object):
         with :. We also replace / (another "suspicious" character)
         with ;. and strip newlines.
         """
-        encoded = base64.encodebytes(str)
-        return encoded.replace("+", ":").replace("/", ";").replace("=", "@").strip()
+        encoded = base64.encodebytes(str).decode("utf-8").strip()
+        return encoded.replace("+", ":").replace("/", ";").replace("=", "@")
 
     @classmethod
     def adobe_base64_decode(cls, str):
         """Undoes adobe_base64_encode."""
         encoded = str.replace(":", "+").replace(";", "/").replace("@", "=")
-        return base64.decodebytes(encoded)
+        return base64.decodebytes(encoded.encode("utf-8"))
 
     def decode(self, authdata):
         """Decode and verify an authdata JWT from one of the libraries managed
@@ -1004,7 +1005,7 @@ class AuthdataUtility(object):
 
         # Sign the token and check against the provided signature.
         key = self.short_token_signer.prepare_key(secret)
-        actual_signature = self.short_token_signer.sign(token, key)
+        actual_signature = self.short_token_signer.sign(token.encode("utf-8"), key)
 
         if actual_signature != supposed_signature:
             raise ValueError(

@@ -34,7 +34,7 @@ from core.model import (
     Library,
 )
 from core.util.problem_detail import ProblemDetail
-from core.util.string_helpers import base64
+import base64
 
 from api.config import (
     CannotLoadConfiguration,
@@ -745,7 +745,7 @@ class TestAuthdataUtility(VendorIDTest):
             self.authdata.library_uri, patron_identifier, now, expires
         )
         assert (
-            base64.encodebytes('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwOi8vbXktbGlicmFyeS5vcmcvIiwiaWF0IjoxNDUxNjQ5NjAwLjAsInN1YiI6IlBhdHJvbiBpZGVudGlmaWVyIiwiZXhwIjoxNTE0ODA4MDAwLjB9.n7VRVv3gIyLmNxTzNRTEfCdjoky0T0a1Jhehcag1oQw') ==
+            base64.encodebytes(b'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOi8vbXktbGlicmFyeS5vcmcvIiwic3ViIjoiUGF0cm9uIGlkZW50aWZpZXIiLCJpYXQiOjE0NTE2NDk2MDAuMCwiZXhwIjoxNTE0ODA4MDAwLjB9.Ua11tFCpC4XAgwhR6jFyoxfHy4s1zt2Owg4dOoCefYA') ==
             authdata)
 
     def test_decode_from_another_library(self):
@@ -860,7 +860,7 @@ class TestAuthdataUtility(VendorIDTest):
         # The signature comes from signing the token with the
         # secret associated with this library.
         expect_signature = self.authdata.short_token_signer.sign(
-            token, self.authdata.short_token_signing_key
+            token.encode("utf-8"), self.authdata.short_token_signing_key
         )
         assert expect_signature == signature
 
@@ -886,7 +886,7 @@ class TestAuthdataUtility(VendorIDTest):
         # If our secret for a library doesn't match the other
         # library's short token signing key, we can't decode the
         # authdata.
-        foreign_authdata.short_token_signing_key = 'A new secret'
+        foreign_authdata.short_token_signing_key = b'A new secret'
         vendor_id, token = foreign_authdata.encode_short_client_token(
             patron_identifier
         )

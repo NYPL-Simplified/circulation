@@ -20,7 +20,8 @@ from core.model import (
     ConfigurationSetting,
     ExternalIntegration,
 )
-from core.util.string_helpers import base64
+from pdb import set_trace
+import base64
 from api.adobe_vendor_id import AuthdataUtility
 from api.config import Configuration
 from api.problem_details import *
@@ -269,7 +270,7 @@ class TestRemoteRegistry(DatabaseTest):
         # registration document.
 
         def data_link(data, type="text/html"):
-            encoded = base64.b64encode(data)
+            encoded = base64.b64encode(data.encode("utf-8")).decode("utf-8")
             return dict(
                 rel="terms-of-service",
                 href="data:%s;base64,%s" % (type, encoded)
@@ -331,7 +332,7 @@ class TestRemoteRegistry(DatabaseTest):
         m = RemoteRegistry._decode_data_url
 
         def data_url(data, type="text/html"):
-            encoded = base64.b64encode(data)
+            encoded = base64.b64encode(data.encode("utf-8")).decode("utf-8")
             return "data:%s;base64,%s" % (type, encoded)
 
         # HTML is okay.
@@ -714,7 +715,7 @@ class TestRegistration(DatabaseTest):
         key2 = RSA.generate(2048)
         encryptor2 = PKCS1_OAEP.new(key2)
 
-        shared_secret = os.urandom(24).encode('hex')
+        shared_secret = os.urandom(24)
         encrypted_secret = base64.b64encode(encryptor.encrypt(shared_secret))
 
         # Success.
@@ -726,7 +727,7 @@ class TestRegistration(DatabaseTest):
         problem = m(encryptor2, encrypted_secret)
         assert isinstance(problem, ProblemDetail)
         assert SHARED_SECRET_DECRYPTION_ERROR.uri == problem.uri
-        assert encrypted_secret in problem.detail
+        assert encrypted_secret.decode("utf-8") in problem.detail
 
     def test__process_registration_result(self):
         reg = self.registration

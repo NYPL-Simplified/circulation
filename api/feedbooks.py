@@ -22,7 +22,6 @@ from core.model import (
     RightsStatus,
 )
 from core.util.epub import EpubAccessor
-from pdb import set_trace
 
 
 class FeedbooksOPDSImporter(OPDSImporter):

@@ -19,7 +19,7 @@ from core.util.problem_detail import (
     ProblemDetail,
     JSON_MEDIA_TYPE as PROBLEM_DETAIL_JSON_MEDIA_TYPE,
 )
-from core.util.string_helpers import base64
+import base64
 
 from api.adobe_vendor_id import AuthdataUtility
 from api.config import Configuration
@@ -246,7 +246,7 @@ class RemoteRegistry(object):
             raise ValueError(
                 "Unsupported media type in data: URL: %s" % media_type
             )
-        html = base64.b64decode(encoded)
+        html = base64.b64decode(encoded.encode("utf-8")).decode("utf-8")
         return Sanitizer().sanitize(html)
 
 
@@ -475,6 +475,8 @@ class Registration(object):
         """Attempt to decrypt an encrypted shared secret.
 
         :param cipher: A Cipher object.
+        
+        :param shared_secret: A byte string.
 
         :return: The decrypted shared secret, or a ProblemDetail if
         it could not be decrypted.

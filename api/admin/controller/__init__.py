@@ -1,4 +1,4 @@
-# import base64
+import base64
 import copy
 import json
 import logging
@@ -17,7 +17,6 @@ from flask import (
 from flask_babel import lazy_gettext as _
 from sqlalchemy.sql import func
 from sqlalchemy.sql.expression import desc, nullslast, and_, distinct, select, join
-
 from api.admin.exceptions import *
 from api.admin.google_oauth_admin_authentication_provider import GoogleOAuthAdminAuthenticationProvider
 from api.admin.opds import AdminAnnotator, AdminFeed
@@ -88,7 +87,6 @@ from core.selftest import HasSelfTests
 from core.util.flask_util import OPDSFeedResponse
 from core.util.http import HTTP
 from core.util.problem_detail import ProblemDetail
-from core.util.string_helpers import base64
 from api.proquest.importer import ProQuestOPDS2Importer
 
 
@@ -1925,7 +1923,7 @@ class SitewideRegistrationController(SettingsController):
         ignore, private_key = self.manager.sitewide_key_pair
         decryptor = Configuration.cipher(private_key)
         shared_secret = decryptor.decrypt(base64.b64decode(shared_secret))
-        integration.password = str(shared_secret)
+        integration.password = shared_secret.decode("utf-8")
 
     def get_catalog(self, do_get, url):
         """Get the catalog for this service."""
@@ -2002,7 +2000,6 @@ class SitewideRegistrationController(SettingsController):
 
         registration_info = response.json()
         shared_secret = registration_info.get('metadata', {}).get('shared_secret')
-
         if not shared_secret:
             return REMOTE_INTEGRATION_FAILED.detailed(
                 _('The service did not provide registration information.')

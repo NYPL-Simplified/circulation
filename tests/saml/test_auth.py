@@ -210,7 +210,7 @@ class TestSAMLAuthenticationManager(ControllerTest):
             validation_result = OneLogin_Saml2_XML.validate_xml(
                 decoded_saml_request, "saml-schema-protocol-2.0.xsd", False
             )
-            assert isinstance(validation_result, Document)
+            assert isinstance(validation_result, OneLogin_Saml2_XML._element_class)
 
             saml_request_dom = fromstring(decoded_saml_request)
 
@@ -225,7 +225,7 @@ class TestSAMLAuthenticationManager(ControllerTest):
             sso_url = saml_request_dom.get("Destination")
             assert sso_url == IDENTITY_PROVIDERS[0].sso_service.url
 
-            name_id_policy_nodes = OneLogin_Saml2_Utils.query(
+            name_id_policy_nodes = OneLogin_Saml2_XML.query(
                 saml_request_dom, "./samlp:NameIDPolicy"
             )
 

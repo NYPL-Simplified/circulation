@@ -5,7 +5,7 @@ import logging
 import shutil
 import tempfile
 from contextlib import contextmanager
-from pdb import set_trace
+
 import webpub_manifest_parser.opds2.ast as opds2_ast
 from flask_babel import lazy_gettext as _
 from requests import HTTPError

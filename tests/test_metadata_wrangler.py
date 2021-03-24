@@ -42,7 +42,6 @@ from api.metadata_wrangler import (
 from api.testing import MonitorTest
 from core.testing import DatabaseTest
 from . import sample_data
-from pdb import set_trace
 
 class InstrumentedMWCollectionUpdateMonitor(MWCollectionUpdateMonitor):
 
