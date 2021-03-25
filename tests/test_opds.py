@@ -1640,12 +1640,20 @@ class TestLibraryAnnotator(VendorIDTest):
             mock_api=MockAPI()
         )
         assert 2 == len(links)
-        indirects = []
 
-        # This sorts the links so that the first link corresponds
-        # to the delivery mechanism for the first link.
-        links = sorted(links, key=lambda x: x.attrib['href'], reverse=True)
-        for link in links:
+        mech1_param = "mechanism_id=%s" % mech1.delivery_mechanism.id
+        mech2_param = "mechanism_id=%s" % mech2.delivery_mechanism.id
+
+        # Instead of sorting, which may be wrong if the id is greater than 10
+        # due to how double digits are sorted, extract the links associated
+        # with the expected delivery mechanism.
+        if mech1_param in links[0].attrib['href']:
+            [mech1_link, mech2_link] = links
+        else:
+            [mech2_link, mech1_link] = links
+
+        indirects = []
+        for link in [mech1_link, mech2_link]:
             # Both links should have the same subtags.
             [availability, copies, holds, indirect] = sorted(
                 link, key=lambda x: x.tag
@@ -1657,21 +1665,20 @@ class TestLibraryAnnotator(VendorIDTest):
             indirects.append(indirect)
 
         # The target of the top-level link is different.
-        [href1, href2] = [x.attrib['href'] for x in links]
-        assert "mechanism_id=%s" % mech1.delivery_mechanism.id in href1
-        assert "mechanism_id=%s" % mech2.delivery_mechanism.id in href2
+        assert mech1_param in mech1_link.attrib['href']
+        assert mech2_param in mech2_link.attrib['href']
 
         # So is the media type seen in the indirectAcquisition subtag.
-        [i1, i2] = indirects
+        [mech1_indirect, mech2_indirect] = indirects
 
         # The first delivery mechanism (created when the Work was created)
         # uses Adobe DRM, so that shows up as the first indirect acquisition
         # type.
-        assert mech1.delivery_mechanism.drm_scheme == i1.attrib['type']
+        assert mech1.delivery_mechanism.drm_scheme == mech1_indirect.attrib['type']
 
         # The second delivery mechanism doesn't use DRM, so the content
         # type shows up as the first (and only) indirect acquisition type.
-        assert mech2.delivery_mechanism.content_type == i2.attrib['type']
+        assert mech2.delivery_mechanism.content_type == mech2_indirect.attrib['type']
 
         # If we configure the library to hide one of the content types,
         # we end up with only one link -- the one for the delivery
