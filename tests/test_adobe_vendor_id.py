@@ -10,7 +10,7 @@ from jwt.exceptions import (
 )
 import re
 import datetime
-from pdb import set_trace
+
 from api.problem_details import *
 from api.adobe_vendor_id import (
     AdobeSignInRequestParser,
@@ -981,7 +981,7 @@ class TestAuthdataUtility(VendorIDTest):
         # reverses that change when decoding the 'password'.
         class MockAuthdataUtility(AuthdataUtility):
             def _decode_short_client_token(self, token, supposed_signature):
-                assert supposed_signature == signature
+                assert supposed_signature.decode("utf-8") == signature
                 self.test_code_ran = True
 
         utility =  MockAuthdataUtility(
