@@ -832,7 +832,8 @@ class TestCoverResource(DatabaseTest):
         assert thumbnail == thumbnail2
         assert thumbnail2.content != old_content
         assert 400 == thumbnail.image_height
-        assert 266 == thumbnail.image_width
+        # The width turns out to be 266 or 267 depending on the machine.
+        assert 265 < thumbnail.image_width < 268
 
         # The thumbnail has been regenerated, so it needs to be mirrored again.
         assert None == thumbnail.mirrored_at

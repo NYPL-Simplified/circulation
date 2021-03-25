@@ -1380,8 +1380,8 @@ class Representation(Base, MediaTypes):
         thumbnail.mirrored_at = None
         thumbnail.mirror_exception = None
 
-        args = [(max_width, max_height),
-                Image.ANTIALIAS]
+        args = [(max_width, max_height), Image.LANCZOS]
+
         try:
             image.thumbnail(*args)
         except IOError as e:
