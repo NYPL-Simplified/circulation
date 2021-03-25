@@ -588,12 +588,12 @@ class DummyBibliothecaAPIResponse(object):
 class MockBibliothecaAPI(BibliothecaAPI):
 
     @classmethod
-    def mock_collection(self, _db):
+    def mock_collection(self, _db, name="Test Bibliotheca Collection"):
         """Create a mock Bibliotheca collection for use in tests."""
         library = DatabaseTest.make_default_library(_db)
         collection, ignore = get_one_or_create(
             _db, Collection,
-            name="Test Bibliotheca Collection", create_method_kwargs=dict(
+            name=name, create_method_kwargs=dict(
                 external_account_id='c',
             )
         )
@@ -1315,7 +1315,7 @@ class BibliothecaEventMonitor(CollectionMonitor, TimelineMonitor):
         # or not it exists.
         initialized = get_one(
             _db, Timestamp, service=self.service_name,
-            service_type=Timestamp.MONITOR_TYPE
+            service_type=Timestamp.MONITOR_TYPE, collection=self.collection
         )
         default_start_time = datetime.utcnow() - self.DEFAULT_START_TIME
 

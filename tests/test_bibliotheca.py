@@ -1123,6 +1123,32 @@ class TestBibliothecaEventMonitor(BibliothecaAPITest):
         assert 4 == analytics.count
 
 
+class TestBibliothecaEventMonitorWhenMultipleCollections(BibliothecaAPITest):
+
+    def test_multiple_service_type_timestamps_with_start_date(self):
+        # Start with multiple collections that have timestamps
+        # because they've run before.
+        collections = [
+            MockBibliothecaAPI.mock_collection(self._db, name='Collection 1'),
+            MockBibliothecaAPI.mock_collection(self._db, name='Collection 2'),
+        ]
+        for c in collections:
+            Timestamp.stamp(
+                self._db, service=BibliothecaEventMonitor.SERVICE_NAME,
+                service_type=Timestamp.MONITOR_TYPE, collection=c
+            )
+        # Instantiate the associated monitors with a start date.
+        monitors = [
+            BibliothecaEventMonitor(self._db, c, api_class=BibliothecaAPI,
+                                    cli_date='2011-02-03')
+            for c in collections
+        ]
+        assert len(monitors) == len(collections)
+        # Ensure that we get monitors and not an exception.
+        for m in monitors:
+            assert isinstance(m, BibliothecaEventMonitor)
+
+
 class TestItemListParser(BibliothecaAPITest):
 
     def test_contributors_for_string(cls):
