@@ -399,8 +399,7 @@ class CollectionMonitor(Monitor):
                         [c.name for c in collections_for_protocol]
                     )
                     e.args += (additional_info,)
-                    e.message += '\n' + additional_info
-                    raise
+                    raise ValueError(str(e) + '\n' + additional_info)
         else:
             collections = collections_for_protocol.order_by(
                 Timestamp.start.asc().nullsfirst()
