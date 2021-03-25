@@ -30,7 +30,7 @@ ipaddress==1.0.23
 isbnlib==3.10.3
 isodate==0.6.0
 itsdangerous==1.1.0
-Jinja2==2.11.2
+Jinja2==2.11.3
 jmespath==0.10.0
 loggly-python-handler==1.0.1
 lxml==4.6.2
@@ -41,7 +41,7 @@ multipledispatch==0.6.0
 nameparser==1.0.6
 # nltk is a textblob dependency.
 nltk==3.5
-Pillow==6.2.2
+Pillow==8.1.2
 py-bcrypt==0.4
 pymarc==4.0.0
 pyparsing==2.4.7
