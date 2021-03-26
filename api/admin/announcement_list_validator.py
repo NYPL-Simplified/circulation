@@ -135,7 +135,7 @@ class AnnouncementListValidator(Validator):
 
         :return: A ProblemDetail if validation fails; otherwise a datetime.date.
         """
-        if isinstance(value, (bytes, str)):
+        if isinstance(value, str):
             try:
                 value = datetime.datetime.strptime(value, cls.DATE_FORMAT)
             except ValueError as e:

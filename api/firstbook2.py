@@ -15,7 +15,6 @@ from .config import (
 )
 from .circulation_exceptions import RemoteInitiatedServerError
 import urllib.parse
-import urllib.request, urllib.parse, urllib.error
 from core.model import (
     get_one_or_create,
     ExternalIntegration,

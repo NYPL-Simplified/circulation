@@ -2,6 +2,7 @@ import argparse
 import json
 import logging
 import uuid
+import base64
 import os
 import datetime
 import jwt
@@ -20,7 +21,6 @@ from .problem_details import *
 from sqlalchemy.orm.session import Session
 from core.util.xmlparser import XMLParser
 from core.util.problem_detail import ProblemDetail
-import base64
 from core.app_server import url_for
 from core.model import (
     create,

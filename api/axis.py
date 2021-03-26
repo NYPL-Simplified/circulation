@@ -1308,7 +1308,7 @@ class HoldResponseParser(ResponseParser):
             try:
                 queue_position = int(queue_position.text)
             except ValueError:
-                print(("Invalid queue position: %s" % queue_position))
+                print("Invalid queue position: %s" % queue_position)
                 queue_position = None
 
         hold_start = datetime.utcnow()

@@ -163,7 +163,7 @@ class NYTBestSellerAPI(NYTAPI, HasSelfTests):
 
     def best_seller_list(self, list_info, date=None):
         """Create (but don't update) a NYTBestSellerList object."""
-        if isinstance(list_info, (bytes, str)):
+        if isinstance(list_info, str):
             list_info = self.list_info(list_info)
         return NYTBestSellerList(list_info, self.metadata_client)
 

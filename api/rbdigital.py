@@ -190,10 +190,6 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
                 "RBDigital configuration is incomplete."
             )
 
-        # Use utf8 instead of unicode encoding
-        # self.library_id = self.library_id.encode('utf8')
-        # self.token = self.token.encode('utf8')
-
         # Convert the nickname for a server into an actual URL.
         base_url = collection.external_integration.url or self.PRODUCTION_BASE_URL
         if base_url in self.SERVER_NICKNAMES:

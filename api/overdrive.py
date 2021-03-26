@@ -982,7 +982,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests, Overdrive
         raise CannotReleaseHold(response.content)
 
     def circulation_lookup(self, book):
-        if isinstance(book, (bytes, str)):
+        if isinstance(book, str):
             book_id = book
             circulation_link = self.endpoint(
                 self.AVAILABILITY_ENDPOINT,
@@ -1431,17 +1431,17 @@ class OverdriveAdvantageAccountListScript(Script):
         collections.
         """
         api = OverdriveAPI(self._db, collection)
-        print(("Main Overdrive collection: %s" % collection.name))
-        print(("\n".join(collection.explain())))
+        print("Main Overdrive collection: %s" % collection.name)
+        print("\n".join(collection.explain()))
         print("A few of the titles in the main collection:")
         for i, book in enumerate(api.all_ids()):
-            print(("", book['title']))
+            print("", book['title'])
             if i > 10:
                 break
         advantage_accounts = list(api.get_advantage_accounts())
-        print(("%d associated Overdrive Advantage account(s)." % len(
+        print("%d associated Overdrive Advantage account(s)." % len(
             advantage_accounts
-        )))
+        ))
         for advantage_collection in advantage_accounts:
             self.explain_advantage_collection(advantage_collection)
             print()
@@ -1449,12 +1449,12 @@ class OverdriveAdvantageAccountListScript(Script):
     def explain_advantage_collection(self, collection):
         """Explain a single Overdrive Advantage collection."""
         parent_collection, child = collection.to_collection(self._db)
-        print((" Overdrive Advantage collection: %s" % child.name))
-        print((" " + ("\n ".join(child.explain()))))
+        print(" Overdrive Advantage collection: %s" % child.name)
+        print(" " + ("\n ".join(child.explain())))
         print(" A few of the titles in this Advantage collection:")
         child_api = OverdriveAPI(self._db, child)
         for i, book in enumerate(child_api.all_ids()):
-            print((" ", book['title']))
+            print(" ", book['title'])
             if i > 10:
                 break
 

@@ -273,7 +273,7 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
         :param identifiers: A list containing either Identifier
             objects or Bibliotheca identifier strings.
         """
-        if any(isinstance(identifiers, x) for x in (Identifier, (bytes, str))):
+        if any(isinstance(identifiers, x) for x in (Identifier, str)):
             identifiers = [identifiers]
         identifier_strings = []
         for i in identifiers:

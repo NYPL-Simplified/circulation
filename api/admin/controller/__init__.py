@@ -4,7 +4,6 @@ import json
 import logging
 import os
 import sys
-import urllib.request, urllib.parse, urllib.error
 import urllib.parse
 from datetime import date, datetime, timedelta
 

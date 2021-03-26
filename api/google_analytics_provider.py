@@ -1,7 +1,7 @@
 from .config import CannotLoadConfiguration
 import uuid
 import unicodedata
-import urllib.request, urllib.parse, urllib.error
+import urllib.parse
 import re
 from flask_babel import lazy_gettext as _
 from core.util.http import HTTP

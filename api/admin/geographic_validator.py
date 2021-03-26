@@ -54,7 +54,7 @@ class GeographicValidator(Validator):
             flagged = False
             if value == "everywhere":
                 locations["US"].append(value)
-            elif len(value) and isinstance(value, (bytes, str)):
+            elif len(value) and isinstance(value, str):
                 if len(value) == 2:
                     # Is it a US state or Canadian province abbreviation?
                     if value in CA_PROVINCES:

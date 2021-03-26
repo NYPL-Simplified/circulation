@@ -97,7 +97,7 @@ class RunSelfTestsScript(LibraryInputScript):
                 try:
                     self.test_collection(collection, api_map)
                 except Exception as e:
-                    self.out.write("  Exception while running self-test: %r\n" % e)
+                    self.out.write("  Exception while running self-test: '%s'\n" % e)
 
     def test_collection(self, collection, api_map, extra_args=None):
         tester = api_map.get(collection.protocol)
@@ -136,7 +136,7 @@ class RunSelfTestsScript(LibraryInputScript):
         if isinstance(result.result, (bytes, str)):
             self.out.write("   Result: %s\n" % result.result)
         if result.exception:
-            self.out.write("   Exception: %r\n" % result.exception)
+            self.out.write("   Exception: '%s'\n" % result.exception)
 
 
 class HasCollectionSelfTests(HasSelfTests):

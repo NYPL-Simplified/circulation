@@ -137,7 +137,7 @@ class TestRunSelfTestsScript(DatabaseTest):
         script = MockScript2(self._db, out)
         script.do_run()
         assert (out.getvalue() ==
-            "Testing %s\n  Exception while running self-test: Exception('blah',)\nTesting %s\n" % (library1.name, library2.name))
+            "Testing %s\n  Exception while running self-test: 'blah'\nTesting %s\n" % (library1.name, library2.name))
 
     def test_test_collection(self):
         class MockScript(RunSelfTestsScript):
@@ -204,7 +204,7 @@ class TestRunSelfTestsScript(DatabaseTest):
         script = RunSelfTestsScript(self._db, out)
         script.process_result(failure)
         assert (out.getvalue() ==
-            "  FAILURE i failed (0.0sec)\n   Exception: Exception('bah',)\n")
+            "  FAILURE i failed (0.0sec)\n   Exception: 'bah'\n")
 
 
 class TestHasCollectionSelfTests(DatabaseTest):

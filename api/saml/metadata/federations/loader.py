@@ -151,7 +151,7 @@ class SAMLFederatedIdentityProviderLoader(object):
             else:
                 display_name = idp.entity_id
 
-            xml_metadata = tostring(parsing_result.xml_node).decode("utf-8")
+            xml_metadata = tostring(parsing_result.xml_node, encoding="unicode")
             federated_idp = SAMLFederatedIdentityProvider(
                 federation, idp.entity_id.strip(), display_name.strip(), xml_metadata
             )
