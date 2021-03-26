@@ -1932,7 +1932,7 @@ class TestMirroring(OPDSImporterTest):
 
     @pytest.fixture()
     def svg(self):
-        svg = u"""<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
+        svg = """<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
           "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
 
         <svg xmlns="http://www.w3.org/2000/svg" width="1000" height="500">

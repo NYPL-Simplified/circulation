@@ -81,7 +81,7 @@ class TestResponse(object):
         # You can easily convert a Response object to Unicode
         # for use in a test.
         obj = Response("some data")
-        assert u"some data" == str(obj)
+        assert "some data" == str(obj)
 
 
 class TestOPDSFeedResponse(object):
