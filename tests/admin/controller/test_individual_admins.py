@@ -377,45 +377,48 @@ class TestIndividualAdmins(SettingsControllerTest):
         admin = get_one(self._db, Admin, id=system_admin.id)
         assert None == admin
 
-    # def test_individual_admins_post_create_on_setup(self):
-    #     for admin in self._db.query(Admin):
-    #         self._db.delete(admin)
+    def test_individual_admins_post_create_on_setup(self):
+        for admin in self._db.query(Admin):
+            self._db.delete(admin)
 
-    #     # Creating an admin that's not a system admin will fail.
-    #     with self.app.test_request_context("/", method="POST"):
-    #         flask.request.form = MultiDict([
-    #             ("email", "first_admin@nypl.org"),
-    #             ("password", "pass"),
-    #             ("roles", json.dumps([{ "role": AdminRole.LIBRARY_MANAGER, "library": self._default_library.short_name }])),
-    #         ])
-    #         pytest.raises(AdminNotAuthorized, self.manager.admin_individual_admin_settings_controller.process_post)
-    #         self._db.rollback()
+        # Creating an admin that's not a system admin will fail.
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("email", "first_admin@nypl.org"),
+                ("password", "pass"),
+                ("roles", json.dumps([{ "role": AdminRole.LIBRARY_MANAGER, "library": self._default_library.short_name }])),
+            ])
+            flask.request.files = {}
+            pytest.raises(AdminNotAuthorized, self.manager.admin_individual_admin_settings_controller.process_post)
+            self._db.rollback()
 
-    #     # The password is required.
-    #     with self.app.test_request_context("/", method="POST"):
-    #         flask.request.form = MultiDict([
-    #             ("email", "first_admin@nypl.org"),
-    #             ("roles", json.dumps([{ "role": AdminRole.SYSTEM_ADMIN }])),
-    #         ])
-    #         response = self.manager.admin_individual_admin_settings_controller.process_post()
-    #         assert 400 == response.status_code
-    #         assert response.uri == INCOMPLETE_CONFIGURATION.uri
+        # The password is required.
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("email", "first_admin@nypl.org"),
+                ("roles", json.dumps([{ "role": AdminRole.SYSTEM_ADMIN }])),
+            ])
+            flask.request.files = {}
+            response = self.manager.admin_individual_admin_settings_controller.process_post()
+            assert 400 == response.status_code
+            assert response.uri == INCOMPLETE_CONFIGURATION.uri
 
-    #     # Creating a system admin with a password works.
-    #     with self.app.test_request_context("/", method="POST"):
-    #         flask.request.form = MultiDict([
-    #             ("email", "first_admin@nypl.org"),
-    #             ("password", "pass"),
-    #             ("roles", json.dumps([{ "role": AdminRole.SYSTEM_ADMIN }])),
-    #         ])
-    #         response = self.manager.admin_individual_admin_settings_controller.process_post()
-    #         assert 201 == response.status_code
+        # Creating a system admin with a password works.
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("email", "first_admin@nypl.org"),
+                ("password", "pass"),
+                ("roles", json.dumps([{ "role": AdminRole.SYSTEM_ADMIN }])),
+            ])
+            flask.request.files = {}
+            response = self.manager.admin_individual_admin_settings_controller.process_post()
+            assert 201 == response.status_code
 
-    #     # The admin was created.
-    #     admin_match = Admin.authenticate(self._db, "first_admin@nypl.org", "pass")
-    #     assert admin_match.email == response.response[0]
-    #     assert admin_match
-    #     assert admin_match.has_password("pass")
+        # The admin was created.
+        admin_match = Admin.authenticate(self._db, "first_admin@nypl.org", "pass")
+        assert admin_match.email == response.get_data(as_text=True)
+        assert admin_match
+        assert admin_match.has_password("pass")
 
-    #     [role] = admin_match.roles
-    #     assert AdminRole.SYSTEM_ADMIN == role.role
+        [role] = admin_match.roles
+        assert AdminRole.SYSTEM_ADMIN == role.role
