@@ -56,6 +56,7 @@ from ..s3 import S3Uploader, MinIOUploader, MinIOUploaderConfiguration
 from ..scripts import (
     AddClassificationScript,
     CheckContributorNamesInDB,
+    CollectionArgumentsScript,
     CollectionInputScript,
     ConfigureCollectionScript,
     ConfigureIntegrationScript,
@@ -394,21 +395,52 @@ class DoomedCollectionMonitor(CollectionMonitor):
         raise Exception("Doomed!")
 
 
-class TestRunMonitorScript(DatabaseTest):
+class TestCollectionMonitorWithDifferentRunners(DatabaseTest):
+    """CollectionMonitors are usually run by a RunCollectionMonitorScript.
+    It's not ideal, but you can also run a CollectionMonitor script from a
+    RunMonitorScript. In either case, if no collection argument is specified,
+    the monitor will run on every appropriate Collection. If any collection
+    names are specified, then the monitor will be run only on the ones specified.
+    """
 
-    def test_run_with_collection_monitor(self):
-        """It's not ideal, but you can run a CollectionMonitor script from
-        RunMonitorScript. This will run the monitor on every
-        appropriate Collection.
-        """
+    @parameterized.expand([
+        ('run CollectionMonitor from RunMonitorScript', RunMonitorScript),
+        ('run CollectionMonitor from RunCollectionMonitorScript', RunCollectionMonitorScript),
+    ])
+    def test_run_collection_monitor_with_no_args(self, name, script_runner):
+        # Run CollectionMonitor via RunMonitor for all applicable collections.
         c1 = self._collection()
         c2 = self._collection()
-        script = RunMonitorScript(
-            OPDSCollectionMonitor, self._db, test_argument="test value"
+        script = script_runner(
+            OPDSCollectionMonitor, self._db, cmd_args=[], test_argument="test value"
         )
         script.run()
         for c in [c1, c2]:
             assert "test value" == c.ran_with_argument
+
+    @parameterized.expand([
+        ('run CollectionMonitor with collection args from RunMonitorScript', RunMonitorScript),
+        ('run CollectionMonitor with collection args from RunCollectionMonitorScript', RunCollectionMonitorScript),
+    ])
+    def test_run_collection_monitor_with_collection_args(self, name, script_runner):
+        # Run CollectionMonitor via RunMonitor for only specified collections.
+        c1 = self._collection(name='Collection 1')
+        c2 = self._collection(name='Collection 2')
+        c3 = self._collection(name='Collection 3')
+
+        all_collections = [c1, c2, c3]
+        monitored_collections = [c1, c3]
+        monitored_names = [c.name for c in monitored_collections]
+        script = script_runner(
+            OPDSCollectionMonitor, self._db, cmd_args=monitored_names, test_argument="test value"
+        )
+        script.run()
+        for c in monitored_collections:
+            assert hasattr(c, 'ran_with_argument')
+            assert "test value" == c.ran_with_argument
+        for c in [collection for collection in all_collections
+                  if collection not in monitored_collections]:
+            assert not hasattr(c, 'ran_with_argument')
 
 
 class TestRunMultipleMonitorsScript(DatabaseTest):
@@ -446,7 +478,6 @@ class TestRunMultipleMonitorsScript(DatabaseTest):
 
 class TestRunCollectionMonitorScript(DatabaseTest):
 
-
     def test_monitors(self):
         # Here we have three OPDS import Collections...
         o1 = self._collection()
@@ -456,7 +487,7 @@ class TestRunCollectionMonitorScript(DatabaseTest):
         # ...and a Bibliotheca collection.
         b1 = self._collection(protocol=ExternalIntegration.BIBLIOTHECA)
 
-        script = RunCollectionMonitorScript(OPDSCollectionMonitor, self._db)
+        script = RunCollectionMonitorScript(OPDSCollectionMonitor, self._db, cmd_args=[])
 
         # Calling monitors() instantiates an OPDSCollectionMonitor
         # for every OPDS import collection. The Bibliotheca collection
@@ -464,7 +495,7 @@ class TestRunCollectionMonitorScript(DatabaseTest):
         monitors = script.monitors()
         collections = [x.collection for x in monitors]
         assert set(collections) == set([o1, o2, o3])
-        for i in monitors:
+        for monitor in monitors:
             assert isinstance(monitor, OPDSCollectionMonitor)
 
 
@@ -2055,6 +2086,40 @@ class TestCollectionInputScript(DatabaseTest):
         c2 = self._collection()
         expect = [c2, self._default_collection]
         args = ["--collection=" + c.name for c in expect]
+        actual = collections(args)
+        assert expect == actual
+
+
+class TestCollectionArgumentsScript(DatabaseTest):
+    """Test the ability to take collection arguments on the command line."""
+
+    def test_parse_command_line(self):
+
+        def collections(cmd_args):
+            parsed = CollectionArgumentsScript.parse_command_line(
+                self._db, cmd_args
+            )
+            return parsed.collections
+
+        # No collections named on command line -> no collections
+        assert [] == collections([])
+
+        # Nonexistent collection -> ValueError
+        with pytest.raises(ValueError) as excinfo:
+            collections(['no such collection'])
+        assert 'Unknown collection: no such collection' in str(excinfo.value)
+
+        # Collections are presented in the order they were encountered
+        # on the command line.
+        c2 = self._collection()
+        expect = [c2, self._default_collection]
+        args = [c.name for c in expect]
+        actual = collections(args)
+        assert expect == actual
+
+        # It is okay to not specify any collections.
+        expect = []
+        args = [c.name for c in expect]
         actual = collections(args)
         assert expect == actual
 
