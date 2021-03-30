@@ -1508,9 +1508,6 @@ class BibliothecaEventMonitor(CollectionMonitor, TimelineMonitor):
 
 class RunBibliothecaMonitorScript(RunCollectionMonitorScript):
 
-    def __init__(self, monitor_class, _db=None, cmd_args=None, **kwargs):
-        super(RunBibliothecaMonitorScript, self).__init__(monitor_class, _db, cmd_args, **kwargs)
-
     # TODO: Both '--default-start-date' and '--force-default' (or equivalents) should probably end up
     #   in a more generalized script runner superclass that is focused on Monitor or TimelineMonitor.
     @classmethod
