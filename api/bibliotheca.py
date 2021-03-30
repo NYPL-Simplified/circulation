@@ -1280,7 +1280,7 @@ class BibliothecaEventMonitor(CollectionMonitor, TimelineMonitor):
     """
 
     SERVICE_NAME = "Bibliotheca Event Monitor"
-    DEFAULT_START_TIME = timedelta(365*3)
+    DEFAULT_START_TIME = timedelta(days=365*3)
     PROTOCOL = ExternalIntegration.BIBLIOTHECA
     LOG_DATE_FORMAT = '%Y-%m-%dT%H:%M:%S'
 
@@ -1399,31 +1399,54 @@ class BibliothecaEventMonitor(CollectionMonitor, TimelineMonitor):
             timestamp.finish = None
         return timestamp
 
-    def catch_up_from(self, start, cutoff, progress):
-        added_books = 0
-        i = 0
-        timespan_to_check = timedelta(minutes=5)
+    @staticmethod
+    def _impose_bibliotheca_timespan_constraint(timespan):
+        if timespan <= timedelta(hours=72):
+            return
+        raise ValueError('A timespan greater than 72 hours can result in spurious'
+                         ' results from the Bibliotheca events API.')
 
-        # Not having events in a time period is not considered to be
-        # an error.
-        no_events_error = False
-        # But in this case, we do want to consider not getting events as
-        # an error. Each subsequent time this is run after the first time,
-        # the timespan to check for event increases by 5 minutes until we
-        # reach a 70-hour timespan to check for events.
-        if (progress.counter == 1):
-            no_events_error = True
-            timespan_to_check = timedelta(hours=70)
+    def catch_up_from(self, start, cutoff, progress):
+        recent_mode_counter_value = 1
+        backlog_mode_counter_value = 0
+        # Due to the workings of the Bibliotheca API, no mode
+        # should have a timespan longer than 72 hours.
+        recent_mode_timespan = timedelta(hours=70)
+        backlog_mode_timespan = timedelta(minutes=5)
+
+        # This method operates in three modes: Uninitialized, Backlog,
+        # and Recent. Uninitialized Mode happens when the monitor's
+        # `progress.counter` is null, but is functionally identical
+        # to Backlog Mode (0, backlog_mode_counter_value).
+        # In both of these modes, the timespan for which we fetch
+        # events is `backlog_mode_timespan` and it is NOT considered
+        # an error when the response contains no events.
+        # In Recent Mode, the timespan (`backlog_mode_timespan`) is
+        # longer and a response contains no events DOES raise an error.
+
+        # Due to the workings of the Bibliotheca API, in no mode
+        # can the timespan be longer than 72 hours.
+        self._impose_bibliotheca_timespan_constraint(recent_mode_timespan)
+        self._impose_bibliotheca_timespan_constraint(backlog_mode_timespan)
+
+        added_books = 0
+        events_handled = 0
+
+        # Setup for Uninitialized or Backlog Mode
+        timespan_to_check = backlog_mode_timespan
+        raise_on_no_events = False
+
+        # Unless we are already in Recent Mode.
+        # NB: If the timespan is too long, we might yet end up in Backlog Mode.
+        if progress.counter == recent_mode_counter_value:
+            raise_on_no_events = True
+            timespan_to_check = recent_mode_timespan
 
             import_time_delta = cutoff - start
-            # If we want to check for events in a time period that's
-            # longer than 70 hours, then revert back to the initial
-            # import configuration.
             if (import_time_delta > timespan_to_check):
-                no_events_error = False
-                # Start by checking for events in a 5 minute timespan.
-                progress.counter = 0
-                timespan_to_check = timedelta(minutes=5)
+                raise_on_no_events = False
+                progress.counter = backlog_mode_counter_value
+                timespan_to_check = backlog_mode_timespan
 
         for slice_start, slice_cutoff, full_slice in self.slice_timespan(
             start, cutoff, timespan_to_check
@@ -1434,22 +1457,24 @@ class BibliothecaEventMonitor(CollectionMonitor, TimelineMonitor):
                 slice_cutoff.strftime(self.LOG_DATE_FORMAT)
             )
             events = self.api.get_events_between(
-                slice_start, slice_cutoff, full_slice, no_events_error
+                slice_start, slice_cutoff, full_slice, raise_on_no_events
             )
             for event in events:
-                event_timestamp = self.handle_event(*event)
-                i += 1
-                if not i % 1000:
+                self.handle_event(*event)
+                events_handled += 1
+                if not events_handled % 1000:
                     self._db.commit()
             self._db.commit()
-        progress.achievements = "Events handled: %d." % i
-        # If we are in "catch up" mode and we encounter some events, we can
-        # reset the counter back to 0. Otherwise, keep the counter at 1. This
-        # will also set it to 1 after the initial run.
-        if progress.counter == 1:
-            progress.counter = 0
-        else:
-            progress.counter = 1
+        progress.achievements = "Events handled: %d." % events_handled
+        # We have not encountered an exception, which means that we have
+        # completed processing either:
+        # - a Recent Mode update that contained at least one event, so we
+        #   can process next run in more granular Backlog Mode.
+        # - a backlog (Uninitialized or Backlog Mode), so we have caught
+        #   up, so can resume checking in Recent Mode's longer timespan.
+        progress.counter = (recent_mode_counter_value
+                            if progress.counter != recent_mode_counter_value
+                            else backlog_mode_counter_value)
 
     def handle_event(self, bibliotheca_id, isbn, foreign_patron_id,
                      start_time, end_time, internal_event_type):
