@@ -1295,7 +1295,7 @@ class BibliothecaEventMonitor(CollectionMonitor, TimelineMonitor):
         :param collection: Collection for which this monitor operates.
 
         :param api_class: API class or an instance thereof for this monitor.
-        :param api-class: Union[Type[BibliothecaAPI], BibliothecaAPI]
+        :param api_class: Union[Type[BibliothecaAPI], BibliothecaAPI]
 
         :param default_start: A default date/time at which to start
             requesting events. It should be specified as a `datetime` or
@@ -1508,8 +1508,6 @@ class BibliothecaEventMonitor(CollectionMonitor, TimelineMonitor):
 
 class RunBibliothecaMonitorScript(RunCollectionMonitorScript):
 
-    # TODO: Both '--default-start-date' and '--force-default' (or equivalents) should probably end up
-    #   in a more generalized script runner superclass that is focused on Monitor or TimelineMonitor.
     @classmethod
     def arg_parser(cls):
         parser = super(RunBibliothecaMonitorScript, cls).arg_parser()
