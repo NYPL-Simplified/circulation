@@ -1401,19 +1401,14 @@ class BibliothecaEventMonitor(CollectionMonitor, TimelineMonitor):
 
     @staticmethod
     def _impose_bibliotheca_timespan_constraint(timespan):
+        # Due to the workings of the Bibliotheca API, no mode
+        # should have a timespan longer than 72 hours.
         if timespan <= timedelta(hours=72):
             return
         raise ValueError('A timespan greater than 72 hours can result in spurious'
                          ' results from the Bibliotheca events API.')
 
     def catch_up_from(self, start, cutoff, progress):
-        recent_mode_counter_value = 1
-        backlog_mode_counter_value = 0
-        # Due to the workings of the Bibliotheca API, no mode
-        # should have a timespan longer than 72 hours.
-        recent_mode_timespan = timedelta(hours=70)
-        backlog_mode_timespan = timedelta(minutes=5)
-
         # This method operates in three modes: Uninitialized, Backlog,
         # and Recent. Uninitialized Mode happens when the monitor's
         # `progress.counter` is null, but is functionally identical
@@ -1423,13 +1418,19 @@ class BibliothecaEventMonitor(CollectionMonitor, TimelineMonitor):
         # an error when the response contains no events.
         # In Recent Mode, the timespan (`backlog_mode_timespan`) is
         # longer and a response contains no events DOES raise an error.
+        recent_mode_counter_value = 1
+        backlog_mode_counter_value = 0
+        # Due to the workings of the Bibliotheca API, no mode
+        # should have a timespan longer than 72 hours.
+        recent_mode_timespan = timedelta(hours=70)
+        backlog_mode_timespan = timedelta(minutes=5)
+        # The CloudEvents API might not return all events. If we
+        # get 100 or more events, then we may have lost some.
+        reliable_max_cloudevents_count = 100
 
-        # Due to the workings of the Bibliotheca API, in no mode
-        # can the timespan be longer than 72 hours.
         self._impose_bibliotheca_timespan_constraint(recent_mode_timespan)
         self._impose_bibliotheca_timespan_constraint(backlog_mode_timespan)
 
-        added_books = 0
         events_handled = 0
 
         # Setup for Uninitialized or Backlog Mode
@@ -1442,8 +1443,7 @@ class BibliothecaEventMonitor(CollectionMonitor, TimelineMonitor):
             raise_on_no_events = True
             timespan_to_check = recent_mode_timespan
 
-            import_time_delta = cutoff - start
-            if (import_time_delta > timespan_to_check):
+            if (cutoff - start) > timespan_to_check:
                 raise_on_no_events = False
                 progress.counter = backlog_mode_counter_value
                 timespan_to_check = backlog_mode_timespan
@@ -1456,6 +1456,7 @@ class BibliothecaEventMonitor(CollectionMonitor, TimelineMonitor):
                 slice_start.strftime(self.LOG_DATE_FORMAT),
                 slice_cutoff.strftime(self.LOG_DATE_FORMAT)
             )
+            _events_pre_request = events_handled
             events = self.api.get_events_between(
                 slice_start, slice_cutoff, full_slice, raise_on_no_events
             )
@@ -1465,6 +1466,12 @@ class BibliothecaEventMonitor(CollectionMonitor, TimelineMonitor):
                 if not events_handled % 1000:
                     self._db.commit()
             self._db.commit()
+            _events_this_request = events_handled - _events_pre_request
+            if _events_this_request >= reliable_max_cloudevents_count:
+                self.log.warning(
+                    'Response contained %d events, which equals or exceeds the number '
+                    'reliably returned by this API (%d). Some events may have been lost.',
+                    _events_this_request, reliable_max_cloudevents_count)
         progress.achievements = "Events handled: %d." % events_handled
         # We have not encountered an exception, which means that we have
         # completed processing either:
