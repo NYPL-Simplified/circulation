@@ -3,38 +3,24 @@
 import inspect
 import json
 import logging
-from abc import abstractmethod, ABCMeta
+from abc import ABCMeta, abstractmethod
 from contextlib import contextmanager
-
 from enum import Enum
+
+from constants import DataSourceConstants
 from flask_babel import lazy_gettext as _
-from sqlalchemy import (
-    Column,
-    ForeignKey,
-    Index,
-    Integer,
-    Unicode,
-    UniqueConstraint,
-)
+from hasfulltablecache import HasFullTableCache
+from library import Library
+from sqlalchemy import Column, ForeignKey, Index, Integer, Unicode, UniqueConstraint
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm.session import Session
 from sqlalchemy.sql.expression import and_
 
-from constants import DataSourceConstants
-from hasfulltablecache import HasFullTableCache
-from library import Library
-from . import (
-    Base,
-    get_one,
-    get_one_or_create,
-)
-from ..config import (
-    CannotLoadConfiguration,
-    Configuration,
-)
+from ..config import CannotLoadConfiguration, Configuration
 from ..mirror import MirrorUploader
 from ..util.string_helpers import random_string
+from . import Base, get_one, get_one_or_create
 
 
 class ExternalIntegrationLink(Base, HasFullTableCache):
@@ -1309,6 +1295,20 @@ class ConfigurationMetadata(object):
             ConfigurationAttribute.CATEGORY.value: self.category,
             ConfigurationAttribute.FORMAT.value: self.format
         }
+
+    @staticmethod
+    def to_bool(metadata):
+        """Return a boolean scalar indicating whether the configuration setting
+            contains a value that can be treated as True (see ConfigurationSetting.MEANS_YES).
+
+        :param metadata: ConfigurationMetadata object
+        :type metadata: ConfigurationMetadata
+
+        :return: Boolean scalar indicating
+            whether this configuration setting contains a value that can be treated as True
+        :rtype: bool
+        """
+        return str(metadata).lower() in ConfigurationSetting.MEANS_YES
 
 
 class ConfigurationGrouping(HasConfigurationSettings):

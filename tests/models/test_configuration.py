@@ -1,34 +1,30 @@
 # encoding: utf-8
+from enum import Enum
+
 import pytest
 import sqlalchemy
-from enum import Enum
 from flask_babel import lazy_gettext as _
-from mock import create_autospec, MagicMock
+from mock import MagicMock, create_autospec
 from parameterized import parameterized
 from sqlalchemy.exc import IntegrityError
 
-from ...testing import DatabaseTest
-from ...config import (
-    CannotLoadConfiguration,
-    Configuration,
-)
-from ...model import (
-    create,
-    get_one,
-)
+from ...config import CannotLoadConfiguration, Configuration
+from ...model import create, get_one
 from ...model.collection import Collection
 from ...model.configuration import (
+    ConfigurationAttribute,
+    ConfigurationAttributeType,
+    ConfigurationGrouping,
+    ConfigurationMetadata,
+    ConfigurationOption,
     ConfigurationSetting,
+    ConfigurationStorage,
     ExternalIntegration,
     ExternalIntegrationLink,
-    ConfigurationStorage,
-    ConfigurationAttribute,
-    ConfigurationMetadata,
-    ConfigurationGrouping,
-    ConfigurationOption,
-    ConfigurationAttributeType
+    HasExternalIntegration,
 )
 from ...model.datasource import DataSource
+from ...testing import DatabaseTest
 
 
 class TestConfigurationSetting(DatabaseTest):
@@ -697,6 +693,21 @@ class TestConfiguration(ConfigurationGrouping):
     )
 
 
+class ConfigurationWithBooleanProperty(ConfigurationGrouping):
+    boolean_setting = ConfigurationMetadata(
+        key='boolean_setting',
+        label='Boolean Setting',
+        description='Boolean Setting',
+        type=ConfigurationAttributeType.SELECT,
+        required=True,
+        default='true',
+        options=[
+            ConfigurationOption('true', 'True'),
+            ConfigurationOption('false', 'False')
+        ]
+    )
+
+
 class TestConfiguration2(ConfigurationGrouping):
     setting1 = ConfigurationMetadata(
         key='setting1',
@@ -837,3 +848,45 @@ class TestConfigurationGrouping(object):
         assert settings[1][ConfigurationAttribute.REQUIRED.value] == SETTING1_REQUIRED
         assert settings[1][ConfigurationAttribute.DEFAULT.value] == SETTING1_DEFAULT
         assert settings[1][ConfigurationAttribute.CATEGORY.value] == SETTING1_CATEGORY
+
+
+class TestBooleanConfigurationMetadata(DatabaseTest):
+    @parameterized.expand([
+        ('true', 'true', True),
+        ('t', 't', True),
+        ('yes', 'yes', True),
+        ('y', 'y', True),
+        (1, 1, False),
+        ('false', 'false', False),
+    ])
+    def test_configuration_metadata_correctly_recognize_bool_values(self, _, value, expected_result):
+        """Ensure that ConfigurationMetadata.to_bool correctly translates different values into boolean (True/False).
+
+        :param _: Name of the test case
+        :type _: str
+
+        :param value: Configuration setting's value
+        :type value: Any
+
+        :param expected_result: Expected boolean result
+        :type expected_result: bool
+        """
+        # Arrange
+        external_integration = self._external_integration('test')
+
+        external_integration_association = create_autospec(spec=HasExternalIntegration)
+        external_integration_association.external_integration = MagicMock(return_value=external_integration)
+
+        configuration_storage = ConfigurationStorage(external_integration_association)
+
+        configuration = ConfigurationWithBooleanProperty(configuration_storage, self._db)
+
+        # We set a new value using ConfigurationMetadata.__set__
+        configuration.boolean_setting = value
+
+        # Act
+        # We read the existing value using ConfigurationMetadata.__get__
+        result = ConfigurationMetadata.to_bool(configuration.boolean_setting)
+
+        # Assert
+        assert expected_result == result
