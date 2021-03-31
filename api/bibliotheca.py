@@ -1,39 +1,50 @@
-import json
-from lxml import etree
-
+import argparse
+import base64
 from cStringIO import StringIO
-import itertools
 from datetime import datetime, timedelta
+import hashlib
+import hmac
+import itertools
+import json
+import logging
 import os
 import re
-import logging
-import base64
 import urlparse
 import time
-import hmac
-import hashlib
 
+import dateutil.parser
 from flask_babel import lazy_gettext as _
-
-
+from lxml import etree
 from sqlalchemy import or_
 from sqlalchemy.orm.session import Session
 
-from web_publication_manifest import (
-    FindawayManifest,
-    SpineItem,
-)
 from circulation import (
     FulfillmentInfo,
     HoldInfo,
     LoanInfo,
     BaseCirculationAPI,
 )
-from selftest import (
-    HasSelfTests,
-    SelfTestResult,
+from circulation_exceptions import *
+from core.analytics import Analytics
+from core.config import (
+    Configuration,
+    CannotLoadConfiguration,
+    temp_config,
 )
-
+from core.coverage import (
+    BibliographicCoverageProvider
+)
+from core.metadata_layer import (
+    ContributorData,
+    CirculationData,
+    Metadata,
+    LinkData,
+    IdentifierData,
+    FormatData,
+    MeasurementData,
+    ReplacementPolicy,
+    SubjectData,
+)
 from core.model import (
     CirculationEvent,
     Classification,
@@ -58,44 +69,27 @@ from core.model import (
     Timestamp,
     WorkCoverageRecord,
 )
-
-from core.config import (
-    Configuration,
-    CannotLoadConfiguration,
-    temp_config,
-)
-
-from core.coverage import (
-    BibliographicCoverageProvider
-)
-
 from core.monitor import (
     CollectionMonitor,
     IdentifierSweepMonitor,
     TimelineMonitor,
 )
+from core.scripts import RunCollectionMonitorScript
+from core.testing import DatabaseTest
 from core.util.xmlparser import XMLParser
 from core.util.http import (
     BadResponseException,
     HTTP
 )
-
-from circulation_exceptions import *
-from core.analytics import Analytics
-
-from core.metadata_layer import (
-    ContributorData,
-    CirculationData,
-    Metadata,
-    LinkData,
-    IdentifierData,
-    FormatData,
-    MeasurementData,
-    ReplacementPolicy,
-    SubjectData,
+from selftest import (
+    HasSelfTests,
+    SelfTestResult,
+)
+from web_publication_manifest import (
+    FindawayManifest,
+    SpineItem,
 )
 
-from core.testing import DatabaseTest
 
 class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
 
@@ -1286,11 +1280,37 @@ class BibliothecaEventMonitor(CollectionMonitor, TimelineMonitor):
     """
 
     SERVICE_NAME = "Bibliotheca Event Monitor"
-    DEFAULT_START_TIME = timedelta(365*3)
+    DEFAULT_START_TIME = timedelta(days=365*3)
     PROTOCOL = ExternalIntegration.BIBLIOTHECA
+    LOG_DATE_FORMAT = '%Y-%m-%dT%H:%M:%S'
 
     def __init__(self, _db, collection, api_class=BibliothecaAPI,
-                 cli_date=None, analytics=None):
+                 default_start=None, analytics=None,
+                 override_timestamp=False,
+                 ):
+        """Initializer.
+
+        :param _db: Database session object.
+
+        :param collection: Collection for which this monitor operates.
+
+        :param api_class: API class or an instance thereof for this monitor.
+        :param api_class: Union[Type[BibliothecaAPI], BibliothecaAPI]
+
+        :param default_start: A default date/time at which to start
+            requesting events. It should be specified as a `datetime` or
+            an ISO 8601 string. If not provided, the monitor's calculated
+            intrinsic default will be used.
+        :type default_start: Optional[Union[datetime, basestring]]
+
+        :param analytics: An optional Analytics object.
+        :type analytics: Optional[Analytics]
+
+        :param override_timestamp: Boolean indicating whether
+            `default_start` should take precedence over the timestamp
+            for an already initialized monitor.
+        :type override_timestamp: bool
+        """
         self.analytics = analytics or Analytics(_db)
         super(BibliothecaEventMonitor, self).__init__(_db, collection)
         if isinstance(api_class, BibliothecaAPI):
@@ -1304,98 +1324,164 @@ class BibliothecaEventMonitor(CollectionMonitor, TimelineMonitor):
         self.bibliographic_coverage_provider = BibliothecaBibliographicCoverageProvider(
             collection, self.api, replacement_policy=self.replacement_policy
         )
-        if cli_date:
-            self.default_start_time = self.create_default_start_time(
-                _db,  cli_date
-            )
 
-    def create_default_start_time(self, _db, cli_date):
-        """Sets the default start time if it's passed as an argument.
+        # We should only force the use of `default_start` as the actual
+        # start time if it was passed in.
+        self.override_timestamp = override_timestamp if default_start else False
+        # A specified `default_start` takes precedence over the
+        # monitor's intrinsic default start date/time.
+        self.default_start_time = (self._optional_iso_date(default_start) or
+                                   self._intrinsic_start_time(_db))
 
-        The command line date argument should have the format YYYY-MM-DD.
+    def _optional_iso_date(self, date):
+        """Return the date in `datetime` format.
+
+        :param date: A date/time value, specified as either an ISO 8601
+            string or as a `datetime`.
+        :type date: Optional[Union[datetime, str]]
+
+        :return: Optional datetime.
+        :rtype: Optional[datetime]
         """
+        if date is None or isinstance(date, datetime):
+            return date
+        try:
+            dt_date = dateutil.parser.isoparse(date)
+        except ValueError as e:
+            self.log.warn(
+                '%r. Date argument "%s" was not in a valid format. Use an ISO 8601 string or a datetime.',
+                e, date,
+            )
+            raise
+        return dt_date
 
+    def _intrinsic_start_time(self, _db):
+        """Return the intrinsic start time for this monitor.
+
+        The intrinsic start time is the time at which this monitor would
+        start if it were uninitialized (no timestamp) and no `default_start`
+        parameter were supplied. It is a datetime `self.DEFAULT_START_TIME`
+        in the past.
+
+        :param _db: Database session object.
+
+        :return: datetime representing a default start time.
+        :rtype: datetime
+        """
         # We don't use Monitor.timestamp() because that will create
         # the timestamp if it doesn't exist -- we want to see whether
         # or not it exists.
+        default_start_time = datetime.utcnow() - self.DEFAULT_START_TIME
         initialized = get_one(
             _db, Timestamp, service=self.service_name,
             service_type=Timestamp.MONITOR_TYPE, collection=self.collection
         )
-        default_start_time = datetime.utcnow() - self.DEFAULT_START_TIME
-
-        if cli_date:
-            try:
-                if isinstance(cli_date, basestring):
-                    date = cli_date
-                else:
-                    date = cli_date[0]
-                return datetime.strptime(date, "%Y-%m-%d")
-            except ValueError as e:
-                # Date argument wasn't in the proper format.
-                self.log.warn(
-                    "%r. Using default date instead: %s.", e,
-                    default_start_time.strftime("%B %d, %Y")
-                )
-                return default_start_time
         if not initialized:
             self.log.info(
                 "Initializing %s from date: %s.", self.service_name,
-                default_start_time.strftime("%B %d, %Y")
+                default_start_time.strftime(self.LOG_DATE_FORMAT)
             )
-            return default_start_time
-        return None
+        return default_start_time
+
+    def timestamp(self):
+        """Find or create a Timestamp for this Monitor.
+
+        If we are overriding the normal start time with one supplied when
+        the this class was instantiated, we do that here. The instance's
+        `default_start_time` will have been set to the specified datetime
+        and setting`timestamp.finish` to None will cause the default to
+        be used.
+        """
+        timestamp = super(BibliothecaEventMonitor, self).timestamp()
+        if self.override_timestamp:
+            self.log.info('Overriding timestamp and starting at %s.',
+                          datetime.strftime(self.default_start_time, self.LOG_DATE_FORMAT))
+            timestamp.finish = None
+        return timestamp
+
+    @staticmethod
+    def _impose_bibliotheca_timespan_constraint(timespan):
+        # Due to the workings of the Bibliotheca API, no mode
+        # should have a timespan longer than 72 hours.
+        if timespan <= timedelta(hours=72):
+            return
+        raise ValueError('A timespan greater than 72 hours can result in spurious'
+                         ' results from the Bibliotheca events API.')
 
     def catch_up_from(self, start, cutoff, progress):
-        added_books = 0
-        i = 0
-        timespan_to_check = timedelta(minutes=5)
+        # This method operates in three modes: Uninitialized, Backlog,
+        # and Recent. Uninitialized Mode happens when the monitor's
+        # `progress.counter` is null, but is functionally identical
+        # to Backlog Mode (0, backlog_mode_counter_value).
+        # In both of these modes, the timespan for which we fetch
+        # events is `backlog_mode_timespan` and it is NOT considered
+        # an error when the response contains no events.
+        # In Recent Mode, the timespan (`backlog_mode_timespan`) is
+        # longer and a response contains no events DOES raise an error.
+        recent_mode_counter_value = 1
+        backlog_mode_counter_value = 0
+        # Due to the workings of the Bibliotheca API, no mode
+        # should have a timespan longer than 72 hours.
+        recent_mode_timespan = timedelta(hours=70)
+        backlog_mode_timespan = timedelta(minutes=5)
+        # The CloudEvents API might not return all events. If we
+        # get 100 or more events, then we may have lost some.
+        reliable_max_cloudevents_count = 100
 
-        # Not having events in a time period is not considered to be
-        # an error.
-        no_events_error = False
-        # But in this case, we do want to consider not getting events as
-        # an error. Each subsequent time this is run after the first time,
-        # the timespan to check for event increases by 5 minutes until we
-        # reach a 70-hour timespan to check for events.
-        if (progress.counter == 1):
-            no_events_error = True
-            timespan_to_check = timedelta(hours=70)
+        self._impose_bibliotheca_timespan_constraint(recent_mode_timespan)
+        self._impose_bibliotheca_timespan_constraint(backlog_mode_timespan)
 
-            import_time_delta = cutoff - start
-            # If we want to check for events in a time period that's
-            # longer than 70 hours, then revert back to the initial
-            # import configuration.
-            if (import_time_delta > timespan_to_check):
-                no_events_error = False
-                # Start by checking for events in a 5 minute timespan.
-                progress.counter = 0
-                timespan_to_check = timedelta(minutes=5)
+        events_handled = 0
+
+        # Setup for Uninitialized or Backlog Mode
+        timespan_to_check = backlog_mode_timespan
+        raise_on_no_events = False
+
+        # Unless we are already in Recent Mode.
+        # NB: If the timespan is too long, we might yet end up in Backlog Mode.
+        if progress.counter == recent_mode_counter_value:
+            raise_on_no_events = True
+            timespan_to_check = recent_mode_timespan
+
+            if (cutoff - start) > timespan_to_check:
+                raise_on_no_events = False
+                progress.counter = backlog_mode_counter_value
+                timespan_to_check = backlog_mode_timespan
 
         for slice_start, slice_cutoff, full_slice in self.slice_timespan(
             start, cutoff, timespan_to_check
         ):
             self.log.info(
-                "Asking for events between %r and %r", slice_start,
-                slice_cutoff
+                "Requesting events between %s and %s",
+                slice_start.strftime(self.LOG_DATE_FORMAT),
+                slice_cutoff.strftime(self.LOG_DATE_FORMAT)
             )
+            _events_pre_request = events_handled
             events = self.api.get_events_between(
-                slice_start, slice_cutoff, full_slice, no_events_error
+                slice_start, slice_cutoff, full_slice, raise_on_no_events
             )
             for event in events:
-                event_timestamp = self.handle_event(*event)
-                i += 1
-                if not i % 1000:
+                self.handle_event(*event)
+                events_handled += 1
+                if not events_handled % 1000:
                     self._db.commit()
             self._db.commit()
-        progress.achievements = "Events handled: %d." % i
-        # If we are in "catch up" mode and we encounter some events, we can
-        # reset the counter back to 0. Otherwise, keep the counter at 1. This
-        # will also set it to 1 after the initial run.
-        if progress.counter == 1:
-            progress.counter = 0
-        else:
-            progress.counter = 1
+            _events_this_request = events_handled - _events_pre_request
+            if _events_this_request >= reliable_max_cloudevents_count:
+                self.log.warning(
+                    'Response contained %d events, which equals or exceeds the number '
+                    'reliably returned by this API (%d). Some events may have been lost.',
+                    _events_this_request, reliable_max_cloudevents_count)
+        progress.achievements = "Events handled: %d." % events_handled
+        # We have not encountered an exception, which means that we have
+        # completed processing either:
+        # - a Recent Mode update that contained at least one event, so we
+        #   can process next run in more granular Backlog Mode.
+        # - a backlog (Uninitialized or Backlog Mode), so we have caught
+        #   up, so can resume checking in Recent Mode's longer timespan.
+        progress.counter = (recent_mode_counter_value
+                            if progress.counter != recent_mode_counter_value
+                            else backlog_mode_counter_value)
 
     def handle_event(self, bibliotheca_id, isbn, foreign_patron_id,
                      start_time, end_time, internal_event_type):
@@ -1447,8 +1533,38 @@ class BibliothecaEventMonitor(CollectionMonitor, TimelineMonitor):
                 0, 1
             )
         title = edition.title or "[no title]"
-        self.log.info("%r %s: %s", start_time, title, internal_event_type)
+        self.log.info("%s %s: %s", start_time.strftime(self.LOG_DATE_FORMAT),
+                      title, internal_event_type)
         return start_time
+
+
+class RunBibliothecaMonitorScript(RunCollectionMonitorScript):
+
+    @classmethod
+    def arg_parser(cls):
+        parser = super(RunBibliothecaMonitorScript, cls).arg_parser()
+        parser.add_argument('--default-start', metavar='DATETIME',
+                            default=None, type=dateutil.parser.isoparse,
+                            help='Default start date/time to be used for uninitialized (no timestamp) monitors.'
+                                 ' Use ISO 8601 format (e.g., "yyyy-mm-dd", "yyyy-mm-ddThh:mm:ss").'
+                                 ' Do not specify a time zone or offset.',
+                            )
+        parser.add_argument('--override-timestamp', action='store_true',
+                            help='Use the specified `--default-start` as the actual'
+                                 ' start date, even if a monitor is already initialized.')
+        return parser
+
+    @classmethod
+    def parse_command_line(cls, _db=None, cmd_args=None, *args, **kwargs):
+        parsed = super(RunBibliothecaMonitorScript, cls).parse_command_line(
+            _db=_db, cmd_args=cmd_args, *args, **kwargs
+        )
+        if parsed.override_timestamp and not parsed.default_start:
+            cls.arg_parser().error(
+                '"--override-timestamp" is valid only when "--default-start" is also specified.'
+            )
+        return parsed
+
 
 class BibliothecaBibliographicCoverageProvider(BibliographicCoverageProvider):
     """Fill in bibliographic metadata for Bibliotheca records.
