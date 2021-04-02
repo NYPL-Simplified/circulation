@@ -92,7 +92,7 @@ class TestCachedFeed(DatabaseTest):
             self._db, worklist, facets, pagination, refresher, max_age,
             raw=True
         )
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
         assert isinstance(result1, CachedFeed)
 
         # The content of the CachedFeed comes from refresher(). It was
@@ -250,7 +250,7 @@ class TestCachedFeed(DatabaseTest):
         #
         # Here, the other thread wins by setting .timestamp on the
         # existing CachedFeed to a date in the future.
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
         tomorrow = now + datetime.timedelta(days=1)
         yesterday = now - datetime.timedelta(days=1)
         def tomorrow_vs_now():
@@ -300,7 +300,7 @@ class TestCachedFeed(DatabaseTest):
             self._db, wl, facets, pagination, timestamp_cleared_in_background,
             0, raw=True
         )
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
 
         # result2 is a brand new CachedFeed.
         assert result2 != result
@@ -322,7 +322,7 @@ class TestCachedFeed(DatabaseTest):
             self._db, wl, facets, pagination, content_cleared_in_background, 0,
             raw=True
         )
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
 
         # Again, a brand new CachedFeed.
         assert result3 != result2
@@ -549,7 +549,7 @@ class TestCachedFeed(DatabaseTest):
             def __init__(self, timestamp):
                 self.timestamp = timestamp
 
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
 
         # This feed was generated five minutes ago.
         five_minutes_old = MockCachedFeed(

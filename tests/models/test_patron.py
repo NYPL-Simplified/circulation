@@ -35,7 +35,7 @@ class TestAnnotation(DatabaseTest):
             content="The content",
             active=True,
         )
-        yesterday = datetime.datetime.now() - datetime.timedelta(days=1)
+        yesterday = datetime.datetime.now(tz=datetime.timezone.utc) - datetime.timedelta(days=1)
         annotation.timestamp = yesterday
 
         annotation.set_inactive()
@@ -76,7 +76,7 @@ class TestAnnotation(DatabaseTest):
 class TestHold(DatabaseTest):
 
     def test_on_hold_to(self):
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
         later = now + datetime.timedelta(days=1)
         patron = self._patron()
         edition = self._edition()
@@ -136,7 +136,7 @@ class TestHold(DatabaseTest):
         one_day = datetime.timedelta(days=1)
         two_days = datetime.timedelta(days=2)
 
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
         the_past = now - datetime.timedelta(seconds=1)
         the_future = now + two_days
 
@@ -196,7 +196,7 @@ class TestHold(DatabaseTest):
         Hold._calculate_until = old__calculate_until
 
     def test_calculate_until(self):
-        start = datetime.datetime(2010, 1, 1)
+        start = datetime.datetime(2010, 1, 1, tzinfo=datetime.timezone.utc)
 
         # The cycle time is one week.
         default_loan = datetime.timedelta(days=6)
@@ -253,7 +253,7 @@ class TestHold(DatabaseTest):
         that is used in preference to the availability time we
         calculate.
         """
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
         tomorrow = now + datetime.timedelta(days=1)
 
         patron = self._patron()
@@ -304,7 +304,7 @@ class TestLoans(DatabaseTest):
         assert loan.patron == patron
         assert loan.license_pool == pool
         assert fulfillment == loan.fulfillment
-        assert (datetime.datetime.utcnow() - loan.start) < datetime.timedelta(seconds=1)
+        assert (datetime.datetime.now(tz=datetime.timezone.utc) - loan.start) < datetime.timedelta(seconds=1)
 
         # TODO: At some future point it may be relevant that loan.end
         # is None here, but before that happens the loan process will
@@ -383,7 +383,7 @@ class TestPatron(DatabaseTest):
 
         patron = self._patron(external_identifier="a patron")
 
-        patron.authorization_expires=datetime.datetime(2018, 1, 2, 3, 4, 5)
+        patron.authorization_expires=datetime.datetime(2018, 1, 2, 3, 4, 5, tzinfo=datetime.timezone.utc)
         patron.last_external_sync=None
         assert (
             "<Patron authentication_identifier=None expires=2018-01-02 sync=None>" ==
@@ -532,7 +532,7 @@ class TestPatron(DatabaseTest):
         # Verify that last_loan_activity_sync is cleared out
         # beyond a certain point.
         patron = self._patron()
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
         max_age = patron.loan_activity_max_age
         recently = now - datetime.timedelta(seconds=max_age/2)
         long_ago = now - datetime.timedelta(seconds=max_age*2)
@@ -788,7 +788,7 @@ class TestPatronProfileStorage(DatabaseTest):
 
         self.patron.synchronize_annotations = True
         self.patron.authorization_expires = datetime.datetime(
-            2016, 1, 1, 10, 20, 30
+            2016, 1, 1, 10, 20, 30, tzinfo=datetime.timezone.utc
         )
         rep = self.store.profile_document
         assert (

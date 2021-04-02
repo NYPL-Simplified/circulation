@@ -60,7 +60,7 @@ class JSONFormatter(logging.Formatter):
             level=record.levelname,
             filename=record.filename,
             message=message,
-            timestamp=datetime.datetime.utcnow().isoformat()
+            timestamp=datetime.datetime.now(tz=datetime.timezone.utc).isoformat()
         )
         if record.exc_info:
             data['traceback'] = self.formatException(record.exc_info)

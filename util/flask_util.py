@@ -107,7 +107,7 @@ class Response(FlaskResponse):
             )
 
             # Explicitly set Expires based on max-age; some clients need this.
-            expires_at = datetime.datetime.utcnow() + datetime.timedelta(
+            expires_at = datetime.datetime.now(tz=datetime.timezone.utc) + datetime.timedelta(
                 seconds=self.max_age
             )
             headers['Expires'] = format_date_time(

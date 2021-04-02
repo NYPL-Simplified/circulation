@@ -1,7 +1,7 @@
 # encoding: utf-8
 import pytest
 import datetime
-
+from pdb import set_trace
 import feedparser
 from lxml import etree
 from mock import PropertyMock, create_autospec
@@ -607,7 +607,7 @@ class TestIdentifier(DatabaseTest):
             return feedparser.parse(etree.tostring(entry, encoding="unicode")).entries[0]
 
         def format_timestamp(timestamp):
-            return timestamp.strftime('%Y-%m-%dT%H:%M:%SZ')
+            return timestamp.strftime('%Y-%m-%dT%H:%M:%SZ%z')
 
         # The entry includes the urn, description, and cover link.
         entry = get_entry_dict(identifier.opds_entry())
@@ -622,7 +622,7 @@ class TestIdentifier(DatabaseTest):
 
         # This may be the time the cover image was mirrored.
         cover.resource.representation.set_as_mirrored(self._url)
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
         cover.resource.representation.mirrored_at = now
         entry = get_entry_dict(identifier.opds_entry())
         assert format_timestamp(now) == entry.updated

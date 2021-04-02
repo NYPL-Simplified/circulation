@@ -7,8 +7,9 @@ from . import (
     get_one,
     get_one_or_create,
 )
-
+from pdb import set_trace
 import datetime
+
 from sqlalchemy import (
     Column,
     DateTime,
@@ -128,11 +129,11 @@ class Timestamp(Base):
                            index=True, nullable=True)
 
     # The last time the service _started_ running.
-    start = Column(DateTime, nullable=True)
+    start = Column(DateTime(timezone=True), nullable=True)
 
     # The last time the service _finished_ running. In most cases this
     # is the 'timestamp' proper.
-    finish = Column(DateTime)
+    finish = Column(DateTime(timezone=True))
 
     # A description of the things the service achieved during its last
     # run. Each service may decide for itself what counts as an
@@ -216,7 +217,7 @@ class Timestamp(Base):
             stopped the service from running.
         """
         if start is None and finish is None:
-            start = finish = datetime.datetime.utcnow()
+            start = finish = datetime.datetime.now(tz=datetime.timezone.utc)
         elif start is None:
             start = finish
         elif finish is None:
@@ -303,7 +304,7 @@ class CoverageRecord(Base, BaseCoverageRecord):
     )
     operation = Column(String(255), default=None)
 
-    timestamp = Column(DateTime, index=True)
+    timestamp = Column(DateTime(timezone=True), index=True)
 
     status = Column(BaseCoverageRecord.status_enum, index=True)
     exception = Column(Unicode, index=True)
@@ -393,7 +394,7 @@ class CoverageRecord(Base, BaseCoverageRecord):
         else:
             raise ValueError(
                 "Cannot create a coverage record for %r." % edition)
-        timestamp = timestamp or datetime.datetime.utcnow()
+        timestamp = timestamp or datetime.datetime.now(tz=datetime.timezone.utc)
         coverage_record, is_new = get_one_or_create(
             _db, CoverageRecord,
             identifier=identifier,
@@ -421,7 +422,7 @@ class CoverageRecord(Base, BaseCoverageRecord):
             return
 
         _db = Session.object_session(identifiers[0])
-        timestamp = timestamp or datetime.datetime.utcnow()
+        timestamp = timestamp or datetime.datetime.now(tz=datetime.timezone.utc)
         identifier_ids = [i.id for i in identifiers]
 
         equivalent_record = and_(
@@ -528,7 +529,7 @@ class WorkCoverageRecord(Base, BaseCoverageRecord):
     work_id = Column(Integer, ForeignKey('works.id'), index=True)
     operation = Column(String(255), index=True, default=None)
 
-    timestamp = Column(DateTime, index=True)
+    timestamp = Column(DateTime(timezone=True), index=True)
 
     status = Column(BaseCoverageRecord.status_enum, index=True)
     exception = Column(Unicode, index=True)
@@ -563,7 +564,7 @@ class WorkCoverageRecord(Base, BaseCoverageRecord):
     def add_for(self, work, operation, timestamp=None,
                 status=CoverageRecord.SUCCESS):
         _db = Session.object_session(work)
-        timestamp = timestamp or datetime.datetime.utcnow()
+        timestamp = timestamp or datetime.datetime.now(tz=datetime.timezone.utc)
         coverage_record, is_new = get_one_or_create(
             _db, WorkCoverageRecord,
             work=work,
@@ -586,7 +587,7 @@ class WorkCoverageRecord(Base, BaseCoverageRecord):
             # Nothing to do.
             return
         _db = Session.object_session(works[0])
-        timestamp = timestamp or datetime.datetime.utcnow()
+        timestamp = timestamp or datetime.datetime.now(tz=datetime.timezone.utc)
         work_ids = [w.id for w in works]
 
         # Make sure that works that previously had a

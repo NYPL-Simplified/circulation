@@ -1,6 +1,6 @@
 # encoding: utf-8
 import datetime
-
+from pdb import set_trace
 from ..testing import (
     DatabaseTest,
     DummyMetadataClient,
@@ -31,7 +31,7 @@ class TestCustomListFromCSV(DatabaseTest):
                                    identifier_fields={Identifier.ISBN: "isbn"})
         self.custom_list, ignore = self._customlist(
             data_source_name=self.data_source.name, num_entries=0)
-        self.now = datetime.datetime.utcnow()
+        self.now = datetime.datetime.now(tz=datetime.timezone.utc)
 
     DATE_FORMAT = "%Y/%m/%d %H:%M:%S"
 
@@ -82,7 +82,7 @@ class TestCustomListFromCSV(DatabaseTest):
         assert row['isbn'] == metadata.identifiers[0].identifier
 
         expect_pub = datetime.datetime.strptime(
-            row['published'], self.DATE_FORMAT)
+            row['published'], self.DATE_FORMAT).replace(tzinfo=datetime.timezone.utc)
         assert expect_pub == metadata.published
         assert self.l.default_language == metadata.language
 
@@ -124,7 +124,7 @@ class TestCustomListFromCSV(DatabaseTest):
         assert 2 == len(age_ranges)
 
         expect_first = datetime.datetime.strptime(
-            row[self.l.first_appearance_field], self.DATE_FORMAT)
+            row[self.l.first_appearance_field], self.DATE_FORMAT).replace(tzinfo=datetime.timezone.utc)
         assert expect_first == list_entry.first_appearance
         assert self.now == list_entry.most_recent_appearance
 
@@ -225,7 +225,7 @@ class TestMembershipManager(DatabaseTest):
         no_series = self._edition()
         assert None == no_series.series
 
-        update_time = datetime.datetime(2015, 1, 1)
+        update_time = datetime.datetime(2015, 1, 1, tzinfo=datetime.timezone.utc)
 
 
         # To create necessary mocked objects,
@@ -249,7 +249,7 @@ class TestMembershipManager(DatabaseTest):
         no_series.series = "Actually I do have a series."
         self._db.commit()
 
-        new_update_time = datetime.datetime(2016, 1,1)
+        new_update_time = datetime.datetime(2016, 1, 1, tzinfo=datetime.timezone.utc)
 
         manager.update(new_update_time)
 

@@ -120,7 +120,7 @@ class MirrorUploader(metaclass=ABCMeta):
         :param collection: Collection
         :type collection: Optional[Collection]
         """
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
         exception = self.do_upload(representation)
         representation.mirror_exception = exception
         if exception:

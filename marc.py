@@ -652,7 +652,7 @@ class MARCExporter(object):
         # End time is before we start the query, because if any records are changed
         # during the processing we may not catch them, and they should be handled
         # again on the next run.
-        end_time = datetime.datetime.utcnow()
+        end_time = datetime.datetime.now(tz=datetime.timezone.utc)
 
         facets = MARCExporterFacets(start_time=start_time)
         pagination = SortKeyPagination(size=query_batch_size)

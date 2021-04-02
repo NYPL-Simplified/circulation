@@ -61,7 +61,7 @@ def site_configuration_has_changed(_db, cooldown=1):
 
 def _site_configuration_has_changed(_db, cooldown=1):
     """Actually changes the timestamp on the site configuration."""
-    now = datetime.datetime.utcnow()
+    now = datetime.datetime.now(tz=datetime.timezone.utc)
     last_update = Configuration._site_configuration_last_update()
     if not last_update or (now - last_update).total_seconds() > cooldown:
         # The configuration last changed more than `cooldown` ago, which
@@ -74,7 +74,7 @@ def _site_configuration_has_changed(_db, cooldown=1):
             _db = Session.object_session(_db)
 
         # Update the timestamp.
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
         earlier = now-datetime.timedelta(seconds=cooldown)
         sql = "UPDATE timestamps SET finish=:finish WHERE service=:service AND collection_id IS NULL AND finish<=:earlier;"
         _db.execute(

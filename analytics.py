@@ -53,7 +53,7 @@ class Analytics(object):
 
     def collect_event(self, library, license_pool, event_type, time=None, **kwargs):
         if not time:
-            time = datetime.datetime.utcnow()
+            time = datetime.datetime.now(tz=datetime.timezone.utc)
         providers = list(self.sitewide_providers)
         if library:
             providers.extend(self.library_providers[library.id])

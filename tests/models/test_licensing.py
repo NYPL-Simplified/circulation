@@ -4,7 +4,7 @@ from parameterized import parameterized
 import pytest
 import datetime
 from sqlalchemy.exc import IntegrityError
-
+from pdb import set_trace
 from ...mock_analytics_provider import MockAnalyticsProvider
 from ...model import create
 from ...model.circulationevent import CirculationEvent
@@ -216,7 +216,7 @@ class TestLicense(DatabaseTest):
         super(TestLicense, self).setup_method()
         self.pool = self._licensepool(None)
 
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
         next_year = now + datetime.timedelta(days=365)
         yesterday = now - datetime.timedelta(days=1)
 
@@ -249,7 +249,7 @@ class TestLicense(DatabaseTest):
         pool = self.pool
         license = self.perpetual
         patron = self._patron()
-        patron.last_loan_activity_sync = datetime.datetime.utcnow()
+        patron.last_loan_activity_sync = datetime.datetime.now(tz=datetime.timezone.utc)
         loan, is_new = license.loan_to(patron)
         assert license == loan.license
         assert pool == loan.license_pool
@@ -294,7 +294,7 @@ class TestLicense(DatabaseTest):
         assert True == self.expired_loan_limited.is_expired
 
     def test_best_available_license(self):
-        next_week = datetime.datetime.now() + datetime.timedelta(days=7)
+        next_week = datetime.datetime.now(tz=datetime.timezone.utc) + datetime.timedelta(days=7)
         time_limited_2 = self._license(
             self.pool, expires=next_week, remaining_checkouts=None,
             concurrent_checkouts=1)
@@ -340,7 +340,7 @@ class TestLicensePool(DatabaseTest):
     def test_for_foreign_id(self):
         """Verify we can get a LicensePool for a data source, an
         appropriate work identifier, and a Collection."""
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
         pool, was_new = LicensePool.for_foreign_id(
             self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "541",
             collection=self._collection()
@@ -465,7 +465,7 @@ class TestLicensePool(DatabaseTest):
         assert 0 == pool.patrons_in_hold_queue
 
         # Updating availability also modified work.last_update_time.
-        assert (datetime.datetime.utcnow() - work.last_update_time) < datetime.timedelta(seconds=2)
+        assert (datetime.datetime.now(tz=datetime.timezone.utc) - work.last_update_time) < datetime.timedelta(seconds=2)
 
     def test_update_availability_triggers_analytics(self):
         work = self._work(with_license_pool=True)
@@ -871,7 +871,7 @@ class TestLicensePool(DatabaseTest):
         # Now the pool has a history, and we can't fit an undated
         # observation into that history, so undated observations
         # have no effect on circulation data.
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
         yesterday = now - datetime.timedelta(days=1)
         pool.last_checked = yesterday
         pool.update_availability_from_delta(add, CirculationEvent.NO_DATE, 1, analytics)
@@ -1008,7 +1008,7 @@ class TestLicensePool(DatabaseTest):
 
         pool = self._licensepool(None)
         patron = self._patron()
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
         patron.last_loan_activity_sync = now
 
         yesterday = now - datetime.timedelta(days=1)
@@ -1057,7 +1057,7 @@ class TestLicensePool(DatabaseTest):
 
         pool = self._licensepool(None)
         patron = self._patron()
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
         patron.last_loan_activity_sync = now
 
         yesterday = now - datetime.timedelta(days=1)

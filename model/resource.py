@@ -500,7 +500,7 @@ class Representation(Base, MediaTypes):
     ### Records of things we tried to do with this representation.
 
     # When the representation was last fetched from `url`.
-    fetched_at = Column(DateTime, index=True)
+    fetched_at = Column(DateTime(timezone=True), index=True)
 
     # A textual description of the error encountered the last time
     # we tried to fetch the representation
@@ -511,7 +511,7 @@ class Representation(Base, MediaTypes):
     mirror_url = Column(Unicode, index=True)
 
     # When the representation was last pushed to `mirror_url`.
-    mirrored_at = Column(DateTime, index=True)
+    mirrored_at = Column(DateTime(timezone=True), index=True)
 
     # An exception that happened while pushing this representation
     # to `mirror_url.
@@ -519,7 +519,7 @@ class Representation(Base, MediaTypes):
 
     # If this image is a scaled-down version of some other image,
     # `scaled_at` is the time it was last generated.
-    scaled_at = Column(DateTime, index=True)
+    scaled_at = Column(DateTime(timezone=True), index=True)
 
     # If this image is a scaled-down version of some other image,
     # this is the exception that happened the last time we tried
@@ -591,7 +591,7 @@ class Representation(Base, MediaTypes):
     def age(self):
         if not self.fetched_at:
             return 1000000
-        return (datetime.datetime.utcnow() - self.fetched_at).total_seconds()
+        return (datetime.datetime.now(tz=datetime.timezone.utc) - self.fetched_at).total_seconds()
 
     @property
     def has_content(self):
@@ -795,7 +795,7 @@ class Representation(Base, MediaTypes):
             if representation.etag:
                 headers['If-None-Match'] = representation.etag
 
-        fetched_at = datetime.datetime.utcnow()
+        fetched_at = datetime.datetime.now(tz=datetime.timezone.utc)
         if pause_before:
             time.sleep(pause_before)
         media_type = None
@@ -1000,7 +1000,7 @@ class Representation(Base, MediaTypes):
 
         self.local_content_path = self.normalize_content_path(content_path)
         self.status_code = 200
-        self.fetched_at = datetime.datetime.utcnow()
+        self.fetched_at = datetime.datetime.now(tz=datetime.timezone.utc)
         self.fetch_exception = None
         self.update_image_size()
 
@@ -1011,7 +1011,7 @@ class Representation(Base, MediaTypes):
         mirror operation.
         """
         self.mirror_url = mirror_url
-        self.mirrored_at = datetime.datetime.utcnow()
+        self.mirrored_at = datetime.datetime.now(tz=datetime.timezone.utc)
         self.mirror_exception = None
 
     @classmethod
@@ -1376,7 +1376,7 @@ class Representation(Base, MediaTypes):
         #
         # Because the representation of this image is being
         # changed, it will need to be mirrored later on.
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
         thumbnail.mirrored_at = None
         thumbnail.mirror_exception = None
 

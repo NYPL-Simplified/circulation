@@ -73,7 +73,7 @@ class TestSiteConfigurationHasChanged(DatabaseTest):
         #
         # Sending cooldown=0 ensures we can change the timestamp value
         # even though it changed less than one second ago.
-        time_of_update = datetime.datetime.utcnow()
+        time_of_update = datetime.datetime.now(tz=datetime.timezone.utc)
         site_configuration_has_changed(self._db, cooldown=0)
 
         # The Timestamp has changed in the database.

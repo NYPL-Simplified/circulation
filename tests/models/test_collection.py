@@ -607,7 +607,7 @@ class TestCollection(DatabaseTest):
         w3 = self._work(with_license_pool=True)
 
         # An empty catalog returns nothing.
-        timestamp = datetime.datetime.utcnow()
+        timestamp = datetime.datetime.now(tz=datetime.timezone.utc)
         assert [] == m(self._db, timestamp).all()
 
         self.collection.catalog_identifier(w1.license_pools[0].identifier)
@@ -635,7 +635,7 @@ class TestCollection(DatabaseTest):
             c for c in w1.coverage_records
             if c.operation == WorkCoverageRecord.GENERATE_OPDS_OPERATION
         ]
-        w1_coverage_record.timestamp = datetime.datetime.utcnow()
+        w1_coverage_record.timestamp = datetime.datetime.now(tz=datetime.timezone.utc)
         assert (
             [w1] == [x.work for x in m(self._db, timestamp)])
 
@@ -645,7 +645,7 @@ class TestCollection(DatabaseTest):
         i3 = self._identifier(identifier_type=Identifier.ISBN, foreign_id=self._isbn)
         i4 = self._identifier(identifier_type=Identifier.ISBN, foreign_id=self._isbn)
 
-        timestamp = datetime.datetime.utcnow()
+        timestamp = datetime.datetime.now(tz=datetime.timezone.utc)
 
         # An empty catalog returns nothing..
         assert [] == self.collection.isbns_updated_since(self._db, None).all()
@@ -676,15 +676,15 @@ class TestCollection(DatabaseTest):
 
         # When a timestamp is passed, only works that have been updated since
         # then will be returned.
-        timestamp = datetime.datetime.utcnow()
-        i1.coverage_records[0].timestamp = datetime.datetime.utcnow()
+        timestamp = datetime.datetime.now(tz=datetime.timezone.utc)
+        i1.coverage_records[0].timestamp = datetime.datetime.now(tz=datetime.timezone.utc)
         updated_isbns = self.collection.isbns_updated_since(self._db, timestamp)
         assert_isbns([i1], updated_isbns)
 
         # Prepare an ISBN associated with a Work.
         work = self._work(with_license_pool=True)
         work.license_pools[0].identifier = i2
-        i2.coverage_records[0].timestamp = datetime.datetime.utcnow()
+        i2.coverage_records[0].timestamp = datetime.datetime.now(tz=datetime.timezone.utc)
 
         # ISBNs that have a Work will be ignored.
         updated_isbns = self.collection.isbns_updated_since(self._db, timestamp)

@@ -4,7 +4,7 @@ from urllib.parse import quote
 from collections import (
     defaultdict,
 )
-
+from pdb import set_trace
 from lxml import etree
 
 from sqlalchemy.orm.session import Session
@@ -142,7 +142,7 @@ class Annotator(object):
             # available to people using this application.
             avail = active_license_pool.availability_time
             if avail:
-                now = datetime.datetime.utcnow()
+                now = datetime.datetime.now(tz=datetime.timezone.utc)
                 today = datetime.date.today()
                 if isinstance(avail, datetime.datetime):
                     avail = avail.date()
@@ -1396,7 +1396,7 @@ class AcquisitionFeed(OPDSFeed):
         issued = edition.issued or edition.published
         if (isinstance(issued, datetime.datetime)
             or isinstance(issued, datetime.date)):
-            now = datetime.datetime.utcnow()
+            now = datetime.datetime.now(tz=datetime.timezone.utc)
             today = datetime.date.today()
             issued_already = False
             if isinstance(issued, datetime.datetime):

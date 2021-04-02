@@ -448,7 +448,7 @@ class SessionManager(object):
         timestamp, is_new = get_one_or_create(
             session, Timestamp, collection=None,
             service=Configuration.SITE_CONFIGURATION_CHANGED,
-            create_method_kwargs=dict(finish=datetime.datetime.utcnow())
+            create_method_kwargs=dict(finish=datetime.datetime.now(tz=datetime.timezone.utc))
         )
         if is_new:
             site_configuration_has_changed(session)

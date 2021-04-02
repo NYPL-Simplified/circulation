@@ -13,7 +13,7 @@ class TestIntegrationClient(DatabaseTest):
         self.client = self._integration_client()
 
     def test_for_url(self):
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
         url = self._url
         client, is_new = IntegrationClient.for_url(self._db, url)
 
@@ -37,7 +37,7 @@ class TestIntegrationClient(DatabaseTest):
         assert client == client2
 
     def test_register(self):
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
         client, is_new = IntegrationClient.register(self._db, self._url)
 
         # It creates a shared_secret.

@@ -219,7 +219,7 @@ class MetadataWranglerOPDSLookup(SimplifiedOPDSLookup, HasSelfTests):
             return
 
         # Check various endpoints that yield OPDS feeds.
-        one_day_ago = datetime.datetime.utcnow() - datetime.timedelta(days=1)
+        one_day_ago = datetime.datetime.now(tz=datetime.timezone.utc) - datetime.timedelta(days=1)
         for title, m, args in (
             (
                 "Metadata updates in last 24 hours",
@@ -248,7 +248,7 @@ class MetadataWranglerOPDSLookup(SimplifiedOPDSLookup, HasSelfTests):
         self._annotate_feed_response(result, response)
 
         # We're all done.
-        result.end = datetime.datetime.utcnow()
+        result.end = datetime.datetime.now(tz=datetime.timezone.utc)
         return result
 
     @classmethod
@@ -1210,7 +1210,7 @@ class OPDSImporter(object):
         value = entry.get(key, None)
         if not value:
             return value
-        return datetime.datetime(*value[:6])
+        return datetime.datetime(*value[:6], tzinfo=datetime.timezone.utc)
 
     def last_update_date_for_feedparser_entry(self, entry):
         identifier = entry.get('id')
@@ -1557,7 +1557,9 @@ class OPDSImporter(object):
             date_string = issued_tag[0].text
             # By default, the date for strings that only have a year will
             # be set to January 1 rather than the current date.
-            default = datetime.datetime(datetime.datetime.now().year, 1, 1)
+            default = datetime.datetime(
+                datetime.datetime.now(tz=datetime.timezone.utc).year, 1, 1, tzinfo=datetime.timezone.utc
+            )
             try:
                 data["published"] = dateutil.parser.parse(date_string, default=default)
             except Exception as e:

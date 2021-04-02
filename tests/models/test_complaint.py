@@ -31,7 +31,7 @@ class TestComplaint(DatabaseTest):
         assert self.type == complaint.type
         assert "foo" == complaint.source
         assert "bar" == complaint.detail
-        assert abs(datetime.datetime.utcnow() -complaint.timestamp).seconds < 3
+        assert abs(datetime.datetime.now(tz=datetime.timezone.utc) -complaint.timestamp).seconds < 3
 
         # A second complaint from the same source is folded into the
         # original complaint.
@@ -76,14 +76,14 @@ class TestComplaint(DatabaseTest):
 
     def test_register_resolved(self):
         complaint, is_new = Complaint.register(
-            self.pool, self.type, "foo", "bar", resolved=datetime.datetime.utcnow()
+            self.pool, self.type, "foo", "bar", resolved=datetime.datetime.now(tz=datetime.timezone.utc)
         )
         assert True == is_new
         assert self.type == complaint.type
         assert "foo" == complaint.source
         assert "bar" == complaint.detail
-        assert abs(datetime.datetime.utcnow() -complaint.timestamp).seconds < 3
-        assert abs(datetime.datetime.utcnow() -complaint.resolved).seconds < 3
+        assert abs(datetime.datetime.now(tz=datetime.timezone.utc) -complaint.timestamp).seconds < 3
+        assert abs(datetime.datetime.now(tz=datetime.timezone.utc) -complaint.resolved).seconds < 3
 
         # A second complaint from the same source is not folded into the same complaint.
         complaint2, is_new = Complaint.register(
@@ -100,4 +100,4 @@ class TestComplaint(DatabaseTest):
         )
         complaint.resolve()
         assert complaint.resolved != None
-        assert abs(datetime.datetime.utcnow() - complaint.resolved).seconds < 3
+        assert abs(datetime.datetime.now(tz=datetime.timezone.utc) - complaint.resolved).seconds < 3

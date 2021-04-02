@@ -6,10 +6,10 @@ This acts as an intermediary between the third-party integrations
 model. Doing a third-party integration should be as simple as putting
 the information into this format.
 """
-
+from pdb import set_trace
 from collections import defaultdict
 from sqlalchemy.orm.session import Session
-
+from pdb import set_trace
 from dateutil.parser import parse
 from sqlalchemy.sql.expression import and_, or_
 from sqlalchemy.orm.exc import (
@@ -569,7 +569,7 @@ class MeasurementData(object):
             value = float(value)
         self.value = value
         self.weight = weight
-        self.taken_at = taken_at or datetime.datetime.utcnow()
+        self.taken_at = taken_at or datetime.datetime.now(tz=datetime.timezone.utc)
 
     def __repr__(self):
         return '<MeasurementData quantity="%s" value=%f weight=%d taken=%s>' % (
@@ -676,7 +676,7 @@ class TimestampData(object):
             self.start = start
         if self.finish is None:
             if finish is None:
-                finish = datetime.datetime.utcnow()
+                finish = datetime.datetime.now(tz=datetime.timezone.utc)
             self.finish = finish
         if self.start is None:
             self.start = self.finish
@@ -967,7 +967,7 @@ class CirculationData(MetaToModelUtility):
 
         # If no 'last checked' data was provided, assume the data was
         # just gathered.
-        self.last_checked = last_checked or datetime.datetime.utcnow()
+        self.last_checked = last_checked or datetime.datetime.now(tz=datetime.timezone.utc)
 
         # format contains pdf/epub, drm, link
         self.formats = formats or []
@@ -2333,7 +2333,7 @@ class CSVMetadataImporter(object):
         value = self._field(row, field_name)
         if value:
             try:
-                value = parse(value)
+                value = parse(value).replace(tzinfo=datetime.timezone.utc)
             except ValueError:
                 self.log.warn('Could not parse date "%s"' % value)
                 value = None
@@ -2369,11 +2369,11 @@ class MARCExtractor(object):
         return name
 
     @classmethod
-    def parse_year(self, value):
+    def parse_year(cls, value):
         """Handle a publication year that may not be in the right format."""
         for format in ("%Y", "%Y."):
             try:
-                return datetime.datetime.strptime(value, format)
+                return datetime.datetime.strptime(value, format).replace(tzinfo=datetime.timezone.utc)
             except ValueError:
                 continue
         return None

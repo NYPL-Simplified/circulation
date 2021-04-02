@@ -588,7 +588,7 @@ class Identifier(Base, IdentifierConstants):
             data_source.name, self.type, self.identifier,
             quantity_measured, value, weight)
 
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
         taken_at = taken_at or now
         # Is there an existing most recent measurement?
         most_recent = get_one(

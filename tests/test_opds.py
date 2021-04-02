@@ -117,9 +117,9 @@ class TestBaseAnnotator(DatabaseTest):
     def test_annotate_work_entry_adds_tags(self):
         work = self._work(with_license_pool=True,
                           with_open_access_download=True)
-        work.last_update_time = datetime.datetime(2018, 2, 5, 7, 39, 49, 580651)
+        work.last_update_time = datetime.datetime(2018, 2, 5, 7, 39, 49, 580651, tzinfo=datetime.timezone.utc)
         [pool] = work.license_pools
-        pool.availability_time = datetime.datetime(2015, 1, 1)
+        pool.availability_time = datetime.datetime(2015, 1, 1, tzinfo=datetime.timezone.utc)
 
         entry = []
         # This will create four extra tags which could not be
@@ -149,7 +149,7 @@ class TestBaseAnnotator(DatabaseTest):
         # found in work.last_update_time.
         annotator.annotate_work_entry(
             work, pool, None, None, None, entry,
-            updated=datetime.datetime(2017, 1, 2, 3, 39, 49, 580651)
+            updated=datetime.datetime(2017, 1, 2, 3, 39, 49, 580651, tzinfo=datetime.timezone.utc)
         )
         [id, distributor, published, updated] = entry
         assert 'updated' in etree.tounicode(updated)
@@ -1647,7 +1647,7 @@ class TestAcquisitionFeed(DatabaseTest):
         work.simple_opds_entry = work.verbose_opds_entry = None
         five_hundred_years = datetime.timedelta(days=(500*365))
         work.presentation_edition.issued = (
-            datetime.datetime.utcnow() - five_hundred_years
+            datetime.datetime.now(tz=datetime.timezone.utc) - five_hundred_years
         )
 
         entry = AcquisitionFeed.single_entry(self._db, work, TestAnnotator)

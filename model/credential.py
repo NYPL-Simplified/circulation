@@ -31,7 +31,7 @@ class Credential(Base):
     collection_id = Column(Integer, ForeignKey('collections.id'), index=True)
     type = Column(String(255), index=True)
     credential = Column(String)
-    expires = Column(DateTime, index=True)
+    expires = Column(DateTime(timezone=True), index=True)
 
     # One Credential can have many associated DRMDeviceIdentifiers.
     drm_device_identifiers = relationship(
@@ -104,7 +104,7 @@ class Credential(Base):
             else:
                 # It's an error that this token never expires. It's invalid.
                 return None
-        elif credential.expires > datetime.datetime.utcnow():
+        elif credential.expires > datetime.datetime.now(tz=datetime.timezone.utc):
             return credential
         else:
             # Token has expired.
@@ -124,7 +124,7 @@ class Credential(Base):
             or (not credential.expires and not allow_persistent_token)
             or (not credential.credential and not allow_empty_token)
             or (credential.expires
-                and credential.expires <= datetime.datetime.utcnow())):
+                and credential.expires <= datetime.datetime.now(tz=datetime.timezone.utc))):
             if refresher_method:
                 refresher_method(credential)
         return credential
@@ -219,7 +219,7 @@ class Credential(Base):
         credential = cls.lookup_by_token(_db, data_source, type, token)
         if not credential:
             return None
-        credential.expires = datetime.datetime.utcnow() - datetime.timedelta(
+        credential.expires = datetime.datetime.now(tz=datetime.timezone.utc) - datetime.timedelta(
             seconds=5)
         return credential
 
@@ -236,7 +236,7 @@ class Credential(Base):
         """Create a temporary token for the given data_source/type/patron.
         The token will be good for the specified `duration`.
         """
-        expires = datetime.datetime.utcnow() + duration
+        expires = datetime.datetime.now(tz=datetime.timezone.utc) + duration
         token_string = value or str(uuid.uuid1())
         credential, is_new = get_one_or_create(
             _db, Credential, data_source=data_source, type=token_type, patron=patron)

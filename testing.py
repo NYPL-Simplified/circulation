@@ -1,6 +1,7 @@
 from datetime import (
     datetime,
     timedelta,
+    timezone
 )
 import json
 import logging
@@ -194,7 +195,7 @@ class DatabaseTest(object):
         # Start with a high number so it won't interfere with tests that search for an age or grade
         self.counter = 2000
 
-        self.time_counter = datetime(2014, 1, 1)
+        self.time_counter = datetime(2014, 1, 1, tzinfo=timezone.utc)
         self.isbns = [
             "9780674368279", "0636920028468", "9781936460236", "9780316075978"
         ]
@@ -501,7 +502,7 @@ class DatabaseTest(object):
             operation=operation,
             collection=collection,
             create_method_kwargs = dict(
-                timestamp=datetime.utcnow(),
+                timestamp=datetime.now(tz=timezone.utc),
                 status=status,
                 exception=exception,
             )
@@ -515,7 +516,7 @@ class DatabaseTest(object):
             work=work,
             operation=operation,
             create_method_kwargs = dict(
-                timestamp=datetime.utcnow(),
+                timestamp=datetime.now(tz=timezone.utc),
                 status=status,
             )
         )
@@ -542,7 +543,7 @@ class DatabaseTest(object):
             identifier=edition.primary_identifier,
             data_source=source,
             collection=collection,
-            availability_time=datetime.utcnow(),
+            availability_time=datetime.now(tz=timezone.utc),
             self_hosted=self_hosted,
             unlimited_access=unlimited_access
         )
@@ -608,10 +609,10 @@ class DatabaseTest(object):
             if isinstance(content, str):
                 content = content.encode("utf8")
             repr.content = content
-            repr.fetched_at = datetime.utcnow()
+            repr.fetched_at = datetime.now(tz=timezone.utc)
             if mirrored:
                 repr.mirror_url = "http://foo.com/" + self._str
-                repr.mirrored_at = datetime.utcnow()
+                repr.mirrored_at = datetime.now(tz=timezone.utc)
         return repr, is_new
 
     def _customlist(self, foreign_identifier=None,
@@ -621,7 +622,7 @@ class DatabaseTest(object):
     ):
         data_source = DataSource.lookup(self._db, data_source_name)
         foreign_identifier = foreign_identifier or self._str
-        now = datetime.utcnow()
+        now = datetime.now(tz=timezone.utc)
         customlist, ignore = get_one_or_create(
             self._db, CustomList,
             create_method_kwargs=dict(

@@ -18,7 +18,7 @@ class TestCredentials(DatabaseTest):
         duration = datetime.timedelta(hours=1)
         data_source = DataSource.lookup(self._db, DataSource.ADOBE)
         patron = self._patron()
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
         expect_expires = now + duration
         token, is_new = Credential.temporary_token_create(
             self._db, data_source, "some random type", patron, duration)

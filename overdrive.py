@@ -357,7 +357,7 @@ class OverdriveAPI(object):
         """Copy Overdrive OAuth data into a Credential object."""
         credential.credential = overdrive_data['access_token']
         expires_in = (overdrive_data['expires_in'] * 0.9)
-        credential.expires = datetime.datetime.utcnow() + datetime.timedelta(
+        credential.expires = datetime.datetime.now(tz=datetime.timezone.utc) + datetime.timedelta(
             seconds=expires_in)
 
     @property
@@ -968,7 +968,7 @@ class OverdriveRepresentationExtractor(object):
 
             if 'publishDate' in book:
                 published = datetime.datetime.strptime(
-                    book['publishDate'][:10], cls.DATE_FORMAT)
+                    book['publishDate'][:10], cls.DATE_FORMAT).replace(tzinfo=datetime.timezone.utc)
             else:
                 published = None
 

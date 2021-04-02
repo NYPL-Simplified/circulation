@@ -135,7 +135,7 @@ class CoverageProviderTest(DatabaseTest):
             publisher='Perfection Learning',
             language='eng',
             title='A Girl Named Disaster',
-            published=datetime.datetime(1998, 3, 1, 0, 0),
+            published=datetime.datetime(1998, 3, 1, 0, 0, tzinfo=datetime.timezone.utc),
             primary_identifier=IdentifierData(
                 type=Identifier.OVERDRIVE_ID,
                 identifier='ba9b3419-b0bd-4ca7-a24f-26c4246b6b44'
@@ -173,7 +173,7 @@ class TestBaseCoverageProvider(CoverageProviderTest):
             OPERATION = "An Operation"
             DEFAULT_BATCH_SIZE = 50
 
-        now = cutoff_time=datetime.datetime.utcnow()
+        now = cutoff_time=datetime.datetime.now(tz=datetime.timezone.utc)
         provider = ValidMock(self._db, cutoff_time=now)
 
         # Class variables defined in subclasses become appropriate
@@ -216,15 +216,15 @@ class TestBaseCoverageProvider(CoverageProviderTest):
         # timing information, since run_once_and_update_timestamp()
         # didn't provide anything.
         assert isinstance(result, CoverageProviderProgress)
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
         assert result.start < result.finish
         for time in (result.start, result.finish):
             assert (now - time).total_seconds() < 5
 
     def test_run_with_custom_result(self):
 
-        start = datetime.datetime(2011, 1, 1)
-        finish = datetime.datetime(2012, 1, 1)
+        start = datetime.datetime(2011, 1, 1, tzinfo=datetime.timezone.utc)
+        finish = datetime.datetime(2012, 1, 1, tzinfo=datetime.timezone.utc)
         counter = -100
 
         class MockProvider(BaseCoverageProvider):
@@ -263,7 +263,7 @@ class TestBaseCoverageProvider(CoverageProviderTest):
             expect_offset = 0
 
             def run_once(self, progress, count_as_covered=None):
-                now = datetime.datetime.utcnow()
+                now = datetime.datetime.now(tz=datetime.timezone.utc)
 
                 # We never see progress.finish set to a non-None
                 # value. When _we_ set it to a non-None value, it means
@@ -312,7 +312,7 @@ class TestBaseCoverageProvider(CoverageProviderTest):
         # The Timestamp's .start and .finish are now set to recent
         # values -- the start and end points of run_once().
         timestamp = provider.timestamp
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
         assert (now - timestamp.start).total_seconds() < 1
         assert (now - timestamp.finish).total_seconds() < 1
         assert timestamp.start < timestamp.finish
@@ -350,7 +350,7 @@ class TestBaseCoverageProvider(CoverageProviderTest):
         provider.run_once_and_update_timestamp()
 
         timestamp = provider.timestamp
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
         assert (now - timestamp.start).total_seconds() < 1
         assert (now - timestamp.finish).total_seconds() < 1
         assert timestamp.start < timestamp.finish
@@ -374,7 +374,7 @@ class TestBaseCoverageProvider(CoverageProviderTest):
         provider.run_once_and_update_timestamp()
 
         timestamp = provider.timestamp
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
         assert (now - timestamp.start).total_seconds() < 1
         assert (now - timestamp.finish).total_seconds() < 1
         assert timestamp.start < timestamp.finish
@@ -648,7 +648,7 @@ class TestBaseCoverageProvider(CoverageProviderTest):
         """Verify that should_update gives the correct answer when we
         ask if a CoverageRecord needs to be updated.
         """
-        cutoff = datetime.datetime(2016, 1, 1)
+        cutoff = datetime.datetime(2016, 1, 1, tzinfo=datetime.timezone.utc)
         provider = AlwaysSuccessfulCoverageProvider(
             self._db, cutoff_time = cutoff
         )
@@ -661,7 +661,7 @@ class TestBaseCoverageProvider(CoverageProviderTest):
         record, ignore = CoverageRecord.add_for(
             identifier, provider.data_source
         )
-        record.timestamp = datetime.datetime(2015, 1, 1)
+        record.timestamp = datetime.datetime(2015, 1, 1, tzinfo=datetime.timezone.utc)
         assert True == provider.should_update(record)
 
         # If coverage is up-to-date, we should not update.
@@ -1131,7 +1131,7 @@ class TestIdentifierCoverageProvider(CoverageProviderTest):
 
     def test_run_on_specific_identifiers_respects_cutoff_time(self):
 
-        last_run = datetime.datetime(2016, 1, 1)
+        last_run = datetime.datetime(2016, 1, 1, tzinfo=datetime.timezone.utc)
 
         # Once upon a time we successfully added coverage for
         # self.identifier. But now something has gone wrong, and if we
@@ -1157,7 +1157,7 @@ class TestIdentifierCoverageProvider(CoverageProviderTest):
 
         # But if we move the cutoff time forward, the provider will run
         # on self.identifier and fail.
-        provider.cutoff_time = datetime.datetime(2016, 2, 1)
+        provider.cutoff_time = datetime.datetime(2016, 2, 1, tzinfo=datetime.timezone.utc)
         (success, transient_failure, persistent_failure), records = (
             provider.run_on_specific_identifiers([self.identifier])
         )
@@ -1198,7 +1198,7 @@ class TestIdentifierCoverageProvider(CoverageProviderTest):
             self._db, provider.service_name,
             service_type=Timestamp.COVERAGE_PROVIDER_TYPE, collection=None
         )
-        assert (datetime.datetime.utcnow() - value).total_seconds() < 1
+        assert (datetime.datetime.now(tz=datetime.timezone.utc) - value).total_seconds() < 1
 
     def test_run_transient_failure(self):
         """Verify that TransientFailureCoverageProvider works the
@@ -1215,7 +1215,7 @@ class TestIdentifierCoverageProvider(CoverageProviderTest):
                 service_type=Timestamp.COVERAGE_PROVIDER_TYPE, collection=None
             ))
 
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
         provider.run()
 
         # We have a CoverageRecord representing the transient failure.
@@ -1653,7 +1653,7 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
     def test_items_that_need_coverage(self):
         # Here's an Identifier that was covered on 01/01/2016.
         identifier = self._identifier()
-        cutoff_time = datetime.datetime(2016, 1, 1)
+        cutoff_time = datetime.datetime(2016, 1, 1, tzinfo=datetime.timezone.utc)
         provider = AlwaysSuccessfulCoverageProvider(self._db)
         record, is_new = CoverageRecord.add_for(
             identifier, provider.data_source, timestamp=cutoff_time
@@ -2020,7 +2020,7 @@ class TestWorkCoverageProvider(DatabaseTest):
                 service_type=Timestamp.COVERAGE_PROVIDER_TYPE, collection=None
             ))
 
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
         provider.run()
 
         # There is now one relevant WorkCoverageRecord, for our single work.
@@ -2059,7 +2059,7 @@ class TestWorkCoverageProvider(DatabaseTest):
             self._db, service_name,
             service_type=Timestamp.COVERAGE_PROVIDER_TYPE, collection=None
         )
-        assert (datetime.datetime.utcnow()-value).total_seconds() < 2
+        assert (datetime.datetime.now(tz=datetime.timezone.utc)-value).total_seconds() < 2
 
     def test_persistent_failure(self):
         class MockProvider(NeverSuccessfulWorkCoverageProvider):
@@ -2085,7 +2085,7 @@ class TestWorkCoverageProvider(DatabaseTest):
             self._db, service_name,
             service_type=Timestamp.COVERAGE_PROVIDER_TYPE, collection=None
         )
-        assert (datetime.datetime.utcnow()-value).total_seconds() < 2
+        assert (datetime.datetime.now(tz=datetime.timezone.utc)-value).total_seconds() < 2
 
     def test_items_that_need_coverage(self):
         # Here's a WorkCoverageProvider.

@@ -61,8 +61,8 @@ class TestMeasurement(DatabaseTest):
 
     def test_can_insert_measurement_after_the_fact(self):
 
-        old = datetime.datetime(2011, 1, 1)
-        new = datetime.datetime(2012, 1, 1)
+        old = datetime.datetime(2011, 1, 1, tzinfo=datetime.timezone.utc)
+        new = datetime.datetime(2012, 1, 1, tzinfo=datetime.timezone.utc)
 
         wi = self._identifier()
         m1 = wi.add_measurement(self.source, Measurement.DOWNLOADS, 10,

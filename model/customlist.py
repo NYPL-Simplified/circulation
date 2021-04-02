@@ -41,8 +41,8 @@ class CustomList(Base):
     foreign_identifier = Column(Unicode, index=True)
     name = Column(Unicode, index=True)
     description = Column(Unicode)
-    created = Column(DateTime, index=True)
-    updated = Column(DateTime, index=True)
+    created = Column(DateTime(timezone=True), index=True)
+    updated = Column(DateTime(timezone=True), index=True)
     responsible_party = Column(Unicode)
     library_id = Column(Integer, ForeignKey('libraries.id'), index=True, nullable=True)
 
@@ -155,7 +155,7 @@ class CustomList(Base):
           is probably no longer be necessary since we no longer update the
           external index in real time.
         """
-        first_appearance = first_appearance or datetime.datetime.utcnow()
+        first_appearance = first_appearance or datetime.datetime.now(tz=datetime.timezone.utc)
         _db = Session.object_session(self)
 
         if isinstance(work_or_edition, Work):
@@ -211,7 +211,7 @@ class CustomList(Base):
             entry.featured = featured
 
         if was_new:
-            self.updated = datetime.datetime.utcnow()
+            self.updated = datetime.datetime.now(tz=datetime.timezone.utc)
             self.size += 1
         # Make sure the Work's search document is updated to reflect its new
         # list membership.
@@ -236,7 +236,7 @@ class CustomList(Base):
             _db.delete(entry)
 
         if existing_entries:
-            self.updated = datetime.datetime.utcnow()
+            self.updated = datetime.datetime.now(tz=datetime.timezone.utc)
             self.size -= len(existing_entries)
         _db.commit()
 
@@ -291,8 +291,8 @@ class CustomListEntry(Base):
     # These two fields are for best-seller lists. Even after a book
     # drops off the list, the fact that it once was on the list is
     # still relevant.
-    first_appearance = Column(DateTime, index=True)
-    most_recent_appearance = Column(DateTime, index=True)
+    first_appearance = Column(DateTime(timezone=True), index=True)
+    most_recent_appearance = Column(DateTime(timezone=True), index=True)
 
     def set_work(self, metadata=None, metadata_client=None, policy=None):
         """If possible, identify a locally known Work that is the same

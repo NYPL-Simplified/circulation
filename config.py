@@ -561,7 +561,7 @@ class Configuration(ConfigurationConstants):
 
         """
 
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
 
         # NOTE: Currently we never check the database (because timeout is
         # never set to None). This code will hopefully be removed soon.

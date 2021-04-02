@@ -43,8 +43,8 @@ class IntegrationClient(Base):
     # upgrades to fix a known bug.
     enabled = Column(Boolean, default=True)
 
-    created = Column(DateTime)
-    last_accessed = Column(DateTime)
+    created = Column(DateTime(timezone=True))
+    last_accessed = Column(DateTime(timezone=True))
 
     loans = relationship('Loan', backref='integration_client')
     holds = relationship('Hold', backref='integration_client')
@@ -61,7 +61,7 @@ class IntegrationClient(Base):
             secret will be set.
         """
         url = cls.normalize_url(url)
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
         client, is_new = get_one_or_create(
             _db, cls, url=url, create_method_kwargs=dict(created=now)
         )
@@ -94,7 +94,7 @@ class IntegrationClient(Base):
     def authenticate(cls, _db, shared_secret):
         client = get_one(_db, cls, shared_secret=str(shared_secret))
         if client:
-            client.last_accessed = datetime.datetime.utcnow()
+            client.last_accessed = datetime.datetime.now(tz=datetime.timezone.utc)
             # Committing immediately reduces the risk of contention.
             _db.commit()
             return client

@@ -808,7 +808,7 @@ class TestMetaToModelUtility(DatabaseTest):
         information should actually be updated.
         """
         identifier = IdentifierData(Identifier.GUTENBERG_ID, "1")
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
         yesterday = now - datetime.timedelta(days=1)
         recent_data = CirculationData(DataSource.GUTENBERG, identifier)
         # CirculationData.last_checked defaults to the current time.

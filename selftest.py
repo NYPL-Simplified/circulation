@@ -29,7 +29,7 @@ class SelfTestResult(object):
         self.result = None
 
         # Start time of the test.
-        self.start = datetime.datetime.utcnow()
+        self.start = datetime.datetime.now(tz=datetime.timezone.utc)
 
         # End time of the test.
         self.end = None
@@ -139,7 +139,7 @@ class HasSelfTests(object):
         from .external_search import ExternalSearchIndex
 
         constructor_method = constructor_method or cls
-        start = datetime.datetime.utcnow()
+        start = datetime.datetime.now(tz=datetime.timezone.utc)
         result = SelfTestResult("Initial setup.")
         instance = None
         integration = None
@@ -154,7 +154,7 @@ class HasSelfTests(object):
             result.exception = e
             result.success = False
         finally:
-            result.end = datetime.datetime.utcnow()
+            result.end = datetime.datetime.now(tz=datetime.timezone.utc)
         results.append(result)
         if instance:
             try:
@@ -170,7 +170,7 @@ class HasSelfTests(object):
                 results.append(failure)
 
 
-        end = datetime.datetime.utcnow()
+        end = datetime.datetime.now(tz=datetime.timezone.utc)
 
         # Format the results in a useful way.
 
@@ -260,7 +260,7 @@ class HasSelfTests(object):
             result.result = None
         finally:
             if not result.end:
-                result.end = datetime.datetime.utcnow()
+                result.end = datetime.datetime.now(tz=datetime.timezone.utc)
 
         return result
 
