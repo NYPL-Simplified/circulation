@@ -1,5 +1,6 @@
 
 import datetime
+import pytz
 import logging
 from flask import Response
 
@@ -159,7 +160,7 @@ class AtomFeed(object):
         self.feed = self.E.feed(
             self.E.id(url),
             self.E.title(str(title)),
-            self.E.updated(self._strftime(datetime.datetime.now(tz=datetime.timezone.utc))),
+            self.E.updated(self._strftime(datetime.datetime.now(tz=pytz.UTC))),
             self.E.link(href=url, rel="self"),
         )
         super(AtomFeed, self).__init__(**kwargs)

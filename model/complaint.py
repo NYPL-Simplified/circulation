@@ -9,6 +9,7 @@ from . import (
 )
 
 import datetime
+import pytz
 from sqlalchemy import (
     Column,
     DateTime,
@@ -78,7 +79,7 @@ class Complaint(Base):
         _db = Session.object_session(license_pool)
         if type not in self.VALID_TYPES:
             raise ValueError("Unrecognized complaint type: %s" % type)
-        now = datetime.datetime.now(tz=datetime.timezone.utc)
+        now = datetime.datetime.now(tz=pytz.UTC)
         if source:
             complaint, is_new = get_one_or_create(
                 _db, Complaint,
@@ -110,5 +111,5 @@ class Complaint(Base):
         return any(self.type.endswith(t) for t in self.LICENSE_POOL_TYPES)
 
     def resolve(self):
-        self.resolved = datetime.datetime.now(tz=datetime.timezone.utc)
+        self.resolved = datetime.datetime.now(tz=pytz.UTC)
         return self.resolved

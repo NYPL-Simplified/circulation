@@ -2,6 +2,7 @@
 """
 from .util.http import IntegrationException
 import datetime
+import pytz
 import json
 import logging
 import traceback
@@ -29,7 +30,7 @@ class SelfTestResult(object):
         self.result = None
 
         # Start time of the test.
-        self.start = datetime.datetime.now(tz=datetime.timezone.utc)
+        self.start = datetime.datetime.now(tz=pytz.UTC)
 
         # End time of the test.
         self.end = None
@@ -139,7 +140,7 @@ class HasSelfTests(object):
         from .external_search import ExternalSearchIndex
 
         constructor_method = constructor_method or cls
-        start = datetime.datetime.now(tz=datetime.timezone.utc)
+        start = datetime.datetime.now(tz=pytz.UTC)
         result = SelfTestResult("Initial setup.")
         instance = None
         integration = None
@@ -154,7 +155,7 @@ class HasSelfTests(object):
             result.exception = e
             result.success = False
         finally:
-            result.end = datetime.datetime.now(tz=datetime.timezone.utc)
+            result.end = datetime.datetime.now(tz=pytz.UTC)
         results.append(result)
         if instance:
             try:
@@ -170,7 +171,7 @@ class HasSelfTests(object):
                 results.append(failure)
 
 
-        end = datetime.datetime.now(tz=datetime.timezone.utc)
+        end = datetime.datetime.now(tz=pytz.UTC)
 
         # Format the results in a useful way.
 
@@ -260,7 +261,7 @@ class HasSelfTests(object):
             result.result = None
         finally:
             if not result.end:
-                result.end = datetime.datetime.now(tz=datetime.timezone.utc)
+                result.end = datetime.datetime.now(tz=pytz.UTC)
 
         return result
 

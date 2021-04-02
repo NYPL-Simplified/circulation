@@ -13,6 +13,7 @@ from .licensing import LicensePool
 from .work import Work
 
 import datetime
+import pytz
 import logging
 from sqlalchemy import (
     Boolean,
@@ -155,7 +156,7 @@ class CustomList(Base):
           is probably no longer be necessary since we no longer update the
           external index in real time.
         """
-        first_appearance = first_appearance or datetime.datetime.now(tz=datetime.timezone.utc)
+        first_appearance = first_appearance or datetime.datetime.now(tz=pytz.UTC)
         _db = Session.object_session(self)
 
         if isinstance(work_or_edition, Work):
@@ -211,7 +212,7 @@ class CustomList(Base):
             entry.featured = featured
 
         if was_new:
-            self.updated = datetime.datetime.now(tz=datetime.timezone.utc)
+            self.updated = datetime.datetime.now(tz=pytz.UTC)
             self.size += 1
         # Make sure the Work's search document is updated to reflect its new
         # list membership.
@@ -236,7 +237,7 @@ class CustomList(Base):
             _db.delete(entry)
 
         if existing_entries:
-            self.updated = datetime.datetime.now(tz=datetime.timezone.utc)
+            self.updated = datetime.datetime.now(tz=pytz.UTC)
             self.size -= len(existing_entries)
         _db.commit()
 

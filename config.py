@@ -1,6 +1,6 @@
 import contextlib
 import datetime
-
+import pytz
 import os
 import json
 import logging
@@ -561,7 +561,7 @@ class Configuration(ConfigurationConstants):
 
         """
 
-        now = datetime.datetime.now(tz=datetime.timezone.utc)
+        now = datetime.datetime.now(tz=pytz.UTC)
 
         # NOTE: Currently we never check the database (because timeout is
         # never set to None). This code will hopefully be removed soon.

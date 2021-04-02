@@ -2,8 +2,8 @@
 # PolicyException LicensePool, LicensePoolDeliveryMechanism, DeliveryMechanism,
 # RightsStatus
 import datetime
+import pytz
 import logging
-from pdb import set_trace
 from .circulationevent import CirculationEvent
 from .complaint import Complaint
 from .constants import DataSourceConstants, EditionConstants, LinkRelations, MediaTypes
@@ -81,7 +81,7 @@ class License(Base):
 
     @property
     def is_expired(self):
-        now = datetime.datetime.now(tz=datetime.timezone.utc)
+        now = datetime.datetime.now(tz=pytz.UTC)
         return ((self.expires and self.expires <= now) or
                 (self.remaining_checkouts is not None and self.remaining_checkouts <= 0))
 
@@ -266,7 +266,7 @@ class LicensePool(Base):
             was_new = False
 
         if was_new and not license_pool.availability_time:
-            now = datetime.datetime.now(tz=datetime.timezone.utc)
+            now = datetime.datetime.now(tz=pytz.UTC)
             license_pool.availability_time = now
 
         if was_new:
@@ -524,7 +524,7 @@ class LicensePool(Base):
 
     def needs_update(self):
         """Is it time to update the circulation info for this license pool?"""
-        now = datetime.datetime.now(tz=datetime.timezone.utc)
+        now = datetime.datetime.now(tz=pytz.UTC)
         if not self.last_checked:
             # This pool has never had its circulation info checked.
             return True
@@ -546,7 +546,7 @@ class LicensePool(Base):
         changes_made = False
         _db = Session.object_session(self)
         if not as_of:
-            as_of = datetime.datetime.now(tz=datetime.timezone.utc)
+            as_of = datetime.datetime.now(tz=pytz.UTC)
         elif as_of == CirculationEvent.NO_DATE:
             # The caller explicitly does not want
             # LicensePool.last_checked to be updated.
@@ -804,7 +804,7 @@ class LicensePool(Base):
 
     def loan_to(self, patron_or_client, start=None, end=None, fulfillment=None, external_identifier=None):
         _db = Session.object_session(patron_or_client)
-        kwargs = dict(start=start or datetime.datetime.now(tz=datetime.timezone.utc),
+        kwargs = dict(start=start or datetime.datetime.now(tz=pytz.UTC),
                       end=end)
         if isinstance(patron_or_client, Patron):
             loan, is_new = get_one_or_create(
@@ -833,7 +833,7 @@ class LicensePool(Base):
         _db = Session.object_session(patron_or_client)
         if isinstance(patron_or_client, Patron) and not patron_or_client.library.allow_holds:
             raise PolicyException("Holds are disabled for this library.")
-        start = start or datetime.datetime.now(tz=datetime.timezone.utc)
+        start = start or datetime.datetime.now(tz=pytz.UTC)
         if isinstance(patron_or_client, Patron):
             hold, new = get_one_or_create(
                 _db, Hold, patron=patron_or_client, license_pool=self
@@ -871,7 +871,7 @@ class LicensePool(Base):
         offer that model.
         """
         best = None
-        now = datetime.datetime.now(tz=datetime.timezone.utc)
+        now = datetime.datetime.now(tz=pytz.UTC)
 
         for license in self.licenses:
             if license.is_expired:

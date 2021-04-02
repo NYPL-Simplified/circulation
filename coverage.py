@@ -1,5 +1,6 @@
 
 import datetime
+import pytz
 import logging
 import traceback
 
@@ -211,7 +212,7 @@ class BaseCoverageProvider(object):
         return self.OPERATION
 
     def run(self):
-        start = datetime.datetime.now(tz=datetime.timezone.utc)
+        start = datetime.datetime.now(tz=pytz.UTC)
         result = self.run_once_and_update_timestamp()
 
         result = result or CoverageProviderProgress()
@@ -226,7 +227,7 @@ class BaseCoverageProvider(object):
             BaseCoverageRecord.PREVIOUSLY_ATTEMPTED,
             BaseCoverageRecord.DEFAULT_COUNT_AS_COVERED
         ]
-        start_time = datetime.datetime.now(tz=datetime.timezone.utc)
+        start_time = datetime.datetime.now(tz=pytz.UTC)
         timestamp = self.timestamp
 
         # We'll use this TimestampData object to track our progress
@@ -262,7 +263,7 @@ class BaseCoverageProvider(object):
                         self.service_name, exc_info=e
                     )
                     progress.exception=traceback.format_exc()
-                    progress.finish=datetime.datetime.now(tz=datetime.timezone.utc)
+                    progress.finish=datetime.datetime.now(tz=pytz.UTC)
 
                 # The next run_once() call might raise an exception,
                 # so let's write the work to the database as it's
@@ -336,7 +337,7 @@ class BaseCoverageProvider(object):
 
         if not batch.count():
             # The batch is empty. We're done.
-            progress.finish = datetime.datetime.now(tz=datetime.timezone.utc)
+            progress.finish = datetime.datetime.now(tz=pytz.UTC)
             return progress
 
         (successes, transient_failures, persistent_failures), results = (

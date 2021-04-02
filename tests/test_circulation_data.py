@@ -2,6 +2,7 @@ import pytest
 
 from copy import deepcopy
 import datetime
+import pytz
 
 from ..metadata_layer import (
     CirculationData,
@@ -808,7 +809,7 @@ class TestMetaToModelUtility(DatabaseTest):
         information should actually be updated.
         """
         identifier = IdentifierData(Identifier.GUTENBERG_ID, "1")
-        now = datetime.datetime.now(tz=datetime.timezone.utc)
+        now = datetime.datetime.now(tz=pytz.UTC)
         yesterday = now - datetime.timedelta(days=1)
         recent_data = CirculationData(DataSource.GUTENBERG, identifier)
         # CirculationData.last_checked defaults to the current time.

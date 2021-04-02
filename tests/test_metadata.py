@@ -1,5 +1,6 @@
 import csv
 import datetime
+import pytz
 import os
 from copy import deepcopy
 
@@ -763,7 +764,7 @@ class TestMetadataImporter(DatabaseTest):
         coverage = CoverageRecord.lookup(edition, data_source)
         assert coverage == None
 
-        last_update = datetime.datetime(2015, 1, 1, tzinfo=datetime.timezone.utc)
+        last_update = datetime.datetime(2015, 1, 1, tzinfo=pytz.UTC)
 
         m = Metadata(data_source=data_source,
                      title="New title", data_source_last_updated=last_update)
@@ -773,7 +774,7 @@ class TestMetadataImporter(DatabaseTest):
         assert last_update == coverage.timestamp
         assert "New title" == edition.title
 
-        older_last_update = datetime.datetime(2014, 1, 1, tzinfo=datetime.timezone.utc)
+        older_last_update = datetime.datetime(2014, 1, 1, tzinfo=pytz.UTC)
         m = Metadata(data_source=data_source,
                      title="Another new title",
                      data_source_last_updated=older_last_update
@@ -1512,10 +1513,10 @@ class TestMetadata(DatabaseTest):
             series_position=1,
             publisher="Hello World Publishing House",
             imprint="Follywood",
-            issued=datetime.datetime.now(tz=datetime.timezone.utc),
-            published=datetime.datetime.now(tz=datetime.timezone.utc),
+            issued=datetime.datetime.now(tz=pytz.UTC),
+            published=datetime.datetime.now(tz=pytz.UTC),
             identifiers=[primary_as_data, other_data],
-            data_source_last_updated=datetime.datetime.now(tz=datetime.timezone.utc),
+            data_source_last_updated=datetime.datetime.now(tz=pytz.UTC),
         )
 
         m_copy = deepcopy(m)
@@ -1686,7 +1687,7 @@ class TestTimestampData(DatabaseTest):
 
         # The timestamp values are set to sensible defaults.
         assert d.start == d.finish
-        assert (datetime.datetime.now(tz=datetime.timezone.utc) - d.start).total_seconds() < 2
+        assert (datetime.datetime.now(tz=pytz.UTC) - d.start).total_seconds() < 2
 
         # Other fields are still at None.
         for i in d.achievements, d.counter, d.exception:
@@ -1743,7 +1744,7 @@ class TestTimestampData(DatabaseTest):
         collection = self._default_collection
         d.finalize("service", Timestamp.SCRIPT_TYPE, collection)
         d.apply(self._db)
-        now = datetime.datetime.now(tz=datetime.timezone.utc)
+        now = datetime.datetime.now(tz=pytz.UTC)
 
         timestamp = Timestamp.lookup(
             self._db, "service", Timestamp.SCRIPT_TYPE, collection
@@ -1831,7 +1832,7 @@ class TestMARCExtractor(DatabaseTest):
 
     def test_parse_year(self):
         m = MARCExtractor.parse_year
-        nineteen_hundred = datetime.datetime.strptime("1900", "%Y").replace(tzinfo=datetime.timezone.utc)
+        nineteen_hundred = datetime.datetime.strptime("1900", "%Y").replace(tzinfo=pytz.UTC)
         assert nineteen_hundred == m("1900")
         assert nineteen_hundred == m("1900.")
         assert None == m("not a year")

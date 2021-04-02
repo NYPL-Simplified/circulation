@@ -1,5 +1,5 @@
 import datetime
-
+import pytz
 import pytest
 
 from ..testing import DatabaseTest
@@ -104,7 +104,7 @@ class TestMonitor(DatabaseTest):
 
         # Setting the value to None means "use the current time".
         monitor.default_start_time = None
-        self.time_eq(datetime.datetime.now(tz=datetime.timezone.utc), monitor.initial_start_time)
+        self.time_eq(datetime.datetime.now(tz=pytz.UTC), monitor.initial_start_time)
 
         # Any other value is returned as-is.
         default = object()
@@ -113,7 +113,7 @@ class TestMonitor(DatabaseTest):
 
     def test_monitor_lifecycle(self):
         monitor = MockMonitor(self._db, self._default_collection)
-        monitor.default_start_time = datetime.datetime(2010, 1, 1, tzinfo=datetime.timezone.utc)
+        monitor.default_start_time = datetime.datetime(2010, 1, 1, tzinfo=pytz.UTC)
 
         # There is no timestamp for this monitor.
         def get_timestamp():
@@ -137,7 +137,7 @@ class TestMonitor(DatabaseTest):
         timestamp = get_timestamp()
         assert timestamp.start > monitor.default_start_time
         assert timestamp.finish > timestamp.start
-        self.time_eq(datetime.datetime.now(tz=datetime.timezone.utc), timestamp.start)
+        self.time_eq(datetime.datetime.now(tz=pytz.UTC), timestamp.start)
 
         # cleanup() was called once.
         assert [True] == monitor.cleanup_records
@@ -158,7 +158,7 @@ class TestMonitor(DatabaseTest):
         # The Timestamp object is created, and its .timestamp is long ago.
         m = RunLongAgoMonitor(self._db, self._default_collection)
         timestamp = m.timestamp()
-        now = datetime.datetime.now(tz=datetime.timezone.utc)
+        now = datetime.datetime.now(tz=pytz.UTC)
         assert timestamp.start < now
 
         # Timestamp.finish is set to None, on the assumption that the
@@ -170,8 +170,8 @@ class TestMonitor(DatabaseTest):
         # that's the data used to set the Monitor's Timestamp, even if
         # the data doesn't make sense by the standards used by the main
         # Monitor class.
-        start = datetime.datetime(2011, 1, 1, tzinfo=datetime.timezone.utc)
-        finish = datetime.datetime(2012, 1, 1, tzinfo=datetime.timezone.utc)
+        start = datetime.datetime(2011, 1, 1, tzinfo=pytz.UTC)
+        finish = datetime.datetime(2012, 1, 1, tzinfo=pytz.UTC)
 
         class Mock(MockMonitor):
             def run_once(self, progress):
@@ -323,7 +323,7 @@ class TestCollectionMonitor(DatabaseTest):
         )
 
         # o3 had its Monitor run an hour ago.
-        now = datetime.datetime.now(tz=datetime.timezone.utc)
+        now = datetime.datetime.now(tz=pytz.UTC)
         an_hour_ago = now - datetime.timedelta(seconds=3600)
         Timestamp.stamp(
             self._db, OPDSCollectionMonitor.SERVICE_NAME,
@@ -377,7 +377,7 @@ class TestTimelineMonitor(DatabaseTest):
         m = Mock(self._db)
         progress = m.timestamp().to_data()
         m.run_once(progress)
-        now = datetime.datetime.now(tz=datetime.timezone.utc)
+        now = datetime.datetime.now(tz=pytz.UTC)
 
         # catch_up_from() was called once.
         (start, cutoff, progress) = m.catchups.pop()
@@ -407,7 +407,7 @@ class TestTimelineMonitor(DatabaseTest):
         m = Mock(self._db)
         progress = m.timestamp().to_data()
         m.run_once(progress)
-        now = datetime.datetime.now(tz=datetime.timezone.utc)
+        now = datetime.datetime.now(tz=pytz.UTC)
 
         # The timestamp values have been set to appropriate values for
         # the portion of the timeline covered, overriding our values.
@@ -423,7 +423,7 @@ class TestTimelineMonitor(DatabaseTest):
         passed into it, the dates aren't modified.
         """
         class Mock(TimelineMonitor):
-            DEFAULT_START_TIME = datetime.datetime(2011, 1, 1, tzinfo=datetime.timezone.utc)
+            DEFAULT_START_TIME = datetime.datetime(2011, 1, 1, tzinfo=pytz.UTC)
             SERVICE_NAME = "doomed"
             def catch_up_from(self, start, cutoff, progress):
                 self.started_at = start
@@ -447,7 +447,7 @@ class TestTimelineMonitor(DatabaseTest):
         # 121 minutes ago -> 61 minutes ago
         # 61 minutes ago -> 1 minute ago
         # 1 minute ago -> now
-        now = datetime.datetime.now(tz=datetime.timezone.utc)
+        now = datetime.datetime.now(tz=pytz.UTC)
         one_hour = datetime.timedelta(minutes=60)
         ago_1 = now - datetime.timedelta(minutes=1)
         ago_61 = ago_1 - one_hour
@@ -597,7 +597,7 @@ class TestSweepMonitor(DatabaseTest):
         # Even though the run didn't complete, the dates and
         # achievements of the timestamp were updated to reflect the
         # work that _was_ done.
-        now = datetime.datetime.now(tz=datetime.timezone.utc)
+        now = datetime.datetime.now(tz=pytz.UTC)
         assert timestamp.start > original_start
         self.time_eq(now, timestamp.start)
         self.time_eq(now, timestamp.finish)
@@ -935,14 +935,14 @@ class TestReaperMonitor(DatabaseTest):
         # A number here means a number of days.
         for value in [1, 1.5, -1]:
             m.MAX_AGE = value
-            expect = datetime.datetime.now(tz=datetime.timezone.utc) - datetime.timedelta(
+            expect = datetime.datetime.now(tz=pytz.UTC) - datetime.timedelta(
                 days=value
             )
             self.time_eq(m.cutoff, expect)
 
         # But you can pass in a timedelta instead.
         m.MAX_AGE = datetime.timedelta(seconds=99)
-        self.time_eq(m.cutoff, datetime.datetime.now(tz=datetime.timezone.utc) - m.MAX_AGE)
+        self.time_eq(m.cutoff, datetime.datetime.now(tz=pytz.UTC) - m.MAX_AGE)
 
     def test_specific_reapers(self):
         assert CachedFeed.timestamp == CachedFeedReaper(self._db).timestamp_field
@@ -960,7 +960,7 @@ class TestReaperMonitor(DatabaseTest):
         # Create four Credentials: two expired, two valid.
         expired1 = self._credential()
         expired2 = self._credential()
-        now = datetime.datetime.now(tz=datetime.timezone.utc)
+        now = datetime.datetime.now(tz=pytz.UTC)
         expiration_date = now - datetime.timedelta(
             days=CredentialReaper.MAX_AGE + 1
         )
@@ -993,7 +993,7 @@ class TestReaperMonitor(DatabaseTest):
         m = PatronRecordReaper(self._db)
         expired = self._patron()
         credential = self._credential(patron=expired)
-        now = datetime.datetime.now(tz=datetime.timezone.utc)
+        now = datetime.datetime.now(tz=pytz.UTC)
         expired.authorization_expires = now - datetime.timedelta(
             days=PatronRecordReaper.MAX_AGE + 1
         )
@@ -1218,7 +1218,7 @@ class TestScrubberMonitor(DatabaseTest):
 
         # CirculationEvents are only scrubbed if they have a location
         # *and* are older than MAX_AGE.
-        now = datetime.datetime.now(tz=datetime.timezone.utc)
+        now = datetime.datetime.now(tz=pytz.UTC)
         not_long_ago = (
             m.cutoff + datetime.timedelta(days=1)
         )

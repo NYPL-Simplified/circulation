@@ -1,5 +1,5 @@
 import datetime
-
+import pytz
 import pytest
 from parameterized import parameterized
 
@@ -180,7 +180,7 @@ class TestMirrorUploader(DatabaseTest):
 
     def test_success_and_then_failure(self):
         r, ignore = self._representation()
-        now = datetime.datetime.now(tz=datetime.timezone.utc)
+        now = datetime.datetime.now(tz=pytz.UTC)
         DummySuccessUploader().mirror_one(r, '')
         assert r.mirrored_at > now
         assert None == r.mirror_exception

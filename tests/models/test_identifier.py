@@ -1,7 +1,7 @@
 # encoding: utf-8
 import pytest
 import datetime
-from pdb import set_trace
+import pytz
 import feedparser
 from lxml import etree
 from mock import PropertyMock, create_autospec
@@ -622,7 +622,7 @@ class TestIdentifier(DatabaseTest):
 
         # This may be the time the cover image was mirrored.
         cover.resource.representation.set_as_mirrored(self._url)
-        now = datetime.datetime.now(tz=datetime.timezone.utc)
+        now = datetime.datetime.now(tz=pytz.UTC)
         cover.resource.representation.mirrored_at = now
         entry = get_entry_dict(identifier.opds_entry())
         assert format_timestamp(now) == entry.updated

@@ -1,11 +1,11 @@
 import datetime
+import pytz
 import os
 import random
 import shutil
 import stat
 import tempfile
 from io import StringIO
-from pdb import set_trace
 import pytest
 from parameterized import parameterized
 
@@ -108,7 +108,7 @@ from ..util.worker_pools import (
 class TestScript(DatabaseTest):
 
     def test_parse_time(self):
-        reference_date = datetime.datetime(2016, 1, 1, tzinfo=datetime.timezone.utc)
+        reference_date = datetime.datetime(2016, 1, 1, tzinfo=pytz.UTC)
 
         assert Script.parse_time("2016-01-01") == reference_date
 
@@ -161,7 +161,7 @@ class TestTimestampScript(DatabaseTest):
 
         # The start and end points of do_run() have become
         # Timestamp.start and Timestamp.finish.
-        now = datetime.datetime.now(tz=datetime.timezone.utc)
+        now = datetime.datetime.now(tz=pytz.UTC)
         assert (now - timestamp.start).total_seconds() < 5
         assert (now - timestamp.finish).total_seconds() < 5
         assert timestamp.start < timestamp.finish
@@ -200,7 +200,7 @@ class TestTimestampScript(DatabaseTest):
         assert "i'm broken" in str(excinfo.value)
         timestamp = self._ts(script)
 
-        now = datetime.datetime.now(tz=datetime.timezone.utc)
+        now = datetime.datetime.now(tz=pytz.UTC)
         assert (now - timestamp.finish).total_seconds() < 5
 
         # A stack trace for the exception has been recorded in the
@@ -701,7 +701,7 @@ class TestRunCoverageProviderScript(DatabaseTest):
         parsed = RunCoverageProviderScript.parse_command_line(
             self._db, cmd_args, MockStdin()
         )
-        assert datetime.datetime(2016, 5, 1, tzinfo=datetime.timezone.utc) == parsed.cutoff_time
+        assert datetime.datetime(2016, 5, 1, tzinfo=pytz.UTC) == parsed.cutoff_time
         assert [identifier] == parsed.identifiers
         assert identifier.type == parsed.identifier_type
 
@@ -850,7 +850,7 @@ class TestTimestampInfo(DatabaseTest):
         assert None == self.TimestampInfo.find(script, 'test')
 
         # If the Timestamp is stamped, it is returned.
-        timestamp.finish = datetime.datetime.now(tz=datetime.timezone.utc)
+        timestamp.finish = datetime.datetime.now(tz=pytz.UTC)
         timestamp.counter = 1
         self._db.flush()
 
@@ -860,7 +860,7 @@ class TestTimestampInfo(DatabaseTest):
 
     def test_update(self):
         # Create a Timestamp to be updated.
-        past = datetime.datetime.strptime('19980101', '%Y%m%d').replace(tzinfo=datetime.timezone.utc)
+        past = datetime.datetime.strptime('19980101', '%Y%m%d').replace(tzinfo=pytz.UTC)
         stamp = Timestamp.stamp(
             self._db, 'test', Timestamp.SCRIPT_TYPE, None, start=past,
             finish=past
@@ -868,7 +868,7 @@ class TestTimestampInfo(DatabaseTest):
         script = DatabaseMigrationScript(self._db)
         timestamp_info = self.TimestampInfo.find(script, 'test')
 
-        now = datetime.datetime.now(tz=datetime.timezone.utc)
+        now = datetime.datetime.now(tz=pytz.UTC)
         timestamp_info.update(self._db, now, 2)
 
         # When we refresh the Timestamp object, it's been updated.
@@ -882,7 +882,7 @@ class TestTimestampInfo(DatabaseTest):
         timestamp_qu = self._db.query(Timestamp).filter(Timestamp.service=='test')
         assert False == timestamp_qu.exists()
 
-        now = datetime.datetime.now(tz=datetime.timezone.utc)
+        now = datetime.datetime.now(tz=pytz.UTC)
         timestamp_info = self.TimestampInfo('test', now, 47)
         timestamp_info.save(self._db)
 
@@ -992,7 +992,7 @@ class TestDatabaseMigrationScript(DatabaseMigrationScriptTest):
 
     @pytest.fixture()
     def timestamp(self, script):
-        stamp = datetime.datetime.strptime('20260810', '%Y%m%d').replace(tzinfo=datetime.timezone.utc)
+        stamp = datetime.datetime.strptime('20260810', '%Y%m%d').replace(tzinfo=pytz.UTC)
         timestamp = Timestamp(
             service=script.name, start=stamp, finish=stamp
         )
@@ -1255,7 +1255,7 @@ class TestDatabaseMigrationScript(DatabaseMigrationScriptTest):
 
     def test_running_a_migration_updates_the_timestamps(self, timestamp, migration_file, migration_dirs, script):
         timestamp, python_timestamp, timestamp_info = timestamp
-        future_time = datetime.datetime.strptime('20261030', '%Y%m%d').replace(tzinfo=datetime.timezone.utc)
+        future_time = datetime.datetime.strptime('20261030', '%Y%m%d').replace(tzinfo=pytz.UTC)
         timestamp_info.finish = future_time
         [core_dir, server_dir] = migration_dirs
 
@@ -1428,12 +1428,12 @@ class TestDatabaseMigrationInitializationScript(DatabaseMigrationScriptTest):
     def test_accepts_last_run_date(self, script):
         # A timestamp can be passed via the command line.
         script.run(['--last-run-date', '20101010'])
-        expected_stamp = datetime.datetime.strptime('20101010', '%Y%m%d').replace(tzinfo=datetime.timezone.utc)
+        expected_stamp = datetime.datetime.strptime('20101010', '%Y%m%d').replace(tzinfo=pytz.UTC)
         assert expected_stamp == script.overall_timestamp.finish
 
         # It will override an existing timestamp if forced.
         script.run(['--last-run-date', '20111111', '--force'])
-        expected_stamp = datetime.datetime.strptime('20111111', '%Y%m%d').replace(tzinfo=datetime.timezone.utc)
+        expected_stamp = datetime.datetime.strptime('20111111', '%Y%m%d').replace(tzinfo=pytz.UTC)
         assert expected_stamp == script.overall_timestamp.finish
         assert expected_stamp == script.python_timestamp.finish
 
@@ -1443,14 +1443,14 @@ class TestDatabaseMigrationInitializationScript(DatabaseMigrationScriptTest):
 
         # With a date, the counter can be set.
         script.run(['--last-run-date', '20101010', '--last-run-counter', '7'])
-        expected_stamp = datetime.datetime.strptime('20101010', '%Y%m%d').replace(tzinfo=datetime.timezone.utc)
+        expected_stamp = datetime.datetime.strptime('20101010', '%Y%m%d').replace(tzinfo=pytz.UTC)
         assert expected_stamp == script.overall_timestamp.finish
         assert 7 == script.overall_timestamp.counter
 
         # When forced, the counter can be reset on an existing timestamp.
         previous_timestamp = script.overall_timestamp.finish
         script.run(['--last-run-date', '20121212', '--last-run-counter', '2', '-f'])
-        expected_stamp = datetime.datetime.strptime('20121212', '%Y%m%d').replace(tzinfo=datetime.timezone.utc)
+        expected_stamp = datetime.datetime.strptime('20121212', '%Y%m%d').replace(tzinfo=pytz.UTC)
         assert expected_stamp == script.overall_timestamp.finish
         assert expected_stamp == script.python_timestamp.finish
         assert 2 == script.overall_timestamp.counter

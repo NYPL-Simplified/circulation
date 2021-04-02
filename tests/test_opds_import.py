@@ -1,5 +1,6 @@
 import os
 import datetime
+import pytz
 import random
 from urllib.parse import quote
 from io import StringIO
@@ -294,7 +295,7 @@ class TestMetadataWranglerOPDSLookup(OPDSTest):
         assert 'Metadata updates in last 24 hours' == title1
         assert with_collection.updates == method1
         [timestamp] = args1
-        one_day_ago = datetime.datetime.now(tz=datetime.timezone.utc) - datetime.timedelta(hours=24)
+        one_day_ago = datetime.datetime.now(tz=pytz.UTC) - datetime.timedelta(hours=24)
         assert (one_day_ago - timestamp).total_seconds() < 1
 
         # The second self-test wants to count work that the metadata
@@ -481,10 +482,10 @@ class TestOPDSImporter(OPDSImporterTest):
         identifier2, updated2 = last_update_dates[1]
 
         assert "urn:librarysimplified.org/terms/id/Gutenberg%20ID/10441" == identifier1
-        assert datetime.datetime(2015, 1, 2, 16, 56, 40, tzinfo=datetime.timezone.utc) == updated1
+        assert datetime.datetime(2015, 1, 2, 16, 56, 40, tzinfo=pytz.UTC) == updated1
 
         assert "urn:librarysimplified.org/terms/id/Gutenberg%20ID/10557" == identifier2
-        assert datetime.datetime(2015, 1, 2, 16, 56, 40, tzinfo=datetime.timezone.utc) == updated2
+        assert datetime.datetime(2015, 1, 2, 16, 56, 40, tzinfo=pytz.UTC) == updated2
 
     def test_extract_last_update_dates_ignores_entries_with_no_update(self):
         importer = OPDSImporter(
@@ -734,7 +735,7 @@ class TestOPDSImporter(OPDSImporterTest):
 
         assert [] == book['measurements']
 
-        assert datetime.datetime(1862, 6, 1, tzinfo=datetime.timezone.utc) == book["published"]
+        assert datetime.datetime(1862, 6, 1, tzinfo=pytz.UTC) == book["published"]
 
         [link] = book['links']
         assert Hyperlink.OPEN_ACCESS_DOWNLOAD == link.rel
@@ -772,7 +773,7 @@ class TestOPDSImporter(OPDSImporterTest):
         assert 'Animal Colors' == periodical['series']
         assert '1' == periodical['series_position']
 
-        assert datetime.datetime(1910, 1, 1, tzinfo=datetime.timezone.utc) == periodical["published"]
+        assert datetime.datetime(1910, 1, 1, tzinfo=pytz.UTC) == periodical["published"]
 
     def test_extract_metadata_from_elementtree_treats_message_as_failure(self):
         data_source = DataSource.lookup(self._db, DataSource.OA_CONTENT_SERVER)
@@ -2175,7 +2176,7 @@ class TestMirroring(OPDSImporterTest):
         # If we fetch the feed again, and the entries have been updated since the
         # cutoff, but the content of the open access links hasn't changed, we won't mirror
         # them again.
-        cutoff = datetime.datetime(2013, 1, 2, 16, 56, 40, tzinfo=datetime.timezone.utc)
+        cutoff = datetime.datetime(2013, 1, 2, 16, 56, 40, tzinfo=pytz.UTC)
 
         http.queue_response(
             epub10441['url'],
@@ -2382,12 +2383,12 @@ class TestOPDSImportMonitor(OPDSImporterTest):
         record, ignore = CoverageRecord.add_for(
             editions[0], data_source, CoverageRecord.IMPORT_OPERATION
         )
-        record.timestamp = datetime.datetime(2016, 1, 1, 1, 1, 1, tzinfo=datetime.timezone.utc)
+        record.timestamp = datetime.datetime(2016, 1, 1, 1, 1, 1, tzinfo=pytz.UTC)
 
         record2, ignore = CoverageRecord.add_for(
             editions[1], data_source, CoverageRecord.IMPORT_OPERATION
         )
-        record2.timestamp = datetime.datetime(2016, 1, 1, 1, 1, 1, tzinfo=datetime.timezone.utc)
+        record2.timestamp = datetime.datetime(2016, 1, 1, 1, 1, 1, tzinfo=pytz.UTC)
 
         assert False == monitor.feed_contains_new_data(feed)
 
@@ -2399,13 +2400,13 @@ class TestOPDSImportMonitor(OPDSImporterTest):
 
         # If an entry was updated after the date given in that entry's
         # CoverageRecord, there's new data.
-        record2.timestamp = datetime.datetime(1970, 1, 1, 1, 1, 1, tzinfo=datetime.timezone.utc)
+        record2.timestamp = datetime.datetime(1970, 1, 1, 1, 1, 1, tzinfo=pytz.UTC)
         assert True == monitor.feed_contains_new_data(feed)
 
         # If a CoverageRecord is a transient failure, we try again
         # regardless of whether it's been updated.
         for r in [record, record2]:
-            r.timestamp = datetime.datetime(2016, 1, 1, 1, 1, 1, tzinfo=datetime.timezone.utc)
+            r.timestamp = datetime.datetime(2016, 1, 1, 1, 1, 1, tzinfo=pytz.UTC)
             r.exception = "Failure!"
             r.status = CoverageRecord.TRANSIENT_FAILURE
         assert True == monitor.feed_contains_new_data(feed)
@@ -2416,7 +2417,7 @@ class TestOPDSImportMonitor(OPDSImporterTest):
         assert False == monitor.feed_contains_new_data(feed)
 
         # ...unless the feed updates.
-        record.timestamp = datetime.datetime(1970, 1, 1, 1, 1, 1, tzinfo=datetime.timezone.utc)
+        record.timestamp = datetime.datetime(1970, 1, 1, 1, 1, 1, tzinfo=pytz.UTC)
         assert True == monitor.feed_contains_new_data(feed)
 
     def http_with_feed(self, feed, content_type=OPDSFeed.ACQUISITION_FEED_TYPE):
@@ -2454,7 +2455,7 @@ class TestOPDSImportMonitor(OPDSImporterTest):
             record, ignore = CoverageRecord.add_for(
                 edition, data_source, CoverageRecord.IMPORT_OPERATION
             )
-            record.timestamp = datetime.datetime(2016, 1, 1, 1, 1, 1, tzinfo=datetime.timezone.utc)
+            record.timestamp = datetime.datetime(2016, 1, 1, 1, 1, 1, tzinfo=pytz.UTC)
 
 
         # If there's no new data, follow_one_link returns no next

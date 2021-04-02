@@ -1,4 +1,5 @@
 import datetime
+import pytz
 import json
 import logging
 
@@ -3129,7 +3130,7 @@ class TestDatabaseBackedWorkList(DatabaseTest):
 
         # It's possible to restrict a WorkList to works that were seen on
         # a certain list recently.
-        now = datetime.datetime.now(tz=datetime.timezone.utc)
+        now = datetime.datetime.now(tz=pytz.UTC)
         two_days_ago = now - datetime.timedelta(days=2)
         gutenberg_list_entry.most_recent_appearance = two_days_ago
 

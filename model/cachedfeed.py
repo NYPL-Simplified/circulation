@@ -11,6 +11,7 @@ from . import (
 
 from collections import namedtuple
 import datetime
+import pytz
 import logging
 from sqlalchemy import (
     Column,
@@ -157,7 +158,7 @@ class CachedFeed(Base):
             # This is a cache miss. Either feed_obj is None or
             # it's no good. We need to generate a new feed.
             feed_data = str(refresher_method())
-            generation_time = datetime.datetime.now(tz=datetime.timezone.utc)
+            generation_time = datetime.datetime.now(tz=pytz.UTC)
 
             if max_age is not cls.IGNORE_CACHE:
                 # Having gone through all the trouble of generating
@@ -277,7 +278,7 @@ class CachedFeed(Base):
             should_refresh = False
         elif (feed_obj.timestamp
               and feed_obj.timestamp + datetime.timedelta(seconds=max_age) <=
-                  datetime.datetime.now(tz=datetime.timezone.utc)
+                  datetime.datetime.now(tz=pytz.UTC)
         ):
             # Here it comes down to a date comparison: how old is the
             # CachedFeed?
@@ -350,7 +351,7 @@ class CachedFeed(Base):
 
     def update(self, _db, content):
         self.content = content
-        self.timestamp = datetime.datetime.now(tz=datetime.timezone.utc)
+        self.timestamp = datetime.datetime.now(tz=pytz.UTC)
         flush(_db)
 
     def __repr__(self):

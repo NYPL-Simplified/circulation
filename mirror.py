@@ -1,4 +1,5 @@
 import datetime
+import pytz
 from abc import abstractmethod, ABCMeta
 from urllib.parse import urlsplit
 
@@ -120,7 +121,7 @@ class MirrorUploader(metaclass=ABCMeta):
         :param collection: Collection
         :type collection: Optional[Collection]
         """
-        now = datetime.datetime.now(tz=datetime.timezone.utc)
+        now = datetime.datetime.now(tz=pytz.UTC)
         exception = self.do_upload(representation)
         representation.mirror_exception = exception
         if exception:

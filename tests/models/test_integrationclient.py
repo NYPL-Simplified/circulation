@@ -1,6 +1,6 @@
 # encoding: utf-8
 import datetime
-
+import pytz
 import pytest
 
 from ...testing import DatabaseTest
@@ -13,7 +13,7 @@ class TestIntegrationClient(DatabaseTest):
         self.client = self._integration_client()
 
     def test_for_url(self):
-        now = datetime.datetime.now(tz=datetime.timezone.utc)
+        now = datetime.datetime.now(tz=pytz.UTC)
         url = self._url
         client, is_new = IntegrationClient.for_url(self._db, url)
 
@@ -37,7 +37,7 @@ class TestIntegrationClient(DatabaseTest):
         assert client == client2
 
     def test_register(self):
-        now = datetime.datetime.now(tz=datetime.timezone.utc)
+        now = datetime.datetime.now(tz=pytz.UTC)
         client, is_new = IntegrationClient.register(self._db, self._url)
 
         # It creates a shared_secret.

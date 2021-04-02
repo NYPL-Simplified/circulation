@@ -8,6 +8,7 @@ from . import (
 )
 from .credential import Credential
 import datetime
+import pytz
 import logging
 from sqlalchemy import (
     Boolean,
@@ -245,7 +246,7 @@ class Patron(Base):
 
         # We have an answer, but it may be so old that we should clear
         # it out.
-        now = datetime.datetime.now(tz=datetime.timezone.utc)
+        now = datetime.datetime.now(tz=pytz.UTC)
         expires = value + datetime.timedelta(
             seconds=self.loan_activity_max_age
         )
@@ -524,7 +525,7 @@ class Loan(Base, LoanAndHoldMixin):
         if default_loan_period is None:
             # This loan will last forever.
             return None
-        start = self.start or datetime.datetime.now(tz=datetime.timezone.utc)
+        start = self.start or datetime.datetime.now(tz=pytz.UTC)
         return start + default_loan_period
 
 class Hold(Base, LoanAndHoldMixin):
@@ -601,7 +602,7 @@ class Hold(Base, LoanAndHoldMixin):
         this--the library's license might expire and then you'll
         _never_ get the book.)
         """
-        if self.end and self.end > datetime.datetime.now(tz=datetime.timezone.utc):
+        if self.end and self.end > datetime.datetime.now(tz=pytz.UTC):
             # The license source provided their own estimate, and it's
             # not obviously wrong, so use it.
             return self.end
@@ -612,7 +613,7 @@ class Hold(Base, LoanAndHoldMixin):
             # book.
             return None
 
-        start = datetime.datetime.now(tz=datetime.timezone.utc)
+        start = datetime.datetime.now(tz=pytz.UTC)
         licenses_available = self.license_pool.licenses_owned
         position = self.position
         if position is None:
@@ -683,7 +684,7 @@ class Annotation(Base):
     def set_inactive(self):
         self.active = False
         self.content = None
-        self.timestamp = datetime.datetime.now(tz=datetime.timezone.utc)
+        self.timestamp = datetime.datetime.now(tz=pytz.UTC)
 
 class PatronProfileStorage(ProfileStorage):
     """Interface between a Patron object and the User Profile Management

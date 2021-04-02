@@ -1,6 +1,7 @@
 # encoding: utf-8
 # Identifier, Equivalency
 import datetime
+import pytz
 import logging
 import random
 from urllib.parse import quote, unquote
@@ -588,7 +589,7 @@ class Identifier(Base, IdentifierConstants):
             data_source.name, self.type, self.identifier,
             quantity_measured, value, weight)
 
-        now = datetime.datetime.now(tz=datetime.timezone.utc)
+        now = datetime.datetime.now(tz=pytz.UTC)
         taken_at = taken_at or now
         # Is there an existing most recent measurement?
         most_recent = get_one(

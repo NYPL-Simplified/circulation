@@ -1,5 +1,6 @@
 
 import datetime
+import pytz
 from io import BytesIO
 from flask_babel import lazy_gettext as _
 import re
@@ -652,7 +653,7 @@ class MARCExporter(object):
         # End time is before we start the query, because if any records are changed
         # during the processing we may not catch them, and they should be handled
         # again on the next run.
-        end_time = datetime.datetime.now(tz=datetime.timezone.utc)
+        end_time = datetime.datetime.now(tz=pytz.UTC)
 
         facets = MARCExporterFacets(start_time=start_time)
         pagination = SortKeyPagination(size=query_batch_size)

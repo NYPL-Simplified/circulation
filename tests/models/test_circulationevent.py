@@ -1,6 +1,7 @@
 # encoding: utf-8
 import pytest
 import datetime
+import pytz
 from sqlalchemy.exc import IntegrityError
 from ...testing import DatabaseTest
 from ...model import (
@@ -18,7 +19,7 @@ class TestCirculationEvent(DatabaseTest):
         for k, default in (
                 ("source", DataSource.OVERDRIVE),
                 ("id_type", Identifier.OVERDRIVE_ID),
-                ("start", datetime.datetime.now(tz=datetime.timezone.utc)),
+                ("start", datetime.datetime.now(tz=pytz.UTC)),
                 ("type", CirculationEvent.DISTRIBUTOR_LICENSE_ADD),
         ):
             kwargs.setdefault(k, default)
@@ -33,7 +34,7 @@ class TestCirculationEvent(DatabaseTest):
         elif isinstance(date, datetime.date):
             return date
         else:
-            return datetime.datetime.strptime(date, CirculationEvent.TIME_FORMAT).replace(tzinfo=datetime.timezone.utc)
+            return datetime.datetime.strptime(date, CirculationEvent.TIME_FORMAT).replace(tzinfo=pytz.UTC)
 
     def _get_int(self, data, key):
         value = data.get(key, None)
@@ -115,8 +116,8 @@ class TestCirculationEvent(DatabaseTest):
         event_name = CirculationEvent.DISTRIBUTOR_CHECKOUT
         old_value = 10
         new_value = 8
-        start = datetime.datetime(2019, 1, 1, tzinfo=datetime.timezone.utc)
-        end = datetime.datetime(2019, 1, 2, tzinfo=datetime.timezone.utc)
+        start = datetime.datetime(2019, 1, 1, tzinfo=pytz.UTC)
+        end = datetime.datetime(2019, 1, 2, tzinfo=pytz.UTC)
         location = "Westgate Branch"
 
         m = CirculationEvent.log
@@ -142,7 +143,7 @@ class TestCirculationEvent(DatabaseTest):
 
             # These values will be ignored.
             old_value=500, new_value=200,
-            end=datetime.datetime.now(tz=datetime.timezone.utc),
+            end=datetime.datetime.now(tz=pytz.UTC),
             location="another location"
         )
         assert False == is_new
@@ -161,7 +162,7 @@ class TestCirculationEvent(DatabaseTest):
             library=library, old_value=old_value, new_value=new_value,
             end=end, location=location
         )
-        assert (datetime.datetime.now(tz=datetime.timezone.utc) - event.start).total_seconds() < 2
+        assert (datetime.datetime.now(tz=pytz.UTC) - event.start).total_seconds() < 2
         assert True == is_new
         assert pool == event.license_pool
         assert library == event.library
@@ -173,14 +174,14 @@ class TestCirculationEvent(DatabaseTest):
         # If library is null, then license_pool + type + start must be
         # unique.
         pool = self._licensepool(edition=None)
-        now = datetime.datetime.now(tz=datetime.timezone.utc)
+        now = datetime.datetime.now(tz=pytz.UTC)
         kwargs = dict(
             license_pool=pool, type=CirculationEvent.DISTRIBUTOR_TITLE_ADD,
         )
         event = create(self._db, CirculationEvent, start=now, **kwargs)
 
         # Different timestamp -- no problem.
-        now2 = datetime.datetime.now(tz=datetime.timezone.utc)
+        now2 = datetime.datetime.now(tz=pytz.UTC)
         event2 = create(self._db, CirculationEvent, start=now2, **kwargs)
         assert event != event2
 
@@ -196,7 +197,7 @@ class TestCirculationEvent(DatabaseTest):
         # If library is provided, then license_pool + library + type +
         # start must be unique.
         pool = self._licensepool(edition=None)
-        now = datetime.datetime.now(tz=datetime.timezone.utc)
+        now = datetime.datetime.now(tz=pytz.UTC)
         kwargs = dict(
             license_pool=pool,
             library=self._default_library,
@@ -205,7 +206,7 @@ class TestCirculationEvent(DatabaseTest):
         event = create(self._db, CirculationEvent, start=now, **kwargs)
 
         # Different timestamp -- no problem.
-        now2 = datetime.datetime.now(tz=datetime.timezone.utc)
+        now2 = datetime.datetime.now(tz=pytz.UTC)
         event2 = create(self._db, CirculationEvent, start=now2, **kwargs)
         assert event != event2
 

@@ -6,7 +6,7 @@ configured, not that the code is correct.
 """
 
 import datetime
-
+import pytz
 from ..testing import DatabaseTest
 
 from ..selftest import (
@@ -18,7 +18,7 @@ from ..util.http import IntegrationException
 
 class TestSelfTestResult(DatabaseTest):
 
-    now = datetime.datetime.now(tz=datetime.timezone.utc)
+    now = datetime.datetime.now(tz=pytz.UTC)
     future = now + datetime.timedelta(seconds=5)
 
     def test_success_representation(self):
@@ -246,7 +246,7 @@ class TestHasSelfTests(DatabaseTest):
 
         # You can pass in an Exception...
         exception = Exception("argh")
-        now = datetime.datetime.now(tz=datetime.timezone.utc)
+        now = datetime.datetime.now(tz=pytz.UTC)
         result = o.test_failure("a failure", exception)
 
         # ...which will be turned into an IntegrationException.

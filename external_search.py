@@ -1,6 +1,7 @@
 from collections import defaultdict
 import contextlib
 import datetime
+import pytz
 
 import json
 from elasticsearch import Elasticsearch
@@ -2551,7 +2552,7 @@ class Filter(SearchBase):
             updated_after = self.updated_after
             if isinstance(updated_after, datetime.datetime):
                 updated_after = (
-                    updated_after - datetime.datetime.fromtimestamp(0, tz=datetime.timezone.utc)
+                    updated_after - datetime.datetime.fromtimestamp(0, tz=pytz.UTC)
                 ).total_seconds()
             last_update_time_query = self._match_range(
                 'last_update_time', 'gte', updated_after

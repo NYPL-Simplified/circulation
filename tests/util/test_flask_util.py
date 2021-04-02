@@ -2,6 +2,7 @@
 """Test functionality of util/flask_util.py."""
 
 import datetime
+import pytz
 import time
 from flask import Response as FlaskResponse
 from wsgiref.handlers import format_date_time
@@ -57,7 +58,7 @@ class TestResponse(object):
 
         # We expect the Expires header to look basically like this.
         expect_expires = (
-            datetime.datetime.now(tz=datetime.timezone.utc) + datetime.timedelta(seconds=max_age)
+            datetime.datetime.now(tz=pytz.UTC) + datetime.timedelta(seconds=max_age)
         )
         expect_expires_string = format_date_time(
             time.mktime(expect_expires.timetuple())

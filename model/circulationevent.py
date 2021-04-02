@@ -8,6 +8,7 @@ from . import (
 )
 
 import datetime
+import pytz
 import logging
 from sqlalchemy import (
     Column,
@@ -140,7 +141,7 @@ class CirculationEvent(Base):
         else:
             delta = new_value - old_value
         if not start:
-            start = datetime.datetime.now(tz=datetime.timezone.utc)
+            start = datetime.datetime.now(tz=pytz.UTC)
         if not end:
             end = start
         event, was_new = get_one_or_create(

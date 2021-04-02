@@ -7,8 +7,8 @@ from . import (
     get_one,
     get_one_or_create,
 )
-from pdb import set_trace
 import datetime
+import pytz
 
 from sqlalchemy import (
     Column,
@@ -217,7 +217,7 @@ class Timestamp(Base):
             stopped the service from running.
         """
         if start is None and finish is None:
-            start = finish = datetime.datetime.now(tz=datetime.timezone.utc)
+            start = finish = datetime.datetime.now(tz=pytz.UTC)
         elif start is None:
             start = finish
         elif finish is None:
@@ -394,7 +394,7 @@ class CoverageRecord(Base, BaseCoverageRecord):
         else:
             raise ValueError(
                 "Cannot create a coverage record for %r." % edition)
-        timestamp = timestamp or datetime.datetime.now(tz=datetime.timezone.utc)
+        timestamp = timestamp or datetime.datetime.now(tz=pytz.UTC)
         coverage_record, is_new = get_one_or_create(
             _db, CoverageRecord,
             identifier=identifier,
@@ -422,7 +422,7 @@ class CoverageRecord(Base, BaseCoverageRecord):
             return
 
         _db = Session.object_session(identifiers[0])
-        timestamp = timestamp or datetime.datetime.now(tz=datetime.timezone.utc)
+        timestamp = timestamp or datetime.datetime.now(tz=pytz.UTC)
         identifier_ids = [i.id for i in identifiers]
 
         equivalent_record = and_(
@@ -564,7 +564,7 @@ class WorkCoverageRecord(Base, BaseCoverageRecord):
     def add_for(self, work, operation, timestamp=None,
                 status=CoverageRecord.SUCCESS):
         _db = Session.object_session(work)
-        timestamp = timestamp or datetime.datetime.now(tz=datetime.timezone.utc)
+        timestamp = timestamp or datetime.datetime.now(tz=pytz.UTC)
         coverage_record, is_new = get_one_or_create(
             _db, WorkCoverageRecord,
             work=work,
@@ -587,7 +587,7 @@ class WorkCoverageRecord(Base, BaseCoverageRecord):
             # Nothing to do.
             return
         _db = Session.object_session(works[0])
-        timestamp = timestamp or datetime.datetime.now(tz=datetime.timezone.utc)
+        timestamp = timestamp or datetime.datetime.now(tz=pytz.UTC)
         work_ids = [w.id for w in works]
 
         # Make sure that works that previously had a

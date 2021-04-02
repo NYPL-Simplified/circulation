@@ -1,5 +1,6 @@
 import argparse
 import datetime
+import pytz
 import logging
 import os
 import random
@@ -141,7 +142,7 @@ class Script(object):
                 try:
                     parsed = datetime.datetime.strptime(
                         time_string, full_format
-                    ).replace(tzinfo=datetime.timezone.utc)
+                    ).replace(tzinfo=pytz.UTC)
                     return parsed
                 except ValueError as e:
                     continue
@@ -159,7 +160,7 @@ class Script(object):
     def run(self):
         self.load_configuration()
         DataSource.well_known_sources(self._db)
-        start_time = datetime.datetime.now(tz=datetime.timezone.utc)
+        start_time = datetime.datetime.now(tz=pytz.UTC)
         try:
             timestamp_data = self.do_run()
             if not isinstance(timestamp_data, TimestampData):
@@ -408,7 +409,7 @@ class RunThreadedCollectionCoverageProviderScript(Script):
                 # jobs could share a single 'progress' object.
                 while offset < query_size:
                     progress = CoverageProviderProgress(
-                        start=datetime.datetime.now(tz=datetime.timezone.utc)
+                        start=datetime.datetime.now(tz=pytz.UTC)
                     )
                     progress.offset = offset
                     job = CollectionCoverageProviderJob(

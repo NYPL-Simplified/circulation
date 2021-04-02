@@ -1,4 +1,5 @@
 import datetime
+import pytz
 import logging
 import traceback
 
@@ -98,7 +99,7 @@ class Monitor(object):
         default_start_time = cls.DEFAULT_START_TIME
         if isinstance(default_start_time, datetime.timedelta):
             default_start_time = (
-                datetime.datetime.now(tz=datetime.timezone.utc) - default_start_time
+                datetime.datetime.now(tz=pytz.UTC) - default_start_time
             )
         self.default_start_time = default_start_time
         self.default_counter = cls.DEFAULT_COUNTER
@@ -137,7 +138,7 @@ class Monitor(object):
             return None
         if self.default_start_time:
             return self.default_start_time
-        return datetime.datetime.now(tz=datetime.timezone.utc)
+        return datetime.datetime.now(tz=pytz.UTC)
 
     def timestamp(self):
         """Find or create a Timestamp for this Monitor.
@@ -172,13 +173,13 @@ class Monitor(object):
         timestamp_obj = self.timestamp()
         progress = timestamp_obj.to_data()
 
-        this_run_start = datetime.datetime.now(tz=datetime.timezone.utc)
+        this_run_start = datetime.datetime.now(tz=pytz.UTC)
         exception = None
 
         ignorable = (None, TimestampData.CLEAR_VALUE)
         try:
             new_timestamp = self.run_once(progress)
-            this_run_finish = datetime.datetime.now(tz=datetime.timezone.utc)
+            this_run_finish = datetime.datetime.now(tz=pytz.UTC)
             if new_timestamp is None:
                 # Assume this Monitor has no special needs surrounding
                 # its timestamp.
@@ -205,7 +206,7 @@ class Monitor(object):
                 # exception, below.
                 exception = new_timestamp.exception
         except Exception:
-            this_run_finish = datetime.datetime.now(tz=datetime.timezone.utc)
+            this_run_finish = datetime.datetime.now(tz=pytz.UTC)
             self.log.exception(
                 "Error running %s monitor. Timestamp will not be updated.",
                 self.service_name
@@ -266,7 +267,7 @@ class TimelineMonitor(Monitor):
             start = self.initial_start_time
         else:
             start = progress.finish - self.OVERLAP
-        cutoff = datetime.datetime.now(tz=datetime.timezone.utc)
+        cutoff = datetime.datetime.now(tz=pytz.UTC)
         self.catch_up_from(start, cutoff, progress)
 
         if progress.is_failure:
@@ -453,16 +454,16 @@ class SweepMonitor(CollectionMonitor):
         # since a certain time -- so we're going to make sure the
         # timestamp is set from the start of the run to the end of the
         # last _successful_ batch.
-        run_started_at = datetime.datetime.now(tz=datetime.timezone.utc)
+        run_started_at = datetime.datetime.now(tz=pytz.UTC)
         timestamp.start = run_started_at
 
         total_processed = 0
         while True:
             old_offset = offset
-            batch_started_at = datetime.datetime.now(tz=datetime.timezone.utc)
+            batch_started_at = datetime.datetime.now(tz=pytz.UTC)
             new_offset, batch_size = self.process_batch(offset)
             total_processed += batch_size
-            batch_ended_at = datetime.datetime.now(tz=datetime.timezone.utc)
+            batch_ended_at = datetime.datetime.now(tz=pytz.UTC)
 
             self.log.debug(
                 "%s monitor went from offset %s to %s in %.2f sec",
@@ -821,7 +822,7 @@ class ReaperMonitor(Monitor):
             max_age = self.MAX_AGE
         else:
             max_age = datetime.timedelta(days=self.MAX_AGE)
-        return datetime.datetime.now(tz=datetime.timezone.utc) - max_age
+        return datetime.datetime.now(tz=pytz.UTC) - max_age
 
     @property
     def timestamp_field(self):

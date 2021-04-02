@@ -2,6 +2,7 @@
 from collections import defaultdict
 
 import datetime
+import pytz
 import logging
 import time
 from urllib.parse import quote_plus
@@ -2363,7 +2364,7 @@ class DatabaseBackedWorkList(WorkList):
         if customlist_ids is not None:
             clauses.append(a_entry.list_id.in_(customlist_ids))
         if self.list_seen_in_previous_days:
-            cutoff = datetime.datetime.now(tz=datetime.timezone.utc) - datetime.timedelta(
+            cutoff = datetime.datetime.now(tz=pytz.UTC) - datetime.timedelta(
                 self.list_seen_in_previous_days
             )
             clauses.append(a_entry.most_recent_appearance >=cutoff)

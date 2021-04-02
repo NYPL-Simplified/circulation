@@ -9,6 +9,7 @@ from . import (
 )
 
 import datetime
+import pytz
 import os
 import re
 from sqlalchemy import (
@@ -61,7 +62,7 @@ class IntegrationClient(Base):
             secret will be set.
         """
         url = cls.normalize_url(url)
-        now = datetime.datetime.now(tz=datetime.timezone.utc)
+        now = datetime.datetime.now(tz=pytz.UTC)
         client, is_new = get_one_or_create(
             _db, cls, url=url, create_method_kwargs=dict(created=now)
         )
@@ -94,7 +95,7 @@ class IntegrationClient(Base):
     def authenticate(cls, _db, shared_secret):
         client = get_one(_db, cls, shared_secret=str(shared_secret))
         if client:
-            client.last_accessed = datetime.datetime.now(tz=datetime.timezone.utc)
+            client.last_accessed = datetime.datetime.now(tz=pytz.UTC)
             # Committing immediately reduces the risk of contention.
             _db.commit()
             return client
