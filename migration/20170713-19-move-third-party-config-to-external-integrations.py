@@ -163,7 +163,7 @@ try:
 
         for library in LIBRARIES:
             ConfigurationSetting.for_library_and_externalintegration(
-                _db, u"tracking_id", library, integration).value = tracking_id
+                _db, "tracking_id", library, integration).value = tracking_id
             library.integrations += [integration]
 
     if "core.local_analytics_provider" in analytics_modules:

@@ -309,9 +309,9 @@ class TestProQuestAPIClient(DatabaseTest):
 
     def test_get_book_correctly_extracts_open_access_books(self):
         # Arrange
-        book_content = "PDF Book12345"
-        response_arguments = {"content": book_content.encode("utf-8")}
-        expected_open_access_book = ProQuestBook(content=book_content.encode("utf-8"))
+        book_content = b"PDF Book12345"
+        response_arguments = {"content": book_content}
+        expected_open_access_book = ProQuestBook(content=book_content)
 
         token = "12345"
         document_id = "12345"

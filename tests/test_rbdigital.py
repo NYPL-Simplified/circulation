@@ -1027,7 +1027,7 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         datastr, datadict = self.get_data("response_catalog_media_isbn.json")
         self.api.queue_response(status_code=200, content=datastr)
         result = self.api.populate_delta(
-            today=datetime.datetime(2020,0o4,30)
+            today=datetime.datetime(2020,4,30)
         )
 
         # populate_delta returns two numbers, as required by

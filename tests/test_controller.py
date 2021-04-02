@@ -1,5 +1,4 @@
 # encoding=utf8
-# import base64
 import calendar
 import datetime
 import email

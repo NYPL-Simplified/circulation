@@ -89,7 +89,7 @@ class TestLCPServer(DatabaseTest):
         ('none_rights', None, None, None, None),
         (
                 'license_start',
-                datetime.datetime(2020, 0o1, 0o1, 00, 00, 00),
+                datetime.datetime(2020, 1, 1, 00, 00, 00),
                 None,
                 None,
                 None
@@ -145,14 +145,14 @@ class TestLCPServer(DatabaseTest):
         ),
         (
                 'dates',
-                datetime.datetime(2020, 0o1, 0o1, 00, 00, 00),
+                datetime.datetime(2020, 1, 1, 00, 00, 00),
                 datetime.datetime(2020, 12, 31, 23, 59, 59),
                 None,
                 None
         ),
         (
                 'full_rights',
-                datetime.datetime(2020, 0o1, 0o1, 00, 00, 00),
+                datetime.datetime(2020, 1, 1, 00, 00, 00),
                 datetime.datetime(2020, 12, 31, 23, 59, 59),
                 10,
                 1024
