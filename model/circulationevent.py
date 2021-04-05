@@ -38,8 +38,8 @@ class CirculationEvent(Base):
         Integer, ForeignKey('licensepools.id'), index=True)
 
     type = Column(String(32), index=True)
-    start = Column(DateTime(timezone=True), index=True)
-    end = Column(DateTime(timezone=True))
+    start = Column(DateTime, index=True)
+    end = Column(DateTime)
     old_value = Column(Integer)
     delta = Column(Integer)
     new_value = Column(Integer)

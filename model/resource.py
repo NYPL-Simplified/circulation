@@ -501,7 +501,7 @@ class Representation(Base, MediaTypes):
     ### Records of things we tried to do with this representation.
 
     # When the representation was last fetched from `url`.
-    fetched_at = Column(DateTime(timezone=True), index=True)
+    fetched_at = Column(DateTime, index=True)
 
     # A textual description of the error encountered the last time
     # we tried to fetch the representation
@@ -512,7 +512,7 @@ class Representation(Base, MediaTypes):
     mirror_url = Column(Unicode, index=True)
 
     # When the representation was last pushed to `mirror_url`.
-    mirrored_at = Column(DateTime(timezone=True), index=True)
+    mirrored_at = Column(DateTime, index=True)
 
     # An exception that happened while pushing this representation
     # to `mirror_url.
@@ -520,7 +520,7 @@ class Representation(Base, MediaTypes):
 
     # If this image is a scaled-down version of some other image,
     # `scaled_at` is the time it was last generated.
-    scaled_at = Column(DateTime(timezone=True), index=True)
+    scaled_at = Column(DateTime, index=True)
 
     # If this image is a scaled-down version of some other image,
     # this is the exception that happened the last time we tried

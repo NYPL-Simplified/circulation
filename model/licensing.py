@@ -46,7 +46,7 @@ class License(Base):
     checkout_url = Column(Unicode)
     status_url = Column(Unicode)
 
-    expires = Column(DateTime(timezone=True))
+    expires = Column(DateTime)
     remaining_checkouts = Column(Integer)
     concurrent_checkouts = Column(Integer)
 
@@ -140,7 +140,7 @@ class LicensePool(Base):
 
     # The date this LicensePool was first created in our db
     # (the date we first discovered that ​we had that book in ​our collection).
-    availability_time = Column(DateTime(timezone=True), index=True)
+    availability_time = Column(DateTime, index=True)
 
     # A LicensePool may be superceded by some other LicensePool
     # associated with the same Work. This may happen if it's an
@@ -157,7 +157,7 @@ class LicensePool(Base):
     license_exception = Column(Unicode, index=True)
 
     open_access = Column(Boolean, index=True)
-    last_checked = Column(DateTime(timezone=True), index=True)
+    last_checked = Column(DateTime, index=True)
     licenses_owned = Column(Integer, default=0, index=True)
     licenses_available = Column(Integer,default=0, index=True)
     licenses_reserved = Column(Integer,default=0)

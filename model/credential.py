@@ -32,7 +32,7 @@ class Credential(Base):
     collection_id = Column(Integer, ForeignKey('collections.id'), index=True)
     type = Column(String(255), index=True)
     credential = Column(String)
-    expires = Column(DateTime(timezone=True), index=True)
+    expires = Column(DateTime, index=True)
 
     # One Credential can have many associated DRMDeviceIdentifiers.
     drm_device_identifiers = relationship(

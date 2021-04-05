@@ -8,7 +8,6 @@ from . import (
     get_one,
     get_one_or_create,
 )
-
 from collections import namedtuple
 import datetime
 import pytz
@@ -39,7 +38,7 @@ class CachedFeed(Base):
         nullable=True, index=True)
 
     # Every feed has a timestamp reflecting when it was created.
-    timestamp = Column(DateTime(timezone=True), nullable=True, index=True)
+    timestamp = Column(DateTime, nullable=True, index=True)
 
     # A feed is of a certain type--such as 'page' or 'groups'.
     type = Column(Unicode, nullable=False)
@@ -400,5 +399,5 @@ class CachedMARCFile(Base):
         Integer, ForeignKey('representations.id'),
         nullable=False)
 
-    start_time = Column(DateTime(timezone=True), nullable=True, index=True)
-    end_time = Column(DateTime(timezone=True), nullable=True, index=True)
+    start_time = Column(DateTime, nullable=True, index=True)
+    end_time = Column(DateTime, nullable=True, index=True)

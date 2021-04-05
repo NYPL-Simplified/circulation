@@ -15,7 +15,7 @@ import pytest
 from sqlalchemy.orm.session import Session
 from sqlalchemy.exc import ProgrammingError
 from .config import Configuration
-
+from pdb import set_trace
 from .lane import (
     Lane,
 )

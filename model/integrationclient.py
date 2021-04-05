@@ -44,8 +44,8 @@ class IntegrationClient(Base):
     # upgrades to fix a known bug.
     enabled = Column(Boolean, default=True)
 
-    created = Column(DateTime(timezone=True))
-    last_accessed = Column(DateTime(timezone=True))
+    created = Column(DateTime)
+    last_accessed = Column(DateTime)
 
     loans = relationship('Loan', backref='integration_client')
     holds = relationship('Hold', backref='integration_client')

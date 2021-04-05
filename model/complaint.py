@@ -64,10 +64,10 @@ class Complaint(Base):
     # Detailed information about the complaint.
     detail = Column(String, nullable=True)
 
-    timestamp = Column(DateTime(timezone=True), nullable=False)
+    timestamp = Column(DateTime, nullable=False)
 
     # When the complaint was resolved.
-    resolved = Column(DateTime(timezone=True), nullable=True)
+    resolved = Column(DateTime, nullable=True)
 
     @classmethod
     def register(self, license_pool, type, source, detail, resolved=None):

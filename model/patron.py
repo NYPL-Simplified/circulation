@@ -93,7 +93,7 @@ class Patron(Base):
 
     # The last time this record was synced up with an external library
     # system such as an ILS.
-    last_external_sync = Column(DateTime(timezone=True))
+    last_external_sync = Column(DateTime)
 
     # The last time this record was synced with the corresponding
     # records managed by the vendors who provide the library with
@@ -505,8 +505,8 @@ class Loan(Base, LoanAndHoldMixin):
     license_id = Column(Integer, ForeignKey('licenses.id'), index=True, nullable=True)
 
     fulfillment_id = Column(Integer, ForeignKey('licensepooldeliveries.id'))
-    start = Column(DateTime(timezone=True), index=True)
-    end = Column(DateTime(timezone=True), index=True)
+    start = Column(DateTime, index=True)
+    end = Column(DateTime, index=True)
     # Some distributors (e.g. Feedbooks) may have an identifier that can
     # be used to check the status of a specific Loan.
     external_identifier = Column(Unicode, unique=True, nullable=True)
@@ -536,8 +536,8 @@ class Hold(Base, LoanAndHoldMixin):
     patron_id = Column(Integer, ForeignKey('patrons.id'), index=True)
     integration_client_id = Column(Integer, ForeignKey('integrationclients.id'), index=True)
     license_pool_id = Column(Integer, ForeignKey('licensepools.id'), index=True)
-    start = Column(DateTime(timezone=True), index=True)
-    end = Column(DateTime(timezone=True), index=True)
+    start = Column(DateTime, index=True)
+    end = Column(DateTime, index=True)
     position = Column(Integer, index=True)
     external_identifier = Column(Unicode, unique=True, nullable=True)
     
@@ -662,7 +662,7 @@ class Annotation(Base):
     patron_id = Column(Integer, ForeignKey('patrons.id'), index=True)
     identifier_id = Column(Integer, ForeignKey('identifiers.id'), index=True)
     motivation = Column(Unicode, index=True)
-    timestamp = Column(DateTime(timezone=True), index=True)
+    timestamp = Column(DateTime, index=True)
     active = Column(Boolean, default=True)
     content = Column(Unicode)
     target = Column(Unicode)

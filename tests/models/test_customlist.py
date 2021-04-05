@@ -8,6 +8,7 @@ from ...model.customlist import (
     CustomList,
     CustomListEntry,
 )
+from pdb import set_trace
 from ...model.datasource import DataSource
 import pytest
 

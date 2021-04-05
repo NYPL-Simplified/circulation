@@ -1,7 +1,7 @@
 # encoding: utf-8
 # CustomList, CustomListEntry
 
-
+from pdb import set_trace
 from . import (
     Base,
     get_one_or_create,
@@ -42,8 +42,8 @@ class CustomList(Base):
     foreign_identifier = Column(Unicode, index=True)
     name = Column(Unicode, index=True)
     description = Column(Unicode)
-    created = Column(DateTime(timezone=True), index=True)
-    updated = Column(DateTime(timezone=True), index=True)
+    created = Column(DateTime, index=True)
+    updated = Column(DateTime, index=True)
     responsible_party = Column(Unicode)
     library_id = Column(Integer, ForeignKey('libraries.id'), index=True, nullable=True)
 
@@ -292,8 +292,8 @@ class CustomListEntry(Base):
     # These two fields are for best-seller lists. Even after a book
     # drops off the list, the fact that it once was on the list is
     # still relevant.
-    first_appearance = Column(DateTime(timezone=True), index=True)
-    most_recent_appearance = Column(DateTime(timezone=True), index=True)
+    first_appearance = Column(DateTime, index=True)
+    most_recent_appearance = Column(DateTime, index=True)
 
     def set_work(self, metadata=None, metadata_client=None, policy=None):
         """If possible, identify a locally known Work that is the same
