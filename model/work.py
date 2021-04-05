@@ -194,7 +194,7 @@ class Work(Base):
     appeal_story = Column(Float, default=None, index=True)
 
     # The last time the availability or metadata changed for this Work.
-    last_update_time = Column(DateTime, index=True)
+    last_update_time = Column(DateTime(timezone=True), index=True)
 
     # This is set to True once all metadata and availability
     # information has been obtained for this Work. Until this is True,
@@ -202,7 +202,7 @@ class Work(Base):
     presentation_ready = Column(Boolean, default=False, index=True)
 
     # This is the last time we tried to make this work presentation ready.
-    presentation_ready_attempt = Column(DateTime, default=None, index=True)
+    presentation_ready_attempt = Column(DateTime(timezone=True), default=None, index=True)
 
     # This is the error that occured while trying to make this Work
     # presentation ready. Until this is cleared, no further attempt

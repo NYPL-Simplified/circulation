@@ -10,6 +10,7 @@ import sys
 import traceback
 import unicodedata
 import uuid
+from pdb import set_trace
 from collections import defaultdict
 from enum import Enum
 from sqlalchemy import (
@@ -2541,12 +2542,14 @@ class DatabaseMigrationScript(Script):
         if self.overall_timestamp is None:
             return
 
+        if self.overall_timestamp.finish is not None:
+            finish_timestamp = self.overall_timestamp.finish.replace(tzinfo=pytz.UTC)
         # The last script that ran had an earlier timestamp than the current script
-        if self.overall_timestamp.finish > last_run_date:
+        if finish_timestamp > last_run_date:
             return
 
         # The dates of the scrips are the same so compare the counters
-        if self.overall_timestamp.finish==last_run_date:
+        if finish_timestamp==last_run_date:
             # The current script has no counter, so it's the same script that ran
             # or an earlier script that ran
             if counter is None:

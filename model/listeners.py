@@ -6,6 +6,7 @@ from sqlalchemy import (
     event,
     text,
 )
+from pdb import set_trace
 from sqlalchemy.orm.base import NO_VALUE
 from sqlalchemy.orm.session import Session
 from . import (
@@ -64,6 +65,7 @@ def _site_configuration_has_changed(_db, cooldown=1):
     """Actually changes the timestamp on the site configuration."""
     now = datetime.datetime.now(tz=pytz.UTC)
     last_update = Configuration._site_configuration_last_update()
+
     if not last_update or (now - last_update).total_seconds() > cooldown:
         # The configuration last changed more than `cooldown` ago, which
         # means it's time to reset the Timestamp that says when the

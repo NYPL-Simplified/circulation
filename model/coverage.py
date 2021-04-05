@@ -129,11 +129,11 @@ class Timestamp(Base):
                            index=True, nullable=True)
 
     # The last time the service _started_ running.
-    start = Column(DateTime, nullable=True)
+    start = Column(DateTime(timezone=True), nullable=True)
 
     # The last time the service _finished_ running. In most cases this
     # is the 'timestamp' proper.
-    finish = Column(DateTime)
+    finish = Column(DateTime(timezone=True))
 
     # A description of the things the service achieved during its last
     # run. Each service may decide for itself what counts as an
@@ -304,7 +304,7 @@ class CoverageRecord(Base, BaseCoverageRecord):
     )
     operation = Column(String(255), default=None)
 
-    timestamp = Column(DateTime, index=True)
+    timestamp = Column(DateTime(timezone=True), index=True)
 
     status = Column(BaseCoverageRecord.status_enum, index=True)
     exception = Column(Unicode, index=True)
@@ -529,7 +529,7 @@ class WorkCoverageRecord(Base, BaseCoverageRecord):
     work_id = Column(Integer, ForeignKey('works.id'), index=True)
     operation = Column(String(255), index=True, default=None)
 
-    timestamp = Column(DateTime, index=True)
+    timestamp = Column(DateTime(timezone=True), index=True)
 
     status = Column(BaseCoverageRecord.status_enum, index=True)
     exception = Column(Unicode, index=True)
