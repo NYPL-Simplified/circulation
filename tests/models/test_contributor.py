@@ -62,16 +62,16 @@ class TestContributor(DatabaseTest):
         bob2, new = Contributor.lookup(self._db, sort_name="Bob", lc="bar")
 
         # Lookup by name finds both of them.
-        bobs, new = Contributor.lookup(self._db, sort_name=u"Bob")
+        bobs, new = Contributor.lookup(self._db, sort_name="Bob")
         assert False == new
         assert ["Bob", "Bob"] == [x.sort_name for x in bobs]
 
     def test_create_by_lookup(self):
-        [bob1], new = Contributor.lookup(self._db, sort_name=u"Bob")
+        [bob1], new = Contributor.lookup(self._db, sort_name="Bob")
         assert "Bob" == bob1.sort_name
         assert True == new
 
-        [bob2], new = Contributor.lookup(self._db, sort_name=u"Bob")
+        [bob2], new = Contributor.lookup(self._db, sort_name="Bob")
         assert bob1 == bob2
         assert False == new
 

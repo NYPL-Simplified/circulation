@@ -81,7 +81,7 @@ class TestProfileController(object):
         self.controller.storage = BadStorage()
         problem = self.controller.get()
         assert 500 == problem.status_code
-        assert ("Profile profile_document is not a JSON object: u'Here it is!'." ==
+        assert ("Profile profile_document is not a JSON object: 'Here it is!'." ==
             problem.debug_message)
 
     def test_get_non_dictionary_profile_document(self):
