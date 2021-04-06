@@ -390,8 +390,8 @@ class TestCirculationManager(CirculationControllerTest):
         # max_age.
         assert 0 == manager.authentication_for_opds_documents.max_age
 
-        # UWSGI debug is off by default.
-        assert False == manager.uwsgi_debug
+        # WSGI debug is off by default.
+        assert False == manager.wsgi_debug
 
         # Now let's create a brand new library, never before seen.
         library = self._library()
@@ -428,7 +428,7 @@ class TestCirculationManager(CirculationControllerTest):
         ).value = "60"
 
         ConfigurationSetting.sitewide(
-            self._db, Configuration.UWSGI_DEBUG_KEY
+            self._db, Configuration.WSGI_DEBUG_KEY
         ).value = "true"
 
         # Then reload the CirculationManager...
@@ -473,8 +473,8 @@ class TestCirculationManager(CirculationControllerTest):
         # new max_age.
         assert 60 == manager.authentication_for_opds_documents.max_age
 
-        # The UWSGI debug setting has been changed.
-        assert True == manager.uwsgi_debug
+        # The WSGI debug setting has been changed.
+        assert True == manager.wsgi_debug
 
         # Controllers that don't depend on site configuration
         # have not been reloaded.
@@ -1531,15 +1531,15 @@ class TestIndexController(CirculationControllerTest):
             response = self.manager.index_controller.authentication_document()
             assert cached_value == response.data
 
-            # Note that UWSGI debugging data was not provided, even
-            # though we requested it, since UWSGI debugging is
+            # Note that WSGI debugging data was not provided, even
+            # though we requested it, since WSGI debugging is
             # disabled.
             assert '_debug' not in response.data
 
-        # When UWSGI debugging is enabled and requested, an
+        # When WSGI debugging is enabled and requested, an
         # authentication document includes some extra information in a
         # special '_debug' section.
-        self.manager.uwsgi_debug = True
+        self.manager.wsgi_debug = True
         with self.request_context_with_library(
                 "/?debug", headers=dict(Authorization=self.invalid_auth)):
             response = self.manager.index_controller.authentication_document()
@@ -1548,7 +1548,7 @@ class TestIndexController(CirculationControllerTest):
             debug = doc['_debug']
             assert all(x in debug for x in ('url', 'cache', 'environ'))
 
-        # UWSGI debugging is not provided unless requested.
+        # WSGI debugging is not provided unless requested.
         with self.request_context_with_library(
                 "/", headers=dict(Authorization=self.invalid_auth)):
             response = self.manager.index_controller.authentication_document()

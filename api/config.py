@@ -42,7 +42,7 @@ class Configuration(CoreConfiguration):
 
     # The name of a setting that turns UWSGI debugging information on
     # or off.
-    UWSGI_DEBUG_KEY = u"uwsgi_debug"
+    WSGI_DEBUG_KEY = u"wsgi_debug"
 
     # A custom link to a Terms of Service document to be understood by
     # users of the administrative interface.
