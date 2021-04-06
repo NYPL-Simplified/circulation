@@ -119,11 +119,11 @@ class TestNoveListAPI(DatabaseTest):
         metadata = self.novelist.lookup_info_to_metadata(vampire)
 
         [lexile] = filter(lambda s: s.type=='Lexile', metadata.subjects)
-        assert u'630' == lexile.identifier
-        assert u'Vampire kisses manga' == metadata.series
+        assert '630' == lexile.identifier
+        assert 'Vampire kisses manga' == metadata.series
         # The full title should be selected, since every volume
         # has the same main title: 'Vampire kisses'
-        assert u'Vampire kisses: blood relatives. Volume 1' == metadata.title
+        assert 'Vampire kisses: blood relatives. Volume 1' == metadata.title
         assert 1 == metadata.series_position
         assert 5 == len(metadata.recommendations)
 

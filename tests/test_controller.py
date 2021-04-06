@@ -4136,7 +4136,7 @@ class TestOPDSFeedController(CirculationControllerTest):
         # term, you get an OpenSearch document.
         with self.request_context_with_library("/"):
             response = self.manager.opds_feeds.search(None)
-            assert response.headers['Content-Type'] == u'application/opensearchdescription+xml'
+            assert response.headers['Content-Type'] == 'application/opensearchdescription+xml'
             assert "OpenSearchDescription" in response.get_data(as_text=True)
 
     def test_search(self):

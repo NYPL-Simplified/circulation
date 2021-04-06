@@ -420,11 +420,11 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         assert last_snapshot == to_date
 
         # date alignment cannot work without at least one snapshot
-        self.api.queue_response(status_code=200, content=u"[]")
+        self.api.queue_response(status_code=200, content="[]")
         with pytest.raises(BadResponseException) as excinfo:
             self.api.align_dates_to_available_snapshots(from_date="2000-02-02", to_date="2000-01-01")
         assert "RBDigital available-dates response contains no snapshots." in str(excinfo.value)
-        self.api.queue_response(status_code=200, content=u"[]")
+        self.api.queue_response(status_code=200, content="[]")
         with pytest.raises(BadResponseException) as excinfo:
             self.api.align_dates_to_available_snapshots()
         assert "RBDigital available-dates response contains no snapshots." in str(excinfo.value)

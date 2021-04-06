@@ -1353,7 +1353,7 @@ class SAMLSubjectPatronIDExtractor(object):
         :rtype: Optional[str]
         """
         self._logger.info(
-            u"Trying to extract a unique patron ID from {0}".format(
+            "Trying to extract a unique patron ID from {0}".format(
                 six.ensure_text(repr(subject))
             )
         )
@@ -1380,9 +1380,9 @@ class SAMLSubjectPatronIDExtractor(object):
                 patron_id = self._extract_patron_id(patron_id_candidate)
 
         self._logger.info(
-            u"Extracted a unique patron ID from {0}: {1}".format(
+            "Extracted a unique patron ID from {0}: {1}".format(
                 six.ensure_text(repr(subject)),
-                six.ensure_text(patron_id) if patron_id else u"",
+                six.ensure_text(patron_id) if patron_id else "",
             )
         )
 
