@@ -1,11 +1,10 @@
 
 import datetime
-import pytz
 import logging
 from flask import Response
-
 from lxml import builder, etree
 
+from .datetime_helpers import utc_now
 
 class ElementMaker(builder.ElementMaker):
     """A helper object for creating etree elements."""
@@ -160,7 +159,7 @@ class AtomFeed(object):
         self.feed = self.E.feed(
             self.E.id(url),
             self.E.title(str(title)),
-            self.E.updated(self._strftime(datetime.datetime.now(tz=pytz.UTC))),
+            self.E.updated(self._strftime(utc_now())),
             self.E.link(href=url, rel="self"),
         )
         super(AtomFeed, self).__init__(**kwargs)

@@ -1,11 +1,8 @@
 # encoding: utf-8
 # WorkGenre, Work
 
-import datetime
-import pytz
 import logging
 from collections import Counter
-
 from sqlalchemy import (
     Binary,
     Boolean,
@@ -66,6 +63,7 @@ from ..classifier import (
 )
 from ..config import CannotLoadConfiguration
 from ..util import LanguageCodes
+from ..util.datetime_helpers import utc_now
 
 
 class WorkGenre(Base):
@@ -1008,7 +1006,7 @@ class Work(Base):
             # last_update_time tracks the last time the data actually
             # changed, not the last time we checked whether or not to
             # change it.
-            self.last_update_time = datetime.datetime.now(tz=pytz.UTC)
+            self.last_update_time = utc_now()
 
         if changed or policy.regenerate_opds_entries:
             self.calculate_opds_entries()
@@ -1260,7 +1258,7 @@ class Work(Base):
         In most cases you should call set_presentation_ready_based_on_content
         instead, which runs those checks.
         """
-        as_of = as_of or datetime.datetime.now(tz=pytz.UTC)
+        as_of = as_of or utc_now()
         self.presentation_ready = True
         self.presentation_ready_exception = None
         self.presentation_ready_attempt = as_of

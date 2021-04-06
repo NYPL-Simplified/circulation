@@ -1,26 +1,14 @@
 # encoding: utf-8
 from collections import defaultdict
-
 import datetime
-import pytz
 import logging
 import time
 from urllib.parse import quote_plus
-
 from psycopg2.extras import NumericRange
 from sqlalchemy.sql import select
 from sqlalchemy.sql.expression import Select
 from sqlalchemy.dialects.postgresql import JSON
-
-from .config import Configuration
 from flask_babel import lazy_gettext as _
-
-from . import classifier
-from .classifier import (
-    Classifier,
-    GenreData,
-)
-
 from sqlalchemy import (
     and_,
     case,
@@ -47,7 +35,26 @@ from sqlalchemy.orm import (
     relationship,
 )
 from sqlalchemy.sql.expression import literal
+import elasticsearch
+from sqlalchemy import (
+    event,
+    Boolean,
+    Column,
+    ForeignKey,
+    Integer,
+    UniqueConstraint,
+)
+from sqlalchemy.dialects.postgresql import (
+    ARRAY,
+    INT4RANGE,
+)
 
+from . import classifier
+from .config import Configuration
+from .classifier import (
+    Classifier,
+    GenreData,
+)
 from .entrypoint import (
     EntryPoint,
     EverythingEntryPoint,
@@ -85,21 +92,8 @@ from .util import (
 from .util.problem_detail import ProblemDetail
 from .util.accept_language import parse_accept_language
 from .util.opds_writer import OPDSFeed
+from .util.datetime_helpers import utc_now
 
-import elasticsearch
-
-from sqlalchemy import (
-    event,
-    Boolean,
-    Column,
-    ForeignKey,
-    Integer,
-    UniqueConstraint,
-)
-from sqlalchemy.dialects.postgresql import (
-    ARRAY,
-    INT4RANGE,
-)
 
 class BaseFacets(FacetConstants):
     """Basic faceting class that doesn't modify a search filter at all.
@@ -2364,7 +2358,7 @@ class DatabaseBackedWorkList(WorkList):
         if customlist_ids is not None:
             clauses.append(a_entry.list_id.in_(customlist_ids))
         if self.list_seen_in_previous_days:
-            cutoff = datetime.datetime.now(tz=pytz.UTC) - datetime.timedelta(
+            cutoff = utc_now() - datetime.timedelta(
                 self.list_seen_in_previous_days
             )
             clauses.append(a_entry.most_recent_appearance >=cutoff)

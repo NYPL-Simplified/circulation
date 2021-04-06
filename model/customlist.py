@@ -2,18 +2,7 @@
 # CustomList, CustomListEntry
 
 from pdb import set_trace
-from . import (
-    Base,
-    get_one_or_create,
-)
-from .datasource import DataSource
 from functools import total_ordering
-from .identifier import Identifier
-from .licensing import LicensePool
-from .work import Work
-
-import datetime
-import pytz
 import logging
 from sqlalchemy import (
     Boolean,
@@ -28,6 +17,16 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql.expression import or_
 from sqlalchemy.orm.session import Session
+
+from . import (
+    Base,
+    get_one_or_create,
+)
+from .datasource import DataSource
+from .identifier import Identifier
+from .licensing import LicensePool
+from .work import Work
+from ..util.datetime_helpers import utc_now
 
 @total_ordering
 class CustomList(Base):
@@ -156,7 +155,7 @@ class CustomList(Base):
           is probably no longer be necessary since we no longer update the
           external index in real time.
         """
-        first_appearance = first_appearance or datetime.datetime.now(tz=pytz.UTC)
+        first_appearance = first_appearance or utc_now()
         _db = Session.object_session(self)
 
         if isinstance(work_or_edition, Work):
@@ -212,7 +211,7 @@ class CustomList(Base):
             entry.featured = featured
 
         if was_new:
-            self.updated = datetime.datetime.now(tz=pytz.UTC)
+            self.updated = utc_now()
             self.size += 1
         # Make sure the Work's search document is updated to reflect its new
         # list membership.
@@ -237,7 +236,7 @@ class CustomList(Base):
             _db.delete(entry)
 
         if existing_entries:
-            self.updated = datetime.datetime.now(tz=pytz.UTC)
+            self.updated = utc_now()
             self.size -= len(existing_entries)
         _db.commit()
 

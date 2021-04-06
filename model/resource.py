@@ -2,28 +2,8 @@
 # Resource, ResourceTransformation, Hyperlink, Representation
 
 
-from . import (
-    Base,
-    get_one,
-    get_one_or_create,
-)
-from ..config import Configuration
-from .constants import (
-    DataSourceConstants,
-    IdentifierConstants,
-    LinkRelations,
-    MediaTypes,
-)
-from .edition import Edition
-from .licensing import (
-    LicensePool,
-    LicensePoolDeliveryMechanism,
-)
-from ..util.http import HTTP
-
 from io import BytesIO
 import datetime
-import pytz
 import json
 import logging
 from hashlib import md5
@@ -52,6 +32,26 @@ from sqlalchemy.sql.expression import or_
 import time
 import traceback
 from urllib.parse import urlparse, urlsplit, quote
+
+from . import (
+    Base,
+    get_one,
+    get_one_or_create,
+)
+from ..config import Configuration
+from .constants import (
+    DataSourceConstants,
+    IdentifierConstants,
+    LinkRelations,
+    MediaTypes,
+)
+from .edition import Edition
+from .licensing import (
+    LicensePool,
+    LicensePoolDeliveryMechanism,
+)
+from ..util.http import HTTP
+from ..util.datetime_helpers import utc_now
 
 class Resource(Base):
     """An external resource that may be mirrored locally.
@@ -592,7 +592,7 @@ class Representation(Base, MediaTypes):
     def age(self):
         if not self.fetched_at:
             return 1000000
-        return (datetime.datetime.now(tz=pytz.UTC) - self.fetched_at).total_seconds()
+        return (utc_now() - self.fetched_at).total_seconds()
 
     @property
     def has_content(self):
@@ -796,7 +796,7 @@ class Representation(Base, MediaTypes):
             if representation.etag:
                 headers['If-None-Match'] = representation.etag
 
-        fetched_at = datetime.datetime.now(tz=pytz.UTC)
+        fetched_at = utc_now()
         if pause_before:
             time.sleep(pause_before)
         media_type = None
@@ -1001,7 +1001,7 @@ class Representation(Base, MediaTypes):
 
         self.local_content_path = self.normalize_content_path(content_path)
         self.status_code = 200
-        self.fetched_at = datetime.datetime.now(tz=pytz.UTC)
+        self.fetched_at = utc_now()
         self.fetch_exception = None
         self.update_image_size()
 
@@ -1012,7 +1012,7 @@ class Representation(Base, MediaTypes):
         mirror operation.
         """
         self.mirror_url = mirror_url
-        self.mirrored_at = datetime.datetime.now(tz=pytz.UTC)
+        self.mirrored_at = utc_now()
         self.mirror_exception = None
 
     @classmethod
@@ -1377,7 +1377,7 @@ class Representation(Base, MediaTypes):
         #
         # Because the representation of this image is being
         # changed, it will need to be mirrored later on.
-        now = datetime.datetime.now(tz=pytz.UTC)
+        now = utc_now()
         thumbnail.mirrored_at = None
         thumbnail.mirror_exception = None
 

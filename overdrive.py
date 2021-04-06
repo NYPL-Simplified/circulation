@@ -1,13 +1,11 @@
 
 import datetime
-import pytz
 import isbnlib
 import os
 import json
 import logging
 from urllib.parse import urlsplit, quote, urlunsplit
 import sys
-
 from sqlalchemy.orm.exc import (
     NoResultFound,
 )
@@ -64,7 +62,7 @@ from .util.http import (
 )
 from .util.string_helpers import base64
 from .util.worker_pools import RLock
-
+from .util.datetime_helpers import to_utc, utc_now
 from .testing import MockRequestsResponse
 
 class OverdriveAPI(object):
@@ -358,7 +356,7 @@ class OverdriveAPI(object):
         """Copy Overdrive OAuth data into a Credential object."""
         credential.credential = overdrive_data['access_token']
         expires_in = (overdrive_data['expires_in'] * 0.9)
-        credential.expires = datetime.datetime.now(tz=pytz.UTC) + datetime.timedelta(
+        credential.expires = utc_now() + datetime.timedelta(
             seconds=expires_in)
 
     @property
@@ -968,8 +966,8 @@ class OverdriveRepresentationExtractor(object):
             imprint = book.get('imprint', None)
 
             if 'publishDate' in book:
-                published = datetime.datetime.strptime(
-                    book['publishDate'][:10], cls.DATE_FORMAT).replace(tzinfo=pytz.UTC)
+                published = to_utc(datetime.datetime.strptime(
+                    book['publishDate'][:10], cls.DATE_FORMAT))
             else:
                 published = None
 

@@ -1,11 +1,8 @@
 # encoding: utf-8
 # Credential, DRMDeviceIdentifier, DelegatedPatronIdentifier
 import datetime
-import pytz
 import uuid
-
 import sqlalchemy
-
 from sqlalchemy import (
     Column,
     DateTime,
@@ -19,8 +16,9 @@ from sqlalchemy.orm import backref, relationship
 from sqlalchemy.orm.session import Session
 from sqlalchemy.sql.expression import and_
 
-from ..util import is_session
 from . import Base, get_one, get_one_or_create
+from ..util import is_session
+from ..util.datetime_helpers import utc_now
 
 
 class Credential(Base):
@@ -105,7 +103,7 @@ class Credential(Base):
             else:
                 # It's an error that this token never expires. It's invalid.
                 return None
-        elif credential.expires > datetime.datetime.now(tz=pytz.UTC):
+        elif credential.expires > utc_now():
             return credential
         else:
             # Token has expired.
@@ -125,7 +123,7 @@ class Credential(Base):
             or (not credential.expires and not allow_persistent_token)
             or (not credential.credential and not allow_empty_token)
             or (credential.expires
-                and credential.expires <= datetime.datetime.now(tz=pytz.UTC))):
+                and credential.expires <= utc_now())):
             if refresher_method:
                 refresher_method(credential)
         return credential
@@ -220,7 +218,7 @@ class Credential(Base):
         credential = cls.lookup_by_token(_db, data_source, type, token)
         if not credential:
             return None
-        credential.expires = datetime.datetime.now(tz=pytz.UTC) - datetime.timedelta(
+        credential.expires = utc_now() - datetime.timedelta(
             seconds=5)
         return credential
 
@@ -237,7 +235,7 @@ class Credential(Base):
         """Create a temporary token for the given data_source/type/patron.
         The token will be good for the specified `duration`.
         """
-        expires = datetime.datetime.now(tz=pytz.UTC) + duration
+        expires = utc_now() + duration
         token_string = value or str(uuid.uuid1())
         credential, is_new = get_one_or_create(
             _db, Credential, data_source=data_source, type=token_type, patron=patron)

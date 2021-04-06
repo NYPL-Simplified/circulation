@@ -1,5 +1,4 @@
 import datetime
-import pytz
 import logging
 import re
 import xml.etree.ElementTree as ET
@@ -78,6 +77,7 @@ from ..util.opds_writer import (
     OPDSFeed,
     OPDSMessage,
 )
+from ..util.datetime_helpers import datetime_utc, utc_now
 
 
 class TestBaseAnnotator(DatabaseTest):
@@ -118,9 +118,9 @@ class TestBaseAnnotator(DatabaseTest):
     def test_annotate_work_entry_adds_tags(self):
         work = self._work(with_license_pool=True,
                           with_open_access_download=True)
-        work.last_update_time = datetime.datetime(2018, 2, 5, 7, 39, 49, 580651, tzinfo=pytz.UTC)
+        work.last_update_time = datetime_utc(2018, 2, 5, 7, 39, 49, 580651)
         [pool] = work.license_pools
-        pool.availability_time = datetime.datetime(2015, 1, 1, tzinfo=pytz.UTC)
+        pool.availability_time = datetime_utc(2015, 1, 1)
 
         entry = []
         # This will create four extra tags which could not be
@@ -150,7 +150,7 @@ class TestBaseAnnotator(DatabaseTest):
         # found in work.last_update_time.
         annotator.annotate_work_entry(
             work, pool, None, None, None, entry,
-            updated=datetime.datetime(2017, 1, 2, 3, 39, 49, 580651, tzinfo=pytz.UTC)
+            updated=datetime_utc(2017, 1, 2, 3, 39, 49, 580651)
         )
         [id, distributor, published, updated] = entry
         assert 'updated' in etree.tounicode(updated)
@@ -1648,7 +1648,7 @@ class TestAcquisitionFeed(DatabaseTest):
         work.simple_opds_entry = work.verbose_opds_entry = None
         five_hundred_years = datetime.timedelta(days=(500*365))
         work.presentation_edition.issued = (
-            datetime.datetime.now(tz=pytz.UTC) - five_hundred_years
+            utc_now() - five_hundred_years
         )
 
         entry = AcquisitionFeed.single_entry(self._db, work, TestAnnotator)

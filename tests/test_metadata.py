@@ -1,9 +1,7 @@
 import csv
 import datetime
-import pytz
 import os
 from copy import deepcopy
-
 import pytest
 from parameterized import parameterized
 
@@ -46,6 +44,11 @@ from ..model import (
 from ..model.configuration import ExternalIntegrationLink
 from ..s3 import MockS3Uploader
 from ..util.http import RemoteIntegrationException
+from ..util.datetime_helpers import (
+    datetime_utc,
+    to_utc,
+    utc_now,
+)
 
 
 class TestIdentifierData(object):
@@ -764,7 +767,7 @@ class TestMetadataImporter(DatabaseTest):
         coverage = CoverageRecord.lookup(edition, data_source)
         assert coverage == None
 
-        last_update = datetime.datetime(2015, 1, 1, tzinfo=pytz.UTC)
+        last_update = datetime_utc(2015, 1, 1)
 
         m = Metadata(data_source=data_source,
                      title="New title", data_source_last_updated=last_update)
@@ -774,7 +777,7 @@ class TestMetadataImporter(DatabaseTest):
         assert last_update == coverage.timestamp
         assert "New title" == edition.title
 
-        older_last_update = datetime.datetime(2014, 1, 1, tzinfo=pytz.UTC)
+        older_last_update = datetime_utc(2014, 1, 1)
         m = Metadata(data_source=data_source,
                      title="Another new title",
                      data_source_last_updated=older_last_update
@@ -1513,10 +1516,10 @@ class TestMetadata(DatabaseTest):
             series_position=1,
             publisher="Hello World Publishing House",
             imprint="Follywood",
-            issued=datetime.datetime.now(tz=pytz.UTC),
-            published=datetime.datetime.now(tz=pytz.UTC),
+            issued=utc_now(),
+            published=utc_now(),
             identifiers=[primary_as_data, other_data],
-            data_source_last_updated=datetime.datetime.now(tz=pytz.UTC),
+            data_source_last_updated=utc_now(),
         )
 
         m_copy = deepcopy(m)
@@ -1687,7 +1690,7 @@ class TestTimestampData(DatabaseTest):
 
         # The timestamp values are set to sensible defaults.
         assert d.start == d.finish
-        assert (datetime.datetime.now(tz=pytz.UTC) - d.start).total_seconds() < 2
+        assert (utc_now() - d.start).total_seconds() < 2
 
         # Other fields are still at None.
         for i in d.achievements, d.counter, d.exception:
@@ -1744,7 +1747,7 @@ class TestTimestampData(DatabaseTest):
         collection = self._default_collection
         d.finalize("service", Timestamp.SCRIPT_TYPE, collection)
         d.apply(self._db)
-        now = datetime.datetime.now(tz=pytz.UTC)
+        now = utc_now()
 
         timestamp = Timestamp.lookup(
             self._db, "service", Timestamp.SCRIPT_TYPE, collection
@@ -1832,7 +1835,7 @@ class TestMARCExtractor(DatabaseTest):
 
     def test_parse_year(self):
         m = MARCExtractor.parse_year
-        nineteen_hundred = datetime.datetime.strptime("1900", "%Y").replace(tzinfo=pytz.UTC)
+        nineteen_hundred = to_utc(datetime.datetime.strptime("1900", "%Y"))
         assert nineteen_hundred == m("1900")
         assert nineteen_hundred == m("1900.")
         assert None == m("not a year")

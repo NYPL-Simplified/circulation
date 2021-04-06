@@ -2,13 +2,6 @@
 # CirculationEvent
 
 
-from . import (
-    Base,
-    get_one_or_create,
-)
-
-import datetime
-import pytz
 import logging
 from sqlalchemy import (
     Column,
@@ -19,6 +12,12 @@ from sqlalchemy import (
     String,
     Unicode,
 )
+
+from . import (
+    Base,
+    get_one_or_create,
+)
+from ..util.datetime_helpers import utc_now
 
 class CirculationEvent(Base):
 
@@ -141,7 +140,7 @@ class CirculationEvent(Base):
         else:
             delta = new_value - old_value
         if not start:
-            start = datetime.datetime.now(tz=pytz.UTC)
+            start = utc_now()
         if not end:
             end = start
         event, was_new = get_one_or_create(

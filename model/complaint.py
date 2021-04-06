@@ -1,15 +1,6 @@
 # encoding: utf-8
 # Complaint
 
-
-from . import (
-    Base,
-    create,
-    get_one_or_create,
-)
-
-import datetime
-import pytz
 from sqlalchemy import (
     Column,
     DateTime,
@@ -18,6 +9,13 @@ from sqlalchemy import (
     String,
 )
 from sqlalchemy.orm.session import Session
+
+from . import (
+    Base,
+    create,
+    get_one_or_create,
+)
+from ..util.datetime_helpers import utc_now
 
 class Complaint(Base):
     """A complaint about a LicensePool (or, potentially, something else)."""
@@ -79,7 +77,7 @@ class Complaint(Base):
         _db = Session.object_session(license_pool)
         if type not in self.VALID_TYPES:
             raise ValueError("Unrecognized complaint type: %s" % type)
-        now = datetime.datetime.now(tz=pytz.UTC)
+        now = utc_now()
         if source:
             complaint, is_new = get_one_or_create(
                 _db, Complaint,
@@ -111,5 +109,5 @@ class Complaint(Base):
         return any(self.type.endswith(t) for t in self.LICENSE_POOL_TYPES)
 
     def resolve(self):
-        self.resolved = datetime.datetime.now(tz=pytz.UTC)
+        self.resolved = utc_now()
         return self.resolved

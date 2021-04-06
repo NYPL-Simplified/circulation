@@ -1,6 +1,5 @@
 import argparse
 import datetime
-import pytz
 import logging
 import os
 import random
@@ -25,7 +24,6 @@ from sqlalchemy.orm.exc import (
     MultipleResultsFound,
 )
 
-# from axis import Axis360BibliographicCoverageProvider
 from .config import Configuration, CannotLoadConfiguration
 from .coverage import (
     CollectionCoverageProviderJob,
@@ -83,9 +81,6 @@ from .opds_import import (
     OPDSImportMonitor,
     OPDSImporter,
 )
-# from oneclick import (
-#     OneClickBibliographicCoverageProvider,
-# )
 from .util import fast_query_count
 from .util.personal_names import (
     contributor_name_match_ratio,
@@ -94,6 +89,7 @@ from .util.personal_names import (
 from .util.worker_pools import (
     DatabasePool,
 )
+from .util.datetime_helpers import to_utc, utc_now
 
 
 class Script(object):
@@ -141,9 +137,9 @@ class Script(object):
             for hours in ('', ' %H:%M:%S'):
                 full_format = format + hours
                 try:
-                    parsed = datetime.datetime.strptime(
+                    parsed = to_utc(datetime.datetime.strptime(
                         time_string, full_format
-                    ).replace(tzinfo=pytz.UTC)
+                    ))
                     return parsed
                 except ValueError as e:
                     continue
@@ -161,7 +157,7 @@ class Script(object):
     def run(self):
         self.load_configuration()
         DataSource.well_known_sources(self._db)
-        start_time = datetime.datetime.now(tz=pytz.UTC)
+        start_time = utc_now()
         try:
             timestamp_data = self.do_run()
             if not isinstance(timestamp_data, TimestampData):
@@ -410,7 +406,7 @@ class RunThreadedCollectionCoverageProviderScript(Script):
                 # jobs could share a single 'progress' object.
                 while offset < query_size:
                     progress = CoverageProviderProgress(
-                        start=datetime.datetime.now(tz=pytz.UTC)
+                        start=utc_now()
                     )
                     progress.offset = offset
                     job = CollectionCoverageProviderJob(
@@ -2543,7 +2539,7 @@ class DatabaseMigrationScript(Script):
             return
 
         if self.overall_timestamp.finish is not None:
-            finish_timestamp = self.overall_timestamp.finish.replace(tzinfo=pytz.UTC)
+            finish_timestamp = to_utc(self.overall_timestamp.finish)
         # The last script that ran had an earlier timestamp than the current script
         if finish_timestamp > last_run_date:
             return

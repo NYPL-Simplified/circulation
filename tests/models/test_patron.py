@@ -1,7 +1,6 @@
 # encoding: utf-8
 import pytest
 import datetime
-import pytz
 from mock import (
     call,
     MagicMock,
@@ -24,6 +23,7 @@ from ...model.patron import (
     Patron,
     PatronProfileStorage,
 )
+from ...util.datetime_helpers import datetime_utc, utc_now
 
 class TestAnnotation(DatabaseTest):
     def test_set_inactive(self):
@@ -36,7 +36,7 @@ class TestAnnotation(DatabaseTest):
             content="The content",
             active=True,
         )
-        yesterday = datetime.datetime.now(tz=pytz.UTC) - datetime.timedelta(days=1)
+        yesterday = utc_now() - datetime.timedelta(days=1)
         annotation.timestamp = yesterday
 
         annotation.set_inactive()
@@ -65,8 +65,8 @@ class TestAnnotation(DatabaseTest):
             active=True,
         )
 
-        yesterday = datetime.datetime.now() - datetime.timedelta(days=1)
-        today = datetime.datetime.now()
+        yesterday = utc_now() - datetime.timedelta(days=1)
+        today = utc_now()
         annotation1.timestamp = yesterday
         annotation2.timestamp = today
 
@@ -77,7 +77,7 @@ class TestAnnotation(DatabaseTest):
 class TestHold(DatabaseTest):
 
     def test_on_hold_to(self):
-        now = datetime.datetime.now(tz=pytz.UTC)
+        now = utc_now()
         later = now + datetime.timedelta(days=1)
         patron = self._patron()
         edition = self._edition()
@@ -120,7 +120,7 @@ class TestHold(DatabaseTest):
 
         self._default_library.setting(Library.ALLOW_HOLDS).value = False
         with pytest.raises(PolicyException) as excinfo:
-            pool.on_hold_to(patron, datetime.datetime.now(), 4)
+            pool.on_hold_to(patron, utc_now(), 4)
         assert "Holds are disabled for this library." in str(excinfo.value)
 
     def test_work(self):
@@ -137,7 +137,7 @@ class TestHold(DatabaseTest):
         one_day = datetime.timedelta(days=1)
         two_days = datetime.timedelta(days=2)
 
-        now = datetime.datetime.now(tz=pytz.UTC)
+        now = utc_now()
         the_past = now - datetime.timedelta(seconds=1)
         the_future = now + two_days
 
@@ -197,7 +197,7 @@ class TestHold(DatabaseTest):
         Hold._calculate_until = old__calculate_until
 
     def test_calculate_until(self):
-        start = datetime.datetime(2010, 1, 1, tzinfo=pytz.UTC)
+        start = datetime_utc(2010, 1, 1)
 
         # The cycle time is one week.
         default_loan = datetime.timedelta(days=6)
@@ -254,7 +254,7 @@ class TestHold(DatabaseTest):
         that is used in preference to the availability time we
         calculate.
         """
-        now = datetime.datetime.now(tz=pytz.UTC)
+        now = utc_now()
         tomorrow = now + datetime.timedelta(days=1)
 
         patron = self._patron()
@@ -305,7 +305,7 @@ class TestLoans(DatabaseTest):
         assert loan.patron == patron
         assert loan.license_pool == pool
         assert fulfillment == loan.fulfillment
-        assert (datetime.datetime.now(tz=pytz.UTC) - loan.start) < datetime.timedelta(seconds=1)
+        assert (utc_now() - loan.start) < datetime.timedelta(seconds=1)
 
         # TODO: At some future point it may be relevant that loan.end
         # is None here, but before that happens the loan process will
@@ -384,8 +384,8 @@ class TestPatron(DatabaseTest):
 
         patron = self._patron(external_identifier="a patron")
 
-        patron.authorization_expires=datetime.datetime(2018, 1, 2, 3, 4, 5, tzinfo=pytz.UTC)
-        patron.last_external_sync=None
+        patron.authorization_expires = datetime_utc(2018, 1, 2, 3, 4, 5)
+        patron.last_external_sync = None
         assert (
             "<Patron authentication_identifier=None expires=2018-01-02 sync=None>" ==
             repr(patron))
@@ -533,7 +533,7 @@ class TestPatron(DatabaseTest):
         # Verify that last_loan_activity_sync is cleared out
         # beyond a certain point.
         patron = self._patron()
-        now = datetime.datetime.now(tz=pytz.UTC)
+        now = utc_now()
         max_age = patron.loan_activity_max_age
         recently = now - datetime.timedelta(seconds=max_age/2)
         long_ago = now - datetime.timedelta(seconds=max_age*2)
@@ -788,8 +788,8 @@ class TestPatronProfileStorage(DatabaseTest):
             rep)
 
         self.patron.synchronize_annotations = True
-        self.patron.authorization_expires = datetime.datetime(
-            2016, 1, 1, 10, 20, 30, tzinfo=pytz.UTC
+        self.patron.authorization_expires = datetime_utc(
+            2016, 1, 1, 10, 20, 30
         )
         rep = self.store.profile_document
         assert (

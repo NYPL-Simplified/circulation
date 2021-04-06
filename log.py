@@ -1,18 +1,18 @@
 
-import datetime
-import pytz
 import logging
 import json
 import os
 import socket
 from flask_babel import lazy_gettext as _
-from .config import Configuration
 from io import StringIO
 from loggly.handlers import HTTPSHandler as LogglyHandler
 from watchtower import CloudWatchLogHandler
 from boto3.session import Session as AwsSession
+
+from .config import Configuration
 from .config import CannotLoadConfiguration
 from .model import ExternalIntegration, ConfigurationSetting
+from .util.datetime_helpers import utc_now
 
 class JSONFormatter(logging.Formatter):
     hostname = socket.gethostname()
@@ -61,7 +61,7 @@ class JSONFormatter(logging.Formatter):
             level=record.levelname,
             filename=record.filename,
             message=message,
-            timestamp=datetime.datetime.now(tz=pytz.UTC).isoformat()
+            timestamp=utc_now().isoformat()
         )
         if record.exc_info:
             data['traceback'] = self.formatException(record.exc_info)

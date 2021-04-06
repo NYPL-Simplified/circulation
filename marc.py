@@ -1,15 +1,13 @@
 
-import datetime
-import pytz
 from io import BytesIO
 from flask_babel import lazy_gettext as _
 import re
-
 from pymarc import (
     Field,
     Record,
     MARCWriter
 )
+
 from .config import (
     Configuration,
     CannotLoadConfiguration,
@@ -38,6 +36,7 @@ from .mirror import MirrorUploader
 from .s3 import S3Uploader
 from .lane import Lane
 from .util import LanguageCodes
+from .util.datetime_helpers import utc_now
 
 class Annotator(object):
     """The Annotator knows how to add information about a Work to
@@ -107,7 +106,7 @@ class Annotator(object):
         # Field 003 (MARC organization code) is library-specific, so it's added separately.
 
         record.add_field(
-            Field(tag="005", data=datetime.datetime.now().strftime("%Y%m%d%H%M%S.0")))
+            Field(tag="005", data=utc_now().strftime("%Y%m%d%H%M%S.0")))
 
         # Field 006: m = computer file, d = the file is a document
         record.add_field(
@@ -125,7 +124,7 @@ class Annotator(object):
             Field(tag="007", data="cr cn ---" + file_formats_code + "nuuu"))
 
         # Field 008 (fixed-length data elements):
-        data = datetime.datetime.now().strftime("%y%m%d")
+        data = utc_now().strftime("%y%m%d")
         publication_date = edition.issued or edition.published
         if publication_date:
             date_type = "s" # single known date
@@ -653,7 +652,7 @@ class MARCExporter(object):
         # End time is before we start the query, because if any records are changed
         # during the processing we may not catch them, and they should be handled
         # again on the next run.
-        end_time = datetime.datetime.now(tz=pytz.UTC)
+        end_time = utc_now()
 
         facets = MARCExporterFacets(start_time=start_time)
         pagination = SortKeyPagination(size=query_batch_size)

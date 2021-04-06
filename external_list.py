@@ -1,7 +1,5 @@
 # encoding: utf-8
 from collections import defaultdict
-import datetime
-import pytz
 from dateutil.parser import parse
 import csv
 import os
@@ -28,6 +26,7 @@ from .model import (
     Work,
 )
 from .util import LanguageCodes
+from .util.datetime_helpers import utc_now
 
 class CustomListFromCSV(CSVMetadataImporter):
     """Create a CustomList, with entries, from a CSV file."""
@@ -66,7 +65,7 @@ class CustomListFromCSV(CSVMetadataImporter):
         last_appeared date to its most recent appearance.
         """
         data_source = DataSource.lookup(_db, self.data_source_name)
-        now = datetime.datetime.now(tz=pytz.UTC)
+        now = utc_now()
 
         # Find or create the CustomList object itself.
         custom_list, was_new = get_one_or_create(
@@ -157,7 +156,7 @@ class TitleFromExternalList(object):
         self.metadata = metadata
         self.first_appearance = first_appearance or most_recent_appearance
         self.most_recent_appearance = (
-            most_recent_appearance or datetime.datetime.now(tz=pytz.UTC)
+            most_recent_appearance or utc_now()
         )
         self.annotation = annotation
 
@@ -262,7 +261,7 @@ class MembershipManager(object):
         self.custom_list = custom_list
 
     def update(self, update_time=None):
-        update_time = update_time or datetime.datetime.now(tz=pytz.UTC)
+        update_time = update_time or utc_now()
 
         # Map each Edition currently in this list to the corresponding
         # CustomListEntry.

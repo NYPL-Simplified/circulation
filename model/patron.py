@@ -1,14 +1,7 @@
 # encoding: utf-8
 # LoanAndHoldMixin, Patron, Loan, Hold, Annotation, PatronProfileStorage
 
-from . import (
-    Base,
-    get_one_or_create,
-    numericrange_to_tuple
-)
-from .credential import Credential
 import datetime
-import pytz
 import logging
 from sqlalchemy import (
     Boolean,
@@ -26,9 +19,17 @@ from psycopg2.extras import NumericRange
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm.session import Session
+import uuid
+
+from . import (
+    Base,
+    get_one_or_create,
+    numericrange_to_tuple
+)
+from .credential import Credential
 from ..classifier import Classifier
 from ..user_profile import ProfileStorage
-import uuid
+from ..util.datetime_helpers import utc_now
 
 class LoanAndHoldMixin(object):
 
@@ -246,7 +247,7 @@ class Patron(Base):
 
         # We have an answer, but it may be so old that we should clear
         # it out.
-        now = datetime.datetime.now(tz=pytz.UTC)
+        now = utc_now()
         expires = value + datetime.timedelta(
             seconds=self.loan_activity_max_age
         )
@@ -525,7 +526,7 @@ class Loan(Base, LoanAndHoldMixin):
         if default_loan_period is None:
             # This loan will last forever.
             return None
-        start = self.start or datetime.datetime.now(tz=pytz.UTC)
+        start = self.start or utc_now()
         return start + default_loan_period
 
 class Hold(Base, LoanAndHoldMixin):
@@ -602,7 +603,7 @@ class Hold(Base, LoanAndHoldMixin):
         this--the library's license might expire and then you'll
         _never_ get the book.)
         """
-        if self.end and self.end > datetime.datetime.now(tz=pytz.UTC):
+        if self.end and self.end > utc_now():
             # The license source provided their own estimate, and it's
             # not obviously wrong, so use it.
             return self.end
@@ -613,7 +614,7 @@ class Hold(Base, LoanAndHoldMixin):
             # book.
             return None
 
-        start = datetime.datetime.now(tz=pytz.UTC)
+        start = utc_now()
         licenses_available = self.license_pool.licenses_owned
         position = self.position
         if position is None:
@@ -684,7 +685,7 @@ class Annotation(Base):
     def set_inactive(self):
         self.active = False
         self.content = None
-        self.timestamp = datetime.datetime.now(tz=pytz.UTC)
+        self.timestamp = utc_now()
 
 class PatronProfileStorage(ProfileStorage):
     """Interface between a Patron object and the User Profile Management

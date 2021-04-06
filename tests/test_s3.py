@@ -1,10 +1,7 @@
 # encoding: utf-8
-import datetime
-import pytz
 import functools
 import os
 from urllib.parse import urlsplit
-
 import boto3
 import botocore
 import pytest
@@ -32,8 +29,12 @@ from ..s3 import (
     S3Uploader,
     MockS3Client,
     MultipartS3Upload,
-    S3AddressingStyle, MinIOUploader, S3UploaderConfiguration, MinIOUploaderConfiguration)
-
+    S3AddressingStyle,
+    MinIOUploader,
+    S3UploaderConfiguration,
+    MinIOUploaderConfiguration
+)
+from ..util.datetime_helpers import datetime_utc, utc_now
 
 class S3UploaderTest(DatabaseTest):
 
@@ -775,7 +776,7 @@ class TestS3Uploader(S3UploaderTest):
             'marc',
             'SHORT',
             'Lane',
-            datetime.datetime(2020, 1, 1, 0, 0, 0, tzinfo=pytz.UTC),
+            datetime_utc(2020, 1, 1, 0, 0, 0),
             'https://marc.s3.amazonaws.com/SHORT/2020-01-01%2000%3A00%3A00%2B00%3A00/Lane.mrc'
         ),
         (
@@ -783,18 +784,18 @@ class TestS3Uploader(S3UploaderTest):
             'marc',
             'SHORT',
             'Lane',
-            datetime.datetime(2020, 1, 2, 0, 0, 0, tzinfo=pytz.UTC),
+            datetime_utc(2020, 1, 2, 0, 0, 0),
             'https://marc.s3.amazonaws.com/SHORT/2020-01-01%2000%3A00%3A00%2B00%3A00-2020-01-02%2000%3A00%3A00%2B00%3A00/Lane.mrc',
-            datetime.datetime(2020, 1, 1, 0, 0, 0, tzinfo=pytz.UTC),
+            datetime_utc(2020, 1, 1, 0, 0, 0),
         ),
         (
             'with_s3_bucket_and_end_time_and_start_time_and_custom_region',
             'marc',
             'SHORT',
             'Lane',
-            datetime.datetime(2020, 1, 2, 0, 0, 0, tzinfo=pytz.UTC),
+            datetime_utc(2020, 1, 2, 0, 0, 0),
             'https://marc.s3.us-east-2.amazonaws.com/SHORT/2020-01-01%2000%3A00%3A00%2B00%3A00-2020-01-02%2000%3A00%3A00%2B00%3A00/Lane.mrc',
-            datetime.datetime(2020, 1, 1, 0, 0, 0, tzinfo=pytz.UTC),
+            datetime_utc(2020, 1, 1, 0, 0, 0),
             'us-east-2'
         ),
         (
@@ -802,18 +803,18 @@ class TestS3Uploader(S3UploaderTest):
             'http://marc',
             'SHORT',
             'Lane',
-            datetime.datetime(2020, 1, 2, 0, 0, 0, tzinfo=pytz.UTC),
+            datetime_utc(2020, 1, 2, 0, 0, 0),
             'http://marc/SHORT/2020-01-01%2000%3A00%3A00%2B00%3A00-2020-01-02%2000%3A00%3A00%2B00%3A00/Lane.mrc',
-            datetime.datetime(2020, 1, 1, 0, 0, 0, tzinfo=pytz.UTC)
+            datetime_utc(2020, 1, 1, 0, 0, 0)
         ),
         (
             'with_https_bucket_and_end_time_and_start_time',
             'https://marc',
             'SHORT',
             'Lane',
-            datetime.datetime(2020, 1, 2, 0, 0, 0, tzinfo=pytz.UTC),
+            datetime_utc(2020, 1, 2, 0, 0, 0),
             'https://marc/SHORT/2020-01-01%2000%3A00%3A00%2B00%3A00-2020-01-02%2000%3A00%3A00%2B00%3A00/Lane.mrc',
-            datetime.datetime(2020, 1, 1, 0, 0, 0, tzinfo=pytz.UTC)
+            datetime_utc(2020, 1, 1, 0, 0, 0)
         )
     ])
     def test_marc_file_url(
@@ -943,7 +944,7 @@ class TestS3Uploader(S3UploaderTest):
         assert "covers-go" == bucket1
         assert "here.png" == key1
         assert Representation.PNG_MEDIA_TYPE == args1['ContentType']
-        assert (datetime.datetime.now(tz=pytz.UTC) - cover_rep.mirrored_at).seconds < 10
+        assert (utc_now() - cover_rep.mirrored_at).seconds < 10
 
         assert b"i'm an epub" == data2
         assert "books-go" == bucket2
@@ -960,7 +961,7 @@ class TestS3Uploader(S3UploaderTest):
 
         # mirrored-at was set when the representation was 'mirrored'
         for rep in epub_rep, cover_rep:
-            assert (datetime.datetime.now(tz=pytz.UTC) - rep.mirrored_at).seconds < 10
+            assert (utc_now() - rep.mirrored_at).seconds < 10
 
     def test_mirror_failure(self):
         edition, pool = self._edition(with_license_pool=True)

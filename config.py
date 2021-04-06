@@ -1,21 +1,18 @@
 import contextlib
-import datetime
-import pytz
 import os
 import json
 import logging
 import copy
 from sqlalchemy import create_engine
 from sqlalchemy.engine.url import make_url
+from sqlalchemy.exc import ArgumentError
 from sqlalchemy.orm.session import Session
 from flask_babel import lazy_gettext as _
 
 from .facets import FacetConstants
 from .entrypoint import EntryPoint
-
-from sqlalchemy.exc import ArgumentError
 from .util import LanguageCodes
-
+from .util.datetime_helpers import utc_now
 # It's convenient for other modules import IntegrationException
 # from this module, alongside CannotLoadConfiguration.
 from .util.http import IntegrationException
@@ -561,7 +558,7 @@ class Configuration(ConfigurationConstants):
 
         """
 
-        now = datetime.datetime.now(tz=pytz.UTC)
+        now = utc_now()
 
         # NOTE: Currently we never check the database (because timeout is
         # never set to None). This code will hopefully be removed soon.

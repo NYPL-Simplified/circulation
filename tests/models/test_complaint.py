@@ -1,9 +1,9 @@
 # encoding: utf-8
 import pytest
-import datetime
-import pytz
+
 from ...testing import DatabaseTest
 from ...model.complaint import Complaint
+from ...util.datetime_helpers import utc_now
 
 class TestComplaint(DatabaseTest):
 
@@ -32,7 +32,7 @@ class TestComplaint(DatabaseTest):
         assert self.type == complaint.type
         assert "foo" == complaint.source
         assert "bar" == complaint.detail
-        assert abs(datetime.datetime.now(tz=pytz.UTC) -complaint.timestamp).seconds < 3
+        assert abs(utc_now() -complaint.timestamp).seconds < 3
 
         # A second complaint from the same source is folded into the
         # original complaint.
@@ -77,14 +77,14 @@ class TestComplaint(DatabaseTest):
 
     def test_register_resolved(self):
         complaint, is_new = Complaint.register(
-            self.pool, self.type, "foo", "bar", resolved=datetime.datetime.now(tz=pytz.UTC)
+            self.pool, self.type, "foo", "bar", resolved=utc_now()
         )
         assert True == is_new
         assert self.type == complaint.type
         assert "foo" == complaint.source
         assert "bar" == complaint.detail
-        assert abs(datetime.datetime.now(tz=pytz.UTC) -complaint.timestamp).seconds < 3
-        assert abs(datetime.datetime.now(tz=pytz.UTC) -complaint.resolved).seconds < 3
+        assert abs(utc_now() -complaint.timestamp).seconds < 3
+        assert abs(utc_now() -complaint.resolved).seconds < 3
 
         # A second complaint from the same source is not folded into the same complaint.
         complaint2, is_new = Complaint.register(
@@ -101,4 +101,4 @@ class TestComplaint(DatabaseTest):
         )
         complaint.resolve()
         assert complaint.resolved != None
-        assert abs(datetime.datetime.now(tz=pytz.UTC) - complaint.resolved).seconds < 3
+        assert abs(utc_now() - complaint.resolved).seconds < 3

@@ -1,46 +1,37 @@
 import datetime
-import pytz
 import json
 import logging
-
 import pytest
 from mock import (
     call,
     MagicMock,
 )
 import random
-
-from ..testing import (
-    DatabaseTest,
-)
-
 from sqlalchemy.sql.elements import Case
 from sqlalchemy import (
     and_,
     func,
     text,
 )
-
 from elasticsearch.exceptions import ElasticsearchException
 
+from ..testing import (
+    DatabaseTest,
+)
 from ..classifier import Classifier
-
 from ..config import Configuration
-
 from ..entrypoint import (
     AudiobooksEntryPoint,
     EbooksEntryPoint,
     EverythingEntryPoint,
     EntryPoint,
 )
-
 from ..external_search import (
     Filter,
     MockExternalSearchIndex,
     WorkSearchResult,
     mock_search_index,
 )
-
 from ..lane import (
     DatabaseBackedFacets,
     DatabaseBackedWorkList,
@@ -55,7 +46,6 @@ from ..lane import (
     WorkList,
     Lane,
 )
-
 from ..model import (
     dump_query,
     get_one_or_create,
@@ -75,6 +65,7 @@ from ..model import (
 from ..problem_details import INVALID_INPUT
 from ..testing import EndToEndSearchTest, LogCaptureHandler
 from ..util.opds_writer import OPDSFeed
+from ..util.datetime_helpers import utc_now
 
 class TestFacetsWithEntryPoint(DatabaseTest):
 
@@ -3130,7 +3121,7 @@ class TestDatabaseBackedWorkList(DatabaseTest):
 
         # It's possible to restrict a WorkList to works that were seen on
         # a certain list recently.
-        now = datetime.datetime.now(tz=pytz.UTC)
+        now = utc_now()
         two_days_ago = now - datetime.timedelta(days=2)
         gutenberg_list_entry.most_recent_appearance = two_days_ago
 

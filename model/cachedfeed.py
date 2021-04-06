@@ -1,7 +1,6 @@
 # encoding: utf-8
 # CachedFeed, WillNotGenerateExpensiveFeed
 
-
 from . import (
     Base,
     flush,
@@ -10,7 +9,6 @@ from . import (
 )
 from collections import namedtuple
 import datetime
-import pytz
 import logging
 from sqlalchemy import (
     Column,
@@ -23,7 +21,9 @@ from sqlalchemy import (
 from sqlalchemy.sql.expression import (
     and_,
 )
+
 from ..util.flask_util import OPDSFeedResponse
+from ..util.datetime_helpers import utc_now
 
 class CachedFeed(Base):
 
@@ -157,7 +157,7 @@ class CachedFeed(Base):
             # This is a cache miss. Either feed_obj is None or
             # it's no good. We need to generate a new feed.
             feed_data = str(refresher_method())
-            generation_time = datetime.datetime.now(tz=pytz.UTC)
+            generation_time = utc_now()
 
             if max_age is not cls.IGNORE_CACHE:
                 # Having gone through all the trouble of generating
@@ -277,7 +277,7 @@ class CachedFeed(Base):
             should_refresh = False
         elif (feed_obj.timestamp
               and feed_obj.timestamp + datetime.timedelta(seconds=max_age) <=
-                  datetime.datetime.now(tz=pytz.UTC)
+                  utc_now()
         ):
             # Here it comes down to a date comparison: how old is the
             # CachedFeed?
@@ -350,7 +350,7 @@ class CachedFeed(Base):
 
     def update(self, _db, content):
         self.content = content
-        self.timestamp = datetime.datetime.now(tz=pytz.UTC)
+        self.timestamp = utc_now()
         flush(_db)
 
     def __repr__(self):

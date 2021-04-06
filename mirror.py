@@ -1,9 +1,8 @@
-import datetime
-import pytz
 from abc import abstractmethod, ABCMeta
 from urllib.parse import urlsplit
 
 from .config import CannotLoadConfiguration
+from .util.datetime_helpers import utc_now
 
 class MirrorUploader(metaclass=ABCMeta):
     """Handles the job of uploading a representation's content to
@@ -121,7 +120,7 @@ class MirrorUploader(metaclass=ABCMeta):
         :param collection: Collection
         :type collection: Optional[Collection]
         """
-        now = datetime.datetime.now(tz=pytz.UTC)
+        now = utc_now()
         exception = self.do_upload(representation)
         representation.mirror_exception = exception
         if exception:

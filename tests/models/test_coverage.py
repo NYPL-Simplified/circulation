@@ -1,6 +1,6 @@
 # encoding: utf-8
 import datetime
-import pytz
+
 from ...testing import DatabaseTest
 from ...model.coverage import (
     BaseCoverageRecord,
@@ -10,6 +10,7 @@ from ...model.coverage import (
 )
 from ...model.datasource import DataSource
 from ...model.identifier import Identifier
+from ...util.datetime_helpers import datetime_utc, utc_now
 
 class TestTimestamp(DatabaseTest):
 
@@ -56,7 +57,7 @@ class TestTimestamp(DatabaseTest):
         # If no date is specified, the value of the timestamp is the time
         # stamp() was called.
         stamp = Timestamp.stamp(self._db, service, type)
-        now = datetime.datetime.now(tz=pytz.UTC)
+        now = utc_now()
         assert (now - stamp.finish).total_seconds() < 2
         assert stamp.start == stamp.finish
         assert service == stamp.service
@@ -72,7 +73,7 @@ class TestTimestamp(DatabaseTest):
             counter=100, exception="boo"
         )
         assert stamp == stamp2
-        now = datetime.datetime.now(tz=pytz.UTC)
+        now = utc_now()
         assert (now - stamp.finish).total_seconds() < 2
         assert stamp.start == stamp.finish
         assert service == stamp.service
@@ -105,8 +106,8 @@ class TestTimestamp(DatabaseTest):
         # update() can modify the fields of a Timestamp that aren't
         # used to identify it.
         stamp = Timestamp.stamp(self._db, "service", Timestamp.SCRIPT_TYPE)
-        start = datetime.datetime(2010, 1, 2, tzinfo=pytz.UTC)
-        finish = datetime.datetime(2018, 3, 4, tzinfo=pytz.UTC)
+        start = datetime_utc(2010, 1, 2)
+        finish = datetime_utc(2018, 3, 4)
         achievements = self._str
         counter = self._id
         exception = self._str
@@ -162,7 +163,7 @@ class TestBaseCoverageRecord(DatabaseTest):
         success = self._identifier()
         success_record = self._coverage_record(success, source)
         success_record.timestamp = (
-            datetime.datetime.now(tz=pytz.UTC) - datetime.timedelta(seconds=3600)
+            utc_now() - datetime.timedelta(seconds=3600)
         )
         assert CoverageRecord.SUCCESS == success_record.status
 
@@ -277,7 +278,7 @@ class TestCoverageRecord(DatabaseTest):
 
         # If we call add_for again we get the same record back, but we
         # can modify the timestamp.
-        a_week_ago = datetime.datetime.now(tz=pytz.UTC) - datetime.timedelta(days=7)
+        a_week_ago = utc_now() - datetime.timedelta(days=7)
         record2, is_new = CoverageRecord.add_for(
             edition, source, operation, a_week_ago
         )
@@ -290,7 +291,7 @@ class TestCoverageRecord(DatabaseTest):
         record3, ignore = CoverageRecord.add_for(edition, source)
         assert record3 != record
         assert None == record3.operation
-        seconds = (datetime.datetime.now(tz=pytz.UTC) - record3.timestamp).seconds
+        seconds = (utc_now() - record3.timestamp).seconds
         assert seconds < 10
 
         # If we call lookup we get the same record.
@@ -447,7 +448,7 @@ class TestWorkCoverageRecord(DatabaseTest):
 
         # If we call add_for again we get the same record back, but we
         # can modify the timestamp.
-        a_week_ago = datetime.datetime.now(tz=pytz.UTC) - datetime.timedelta(days=7)
+        a_week_ago = utc_now() - datetime.timedelta(days=7)
         record2, is_new = WorkCoverageRecord.add_for(
             work, operation, a_week_ago
         )
@@ -460,7 +461,7 @@ class TestWorkCoverageRecord(DatabaseTest):
         record3, ignore = WorkCoverageRecord.add_for(work, None)
         assert record3 != record
         assert None == record3.operation
-        seconds = (datetime.datetime.now(tz=pytz.UTC) - record3.timestamp).seconds
+        seconds = (utc_now() - record3.timestamp).seconds
         assert seconds < 10
 
         # If we call lookup we get the same record.
@@ -514,7 +515,7 @@ class TestWorkCoverageRecord(DatabaseTest):
 
         # Tell bulk_add to update or create WorkCoverageRecords for
         # not_already_covered and already_covered, but not not_affected.
-        new_timestamp = datetime.datetime.now(tz=pytz.UTC)
+        new_timestamp = utc_now()
         new_status = WorkCoverageRecord.REGISTERED
         WorkCoverageRecord.bulk_add(
             [not_already_covered, already_covered],

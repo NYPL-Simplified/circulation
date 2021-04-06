@@ -1,14 +1,12 @@
-import datetime
-import pytz
 from ...model import (
     DataSource,
     Measurement,
     get_one_or_create
 )
-
 from ...testing import (
     DatabaseTest,
 )
+from ...util.datetime_helpers import datetime_utc
 
 class TestMeasurement(DatabaseTest):
 
@@ -61,8 +59,8 @@ class TestMeasurement(DatabaseTest):
 
     def test_can_insert_measurement_after_the_fact(self):
 
-        old = datetime.datetime(2011, 1, 1, tzinfo=pytz.UTC)
-        new = datetime.datetime(2012, 1, 1, tzinfo=pytz.UTC)
+        old = datetime_utc(2011, 1, 1)
+        new = datetime_utc(2012, 1, 1)
 
         wi = self._identifier()
         m1 = wi.add_measurement(self.source, Measurement.DOWNLOADS, 10,

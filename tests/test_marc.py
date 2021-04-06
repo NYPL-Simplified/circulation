@@ -1,5 +1,4 @@
 import datetime
-import pytz
 import pytest
 from pymarc import Record, MARCReader
 from io import StringIO
@@ -7,7 +6,6 @@ from urllib.parse import quote
 from sqlalchemy.orm.session import Session
 
 from ..testing import DatabaseTest
-
 from ..model import (
     CachedMARCFile,
     Contributor,
@@ -33,12 +31,12 @@ from ..marc import (
   MARCExporter,
   MARCExporterFacets,
 )
-
 from ..s3 import (
     MockS3Uploader,
     S3Uploader,
 )
 from ..lane import WorkList
+from ..util.datetime_helpers import datetime_utc, utc_now
 
 class TestAnnotator(DatabaseTest):
 
@@ -87,9 +85,9 @@ class TestAnnotator(DatabaseTest):
         # This edition has one format and was published before 1900.
         edition, pool = self._edition(with_license_pool=True)
         identifier = pool.identifier
-        edition.issued = datetime.datetime(956, 1, 1, tzinfo=pytz.UTC)
+        edition.issued = datetime_utc(956, 1, 1)
 
-        now = datetime.datetime.now()
+        now = utc_now()
         record = Record()
 
         Annotator.add_control_fields(record, identifier, pool, edition)
@@ -104,7 +102,7 @@ class TestAnnotator(DatabaseTest):
         # This French edition has two formats and was published in 2018.
         edition2, pool2 = self._edition(with_license_pool=True)
         identifier2 = pool2.identifier
-        edition2.issued = datetime.datetime(2018, 2, 3, tzinfo=pytz.UTC)
+        edition2.issued = datetime_utc(2018, 2, 3)
         edition2.language = "fre"
         LicensePoolDeliveryMechanism.set(
             pool2.data_source, identifier2, Representation.PDF_MEDIA_TYPE,
@@ -211,7 +209,7 @@ class TestAnnotator(DatabaseTest):
     def test_add_publisher(self):
         edition = self._edition()
         edition.publisher = self._str
-        edition.issued = datetime.datetime(1894, 4, 5, tzinfo=pytz.UTC)
+        edition.issued = datetime_utc(1894, 4, 5)
 
         record = Record()
         Annotator.add_publisher(record, edition)
@@ -492,7 +490,7 @@ class TestMARCExporter(DatabaseTest):
 
     def test_records(self):
         integration = self._integration()
-        now = datetime.datetime.now(tz=pytz.UTC)
+        now = utc_now()
         exporter = MARCExporter.from_config(self._default_library)
         annotator = Annotator()
         lane = self._lane("Test Lane", genres=["Mystery"])

@@ -1,7 +1,5 @@
 # encoding: utf-8
 
-import datetime
-import pytz
 import logging
 import os
 import warnings
@@ -47,6 +45,7 @@ from .constants import (
     MediaTypes,
 )
 from .. import classifier
+from ..util.datetime_helpers import utc_now
 
 def flush(db):
     """Flush the database connection unless it's known to already be flushing."""
@@ -449,7 +448,7 @@ class SessionManager(object):
         timestamp, is_new = get_one_or_create(
             session, Timestamp, collection=None,
             service=Configuration.SITE_CONFIGURATION_CHANGED,
-            create_method_kwargs=dict(finish=datetime.datetime.now(tz=pytz.UTC))
+            create_method_kwargs=dict(finish=utc_now())
         )
         if is_new:
             site_configuration_has_changed(session)
