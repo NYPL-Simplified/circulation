@@ -388,7 +388,10 @@ class TestCirculationManager(CirculationControllerTest):
 
         # The authentication document cache has a default value for
         # max_age.
-        assert 3600 == manager.authentication_for_opds_documents.max_age
+        assert 0 == manager.authentication_for_opds_documents.max_age
+
+        # UWSGI debug is off by default.
+        assert False == manager.uwsgi_debug
 
         # Now let's create a brand new library, never before seen.
         library = self._library()
@@ -422,7 +425,11 @@ class TestCirculationManager(CirculationControllerTest):
 
         ConfigurationSetting.sitewide(
             self._db, Configuration.AUTHENTICATION_DOCUMENT_CACHE_TIME
-        ).value = "0"
+        ).value = "60"
+
+        ConfigurationSetting.sitewide(
+            self._db, Configuration.UWSGI_DEBUG_KEY
+        ).value = "true"
 
         # Then reload the CirculationManager...
         self.manager.load_settings()
@@ -464,7 +471,10 @@ class TestCirculationManager(CirculationControllerTest):
 
         # The authentication document cache has been rebuilt with a
         # new max_age.
-        assert 0 == manager.authentication_for_opds_documents.max_age
+        assert 60 == manager.authentication_for_opds_documents.max_age
+
+        # The UWSGI debug setting has been changed.
+        assert True == manager.uwsgi_debug
 
         # Controllers that don't depend on site configuration
         # have not been reloaded.
@@ -1505,19 +1515,44 @@ class TestIndexController(CirculationControllerTest):
             doc = json.loads(data)
             assert library_name == doc['title']
 
-        # Verify that the A4OPDS document cache is working.
+        # Currently, the authentication document cache is disabled by default.
         self.manager.authentication_for_opds_documents[library_name] = "Cached value"
         with self.request_context_with_library(
                 "/", headers=dict(Authorization=self.invalid_auth)):
             response = self.manager.index_controller.authentication_document()
-            assert "Cached value" == response.data
+            assert response.data != "Cached value"
 
-        # And verify what happens when the cache is disabled.
-        self.manager.authentication_for_opds_documents.max_age = 0
+        # Enable the A4OPDS document cache and verify that it's working.
+        self.manager.authentication_for_opds_documents.max_age = 3600
+        cached_value = json.dumps(dict(key="Cached document"))
+        self.manager.authentication_for_opds_documents[library_name] = cached_value
+        with self.request_context_with_library(
+                "/?debug", headers=dict(Authorization=self.invalid_auth)):
+            response = self.manager.index_controller.authentication_document()
+            assert cached_value == response.data
+
+            # Note that UWSGI debugging data was not provided, even
+            # though we requested it, since UWSGI debugging is
+            # disabled.
+            assert '_debug' not in response.data
+
+        # When UWSGI debugging is enabled and requested, an
+        # authentication document includes some extra information in a
+        # special '_debug' section.
+        self.manager.uwsgi_debug = True
+        with self.request_context_with_library(
+                "/?debug", headers=dict(Authorization=self.invalid_auth)):
+            response = self.manager.index_controller.authentication_document()
+            doc = json.loads(response.data)
+            assert doc['key'] == 'Cached document'
+            debug = doc['_debug']
+            assert all(x in debug for x in ('url', 'cache', 'environ'))
+
+        # UWSGI debugging is not provided unless requested.
         with self.request_context_with_library(
                 "/", headers=dict(Authorization=self.invalid_auth)):
             response = self.manager.index_controller.authentication_document()
-            assert response.data != "Cached value"
+            assert '_debug' not in response.data
 
     def test_public_key_integration_document(self):
         base_url = ConfigurationSetting.sitewide(self._db, Configuration.BASE_URL_KEY).value

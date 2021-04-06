@@ -304,11 +304,14 @@ class CirculationManager(object):
         authentication_document_cache_time = int(
             ConfigurationSetting.sitewide(
                 self._db, Configuration.AUTHENTICATION_DOCUMENT_CACHE_TIME
-            ).value_or_default(3600)
+            ).value_or_default(0)
         )
         self.authentication_for_opds_documents = ExpiringDict(
             max_len=1000, max_age_seconds=authentication_document_cache_time
         )
+        self.uwsgi_debug = ConfigurationSetting.sitewide(
+            self._db, Configuration.UWSGI_DEBUG_KEY
+        ).bool_value or False
 
     @property
     def external_search(self):
@@ -550,6 +553,20 @@ class CirculationManager(object):
             # time.
             value = self.auth.create_authentication_document()
             self.authentication_for_opds_documents[name] = value
+
+        if self.uwsgi_debug and 'debug' in flask.request.args:
+            # Annotate with debugging information about the UWSGI
+            # environment and the authentication document cache
+            # itself.
+            value = json.loads(value)
+            value['_debug'] = dict(
+                url=self.url_for(
+                    'authentication_document', library_short_name=name
+                ),
+                environ=str(dict(flask.request.environ)),
+                cache=str(self.authentication_for_opds_documents),
+            )
+            value = json.dumps(value)
         return value
 
     @property
