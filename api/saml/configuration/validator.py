@@ -1,7 +1,6 @@
 import logging
 import re
 from enum import Enum
-
 import six
 from flask_babel import lazy_gettext as _
 
@@ -275,7 +274,7 @@ class SAMLSettingsValidator(Validator):
 
                 return SAML_INCORRECT_FILTRATION_EXPRESSION.detailed(
                     _(
-                        u"SAML filtration expression has an incorrect format: {0}".format(
+                        "SAML filtration expression has an incorrect format: {0}".format(
                             six.ensure_text(str(exception))
                         )
                     )
@@ -315,7 +314,7 @@ class SAMLSettingsValidator(Validator):
                 ):
                     return SAML_INCORRECT_PATRON_ID_REGULAR_EXPRESSION.detailed(
                         _(
-                            u"SAML patron ID regular expression '{0}' does not have mandatory named group '{1}'".format(
+                            "SAML patron ID regular expression '{0}' does not have mandatory named group '{1}'".format(
                                 six.ensure_text(patron_id_regular_expression),
                                 six.ensure_text(
                                     SAMLSubjectPatronIDExtractor.PATRON_ID_REGULAR_EXPRESSION_NAMED_GROUP
@@ -324,7 +323,7 @@ class SAMLSettingsValidator(Validator):
                         )
                     )
             except re.error as exception:
-                error_message = u"SAML patron ID regular expression '{0}' has an incorrect format: {1}".format(
+                error_message = "SAML patron ID regular expression '{0}' has an incorrect format: {1}".format(
                     six.ensure_text(patron_id_regular_expression), exception
                 )
 

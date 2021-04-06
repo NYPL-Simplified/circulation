@@ -152,12 +152,13 @@ class TestGeographicValidator(SettingsControllerTest):
         assert error_response.detail == "Unable to contact the registry at https://registry_url."
         assert error_response.status_code == 502
 
-    def test_ask_registry(self):
+    def test_ask_registry(self, monkeypatch):
         validator = GeographicValidator()
 
-        registry_1 = self._registry("https://registry_1_url")
-        registry_2 = self._registry("https://registry_2_url")
-        registry_3 = self._registry("https://registry_3_url")
+        registry_1 = "https://registry_1_url"
+        registry_2 = "https://registry_2_url"
+        registry_3 = "https://registry_3_url"
+        registries = self._registries([registry_1, registry_2, registry_3], monkeypatch)
 
         true_response = MockRequestsResponse(200, content="{}")
         unknown_response = MockRequestsResponse(200, content='{"unknown": "place"}')
@@ -229,6 +230,31 @@ class TestGeographicValidator(SettingsControllerTest):
         )
         integration.url = url
         return RemoteRegistry(integration)
+
+    def _registries(self, urls, monkeypatch):
+        """Create and mock the `for_protocol_and_goal` function from
+        RemoteRegistry. Instead of relying on getting the newly created
+        integrations from the database in a specific order, we return them
+        in the order they were created.
+        """
+        integrations = []
+        for url in urls:
+            integration, is_new = create(
+                self._db, ExternalIntegration, protocol=ExternalIntegration.OPDS_REGISTRATION, goal=ExternalIntegration.DISCOVERY_GOAL
+            )
+            integration.url = url
+            integrations.append(integration)
+
+        def mock_for_protocol_and_goal(_db, protocol, goal):
+            for integration in integrations:
+                yield RemoteRegistry(integration)
+
+        monkeypatch.setattr(
+            RemoteRegistry,
+            "for_protocol_and_goal",
+            mock_for_protocol_and_goal
+        )
+
 
     def test_is_zip(self):
         validator = GeographicValidator()
