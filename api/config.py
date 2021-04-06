@@ -207,7 +207,7 @@ class Configuration(CoreConfiguration):
             "label": _("Cache time for authentication documents (in seconds)"),
             "required": True,
             "type": "number",
-            "default": 3600,
+            "default": 0,
         },
         {
             "key": CUSTOM_TOS_HREF,
