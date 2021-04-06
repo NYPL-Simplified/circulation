@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 import json
 import os
 import pkgutil
+import mock
 import random
 
 from core.testing import DatabaseTest
@@ -930,55 +931,136 @@ class TestErrorParser(object):
 
 class TestBibliothecaEventMonitor(BibliothecaAPITest):
 
-    def test_default_start_time(self):
-        monitor = BibliothecaEventMonitor(
+    @pytest.fixture()
+    def default_monitor(self):
+        return BibliothecaEventMonitor(
             self._db, self.collection, api_class=MockBibliothecaAPI
         )
-        expected = datetime.utcnow() - monitor.DEFAULT_START_TIME
 
-        # When the monitor has never been run before, the default
-        # start time is a date long in the past.
-        assert abs((expected-monitor.default_start_time).total_seconds()) <= 1
-        default_start_time = monitor.create_default_start_time(self._db, [])
-        assert abs((expected-default_start_time).total_seconds()) <= 1
-
-        # It's possible to override this by instantiating
-        # BibliothecaEventMonitor with a specific date.
+    @pytest.fixture()
+    def initialized_monitor(self):
+        collection = MockBibliothecaAPI.mock_collection(self._db, name='Initialized Monitor Collection')
         monitor = BibliothecaEventMonitor(
-            self._db, self.collection, api_class=MockBibliothecaAPI,
-            cli_date="2011-01-01"
+            self._db, collection, api_class=MockBibliothecaAPI
         )
-        expected = datetime(year=2011, month=1, day=1)
-        assert expected == monitor.default_start_time
-        for cli_date in ('2011-01-01', ['2011-01-01']):
-            default_start_time = monitor.create_default_start_time(
-                self._db, cli_date
-            )
-            assert expected == default_start_time
-
-        # After Bibliotheca has been initialized,
-        # create_default_start_time returns None, rather than a date
-        # far in the bast, if no cli_date is passed in.
         Timestamp.stamp(
             self._db, service=monitor.service_name,
-            service_type=Timestamp.MONITOR_TYPE, collection=self.collection
+            service_type=Timestamp.MONITOR_TYPE, collection=collection
         )
-        assert None == monitor.create_default_start_time(self._db, [])
+        return monitor
 
-        # Returns a date several years ago if args are formatted
-        # improperly or the monitor has never been run before
-        not_date_args = ['initialize']
-        too_many_args = ['2013', '04', '02']
-        for args in [not_date_args, too_many_args]:
-            actual_default_start_time = monitor.create_default_start_time(self._db, args)
-            assert True == isinstance(actual_default_start_time, datetime)
-            assert (default_start_time - actual_default_start_time).total_seconds() <= 1
 
-        # Returns an appropriate date if command line arguments are passed
-        # as expected
-        proper_args = ['2013-04-02']
-        default_start_time = monitor.create_default_start_time(self._db, proper_args)
-        assert datetime(2013, 4, 2) == default_start_time
+    @pytest.mark.parametrize('specified_default_start, expected_default_start', [
+        ('2011', datetime(year=2011, month=1, day=1)),
+        ('2011-10', datetime(year=2011, month=10, day=1)),
+        ('2011-10-05', datetime(year=2011, month=10, day=5)),
+        ('2011-10-05T15', datetime(year=2011, month=10, day=5, hour=15)),
+        ('2011-10-05T15:27', datetime(year=2011, month=10, day=5, hour=15, minute=27)),
+        ('2011-10-05T15:27:33', datetime(year=2011, month=10, day=5, hour=15, minute=27, second=33)),
+        ('2011-10-05 15:27:33', datetime(year=2011, month=10, day=5, hour=15, minute=27, second=33)),
+        ('2011-10-05T15:27:33.123456',
+         datetime(year=2011, month=10, day=5, hour=15, minute=27, second=33, microsecond=123456)),
+        (datetime(year=2011, month=10, day=5, hour=15, minute=27),
+         datetime(year=2011, month=10, day=5, hour=15, minute=27)),
+        (None, None),
+    ])
+    def test_optional_iso_date_valid_dates(self, specified_default_start, expected_default_start, default_monitor):
+        # ISO 8601 strings, `datetime`s, or None are valid.
+        actual_default_start = default_monitor._optional_iso_date(specified_default_start)
+        if expected_default_start is not None:
+            assert isinstance(actual_default_start, datetime)
+        assert actual_default_start == expected_default_start
+
+    def test_monitor_intrinsic_start_time(self, default_monitor, initialized_monitor):
+        # No `default_start` time is specified for either `default_monitor` or
+        # `initialized_monitor`, so each monitor's `default_start_time` should
+        # (roughly) match the monitor's intrinsic start time.
+        for monitor in [default_monitor, initialized_monitor]:
+            expected_intrinsic_start = datetime.utcnow() - BibliothecaEventMonitor.DEFAULT_START_TIME
+            intrinsic_start = monitor._intrinsic_start_time(self._db)
+            assert isinstance(intrinsic_start, datetime)
+            assert abs(intrinsic_start - expected_intrinsic_start).total_seconds() <= 1
+            assert abs(intrinsic_start - monitor.default_start_time).total_seconds() <= 1
+
+    @pytest.mark.parametrize('specified_default_start, override_timestamp, expected_start', [
+        ('2011-10-05T15:27', False, datetime(year=2011, month=10, day=5, hour=15, minute=27)),
+        ('2011-10-05T15:27:33', False, datetime(year=2011, month=10, day=5, hour=15, minute=27, second=33)),
+        (None, False, None),
+        (None, True, None),
+        ('2011-10-05T15:27', True, datetime(year=2011, month=10, day=5, hour=15, minute=27)),
+        ('2011-10-05T15:27:33', True, datetime(year=2011, month=10, day=5, hour=15, minute=27, second=33)),
+    ])
+    def test_specified_start_trumps_intrinsic_default_start(self, specified_default_start,
+                                                            override_timestamp, expected_start):
+        # When a valid `default_start` parameter is specified, it -- not the monitor's
+        # intrinsic default -- will always become the monitor's `default_start_time`.
+        monitor = BibliothecaEventMonitor(
+            self._db, self.collection, api_class=MockBibliothecaAPI,
+            default_start=specified_default_start, override_timestamp=override_timestamp,
+        )
+        monitor_intrinsic_default = monitor._intrinsic_start_time(self._db)
+        assert isinstance(monitor.default_start_time, datetime)
+        assert isinstance(monitor_intrinsic_default, datetime)
+        if specified_default_start:
+            assert monitor.default_start_time == expected_start
+        else:
+            assert abs((monitor_intrinsic_default - monitor.default_start_time).total_seconds()) <= 1
+
+        # If no `default_date` specified, then `override_timestamp` must be false.
+        if not specified_default_start:
+            assert monitor.override_timestamp is False
+
+        # For an uninitialized monitor (no timestamp), the monitor's `default_start_time`,
+        # whether from a specified `default_start` or the monitor's intrinsic start time,
+        # will be the actual start time. The cut-off will be roughly the current time, in
+        # either case.
+        expected_cutoff = datetime.utcnow()
+        with mock.patch.object(monitor, 'catch_up_from', return_value=None) as catch_up_from:
+            monitor.run()
+            actual_start, actual_cutoff, progress = catch_up_from.call_args[0]
+        assert abs((expected_cutoff - actual_cutoff).total_seconds()) <= 1
+        assert actual_cutoff == progress.finish
+        assert actual_start == monitor.default_start_time
+        assert progress.start == monitor.default_start_time
+
+    @pytest.mark.parametrize('specified_default_start, override_timestamp, expected_start', [
+        ('2011-10-05T15:27', False, datetime(year=2011, month=10, day=5, hour=15, minute=27)),
+        ('2011-10-05T15:27:33', False, datetime(year=2011, month=10, day=5, hour=15, minute=27, second=33)),
+        (None, False, None),
+        (None, True, None),
+        ('2011-10-05T15:27', True, datetime(year=2011, month=10, day=5, hour=15, minute=27)),
+        ('2011-10-05T15:27:33', True, datetime(year=2011, month=10, day=5, hour=15, minute=27, second=33)),
+    ])
+    def test_specified_start_can_override_timestamp(self, specified_default_start,
+                                                           override_timestamp, expected_start):
+        monitor = BibliothecaEventMonitor(
+            self._db, self.collection, api_class=MockBibliothecaAPI,
+            default_start=specified_default_start, override_timestamp=override_timestamp,
+        )
+        # For an initialized monitor, the `default_start_time` will be derived from
+        # `timestamp.finish`, unless overridden by a specified `default_start` when
+        # `override_timestamp` is specified as True.
+        ts = Timestamp.stamp(
+            self._db, service=monitor.service_name,
+            service_type=Timestamp.MONITOR_TYPE, collection=monitor.collection
+        )
+        start_time_from_ts = ts.finish - BibliothecaEventMonitor.OVERLAP
+        expected_actual_start_time = expected_start if monitor.override_timestamp else start_time_from_ts
+        expected_cutoff = datetime.utcnow()
+        with mock.patch.object(monitor, 'catch_up_from', return_value=None) as catch_up_from:
+            monitor.run()
+            actual_start, actual_cutoff, progress = catch_up_from.call_args[0]
+        assert abs((expected_cutoff - actual_cutoff).total_seconds()) <= 1
+        assert actual_cutoff == progress.finish
+        assert actual_start == expected_actual_start_time
+        assert progress.start == expected_actual_start_time
+
+    @pytest.mark.parametrize('input', [
+        ('invalid'), ('2020/10'), (['2020-10-05'])
+    ])
+    def test_optional_iso_date_invalid_dates(self, input, default_monitor):
+        with pytest.raises(ValueError) as excinfo:
+            default_monitor._optional_iso_date(input)
 
     def test_run_once(self):
         # run_once() slices the time between its start date
@@ -1140,7 +1222,7 @@ class TestBibliothecaEventMonitorWhenMultipleCollections(BibliothecaAPITest):
         # Instantiate the associated monitors with a start date.
         monitors = [
             BibliothecaEventMonitor(self._db, c, api_class=BibliothecaAPI,
-                                    cli_date='2011-02-03')
+                                    default_start='2011-02-03')
             for c in collections
         ]
         assert len(monitors) == len(collections)

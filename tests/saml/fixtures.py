@@ -992,6 +992,8 @@ xOr37hEpqz+WN/x3qM2qyBLECQFjmlJrvRLkSL15PCZiu+xFNFd/zx6btDun5DBlfDS9DG+SHCNH
 </EntitiesDescriptor>
 """
 
+PATRON_ID_REGULAR_EXPRESSION_ORG = r"(?P<patron_id>.+)@university\.org"
+PATRON_ID_REGULAR_EXPRESSION_COM = r"(?P<patron_id>.+)@university\.com"
 
 MAIL = "patron@example.com"
 GIVEN_NAME = "Rosie"
