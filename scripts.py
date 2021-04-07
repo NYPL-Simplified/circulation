@@ -2137,7 +2137,7 @@ class DatabaseMigrationScript(Script):
             self.counter = counter
 
             sql = (
-                "UPDATE timestamps SET start=:finish, finish=:finish, counter=:counter"
+                "UPDATE timestamps SET start=(:finish at time zone 'utc'), finish=(:finish at time zone 'utc'), counter=:counter"
                 " where service=:service"
             )
             values = dict(

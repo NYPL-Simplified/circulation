@@ -9,7 +9,7 @@ from pdb import set_trace
 from sqlalchemy.orm.base import NO_VALUE
 from sqlalchemy.orm.session import Session
 from threading import RLock
-
+from pdb import set_trace
 from . import (
     Base,
 )
@@ -82,7 +82,7 @@ def _site_configuration_has_changed(_db, cooldown=1):
         # Update the timestamp.
         now = utc_now()
         earlier = now-datetime.timedelta(seconds=cooldown)
-        sql = "UPDATE timestamps SET finish=:finish WHERE service=:service AND collection_id IS NULL AND finish<=:earlier;"
+        sql = "UPDATE timestamps SET finish=(:finish at time zone 'utc') WHERE service=:service AND collection_id IS NULL AND finish<=(:earlier at time zone 'utc');"
         _db.execute(
             text(sql),
             dict(service=Configuration.SITE_CONFIGURATION_CHANGED,
