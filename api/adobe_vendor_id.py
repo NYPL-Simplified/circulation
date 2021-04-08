@@ -19,6 +19,10 @@ from .config import (
 from api.base_controller import BaseCirculationManagerController
 from .problem_details import *
 from sqlalchemy.orm.session import Session
+from core.util.datetime_helpers import (
+    datetime_utc,
+    utc_now,
+)
 from core.util.xmlparser import XMLParser
 from core.util.problem_detail import ProblemDetail
 from core.app_server import url_for
@@ -780,7 +784,7 @@ class AuthdataUtility(object):
         """
         if not patron_identifier:
             raise ValueError("No patron identifier specified")
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         expires = now + datetime.timedelta(minutes=60)
         authdata = self._encode(
             self.library_uri, patron_identifier, now, expires
@@ -918,7 +922,7 @@ class AuthdataUtility(object):
         """
         if not patron_identifier:
             raise ValueError("No patron identifier specified")
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         expires = int(self.numericdate(now + datetime.timedelta(minutes=60)))
         authdata = self._encode_short_client_token(
             self.short_name, patron_identifier, expires
@@ -998,7 +1002,7 @@ class AuthdataUtility(object):
         secret = self.secrets_by_library_uri[library_uri]
 
         # Don't bother checking an expired token.
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         expiration = self.EPOCH + datetime.timedelta(seconds=expiration)
         if expiration < now:
             raise ValueError(
@@ -1018,7 +1022,7 @@ class AuthdataUtility(object):
 
         return library_uri, patron_identifier
 
-    EPOCH = datetime.datetime(1970, 1, 1)
+    EPOCH = datetime_utc(1970, 1, 1)
 
     @classmethod
     def numericdate(cls, d):

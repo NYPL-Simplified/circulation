@@ -33,6 +33,10 @@ from core.model import (
     ExternalIntegration,
     Library,
 )
+from core.util.datetime_helpers import (
+    datetime_utc,
+    utc_now,
+)
 from core.util.problem_detail import ProblemDetail
 import base64
 
@@ -318,7 +322,7 @@ class TestVendorIDModel(VendorIDTest):
     def test_authdata_token_credential_lookup_success(self):
 
         # Create an authdata token Credential for Bob.
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         token, ignore = Credential.persistent_token_create(
             self._db, self.data_source, self.model.AUTHDATA_TOKEN_TYPE,
             self.bob_patron
@@ -354,7 +358,7 @@ class TestVendorIDModel(VendorIDTest):
 
     def test_smuggled_authdata_credential_success(self):
         # Bob's client has created a persistent token to authenticate him.
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         token, ignore = Credential.persistent_token_create(
             self._db, self.data_source, self.model.AUTHDATA_TOKEN_TYPE,
             self.bob_patron
@@ -739,8 +743,8 @@ class TestAuthdataUtility(VendorIDTest):
     def test_encode(self):
         # Test that _encode gives a known value with known input.
         patron_identifier = "Patron identifier"
-        now = datetime.datetime(2016, 1, 1, 12, 0, 0)
-        expires = datetime.datetime(2018, 1, 1, 12, 0, 0)
+        now = datetime_utc(2016, 1, 1, 12, 0, 0)
+        expires = datetime_utc(2018, 1, 1, 12, 0, 0)
         authdata = self.authdata._encode(
             self.authdata.library_uri, patron_identifier, now, expires
         )
@@ -791,7 +795,7 @@ class TestAuthdataUtility(VendorIDTest):
         assert "Unknown library: http://some-other-library.org/" in str(excinfo.value)
 
     def test_cannot_decode_token_from_future(self):
-        future = datetime.datetime.utcnow() + datetime.timedelta(days=365)
+        future = utc_now() + datetime.timedelta(days=365)
         authdata = self.authdata._encode(
             "Patron identifier", iat=future
         )
@@ -800,7 +804,7 @@ class TestAuthdataUtility(VendorIDTest):
         )
 
     def test_cannot_decode_expired_token(self):
-        expires = datetime.datetime(2016, 1, 1, 12, 0, 0)
+        expires = datetime_utc(2016, 1, 1, 12, 0, 0)
         authdata = self.authdata._encode(
             "Patron identifier", exp=expires
         )
