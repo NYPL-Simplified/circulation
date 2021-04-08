@@ -468,7 +468,7 @@ class OdiloAPI(BaseCirculationAPI, HasSelfTests):
         # problems, so it's useful to give a helpful error message if
         # Odilo doesn't provide anything more specific.
         generic_error = "%s may not be the right base URL. Response document was: %r" % (
-            self.library_api_base_url, response.content
+            self.library_api_base_url, response.content.decode("utf-8")
         )
         generic_exception = BadResponseException(
             self.TOKEN_ENDPOINT, generic_error

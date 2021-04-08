@@ -1169,7 +1169,7 @@ class TestOverdriveAPI(OverdriveAPITest):
         )
         assert dict(id="an-identifier") == book
         assert 200 == status_code
-        assert "foo" == content
+        assert b"foo" == content
 
         request_url, ignore1, ignore2 = self.api.requests.pop()
         expect_url = self.api.endpoint(
@@ -1192,7 +1192,7 @@ class TestOverdriveAPI(OverdriveAPITest):
         )
         assert previous_result == book
         assert 200 == status_code
-        assert "foo" == content
+        assert b"foo" == content
         request_url, ignore1, ignore2 = self.api.requests.pop()
 
         # The v1 URL was converted to a v2 url.

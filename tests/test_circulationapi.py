@@ -5,7 +5,7 @@ import flask
 import pytest
 from flask import Flask
 from parameterized import parameterized
-
+# from pdb import set_trace
 from api.authenticator import LibraryAuthenticator, PatronData
 from api.bibliotheca import MockBibliothecaAPI
 from api.circulation import (
@@ -1289,7 +1289,7 @@ class TestCirculationAPI(DatabaseTest):
             ExternalIntegration.BIBLIOTHECA : MockBibliothecaAPI
         })
         mock_bibliotheca = circulation.api_for_collection[self.collection.id]
-
+        # set_trace()
         data = sample_data("checkouts.xml", "bibliotheca")
         mock_bibliotheca.queue_response(200, content=data)
 

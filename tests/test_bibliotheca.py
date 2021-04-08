@@ -211,7 +211,7 @@ class TestBibliothecaAPI(BibliothecaAPITest):
         assert url == self.api.full_url("items") + "/id1,id2"
 
         # The response string is returned directly.
-        assert "some data" == response
+        assert b"some data" == response
 
     def test_bibliographic_lookup(self):
 
@@ -279,7 +279,7 @@ class TestBibliothecaAPI(BibliothecaAPITest):
 
         # The response is what we'd expect.
         assert 200 == response.status_code
-        assert "ok, you put something" == response.content
+        assert b"ok, you put something" == response.content
 
     def test_get_events_between_success(self):
         data = self.sample_data("empty_end_date_event.xml")
@@ -447,7 +447,7 @@ class TestBibliothecaAPI(BibliothecaAPITest):
         assert '<AudioFulfillmentRequest><ItemId>bib id</ItemId><PatronId>patron id</PatronId></AudioFulfillmentRequest>' == kwargs['data']
 
         assert 200 == response.status_code
-        assert "A license" == response.content
+        assert b"A license" == response.content
 
     def test_fulfill(self):
         patron = self._patron()
@@ -468,7 +468,7 @@ class TestBibliothecaAPI(BibliothecaAPITest):
             patron, 'password', pool, internal_format='ePub'
         )
         assert isinstance(fulfillment, FulfillmentInfo)
-        assert "this is an ACSM" == fulfillment.content
+        assert b"this is an ACSM" == fulfillment.content
         assert pool.identifier.identifier == fulfillment.identifier
         assert pool.identifier.type == fulfillment.identifier_type
         assert pool.data_source.name == fulfillment.data_source_name
@@ -506,7 +506,7 @@ class TestBibliothecaAPI(BibliothecaAPITest):
         # Now let's see what happens to fulfillment when 'Findaway' or
         # 'Bibliotheca' sends bad information.
         bad_media_type = "application/error+json"
-        bad_content = "This is not my beautiful license document!"
+        bad_content = b"This is not my beautiful license document!"
         self.api.queue_response(
             200, headers={"Content-Type": bad_media_type},
             content=bad_content

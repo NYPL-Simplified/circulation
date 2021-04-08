@@ -194,7 +194,7 @@ class TestEnkiAPI(BaseEnkiTest):
 
         # In the end, we got our content.
         assert 200 == response.status_code
-        assert "content" == response.content
+        assert b"content" == response.content
 
     def test_request_retried_only_once(self):
         """A request that times out twice is not retried."""

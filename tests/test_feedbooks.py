@@ -239,7 +239,7 @@ class TestFeedbooksOPDSImporter(DatabaseTest):
 
         # OPDSImporter.content_modifier has been set to call replace_css
         # when necessary.
-        assert "Some new CSS" == importer.new_css
+        assert b"Some new CSS" == importer.new_css
         assert importer.replace_css == importer.content_modifier
 
         # The requests to the various copies of the book will succeed,

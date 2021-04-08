@@ -275,7 +275,7 @@ class TestAxis360API(Axis360Test):
         )
         self.api.queue_response(200, content="The data")
         response = self.api.request("http://url/")
-        assert "The data" == response.content
+        assert b"The data" == response.content
 
     def test_refresh_bearer_token_error(self):
         # Raise an exception if we don't get a 200 status code when
@@ -595,7 +595,7 @@ class TestAxis360API(Axis360Test):
 
         # Make a request and check the response.
         response = api.get_fulfillment_info("transaction ID")
-        assert "the response" == response.content
+        assert b"the response" == response.content
 
         # Verify that the 'HTTP request' was made to the right URL
         # with the right keyword arguments and the right HTTP method.
@@ -612,7 +612,7 @@ class TestAxis360API(Axis360Test):
 
         # Make a request and check the response.
         response = api.get_audiobook_metadata("Findaway content ID")
-        assert "the response" == response.content
+        assert b"the response" == response.content
 
         # Verify that the 'HTTP request' was made to the right URL
         # with the right keyword arguments and the right HTTP method.

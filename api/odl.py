@@ -1223,7 +1223,7 @@ class SharedODLAPI(BaseCirculationAPI):
         requested_content_type = internal_format.delivery_mechanism.content_type
         requested_drm_scheme = internal_format.delivery_mechanism.drm_scheme
 
-        feed = feedparser.parse(str(response.content))
+        feed = feedparser.parse(response.content.decode("utf-8"))
         entries = feed.get("entries")
         if len(entries) < 1:
             raise CannotFulfill()

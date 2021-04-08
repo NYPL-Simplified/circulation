@@ -269,8 +269,8 @@ class NoveListAPI(object):
         status_code, headers, content = response
         if status_code == 403:
             raise Exception("Invalid NoveList credentials")
-        if content.startswith('"Missing'):
-            raise Exception("Invalid NoveList parameters: %s" % content)
+        if content.startswith(b'"Missing'):
+            raise Exception("Invalid NoveList parameters: %s" % content.decode("utf-8"))
         return response
 
     @classmethod

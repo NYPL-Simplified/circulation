@@ -467,7 +467,7 @@ class Registration(object):
                     _("Remote service returned: \"%(problem)s\"", problem=problem.get("detail")))
             else:
                 return INTEGRATION_ERROR.detailed(
-                    _("Remote service returned: \"%(problem)s\"", problem=response.content))
+                    _("Remote service returned: \"%(problem)s\"", problem=response.content.decode("utf-8")))
         return response
 
     @classmethod

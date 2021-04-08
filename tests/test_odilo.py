@@ -104,7 +104,7 @@ class TestOdiloAPI(OdiloAPITest):
         self.api.queue_response(200, content="some content")
         status_code, headers, content = self.api.get(self._url, {})
         assert 200 == status_code
-        assert "some content" == content
+        assert b"some content" == content
         self.api.log.info('Test get success ok!')
 
     def test_401_on_get_refreshes_bearer_token(self):
@@ -125,7 +125,7 @@ class TestOdiloAPI(OdiloAPITest):
         status_code, headers, content = self.api.get(self._url, {})
 
         assert 200 == status_code
-        assert "at last, the content" == content
+        assert b"at last, the content" == content
 
         # The bearer token has been updated.
         assert "new bearer token" == self.api.token

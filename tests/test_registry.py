@@ -257,7 +257,7 @@ class TestRemoteRegistry(DatabaseTest):
         # Our mock of _extract_registration_information was called
         # with the mock response to that request.
         response = registry._extract_registration_information_called_with
-        assert "a registration document" == response.content
+        assert b"a registration document" == response.content
 
         # The return value of _extract_registration_information was
         # propagated as the return value of

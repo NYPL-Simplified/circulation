@@ -205,7 +205,7 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
 
         # Look for the error indicator and raise
         # RemoteIntegrationException if it appears.
-        if response.content and self.ERROR_INDICATOR in response.content:
+        if response.content and self.ERROR_INDICATOR in response.content.decode("utf-8"):
             raise RemoteIntegrationException(url, "An unknown error occured")
         return response
 

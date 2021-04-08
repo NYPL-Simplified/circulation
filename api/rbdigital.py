@@ -317,7 +317,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
             disallowed_response_codes=disallowed_response_codes
         )
         if (response.content
-            and 'Invalid Basic Token or permission denied' in response.content):
+            and 'Invalid Basic Token or permission denied' in response.content.decode("utf-8")):
             raise BadResponseException(
                 url, "Permission denied. This may be a temporary rate-limiting issue, or the credentials for this collection may be wrong.",
                 debug_message=response.content,
