@@ -1,6 +1,5 @@
 from pyld import jsonld
 import json
-from datetime import datetime
 import os
 
 from core.model import (
@@ -12,6 +11,7 @@ from core.model import (
 from core.app_server import (
     url_for,
 )
+from core.util.datetime_helpers import utc_now
 
 from .problem_details import *
 
@@ -196,6 +196,6 @@ class AnnotationParser(object):
         if content:
             annotation.content = json.dumps(content)
         annotation.active = True
-        annotation.timestamp = datetime.now()
+        annotation.timestamp = utc_now()
 
         return annotation

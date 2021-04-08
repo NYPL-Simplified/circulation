@@ -3,6 +3,7 @@ import datetime
 from pyld import jsonld
 
 from core.testing import DatabaseTest
+from core.util.datetime_helpers import utc_now
 from .test_controller import ControllerTest
 
 from core.model import (
@@ -90,7 +91,7 @@ class TestAnnotationWriter(AnnotationTest, ControllerTest):
                 identifier=identifier,
                 motivation=Annotation.IDLING,
             )
-            annotation.timestamp = datetime.datetime.now()
+            annotation.timestamp = utc_now()
 
             container, timestamp = AnnotationWriter.annotation_container_for(patron)
 
@@ -155,7 +156,7 @@ class TestAnnotationWriter(AnnotationTest, ControllerTest):
                 identifier=identifier,
                 motivation=Annotation.IDLING,
             )
-            annotation.timestamp = datetime.datetime.now()
+            annotation.timestamp = utc_now()
 
             other_annotation, ignore = create(
                 self._db, Annotation,
@@ -544,7 +545,7 @@ class TestAnnotationParser(AnnotationTest):
             motivation=Annotation.IDLING,
         )
         original_annotation.active = False
-        yesterday = datetime.datetime.now() - datetime.timedelta(days=1)
+        yesterday = utc_now() - datetime.timedelta(days=1)
         original_annotation.timestamp = yesterday
 
         data = self._sample_jsonld()
