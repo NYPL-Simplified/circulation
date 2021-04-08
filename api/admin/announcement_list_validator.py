@@ -137,6 +137,9 @@ class AnnouncementListValidator(Validator):
         """
         if isinstance(value, str):
             try:
+                # Unlike most of the dates in this application,
+                # this is a date entered by an admin, so it should be
+                # interpreted as local time, not UTC.
                 value = datetime.datetime.strptime(value, cls.DATE_FORMAT)
             except ValueError as e:
                 return INVALID_INPUT.detailed(
