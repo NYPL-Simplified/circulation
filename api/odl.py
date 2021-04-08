@@ -1385,7 +1385,10 @@ class SharedODLImporter(OPDSImporter):
     @classmethod
     def get_fulfill_url(cls, entry, requested_content_type, requested_drm_scheme):
         parser = cls.PARSER_CLASS()
-        root = etree.parse(StringIO(str(entry)))
+        # The entry may come from an HTTP response which is a bytestring.
+        if isinstance(entry, bytes):
+            entry = entry.decode("utf-8")
+        root = etree.parse(StringIO(entry))
 
         fulfill_url = None
         for link_tag in parser._xpath(root, 'atom:link'):
