@@ -78,8 +78,8 @@ class Announcement(object):
     @property
     def is_active(self):
         """Should this announcement be displayed now?"""
-        today = datetime.date.today()
-        return self.start <= today and self.finish >= today
+        today_local = datetime.date.today()
+        return self.start <= today_local and self.finish >= today_local
 
     @property
     def for_authentication_document(self):

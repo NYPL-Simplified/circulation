@@ -27,6 +27,7 @@ from core.model import (
     Session,
 )
 
+from core.util.datetime_helpers import utc_now
 from core.util.problem_detail import (
     ProblemDetail,
 )
@@ -186,7 +187,7 @@ class TestPatronData(AuthenticatorTest):
 
     def setup_method(self):
         super(TestPatronData, self).setup_method()
-        self.expiration_time = datetime.datetime.utcnow()
+        self.expiration_time = utc_now()
         self.data = PatronData(
             permanent_id="1",
             authorization_identifier="2",
@@ -350,7 +351,7 @@ class TestPatronData(AuthenticatorTest):
         to authenticate a patron), we are very careful about modifying
         data already in the database.
         """
-        now = datetime.datetime.now()
+        now = utc_now()
 
         # If the only thing we know about a patron is that a certain
         # string authenticated them, we set
@@ -1519,7 +1520,7 @@ class TestAuthenticationProvider(AuthenticatorTest):
         """Even if your card has expired, you can log in -- you just can't
         borrow books.
         """
-        yesterday = datetime.datetime.utcnow() - datetime.timedelta(days=1)
+        yesterday = utc_now() - datetime.timedelta(days=1)
 
         expired = PatronData(permanent_id="1", authorization_identifier="2",
                              authorization_expires=yesterday)
@@ -2251,7 +2252,7 @@ class TestBasicAuthenticationProviderAuthenticate(AuthenticatorTest):
         'out-of-date' data and the PatronData containing 'up-to-date'
         data.
         """
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         long_ago = now - datetime.timedelta(hours=10000)
         patron = self._patron()
         patron.last_external_sync = long_ago
@@ -2301,7 +2302,7 @@ class TestBasicAuthenticationProviderAuthenticate(AuthenticatorTest):
         assert "new username" == patron.username
         assert "new authorization identifier" == patron.authorization_identifier
         assert (
-            datetime.datetime.utcnow()-patron.last_external_sync
+            utc_now()-patron.last_external_sync
         ).total_seconds() < 10
 
     def test_success_with_immediate_patron_sync(self):
@@ -2326,7 +2327,7 @@ class TestBasicAuthenticationProviderAuthenticate(AuthenticatorTest):
         assert "new username" == patron.username
         assert "new authorization identifier" == patron.authorization_identifier
         assert (
-            datetime.datetime.utcnow()-patron.last_external_sync
+            utc_now()-patron.last_external_sync
         ).total_seconds() < 10
 
     def test_failure_when_remote_authentication_returns_problemdetail(self):
@@ -2535,7 +2536,7 @@ class TestOAuthAuthenticationProvider(AuthenticatorTest):
         patron = self._patron()
         provider = MockOAuth(self._default_library)
         in_twenty_days = (
-            datetime.datetime.utcnow() + datetime.timedelta(
+            utc_now() + datetime.timedelta(
                 days=provider.token_expiration_days
             )
         )

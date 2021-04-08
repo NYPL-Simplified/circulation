@@ -51,6 +51,7 @@ from core.util.authentication_for_opds import (
     AuthenticationForOPDSDocument,
     OPDSAuthenticationFlow,
 )
+from core.util.datetime_helpers import utc_now
 from core.util.http import RemoteIntegrationException
 from core.util.problem_detail import (
     ProblemDetail,
@@ -335,7 +336,7 @@ class PatronData(object):
             # We got a complete dataset from the ILS, which is what an
             # external sync does, so we can reset the timer on
             # external sync.
-            patron.last_external_sync = datetime.datetime.utcnow()
+            patron.last_external_sync = utc_now()
 
     def set_value(self, patron, field_name, value):
         if value is None:
