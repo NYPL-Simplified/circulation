@@ -150,7 +150,8 @@ class OPDSForDistributorsAPI(BaseCirculationAPI, HasSelfTests):
             if not access_token or not expires_in:
                 raise LibraryAuthorizationFailedException(
                     "Document retrieved from %s is not a bearer token: %s" % (
-                        self.auth_url, token_response.content
+                        # Response comes in as a byte string.
+                        self.auth_url, token_response.content.decode("utf-8")
                     )
                 )
             credential.credential = access_token

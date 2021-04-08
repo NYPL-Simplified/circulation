@@ -1223,7 +1223,10 @@ class SharedODLAPI(BaseCirculationAPI):
         requested_content_type = internal_format.delivery_mechanism.content_type
         requested_drm_scheme = internal_format.delivery_mechanism.drm_scheme
 
-        feed = feedparser.parse(response.content.decode("utf-8"))
+        # The response data comes in as a byte string that we must
+        # convert into a string.
+        response_content = response.content.decode("utf-8")
+        feed = feedparser.parse(response_content)
         entries = feed.get("entries")
         if len(entries) < 1:
             raise CannotFulfill()
@@ -1235,9 +1238,9 @@ class SharedODLAPI(BaseCirculationAPI):
 
         # The entry is parsed with etree to get indirect acquisitions
         parser = SharedODLImporter.PARSER_CLASS()
-        root = etree.parse(StringIO(str(response.content)))
+        root = etree.parse(StringIO(response_content))
 
-        fulfill_url = SharedODLImporter.get_fulfill_url(response.content, requested_content_type, requested_drm_scheme)
+        fulfill_url = SharedODLImporter.get_fulfill_url(response_content, requested_content_type, requested_drm_scheme)
         if not fulfill_url:
             raise FormatNotAvailable()
 
@@ -1475,7 +1478,7 @@ class MockSharedODLAPI(SharedODLAPI):
     """Mock API for tests that overrides _get and tracks requests."""
 
     @classmethod
-    def mock_collection(self, _db):
+    def mock_collection(cls, _db):
         """Create a mock ODL collection to use in tests."""
         library = DatabaseTest.make_default_library(_db)
         collection, ignore = get_one_or_create(

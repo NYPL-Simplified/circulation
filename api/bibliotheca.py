@@ -492,9 +492,14 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
                    item_id=item_id, patron_id=patron_id)
         body = self.TEMPLATE % args
         response = self.request('placehold', body, method="PUT")
+        # The response comes in as a byte string that we must
+        # convert into a string.
+        response_content = None
+        if response.content:
+            response_content = response.content.decode("utf-8")
         if response.status_code in (200, 201):
             start_date = datetime.utcnow()
-            end_date = HoldResponseParser().process_all(response.content)
+            end_date = HoldResponseParser().process_all(response_content)
             return HoldInfo(
                 licensepool.collection, DataSource.BIBLIOTHECA,
                 licensepool.identifier.type,
@@ -504,9 +509,9 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
                 hold_position=None
             )
         else:
-            if not response.content:
+            if not response_content:
                 raise CannotHold()
-            error = ErrorParser().process_all(response.content)
+            error = ErrorParser().process_all(response_content)
             if isinstance(error, Exception):
                 raise error
             else:
@@ -1041,6 +1046,10 @@ class PatronCirculationParser(BibliothecaParser):
 
     def process_all(self, string):
         parser = etree.XMLParser()
+        # If the data is an HTTP response, it is a bytestring and
+        # must be converted before it is parsed.
+        if isinstance(string, bytes):
+            string = string.decode("utf-8")
         root = etree.parse(StringIO(string), parser)
         sup = super(PatronCirculationParser, self)
         loans = sup.process_all(

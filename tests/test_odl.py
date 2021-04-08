@@ -1662,7 +1662,7 @@ class TestSharedODLAPI(DatabaseTest, BaseODLTest):
         assert self.pool.identifier.type == fulfillment.identifier_type
         assert self.pool.identifier.identifier == fulfillment.identifier
         assert None == fulfillment.content_link
-        assert "An ACSM file" == fulfillment.content
+        assert b"An ACSM file" == fulfillment.content
         assert datetime.datetime(2018, 3, 29, 17, 44, 11) == fulfillment.content_expires
 
         assert ([loan.external_identifier,
