@@ -41,6 +41,10 @@ from core.metadata_layer import (
     TimestampData,
 )
 from core.scripts import RunCollectionCoverageProviderScript
+from core.util.datetime_helpers import (
+    datetime_utc,
+    utc_now,
+)
 from core.util.http import (
     BadResponseException,
     RemoteIntegrationException,
@@ -145,7 +149,7 @@ class TestEnkiAPI(BaseEnkiTest):
 
         # Verify that each test method was called and returned the
         # expected SelfTestResult object.
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         one_hour_ago = now - datetime.timedelta(hours=1)
         one_day_ago = now - datetime.timedelta(hours=24)
         start, end = api.recent_activity_called_with
@@ -231,14 +235,14 @@ class TestEnkiAPI(BaseEnkiTest):
 
     def test__minutes_since(self):
         """Test the _minutes_since helper method."""
-        an_hour_ago = datetime.datetime.utcnow() - datetime.timedelta(
+        an_hour_ago = utc_now() - datetime.timedelta(
             minutes=60
         )
         assert 60 == EnkiAPI._minutes_since(an_hour_ago)
 
     def test_recent_activity(self):
-        now = datetime.datetime.utcnow()
-        epoch = datetime.datetime(1970, 1, 1)
+        now = utc_now()
+        epoch = datetime_utc(1970, 1, 1)
         epoch_plus_one_hour = epoch + datetime.timedelta(hours=1)
         data = self.get_data("get_recent_activity.json")
         self.api.queue_response(200, content=data)
@@ -257,7 +261,7 @@ class TestEnkiAPI(BaseEnkiTest):
         assert 'lib' not in params
 
     def test_updated_titles(self):
-        one_minute_ago = datetime.datetime.utcnow() - datetime.timedelta(
+        one_minute_ago = utc_now() - datetime.timedelta(
             minutes=1
         )
         data = self.get_data("get_update_titles.json")
@@ -334,7 +338,7 @@ class TestEnkiAPI(BaseEnkiTest):
 
     def test__epoch_to_struct(self):
         """Test the _epoch_to_struct helper method."""
-        assert datetime.datetime(1970, 1, 1) == EnkiAPI._epoch_to_struct("0")
+        assert datetime_utc(1970, 1, 1) == EnkiAPI._epoch_to_struct("0")
 
     def test_checkout_open_access_parser(self):
         """Test that checkout info for non-ACS Enki books is parsed correctly."""
@@ -344,8 +348,8 @@ class TestEnkiAPI(BaseEnkiTest):
         assert loan.data_source_name == DataSource.ENKI
         assert loan.identifier_type == Identifier.ENKI_ID
         assert loan.identifier == "2"
-        assert loan.start_date == datetime.datetime(2017, 8, 23, 19, 31, 58, 0)
-        assert loan.end_date == datetime.datetime(2017, 9, 13, 19, 31, 58, 0)
+        assert loan.start_date == datetime_utc(2017, 8, 23, 19, 31, 58, 0)
+        assert loan.end_date == datetime_utc(2017, 9, 13, 19, 31, 58, 0)
 
     def test_checkout_acs_parser(self):
         """Test that checkout info for ACS Enki books is parsed correctly."""
@@ -355,8 +359,8 @@ class TestEnkiAPI(BaseEnkiTest):
         assert loan.data_source_name == DataSource.ENKI
         assert loan.identifier_type == Identifier.ENKI_ID
         assert loan.identifier == "3334"
-        assert loan.start_date == datetime.datetime(2017, 8, 23, 19, 42, 35, 0)
-        assert loan.end_date == datetime.datetime(2017, 9, 13, 19, 42, 35, 0)
+        assert loan.start_date == datetime_utc(2017, 8, 23, 19, 42, 35, 0)
+        assert loan.end_date == datetime_utc(2017, 9, 13, 19, 42, 35, 0)
 
     def test_checkout_success(self):
         # Test the checkout() method.
@@ -385,7 +389,7 @@ class TestEnkiAPI(BaseEnkiTest):
         assert loan.identifier == pool.identifier.identifier
         assert loan.collection_id == pool.collection.id
         assert loan.start_date == None
-        assert loan.end_date == datetime.datetime(2017, 9, 13, 19, 42, 35, 0)
+        assert loan.end_date == datetime_utc(2017, 9, 13, 19, 42, 35, 0)
 
     def test_checkout_bad_authorization(self):
         """Test that the correct exception is thrown upon an unsuccessful login."""
@@ -469,7 +473,7 @@ class TestEnkiAPI(BaseEnkiTest):
             "http://afs.enkilibrary.org/fulfillment/URLLink.acsm"
         )
         assert (fulfillment.content_expires ==
-            datetime.datetime(2017, 9, 13, 19, 42, 35, 0))
+            datetime_utc(2017, 9, 13, 19, 42, 35, 0))
 
     def test_patron_activity(self):
         data = self.get_data("patron_response.json")
@@ -496,8 +500,8 @@ class TestEnkiAPI(BaseEnkiTest):
         assert DataSource.ENKI == loan.data_source_name
         assert "231" == loan.identifier
         assert self.collection == loan.collection(self._db)
-        assert datetime.datetime(2017, 8, 15, 14, 56, 51) == loan.start_date
-        assert datetime.datetime(2017, 9, 5, 14, 56, 51) == loan.end_date
+        assert datetime_utc(2017, 8, 15, 14, 56, 51) == loan.start_date
+        assert datetime_utc(2017, 9, 5, 14, 56, 51) == loan.end_date
 
     def test_patron_activity_failure(self):
         patron = self._patron()
@@ -662,7 +666,7 @@ class TestEnkiImport(BaseEnkiTest):
         # previous completion time is passed into incremental_import()
         importer.full_import_called = False
 
-        a_while_ago = datetime.datetime(2011, 1, 1)
+        a_while_ago = datetime_utc(2011, 1, 1)
         even_earlier = a_while_ago - datetime.timedelta(days=100)
         timestamp = TimestampData(start=even_earlier, finish=a_while_ago)
         new_timestamp = importer.run_once(timestamp)
@@ -677,7 +681,7 @@ class TestEnkiImport(BaseEnkiTest):
         # The proposed new TimestampData covers the entire timespan
         # from the 'expect' period to now.
         assert expect == new_timestamp.start
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         assert (now - new_timestamp.finish).total_seconds() < 2
         assert ("New or modified titles: 4. Titles with circulation changes: 7." ==
             new_timestamp.achievements)
@@ -771,7 +775,7 @@ class TestEnkiImport(BaseEnkiTest):
         # Call update_circulation() on a time three hours in the
         # past. It will return a count of 3 -- the sum of the return
         # values from our mocked _update_circulation().
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         one_hour_ago = now - datetime.timedelta(hours=1)
         three_hours_ago = now - datetime.timedelta(hours=3)
         monitor = Mock(self._db, self.collection, api_class=MockEnkiAPI)
@@ -808,11 +812,11 @@ class TestEnkiImport(BaseEnkiTest):
         analytics = MockAnalyticsProvider()
         monitor = EnkiImport(self._db, self.collection, api_class=api,
                              analytics=analytics)
-        end = datetime.datetime.utcnow()
+        end = utc_now()
 
         # Ask for circulation events from one hour in 1970.
-        start = datetime.datetime(1970, 1, 1, 0, 0, 0)
-        end = datetime.datetime(1970, 1, 1, 1, 0, 0)
+        start = datetime_utc(1970, 1, 1, 0, 0, 0)
+        end = datetime_utc(1970, 1, 1, 1, 0, 0)
         monitor._update_circulation(start, end)
 
         # Two requests were made -- one to getRecentActivityTime

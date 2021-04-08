@@ -2,8 +2,6 @@
 document to describe an unusual setup.
 """
 
-import datetime
-
 from flask import Response
 from flask_babel import lazy_gettext as _
 

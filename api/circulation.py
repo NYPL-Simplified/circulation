@@ -576,7 +576,6 @@ class CirculationAPI(object):
         if licensepool.open_access or licensepool.self_hosted:
             # We can 'loan' open-access content ourselves just by
             # putting a row in the database.
-            now = utc_now()
             __transaction = self._db.begin_nested()
             loan, is_new = licensepool.loan_to(patron, start=now, end=None)
             __transaction.commit()

@@ -6,8 +6,6 @@ We're keeping it around because existing iOS versions of SimplyE need the
 OPDS navigation feed it generates.
 """
 
-import datetime
-
 from flask import Response
 from flask_babel import lazy_gettext as _
 
@@ -23,6 +21,7 @@ from core.model import (
     ConfigurationSetting,
     ExternalIntegration,
 )
+from core.util.datetime_helpers import utc_now
 from core.util.opds_writer import OPDSFeed
 
 class CustomIndexView(object):
@@ -183,7 +182,7 @@ class COPPAGate(CustomIndexView):
         if annotator:
             annotator.annotate_feed(feed, None)
 
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         opds.append(OPDSFeed.E.updated(OPDSFeed._strftime(now)))
         return feed
 
@@ -193,7 +192,7 @@ class COPPAGate(CustomIndexView):
         E = OPDSFeed.E
         content_tag = E.content(type="text")
         content_tag.text = str(content)
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         entry = E.entry(
             E.id(href),
             E.title(str(title)),
