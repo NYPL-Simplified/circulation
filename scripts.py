@@ -89,7 +89,7 @@ from .util.personal_names import (
 from .util.worker_pools import (
     DatabasePool,
 )
-from .util.datetime_helpers import to_utc, utc_now
+from .util.datetime_helpers import strptime_utc, to_utc, utc_now
 
 
 class Script(object):
@@ -137,9 +137,7 @@ class Script(object):
             for hours in ('', ' %H:%M:%S'):
                 full_format = format + hours
                 try:
-                    parsed = to_utc(datetime.datetime.strptime(
-                        time_string, full_format
-                    ))
+                    parsed = strptime_utc(time_string, full_format)
                     return parsed
                 except ValueError as e:
                     continue

@@ -100,7 +100,7 @@ class Patron(Base):
     # records managed by the vendors who provide the library with
     # ebooks.
     _last_loan_activity_sync = Column(
-        DateTime, default=None, name="last_loan_activity_sync"
+        DateTime(timezone=True), default=None, name="last_loan_activity_sync"
     )
 
     # The time, if any, at which the user's authorization to borrow

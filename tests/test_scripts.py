@@ -104,6 +104,7 @@ from ..util.worker_pools import (
 )
 from ..util.datetime_helpers import (
     datetime_utc,
+    strptime_utc,
     to_utc,
     utc_now,
 )
@@ -863,7 +864,7 @@ class TestTimestampInfo(DatabaseTest):
 
     def test_update(self):
         # Create a Timestamp to be updated.
-        past = to_utc(datetime.datetime.strptime('19980101', '%Y%m%d'))
+        past = strptime_utc('19980101', '%Y%m%d')
         stamp = Timestamp.stamp(
             self._db, 'test', Timestamp.SCRIPT_TYPE, None, start=past,
             finish=past
@@ -995,7 +996,7 @@ class TestDatabaseMigrationScript(DatabaseMigrationScriptTest):
 
     @pytest.fixture()
     def timestamp(self, script):
-        stamp = to_utc(datetime.datetime.strptime('20260810', '%Y%m%d'))
+        stamp = strptime_utc('20260810', '%Y%m%d')
         timestamp = Timestamp(
             service=script.name, start=stamp, finish=stamp
         )
@@ -1258,7 +1259,7 @@ class TestDatabaseMigrationScript(DatabaseMigrationScriptTest):
 
     def test_running_a_migration_updates_the_timestamps(self, timestamp, migration_file, migration_dirs, script):
         timestamp, python_timestamp, timestamp_info = timestamp
-        future_time = to_utc(datetime.datetime.strptime('20261030', '%Y%m%d'))
+        future_time = strptime_utc('20261030', '%Y%m%d')
         timestamp_info.finish = future_time
         [core_dir, server_dir] = migration_dirs
 
@@ -1431,12 +1432,12 @@ class TestDatabaseMigrationInitializationScript(DatabaseMigrationScriptTest):
     def test_accepts_last_run_date(self, script):
         # A timestamp can be passed via the command line.
         script.run(['--last-run-date', '20101010'])
-        expected_stamp = to_utc(datetime.datetime.strptime('20101010', '%Y%m%d'))
+        expected_stamp = strptime_utc('20101010', '%Y%m%d')
         assert expected_stamp == script.overall_timestamp.finish
 
         # It will override an existing timestamp if forced.
         script.run(['--last-run-date', '20111111', '--force'])
-        expected_stamp = to_utc(datetime.datetime.strptime('20111111', '%Y%m%d'))
+        expected_stamp = strptime_utc('20111111', '%Y%m%d')
         assert expected_stamp == script.overall_timestamp.finish
         assert expected_stamp == script.python_timestamp.finish
 
@@ -1446,14 +1447,14 @@ class TestDatabaseMigrationInitializationScript(DatabaseMigrationScriptTest):
 
         # With a date, the counter can be set.
         script.run(['--last-run-date', '20101010', '--last-run-counter', '7'])
-        expected_stamp = to_utc(datetime.datetime.strptime('20101010', '%Y%m%d'))
+        expected_stamp = strptime_utc('20101010', '%Y%m%d')
         assert expected_stamp == script.overall_timestamp.finish
         assert 7 == script.overall_timestamp.counter
 
         # When forced, the counter can be reset on an existing timestamp.
         previous_timestamp = script.overall_timestamp.finish
         script.run(['--last-run-date', '20121212', '--last-run-counter', '2', '-f'])
-        expected_stamp = to_utc(datetime.datetime.strptime('20121212', '%Y%m%d'))
+        expected_stamp = strptime_utc('20121212', '%Y%m%d')
         assert expected_stamp == script.overall_timestamp.finish
         assert expected_stamp == script.python_timestamp.finish
         assert 2 == script.overall_timestamp.counter

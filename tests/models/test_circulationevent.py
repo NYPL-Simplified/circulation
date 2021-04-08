@@ -13,6 +13,7 @@ from ...model.identifier import Identifier
 from ...model.licensing import LicensePool
 from ...util.datetime_helpers import (
     datetime_utc,
+    strptime_utc,
     to_utc,
     utc_now,
 )
@@ -38,7 +39,7 @@ class TestCirculationEvent(DatabaseTest):
         elif isinstance(date, datetime.date):
             return date
         else:
-            return to_utc(datetime.datetime.strptime(date, CirculationEvent.TIME_FORMAT))
+            return strptime_utc(date, CirculationEvent.TIME_FORMAT)
 
     def _get_int(self, data, key):
         value = data.get(key, None)

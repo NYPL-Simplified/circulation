@@ -56,7 +56,7 @@ from .model.configuration import ExternalIntegrationLink
 from .classifier import NO_VALUE, NO_NUMBER
 from .analytics import Analytics
 from .util.personal_names import display_name_to_sort_name
-from .util.datetime_helpers import to_utc, utc_now
+from .util.datetime_helpers import strptime_utc, to_utc, utc_now
 
 class ReplacementPolicy(object):
     """How serious should we be about overwriting old metadata with
@@ -2371,7 +2371,7 @@ class MARCExtractor(object):
         """Handle a publication year that may not be in the right format."""
         for format in ("%Y", "%Y."):
             try:
-                return to_utc(datetime.datetime.strptime(value, format))
+                return strptime_utc(value, format)
             except ValueError:
                 continue
         return None

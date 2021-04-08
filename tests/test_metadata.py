@@ -46,6 +46,7 @@ from ..s3 import MockS3Uploader
 from ..util.http import RemoteIntegrationException
 from ..util.datetime_helpers import (
     datetime_utc,
+    strptime_utc,
     to_utc,
     utc_now,
 )
@@ -1835,7 +1836,7 @@ class TestMARCExtractor(DatabaseTest):
 
     def test_parse_year(self):
         m = MARCExtractor.parse_year
-        nineteen_hundred = to_utc(datetime.datetime.strptime("1900", "%Y"))
+        nineteen_hundred = strptime_utc("1900", "%Y")
         assert nineteen_hundred == m("1900")
         assert nineteen_hundred == m("1900.")
         assert None == m("not a year")

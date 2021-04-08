@@ -7,6 +7,7 @@ from pdb import set_trace
 from ...util.datetime_helpers import (
     datetime_utc,
     from_timestamp,
+    strptime_utc,
     to_utc,
     utc_now,
 )
@@ -90,3 +91,21 @@ class TestToUTC(object):
         # The timezone information is from pytz UTC.
         assert d1_utc.tzinfo == pytz.UTC
         assert d2_utc.tzinfo == pytz.UTC
+        
+        # Passing in None gets you None.
+        assert to_utc(None) == None
+
+    @parameterized.expand([
+        ([2021, 1, 1], "2021-01-01", "%Y-%m-%d"),
+        ([1955, 11, 5, 12], "1955-11-05T12:00:00", "%Y-%m-%dT%H:%M:%S")
+    ])
+    def test_strptime_utc(self, expect, date_string, format):
+        assert strptime_utc(date_string, format) == datetime_utc(*expect)
+
+    def test_strptime_utc_error(self):
+        # You can only use strptime_utc for time formats that don't
+        # mention a timezone.
+        with pytest.raises(ValueError) as excinfo:
+            strptime_utc("2020-01-01T12:00:00+0300", "%Y-%m-%dT%H:%M:%S%z")
+        assert ("Cannot use strptime_utc with timezone-aware format %Y-%m-%dT%H:%M:%S%z"
+                in str(excinfo.value))

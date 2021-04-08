@@ -25,6 +25,7 @@ ALTER TABLE licensepools ALTER COLUMN availability_time SET DATA TYPE timestampt
 ALTER TABLE licensepools ALTER COLUMN last_checked SET DATA TYPE timestamptz;
 ALTER TABLE measurements ALTER COLUMN taken_at SET DATA TYPE timestamptz;
 ALTER TABLE patrons ALTER COLUMN last_external_sync SET DATA TYPE timestamptz;
+ALTER TABLE patrons ALTER COLUMN last_loan_activity_sync SET DATA TYPE timestamptz;
 ALTER TABLE loans ALTER COLUMN "start" SET DATA TYPE timestamptz;
 ALTER TABLE loans ALTER COLUMN "end" SET DATA TYPE timestamptz;
 ALTER TABLE holds ALTER COLUMN "start" SET DATA TYPE timestamptz;
@@ -59,6 +60,7 @@ update licensepools set availability_time = (availability_time at time zone 'utc
 update licensepools set last_checked = (last_checked at time zone 'utc');
 update measurements set taken_at = (taken_at at time zone 'utc');
 update patrons set last_external_sync = (last_external_sync at time zone 'utc');
+update patrons set last_loan_activity_sync = (last_loan_activity_sync at time zone 'utc');
 update loans set "start" = ("start" at time zone 'utc');
 update loans set "end" = ("end" at time zone 'utc');
 update holds set "start" = ("start" at time zone 'utc');

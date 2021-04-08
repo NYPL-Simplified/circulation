@@ -62,7 +62,7 @@ from .util.http import (
 )
 from .util.string_helpers import base64
 from .util.worker_pools import RLock
-from .util.datetime_helpers import to_utc, utc_now
+from .util.datetime_helpers import strptime_utc, to_utc, utc_now
 from .testing import MockRequestsResponse
 
 class OverdriveAPI(object):
@@ -966,8 +966,8 @@ class OverdriveRepresentationExtractor(object):
             imprint = book.get('imprint', None)
 
             if 'publishDate' in book:
-                published = to_utc(datetime.datetime.strptime(
-                    book['publishDate'][:10], cls.DATE_FORMAT))
+                published = strptime_utc(
+                    book['publishDate'][:10], cls.DATE_FORMAT)
             else:
                 published = None
 

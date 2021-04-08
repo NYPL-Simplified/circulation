@@ -18,6 +18,7 @@ from ..external_list import (
 )
 from ..util.datetime_helpers import (
     datetime_utc,
+    strptime_utc,
     to_utc,
     utc_now,
 )
@@ -85,8 +86,7 @@ class TestCustomListFromCSV(DatabaseTest):
         assert row['author'] == metadata.contributors[0].display_name
         assert row['isbn'] == metadata.identifiers[0].identifier
 
-        expect_pub = to_utc(datetime.datetime.strptime(
-            row['published'], self.DATE_FORMAT))
+        expect_pub = strptime_utc(row['published'], self.DATE_FORMAT)
         assert expect_pub == metadata.published
         assert self.l.default_language == metadata.language
 
@@ -127,8 +127,8 @@ class TestCustomListFromCSV(DatabaseTest):
                      if x.subject.type==Subject.AGE_RANGE]
         assert 2 == len(age_ranges)
 
-        expect_first = to_utc(datetime.datetime.strptime(
-            row[self.l.first_appearance_field], self.DATE_FORMAT))
+        expect_first = strptime_utc(
+            row[self.l.first_appearance_field], self.DATE_FORMAT)
         assert expect_first == list_entry.first_appearance
         assert self.now == list_entry.most_recent_appearance
 
