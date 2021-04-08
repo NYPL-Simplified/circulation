@@ -2441,7 +2441,7 @@ class TestOPDSImportMonitor(OPDSImporterTest):
         assert 1 == len(next_links)
         assert "http://localhost:5000/?after=327&size=100" == next_links[0]
 
-        assert feed == content
+        assert feed.encode("utf-8") == content
 
         # Now import the editions and add coverage records.
         monitor.importer.import_from_feed(feed)

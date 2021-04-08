@@ -126,6 +126,8 @@ class BadResponseException(RemoteIntegrationException):
         else:
             status_code = response.status_code
             content = response.content
+        if content and isinstance(content, bytes):
+            content = content.decode("utf-8")
         return BadResponseException(
             url, message,
             status_code=status_code,
@@ -311,11 +313,15 @@ class HTTP(object):
         )):
             error_message = status_code_not_in_allowed
         if error_message:
+            if response.content and isinstance(response.content, bytes):
+                response_content = response.content.decode("utf-8")
+            else:
+                response_content = response.content
             raise BadResponseException(
                 url,
                 error_message % code,
                 status_code=code,
-                debug_message="Response content: %s" % response.content
+                debug_message="Response content: %s" % response_content
             )
         return response
 
@@ -381,22 +387,25 @@ class HTTP(object):
             return response
 
         content_type = response.headers.get('Content-Type')
+        response_content = response.content
+        if isinstance(response_content, bytes):
+            response_content = response_content.decode("utf-8")
         if content_type == PROBLEM_DETAIL_JSON_MEDIA_TYPE:
             # The server returned a problem detail document. Wrap it
             # in a new document that represents the integration
             # failure.
             problem = INTEGRATION_ERROR.detailed(
                 _('Remote service returned a problem detail document: %r') % (
-                    response.content
+                    response_content
                 )
             )
-            problem.debug_message = response.content
+            problem.debug_message = response_content
             return problem
         # There's been a problem. Return the message we got from the
         # server, verbatim.
         return INTEGRATION_ERROR.detailed(
             _("%s response from integration server: %r") % (
                 response.status_code,
-                response.content,
+                response_content,
             )
         )

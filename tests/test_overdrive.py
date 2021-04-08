@@ -182,7 +182,7 @@ class TestOverdriveAPI(OverdriveTestWithAPI):
         self.api.queue_response(200, content="some content")
         status_code, headers, content = self.api.get(self._url, {})
         assert 200 == status_code
-        assert "some content" == content
+        assert b"some content" == content
 
     def test_failure_to_get_library_is_fatal(self):
         self.api.queue_response(500)
@@ -226,7 +226,7 @@ class TestOverdriveAPI(OverdriveTestWithAPI):
         status_code, headers, content = self.api.get(self._url, {})
 
         assert 200 == status_code
-        assert "at last, the content" == content
+        assert b"at last, the content" == content
 
         # The bearer token has been updated.
         assert "new bearer token" == self.api.token

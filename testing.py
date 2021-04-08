@@ -1445,6 +1445,8 @@ class DummyHTTPClient(object):
         Representation.simple_http_get.
         """
         headers = {}
+        if not isinstance(content, bytes):
+            content = content.encode("utf-8")
         if media_type:
             headers["content-type"] = media_type
         if other_headers:
@@ -1491,7 +1493,10 @@ class MockRequestsResponse(object):
     ):
         self.status_code = status_code
         self.headers = headers
-        self.content = content
+        if content and isinstance(content, str):
+            self.content = content.encode("utf-8")
+        else:
+            self.content = content
         if request and not url:
             url = request.url
         self.url = url or "http://url/"

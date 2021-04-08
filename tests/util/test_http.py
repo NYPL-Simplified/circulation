@@ -42,7 +42,7 @@ class TestHTTP(object):
             "http://url/", fake_200_response, "GET", kwarg="value"
         )
         assert 200 == response.status_code
-        assert "Success!" == response.content
+        assert b"Success!" == response.content
 
     def test_request_with_timeout_failure(self):
 
