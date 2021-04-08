@@ -525,7 +525,7 @@ class TestRepresentation(DatabaseTest):
             do_get=h.do_get, cautious_head_client=object()
         )
         assert 200 == status
-        assert "yay" == content
+        assert b"yay" == content
 
         # If the domain is obviously unsafe, no GET request or HEAD
         # request is made.
@@ -570,7 +570,7 @@ class TestRepresentation(DatabaseTest):
             do_get=h.do_get, cautious_head_client=mock_redirect
         )
         assert 200 == status
-        assert "good content" == content
+        assert b"good content" == content
 
     def test_get_would_be_useful(self):
         """Test the method that determines whether a GET request will go (or

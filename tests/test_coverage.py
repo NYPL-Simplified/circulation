@@ -2234,17 +2234,17 @@ class TestMARCRecordWorkCoverageProvider(DatabaseTest):
 
         provider = MARCRecordWorkCoverageProvider(self._db)
         work = self._work(with_license_pool=True)
-        work.marc_record = b'old junk'
+        work.marc_record = 'old junk'
         work.presentation_ready = False
 
         # The work is not presentation-ready, so nothing happens.
         provider.run()
-        assert b'old junk' == work.marc_record
+        assert 'old junk' == work.marc_record
 
         # The work is presentation-ready, so its MARC record is
         # regenerated.
         work.presentation_ready = True
         provider.run()
-        assert work.title.encode("utf-8") in work.marc_record
-        assert b"online resource" in work.marc_record
+        assert work.title in work.marc_record
+        assert "online resource" in work.marc_record
 

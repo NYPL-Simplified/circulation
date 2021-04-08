@@ -756,7 +756,7 @@ class TestS3Uploader(S3UploaderTest):
         #
         # unglueit = DataSource.lookup(self._db, DataSource.UNGLUE_IT)
         # identifier = self._identifier(foreign_id="ABOOK")
-        # eq_(u'https://s3.amazonaws.com/thecovers/scaled/601/unglue.it/Gutenberg+ID/ABOOK/filename',
+        # eq_('https://s3.amazonaws.com/thecovers/scaled/601/unglue.it/Gutenberg+ID/ABOOK/filename',
         #     m(unglueit, identifier, "filename", scaled_size=601))
 
         # Arrange

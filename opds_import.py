@@ -881,7 +881,7 @@ class OPDSImporter(object):
 
     @classmethod
     def extract_next_links(self, feed):
-        if isinstance(feed, str):
+        if isinstance(feed, (bytes, str)):
             parsed = feedparser.parse(feed)
         else:
             parsed = feed
@@ -895,7 +895,7 @@ class OPDSImporter(object):
         return next_links
 
     def extract_last_update_dates(self, feed):
-        if isinstance(feed, str):
+        if isinstance(feed, (bytes, str)):
             parsed_feed = feedparser.parse(feed)
         else:
             parsed_feed = feed

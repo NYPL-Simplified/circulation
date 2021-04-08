@@ -418,10 +418,10 @@ class TestMARCExporter(DatabaseTest):
         [distributor_field] = record.get_fields("264")
         assert DataSource.OVERDRIVE == distributor_field.get_subfields("b")[0]
         cached = work.marc_record
-        assert b"old title" in cached
-        assert b"author, old" in cached
+        assert "old title" in cached
+        assert "author, old" in cached
         # The distributor isn't part of the cached record.
-        assert DataSource.OVERDRIVE.encode("utf8") not in cached
+        assert DataSource.OVERDRIVE not in cached
 
         work.presentation_edition.title = "new title"
         work.presentation_edition.sort_author = "author, new"
@@ -448,10 +448,10 @@ class TestMARCExporter(DatabaseTest):
         [distributor_field] = record.get_fields("264")
         assert DataSource.BIBLIOTHECA == distributor_field.get_subfields("b")[0]
         cached = work.marc_record
-        assert b"old title" not in cached
-        assert b"author, old" not in cached
-        assert b"new title" in cached
-        assert b"author, new" in cached
+        assert "old title" not in cached
+        assert "author, old" not in cached
+        assert "new title" in cached
+        assert "author, new" in cached
 
         # If we pass in an integration, it's passed along to the annotator.
         integration = self._integration()
@@ -539,8 +539,8 @@ class TestMARCExporter(DatabaseTest):
         titles = [fields[0].get_subfields("a")[0] for fields in title_fields]
         assert set([w1.title, w2.title]) == set(titles)
 
-        assert w1.title.encode("utf-8") in w1.marc_record
-        assert w2.title.encode("utf-8") in w2.marc_record
+        assert w1.title in w1.marc_record
+        assert w2.title in w2.marc_record
 
         self._db.delete(cache)
 

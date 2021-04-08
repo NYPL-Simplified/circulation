@@ -170,7 +170,7 @@ class TestOverdriveClassifier(object):
         assert "Health & Diet" == g("Health & Fitness")
         assert "Historical Fiction" == g("Historical Fiction")
         assert "History" == g("History")
-        assert "House & Home" == g(u"Home Design & Décor")
+        assert "House & Home" == g("Home Design & Décor")
         assert "Horror" == g("Horror")
         assert None == g("Human Rights")
         assert "Humorous Fiction" == g("Humor (Fiction)")

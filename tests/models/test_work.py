@@ -1553,8 +1553,8 @@ class TestWork(DatabaseTest):
         work.marc_record = None
 
         work.calculate_marc_record()
-        assert work.title.encode("utf-8") in work.marc_record
-        assert b"online resource" in work.marc_record
+        assert work.title in work.marc_record
+        assert "online resource" in work.marc_record
 
     def test_active_licensepool_ignores_superceded_licensepools(self):
         work = self._work(with_license_pool=True,
