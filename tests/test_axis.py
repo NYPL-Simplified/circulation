@@ -65,6 +65,10 @@ from api.axis import (
 )
 
 from core.testing import DatabaseTest
+from core.util.datetime_helpers import (
+    datetime_utc,
+    utc_now,
+)
 from . import sample_data
 
 from api.circulation import (
@@ -105,7 +109,7 @@ class Axis360Test(DatabaseTest):
         language='eng',
         title='Faith of My Fathers : A Family Memoir',
         imprint='Random House Inc2',
-        published=datetime.datetime(2000, 3, 7, 0, 0),
+        published=datetime_utc(2000, 3, 7, 0, 0),
         primary_identifier=IdentifierData(
             type=Identifier.AXIS_360_ID,
             identifier='0003642860'
@@ -136,7 +140,7 @@ class Axis360Test(DatabaseTest):
         licenses_available=8,
         licenses_reserved=0,
         patrons_in_hold_queue=0,
-        last_checked=datetime.datetime(2015, 5, 20, 2, 9, 8),
+        last_checked=datetime_utc(2015, 5, 20, 2, 9, 8),
     )
 
 
@@ -188,7 +192,7 @@ class TestAxis360API(Axis360Test):
 
         # Now that everything is set up, run the self-test.
         api = Mock(self._db, self.collection)
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         [no_patron_credential, recent_circulation_events, patron_activity,
          pools_without_delivery, refresh_bearer_token] = sorted(
             api._run_self_tests(self._db), key=lambda x: x.name
@@ -209,7 +213,7 @@ class TestAxis360API(Axis360Test):
         assert True == recent_circulation_events.success
         assert "Found 3 event(s)" == recent_circulation_events.result
         since = api.recent_activity_called_with
-        five_minutes_ago = datetime.datetime.utcnow() - datetime.timedelta(minutes=5)
+        five_minutes_ago = utc_now() - datetime.timedelta(minutes=5)
         assert (five_minutes_ago-since).total_seconds() < 3
 
         assert ("Checking activity for test patron for library %s" % with_default_patron.name ==
@@ -698,7 +702,7 @@ class TestCirculationMonitor(Axis360Test):
         # find events between DEFAULT_START_TIME and the current time.
         monitor.run()
         start, cutoff, progress = monitor.called_with
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         assert monitor.DEFAULT_START_TIME == start
         assert (now - cutoff).total_seconds() < 2
 
@@ -707,7 +711,7 @@ class TestCirculationMonitor(Axis360Test):
         # and what is now the current time.
         monitor.run()
         new_start, new_cutoff, new_progress = monitor.called_with
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         before_old_cutoff = cutoff - monitor.OVERLAP
         assert before_old_cutoff == new_start
         assert (now - new_cutoff).total_seconds() < 2
@@ -777,7 +781,7 @@ class TestCirculationMonitor(Axis360Test):
         assert 9 == license_pool.licenses_owned
         assert 8 == license_pool.licenses_available
         assert 0 == license_pool.patrons_in_hold_queue
-        assert datetime.datetime(2015, 5, 20, 2, 9, 8) == license_pool.last_checked
+        assert datetime_utc(2015, 5, 20, 2, 9, 8) == license_pool.last_checked
 
         # Three circulation events were created, backdated to the
         # last_checked date of the license pool.
@@ -868,7 +872,7 @@ class TestParsers(Axis360Test):
 
         assert 'Faith of My Fathers : A Family Memoir' == bib1.title
         assert 'eng' == bib1.language
-        assert datetime.datetime(2000, 3, 7, 0, 0) == bib1.published
+        assert datetime_utc(2000, 3, 7, 0, 0) == bib1.published
 
         assert 'Simon & Schuster' == bib2.publisher
         assert 'Pocket Books' == bib2.imprint
@@ -1132,7 +1136,7 @@ class TestCheckoutResponseParser(TestResponseParser):
         assert self._default_collection.id == parsed.collection_id
         assert DataSource.AXIS_360 == parsed.data_source_name
         assert Identifier.AXIS_360_ID == parsed.identifier_type
-        assert (datetime.datetime(2015, 8, 11, 18, 57, 42) ==
+        assert (datetime_utc(2015, 8, 11, 18, 57, 42) ==
             parsed.end_date)
 
         # There is no FulfillmentInfo associated with the LoanInfo,
@@ -1200,11 +1204,11 @@ class TestAvailabilityResponseParser(Axis360Test, BaseParserTest):
         assert self.api.collection.id == loan.collection_id
         assert "0015176429" == loan.identifier
         assert "http://fulfillment/" == loan.fulfillment_info.content_link
-        assert datetime.datetime(2015, 8, 12, 17, 40, 27) == loan.end_date
+        assert datetime_utc(2015, 8, 12, 17, 40, 27) == loan.end_date
 
         assert self.api.collection.id == reserved.collection_id
         assert "1111111111" == reserved.identifier
-        assert datetime.datetime(2015, 1, 1, 13, 11, 11) == reserved.end_date
+        assert datetime_utc(2015, 1, 1, 13, 11, 11) == reserved.end_date
         assert 0 == reserved.hold_position
 
     def test_parse_loan_no_availability(self):
@@ -1215,7 +1219,7 @@ class TestAvailabilityResponseParser(Axis360Test, BaseParserTest):
         assert self.api.collection.id == loan.collection_id
         assert "0015176429" == loan.identifier
         assert None == loan.fulfillment_info
-        assert datetime.datetime(2015, 8, 12, 17, 40, 27) == loan.end_date
+        assert datetime_utc(2015, 8, 12, 17, 40, 27) == loan.end_date
 
     def test_parse_audiobook_availability(self):
         data = self.sample_data("availability_with_audiobook_fulfillment.xml")
@@ -1387,7 +1391,7 @@ class TestAxis360FulfillmentInfoResponseParser(Axis360Test):
         assert 5 == len(manifest.readingOrder)
 
         # We also know when the licensing document expires.
-        assert datetime.datetime(2018, 9, 29, 18, 34) == expires
+        assert datetime_utc(2018, 9, 29, 18, 34) == expires
 
         # Now strategically remove required information from the
         # document and verify that extraction fails.
@@ -1542,7 +1546,7 @@ class TestAxis360FulfillmentInfo(Axis360Test):
         # The content expiration date also comes from the fulfillment
         # document.
         assert (
-            datetime.datetime(2018, 9, 29, 18, 34) == fulfillment.content_expires)
+            datetime_utc(2018, 9, 29, 18, 34) == fulfillment.content_expires)
 
     def test_fetch_ebook(self):
         # When no Findaway information is present in the response from
@@ -1574,7 +1578,7 @@ class TestAxis360FulfillmentInfo(Axis360Test):
         # The content expiration date also comes from the fulfillment
         # document.
         assert (
-            datetime.datetime(2018, 9, 29, 18, 34) == fulfillment.content_expires)
+            datetime_utc(2018, 9, 29, 18, 34) == fulfillment.content_expires)
 
 
 class TestAxisNowManifest(object):
