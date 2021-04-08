@@ -101,6 +101,11 @@ from core.metadata_layer import (
     ReplacementPolicy,
     SubjectData,
 )
+from core.util.datetime_helpers import (
+    strptime_utc,
+    to_utc,
+    utc_now,
+)
 from core.util.string_helpers import base64
 from core.testing import DatabaseTest
 
@@ -305,7 +310,7 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
 
     def _run_self_tests(self, _db):
         def _count_events():
-            now = datetime.utcnow()
+            now = utc_now()
             five_minutes_ago = now - timedelta(minutes=5)
             count = len(list(self.get_events_between(five_minutes_ago, now)))
             return "Found %d event(s)" % count
@@ -394,7 +399,7 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
         response = self.request('checkout', body, method="PUT")
         if response.status_code == 201:
             # New loan
-            start_date = datetime.utcnow()
+            start_date = utc_now()
         elif response.status_code == 200:
             # Old loan -- we don't know the start date
             start_date = None
@@ -493,7 +498,7 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
         body = self.TEMPLATE % args
         response = self.request('placehold', body, method="PUT")
         if response.status_code in (200, 201):
-            start_date = datetime.utcnow()
+            start_date = utc_now()
             end_date = HoldResponseParser().process_all(response.content)
             return HoldInfo(
                 licensepool.collection, DataSource.BIBLIOTHECA,
@@ -753,7 +758,7 @@ class ItemListParser(XMLParser):
 
         for format in formats:
             try:
-                published_date = datetime.strptime(published, format)
+                published_date = strptime_utc(published, format)
             except ValueError as e:
                 pass
 
@@ -895,16 +900,14 @@ class BibliothecaParser(XMLParser):
             value = None
         else:
             try:
-                value = datetime.strptime(
-                    value, self.INPUT_TIME_FORMAT
-                )
+                value = strptime_utc(value, self.INPUT_TIME_FORMAT)
             except ValueError as e:
                 logging.error(
                     'Unable to parse Bibliotheca date: "%s"', value,
                     exc_info=e
                 )
                 value = None
-        return value
+        return to_utc(value)
 
     def date_from_subtag(self, tag, key, required=True):
         if required:
@@ -1072,8 +1075,9 @@ class PatronCirculationParser(BibliothecaParser):
 
         def datevalue(key):
             value = self.text_of_subtag(tag, key)
-            return datetime.strptime(
-                value, BibliothecaAPI.ARGUMENT_TIME_FORMAT)
+            return strptime_utc(
+                value, BibliothecaAPI.ARGUMENT_TIME_FORMAT
+            )
 
         identifier = self.text_of_subtag(tag, "ItemId")
         start_date = datevalue("EventStartDateInUTC")
@@ -1102,8 +1106,7 @@ class DateResponseParser(BibliothecaParser):
         due_date = m[0].text
         if not due_date:
             return None
-        return datetime.strptime(
-                due_date, EventParser.INPUT_TIME_FORMAT)
+        return strptime_utc(due_date, EventParser.INPUT_TIME_FORMAT)
 
 
 class CheckoutResponseParser(DateResponseParser):
@@ -1217,7 +1220,7 @@ class BibliothecaCirculationSweep(IdentifierSweepMonitor):
             identifiers_by_bibliotheca_id[identifier.identifier] = identifier
 
         identifiers_not_mentioned_by_bibliotheca = set(identifiers)
-        now = datetime.utcnow()
+        now = utc_now()
         for metadata in self.api.bibliographic_lookup(bibliotheca_ids):
             self._process_metadata(
                 metadata, identifiers_by_bibliotheca_id,
@@ -1266,7 +1269,7 @@ class BibliothecaCirculationSweep(IdentifierSweepMonitor):
             for library in self.collection.libraries:
                 self.analytics.collect_event(
                     library, pool, CirculationEvent.DISTRIBUTOR_TITLE_ADD,
-                    datetime.utcnow()
+                    utc_now()
                 )
         edition, ignore = metadata.apply(edition, collection=self.collection,
                                          replace=self.replacement_policy)
@@ -1353,9 +1356,9 @@ class BibliothecaEventMonitor(CollectionMonitor, TimelineMonitor):
         :rtype: Optional[datetime]
         """
         if date is None or isinstance(date, datetime):
-            return date
+            return to_utc(date)
         try:
-            dt_date = dateutil.parser.isoparse(date)
+            dt_date = to_utc(dateutil.parser.isoparse(date))
         except ValueError as e:
             self.log.warn(
                 '%r. Date argument "%s" was not in a valid format. Use an ISO 8601 string or a datetime.',
@@ -1380,7 +1383,7 @@ class BibliothecaEventMonitor(CollectionMonitor, TimelineMonitor):
         # We don't use Monitor.timestamp() because that will create
         # the timestamp if it doesn't exist -- we want to see whether
         # or not it exists.
-        default_start_time = datetime.utcnow() - self.DEFAULT_START_TIME
+        default_start_time = utc_now() - self.DEFAULT_START_TIME
         initialized = get_one(
             _db, Timestamp, service=self.service_name,
             service_type=Timestamp.MONITOR_TYPE, collection=self.collection

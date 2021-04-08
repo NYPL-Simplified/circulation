@@ -38,6 +38,10 @@ from core.model import (
     WorkCoverageRecord,
     create,
 )
+from core.util.datetime_helpers import (
+    datetime_utc,
+    utc_now,
+)
 from core.util.http import (
     BadResponseException,
 )
@@ -132,7 +136,7 @@ class TestBibliothecaAPI(BibliothecaAPITest):
 
         # Now that everything is set up, run the self-test.
         api = Mock(self._db, self.collection)
-        now = datetime.utcnow()
+        now = utc_now()
         [no_patron_credential, recent_circulation_events, patron_activity] = sorted(
             api._run_self_tests(self._db), key=lambda x: x.name
         )
@@ -401,22 +405,22 @@ class TestBibliothecaAPI(BibliothecaAPITest):
         l1, l2 = patron.loans
         h1, h2 = patron.holds
 
-        assert datetime(2015, 3, 20, 18, 50, 22) == l1.start
-        assert datetime(2015, 4, 10, 18, 50, 22) == l1.end
+        assert datetime_utc(2015, 3, 20, 18, 50, 22) == l1.start
+        assert datetime_utc(2015, 4, 10, 18, 50, 22) == l1.end
 
-        assert datetime(2015, 3, 13, 13, 38, 19) == l2.start
-        assert datetime(2015, 4, 3, 13, 38, 19) == l2.end
+        assert datetime_utc(2015, 3, 13, 13, 38, 19) == l2.start
+        assert datetime_utc(2015, 4, 3, 13, 38, 19) == l2.end
 
         # The patron is fourth in line. The end date is an estimate
         # of when the hold will be available to check out.
-        assert datetime(2015, 3, 24, 15, 6, 56) == h1.start
-        assert datetime(2015, 3, 24, 15, 7, 51) == h1.end
+        assert datetime_utc(2015, 3, 24, 15, 6, 56) == h1.start
+        assert datetime_utc(2015, 3, 24, 15, 7, 51) == h1.end
         assert 4 == h1.position
 
         # The hold has an end date. It's time for the patron to decide
         # whether or not to check out this book.
-        assert datetime(2015, 5, 25, 17, 5, 34) == h2.start
-        assert datetime(2015, 5, 27, 17, 5, 34) == h2.end
+        assert datetime_utc(2015, 5, 25, 17, 5, 34) == h2.start
+        assert datetime_utc(2015, 5, 27, 17, 5, 34) == h2.end
         assert 0 == h2.position
 
     def test_place_hold(self):
@@ -659,7 +663,7 @@ class TestBibliothecaParser(BibliothecaAPITest):
     def test_parse_date(self):
         parser = BibliothecaParser()
         v = parser.parse_date("2016-01-02T12:34:56")
-        assert datetime(2016, 1, 2, 12, 34, 56) == v
+        assert datetime_utc(2016, 1, 2, 12, 34, 56) == v
 
         assert None == parser.parse_date(None)
         assert None == parser.parse_date("Some weird value")
@@ -690,7 +694,7 @@ class TestEventParser(BibliothecaAPITest):
         assert 'd5rf89' == threem_id
         assert '9781101190623' == isbn
         assert None == patron_id
-        assert datetime(2016, 4, 28, 11, 4, 6) == start_time
+        assert datetime_utc(2016, 4, 28, 11, 4, 6) == start_time
         assert None == end_time
         assert 'distributor_license_add' == internal_event_type
 
@@ -708,8 +712,8 @@ class TestPatronCirculationParser(BibliothecaAPITest):
         [l1, l2] = sorted(loans, key=lambda x: x.identifier)
         assert "1ad589" == l1.identifier
         assert "cgaxr9" == l2.identifier
-        expect_loan_start = datetime(2015, 3, 20, 18, 50, 22)
-        expect_loan_end = datetime(2015, 4, 10, 18, 50, 22)
+        expect_loan_start = datetime_utc(2015, 3, 20, 18, 50, 22)
+        expect_loan_end = datetime_utc(2015, 4, 10, 18, 50, 22)
         assert expect_loan_start == l1.start_date
         assert expect_loan_end == l1.end_date
 
@@ -719,8 +723,8 @@ class TestPatronCirculationParser(BibliothecaAPITest):
         assert collection.id == h1.collection_id
         assert DataSource.BIBLIOTHECA == h1.data_source_name
         assert "9wd8" == h1.identifier
-        expect_hold_start = datetime(2015, 5, 25, 17, 5, 34)
-        expect_hold_end = datetime(2015, 5, 27, 17, 5, 34)
+        expect_hold_start = datetime_utc(2015, 5, 25, 17, 5, 34)
+        expect_hold_end = datetime_utc(2015, 5, 27, 17, 5, 34)
         assert expect_hold_start == h1.start_date
         assert expect_hold_end == h1.end_date
         assert 0 == h1.hold_position
@@ -729,8 +733,8 @@ class TestPatronCirculationParser(BibliothecaAPITest):
         assert "d4o8r9" == h2.identifier
         assert collection.id == h2.collection_id
         assert DataSource.BIBLIOTHECA == h2.data_source_name
-        expect_hold_start = datetime(2015, 3, 24, 15, 6, 56)
-        expect_hold_end = datetime(2015, 3, 24, 15, 7, 51)
+        expect_hold_start = datetime_utc(2015, 3, 24, 15, 6, 56)
+        expect_hold_end = datetime_utc(2015, 3, 24, 15, 7, 51)
         assert expect_hold_start == h2.start_date
         assert expect_hold_end == h2.end_date
         assert 4 == h2.hold_position
@@ -740,7 +744,7 @@ class TestCheckoutResponseParser(BibliothecaAPITest):
     def test_parse(self):
         data = self.sample_data("successful_checkout.xml")
         due_date = CheckoutResponseParser().process_all(data)
-        assert datetime(2015, 4, 16, 0, 32, 36) == due_date
+        assert datetime_utc(2015, 4, 16, 0, 32, 36) == due_date
 
 
 class TestErrorParser(BibliothecaAPITest):
@@ -786,7 +790,7 @@ class TestErrorParser(BibliothecaAPITest):
         assert "Integration error communicating with Bibliotheca" == doc.detail
 
     def test_unknown_error_becomes_remote_initiated_server_error(self):
-        """Simulate the message we get when ¯\_(ツ)_/¯."""
+        """Simulate the message we get when the server gives a vague error."""
         msg=self.sample_data("error_unknown.xml")
         error = ErrorParser().process_all(msg)
         assert isinstance(error, RemoteInitiatedServerError)
@@ -873,8 +877,8 @@ class TestBibliothecaEventParser(object):
         assert CirculationEvent.DISTRIBUTOR_CHECKOUT == internal_event_type
 
         # Verify that start and end time were parsed correctly.
-        correct_start = datetime(2014, 4, 3, 0, 0, 34)
-        correct_end = datetime(2014, 4, 2, 23, 57, 37)
+        correct_start = datetime_utc(2014, 4, 3, 0, 0, 34)
+        correct_end = datetime_utc(2014, 4, 2, 23, 57, 37)
         assert correct_start == start_time
         assert correct_end == end_time
 
@@ -951,17 +955,17 @@ class TestBibliothecaEventMonitor(BibliothecaAPITest):
 
 
     @pytest.mark.parametrize('specified_default_start, expected_default_start', [
-        ('2011', datetime(year=2011, month=1, day=1)),
-        ('2011-10', datetime(year=2011, month=10, day=1)),
-        ('2011-10-05', datetime(year=2011, month=10, day=5)),
-        ('2011-10-05T15', datetime(year=2011, month=10, day=5, hour=15)),
-        ('2011-10-05T15:27', datetime(year=2011, month=10, day=5, hour=15, minute=27)),
-        ('2011-10-05T15:27:33', datetime(year=2011, month=10, day=5, hour=15, minute=27, second=33)),
-        ('2011-10-05 15:27:33', datetime(year=2011, month=10, day=5, hour=15, minute=27, second=33)),
+        ('2011', datetime_utc(year=2011, month=1, day=1)),
+        ('2011-10', datetime_utc(year=2011, month=10, day=1)),
+        ('2011-10-05', datetime_utc(year=2011, month=10, day=5)),
+        ('2011-10-05T15', datetime_utc(year=2011, month=10, day=5, hour=15)),
+        ('2011-10-05T15:27', datetime_utc(year=2011, month=10, day=5, hour=15, minute=27)),
+        ('2011-10-05T15:27:33', datetime_utc(year=2011, month=10, day=5, hour=15, minute=27, second=33)),
+        ('2011-10-05 15:27:33', datetime_utc(year=2011, month=10, day=5, hour=15, minute=27, second=33)),
         ('2011-10-05T15:27:33.123456',
-         datetime(year=2011, month=10, day=5, hour=15, minute=27, second=33, microsecond=123456)),
-        (datetime(year=2011, month=10, day=5, hour=15, minute=27),
-         datetime(year=2011, month=10, day=5, hour=15, minute=27)),
+         datetime_utc(year=2011, month=10, day=5, hour=15, minute=27, second=33, microsecond=123456)),
+        (datetime_utc(year=2011, month=10, day=5, hour=15, minute=27),
+         datetime_utc(year=2011, month=10, day=5, hour=15, minute=27)),
         (None, None),
     ])
     def test_optional_iso_date_valid_dates(self, specified_default_start, expected_default_start, default_monitor):
@@ -976,19 +980,19 @@ class TestBibliothecaEventMonitor(BibliothecaAPITest):
         # `initialized_monitor`, so each monitor's `default_start_time` should
         # (roughly) match the monitor's intrinsic start time.
         for monitor in [default_monitor, initialized_monitor]:
-            expected_intrinsic_start = datetime.utcnow() - BibliothecaEventMonitor.DEFAULT_START_TIME
+            expected_intrinsic_start = utc_now() - BibliothecaEventMonitor.DEFAULT_START_TIME
             intrinsic_start = monitor._intrinsic_start_time(self._db)
             assert isinstance(intrinsic_start, datetime)
             assert abs(intrinsic_start - expected_intrinsic_start).total_seconds() <= 1
             assert abs(intrinsic_start - monitor.default_start_time).total_seconds() <= 1
 
     @pytest.mark.parametrize('specified_default_start, override_timestamp, expected_start', [
-        ('2011-10-05T15:27', False, datetime(year=2011, month=10, day=5, hour=15, minute=27)),
-        ('2011-10-05T15:27:33', False, datetime(year=2011, month=10, day=5, hour=15, minute=27, second=33)),
+        ('2011-10-05T15:27', False, datetime_utc(year=2011, month=10, day=5, hour=15, minute=27)),
+        ('2011-10-05T15:27:33', False, datetime_utc(year=2011, month=10, day=5, hour=15, minute=27, second=33)),
         (None, False, None),
         (None, True, None),
-        ('2011-10-05T15:27', True, datetime(year=2011, month=10, day=5, hour=15, minute=27)),
-        ('2011-10-05T15:27:33', True, datetime(year=2011, month=10, day=5, hour=15, minute=27, second=33)),
+        ('2011-10-05T15:27', True, datetime_utc(year=2011, month=10, day=5, hour=15, minute=27)),
+        ('2011-10-05T15:27:33', True, datetime_utc(year=2011, month=10, day=5, hour=15, minute=27, second=33)),
     ])
     def test_specified_start_trumps_intrinsic_default_start(self, specified_default_start,
                                                             override_timestamp, expected_start):
@@ -1014,7 +1018,7 @@ class TestBibliothecaEventMonitor(BibliothecaAPITest):
         # whether from a specified `default_start` or the monitor's intrinsic start time,
         # will be the actual start time. The cut-off will be roughly the current time, in
         # either case.
-        expected_cutoff = datetime.utcnow()
+        expected_cutoff = utc_now()
         with mock.patch.object(monitor, 'catch_up_from', return_value=None) as catch_up_from:
             monitor.run()
             actual_start, actual_cutoff, progress = catch_up_from.call_args[0]
@@ -1024,12 +1028,12 @@ class TestBibliothecaEventMonitor(BibliothecaAPITest):
         assert progress.start == monitor.default_start_time
 
     @pytest.mark.parametrize('specified_default_start, override_timestamp, expected_start', [
-        ('2011-10-05T15:27', False, datetime(year=2011, month=10, day=5, hour=15, minute=27)),
-        ('2011-10-05T15:27:33', False, datetime(year=2011, month=10, day=5, hour=15, minute=27, second=33)),
+        ('2011-10-05T15:27', False, datetime_utc(year=2011, month=10, day=5, hour=15, minute=27)),
+        ('2011-10-05T15:27:33', False, datetime_utc(year=2011, month=10, day=5, hour=15, minute=27, second=33)),
         (None, False, None),
         (None, True, None),
-        ('2011-10-05T15:27', True, datetime(year=2011, month=10, day=5, hour=15, minute=27)),
-        ('2011-10-05T15:27:33', True, datetime(year=2011, month=10, day=5, hour=15, minute=27, second=33)),
+        ('2011-10-05T15:27', True, datetime_utc(year=2011, month=10, day=5, hour=15, minute=27)),
+        ('2011-10-05T15:27:33', True, datetime_utc(year=2011, month=10, day=5, hour=15, minute=27, second=33)),
     ])
     def test_specified_start_can_override_timestamp(self, specified_default_start,
                                                            override_timestamp, expected_start):
@@ -1046,7 +1050,7 @@ class TestBibliothecaEventMonitor(BibliothecaAPITest):
         )
         start_time_from_ts = ts.finish - BibliothecaEventMonitor.OVERLAP
         expected_actual_start_time = expected_start if monitor.override_timestamp else start_time_from_ts
-        expected_cutoff = datetime.utcnow()
+        expected_cutoff = utc_now()
         with mock.patch.object(monitor, 'catch_up_from', return_value=None) as catch_up_from:
             monitor.run()
             actual_start, actual_cutoff, progress = catch_up_from.call_args[0]
@@ -1067,7 +1071,7 @@ class TestBibliothecaEventMonitor(BibliothecaAPITest):
         # and the current time into five-minute intervals, and asks for
         # data about one day at a time.
 
-        now = datetime.utcnow()
+        now = utc_now()
         one_hour_ago = now - timedelta(hours=1)
         two_hours_ago = now - timedelta(hours=2)
 
@@ -1146,7 +1150,7 @@ class TestBibliothecaEventMonitor(BibliothecaAPITest):
         # If we are in "catch up" mode and the timespan to check for events
         # is longer than 70 hours, we revert back to checking for events
         # in 5-minute intervals.
-        now = datetime.utcnow()
+        now = utc_now()
         two_days_ago = now - timedelta(days=2)
         seven_days_ago = now - timedelta(days=5)
         before_timestamp = TimestampData(
@@ -1175,7 +1179,7 @@ class TestBibliothecaEventMonitor(BibliothecaAPITest):
             analytics=analytics
         )
 
-        now = datetime.utcnow()
+        now = utc_now()
         monitor.handle_event("ddf4gr9", "9781250015280", None, now, None,
                              CirculationEvent.DISTRIBUTOR_LICENSE_ADD)
 
@@ -1285,7 +1289,7 @@ class TestItemListParser(BibliothecaAPITest):
         assert Edition.BOOK_MEDIUM == cooked.medium
         assert "eng" == cooked.language
         assert "St. Martin's Press" == cooked.publisher
-        assert (datetime(year=2012, month=9, day=17) ==
+        assert (datetime_utc(year=2012, month=9, day=17) ==
             cooked.published)
 
         primary = cooked.primary_identifier

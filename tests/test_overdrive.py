@@ -3,7 +3,6 @@ import pytest
 import pkgutil
 import json
 from datetime import (
-    datetime,
     timedelta,
 )
 import random
@@ -29,6 +28,10 @@ from api.circulation_exceptions import *
 from api.config import Configuration
 
 from core.testing import DatabaseTest
+from core.util.datetime_helpers import (
+    datetime_utc,
+    utc_now,
+)
 from . import sample_data
 
 from core.metadata_layer import TimestampData
@@ -455,7 +458,7 @@ class TestOverdriveAPI(OverdriveAPITest):
         m = OverdriveAPI.extract_expiration_date
 
         # Success
-        assert datetime(2020, 1, 2, 3, 4, 5) == m(dict(expires="2020-01-02T03:04:05Z"))
+        assert datetime_utc(2020, 1, 2, 3, 4, 5) == m(dict(expires="2020-01-02T03:04:05Z"))
 
         # Various failure cases.
         assert None == m(dict(expiresPresent=False))
@@ -621,7 +624,7 @@ class TestOverdriveAPI(OverdriveAPITest):
             assert licensepool.data_source.name == x.data_source_name
             assert identifier.identifier == x.identifier
             assert identifier.type == x.identifier_type
-            assert datetime(2015, 3, 26, 11, 30, 29) == x.start_date
+            assert datetime_utc(2015, 3, 26, 11, 30, 29) == x.start_date
             assert None == x.end_date
             assert 1 == x.hold_position
 
@@ -1785,7 +1788,7 @@ class TestSyncBookshelf(OverdriveAPITest):
         )
         [pool] = overdrive_edition.license_pools
         overdrive_loan, new = pool.loan_to(patron)
-        yesterday = datetime.utcnow() - timedelta(days=1)
+        yesterday = utc_now()- timedelta(days=1)
         overdrive_loan.start = yesterday
 
         # Sync with Overdrive, and the loan not present in the sample
@@ -1927,7 +1930,7 @@ class TestOverdriveCirculationMonitor(OverdriveAPITest):
 
         monitor.run()
         start, cutoff, progress = monitor.catch_up_from_called_with
-        now = datetime.utcnow()
+        now = utc_now()
 
         # The first time this Monitor is called, its 'start time' is
         # the current time, and we ask for an overlap of one minute.
@@ -1945,7 +1948,7 @@ class TestOverdriveCirculationMonitor(OverdriveAPITest):
         # is one minute before the previous cutoff time.
         monitor.run()
         new_start, new_cutoff, new_progress = monitor.catch_up_from_called_with
-        now = datetime.utcnow()
+        now = utc_now()
         assert new_start == cutoff-monitor.OVERLAP
         self.time_eq(new_cutoff, now)
 
@@ -2009,7 +2012,7 @@ class TestOverdriveCirculationMonitor(OverdriveAPITest):
         # but only one of them (the first) represents a change from what
         # we already know.
         lp1 = self._licensepool(None)
-        lp1.last_checked = datetime.utcnow()
+        lp1.last_checked = utc_now()
         lp2 = self._licensepool(None)
         lp3 = self._licensepool(None)
         lp4 = object()
@@ -2098,7 +2101,7 @@ class TestNewTitlesOverdriveCollectionMonitor(OverdriveAPITest):
 
         # If information is missing or invalid, we assume that we
         # should keep going.
-        start = datetime(2018, 1, 1)
+        start = datetime_utc(2018, 1, 1)
         assert False == m(start, {}, object())
         assert False == m(start, {'date_added': None}, object())
         assert False == m(start, {'date_added': "Not a date"}, object())
