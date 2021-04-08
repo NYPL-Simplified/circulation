@@ -66,8 +66,6 @@ def _site_configuration_has_changed(_db, cooldown=1):
     """Actually changes the timestamp on the site configuration."""
     now = utc_now()
     last_update = Configuration._site_configuration_last_update()
-    if last_update:
-        last_update = to_utc(last_update)
 
     if not last_update or (now - last_update).total_seconds() > cooldown:
         # The configuration last changed more than `cooldown` ago, which

@@ -2121,6 +2121,8 @@ class DatabaseMigrationScript(Script):
             self.service = service
             if isinstance(finish, str):
                 finish = Script.parse_time(finish)
+            else:
+                finish = to_utc(finish)
             self.finish = finish
             if isinstance(counter, str):
                 counter = int(counter)
@@ -2133,7 +2135,7 @@ class DatabaseMigrationScript(Script):
             """Saves a TimestampInfo object to the database.
             """
             # Reset values locally.
-            self.finish = finish
+            self.finish = to_utc(finish)
             self.counter = counter
 
             sql = (
@@ -2184,7 +2186,7 @@ class DatabaseMigrationScript(Script):
         return cls.sort_migrations(migratable)
 
     @classmethod
-    def sort_migrations(self, migrations):
+    def sort_migrations(cls, migrations):
         """All Python migrations sort after all SQL migrations, since a Python
         migration requires an up-to-date database schema.
 
@@ -2215,7 +2217,7 @@ class DatabaseMigrationScript(Script):
 
             # Both migrations have the same timestamp, so compare using
             # their counters (default to 0 if no counter is included)
-            first_count = self.MIGRATION_WITH_COUNTER.search(first)
+            first_count = cls.MIGRATION_WITH_COUNTER.search(first)
             if first_count is not None:
                 first_count = int(first_count.groups()[0])
             else:
@@ -2539,7 +2541,7 @@ class DatabaseMigrationScript(Script):
             return
 
         if self.overall_timestamp.finish is not None:
-            finish_timestamp = to_utc(self.overall_timestamp.finish)
+            finish_timestamp = self.overall_timestamp.finish
         # The last script that ran had an earlier timestamp than the current script
         if finish_timestamp > last_run_date:
             return

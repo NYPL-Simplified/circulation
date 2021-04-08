@@ -16,6 +16,7 @@ from .util.datetime_helpers import utc_now
 # It's convenient for other modules import IntegrationException
 # from this module, alongside CannotLoadConfiguration.
 from .util.http import IntegrationException
+from .util.datetime_helpers import to_utc
 
 
 class CannotLoadConfiguration(IntegrationException):
@@ -614,7 +615,10 @@ class Configuration(ConfigurationConstants):
         """Get the raw SITE_CONFIGURATION_LAST_UPDATE value,
         without any attempt to find a fresher value from the database.
         """
-        return cls.instance.get(cls.SITE_CONFIGURATION_LAST_UPDATE, None)
+        last_update = cls.instance.get(cls.SITE_CONFIGURATION_LAST_UPDATE, None)
+        if last_update:
+            last_update = to_utc(last_update)
+        return last_update
 
     @classmethod
     def load_from_file(cls):
