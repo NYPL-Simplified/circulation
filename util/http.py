@@ -126,6 +126,8 @@ class BadResponseException(RemoteIntegrationException):
         else:
             status_code = response.status_code
             content = response.content
+        # The HTTP content response is a bytestring that we want to
+        # convert to unicode for the debug message.
         if content and isinstance(content, bytes):
             content = content.decode("utf-8")
         return BadResponseException(
@@ -216,6 +218,7 @@ class HTTP(object):
         allowed_response_codes = kwargs.pop('allowed_response_codes', [])
         disallowed_response_codes = kwargs.pop('disallowed_response_codes', [])
         verbose = kwargs.pop('verbose', False)
+        expected_encoding = kwargs.pop('expected_encoding', 'utf-8')
 
         if not 'timeout' in kwargs:
             kwargs['timeout'] = 20
@@ -262,12 +265,12 @@ class HTTP(object):
             raise RequestNetworkException(url, e)
 
         return process_response_with(
-            url, response, allowed_response_codes, disallowed_response_codes
+            url, response, allowed_response_codes, disallowed_response_codes, expected_encoding
         )
 
     @classmethod
     def _process_response(cls, url, response, allowed_response_codes=None,
-                          disallowed_response_codes=None):
+                        disallowed_response_codes=None, expected_encoding="utf-8"):
         """Raise a RequestNetworkException if the response code indicates a
         server-side failure, or behavior so unpredictable that we can't
         continue.
@@ -277,6 +280,8 @@ class HTTP(object):
             BadResponseExceptions.
         :param disallowed_response_codes The values passed are added to 5xx, as
             http status codes that would generate BadResponseExceptions.
+        :param expected_encoding Typically we expect HTTP responses to be UTF-8
+            encoded, but for certain requests we can change the encoding type.
         """
         if allowed_response_codes:
             allowed_response_codes = list(map(str, allowed_response_codes))
@@ -313,10 +318,13 @@ class HTTP(object):
         )):
             error_message = status_code_not_in_allowed
         if error_message:
-            if response.content and isinstance(response.content, bytes):
-                response_content = response.content.decode("utf-8")
-            else:
-                response_content = response.content
+            response_content = response.content
+            if response_content and isinstance(response_content, bytes):
+                try:
+                    response_content = response_content.decode(expected_encoding)
+                except Exception as e:
+                    raise RequestNetworkException(url, e)
+
             raise BadResponseException(
                 url,
                 error_message % code,
@@ -369,12 +377,16 @@ class HTTP(object):
         )
 
     @classmethod
-    def process_debuggable_response(cls, url, response, disallowed_response_codes=None, allowed_response_codes=None):
+    def process_debuggable_response(cls, url, response, disallowed_response_codes=None,
+                        allowed_response_codes=None, expected_encoding="utf-8"
+        ):
         """If there was a problem with an integration request,
         return an appropriate ProblemDetail. Otherwise, return the
         response to the original request.
 
         :param response: A Response object from the requests library.
+        :param expected_encoding Typically we expect HTTP responses to be UTF-8
+            encoded, but for certain requests we can change the encoding type.
         """
 
         allowed_response_codes = allowed_response_codes or ['2xx', '3xx']
@@ -388,8 +400,11 @@ class HTTP(object):
 
         content_type = response.headers.get('Content-Type')
         response_content = response.content
-        if isinstance(response_content, bytes):
-            response_content = response_content.decode("utf-8")
+        if response_content and isinstance(response_content, bytes):
+            try:
+                response_content = response_content.decode(expected_encoding)
+            except Exception as e:
+                return RequestNetworkException(url, e)
         if content_type == PROBLEM_DETAIL_JSON_MEDIA_TYPE:
             # The server returned a problem detail document. Wrap it
             # in a new document that represents the integration

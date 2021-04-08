@@ -1445,6 +1445,8 @@ class DummyHTTPClient(object):
         Representation.simple_http_get.
         """
         headers = {}
+        # We want to enforce that the mocked content is a bytestring
+        # just like a real response.
         if not isinstance(content, bytes):
             content = content.encode("utf-8")
         if media_type:
@@ -1493,6 +1495,8 @@ class MockRequestsResponse(object):
     ):
         self.status_code = status_code
         self.headers = headers
+        # We want to enforce that the mocked content is a bytestring
+        # just like a real response.
         if content and isinstance(content, str):
             self.content = content.encode("utf-8")
         else:
