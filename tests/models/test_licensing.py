@@ -653,7 +653,7 @@ class TestLicensePool(DatabaseTest):
             type3,
             "work3 resolved complaint source",
             "work3 resolved complaint detail",
-            datetime.datetime.now())
+            utc_now())
 
         work2 = self._work(
             "nonfiction work with complaint",
@@ -671,7 +671,7 @@ class TestLicensePool(DatabaseTest):
             type2,
             "work2 resolved complaint source",
             "work2 resolved complaint detail",
-            datetime.datetime.now())
+            utc_now())
 
         work3 = self._work(
             "fiction work without complaint",
@@ -684,7 +684,7 @@ class TestLicensePool(DatabaseTest):
             type3,
             "work3 resolved complaint source",
             "work3 resolved complaint detail",
-            datetime.datetime.now())
+            utc_now())
 
         work4 = self._work(
             "nonfiction work without complaint",
