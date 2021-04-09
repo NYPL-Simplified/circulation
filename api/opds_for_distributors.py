@@ -32,6 +32,7 @@ from .circulation import (
     LoanInfo,
     FulfillmentInfo,
 )
+from core.util.datetime_helpers import utc_now
 from core.util.http import HTTP
 from core.util.string_helpers import base64
 from core.testing import (
@@ -158,7 +159,7 @@ class OPDSForDistributorsAPI(BaseCirculationAPI, HasSelfTests):
             expires_in = expires_in
             # We'll avoid edge cases by assuming the token expires 75%
             # into its useful lifetime.
-            credential.expires = datetime.datetime.utcnow() + datetime.timedelta(seconds=expires_in*0.75)
+            credential.expires = utc_now() + datetime.timedelta(seconds=expires_in*0.75)
         return Credential.lookup(_db, self.data_source_name,
                                  "OPDS For Distributors Bearer Token",
                                  patron=None,
@@ -199,7 +200,7 @@ class OPDSForDistributorsAPI(BaseCirculationAPI, HasSelfTests):
             pass
 
     def checkout(self, patron, pin, licensepool, internal_format):
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         return LoanInfo(
             licensepool.collection,
             licensepool.data_source.name,
@@ -232,7 +233,7 @@ class OPDSForDistributorsAPI(BaseCirculationAPI, HasSelfTests):
 
                 # Build a application/vnd.librarysimplified.bearer-token
                 # document using information from the credential.
-                now = datetime.datetime.utcnow()
+                now = utc_now()
                 expiration = int((credential.expires - now).total_seconds())
                 token_document = dict(
                     token_type="Bearer",
