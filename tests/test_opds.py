@@ -1,6 +1,7 @@
 from collections import defaultdict
 import contextlib
 import datetime
+import dateutil
 import os
 import re
 import json
@@ -48,7 +49,10 @@ from core.external_search import (
     MockExternalSearchIndex,
     WorkSearchResult,
 )
-
+from core.util.datetime_helpers import (
+    datetime_utc,
+    utc_now,
+)
 from core.util.opds_writer import (
     AtomFeed,
     OPDSFeed,
@@ -217,8 +221,8 @@ class TestCirculationManagerAnnotator(DatabaseTest):
         # Work.last_update_time.
         work = self._work(with_open_access_download=True)
         # This date is later, but we don't check it.
-        work.license_pools[0].availability_time = datetime.datetime(2019, 1, 1)
-        work.last_update_time = datetime.datetime(2018, 2, 4)
+        work.license_pools[0].availability_time = datetime_utc(2019, 1, 1)
+        work.last_update_time = datetime_utc(2018, 2, 4)
 
         def entry_for(work):
             worklist = WorkList()
@@ -242,16 +246,16 @@ class TestCirculationManagerAnnotator(DatabaseTest):
                 # Store the time the way we get it from ElasticSearch --
                 # as a single-element list containing seconds since epoch.
                 self.last_update = [
-                    (last_update-datetime.datetime(1970, 1, 1)).total_seconds()
+                    (last_update-datetime_utc(1970, 1, 1)).total_seconds()
                 ]
-        hit = MockHit(datetime.datetime(2018, 2, 5))
+        hit = MockHit(datetime_utc(2018, 2, 5))
         result = WorkSearchResult(work, hit)
         entry = entry_for(result)
         assert '2018-02-05' in entry.get("updated")
 
         # Any 'update time' provided by ElasticSearch is used even if
         # it's clearly earlier than Work.last_update_time.
-        hit = MockHit(datetime.datetime(2017, 1, 1))
+        hit = MockHit(datetime_utc(2017, 1, 1))
         result._hit = hit
         entry = entry_for(result)
         assert '2017-01-01' in entry.get("updated")
@@ -487,7 +491,7 @@ class TestLibraryAnnotator(VendorIDTest):
         patron = self._patron()
         old_credentials = list(patron.credentials)
 
-        loan, ignore = pool.loan_to(patron, start=datetime.datetime.utcnow())
+        loan, ignore = pool.loan_to(patron, start=utc_now())
         adobe_delivery_mechanism, ignore = DeliveryMechanism.lookup(
             self._db, "text/html", DeliveryMechanism.ADOBE_DRM
         )
@@ -990,7 +994,7 @@ class TestLibraryAnnotator(VendorIDTest):
     def test_active_loan_feed(self):
         self.initialize_adobe(self._default_library)
         patron = self._patron()
-        patron.last_loan_activity_sync = datetime.datetime.utcnow()
+        patron.last_loan_activity_sync = utc_now()
         cls = LibraryLoanAndHoldAnnotator
 
         response = cls.active_loans_for(None, patron, test_mode=True)
@@ -1007,9 +1011,12 @@ class TestLibraryAnnotator(VendorIDTest):
         # (The timestamps aren't exactly the same because
         # last_loan_activity_sync is tracked at the millisecond level
         # and Last-Modified is tracked at the second level.)
-        assert (
-            patron.last_loan_activity_sync - response.last_modified
-        ).total_seconds() < 1
+
+        # Putting the last loan activity sync into an Flask Response
+        # strips timezone information from it,
+        # so to verify we have the right value we must do the same.
+        last_sync_naive = patron.last_loan_activity_sync.replace(tzinfo=None)
+        assert (last_sync_naive - response.last_modified).total_seconds() < 1
 
         # No entries in the feed...
         raw = str(response)
@@ -1059,7 +1066,7 @@ class TestLibraryAnnotator(VendorIDTest):
         assert ('http://librarysimplified.org/terms/drm/scheme/ACS' ==
             licensor.attrib['{http://librarysimplified.org/terms/drm}scheme'])
 
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         tomorrow = now + datetime.timedelta(days=1)
 
         # A loan of an open-access book is open-ended.
@@ -1102,11 +1109,11 @@ class TestLibraryAnnotator(VendorIDTest):
         # One of these availability tags has 'since' but not 'until'.
         # The other one has both.
         [no_until] = [x for x in availabilities if 'until' not in x.attrib]
-        assert now_s == no_until.attrib['since']
+        assert now == dateutil.parser.parse(no_until.attrib['since'])
 
         [has_until] = [x for x in availabilities if 'until' in x.attrib]
-        assert now_s == has_until.attrib['since']
-        assert tomorrow_s == has_until.attrib['until']
+        assert now == dateutil.parser.parse(has_until.attrib['since'])
+        assert tomorrow_s == dateutil.parser.parse(has_until.attrib['until'])
 
     def test_loan_feed_includes_patron(self):
         patron = self._patron()
@@ -1195,7 +1202,7 @@ class TestLibraryAnnotator(VendorIDTest):
             RightsStatus.IN_COPYRIGHT, None
         )
 
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         loan, ignore = pool.loan_to(patron, start=now)
 
         feed_obj = LibraryLoanAndHoldAnnotator.active_loans_for(
@@ -1350,7 +1357,7 @@ class TestLibraryAnnotator(VendorIDTest):
             RightsStatus.IN_COPYRIGHT, None
         )
 
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         loan, ignore = pool.loan_to(patron, start=now)
         fulfillment = FulfillmentInfo(
             pool.collection, pool.data_source.name,
@@ -1492,7 +1499,7 @@ class TestLibraryAnnotator(VendorIDTest):
 
         patron = self._patron()
 
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         tomorrow = now + datetime.timedelta(days=1)
 
         # Loan of an open-access book.
@@ -1869,8 +1876,8 @@ class TestSharedCollectionAnnotator(DatabaseTest):
 
     def test_work_entry_includes_updated(self):
         work = self._work(with_open_access_download=True)
-        work.license_pools[0].availability_time = datetime.datetime(2018, 1, 1, 0, 0, 0)
-        work.last_update_time = datetime.datetime(2018, 2, 4, 0, 0, 0)
+        work.license_pools[0].availability_time = datetime_utc(2018, 1, 1, 0, 0, 0)
+        work.last_update_time = datetime_utc(2018, 2, 4, 0, 0, 0)
 
         feed = self.get_parsed_feed([work])
         [entry] = feed.entries
@@ -1936,7 +1943,7 @@ class TestSharedCollectionAnnotator(DatabaseTest):
 
         client = self._integration_client()
 
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         tomorrow = now + datetime.timedelta(days=1)
 
         # Loan of an open-access book.
