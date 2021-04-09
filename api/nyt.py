@@ -1,7 +1,8 @@
 """Interface to the New York Times APIs."""
-import isbnlib
-from datetime import datetime, timedelta
 from collections import Counter
+from datetime import datetime, timedelta
+import dateutil
+import isbnlib
 import os
 import json
 import logging
@@ -40,9 +41,21 @@ class NYTAPI(object):
 
     DATE_FORMAT = "%Y-%m-%d"
 
+    # NYT best-seller lists are associated with dates, but fields like
+    # CustomEntry.first_appearance are timezone-aware datetimes. We
+    # will interpret a date as meaning midnight of that day in New
+    # York.
+    #
+    # NOTE: entries fetched before we made the datetimes
+    # timezone-aware will have their time zones set to UTC, but the
+    # difference is negligible.
+    TIME_ZONE = dateutil.tz.gettz("America/New York")
+
     @classmethod
     def parse_date(self, d):
-        return datetime.strptime(d, self.DATE_FORMAT)
+        return datetime.strptime(d, self.DATE_FORMAT).replace(
+            tzinfo=self.TIME_ZONE
+        ).date()
 
     @classmethod
     def date_string(self, d):
