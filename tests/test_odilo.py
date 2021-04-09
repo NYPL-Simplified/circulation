@@ -3,8 +3,6 @@ import json
 
 import pytest
 
-
-import datetime
 import os
 
 from core.util.http import (
@@ -47,7 +45,10 @@ from core.testing import (
     DatabaseTest,
     MockRequestsResponse,
 )
-
+from core.util.datetime_helpers import (
+    datetime_utc,
+    utc_now,
+)
 
 class OdiloAPITest(DatabaseTest):
     PIN = 'c4ca4238a0b923820dcc509a6f75849b'
@@ -160,7 +161,7 @@ class TestOdiloAPI(OdiloAPITest):
         self.api.refresh_creds(credential)
         assert "new bearer token 2" == credential.credential
         assert self.api.token == credential.credential
-        assert credential.expires > datetime.datetime.utcnow()
+        assert credential.expires > utc_now()
 
     def test_credential_refresh_failure(self):
         """Verify that a useful error message results when the Odilo bearer
@@ -608,7 +609,7 @@ class TestOdiloDiscoveryAPI(OdiloAPITest):
 
         monitor.api.queue_response(200, content='[]')  # No more resources retrieved
 
-        timestamp = TimestampData(start=datetime.datetime(2017, 9, 1))
+        timestamp = TimestampData(start=datetime_utc(2017, 9, 1))
         updated, new = monitor.all_ids(None)
         assert 10 == updated
         assert 10 == new
@@ -633,7 +634,7 @@ class TestOdiloDiscoveryAPI(OdiloAPITest):
 
         monitor.api.queue_response(200, content='[]')  # No more resources retrieved
 
-        updated, new = monitor.all_ids(datetime.datetime(2017, 9, 1))
+        updated, new = monitor.all_ids(datetime_utc(2017, 9, 1))
         assert 10 == updated
         assert 10 == new
 
