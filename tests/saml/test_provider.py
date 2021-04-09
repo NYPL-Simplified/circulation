@@ -33,6 +33,10 @@ from api.saml.provider import SAML_INVALID_SUBJECT, SAMLWebSSOAuthenticationProv
 from core.model.configuration import ConfigurationStorage, HasExternalIntegration
 from core.python_expression_dsl.evaluator import DSLEvaluationVisitor, DSLEvaluator
 from core.python_expression_dsl.parser import DSLParser
+from core.util.datetime_helpers import (
+    datetime_utc,
+    utc_now,
+)
 from core.util.problem_detail import ProblemDetail
 from tests.saml import fixtures
 from tests.saml.controller_test import ControllerTest
@@ -576,7 +580,7 @@ class TestSAMLWebSSOAuthenticationProvider(ControllerTest):
                     complete=True,
                 ),
                 None,
-                datetime.datetime(2020, 1, 1) + datetime.timedelta(days=42),
+                datetime_utc(2020, 1, 1) + datetime.timedelta(days=42),
                 42,
             ),
             (
@@ -644,7 +648,7 @@ class TestSAMLWebSSOAuthenticationProvider(ControllerTest):
                     complete=True,
                 ),
                 None,
-                datetime.datetime(2020, 1, 1) + datetime.timedelta(days=42),
+                datetime_utc(2020, 1, 1) + datetime.timedelta(days=42),
                 42,
             ),
             (
@@ -695,7 +699,7 @@ class TestSAMLWebSSOAuthenticationProvider(ControllerTest):
             expected_credential = json.dumps(subject, cls=SAMLSubjectJSONEncoder)
 
         if expected_expiration_time is None and subject is not None:
-            expected_expiration_time = datetime.datetime.utcnow() + subject.valid_till
+            expected_expiration_time = utc_now() + subject.valid_till
 
         if cm_session_lifetime is not None:
             with self._configuration_factory.create(

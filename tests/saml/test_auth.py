@@ -1,4 +1,3 @@
-import datetime
 from core.util.string_helpers import base64
 from copy import copy
 from xml.dom.minidom import Document
@@ -35,6 +34,7 @@ from api.saml.metadata.parser import SAMLSubjectParser
 from core.model.configuration import HasExternalIntegration
 from core.python_expression_dsl.evaluator import DSLEvaluationVisitor, DSLEvaluator
 from core.python_expression_dsl.parser import DSLParser
+from core.util.datetime_helpers import datetime_utc
 from tests.saml import fixtures
 from tests.test_controller import ControllerTest
 
@@ -242,7 +242,7 @@ class TestSAMLAuthenticationManager(ControllerTest):
             (
                 "with_name_id_and_attributes",
                 SAML_RESPONSE,
-                datetime.datetime(2020, 6, 7, 23, 43, 0),
+                datetime_utc(2020, 6, 7, 23, 43, 0),
                 None,
                 SAMLSubject(
                     SAMLNameID(
@@ -266,14 +266,14 @@ class TestSAMLAuthenticationManager(ControllerTest):
             (
                 "with_name_id_attributes_and_filter_expression_returning_false",
                 SAML_RESPONSE,
-                datetime.datetime(2020, 6, 7, 23, 43, 0),
+                datetime_utc(2020, 6, 7, 23, 43, 0),
                 "subject.attribute_statement.attributes['uid'].values[0] != 'student1'",
                 SAML_NO_ACCESS_ERROR,
             ),
             (
                 "with_name_id_attributes_and_filter_expression_returning_true",
                 SAML_RESPONSE,
-                datetime.datetime(2020, 6, 7, 23, 43, 0),
+                datetime_utc(2020, 6, 7, 23, 43, 0),
                 "subject.attribute_statement.attributes['uid'].values[0] == 'student1'",
                 SAMLSubject(
                     SAMLNameID(
@@ -297,7 +297,7 @@ class TestSAMLAuthenticationManager(ControllerTest):
             (
                 "with_name_id_inside_edu_person_targeted_id_attribute",
                 SAML_COLUMBIA_RESPONSE,
-                datetime.datetime(2020, 6, 7, 23, 43, 0),
+                datetime_utc(2020, 6, 7, 23, 43, 0),
                 None,
                 SAMLSubject(
                     SAMLNameID(
@@ -327,7 +327,7 @@ class TestSAMLAuthenticationManager(ControllerTest):
             (
                 "with_name_id_inside_edu_person_targeted_id_attribute_and_filter_expression_returning_false",
                 SAML_COLUMBIA_RESPONSE,
-                datetime.datetime(2020, 6, 7, 23, 43, 0),
+                datetime_utc(2020, 6, 7, 23, 43, 0),
                 "subject.attribute_statement.attributes['eduPersonScopedAffiliation'].values[0] != 'alum@columbia.edu'",
                 SAML_NO_ACCESS_ERROR,
                 True,
@@ -335,7 +335,7 @@ class TestSAMLAuthenticationManager(ControllerTest):
             (
                 "with_name_id_inside_edu_person_targeted_id_attribute_and_filter_expression_returning_true",
                 SAML_COLUMBIA_RESPONSE,
-                datetime.datetime(2020, 6, 7, 23, 43, 0),
+                datetime_utc(2020, 6, 7, 23, 43, 0),
                 "subject.attribute_statement.attributes['eduPersonScopedAffiliation'].values[0] == 'alum@columbia.edu'",
                 SAMLSubject(
                     SAMLNameID(
