@@ -105,6 +105,10 @@ from core.opds import (
 from core.opensearch import OpenSearchDocument
 from core.user_profile import ProfileController as CoreProfileController
 from core.util.authentication_for_opds import AuthenticationForOPDSDocument
+from core.util.datetime_helpers import (
+    from_timestamp,
+    utc_now,
+)
 from core.util.http import (
     HTTP,
     RemoteIntegrationException,
@@ -674,7 +678,7 @@ class CirculationManagerController(BaseCirculationManagerController):
         if not if_modified_since_tuple:
             return None
 
-        parsed_if_modified_since = datetime.datetime.fromtimestamp(
+        parsed_if_modified_since = from_timestamp(
             mktime(if_modified_since_tuple)
         )
         if not parsed_if_modified_since:
@@ -2209,7 +2213,7 @@ class AnalyticsController(CirculationManagerController):
             if isinstance(pools, ProblemDetail):
                 return pools
             self.manager.analytics.collect_event(
-                library, pools[0], event_type, datetime.datetime.utcnow(),
+                library, pools[0], event_type, utc_now(),
                 neighborhood=neighborhood
             )
             return Response({}, 200)

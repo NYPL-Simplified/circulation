@@ -11,7 +11,7 @@ from api.config import Configuration, temp_config
 from api.authenticator import PatronData
 from api.util.patron import PatronUtility
 from api.circulation_exceptions import *
-from core.datetime_helpers import utc_now
+from core.util.datetime_helpers import utc_now
 from core.model import ConfigurationSetting
 from core.util import MoneyUtility
 
