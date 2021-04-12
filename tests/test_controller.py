@@ -5238,8 +5238,8 @@ class TestSharedCollectionController(ControllerTest):
             availability = entry.get("opds_availability")
             since = availability.get("since")
             until = availability.get("until")
-            assert datetime.datetime.strftime(now, "%Y-%m-%dT%H:%M:%S%z") == since
-            assert datetime.datetime.strftime(tomorrow, "%Y-%m-%dT%H:%M:%S%z") == until
+            assert datetime.datetime.strftime(now, "%Y-%m-%dT%H:%M:%S+00:00") == since
+            assert datetime.datetime.strftime(tomorrow, "%Y-%m-%dT%H:%M:%S+00:00") == until
             [revoke_url] = [link.get("href") for link in entry.get("links") if link.get("rel") == "http://librarysimplified.org/terms/rel/revoke"]
             assert "/collections/%s/loans/%s/revoke" % (self.collection.name, loan.id) in revoke_url
             [fulfill_url] = [link.get("href") for link in entry.get("links") if link.get("rel") == "http://opds-spec.org/acquisition"]
@@ -5292,8 +5292,8 @@ class TestSharedCollectionController(ControllerTest):
             availability = entry.get("opds_availability")
             since = availability.get("since")
             until = availability.get("until")
-            assert datetime.datetime.strftime(now, "%Y-%m-%dT%H:%M:%S%z") == since
-            assert datetime.datetime.strftime(tomorrow, "%Y-%m-%dT%H:%M:%S%z") == until
+            assert datetime.datetime.strftime(now, "%Y-%m-%dT%H:%M:%S+00:00") == since
+            assert datetime.datetime.strftime(tomorrow, "%Y-%m-%dT%H:%M:%S+00:00") == until
             assert "available" == availability.get("status")
             [revoke_url] = [link.get("href") for link in entry.get("links") if link.get("rel") == "http://librarysimplified.org/terms/rel/revoke"]
             assert "/collections/%s/loans/%s/revoke" % (self.collection.name, loan.id) in revoke_url
@@ -5328,8 +5328,8 @@ class TestSharedCollectionController(ControllerTest):
             since = availability.get("since")
             until = availability.get("until")
             assert "available" == availability.get("status")
-            assert datetime.datetime.strftime(now, "%Y-%m-%dT%H:%M:%S%z") == since
-            assert datetime.datetime.strftime(tomorrow, "%Y-%m-%dT%H:%M:%S%z") == until
+            assert datetime.datetime.strftime(now, "%Y-%m-%dT%H:%M:%S+00:00") == since
+            assert datetime.datetime.strftime(tomorrow, "%Y-%m-%dT%H:%M:%S+00:00") == until
             [revoke_url] = [link.get("href") for link in entry.get("links") if link.get("rel") == "http://librarysimplified.org/terms/rel/revoke"]
             assert "/collections/%s/loans/%s/revoke" % (self.collection.name, loan.id) in revoke_url
             [fulfill_url] = [link.get("href") for link in entry.get("links") if link.get("rel") == "http://opds-spec.org/acquisition"]
@@ -5346,8 +5346,8 @@ class TestSharedCollectionController(ControllerTest):
             availability = entry.get("opds_availability")
             since = availability.get("since")
             until = availability.get("until")
-            assert datetime.datetime.strftime(now, "%Y-%m-%dT%H:%M:%S%z") == since
-            assert datetime.datetime.strftime(tomorrow, "%Y-%m-%dT%H:%M:%S%z") == until
+            assert datetime.datetime.strftime(now, "%Y-%m-%dT%H:%M:%S+00:00") == since
+            assert datetime.datetime.strftime(tomorrow, "%Y-%m-%dT%H:%M:%S+00:00") == until
             assert "reserved" == availability.get("status")
             [revoke_url] = [link.get("href") for link in entry.get("links") if link.get("rel") == "http://librarysimplified.org/terms/rel/revoke"]
             assert "/collections/%s/holds/%s/revoke" % (self.collection.name, hold.id) in revoke_url
@@ -5507,8 +5507,8 @@ class TestSharedCollectionController(ControllerTest):
             availability = entry.get("opds_availability")
             since = availability.get("since")
             until = availability.get("until")
-            assert datetime.datetime.strftime(now, "%Y-%m-%dT%H:%M:%S%z") == since
-            assert datetime.datetime.strftime(tomorrow, "%Y-%m-%dT%H:%M:%S%z") == until
+            assert datetime.datetime.strftime(now, "%Y-%m-%dT%H:%M:%S+00:00") == since
+            assert datetime.datetime.strftime(tomorrow, "%Y-%m-%dT%H:%M:%S+00:00") == until
             [revoke_url] = [link.get("href") for link in entry.get("links") if link.get("rel") == "http://librarysimplified.org/terms/rel/revoke"]
             assert "/collections/%s/holds/%s/revoke" % (self.collection.name, hold.id) in revoke_url
             assert [] == [link.get("href") for link in entry.get("links") if link.get("rel") == "http://opds-spec.org/acquisition"]
