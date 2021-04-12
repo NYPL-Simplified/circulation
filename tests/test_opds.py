@@ -1066,14 +1066,18 @@ class TestLibraryAnnotator(VendorIDTest):
         assert ('http://librarysimplified.org/terms/drm/scheme/ACS' ==
             licensor.attrib['{http://librarysimplified.org/terms/drm}scheme'])
 
-        now = utc_now()
+        # Since we're taking a round trip to and from OPDS, which only
+        # represents times with second precision, generate the current
+        # time with second precision to make later comparisons
+        # possible.
+        now = utc_now().replace(microsecond=0)
         tomorrow = now + datetime.timedelta(days=1)
 
         # A loan of an open-access book is open-ended.
         work1 = self._work(language="eng", with_open_access_download=True)
         loan1 = work1.license_pools[0].loan_to(patron, start=now)
 
-        # A loan of some other kind of book
+        # A loan of some other kind of book has an end point.
         work2 = self._work(language="eng", with_license_pool=True)
         loan2 = work2.license_pools[0].loan_to(patron, start=now, end=tomorrow)
         unused = self._work(language="eng", with_open_access_download=True)
@@ -1100,8 +1104,6 @@ class TestLibraryAnnotator(VendorIDTest):
         )
         assert 2 == len(acquisitions)
 
-        now_s = _strftime(now)
-        tomorrow_s = _strftime(tomorrow)
         availabilities = [
             parser._xpath1(x, "opds:availability") for x in acquisitions
         ]
@@ -1113,7 +1115,7 @@ class TestLibraryAnnotator(VendorIDTest):
 
         [has_until] = [x for x in availabilities if 'until' in x.attrib]
         assert now == dateutil.parser.parse(has_until.attrib['since'])
-        assert tomorrow_s == dateutil.parser.parse(has_until.attrib['until'])
+        assert tomorrow == dateutil.parser.parse(has_until.attrib['until'])
 
     def test_loan_feed_includes_patron(self):
         patron = self._patron()
