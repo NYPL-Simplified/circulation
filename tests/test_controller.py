@@ -938,24 +938,12 @@ class TestBaseController(CirculationControllerTest):
         # and it is _not_ earlier than the 'last modified' date known by
         # the server.
 
-        # We need to do a lot of Python manipulation get the
-        # current time UTC as an int, an HTTP-compatible string, and a
-        # datetime.
-        #
-        # TODO: This can be cleaned up significantly in Python 3.
-        now_int = calendar.timegm(time.gmtime())
-        now_string = email.utils.formatdate(now_int)
-        now_datetime = from_timestamp(now_int)
+        now_datetime = utc_now()
+        now_string = email.utils.format_datetime(now_datetime)
 
-        # To make the test more realistic, set the microseconds value of 'now'.
+        # To make the test more realistic, set a meaningless
+        # microseconds value of 'now'.
         now_datetime = now_datetime.replace(microsecond=random.randint(0, 999999))
-
-        # If all of that was correct, we ended up with a datetime
-        # that's very close to the one we can get with
-        # utc_now(). If it's off (due to a
-        # localtime/GMT confusion) it'll be significantly off.
-        cross_check = utc_now()
-        assert abs(now_datetime - cross_check).total_seconds() < 5
 
         with self.app.test_request_context(
             headers={"If-Modified-Since": now_string}
