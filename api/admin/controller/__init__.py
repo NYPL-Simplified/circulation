@@ -1251,13 +1251,16 @@ class DashboardController(AdminCirculationManagerController):
         date_format = "%Y-%m-%d"
         def get_date(field):
             # Return a date or datetime object representing the
-            # _beginning_ of the asked-for day.
+            # _beginning_ of the asked-for day, local time.
+            #
+            # Unlike most places in this application we do not
+            # use UTC since the sime was selected by a human user.
             today = date.today()
             value = flask.request.args.get(field, None)
             if not value:
                 return today
             try:
-                return datetime.strptime(value, date_format)
+                return datetime.strptime(value, date_format).date()
             except ValueError as e:
                 # This won't happen in real life since the format is
                 # controlled by the calendar widget. There's no need

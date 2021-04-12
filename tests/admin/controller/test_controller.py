@@ -1,4 +1,5 @@
 import csv
+import datetime
 import json
 import re
 from io import StringIO
@@ -62,7 +63,6 @@ from core.opds_import import (OPDSImporter, OPDSImportMonitor)
 from core.s3 import S3UploaderConfiguration
 from core.selftest import HasSelfTests
 from core.util.datetime_helpers import (
-    datetime_utc,
     utc_now,
 )
 from core.util.http import HTTP
@@ -1778,11 +1778,11 @@ class TestDashboardController(AdminControllerTest):
             #
             args = list(exporter.called_with)
             assert self._db == args.pop(0)
-            assert datetime_utc(2018, 1, 1) == args.pop(0)
+            assert datetime.date(2018, 1, 1) == args.pop(0)
             # This is the start of the day _after_ the dateEnd we
             # specified -- we want all events that happened _before_
             # 2018-01-05.
-            assert datetime_utc(2018, 1, 5) == args.pop(0)
+            assert datetime.date(2018, 1, 5) == args.pop(0)
             assert "loc1,loc2" == args.pop(0)
             assert self._default_library == args.pop(0)
             assert [] == args
