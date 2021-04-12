@@ -1,4 +1,7 @@
 import re
+import datetime
+from parameterized import parameterized
+import pytz
 from lxml import etree
 from ...util.opds_writer import (
     AtomFeed,
@@ -62,3 +65,31 @@ class TestAtomFeed(object):
         assert tag.startswith('<author')
         assert 'xmlns:opf="http://www.idpf.org/2007/opf"' in tag
         assert tag.endswith('opf:role="ctb"/>')
+
+    @parameterized.expand(
+        [
+            ("date", datetime.date(2020, 1, 2), "2020-01-02T00:00:00Z"),
+            ("naive", datetime.datetime(2020, 1, 2, 3, 4, 5),
+             "2020-01-02T03:04:05Z"),
+            ("explicit_utc",
+             datetime.datetime(2020, 1, 2, 3, 4, 5, tzinfo=pytz.UTC),
+             "2020-01-02T03:04:05+00:00",
+            ),
+            ("eastern",
+             pytz.timezone("US/Eastern").localize(
+                 datetime.datetime(2020, 1, 2, 3, 4, 5)
+             ),
+             "2020-01-02T08:04:05+00:00"
+            ),
+            ("central",
+             pytz.timezone("US/Central").localize(
+                 datetime.datetime(2020, 1, 2, 3, 4, 5)
+             ),
+             "2020-01-02T09:04:05+00:00"
+            ),
+        ]
+    )
+    def test__strftime(self, _, obj, formatted):
+        # Verify that dates and datetimes are formatted according to
+        # the rules laid down in the Atom spec.
+        assert AtomFeed._strftime(obj) == formatted
