@@ -1,7 +1,6 @@
 import logging
 import json
 import os
-import datetime
 from flask_babel import lazy_gettext as _
 
 from core.util.problem_detail import ProblemDetail
