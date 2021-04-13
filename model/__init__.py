@@ -349,12 +349,6 @@ class SessionManager(object):
             cls.initialize_schema(engine)
         connection = engine.connect()
 
-        # All incoming times should be stored as UTC. This doesn't
-        # affect functionality -- the times are the same no matter
-        # what -- but it makes troubleshooting easier and tests easier
-        # to write.
-        connection.execute("set time zone 'UTC';")
-
         # Check if the recursive equivalents function exists already.
         query = select(
             [literal_column('proname')]
