@@ -44,7 +44,7 @@ class TestLocalAnalyticsProvider(DatabaseTest):
         assert lp == event.license_pool
         assert self._default_library == event.library
         assert CirculationEvent.DISTRIBUTOR_CHECKIN == event.type
-        assert now == to_utc(event.start)
+        assert now == event.start
 
         # The LocalAnalyticsProvider will not handle an event intended
         # for a different library.

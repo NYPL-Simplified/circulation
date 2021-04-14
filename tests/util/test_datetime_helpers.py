@@ -72,9 +72,8 @@ class TestUTCNow(object):
         
 class TestToUTC(object):
     def test_to_utc(self):
-        """`utc` adds UTC information to an existing datetime object, which is
-        the same as using the `.replace` function.
-        """
+        # `utc` marks a naive datetime object as being UTC, or
+        # converts a timezone-aware datetime object to UTC.
         d1 = datetime.datetime(2021, 1, 1)
         d2 = datetime.datetime.strptime("2020", "%Y")
         
@@ -94,6 +93,15 @@ class TestToUTC(object):
         
         # Passing in None gets you None.
         assert to_utc(None) == None
+
+        # Passing in a datetime that's already UTC is a no-op.
+        assert d1_utc == to_utc(d1_utc)
+
+        # Passing in a datetime from some other timezone converts to the
+        # same time in UTC.
+        d1 = datetime.datetime(2021, 1, 1)
+        d1_eastern = d1_utc.astimezone(pytz.timezone("US/Eastern"))
+        assert d1_utc == to_utc(d1_eastern)
 
     @parameterized.expand([
         ([2021, 1, 1], "2021-01-01", "%Y-%m-%d"),

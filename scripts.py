@@ -1,5 +1,4 @@
 import argparse
-import datetime
 import logging
 import os
 import random
@@ -2144,7 +2143,6 @@ class DatabaseMigrationScript(Script):
                 finish=self.finish, counter=self.counter,
                 service=self.service,
             )
-
             _db.execute(text(sql), values)
             _db.flush()
 

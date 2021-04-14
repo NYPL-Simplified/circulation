@@ -36,7 +36,12 @@ def to_utc(dt):
     """
     if dt is None:
         return None
-    return dt.replace(tzinfo=pytz.UTC)
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=pytz.UTC)
+    if dt.tzinfo == pytz.UTC:
+        # Already UTC.
+        return dt
+    return dt.astimezone(pytz.UTC)
 
 def strptime_utc(date_string, format):
     """Parse a string that describes a time but includes no timezone,

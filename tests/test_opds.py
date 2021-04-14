@@ -633,9 +633,9 @@ class TestOPDS(DatabaseTest):
         today_s = today.strftime("%Y-%m-%d")
         the_past = today - datetime.timedelta(days=2)
         the_past_s = the_past.strftime("%Y-%m-%d")
-        the_past_time = the_past.strftime(AtomFeed.TIME_FORMAT)
+        the_past_time = the_past.strftime(AtomFeed.TIME_FORMAT_NAIVE)
         the_distant_past = today - datetime.timedelta(days=100)
-        the_distant_past_s = the_distant_past.strftime('%Y-%m-%dT%H:%M:%SZ')
+        the_distant_past_s = the_distant_past.strftime(AtomFeed.TIME_FORMAT_NAIVE)
         the_future = today + datetime.timedelta(days=2)
 
         # This work has both issued and published. issued will be used
