@@ -49,7 +49,7 @@ chown simplified:simplified circulation
 cd circulation
 # git checkout $version
 # temporary:
-git checkout python3
+git checkout datetime-update
 
 # Use https to access submodules.
 git submodule init
@@ -57,7 +57,7 @@ git config submodule.core.url $(git config submodule.core.url | perl -p -e 's|gi
 git submodule update --init --recursive
 
 # temporary:
-cd core && git checkout py3-base && cd ..
+cd core && git checkout datetime-update && cd ..
 
 # Add a .version file to the directory. This file
 # supplies an endpoint to check the app's current version.
