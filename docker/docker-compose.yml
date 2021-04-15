@@ -1,11 +1,13 @@
 version: '3.6'
 services:
   db:
-    image: "postgres:9.5"
+    image: "postgres:12.0-alpine"
     environment:
       POSTGRES_PASSWORD: "password"
       POSTGRES_USER: "simplified"
       POSTGRES_DB: "simplified_circulation_dev"
+    ports:
+      - 5432:5432/tcp
     volumes:
       - "dbdata:/var/lib/postgresql/data"
   es:

@@ -1,5 +1,5 @@
 # circulation-docker
-These are the Docker images for Library Simplified's [Circulation Manager](https://github.com/NYPL-Simplified/circulation_manager). They are updated via [pull requests to the `NYPL-Simplified/circulation-docker` GitHub repo](https://github.com/NYPL-Simplified/circulation-docker/pulls).
+These are the Docker images for Library Simplified's [Circulation Manager](https://github.com/NYPL-Simplified/circulation_manager).
 
 #### Contents:
 - What is the Circulation Manager?
@@ -13,7 +13,7 @@ These are the Docker images for Library Simplified's [Circulation Manager](https
 
 ## What is the Circulation Manager?
 
-The circulation manager is the main connection between a library's collection and Library Simplified's various client-side applications. It handles user authentication, combines licensed works with open access content from the [OA Content Server](https://github.com/NYPL-Simplified/content_server), pulls in updated book information from the [Metadata Wrangler](https://github.com/NYPL-Simplified/metadata_wrangler), and serves up available books in appropriately organized OPDS feeds.
+The Circulation Manager is the main connection between a library's collection and Library Simplified's various client-side applications. It handles user authentication, combines licensed works with open access content from the [OA Content Server](https://github.com/NYPL-Simplified/content_server), pulls in updated book information from the [Metadata Wrangler](https://github.com/NYPL-Simplified/metadata_wrangler), and serves up available books in appropriately organized OPDS feeds.
 
 The Dockerfiles in this directory create two distinct but necessary containers to deploy the Circulation Manager:
   - `circ-webapp` (**deprecated:** `circ-deploy`): a container that launches the API and admin interface [using Nginx and uWSGI](https://github.com/NYPL-Simplified/Simplified/wiki/Deployment:-Nginx-&-uWSGI)
@@ -23,7 +23,7 @@ To avoid database lockups, `circ-scripts` should be deployed as a single instanc
 
 ## Using This Image
 
-You will need **a PostgreSQL instance url** in the format `postgres://[username]:[password]@[host]:[port]/[database_name]`. With this URL, you can created containers for both the web application (`circ-webapp`) and for the background cron jobs that import and update books and otherwise keep the app running smoothly (`circ-scripts`). Either container can be used to initialize or migrate the database. During the first deployment against a brand new database, the first container run can use the default `SIMPLIFIED_DB_TASK='auto'` or be run manually with `SIMPLIFIED_DB_TASK='init'`. See the "Environment Variables" section below for mroe information.
+You will need **a PostgreSQL instance url** in the format `postgres://[username]:[password]@[host]:[port]/[database_name]`. With this URL, you can create containers for both the web application (`circ-webapp`) and for the background cron jobs that import and update books and otherwise keep the app running smoothly (`circ-scripts`). Either container can be used to initialize or migrate the database. During the first deployment against a brand new database, the first container run can use the default `SIMPLIFIED_DB_TASK='auto'` or be run manually with `SIMPLIFIED_DB_TASK='init'`. See the "Environment Variables" section below for mroe information.
 
 ### circ-webapp (**deprecated:** circ-deploy)
 
@@ -36,7 +36,7 @@ $ docker run --name webapp \
     nypl/circ-webapp:2.1
 ```
 
-Navigate to `http://localhost/admin` to in your browser to input or update configuration information. If you have not yet created an admin authorization protocol before, you'll need to do that before you can set other configuration.
+Navigate to `http://localhost/admin` in your browser to visit the web admin for the Circulation Manager. In the admin, you can add or update configuration information. If you have not yet created an admin authorization protocol before, you'll need to do that before you can set other configuration.
 
 For troubleshooting information and installation directions for the entire Circulation Manager tool suite, please review [the full deployment instructions](https://github.com/NYPL-Simplified/Simplified/wiki/Deployment:-Quickstart-with-Docker).
 
