@@ -33,7 +33,7 @@ pycryptodome==3.9.8
 pyfakefs==3.7
 Pygments==2.5.2
 PyJWT==1.4.2
-PyLD==2.0.3
+PyLD==1.0.5
 pypostalcode==0.3.6
 pyOpenSSL==19.1.0
 # TODO: python-Levenshtein is supposedly required for author name
