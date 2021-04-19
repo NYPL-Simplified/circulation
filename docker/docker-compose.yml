@@ -20,6 +20,8 @@ services:
       args:
         - version
     environment:
+      UWSGI_PROCESSES: 6
+      UWSGI_THREADS: 2
       SIMPLIFIED_PRODUCTION_DATABASE: postgres://simplified:password@db:5432/simplified_circulation_dev
     ports:
       - 80:80

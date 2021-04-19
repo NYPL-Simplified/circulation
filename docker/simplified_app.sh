@@ -47,17 +47,12 @@ mkdir /var/www && cd /var/www
 git clone https://github.com/${repo}.git circulation
 chown simplified:simplified circulation
 cd circulation
-# git checkout $version
-# temporary:
-git checkout datetime-update
+git checkout $version
 
 # Use https to access submodules.
 git submodule init
 git config submodule.core.url $(git config submodule.core.url | perl -p -e 's|git@(.*?):|https://\1/|g')
 git submodule update --init --recursive
-
-# temporary:
-cd core && git checkout datetime-update && cd ..
 
 # Add a .version file to the directory. This file
 # supplies an endpoint to check the app's current version.

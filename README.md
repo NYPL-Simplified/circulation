@@ -1,7 +1,9 @@
 # Library Simplified Circulation Manager
-[![Build Status](https://travis-ci.org/NYPL-Simplified/circulation.svg?branch=main)](https://travis-ci.org/NYPL-Simplified/circulation)
+![Build Status](https://github.com/nypl-simplified/circulation/actions/workflows/test.yml/badge.svg?branch=develop) [![GitHub Release](https://img.shields.io/github/release/tterb/PlayMusic.svg?style=flat)]()
 
-This is the Circulation Manager for [Library Simplified](http://www.librarysimplified.org/). The Circulation Manager is the main connection between a library's collection and Library Simplified's various client-side applications. It handles user authentication, combines licensed works with open access content, pulls in updated book information from the [Metadata Wrangler](https://github.com/NYPL-Simplified/metadata_wrangler), and serves up available books in appropriately organized OPDS feeds.
+Default Branch: `develop`
+
+This is the Circulation Manager for [Library Simplified](https://www.librarysimplified.org/). The Circulation Manager is the main connection between a library's collection and Library Simplified's various client-side applications. It handles user authentication, combines licensed works with open access content, pulls in updated book information from the [Metadata Wrangler](https://github.com/NYPL-Simplified/metadata_wrangler), and serves up available books in appropriately organized OPDS feeds.
 
 It depends on [Library Simplified Server Core](https://github.com/NYPL-Simplified/server_core) as a git submodule.
 
@@ -13,11 +15,15 @@ It depends on [Library Simplified Server Core](https://github.com/NYPL-Simplifie
 
 ## Generating Documentation
 
-Code documentation using Sphinx can be found on [Github Pages](http://nypl-simplified.github.io/circulation/index.html). It currently documents this repo's `api` directory, `scripts` file, and the `core` directory submodule. The configuration for the documentation can be found in `/docs`.
+Code documentation using Sphinx can be found on this repo's [Github Pages](http://nypl-simplified.github.io/circulation/index.html). It currently documents this repo's `api` directory, `scripts` file, and the `core` submodule directory. The configuration for the documentation can be found in `/docs`.
 
 Travis CI handles generating the `.rst` source files, generating the HTML static site, and deploying the build to the `gh-pages` branch.
 
 To view the documentation _locally_, go into the `/docs` directory and run `make html`. This will generate the .rst source files and build the static site in `/docs/build/html`.
+
+## Usage with Docker
+
+Check out the [Docker README](/docker/README.md) in the `/docker` directory for in-depth information on optionally running and developing the Circulation Manager locally with Docker, or for deploying the Circulation Manager with Docker.
 
 ## License
 
