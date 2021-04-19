@@ -385,7 +385,7 @@ class HTTP(object):
         response to the original request.
 
         :param response: A Response object from the requests library.
-        :param expected_encoding Typically we expect HTTP responses to be UTF-8
+        :param expected_encoding: Typically we expect HTTP responses to be UTF-8
             encoded, but for certain requests we can change the encoding type.
         """
 
