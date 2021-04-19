@@ -14,13 +14,14 @@
 #
 import os
 import sys
+import datetime
 sys.path.insert(0, os.path.abspath('../../'))
 
 
 # -- Project information -----------------------------------------------------
-
+year = datetime.datetime.now().year
 project = 'Library Simplified Circulation Manager'
-copyright = '2019, The New York Public Library, Astor, Lenox, and Tilden Foundations'
+copyright = '%s, The New York Public Library, Astor, Lenox, and Tilden Foundations' % year
 author = 'Library Simplified'
 
 # The short X.Y version
