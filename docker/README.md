@@ -74,7 +74,7 @@ Because containers based on `circ-exec` are built, run their job, and are destro
 ```sh
 # See the section "Environment Variables" below for more information
 # about the values listed here and their alternatives.
-$ docker run --name refresh-materialized-views -it \
+$ docker run --name search_index_refresh -it \
     -e SIMPLIFIED_SCRIPT_NAME='refresh_materialized_views' \
     -e SIMPLIFIED_PRODUCTION_DATABASE='postgres://[username]:[password]@[host]:[port]/[database_name]' \
     nypl/circ-exec:2.1
