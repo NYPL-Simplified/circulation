@@ -52,14 +52,14 @@ class NYTAPI(object):
     TIME_ZONE = dateutil.tz.gettz("America/New York")
 
     @classmethod
-    def parse_date(self, d):
-        return datetime.strptime(d, self.DATE_FORMAT).replace(
-            tzinfo=self.TIME_ZONE
+    def parse_date(cls, d):
+        return datetime.strptime(d, cls.DATE_FORMAT).replace(
+            tzinfo=cls.TIME_ZONE
         ).date()
 
     @classmethod
-    def date_string(self, d):
-        return d.strftime(self.DATE_FORMAT)
+    def date_string(cls, d):
+        return d.strftime(cls.DATE_FORMAT)
 
 
 class NYTBestSellerAPI(NYTAPI, HasSelfTests):
