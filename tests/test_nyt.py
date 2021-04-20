@@ -1,8 +1,9 @@
 # encoding: utf-8
 import os
-
+from pdb import set_trace
 import pytest
 import datetime
+import dateutil
 import json
 
 from core.testing import (
@@ -225,15 +226,15 @@ class TestNYTBestSellerList(NYTBestSellerAPITest):
 
         assert 20 == len(custom.entries)
 
-        jan_17 = datetime.datetime(2015, 1, 17).replace(tzinfo=self.api.TIME_ZONE)
+        # The date objects coming from the database don't have the same
+        # timezone information stored.
+        jan_17 = datetime.datetime(2015, 1, 17, tzinfo=dateutil.tz.tzoffset("", 0))
         assert (True ==
-            all([x.first_appearance.replace(tzinfo=self.api.TIME_ZONE) ==
-                jan_17 for x in custom.entries]))
+            all([x.first_appearance == jan_17 for x in custom.entries]))
 
-        feb_1 = datetime.datetime(2015, 2, 1).replace(tzinfo=self.api.TIME_ZONE)
+        feb_1 = datetime.datetime(2015, 2, 1, tzinfo=dateutil.tz.tzoffset("", 0))
         assert (True ==
-            all([x.most_recent_appearance.replace(tzinfo=self.api.TIME_ZONE) ==
-                feb_1 for x in custom.entries]))
+            all([x.most_recent_appearance == feb_1 for x in custom.entries]))
 
         # Now replace this list's entries with the entries from a
         # different list. We wouldn't do this in real life, but it's
